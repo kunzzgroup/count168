@@ -6390,7 +6390,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
 
             try {
-                const response = await fetch('domainapi.php', {
+                const response = await fetch('api/domain/domain_api.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
