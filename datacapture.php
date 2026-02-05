@@ -2819,7 +2819,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!currencySelect || currencySelect.options.length <= 1) {
                     // If dropdown is not loaded yet, only load currency data, do not reload processes
                     try {
-                        const formDataResponse = await fetch('addprocessapi.php');
+                        const formDataResponse = await fetch('api/processes/addprocessapi.php');
                         const formDataResult = await formDataResponse.json();
                         if (formDataResult.success && formDataResult.currencies) {
                             currencySelect.innerHTML = '<option value="">Select Currency</option>';
@@ -3046,7 +3046,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const url = 'addprocessapi.php';
+                const url = 'api/processes/addprocessapi.php';
                 const finalUrl = currentCompanyId ? `${url}?company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -3203,7 +3203,7 @@ if ($current_user_id && count($user_companies) > 0) {
             try {
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const url = 'addprocessapi.php';
+                const url = 'api/processes/addprocessapi.php';
                 const finalUrl = currentCompanyId ? `${url}?company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -3439,7 +3439,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 formData.append('action', 'delete_description');
                 formData.append('description_id', descriptionId);
 
-                const response = await fetch('addprocessapi.php', {
+                const response = await fetch('api/processes/addprocessapi.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -22413,7 +22413,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.append('company_id', currentCompanyId);
                 }
                 
-                const response = await fetch('addprocessapi.php', {
+                const response = await fetch('api/processes/addprocessapi.php', {
                     method: 'POST',
                     body: formData
                 });

@@ -1847,7 +1847,7 @@
             try {
                 // 鍒涘缓鏂拌揣甯?- 鍖呭惈褰撳墠閫夋嫨鐨?company_id
                 const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
-                const response = await fetch('addcurrencyapi.php', {
+                const response = await fetch('api/accounts/addcurrencyapi.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1977,7 +1977,7 @@
             }
             
             try {
-                const response = await fetch('addaccountapi.php', {
+                const response = await fetch('api/accounts/addaccountapi.php', {
                     method: 'POST',
                     body: formData
                 });

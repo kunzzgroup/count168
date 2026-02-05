@@ -1,74 +1,61 @@
 <?php
 header('Content-Type: application/json');
-require_once 'config.php';
-require_once 'permissions.php';
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
 
-// 开启 session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// 检查用户是否登录
+function jsonResponse(bool $success, string $message, $data = null): void {
+    echo json_encode(['success' => $success, 'message' => $message, 'data' => $data]);
+}
+
+function validateCompanyAccessProcess(PDO $pdo, int $companyId): void {
+    $current_user_id = $_SESSION['user_id'];
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_role === 'owner') {
+        $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
+        $stmt->execute([$companyId, $owner_id]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('无权限访问该公司');
+        }
+    } else {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
+        $stmt->execute([$current_user_id, $companyId]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('无权限访问该公司');
+        }
+    }
+}
+
 if (!isset($_SESSION['user_id'])) {
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => false,
-        'error' => '用户未登录'
-    ]);
+    jsonResponse(false, '用户未登录', null);
     exit;
 }
 
-// 优先使用请求中的 company_id（如果提供了），否则使用 session 中的
 $companyId = null;
-if (isset($_POST['company_id']) && !empty($_POST['company_id'])) {
+if (isset($_POST['company_id']) && $_POST['company_id'] !== '') {
     $companyId = (int)$_POST['company_id'];
 } elseif (isset($_SESSION['company_id'])) {
-    $companyId = $_SESSION['company_id'];
+    $companyId = (int)$_SESSION['company_id'];
 }
 
 if (!$companyId) {
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => false,
-        'error' => '缺少公司信息'
-    ]);
+    jsonResponse(false, '缺少公司信息', null);
     exit;
 }
 
-// 验证 company_id 是否属于当前用户
+try {
+    validateCompanyAccessProcess($pdo, $companyId);
+} catch (Exception $e) {
+    jsonResponse(false, $e->getMessage(), null);
+    exit;
+}
+
 $current_user_id = $_SESSION['user_id'];
 $current_user_role = $_SESSION['role'] ?? '';
-
-// 如果是 owner，验证 company 是否属于该 owner
-if ($current_user_role === 'owner') {
-    $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-    $stmt->execute([$companyId, $owner_id]);
-    if ($stmt->fetchColumn() == 0) {
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success' => false,
-            'error' => '无权限访问该公司'
-        ]);
-        exit;
-    }
-} else {
-    // 普通用户，验证是否通过 user_company_map 关联到该 company
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM user_company_map 
-        WHERE user_id = ? AND company_id = ?
-    ");
-    $stmt->execute([$current_user_id, $companyId]);
-    if ($stmt->fetchColumn() == 0) {
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success' => false,
-            'error' => '无权限访问该公司'
-        ]);
-        exit;
-    }
-}
 
 // 获取当前登录用户的数值 ID
 function getCurrentUserId(PDO $pdo) {
@@ -267,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
             'created_processes' => [['id' => (int)$pdo->lastInsertId(), 'process_id' => $name, 'description_id' => null]]
         ]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        jsonResponse(false, $e->getMessage(), null);
     }
     exit;
 }
@@ -277,10 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
     try {
         // 使用全局的 $companyId（已经过验证）
         if (!$companyId) {
-            echo json_encode([
-                'success' => false,
-                'error' => '用户未登录或缺少公司信息'
-            ]);
+jsonResponse(false, '用户未登录或缺少公司信息', null);
             exit;
         }
         $currentCompanyId = $companyId;
@@ -344,16 +328,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
                 ]
             ]);
         } else {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Process not found'
-            ]);
+            jsonResponse(false, 'Process not found', null);
         }
     } catch (Exception $e) {
-        echo json_encode([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
+        jsonResponse(false, $e->getMessage(), null);
     }
     exit;
 }
@@ -382,11 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $existsCount = (int)$checkStmt->fetchColumn();
 
         if ($existsCount > 0) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Description name already exists for this company',
-                'duplicate' => true
-            ]);
+            jsonResponse(false, 'Description name already exists for this company', ['duplicate' => true]);
             exit;
         }
         
@@ -401,10 +375,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             'message' => 'Description added successfully'
         ]);
     } catch (Exception $e) {
-        echo json_encode([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
+        jsonResponse(false, $e->getMessage(), null);
     }
     exit;
 }
@@ -446,10 +417,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             'message' => 'Description deleted successfully'
         ]);
     } catch (Exception $e) {
-        echo json_encode([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
+        jsonResponse(false, $e->getMessage(), null);
     }
     exit;
 }
@@ -751,10 +719,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
     } catch (Exception $e) {
-        echo json_encode([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
+        jsonResponse(false, $e->getMessage(), null);
     }
     exit;
 }
@@ -814,9 +779,6 @@ try {
     ]);
     
 } catch (Exception $e) {
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
+    jsonResponse(false, $e->getMessage(), null);
 }
 ?>

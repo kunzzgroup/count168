@@ -345,7 +345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 const code = currencyCode.trim().toUpperCase();
                 
                 // 发送AJAX请求添加新货币
-                fetch('addcurrencyapi.php', {
+                fetch('api/accounts/addcurrencyapi.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

@@ -3834,7 +3834,7 @@ function getCurrentProcessId() {
             try {
                 // 创建新货币 - 包含当前选择的 company_id
             const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const response = await fetch('addcurrencyapi.php', {
+                const response = await fetch('api/accounts/addcurrencyapi.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -3945,7 +3945,7 @@ function getCurrentProcessId() {
                     }
                     
                     try {
-                        const response = await fetch('addaccountapi.php', {
+                        const response = await fetch('api/accounts/addaccountapi.php', {
                             method: 'POST',
                             body: formData
                         });
