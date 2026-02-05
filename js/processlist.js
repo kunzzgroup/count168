@@ -8,10 +8,13 @@
         /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
         const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
 
-        // 构造同目录 API URL
+        // 构造 API 绝对 URL（始终基于站点根目录，避免相对路径解析错误）
         function buildApiUrl(fileName) {
-            const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
-            return new URL(fileName, base);
+            const pathname = window.location.pathname || '/';
+            const basePath = pathname.replace(/[^/]*$/, '') || '/';
+            const base = window.location.origin + basePath;
+            const url = new URL(fileName, base);
+            return url.href;
         }
 
         // 从API获取数据
@@ -24,7 +27,7 @@
                     return;
                 }
                 const searchTerm = searchInput.value;
-                const url = buildApiUrl('api/processes/processlist_api.php');
+                const url = new URL(buildApiUrl('api/processes/processlist_api.php'));
 
                 // 添加当前选择的 company_id
                 const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -51,7 +54,7 @@
                 }
 
                 console.log('fetchProcesses ->', url.toString());
-                const response = await fetch(url);
+                const response = await fetch(url.toString());
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -896,9 +899,9 @@
 
         window.__accountingInboxList = [];
         function loadAccountingInbox() {
-            const url = buildApiUrl('api/processes/process_accounting_inbox_api.php');
+            const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-            const u = new URL(url);
+            const u = new URL(urlStr);
             if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
             return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
                 .then(r => r.json())
@@ -2918,12 +2921,12 @@
         async function loadBankAccounts() {
             try {
                 const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-                const url = buildApiUrl('accountlistapi.php');
+                const url = new URL(buildApiUrl('api/accounts/accountlistapi.php'));
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
                 }
 
-                const response = await fetch(url);
+                const response = await fetch(url.toString());
                 const result = await response.json();
 
                 if (result.success && result.data) {
