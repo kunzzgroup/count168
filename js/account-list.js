@@ -15,7 +15,7 @@
                 const oldestNotification = existingNotifications[0];
                 oldestNotification.classList.remove('show');
                 setTimeout(function() {
-                    if (oldestNotification.parentNode) {
+                    if (oldestNotification && oldestNotification.parentNode) {
                         oldestNotification.remove();
                     }
                 }, 300);
@@ -343,14 +343,14 @@
             if (!accountIndicator || !roleIndicator) return;
             
             if (sortColumn === 'account') {
-                accountIndicator.textContent = sortDirection === 'asc' ? '鈻? : '鈻?;
+                accountIndicator.textContent = sortDirection === 'asc' ? '\u25B2' : '\u25BC';
                 accountIndicator.style.display = 'inline';
-                roleIndicator.textContent = '鈻?; // 鏈€変腑鏃舵樉绀洪粯璁ょ澶?
+                roleIndicator.textContent = '\u25B2'; // 鏈€変腑鏃舵樉绀洪粯璁ょ澶?
                 roleIndicator.style.display = 'inline';
             } else if (sortColumn === 'role') {
-                roleIndicator.textContent = sortDirection === 'asc' ? '鈻? : '鈻?;
+                roleIndicator.textContent = sortDirection === 'asc' ? '\u25B2' : '\u25BC';
                 roleIndicator.style.display = 'inline';
-                accountIndicator.textContent = '鈻?; // 鏈€変腑鏃舵樉绀洪粯璁ょ澶?
+                accountIndicator.textContent = '\u25B2'; // 鏈€変腑鏃舵樉绀洪粯璁ょ澶?
                 accountIndicator.style.display = 'inline';
             }
         }
