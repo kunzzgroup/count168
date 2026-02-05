@@ -103,8 +103,23 @@ function getCurrentUserId(PDO $pdo) {
         error_log("getCurrentUserId error: " . $e->getMessage());
     }
     
-    // 如果所有方法都失败，抛出异常而不是返回可能不存在的 ID
     throw new Exception("无法获取有效的用户 ID。请确保已登录并且 user 表中有有效的用户记录。");
+}
+
+/** 检查当前用户是否有权访问指定公司（owner 查 company，普通用户查 user_company_map） */
+function checkCompanyAccess(PDO $pdo, int $requestedCompanyId): bool
+{
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    $currentUserRole = $_SESSION['role'] ?? '';
+    if ($currentUserRole === 'owner') {
+        $ownerId = $_SESSION['owner_id'] ?? $currentUserId;
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
+        $stmt->execute([$requestedCompanyId, $ownerId]);
+        return $stmt->fetchColumn() > 0;
+    }
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
+    $stmt->execute([$currentUserId, $requestedCompanyId]);
+    return $stmt->fetchColumn() > 0;
 }
 
 // Handle different actions
@@ -152,34 +167,11 @@ function getProcesses() {
             return;
         }
 
-        // 验证当前用户是否有权限访问此 company_id
-        $current_user_id = $_SESSION['user_id'] ?? null;
-        $current_user_role = $_SESSION['role'] ?? '';
-
-        $has_permission = false;
-        if ($current_user_role === 'owner') {
-            // Owner 可以访问自己拥有的所有公司
-            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            if ($stmt->fetchColumn() > 0) {
-                $has_permission = true;
-            }
-        } else {
-            // 普通用户只能访问其关联的公司
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
-            $stmt->execute([$current_user_id, $requested_company_id]);
-            if ($stmt->fetchColumn() > 0) {
-                $has_permission = true;
-            }
-        }
-
-        if (!$has_permission) {
+        if (!checkCompanyAccess($pdo, $requested_company_id)) {
             jsonResponse(false, '您没有权限访问此公司的数据', null);
             return;
         }
-        
-        $targetCompanyId = $requested_company_id; // 使用验证后的 company_id
+        $targetCompanyId = $requested_company_id;
         
         $searchTerm = $_GET['search'] ?? '';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
@@ -560,20 +552,7 @@ function getBankProcesses() {
             jsonResponse(false, '缺少公司信息', null);
             return;
         }
-        $current_user_id = $_SESSION['user_id'] ?? null;
-        $current_user_role = $_SESSION['role'] ?? '';
-        $has_permission = false;
-        if ($current_user_role === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            if ($stmt->fetchColumn() > 0) $has_permission = true;
-        } else {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
-            $stmt->execute([$current_user_id, $requested_company_id]);
-            if ($stmt->fetchColumn() > 0) $has_permission = true;
-        }
-        if (!$has_permission) {
+        if (!checkCompanyAccess($pdo, $requested_company_id)) {
             jsonResponse(false, '您没有权限访问此公司的数据', null);
             return;
         }
