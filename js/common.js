@@ -90,13 +90,17 @@
         return hrefs;
     }
 
-    function getExistingScriptSrcs() {
-        var srcs = [];
+    function getLoadedScriptKeys() {
+        var keys = [];
         document.querySelectorAll('script[src]').forEach(function(script) {
             var s = script.getAttribute('src');
-            if (s) srcs.push(normalizeAssetKey(s));
+            if (s) keys.push(normalizeAssetKey(s));
         });
-        return srcs;
+        if (!window.__pjaxLoadedScripts) window.__pjaxLoadedScripts = [];
+        window.__pjaxLoadedScripts.forEach(function(k) {
+            if (keys.indexOf(k) === -1) keys.push(k);
+        });
+        return keys;
     }
 
     function parseHtml(html) {
@@ -126,12 +130,14 @@
         });
     }
 
-    function runScripts(container, existingSrcs) {
+    function runScripts(container, loadedScriptKeys) {
         container.querySelectorAll('script').forEach(function(oldScript) {
             var src = oldScript.getAttribute('src');
             if (src) {
                 var key = normalizeAssetKey(src);
-                if (existingSrcs.indexOf(key) !== -1) return;
+                if (loadedScriptKeys.indexOf(key) !== -1) return;
+                if (!window.__pjaxLoadedScripts) window.__pjaxLoadedScripts = [];
+                window.__pjaxLoadedScripts.push(key);
                 var script = document.createElement('script');
                 script.src = src;
                 if (oldScript.async) script.async = true;
@@ -172,11 +178,11 @@
         document.title = newTitle;
 
         var existingHrefs = getExistingStyleHrefs();
-        var existingSrcs = getExistingScriptSrcs();
+        var loadedScriptKeys = getLoadedScriptKeys();
 
         injectStyles(newMain, existingHrefs);
         currentMain.innerHTML = newMain.innerHTML;
-        runScripts(currentMain, existingSrcs);
+        runScripts(currentMain, loadedScriptKeys);
         updateSidebarActive();
     }
 
