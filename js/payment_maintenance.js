@@ -239,7 +239,7 @@
             console.log('🔍 搜索参数:', { transactionType, dateFrom, dateTo, companyId: currentCompanyId, currency: selectedCurrency });
             
             // 构建URL
-            let url = `payment_maintenance_search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+            let url = `api/payment_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
             if (transactionType) {
                 url += `&transaction_type=${encodeURIComponent(transactionType)}`;
             }
@@ -282,7 +282,7 @@
                             showNotification(`Found ${data.data.length} record(s)`, 'success');
                         }
                     } else {
-                        showNotification(data.error || 'Search failed', 'error');
+                        showNotification(data.message || 'Search failed', 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
@@ -414,7 +414,7 @@
             showConfirmDelete(
                 `Are you sure you want to delete the selected ${transactionIds.length} record(s)? This action cannot be undone.`,
                 function() {
-                    fetch('payment_maintenance_delete_api.php', {
+                    fetch('api/payment_maintenance/delete_api.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -437,7 +437,7 @@
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.error || 'Delete failed', 'error');
+                            showNotification(data.message || 'Delete failed', 'error');
                         }
                     })
                     .catch(error => {
