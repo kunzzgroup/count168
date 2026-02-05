@@ -2929,11 +2929,14 @@
                 const response = await fetch(url.toString());
                 const result = await response.json();
 
-                if (result.success && result.data) {
-                    window.bankAccounts = result.data;
+                if (result.success && result.data != null) {
+                    window.bankAccounts = Array.isArray(result.data) ? result.data : [];
+                } else {
+                    window.bankAccounts = [];
                 }
             } catch (error) {
                 console.error('Error loading accounts:', error);
+                window.bankAccounts = [];
             }
         }
 
@@ -2955,7 +2958,7 @@
                 optionsContainer.innerHTML = '';
                 // Always read filter from this dropdown's search input so search matches what user sees
                 const filterLower = (searchInput.value || '').toLowerCase().trim();
-                let accounts = window.bankAccounts || [];
+                let accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
                 if (isProfitAccountSelect) {
                     accounts = accounts.filter(acc => (acc.role || '').toLowerCase() === 'profit');
                 }
@@ -3640,7 +3643,7 @@
         }
 
         function refreshBankAccountDropdowns() {
-            const accounts = window.bankAccounts || [];
+            const accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
             ['bank_card_merchant', 'bank_customer'].forEach(buttonId => {
                 const btn = document.getElementById(buttonId);
                 const dropdown = document.getElementById(buttonId + '_dropdown');
@@ -3667,7 +3670,7 @@
         function populateProfitSharingAccountSelect(selectEl) {
             if (!selectEl) return;
             selectEl.innerHTML = '<option value="">Select Account</option>';
-            const accounts = window.bankAccounts || [];
+            const accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
             accounts.forEach(acc => {
                 const opt = document.createElement('option');
                 opt.value = acc.id;
@@ -3690,7 +3693,7 @@
         }
 
         async function showAddProfitSharingModal() {
-            if (!window.bankAccounts || window.bankAccounts.length === 0) {
+            if (!Array.isArray(window.bankAccounts) || window.bankAccounts.length === 0) {
                 await loadBankAccounts();
             }
             const container = document.getElementById('profitSharingRowsContainer');
