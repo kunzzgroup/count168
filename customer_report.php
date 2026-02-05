@@ -123,7 +123,7 @@ $isOwner = ($userRole === 'owner');
     <script>
         window.CUSTOMER_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
     </script>
-    <script src="js/customer_report.js"></script>
+    <script src="js/customer_report.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
 

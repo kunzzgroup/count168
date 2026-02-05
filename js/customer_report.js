@@ -52,7 +52,7 @@
         // 加载当前用户可用的公司（owner 和普通 user 通用）
         async function loadOwnerCompanies() {
             try {
-                const response = await fetch('api/transactions/get_owner_companies_api.php');
+                const response = await fetch('/api/transactions/get_owner_companies_api.php');
                 const data = await response.json();
 
                 if (data.success && data.data.length > 0) {
@@ -129,7 +129,7 @@
         async function switchCompany(companyId, companyCode) {
             // 先更新 session
             try {
-                const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
@@ -165,7 +165,7 @@
         
         // Load company currencies
         async function loadCompanyCurrencies() {
-            let url = 'api/transactions/get_company_currencies_api.php';
+            let url = '/api/transactions/get_company_currencies_api.php';
             if (currentCompanyId) {
                 url += `?company_id=${currentCompanyId}`;
             }
@@ -341,8 +341,8 @@
                 }
                 
                 const url = params.toString()
-                    ? `api/transactions/get_accounts_api.php?${params.toString()}`
-                    : 'api/transactions/get_accounts_api.php';
+                    ? `/api/transactions/get_accounts_api.php?${params.toString()}`
+                    : '/api/transactions/get_accounts_api.php';
                 
                 const response = await fetch(url);
                 const data = await response.json();
@@ -597,7 +597,7 @@
                     params.append('currency', selectedCurrencies.join(','));
                 }
                 
-                const response = await fetch(`api/reports/customer_report_api.php?${params.toString()}`);
+                const response = await fetch(`/api/reports/customer_report_api.php?${params.toString()}`);
                 const result = await response.json();
                 
                 if (result.success) {
