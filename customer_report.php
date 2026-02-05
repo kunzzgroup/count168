@@ -1133,17 +1133,17 @@ $isOwner = ($userRole === 'owner');
                     params.append('currency', selectedCurrencies.join(','));
                 }
                 
-                const response = await fetch(`customer_report_api.php?${params.toString()}`);
+                const response = await fetch(`api/reports/customer_report_api.php?${params.toString()}`);
                 const result = await response.json();
                 
                 if (result.success) {
                     renderReport(result.data, result.total_win, result.total_lose);
                 } else {
-                    showNotification(result.error || 'Failed to get report data', 'danger');
+                    showNotification(result.message || result.message || result.error || 'Failed to get report data', 'danger');
                     document.getElementById('reportTableBody').innerHTML = `
                         <div class="customer-report-card">
                             <div class="customer-report-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1; color: red;">
-                                ${escapeHtml(result.error || 'Failed to get report data')}
+                                ${escapeHtml(result.message || result.error || 'Failed to get report data')}
                             </div>
                         </div>
                     `;
