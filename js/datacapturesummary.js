@@ -2287,12 +2287,14 @@ function getCurrentProcessId() {
                                 currencySelect.appendChild(option);
                             });
                             
-                            // 不管选什么 account，初始货币优先设为 MYR（若该 account 有 MYR）；否则选第一项
+                            // 只要账户有 MYR 选项就优先选 MYR；否则选第一项
                             if (currencySelect.options.length > 1) {
-                                const myrOption = Array.from(currencySelect.options).find(opt => (opt.textContent || '').toUpperCase() === 'MYR');
+                                const myrOption = Array.from(currencySelect.options).find(opt =>
+                                    (opt.textContent || '').trim().toUpperCase() === 'MYR'
+                                );
                                 if (myrOption) {
                                     currencySelect.value = myrOption.value;
-                                    console.log('Initial currency set to MYR');
+                                    console.log('Currency set to MYR (prioritized)');
                                 } else {
                                     currencySelect.selectedIndex = 1;
                                     console.log('Auto-selected first currency:', currencySelect.options[1].textContent);
@@ -5652,20 +5654,22 @@ function getCurrentProcessId() {
                         if (selectedAccountId) {
                             await loadCurrenciesForAccount(selectedAccountId);
                             
-                            // After currencies are loaded, select the currency from data if provided
+                            // 若账户有 MYR，已由 loadCurrenciesForAccount 优先选 MYR，不再用 data.currency 覆盖
+                            // 仅当账户没有 MYR 时，才用行里保存的 data.currency
                             setTimeout(() => {
                                 const currencySelect = document.getElementById('currency');
-                                if (currencySelect && data.currency) {
-                                    // Find and select the matching currency
-                                    for (let option of currencySelect.options) {
-                                        if (option.textContent === data.currency) {
-                                            option.selected = true;
-                                            console.log('Selected currency from data:', data.currency);
-                                            return;
-                                        }
+                                if (!currencySelect || !data.currency) return;
+                                const hasMyr = Array.from(currencySelect.options).some(opt =>
+                                    (opt.textContent || '').trim().toUpperCase() === 'MYR'
+                                );
+                                if (hasMyr) return; // 有 MYR 时保持已选的 MYR
+                                for (let option of currencySelect.options) {
+                                    if ((option.textContent || '').trim() === (data.currency || '').trim()) {
+                                        option.selected = true;
+                                        console.log('Selected currency from data:', data.currency);
+                                        return;
                                     }
                                 }
-                                // If currency not found in data or not provided, first currency is already selected by default
                             }, 100);
                         }
                     }
