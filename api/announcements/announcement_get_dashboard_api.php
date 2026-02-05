@@ -17,46 +17,33 @@ try {
 }
 
 function fetchActiveAnnouncementsForDashboard(PDO $pdo, int $limit = 10): array {
-    // 仅查 announcements 表最基础列，兼容无 user_type/status 的旧表
-    $sql = "SELECT id, title, content,
-                DATE_FORMAT(created_at, '%d/%m/%Y %H:%i:%s') as created_at,
-                created_by
-            FROM announcements
-            WHERE company_code = 'C168'
-            ORDER BY created_at DESC
+    // 与 announcement_list_api 相同的查询，仅加 LIMIT，保证侧栏与主列表数据一致
+    $sql = "SELECT 
+                a.id,
+                a.title,
+                a.content,
+                DATE_FORMAT(a.created_at, '%d/%m/%Y %H:%i:%s') as created_at,
+                COALESCE(u.name, o.name) as created_by_name
+            FROM announcements a
+            LEFT JOIN user u ON a.created_by = u.id AND a.user_type = 'user'
+            LEFT JOIN owner o ON a.created_by = o.id AND a.user_type = 'owner'
+            WHERE a.company_code = 'C168'
+            ORDER BY a.created_at DESC
             LIMIT ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$limit]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function formatDashboardRows(PDO $pdo, array $rows): array {
+function formatDashboardRows(array $rows): array {
     $out = [];
     foreach ($rows as $row) {
-        $createdBy = '—';
-        if (!empty($row['created_by'])) {
-            try {
-                $stmt = $pdo->prepare("SELECT name FROM user WHERE id = ?");
-                $stmt->execute([$row['created_by']]);
-                $name = $stmt->fetchColumn();
-                if ($name === false || $name === null) {
-                    $stmt = $pdo->prepare("SELECT name FROM owner WHERE id = ?");
-                    $stmt->execute([$row['created_by']]);
-                    $name = $stmt->fetchColumn();
-                }
-                if ($name !== false && $name !== null) {
-                    $createdBy = $name;
-                }
-            } catch (Throwable $e) {
-                // 忽略单条查名失败
-            }
-        }
         $out[] = [
             'id' => (int) $row['id'],
             'title' => $row['title'] ?? '',
             'content' => $row['content'] ?? '',
             'created_at' => $row['created_at'] ?? '',
-            'created_by' => $createdBy
+            'created_by' => $row['created_by_name'] ?? '—'
         ];
     }
     return $out;
@@ -78,13 +65,13 @@ try {
     }
 
     $rows = fetchActiveAnnouncementsForDashboard($pdo, 10);
-    $data = formatDashboardRows($pdo, $rows);
+    $data = formatDashboardRows($rows);
     jsonResponse(true, '', $data);
 
 } catch (PDOException $e) {
     error_log('Announcement get dashboard API DB error: ' . $e->getMessage());
-    // 表不存在或列错误时返回空列表，避免侧栏报 500
-    jsonResponse(true, '', []);
+    http_response_code(500);
+    jsonResponse(false, 'Database error', null);
 } catch (Throwable $e) {
     error_log('Announcement get dashboard API error: ' . $e->getMessage());
     http_response_code(500);
