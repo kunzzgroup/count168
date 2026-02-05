@@ -93,6 +93,8 @@ if ($current_user_id && count($user_companies) > 0) {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>Data Capture</title>
     <link rel="stylesheet" href="css/datacapture.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
