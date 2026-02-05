@@ -271,7 +271,7 @@ if ($companyId) {
         <?php if ($isMember): ?>
             <!-- Member Home -->
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title account-direct" data-page="dashboard.php" onclick="window.location.href='dashboard.php'">
+                <div class="informationmenu-section-title account-direct" data-page="dashboard.php" onclick="pjaxNavigate('dashboard.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
@@ -281,7 +281,7 @@ if ($companyId) {
 
             <!-- Member Win/Loss -->
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title account-direct" data-page="member.php" onclick="window.location.href='member.php'">
+                <div class="informationmenu-section-title account-direct" data-page="member.php" onclick="pjaxNavigate('member.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                     </svg>
@@ -292,7 +292,7 @@ if ($companyId) {
             <!-- Home Section -->
             <?php if (empty($permissions) || in_array('home', $permissions)): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title" data-page="dashboard.php" onclick="window.location.href='dashboard.php'">
+                <div class="informationmenu-section-title" data-page="dashboard.php" onclick="pjaxNavigate('dashboard.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
@@ -304,7 +304,7 @@ if ($companyId) {
             <!-- Domain Section - 鍙湁涓?c168 鐩稿叧涓旇鑹蹭负 owner/admin 鐨勭敤鎴峰彲瑙?-->
             <?php if ((empty($permissions) || in_array('domain', $permissions)) && $hasC168Access): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title" data-page="domain.php" onclick="window.location.href='domain.php'">
+                <div class="informationmenu-section-title" data-page="domain.php" onclick="pjaxNavigate('domain.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z"/>
                     </svg>
@@ -317,7 +317,7 @@ if ($companyId) {
             <!-- All users can view announcements in dashboard, but only C168 can publish/manage -->
             <?php if ($hasC168Access): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title account-direct" data-page="announcement.php" onclick="window.location.href='announcement.php'">
+                <div class="informationmenu-section-title account-direct" data-page="announcement.php" onclick="pjaxNavigate('announcement.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
                     </svg>
@@ -339,7 +339,7 @@ if ($companyId) {
             <!-- Admin Section -->
             <?php if (empty($permissions) || in_array('admin', $permissions)): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title account-direct" data-page="userlist.php" onclick="window.location.href='userlist.php'">
+                <div class="informationmenu-section-title account-direct" data-page="userlist.php" onclick="pjaxNavigate('userlist.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
                     </svg>
@@ -351,7 +351,7 @@ if ($companyId) {
             <!-- Account Section -->
             <?php if (empty($permissions) || in_array('account', $permissions)): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title account-direct" data-page="account-list.php" onclick="window.location.href='account-list.php'">
+                <div class="informationmenu-section-title account-direct" data-page="account-list.php" onclick="pjaxNavigate('account-list.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                     </svg>
@@ -363,7 +363,7 @@ if ($companyId) {
             <!-- Process Section -->
             <?php if (empty($permissions) || in_array('process', $permissions)): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title" data-page="processlist.php" onclick="window.location.href='processlist.php'">
+                <div class="informationmenu-section-title" data-page="processlist.php" onclick="pjaxNavigate('processlist.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                     </svg>
@@ -375,7 +375,7 @@ if ($companyId) {
             <!-- Data Capture Section -->
             <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title" data-page="datacapture.php" onclick="window.location.href='datacapture.php'">
+                <div class="informationmenu-section-title" data-page="datacapture.php" onclick="pjaxNavigate('datacapture.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
                     </svg>
@@ -387,7 +387,7 @@ if ($companyId) {
             <!-- Transaction Payment Section -->
             <?php if (empty($permissions) || in_array('payment', $permissions)): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title" data-page="transaction.php" onclick="window.location.href='transaction.php'">
+                <div class="informationmenu-section-title" data-page="transaction.php" onclick="pjaxNavigate('transaction.php')">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                     </svg>
