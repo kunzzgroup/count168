@@ -265,45 +265,6 @@ let templatePermissions = [];
                     }
                 });
             });
-            return; // Add return to prevent continued execution
-            
-            // Send update request
-            fetch('useraccessapi.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'copy_permissions',
-                    template_user_id: sourceInfo.type === 'template' ? sourceInfo.id : null,
-                    affected_user_ids: affectedUserIds,
-                    permissions: currentPermissions,
-                    source_type: sourceInfo.type,
-                    account_permissions: selectedAccounts,
-                    process_permissions: selectedProcesses
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showAlert(`Successfully updated permissions for ${affectedUserIds.length} user(s)!`);
-                    resetForm();
-                } else {
-                    showAlert(data.message || 'Failed to update permissions', 'danger');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                // Only show error message if it's actually a network error or parsing error
-                if (error.message.includes('HTTP error') || error.message.includes('JSON')) {
-                    showAlert('An error occurred while updating permissions', 'danger');
-                }
-            });
         }
 
         window.onclick = function() {}
