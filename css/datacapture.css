@@ -1,16 +1,12 @@
 /* Ensure modals and popups are hidden before main CSS loads */
-        #descriptionSelectionModal:not(.show),
-        #contextMenu:not(.show) {
-            display: none;
-        }
-        /* Smoothly show content after page is ready */
-        body:not(.page-ready) .container {
-            opacity: 0;
-            transition: opacity 0.2s ease-in;
-        }
-        body.page-ready .container {
-            opacity: 1;
-        }
+#descriptionSelectionModal:not(.show),
+#contextMenu:not(.show) {
+    display: none;
+}
+/* Main content visible by default; JS can add body.page-ready for optional fade-in */
+body .container {
+    opacity: 1;
+}
 
 /* ----- Main page styles ----- */
 
