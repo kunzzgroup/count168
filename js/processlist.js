@@ -4274,7 +4274,7 @@
         async function switchProcessListCompany(companyId) {
             // 先更新 session
             try {
-                const response = await fetch(`update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
                 const result = await response.json();
                 if (!result.success) {
                     console.error('Failed to update session:', result.error);
