@@ -22,12 +22,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <title>Formula Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/formula_maintenance.css">
-    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
-    <div id="main-content">
     <div class="container">
         <div class="maintenance-header">
             <h1>Maintenance - Formula</h1>
@@ -123,7 +121,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 <button type="button" class="maintenance-btn maintenance-btn-delete confirm-delete" onclick="confirmDelete()">Delete</button>
             </div>
         </div>
-    </div>
     </div>
 
     <script>
