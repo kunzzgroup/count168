@@ -52,7 +52,7 @@
         // 加载当前用户可用的公司（owner 和普通 user 通用）
         async function loadOwnerCompanies() {
             try {
-                const response = await fetch('transaction_get_owner_companies_api.php');
+                const response = await fetch('api/transactions/get_owner_companies_api.php');
                 const data = await response.json();
 
                 if (data.success && data.data.length > 0) {
@@ -165,7 +165,7 @@
         
         // Load company currencies
         async function loadCompanyCurrencies() {
-            let url = 'transaction_get_company_currencies_api.php';
+            let url = 'api/transactions/get_company_currencies_api.php';
             if (currentCompanyId) {
                 url += `?company_id=${currentCompanyId}`;
             }
@@ -341,8 +341,8 @@
                 }
                 
                 const url = params.toString()
-                    ? `transaction_get_accounts_api.php?${params.toString()}`
-                    : 'transaction_get_accounts_api.php';
+                    ? `api/transactions/get_accounts_api.php?${params.toString()}`
+                    : 'api/transactions/get_accounts_api.php';
                 
                 const response = await fetch(url);
                 const data = await response.json();

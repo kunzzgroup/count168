@@ -343,7 +343,7 @@
         const SEARCH_INPUT_DEBOUNCE_MS = 300;
 
         function loadOwnerCompanies() {
-            return fetch('transaction_get_owner_companies_api.php')
+            return fetch('api/transactions/get_owner_companies_api.php')
                 .then(response => response.json())
                 .then(data => {
                     const wrapper = document.getElementById('companyButtonsWrapper');
@@ -795,7 +795,7 @@
                     return;
                 }
                 
-                let url = 'transaction_get_accounts_api.php';
+                let url = 'api/transactions/get_accounts_api.php';
                 const params = [];
                 if (currentCompanyId) {
                     params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);

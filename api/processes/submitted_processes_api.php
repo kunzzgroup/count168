@@ -1,6 +1,6 @@
 <?php
-require_once 'config.php';
-require_once 'permissions.php';
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
 
 // 开启 session
 if (session_status() === PHP_SESSION_NONE) {

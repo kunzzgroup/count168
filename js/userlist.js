@@ -639,7 +639,7 @@ function toggleCompanyFieldVisibility() {
 
 // 加载 Company 列表用于 Modal
 function loadCompaniesForModal() {
-    return fetch('transaction_get_owner_companies_api.php')
+    return fetch('api/transactions/get_owner_companies_api.php')
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
@@ -1837,7 +1837,7 @@ async function toggleUserStatus(userId, currentStatus, isOwnerShadow = false) {
         const formData = new FormData();
         formData.append('id', userId);
         
-        const response = await fetch('toggleuserstatusapi.php', {
+        const response = await fetch('api/users/toggle_status_api.php', {
             method: 'POST',
             body: formData
         });

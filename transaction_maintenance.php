@@ -220,7 +220,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         });
 
         function loadOwnerCompanies() {
-            return fetch('transaction_get_owner_companies_api.php')
+            return fetch('api/transactions/get_owner_companies_api.php')
                 .then(response => response.json())
                 .then(data => {
                     const wrapper = document.getElementById('companyButtonsWrapper');
@@ -547,7 +547,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId });
             
             // 构建URL
-            let url = `transaction_maintenance_search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+            let url = `api/transactions/maintenance_search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
             if (process) {
                 url += `&process=${encodeURIComponent(process)}`;
             }

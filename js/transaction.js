@@ -99,7 +99,7 @@ function renderContraInbox(items) {
 }
 
 function buildContraInboxUrl() {
-    let url = 'transaction_contra_inbox_api.php';
+    let url = 'api/transactions/contra_inbox_api.php';
     if (currentCompanyId) {
         url += `?company_id=${currentCompanyId}`;
     }
@@ -136,7 +136,7 @@ function approveContra(transactionId) {
         form.append('company_id', String(currentCompanyId));
     }
 
-    fetch('transaction_contra_approve_api.php', {
+    fetch('api/transactions/contra_approve_api.php', {
         method: 'POST',
         body: form
     })
@@ -170,7 +170,7 @@ function rejectContra(transactionId) {
         form.append('company_id', String(currentCompanyId));
     }
 
-    fetch('transaction_contra_reject_api.php', {
+    fetch('api/transactions/contra_reject_api.php', {
         method: 'POST',
         body: form
     })
@@ -446,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== 加载分类列表 ====================
 function loadCategories() {
-    return fetch('transaction_get_categories_api.php')
+    return fetch('api/transactions/get_categories_api.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -483,8 +483,8 @@ function loadAccounts() {
     }
     
     const url = params.toString()
-        ? `transaction_get_accounts_api.php?${params.toString()}`
-        : 'transaction_get_accounts_api.php';
+        ? `api/transactions/get_accounts_api.php?${params.toString()}`
+        : 'api/transactions/get_accounts_api.php';
     
     return fetch(url)
         .then(response => response.json())
@@ -762,7 +762,7 @@ function getAccountId(buttonElement) {
 
 // ==================== 加载 Owner Companies ====================
 function loadOwnerCompanies() {
-    return fetch('transaction_get_owner_companies_api.php')
+    return fetch('api/transactions/get_owner_companies_api.php')
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
@@ -897,7 +897,7 @@ async function switchCompany(companyId, companyCode) {
 // ==================== 加载 Company Currencies ====================
 function loadCompanyCurrencies() {
     // 构建 URL，如果指定了 company_id 则添加参数
-    let url = 'transaction_get_company_currencies_api.php';
+    let url = 'api/transactions/get_company_currencies_api.php';
     if (currentCompanyId) {
         url += `?company_id=${currentCompanyId}`;
     }
@@ -1199,7 +1199,7 @@ function searchTransactions() {
     }
     
     // 构建 URL，如果指定了 company_id 或 currency 则添加参数
-    let url = `transaction_search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+    let url = `api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
     if (currentCompanyId) {
         url += `&company_id=${currentCompanyId}`;
     }
@@ -2320,7 +2320,7 @@ function submitAction() {
         formData.append('company_id', currentCompanyId);
     }
     
-    fetch('transaction_submit_api.php', {
+    fetch('api/transactions/submit_api.php', {
         method: 'POST',
         body: formData
     })
@@ -2411,7 +2411,7 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
     }
     
     // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-    let url = `transaction_history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`;
+    let url = `api/transactions/history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`;
     // 优先使用该行的 currency
     if (rowCurrency) {
         url += `&currency=${rowCurrency}`;

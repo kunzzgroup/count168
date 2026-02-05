@@ -6,8 +6,8 @@
 
 session_start();
 header('Content-Type: application/json');
-require_once 'config.php';
-require_once 'permissions.php';
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
 
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -339,10 +339,13 @@ try {
     ]);
     
 } catch (Exception $e) {
+    http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
-    ]);
+        'message' => $e->getMessage(),
+        'data' => null,
+        'error' => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }
 
 /**

@@ -11,8 +11,8 @@
 
 session_start();
 header('Content-Type: application/json');
-require_once 'config.php';
-require_once 'permissions.php';
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
 
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -697,14 +697,18 @@ if (!empty($target_account_ids)) {
     http_response_code(500);
     echo json_encode([
         'success' => false,
+        'message' => '数据库错误: ' . $e->getMessage(),
+        'data' => null,
         'error' => '数据库错误: ' . $e->getMessage()
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
+        'message' => $e->getMessage(),
+        'data' => null,
         'error' => $e->getMessage()
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 }
 
 // ==================== 辅助函数 ====================

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'transaction_dashboard_api.php';
+const API_BASE_URL = 'api/transactions/dashboard_api.php';
 let trendChart = null;
 let dateRange = {
     startDate: null,
@@ -1374,7 +1374,7 @@ function createChart(canvas, chartData) {
 
 // ==================== 加载 Owner Companies ====================
 function loadOwnerCompanies() {
-    return fetch('transaction_get_owner_companies_api.php')
+    return fetch('api/transactions/get_owner_companies_api.php')
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {

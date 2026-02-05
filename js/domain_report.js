@@ -47,7 +47,7 @@ function showNotification(message, type = 'success') {
         // 加载当前用户可用的公司（owner 和普通 user 通用）
         async function loadOwnerCompanies() {
             try {
-                const response = await fetch('transaction_get_owner_companies_api.php');
+                const response = await fetch('api/transactions/get_owner_companies_api.php');
                 const data = await response.json();
 
                 if (data.success && Array.isArray(data.data) && data.data.length > 0) {

@@ -112,7 +112,7 @@ let ownerCompanies = [];
         });
 
         function loadOwnerCompanies() {
-            return fetch('transaction_get_owner_companies_api.php')
+            return fetch('api/transactions/get_owner_companies_api.php')
                 .then(response => response.json())
                 .then(data => {
                     const wrapper = document.getElementById('companyButtonsWrapper');

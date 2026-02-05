@@ -341,7 +341,7 @@
                     hide_zero_balance: '0'
                 });
 
-                const url = `transaction_search_api.php?${params.toString()}&_t=${Date.now()}`;
+                const url = `api/transactions/search_api.php?${params.toString()}&_t=${Date.now()}`;
                 fetch(url, { cache: 'no-cache' })
                     .then(res => res.text())
                     .then(text => parseJsonResponse(text))
@@ -542,7 +542,7 @@
                     date_to: dateTo,
                     company_id: memberConfig.companyId
                 });
-                const urlFallback = `transaction_history_api.php?${paramsFallback.toString()}&_t=${Date.now()}`;
+                const urlFallback = `api/transactions/history_api.php?${paramsFallback.toString()}&_t=${Date.now()}`;
                 fetch(urlFallback, { cache: 'no-cache' })
                     .then(res => res.text())
                     .then(text => parseJsonResponse(text))
@@ -591,7 +591,7 @@
             } else if (targetCurrencies[0]) {
                 params.append('currency', targetCurrencies[0]);
             }
-            const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
+            const url = `api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`;
 
             fetch(url, { cache: 'no-cache' })
                 .then(res => res.text())

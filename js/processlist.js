@@ -1070,7 +1070,7 @@
                 if (selectedPermission === 'Bank') {
                     formData.append('permission', 'Bank');
                 }
-                const response = await fetch(buildApiUrl('toggleprocessstatusapi.php'), {
+                const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
                     method: 'POST',
                     body: formData
                 });

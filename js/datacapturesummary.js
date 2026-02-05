@@ -17190,7 +17190,7 @@ function formatPercentValue(value) {
                                 formData.append('company_id', currentCompanyId);
                             }
                             
-                            await fetch('submittedprocessesapi.php', { method: 'POST', body: formData });
+                            await fetch('api/processes/submitted_processes_api.php', { method: 'POST', body: formData });
                         }
                     } catch (e) {
                         console.warn('Failed to record submitted process:', e);

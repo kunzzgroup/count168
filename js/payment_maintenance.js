@@ -68,7 +68,7 @@
         function loadOwnerCompanies() {
             const container = document.getElementById('company-buttons-container');
             const wrapper = document.getElementById('company-buttons-wrapper');
-            return fetch('transaction_get_owner_companies_api.php')
+            return fetch('api/transactions/get_owner_companies_api.php')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.data.length > 0) {
@@ -154,7 +154,7 @@
         function loadCompanyCurrencies() {
             const container = document.getElementById('currency-buttons-container');
             const wrapper = document.getElementById('currency-buttons-wrapper');
-            let url = 'transaction_get_company_currencies_api.php';
+            let url = 'api/transactions/get_company_currencies_api.php';
             if (currentCompanyId) {
                 url += `?company_id=${currentCompanyId}`;
             }

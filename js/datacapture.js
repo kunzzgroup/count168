@@ -970,7 +970,7 @@ let isSelecting = false;
                 // Add currently selected company_id
                 const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
                 // Use get_submissions_by_capture_date to filter by capture_date (form selected date)
-                const url = `submittedprocessesapi.php?action=get_submissions_by_capture_date&capture_date=${selectedDate}`;
+                const url = `api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${selectedDate}`;
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -2089,7 +2089,7 @@ let isSelecting = false;
                 console.log('Sending to API - process_id:', processData.process, 'date_submitted:', captureDate, 'capture_date:', captureDate, 'company_id:', currentCompanyId);
                 console.log('Form capture_date (used for date_submitted):', captureDate);
                 
-                const response = await fetch('submittedprocessesapi.php', {
+                const response = await fetch('api/processes/submitted_processes_api.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -2670,7 +2670,7 @@ let isSelecting = false;
                 
                 // Add currently selected company_id
                 const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-                const url = `submittedprocessesapi.php?action=get_processes_by_day&date=${selectedDate}`;
+                const url = `api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${selectedDate}`;
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);

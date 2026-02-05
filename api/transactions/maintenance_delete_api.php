@@ -6,7 +6,7 @@
 
 session_start();
 header('Content-Type: application/json');
-require_once 'config.php';
+require_once __DIR__ . '/../../config.php';
 
 try {
     if (!isset($_SESSION['company_id'])) {
@@ -192,8 +192,10 @@ try {
     http_response_code(400);
     echo json_encode([
         'success' => false,
+        'message' => $e->getMessage(),
+        'data' => null,
         'error' => $e->getMessage()
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 }
 ?>
 

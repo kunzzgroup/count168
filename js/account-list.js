@@ -1417,7 +1417,7 @@
                 const formData = new FormData();
                 formData.append('id', accountId);
                 
-                const response = await fetch('togglepaymentalertapi.php', {
+                const response = await fetch('api/accounts/toggle_payment_alert_api.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1460,7 +1460,7 @@
                 const formData = new FormData();
                 formData.append('id', accountId);
                 
-                const response = await fetch('toggleaccountstatusapi.php', {
+                const response = await fetch('api/accounts/toggle_account_status_api.php', {
                     method: 'POST',
                     body: formData
                 });

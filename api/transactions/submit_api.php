@@ -14,7 +14,7 @@
 
 session_start();
 header('Content-Type: application/json');
-require_once 'config.php';
+require_once __DIR__ . '/../../config.php';
 
 /**
  * 角色与权限工具
@@ -832,14 +832,18 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
+        'message' => '数据库错误: ' . $e->getMessage(),
+        'data' => null,
         'error' => '数据库错误: ' . $e->getMessage()
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
+        'message' => $e->getMessage(),
+        'data' => null,
         'error' => $e->getMessage()
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 }
 ?>
 
