@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // 使用统一的session检查
 require_once 'session_check.php';
 
@@ -73,7 +73,7 @@ try {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>Domain List</title>
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/domain.css">
     <script>
