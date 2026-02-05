@@ -156,7 +156,7 @@ function showNotification(message, type = 'success') {
                 if (currentCompanyId) {
                     params.append('company_id', currentCompanyId);
                 }
-                const response = await fetch(`domain_report_api.php?${params.toString()}`);
+                const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
                 const data = await response.json();
                 if (data.success) {
                     const processButton = document.getElementById('processSelect');
@@ -390,14 +390,14 @@ function showNotification(message, type = 'success') {
                     params.append('company_id', currentCompanyId);
                 }
 
-                const response = await fetch(`domain_report_api.php?${params.toString()}`);
+                const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
                 const result = await response.json();
 
                 if (result.success) {
                     renderReport(result.data, result.totals);
                 } else {
-                    showNotification(result.error || 'Failed to get report data', 'danger');
-                    renderError(result.error || 'Failed to get report data');
+                    showNotification(result.message || result.error || 'Failed to get report data', 'danger');
+                    renderError(result.message || result.error || 'Failed to get report data');
                 }
             } catch (error) {
                 console.error('Error loading domain report:', error);
