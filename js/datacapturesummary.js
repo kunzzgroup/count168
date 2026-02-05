@@ -2287,10 +2287,16 @@ function getCurrentProcessId() {
                                 currencySelect.appendChild(option);
                             });
                             
-                            // Default select the first currency
+                            // 不管选什么 account，初始货币优先设为 MYR（若该 account 有 MYR）；否则选第一项
                             if (currencySelect.options.length > 1) {
-                                currencySelect.selectedIndex = 1;
-                                console.log('Auto-selected first currency:', currencySelect.options[1].textContent);
+                                const myrOption = Array.from(currencySelect.options).find(opt => (opt.textContent || '').toUpperCase() === 'MYR');
+                                if (myrOption) {
+                                    currencySelect.value = myrOption.value;
+                                    console.log('Initial currency set to MYR');
+                                } else {
+                                    currencySelect.selectedIndex = 1;
+                                    console.log('Auto-selected first currency:', currencySelect.options[1].textContent);
+                                }
                             }
                         } else {
                             console.warn('No currencies found for account:', accountId);
