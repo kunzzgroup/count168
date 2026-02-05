@@ -12,8 +12,8 @@ async function loadAnnouncements() {
             listContainer.innerHTML = result.data.map(announcement => {
                 const titleEscaped = escapeHtml(announcement.title);
                 const contentEscaped = escapeHtml(announcement.content);
-                const titleForJs = titleEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
-                const contentForJs = contentEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+                const titleForJs = escapeForJsAttr(announcement.title);
+                const contentForJs = escapeForJsAttr(announcement.content);
                 return `
                 <div class="announcement-item">
                     <div class="announcement-item-header">
@@ -145,6 +145,16 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// 用于放入 onclick 等属性里的 JS 单引号字符串：需转义 \ 和 '
+function escapeForJsAttr(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '')
+        .replace(/\n/g, '\\n');
+}
+
 // ========== Announcement Edit Functions ==========
 
 // Open edit announcement modal（供 HTML onclick 调用）
@@ -234,7 +244,7 @@ async function loadMaintenanceContent() {
         if (result.success && result.data.length > 0) {
             listContainer.innerHTML = result.data.map(maintenance => {
                 const contentEscaped = escapeHtml(maintenance.content);
-                const contentForJs = contentEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+                const contentForJs = escapeForJsAttr(maintenance.content);
                 return `
                 <div class="maintenance-item">
                     <div class="maintenance-item-header">
