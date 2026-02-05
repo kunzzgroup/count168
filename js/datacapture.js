@@ -10,7 +10,7 @@ let isSelecting = false;
             return new URL(pathAndQuery, base).href;
         }
 
-        // 统一数值格式：粘贴/显示时 D/E 行等不跑格式（逗号小数→点、.50→0.50、0.→0.00）
+        // 统一钱数格式：.xx 点后面2位为一组（逗号小数→点、.50→0.50、0.→0.00、千分位逗号保留）
         function formatNumberToTwoDecimals(value) {
             if (value === null || value === undefined) return value;
             const str = (typeof value === 'string' ? value : String(value)).trim();
@@ -22,6 +22,26 @@ let isSelecting = false;
             var num = parseFloat(normalized);
             if (!Number.isFinite(num)) return value;
             return num.toFixed(2);
+        }
+        // 显示用：.xx 两位小数 + 千分位逗号（用于表格展示）
+        function formatMoneyDisplay(value) {
+            var formatted = formatNumberToTwoDecimals(value);
+            if (formatted === value || formatted === null || formatted === undefined) return value;
+            var num = parseFloat(String(formatted).replace(/,/g, ''));
+            if (!Number.isFinite(num)) return value;
+            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        // 修正 Sub Total / Grand Total 行：每组 Total = W/L + Comm（消除 0.01 舍入差）
+        function fixSummaryRowTotalColumns(row) {
+            if (!row || row.length < 9) return;
+            for (var k = 0; 7 + 3 * k + 2 < row.length; k++) {
+                var wl = parseFloat(String(row[7 + 3 * k] || '').replace(/,/g, ''));
+                var comm = parseFloat(String(row[7 + 3 * k + 1] || '').replace(/,/g, ''));
+                if (!Number.isFinite(wl)) wl = 0;
+                if (!Number.isFinite(comm)) comm = 0;
+                var total = Math.round((wl + comm) * 100) / 100;
+                row[7 + 3 * k + 2] = formatNumberToTwoDecimals(total);
+            }
         }
 
         // Track if table is active (user has clicked on table)
@@ -3214,6 +3234,11 @@ let isSelecting = false;
                     });
                     cell.addEventListener('blur', function() {
                         this.classList.remove('selected');
+                        var t = (this.textContent || '').trim();
+                        if (t) {
+                            var displayed = formatMoneyDisplay(t);
+                            if (displayed !== t) this.textContent = displayed;
+                        }
                     });
                     cell.addEventListener('keydown', handleCellKeydown);
                     cell.addEventListener('paste', handleCellPaste);
@@ -5848,7 +5873,16 @@ let isSelecting = false;
                 console.log('WBET: Processed matrix:', processedMatrix.length, 'rows x', processedMaxCols, 'columns');
                 console.log('WBET: First few rows:', processedMatrix.slice(0, 5));
                 
-                // 直接填充到表格（保持原始格式）
+                // 修正 Sub Total / Grand Total 行：Total = W/L + Comm（消除 0.01 差）
+                processedMatrix.forEach(function(row) {
+                    var rowText = (row.join(' ') || '').toUpperCase();
+                    if (rowText.indexOf('SUB TOTAL') >= 0 || rowText.indexOf('SUBTOTAL') >= 0 ||
+                        rowText.indexOf('GRAND TOTAL') >= 0 || rowText.indexOf('GRANDTOTAL') >= 0) {
+                        fixSummaryRowTotalColumns(row);
+                    }
+                });
+                
+                // 直接填充到表格（钱数统一 .xx + 千分位）
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                 const startCol = 0; // WBET: 强制从第一列开始
                 
@@ -5881,15 +5915,16 @@ let isSelecting = false;
                             if (cell && cell.contentEditable === 'true') {
                                 // 保存旧值用于撤销（包括空单元格）
                                 const trimmedData = (cellData || '').trim();
+                                const displayValue = formatMoneyDisplay(trimmedData);
                                 currentPasteChanges.push({
                                     row: actualRowIndex,
                                     col: actualColIndex,
                                     oldValue: cell.textContent,
-                                    newValue: trimmedData
+                                    newValue: displayValue
                                 });
                                 
-                                // 保持原始格式，不做任何转换（包括 Sub Total 和 Grand Total）
-                                cell.textContent = trimmedData;
+                                // 钱数统一 .xx 点后两位 + 千分位
+                                cell.textContent = displayValue;
                                 if (trimmedData) {
                                     successCount++;
                                 }
@@ -6312,15 +6347,16 @@ let isSelecting = false;
                             if (cell && cell.contentEditable === 'true') {
                                 // 保存旧值用于撤销（包括空单元格）
                                 const trimmedData = (cellData || '').trim();
+                                const displayValue = formatMoneyDisplay(trimmedData);
                                 currentPasteChanges.push({
                                     row: actualRowIndex,
                                     col: actualColIndex,
                                     oldValue: cell.textContent,
-                                    newValue: trimmedData
+                                    newValue: displayValue
                                 });
                                 
-                                // 保持原始格式，不做任何转换（包括 Sub Total 和 Grand Total）
-                                cell.textContent = trimmedData;
+                                // 钱数统一 .xx 点后两位 + 千分位
+                                cell.textContent = displayValue;
                                 if (trimmedData) {
                                     successCount++;
                                 }
@@ -6809,7 +6845,7 @@ let isSelecting = false;
                                     } else {
                                         finalValue = trimmedData.toUpperCase();
                                     }
-                                    cell.textContent = finalValue;
+                                    cell.textContent = formatMoneyDisplay(finalValue);
                                     successCount++;
                                 }
                             }
