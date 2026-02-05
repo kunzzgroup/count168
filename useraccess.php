@@ -80,11 +80,14 @@ try {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>User Access Management</title>
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <link rel="stylesheet" href="css/useraccess.css?v=<?php echo time(); ?>">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <div id="main-content">
         <h1>User Access</h1>
 
         <div class="actions-buttons" style="margin-bottom: 0px; display: flex; justify-content: space-between; align-items: center;">
@@ -338,6 +341,7 @@ try {
     <div id="notificationContainer" class="notification-container"></div>
 
     <script src="js/useraccess.js?v=<?php echo time(); ?>"></script>
+    </div><!-- #main-content -->
 
 </body>
 </html>

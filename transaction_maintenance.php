@@ -23,10 +23,13 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <title>Transaction Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <div id="main-content">
     <div class="container">
         <div class="maintenance-header">
             <h1>Maintenance - Transaction</h1>
@@ -1506,5 +1509,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="js/transaction_maintenance.js?v=<?php echo time(); ?>"></script>
+    </div><!-- #main-content -->
 </body>
 </html>

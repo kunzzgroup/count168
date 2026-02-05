@@ -36,11 +36,14 @@ $company_id = $_SESSION['company_id'] ?? null;
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <title>Data Capture Summary</title>
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <link rel="stylesheet" href="css/datacapturesummary.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <div id="main-content">
     <div class="container">
         <h1>Data Capture Summary</h1>
         
@@ -292,6 +295,6 @@ $company_id = $_SESSION['company_id'] ?? null;
         window.DATACAPTURESUMMARY_COMPANY_ID = <?php echo json_encode($company_id); ?>;
     </script>
     <script src="js/datacapturesummary.js"></script>
-    
+    </div><!-- #main-content -->
 </body>
 </html>

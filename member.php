@@ -153,10 +153,13 @@ $today = date('d/m/Y');
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/member.css">
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="transaction-page member-winloss-page">
     <?php include 'sidebar.php'; ?>
+    <div id="main-content">
     <!-- member-page-v2: Currency + Report section always rendered -->
     <div class="transaction-container">
         <h1 class="transaction-title">Win/Loss</h1>
@@ -269,5 +272,6 @@ $today = date('d/m/Y');
     </script>
     <script src="js/member.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    </div><!-- #main-content -->
 </body>
 </html>

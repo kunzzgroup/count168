@@ -209,12 +209,15 @@ if ($current_user_id && count($user_companies) > 0) {
     <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css">
 </head>
 
 <body class="process-page">
+    <div id="main-content">
     <div class="container">
         <div class="content">
             <div
@@ -1315,6 +1318,7 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
     </script>
     <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
+    </div><!-- #main-content -->
 </body>
 
 </html>

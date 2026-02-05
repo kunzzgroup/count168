@@ -28,11 +28,13 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="transaction-page">
     <?php include 'sidebar.php'; ?>
-    
+    <div id="main-content">
     <!-- User Avatar Button -->
     <div id="user-avatar">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -468,5 +470,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="js/transaction.js?v=<?php echo time(); ?>"></script>
+    </div><!-- #main-content -->
 </body>
 </html>

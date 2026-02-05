@@ -18,11 +18,14 @@ $isOwner = ($userRole === 'owner');
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
-    <link rel="stylesheet" href="css/customer_report.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/customer_report.css">
 </head>
 <body>
+    <div id="main-content">
     <div class="container">
         <div class="content">
             <div class="report-header">
@@ -124,6 +127,7 @@ $isOwner = ($userRole === 'owner');
         window.CUSTOMER_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
     </script>
     <script src="js/customer_report.js?v=<?php echo time(); ?>"></script>
+    </div><!-- #main-content -->
 </body>
 </html>
 

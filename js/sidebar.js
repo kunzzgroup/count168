@@ -276,6 +276,7 @@
     window.toggleNotificationPanel = toggleNotificationPanel;
     window.closeNotificationPanel = closeNotificationPanel;
     window.updateExpirationCountdown = updateExpirationCountdown;
+    window.setCurrentPageHighlight = setCurrentPageHighlight;
 
     function init() {
         sidebar = document.querySelector('.informationmenu');
@@ -327,13 +328,17 @@
             }, true);
 
             title.addEventListener('click', function(e) {
+                var section = this.getAttribute('data-section');
+                if (this.tagName === 'A' && this.getAttribute('href') && section !== 'report' && section !== 'maintenance') {
+                    return;
+                }
                 if (middleClickHandled || ctrlClickHandled) {
                     e.preventDefault();
                     e.stopPropagation();
                     return false;
                 }
                 var isCtrlClick = e.ctrlKey || e.metaKey;
-                var pageUrl = this.getAttribute('data-page');
+                var pageUrl = this.getAttribute('data-page') || (this.getAttribute('href') || '').split('?')[0];
                 if (pageUrl && isCtrlClick) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -356,7 +361,6 @@
                     return false;
                 }
                 var targetId = this.getAttribute('data-target');
-                var section = this.getAttribute('data-section');
                 if (section === 'report' || section === 'maintenance') return;
                 var targetDropdown = document.getElementById(targetId);
                 document.querySelectorAll('.dropdown-menu-items').forEach(function(dropdown) {

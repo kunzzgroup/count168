@@ -124,17 +124,13 @@ if (isset($_GET['logout'])) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/dashboard.css">
-    <script>
-        // 用户数据供JavaScript使用（外部 js/dashboard.js 依赖此变量）
-        window.userData = <?php echo json_encode($userData); ?>;
-        window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
-    </script>
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
-    <script src="js/dashboard.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
-    
+    <div id="main-content">
     <div class="dashboard-container">
         <h1 class="dashboard-title">Transaction Dashboard</h1>
         
@@ -304,6 +300,12 @@ if (isset($_GET['logout'])) {
             <!-- 动态生成日期 -->
         </div>
     </div>
+    <script>
+        window.userData = <?php echo json_encode($userData); ?>;
+        window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
+    </script>
+    <script src="js/dashboard.js?v=<?php echo time(); ?>"></script>
+    </div><!-- #main-content -->
 
 </body>
 </html>

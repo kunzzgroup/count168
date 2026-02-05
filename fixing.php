@@ -155,13 +155,15 @@ if (!isset($_SESSION['user_id'])) {
         } */
     </style>
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body>
 
 <?php include 'sidebar.php'; ?>
 
-<div class="main-content">
+<div id="main-content" class="main-content">
     <div class="maintenance-panel">
         <h1 class="maintenance-title">
             <i class="fas fa-triangle-exclamation"></i>

@@ -168,11 +168,14 @@ try {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>User List</title>
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/common.css">
+    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/userlist.css?v=<?php echo time(); ?>">
 </head>
 <body>
+    <div id="main-content">
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
         <h1>User List</h1>
@@ -684,5 +687,6 @@ try {
         window.USERLIST_CURRENT_COMPANY_ID = <?php echo json_encode($_SESSION['company_id'] ?? null); ?>;
     </script>
     <script src="js/userlist.js?v=<?php echo time(); ?>"></script>
+    </div><!-- #main-content -->
 </body>
 </html>
