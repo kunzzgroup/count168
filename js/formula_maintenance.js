@@ -479,7 +479,7 @@
             }
             
             // 构建 URL
-            let url = `formula_maintenance_list_api.php`;
+            let url = `api/formula_maintenance/list_api.php`;
             const params = [];
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -519,13 +519,14 @@
                 })
                 .then(data => {
                     if (data.success) {
-                        console.log('✅ 数据捕获列表加载成功:', data.data);
+                        const list = (data.data && data.data.list) ? data.data.list : (data.data || []);
+                        console.log('✅ 数据捕获列表加载成功:', list);
                         
                         // 如果有 Process 筛选，过滤数据
                         // 注意：API 已经做了筛选，这里的过滤是双重保险
-                        let filteredData = data.data;
+                        let filteredData = list;
                         if (selectedProcessUpper) {
-                            filteredData = data.data.filter(row => {
+                            filteredData = list.filter(row => {
                                 if (!row.process) return false;
                                 const rowProcessUpper = (row.process || '').trim().toUpperCase();
                                 // 仅保留与选中展示文本完全一致的行
@@ -558,8 +559,8 @@
                             showNotification(`Found ${filteredData.length} record(s)`, 'success');
                         }
                     } else {
-                        console.error('❌ 加载数据捕获列表失败:', data.error);
-                        showNotification(data.error || 'Search failed', 'error');
+                        console.error('❌ 加载数据捕获列表失败:', data.message || data.error);
+                        showNotification(data.message || data.error || 'Search failed', 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         if (container) {
                             container.style.display = 'none';
@@ -945,7 +946,7 @@
             
             console.log('保存数据:', saveData);
             
-            fetch('formula_maintenance_update_api.php', {
+            fetch('api/formula_maintenance/update_api.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -955,7 +956,7 @@
             .then(response => {
                 if (!response.ok) {
                     return response.json().then(data => {
-                        throw new Error(data.error || `服务器错误 (${response.status})`);
+                        throw new Error(data.message || data.error || `服务器错误 (${response.status})`);
                     }).catch(() => {
                         throw new Error(`服务器错误 (${response.status})`);
                     });
@@ -1015,7 +1016,7 @@
                     
                     showNotification('Update successful', 'success');
                 } else {
-                    showNotification(data.error || 'Save failed', 'error');
+                    showNotification(data.message || data.error || 'Save failed', 'error');
                 }
             })
             .catch(error => {
@@ -1053,7 +1054,7 @@
                         deleteData.company_id = currentCompanyId;
                     }
                     
-                    fetch('formula_maintenance_delete_api.php', {
+                    fetch('api/formula_maintenance/delete_api.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1063,7 +1064,7 @@
                     .then(response => {
                         if (!response.ok) {
                             return response.json().then(data => {
-                                throw new Error(data.error || `服务器错误 (${response.status})`);
+                                throw new Error(data.message || data.error || `服务器错误 (${response.status})`);
                             }).catch(() => {
                                 throw new Error(`服务器错误 (${response.status})`);
                             });
@@ -1080,7 +1081,7 @@
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.error || 'Delete failed', 'error');
+                            showNotification(data.message || data.error || 'Delete failed', 'error');
                         }
                     })
                     .catch(error => {
