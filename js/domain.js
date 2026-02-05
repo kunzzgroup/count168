@@ -522,7 +522,7 @@ function updateExpDateDisplay() {
 // 加载公司权限设置
 function loadCompanyPermissions(companyId) {
     // 从数据库获取公司权限
-    fetch('domainapi.php', {
+    fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -534,9 +534,9 @@ function loadCompanyPermissions(companyId) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success && data.permissions) {
+        if (data.success && data.data && data.data.permissions) {
             // 设置复选框状态
-            const permissions = data.permissions;
+            const permissions = data.data.permissions;
             document.getElementById('permissionGambling').checked = permissions.includes('Gambling');
             document.getElementById('permissionBank').checked = permissions.includes('Bank');
             document.getElementById('permissionLoan').checked = permissions.includes('Loan');
@@ -622,7 +622,7 @@ function saveCompanyExpDate() {
     if (document.getElementById('permissionMoney').checked) permissions.push('Money');
     
     // 保存权限到数据库
-    fetch('domainapi.php', {
+    fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -938,7 +938,7 @@ function editDomain(id) {
     document.getElementById('email').value = items[3].textContent;
     
     // 从 API 获取完整的公司信息（包括到期日期）
-    fetch(`domainapi.php`, {
+    fetch(`api/domain/domain_api.php`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -950,8 +950,8 @@ function editDomain(id) {
     })
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.companies) {
-                selectedCompanies = data.companies.map(c => ({
+            if (data.success && data.data && data.data.companies) {
+                selectedCompanies = data.data.companies.map(c => ({
                     company_id: c.company_id,
                     expiration_date: c.expiration_date || null
                 }));
@@ -1108,7 +1108,7 @@ function deleteSelected() {
     showConfirmModal(confirmMessage, function() {
         // 批量删除
         Promise.all(selectedIds.map(id =>
-            fetch('domainapi.php', {
+            fetch('api/domain/domain_api.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1402,7 +1402,7 @@ document.getElementById('domainForm').addEventListener('submit', function(e) {
         delete data.secondary_password;
     }
     
-    fetch('domainapi.php', {
+    fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

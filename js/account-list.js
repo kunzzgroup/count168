@@ -467,12 +467,12 @@
         // Load currencies and roles for edit modal
         async function loadEditData() {
             try {
-                const response = await fetch('editdataapi.php');
+                const response = await fetch('api/editdata/editdata_api.php');
                 const result = await response.json();
                 
-                if (result.success) {
-                    currencies = result.currencies || [];
-                    roles = result.roles || [];
+                if (result.success && result.data) {
+                    currencies = result.data.currencies || [];
+                    roles = result.data.roles || [];
                     
                     // Populate add modal dropdowns
                     populateAddModalDropdowns();

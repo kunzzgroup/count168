@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'config.php';
+require_once __DIR__ . '/../../config.php';
 
 header('Content-Type: application/json');
 
@@ -13,7 +13,8 @@ $action = $data['action'] ?? '';
 // 检查用户是否已登录（对于需要权限的操作）
 if (in_array($action, ['create', 'update', 'delete'])) {
     if (!isset($_SESSION['user_id'])) {
-        echo json_encode(['success' => false, 'message' => 'User not logged in']);
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
         exit;
     }
     
@@ -24,16 +25,7 @@ if (in_array($action, ['create', 'update', 'delete'])) {
     
     $isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
     $isC168ByCode = ($company_code === 'C168');
-    $isC168ById = false;
-    if ($company_id) {
-        try {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-            $stmt->execute([$company_id]);
-            $isC168ById = $stmt->fetchColumn() > 0;
-        } catch (PDOException $e) {
-            $isC168ById = false;
-        }
-    }
+    $isC168ById = isC168Company($pdo, $company_id);
     $hasC168Context = ($isC168ByCode || $isC168ById);
 }
 
@@ -86,6 +78,55 @@ function deleteByIds(PDO $pdo, string $table, string $column, array $ids): void
     $stmt->execute($ids);
 }
 
+/**
+ * 检查公司是否为 C168（用于二级密码等权限判断）
+ */
+function isC168Company(PDO $pdo, $company_id): bool {
+    if (!$company_id) return false;
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+        $stmt->execute([$company_id]);
+        return $stmt->fetchColumn() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * 根据 owner_id 获取 owner 及其公司列表（含到期日）
+ */
+function getOwnerWithCompanies(PDO $pdo, $owner_id) {
+    $stmt = $pdo->prepare("
+        SELECT o.id, o.owner_code, o.name, o.email, o.created_by,
+               GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
+        FROM owner o
+        LEFT JOIN company c ON o.id = c.owner_id
+        WHERE o.id = ?
+        GROUP BY o.id
+    ");
+    $stmt->execute([$owner_id]);
+    $owner = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$owner) return null;
+    $stmt2 = $pdo->prepare("SELECT company_id, expiration_date FROM company WHERE owner_id = ? ORDER BY company_id");
+    $stmt2->execute([$owner_id]);
+    $owner['companies_full'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    return $owner;
+}
+
+/**
+ * 标准 JSON 响应：success, message, data
+ */
+function jsonResponse($success, $message, $data = null, $httpCode = null) {
+    if ($httpCode !== null) {
+        http_response_code($httpCode);
+    }
+    echo json_encode([
+        'success' => (bool) $success,
+        'message' => $message,
+        'data' => $data
+    ], JSON_UNESCAPED_UNICODE);
+}
+
 try {
     switch($action) {
         case 'create':
@@ -99,13 +140,13 @@ try {
             
             // Validate required fields
             if (empty($owner_code) || empty($name) || empty($email) || empty($password) || empty($secondary_password)) {
-                echo json_encode(['success' => false, 'message' => 'All fields are required']);
+                echo json_encode(['success' => false, 'message' => 'All fields are required', 'data' => null]);
                 exit;
             }
             
             // 验证二级密码：必须是6位数字
             if (!preg_match('/^\d{6}$/', $secondary_password)) {
-                echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits']);
+                echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits', 'data' => null]);
                 exit;
             }
             
@@ -155,28 +196,7 @@ try {
                 
                 $pdo->commit();
                 
-                // Get the created owner with companies
-                $stmt = $pdo->prepare("
-                    SELECT 
-                        o.id,
-                        o.owner_code,
-                        o.name,
-                        o.email,
-                        o.created_by,
-                        GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
-                    FROM owner o
-                    LEFT JOIN company c ON o.id = c.owner_id
-                    WHERE o.id = ?
-                    GROUP BY o.id
-                ");
-                $stmt->execute([$owner_id]);
-                $owner = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                // 获取完整的公司信息（包括到期日期）
-                $stmt = $pdo->prepare("SELECT company_id, expiration_date FROM company WHERE owner_id = ? ORDER BY company_id");
-                $stmt->execute([$owner_id]);
-                $owner['companies_full'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
+                $owner = getOwnerWithCompanies($pdo, $owner_id);
                 echo json_encode([
                     'success' => true,
                     'message' => 'Owner created successfully',
@@ -199,20 +219,20 @@ try {
             $companies = $data['companies'] ?? '';
             
             if (empty($id) || empty($name) || empty($email)) {
-                echo json_encode(['success' => false, 'message' => 'Required fields are missing']);
+                echo json_encode(['success' => false, 'message' => 'Required fields are missing', 'data' => null]);
                 exit;
             }
             
             // 如果提供了二级密码，验证格式（只有C168的owner/admin可以修改）
             if (!empty($secondary_password)) {
                 if (!$hasC168Context || !$isOwnerOrAdmin) {
-                    echo json_encode(['success' => false, 'message' => 'Only C168 owner/admin can modify secondary password']);
+                    echo json_encode(['success' => false, 'message' => 'Only C168 owner/admin can modify secondary password', 'data' => null]);
                     exit;
                 }
                 
                 // 验证二级密码：必须是6位数字
                 if (!preg_match('/^\d{6}$/', $secondary_password)) {
-                    echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits']);
+                    echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits', 'data' => null]);
                     exit;
                 }
             }
@@ -462,28 +482,7 @@ try {
                 
                 $pdo->commit();
                 
-                // Get the updated owner with companies
-                $stmt = $pdo->prepare("
-                    SELECT 
-                        o.id,
-                        o.owner_code,
-                        o.name,
-                        o.email,
-                        o.created_by,
-                        GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
-                    FROM owner o
-                    LEFT JOIN company c ON o.id = c.owner_id
-                    WHERE o.id = ?
-                    GROUP BY o.id
-                ");
-                $stmt->execute([$id]);
-                $owner = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                // 获取完整的公司信息（包括到期日期）
-                $stmt = $pdo->prepare("SELECT company_id, expiration_date FROM company WHERE owner_id = ? ORDER BY company_id");
-                $stmt->execute([$id]);
-                $owner['companies_full'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
+                $owner = getOwnerWithCompanies($pdo, $id);
                 echo json_encode([
                     'success' => true,
                     'message' => 'Owner updated successfully',
@@ -501,7 +500,7 @@ try {
             $id = $data['id'] ?? 0;
             
             if (empty($id)) {
-                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                echo json_encode(['success' => false, 'message' => 'Invalid ID', 'data' => null]);
                 exit;
             }
             
@@ -633,7 +632,8 @@ try {
                 
                 echo json_encode([
                     'success' => true,
-                    'message' => 'Owner and all related data deleted successfully'
+                    'message' => 'Owner and all related data deleted successfully',
+                    'data' => null
                 ]);
                 
             } catch (Exception $e) {
@@ -647,7 +647,7 @@ try {
             $owner_id = $data['owner_id'] ?? ($_GET['owner_id'] ?? 0);
             
             if (empty($owner_id)) {
-                echo json_encode(['success' => false, 'message' => 'Invalid owner ID']);
+                echo json_encode(['success' => false, 'message' => 'Invalid owner ID', 'data' => null]);
                 exit;
             }
             
@@ -658,12 +658,14 @@ try {
                 
                 echo json_encode([
                     'success' => true,
-                    'companies' => $companies
+                    'message' => 'OK',
+                    'data' => ['companies' => $companies]
                 ]);
             } catch (Exception $e) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Error: ' . $e->getMessage()
+                    'message' => 'Error: ' . $e->getMessage(),
+                    'data' => null
                 ]);
             }
             break;
@@ -673,7 +675,7 @@ try {
             $company_id = $data['company_id'] ?? '';
             
             if (empty($company_id)) {
-                echo json_encode(['success' => false, 'message' => 'Invalid company ID']);
+                echo json_encode(['success' => false, 'message' => 'Invalid company ID', 'data' => null]);
                 exit;
             }
             
@@ -688,26 +690,30 @@ try {
                     if (json_last_error() === JSON_ERROR_NONE && is_array($permissions)) {
                         echo json_encode([
                             'success' => true,
-                            'permissions' => $permissions
+                            'message' => 'OK',
+                            'data' => ['permissions' => $permissions]
                         ]);
                     } else {
-                        // 默认返回全部权限
+                        $permissions = ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
                         echo json_encode([
                             'success' => true,
-                            'permissions' => ['Gambling', 'Bank', 'Loan', 'Rate', 'Money']
+                            'message' => 'OK',
+                            'data' => ['permissions' => $permissions]
                         ]);
                     }
                 } else {
-                    // 如果没有设置，返回全部权限
+                    $permissions = ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
                     echo json_encode([
                         'success' => true,
-                        'permissions' => ['Gambling', 'Bank', 'Loan', 'Rate', 'Money']
+                        'message' => 'OK',
+                        'data' => ['permissions' => $permissions]
                     ]);
                 }
             } catch (Exception $e) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Error: ' . $e->getMessage()
+                    'message' => 'Error: ' . $e->getMessage(),
+                    'data' => null
                 ]);
             }
             break;
@@ -718,12 +724,12 @@ try {
             $permissions = $data['permissions'] ?? [];
             
             if (empty($company_id)) {
-                echo json_encode(['success' => false, 'message' => 'Invalid company ID']);
+                echo json_encode(['success' => false, 'message' => 'Invalid company ID', 'data' => null]);
                 exit;
             }
             
             if (!is_array($permissions)) {
-                echo json_encode(['success' => false, 'message' => 'Invalid permissions format']);
+                echo json_encode(['success' => false, 'message' => 'Invalid permissions format', 'data' => null]);
                 exit;
             }
             
@@ -741,30 +747,34 @@ try {
                 
                 echo json_encode([
                     'success' => true,
-                    'message' => 'Permissions updated successfully'
+                    'message' => 'Permissions updated successfully',
+                    'data' => null
                 ]);
             } catch (Exception $e) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Error: ' . $e->getMessage()
+                    'message' => 'Error: ' . $e->getMessage(),
+                    'data' => null
                 ]);
             }
             break;
             
         default:
-            echo json_encode(['success' => false, 'message' => 'Invalid action']);
+            echo json_encode(['success' => false, 'message' => 'Invalid action', 'data' => null]);
             break;
     }
     
 } catch(PDOException $e) {
     echo json_encode([
         'success' => false,
-        'message' => 'Database error: ' . $e->getMessage()
+        'message' => 'Database error: ' . $e->getMessage(),
+        'data' => null
     ]);
 } catch(Exception $e) {
     echo json_encode([
         'success' => false,
-        'message' => 'Error: ' . $e->getMessage()
+        'message' => 'Error: ' . $e->getMessage(),
+        'data' => null
     ]);
 }
 ?>

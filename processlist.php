@@ -4098,11 +4098,11 @@ if ($current_user_id && count($user_companies) > 0) {
         let bankAccountRoles = [];
         async function loadEditDataBank() {
             try {
-                const res = await fetch(buildApiUrl('editdataapi.php'));
+                const res = await fetch(buildApiUrl('api/editdata/editdata_api.php'));
                 const result = await res.json();
                 if (!result.success) return;
-                bankAccountCurrencies = result.currencies || [];
-                bankAccountRoles = result.roles || [];
+                bankAccountCurrencies = (result.data && result.data.currencies) ? result.data.currencies : [];
+                bankAccountRoles = (result.data && result.data.roles) ? result.data.roles : [];
                 const addRoleSelect = document.getElementById('add_role');
                 if (addRoleSelect) {
                     addRoleSelect.innerHTML = '<option value="">Select Role</option>';
@@ -5949,7 +5949,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
 
             try {
-                const response = await fetch('domainapi.php', {
+                const response = await fetch(buildApiUrl('api/domain/domain_api.php'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -5961,7 +5961,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
 
                 const result = await response.json();
-                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
 
                 const permissionContainer = document.getElementById('process-list-permission-buttons');
                 permissionContainer.innerHTML = '';

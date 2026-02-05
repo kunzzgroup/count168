@@ -24537,7 +24537,7 @@ let isSelecting = false;
             }
             
             try {
-                const response = await fetch('domainapi.php', {
+                const response = await fetch('api/domain/domain_api.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -24549,7 +24549,7 @@ let isSelecting = false;
                 });
                 
                 const result = await response.json();
-                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
                 
                 const permissionContainer = document.getElementById('data-capture-permission-buttons');
                 permissionContainer.innerHTML = '';
