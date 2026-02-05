@@ -211,6 +211,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Account List</title>
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
     <style>
         /* Input formatting - 统一管理输入框格式 */
