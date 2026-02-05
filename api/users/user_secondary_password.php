@@ -1,26 +1,27 @@
 <?php
+/**
+ * 二级密码验证页（仅 C168 公司 user 类型）
+ * 路径: api/users/user_secondary_password.php
+ */
 session_start();
-require_once 'config.php';
+require_once __DIR__ . '/../../config.php';
+
+// 根路径（用于重定向，适配子目录部署）
+$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'], 2), '/');
 
 // 检查用户是否已登录（必须是user类型，且属于c168公司）
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'user') {
-    // 如果不是user或未登录，跳转到登录页
-    header("Location: index.php");
+    header("Location: {$basePath}/index.php");
     exit();
 }
 
-// 检查是否属于c168公司（company_id = 5 或 company_code = 'C168'）
+// 检查是否属于 C168 公司
 $company_id = $_SESSION['company_id'] ?? null;
-$company_code = $_SESSION['company_code'] ?? null;
 $is_c168 = false;
-
 if ($company_id) {
     try {
-        // 检查company_id是否为5（c168公司的数字ID）
-        $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-        $stmt->execute([$company_id]);
-        $company = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($company) {
+        $row = dbGetCompanyC168($pdo, $company_id);
+        if ($row) {
             $is_c168 = true;
         }
     } catch (PDOException $e) {
@@ -28,51 +29,46 @@ if ($company_id) {
     }
 }
 
-// 如果不是c168公司的用户，直接跳转到dashboard（不需要二级密码）
+function dbGetCompanyC168($pdo, $company_id) {
+    $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+    $stmt->execute([$company_id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+// 如果不是c168公司的用户，直接跳转到dashboard
 if (!$is_c168) {
     $_SESSION['secondary_password_verified'] = true;
-    header("Location: dashboard.php");
+    header("Location: {$basePath}/dashboard.php");
     exit();
 }
 
-// 如果已经通过二级密码验证，直接跳转到dashboard
 if (isset($_SESSION['secondary_password_verified']) && $_SESSION['secondary_password_verified'] === true) {
-    header("Location: dashboard.php");
+    header("Location: {$basePath}/dashboard.php");
     exit();
 }
 
 $error_message = '';
 
-// 处理表单提交
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $secondary_password = trim($_POST['secondary_password'] ?? '');
-    
     if (empty($secondary_password)) {
         $error_message = 'Please enter secondary password';
     } elseif (!preg_match('/^\d{6}$/', $secondary_password)) {
         $error_message = 'Secondary password must be exactly 6 digits';
     } else {
-        // 验证二级密码
         try {
             $user_id = $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT secondary_password FROM user WHERE id = ?");
-            $stmt->execute([$user_id]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+            $user = dbGetUserSecondaryPassword($pdo, $user_id);
             if ($user && !empty($user['secondary_password'])) {
-                // 验证哈希密码
                 if (password_verify($secondary_password, $user['secondary_password'])) {
-                    // 二级密码验证成功
                     $_SESSION['secondary_password_verified'] = true;
-                    header("Location: dashboard.php");
+                    header("Location: {$basePath}/dashboard.php");
                     exit();
-                } else {
-                    $error_message = 'Secondary password is incorrect';
                 }
+                $error_message = 'Secondary password is incorrect';
             } else {
-                // user没有设置二级密码（不应该发生，但如果发生，允许通过）
                 $_SESSION['secondary_password_verified'] = true;
-                header("Location: dashboard.php");
+                header("Location: {$basePath}/dashboard.php");
                 exit();
             }
         } catch (PDOException $e) {
@@ -80,6 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error_message = 'An error occurred. Please try again.';
         }
     }
+}
+
+function dbGetUserSecondaryPassword($pdo, $user_id) {
+    $stmt = $pdo->prepare("SELECT secondary_password FROM user WHERE id = ?");
+    $stmt->execute([$user_id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 ?>
 
@@ -89,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secondary Password Verification - EazyCount</title>
-    <link rel="stylesheet" href="css/style.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($basePath); ?>/css/style.css?v=<?php echo time(); ?>" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -129,29 +131,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
-        // 限制输入只能为数字
         const secondaryPasswordInput = document.getElementById('secondary_password');
-        
         secondaryPasswordInput.addEventListener('input', function() {
-            // 只保留数字
             this.value = this.value.replace(/[^0-9]/g, '');
-            // 限制为6位
-            if (this.value.length > 6) {
-                this.value = this.value.slice(0, 6);
-            }
+            if (this.value.length > 6) this.value = this.value.slice(0, 6);
         });
-        
         secondaryPasswordInput.addEventListener('paste', function(e) {
             e.preventDefault();
-            const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-            const numericOnly = pastedText.replace(/[^0-9]/g, '').slice(0, 6);
-            this.value = numericOnly;
+            this.value = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '').slice(0, 6);
         });
-        
-        // 表单提交验证
         document.getElementById('secondaryPasswordForm').addEventListener('submit', function(e) {
-            const password = secondaryPasswordInput.value.trim();
-            if (!/^\d{6}$/.test(password)) {
+            if (!/^\d{6}$/.test(secondaryPasswordInput.value.trim())) {
                 e.preventDefault();
                 alert('Please enter exactly 6 digits');
                 secondaryPasswordInput.focus();

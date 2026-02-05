@@ -229,7 +229,7 @@ let templatePermissions = [];
             showConfirmModal(confirmMessage, function() {
                 // Move all code after original confirm here
                 // Send update request
-                fetch('useraccessapi.php', {
+                fetch('api/useraccess/useraccess_api.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

@@ -868,7 +868,7 @@ function editUser(id, isOwnerShadow = false) {
     
     // 获取用户权限数据（只有非owner影子才获取）
     if (!isOwnerShadow) {
-        fetch('userlistapi.php', {
+        fetch('api/users/userlist_api.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1567,7 +1567,7 @@ function deleteSelected() {
     showConfirmModal(confirmMessage, function() {
         // 批量删除
         Promise.all(selectedIds.map(id =>
-            fetch('userlistapi.php', {
+            fetch('api/users/userlist_api.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2241,7 +2241,7 @@ document.getElementById('userForm').addEventListener('submit', function(e) {
     // 添加调试日志
     console.log('Submitting user data:', data);
     
-    fetch('userlistapi.php', {
+    fetch('api/users/userlist_api.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

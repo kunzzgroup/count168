@@ -1,16 +1,20 @@
 <?php
+/**
+ * 用户列表 CRUD API（创建/更新/删除/获取用户）
+ * 路径: api/users/userlist_api.php
+ */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-require_once 'config.php';
+require_once __DIR__ . '/../../config.php';
 
 session_start();
 
 // 检查用户是否登录
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['company_id'])) {
-    sendResponse(false, 'Unauthorized access');
+    sendResponse(false, 'Unauthorized access', null);
 }
 
 $current_company_id = $_SESSION['company_id'];
@@ -1117,12 +1121,11 @@ try {
     }
     
 } catch (PDOException $e) {
-    error_log("Database error: " . $e->getMessage());
+    error_log("Database error in userlist_api: " . $e->getMessage());
     error_log("SQL State: " . $e->getCode());
     error_log("Error Info: " . print_r($e->errorInfo, true));
-    sendResponse(false, 'Database error occurred: ' . $e->getMessage());
+    sendResponse(false, 'Database error occurred: ' . $e->getMessage(), null);
 } catch (Exception $e) {
-    error_log("General error: " . $e->getMessage());
-    sendResponse(false, 'An error occurred: ' . $e->getMessage());
+    error_log("General error in userlist_api: " . $e->getMessage());
+    sendResponse(false, 'An error occurred: ' . $e->getMessage(), null);
 }
-?>
