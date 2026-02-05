@@ -60,6 +60,7 @@
             if (pageName === currentPage) title.classList.add('current-page');
         });
     }
+    window.setCurrentPageHighlight = setCurrentPageHighlight;
 
     function positionSubmenu(wrapper) {
         var title = wrapper.querySelector('.informationmenu-section-title');
