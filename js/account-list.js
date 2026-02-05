@@ -90,7 +90,7 @@
         async function fetchAccounts() {
             try {
                 const searchTerm = document.getElementById('searchInput').value;
-                const url = new URL('api/accounts/accountlistapi.php', window.location.origin);
+                const url = new URL('api/accounts/accountlistapi.php', window.location.href);
                 
                 // 娣诲姞褰撳墠閫夋嫨鐨?company_id
                 const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
