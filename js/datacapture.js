@@ -6313,7 +6313,16 @@ let isSelecting = false;
                 console.log('2.11 WBET_API: Processed matrix:', processedMatrix.length, 'rows x', processedMaxCols, 'columns');
                 console.log('2.11 WBET_API: First few rows:', processedMatrix.slice(0, 5));
                 
-                // 直接填充到表格（保持原始格式）
+                // 修正 Sub Total / Grand Total 行：Total = W/L + Comm（消除 0.01 差）
+                processedMatrix.forEach(function(row) {
+                    var rowText = (row.join(' ') || '').toUpperCase();
+                    if (rowText.indexOf('SUB TOTAL') >= 0 || rowText.indexOf('SUBTOTAL') >= 0 ||
+                        rowText.indexOf('GRAND TOTAL') >= 0 || rowText.indexOf('GRANDTOTAL') >= 0) {
+                        fixSummaryRowTotalColumns(row);
+                    }
+                });
+                
+                // 直接填充到表格（钱数统一 .xx + 千分位）
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                 const startCol = 0; // 2.11 WBET_API: 强制从第一列开始
                 
