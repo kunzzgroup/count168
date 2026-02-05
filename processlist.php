@@ -209,12 +209,14 @@ if ($current_user_id && count($user_companies) > 0) {
     <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css">
 </head>
 
 <body class="process-page">
+    <div id="main-content">
     <div class="container">
         <div class="content">
             <div
@@ -1305,6 +1307,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     onclick="confirmDelete()">Delete</button>
             </div>
         </div>
+    </div>
     </div>
 
     <script>

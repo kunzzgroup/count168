@@ -94,10 +94,12 @@ if ($current_user_id && count($user_companies) > 0) {
     <title>Data Capture</title>
     <link rel="stylesheet" href="css/datacapture.css">
     <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <div id="main-content">
     <div class="container">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
             <h1 style="margin: 0;">Data Capture</h1>
@@ -392,6 +394,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <button type="button" class="btn btn-cancel" onclick="closeDeleteDialog(); event.stopPropagation();">Cancel</button>
             </div>
         </div>
+    </div>
     </div>
 
     <script>

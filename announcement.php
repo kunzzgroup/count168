@@ -44,10 +44,12 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <link rel="stylesheet" href="css/announcement.css">
     <title>Announcement Management</title>
     <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <div id="main-content">
     <div class="container">
         <h1>Announcement and Maintenance Management</h1>
         
@@ -159,6 +161,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 </div>
             </form>
         </div>
+    </div>
     </div>
 
     <script src="js/announcement.js?v=<?php echo time(); ?>"></script>

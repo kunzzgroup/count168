@@ -19,10 +19,12 @@ $isOwner = ($userRole === 'owner');
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/customer_report.css">
+    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <div id="main-content">
     <div class="container">
         <div class="content">
             <div class="report-header">
@@ -116,9 +118,9 @@ $isOwner = ($userRole === 'owner');
             </div>
         </div>
     </div>
-
     <!-- Notification Container -->
     <div id="customerReportNotificationContainer" class="account-notification-container"></div>
+    </div>
 
     <script>
         window.CUSTOMER_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
