@@ -3422,7 +3422,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
         async function loadExistingDescriptions() {
             try {
-                const response = await fetch(buildApiUrl('addprocessapi.php'));
+                const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'));
                 const result = await response.json();
                 if (result.success) {
                     const descriptionsList = document.getElementById('existingDescriptions');
@@ -3636,7 +3636,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 formData.append('action', 'delete_description');
                 formData.append('description_id', descriptionId);
 
-                const response = await fetch(buildApiUrl('addprocessapi.php'), {
+                const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'), {
                     method: 'POST',
                     body: formData
                 });
@@ -3694,7 +3694,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // 加载添加表单所需的数据
         async function loadAddProcessData() {
             try {
-                const response = await fetch(buildApiUrl('addprocessapi.php'));
+                const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'));
                 const result = await response.json();
 
                 if (result.success) {
@@ -3803,7 +3803,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Load edit form data (currencies, days, etc.)
         async function loadEditProcessData() {
             try {
-                const response = await fetch(buildApiUrl('addprocessapi.php'));
+                const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'));
                 const result = await response.json();
 
                 if (result.success) {
@@ -4215,7 +4215,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 formData.append('day_use', selectedDays.join(','));
 
                 try {
-                    const response = await fetch(buildApiUrl('addprocessapi.php'), {
+                    const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'), {
                         method: 'POST',
                         body: formData
                     });
@@ -4310,7 +4310,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         return;
                     }
-                    const response = await fetch(buildApiUrl('addprocessapi.php'), {
+                    const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'), {
                         method: 'POST',
                         body: formData
                     });
@@ -4410,7 +4410,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.append('action', 'add_description');
                     formData.append('description_name', descriptionName);
 
-                    const response = await fetch(buildApiUrl('addprocessapi.php'), {
+                    const response = await fetch(buildApiUrl('api/processes/addprocess_api.php'), {
                         method: 'POST',
                         body: formData
                     });
@@ -5107,7 +5107,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const currencyCode = resolveCurrencyCodeFromCountryField(countryOrCurrency);
             if (!currencyCode) return;
             try {
-                const apiUrl = buildApiUrl('addprocessapi.php');
+                const apiUrl = buildApiUrl('api/processes/addprocess_api.php');
                 const res = await fetch(apiUrl);
                 const result = await res.json();
                 if (!result.success) return;
@@ -6136,7 +6136,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!currencySelect || currencySelect.options.length <= 1) {
                     await loadAddProcessData();
                 }
-                const response = await fetch(buildApiUrl(`addprocessapi.php?action=copy_from&process_id=${processId}`));
+                const response = await fetch(buildApiUrl(`api/processes/addprocess_api.php?action=copy_from&process_id=${processId}`));
                 const result = await response.json();
                 if (!result.success || !result.data) {
                     throw new Error(result.error || 'Unknown error');
