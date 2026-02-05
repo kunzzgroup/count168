@@ -67,11 +67,25 @@
         return SKIP_PJAX_PAGES.some(function(p) { return base === p || path.indexOf(p) !== -1; });
     }
 
+    function normalizeAssetKey(urlOrPath) {
+        if (!urlOrPath) return '';
+        try {
+            var u = new URL(urlOrPath, window.location.href);
+            var path = u.pathname || '';
+            var segs = path.split('/').filter(Boolean);
+            return segs.length ? segs[segs.length - 1] : path;
+        } catch (e) {
+            var p = (urlOrPath + '').split('?')[0];
+            var segs = p.split('/').filter(Boolean);
+            return segs.length ? segs[segs.length - 1] : p;
+        }
+    }
+
     function getExistingStyleHrefs() {
         var hrefs = [];
         document.querySelectorAll('link[rel="stylesheet"]').forEach(function(link) {
             var h = link.getAttribute('href');
-            if (h) hrefs.push(h.split('?')[0]);
+            if (h) hrefs.push(normalizeAssetKey(h));
         });
         return hrefs;
     }
@@ -80,7 +94,7 @@
         var srcs = [];
         document.querySelectorAll('script[src]').forEach(function(script) {
             var s = script.getAttribute('src');
-            if (s) srcs.push(s.split('?')[0]);
+            if (s) srcs.push(normalizeAssetKey(s));
         });
         return srcs;
     }
@@ -105,8 +119,8 @@
 
     function injectStyles(fragment, existingHrefs) {
         fragment.querySelectorAll('link[rel="stylesheet"]').forEach(function(link) {
-            var href = (link.getAttribute('href') || '').split('?')[0];
-            if (!href || existingHrefs.indexOf(href) !== -1) return;
+            var href = link.getAttribute('href');
+            if (!href || existingHrefs.indexOf(normalizeAssetKey(href)) !== -1) return;
             var clone = link.cloneNode(true);
             document.head.appendChild(clone);
         });
@@ -116,8 +130,8 @@
         container.querySelectorAll('script').forEach(function(oldScript) {
             var src = oldScript.getAttribute('src');
             if (src) {
-                var srcBase = src.split('?')[0];
-                if (existingSrcs.indexOf(srcBase) !== -1) return;
+                var key = normalizeAssetKey(src);
+                if (existingSrcs.indexOf(key) !== -1) return;
                 var script = document.createElement('script');
                 script.src = src;
                 if (oldScript.async) script.async = true;
