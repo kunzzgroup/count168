@@ -208,15 +208,26 @@ $showAll = isset($_GET['showAll']) ? true : false;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Account List</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="css/accountCSS.css?v=<?php echo time(); ?>" as="style">
+    <link href="https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap" rel="stylesheet">
+    <style id="account-critical-css">
+        #main-content .container,.container{max-width:none;margin:0;padding:1px 40px 20px clamp(180px,14.06vw,270px);width:100%;box-sizing:border-box;}
+        #main-content .content,.content{min-height:0;}
+        #main-content .account-page-title,.account-page-title{color:#002C49;text-align:left;margin:clamp(12px,1.04vw,20px) 0 clamp(16px,1.35vw,26px);font-size:clamp(26px,2.08vw,40px);font-weight:500;letter-spacing:-0.025em;font-family:'Amaranth',system-ui,sans-serif;}
+    </style>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
-    <link rel="stylesheet" href="css/account-list.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <link rel="stylesheet" href="css/account-list.css?v=<?php echo time(); ?>" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="css/account-list.css?v=<?php echo time(); ?>"></noscript>
+    <script src="js/common.js?v=<?php echo time(); ?>" defer></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>" defer></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <div id="main-content">
     <div class="container">
         <div class="content">
             <h1 class="account-page-title">Account List</h1>
@@ -298,6 +309,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <button class="account-pagination-btn" id="nextBtn" onclick="changePage(currentPage + 1)">▶</button>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- Edit Account Popup Modal -->
