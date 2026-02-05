@@ -18,7 +18,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="transaction.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <title>Formula Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/formula_maintenance.css">

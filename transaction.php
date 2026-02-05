@@ -24,7 +24,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Transaction Payment</title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
-    <link rel="stylesheet" href="transaction.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>">
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
