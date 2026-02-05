@@ -1133,7 +1133,8 @@ body.process-page {
     opacity: 1;
 }
 
-.process-page .notification-header {
+/* 仅作用于页面内操作结果弹窗，不影响侧栏公告 */
+.process-page .notification-popup .notification-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1142,7 +1143,7 @@ body.process-page {
     border-bottom: 0.0625rem solid #e2e8f0;
 }
 
-.process-page .notification-title {
+.process-page .notification-popup .notification-title {
     font-family: 'Amaranth', sans-serif;
     font-size: 1rem;
     font-weight: 700;
@@ -1153,7 +1154,7 @@ body.process-page {
     gap: 0.5rem;
 }
 
-.process-page .notification-title span {
+.process-page .notification-popup .notification-title span {
     font-size: 1.125rem;
     font-weight: bold;
     margin-right: 0.5rem;
@@ -1174,7 +1175,7 @@ body.process-page {
     color: #f59e0b;
 }
 
-.process-page .notification-close {
+.process-page .notification-popup .notification-close {
     background: none;
     border: none;
     color: #64748b;
@@ -1191,12 +1192,12 @@ body.process-page {
     transition: all 0.2s ease;
 }
 
-.process-page .notification-close:hover {
+.process-page .notification-popup .notification-close:hover {
     background: #f1f5f9;
     color: #334155;
 }
 
-.process-page .notification-message {
+.process-page .notification-popup .notification-message {
     padding: 0.75rem 1.25rem 1.25rem 1.25rem;
     font-family: 'Amaranth', sans-serif;
     font-size: 0.875rem;
@@ -1230,7 +1231,7 @@ body.process-page {
     background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
 }
 
-.process-page .notification-progress {
+.process-page .notification-popup .notification-progress {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -1240,7 +1241,7 @@ body.process-page {
     overflow: hidden;
 }
 
-.process-page .notification-progress-bar {
+.process-page .notification-popup .notification-progress-bar {
     height: 100%;
     background: linear-gradient(90deg, #10b981, #059669);
     width: 100%;
