@@ -2,6 +2,14 @@ let isSelecting = false;
         let startCell = null;
         let selectedCells = new Set();
         
+        // 构造 API 绝对 URL（与 processlist.js 一致，避免 404）
+        function buildApiUrl(pathAndQuery) {
+            const pathname = window.location.pathname || '/';
+            const basePath = pathname.replace(/[^/]*$/, '') || '/';
+            const base = window.location.origin + basePath;
+            return new URL(pathAndQuery, base).href;
+        }
+        
         // Track if table is active (user has clicked on table)
         let tableActive = false;
 
@@ -970,8 +978,8 @@ let isSelecting = false;
                 // Add currently selected company_id
                 const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
                 // Use get_submissions_by_capture_date to filter by capture_date (form selected date)
-                const url = `api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${selectedDate}`;
-                const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+                const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${encodeURIComponent(selectedDate)}`);
+                const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
                 const result = await response.json();
@@ -2089,7 +2097,7 @@ let isSelecting = false;
                 console.log('Sending to API - process_id:', processData.process, 'date_submitted:', captureDate, 'capture_date:', captureDate, 'company_id:', currentCompanyId);
                 console.log('Form capture_date (used for date_submitted):', captureDate);
                 
-                const response = await fetch('api/processes/submitted_processes_api.php', {
+                const response = await fetch(buildApiUrl('api/processes/submitted_processes_api.php'), {
                     method: 'POST',
                     body: formData
                 });
@@ -2670,8 +2678,8 @@ let isSelecting = false;
                 
                 // Add currently selected company_id
                 const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-                const url = `api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${selectedDate}`;
-                const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+                const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${encodeURIComponent(selectedDate)}`);
+                const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
                 const result = await response.json();

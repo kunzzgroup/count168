@@ -398,7 +398,7 @@ if ($current_user_id && count($user_companies) > 0) {
         window.DATACAPTURE_COMPANY_ID = <?php echo json_encode($company_id); ?>;
         window.DATACAPTURE_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
     </script>
-    <script src="js/datacapture.js"></script>
+    <script src="js/datacapture.js?v=<?php echo time(); ?>"></script>
 
 </body>
 </html>
