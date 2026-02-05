@@ -213,13 +213,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/account-list.css">
-    <link rel="stylesheet" href="css/common.css">
-    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
-    <div id="main-content">
     <div class="container">
         <div class="content">
             <h1 class="account-page-title">Account List</h1>
@@ -625,7 +622,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
         window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD = <?php echo json_encode($company_id ? [$company_id] : []); ?>;
     </script>
     <script src="js/account-list.js?v=<?php echo time(); ?>"></script>
-    </div><!-- #main-content -->
+
 
 </body>
 </html>

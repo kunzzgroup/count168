@@ -424,11 +424,6 @@
     position: relative;
     overflow: hidden;
 }
-a.informationmenu-section-title {
-    text-decoration: none;
-    width: 100%;
-    box-sizing: border-box;
-}
 
 .informationmenu-section-title::before {
     content: '';

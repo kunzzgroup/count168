@@ -24,13 +24,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <title>Data Capture Maintenance</title>
     <link rel="stylesheet" href="css/capture_maintenance.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
-    <link rel="stylesheet" href="css/common.css">
-    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
-    <div id="main-content">
     <div class="container">
         <div class="maintenance-header">
             <h1>Maintenance - Data Capture</h1>
@@ -136,6 +133,5 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>;</script>
     <script src="js/capture_maintenance.js?v=<?php echo time(); ?>"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    </div><!-- #main-content -->
 </body>
 </html>

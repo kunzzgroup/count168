@@ -73,14 +73,16 @@ try {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>Domain List</title>
     <link rel="stylesheet" href="css/sidebar.css">
-    <link rel="stylesheet" href="css/common.css">
-    <script src="js/common.js"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/domain.css">
+    <script>
+        window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
+        window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
+    </script>
+    <script src="js/domain.js"></script>
 </head>
 <body>
-    <div id="main-content">
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
         <h1>Domain List</h1>
@@ -349,12 +351,6 @@ try {
             </div>
         </div>
     </div>
-    <script>
-        window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
-        window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
-    </script>
-    <script src="js/domain.js"></script>
-    </div><!-- #main-content -->
 
 </body>
 </html>
