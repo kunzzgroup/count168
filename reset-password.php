@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Password - EazyCount</title>
     <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/reset-password.css?v=<?php echo time(); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -69,85 +70,7 @@
         </div>
     </div>
 
-    <script>
-        // Password validation
-        const newPassword = document.getElementById('new-password');
-        const confirmPassword = document.getElementById('confirm-password');
-
-        function validatePassword() {
-            const password = newPassword.value;
-            const confirm = confirmPassword.value;
-            
-            if (confirm && password !== confirm) {
-                confirmPassword.style.borderColor = '#dc3545';
-                return false;
-            } else {
-                confirmPassword.style.borderColor = '#e1e5e9';
-                return true;
-            }
-        }
-
-        newPassword.addEventListener('input', validatePassword);
-        confirmPassword.addEventListener('input', validatePassword);
-
-        // TAC functionality
-        const getTacBtn = document.getElementById('get-tac-btn');
-        const emailField = document.getElementById('email');
-
-        getTacBtn.addEventListener('click', function() {
-            const email = emailField.value;
-            
-            if (!email) {
-                alert('Please enter your email address first');
-                return;
-            }
-            
-            // Disable button to prevent multiple clicks
-            getTacBtn.disabled = true;
-            getTacBtn.textContent = 'Sending...';
-            
-            // Simulate TAC sending (replace with actual API call)
-            setTimeout(() => {
-                alert('TAC code has been sent to your email');
-                document.getElementById('tac-field').focus();
-                getTacBtn.disabled = false;
-                getTacBtn.textContent = 'Send TAC';
-            }, 2000);
-        });
-
-        // Form submission
-        document.getElementById('resetForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            if (!validatePassword()) {
-                alert('Passwords do not match');
-                return;
-            }
-            
-            const tac = document.getElementById('tac-field').value;
-            if (!tac) {
-                alert('Please enter the TAC code');
-                return;
-            }
-            
-            // Here you would typically send the data to your backend
-            alert('Password reset successful! Redirecting to login...');
-            setTimeout(() => {
-                window.location.href = 'index.php';
-            }, 2000);
-        });
-
-        // Add input focus effects
-        document.querySelectorAll('.input-group input').forEach(input => {
-            input.addEventListener('focus', function() {
-                this.parentElement.style.transform = 'scale(1.02)';
-            });
-            
-            input.addEventListener('blur', function() {
-                this.parentElement.style.transform = 'scale(1)';
-            });
-        });
-    </script>
+    <script src="js/reset-password.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>

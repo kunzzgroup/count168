@@ -167,7 +167,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Process List</title>
-    <link rel="stylesheet" href="processCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js"></script>
