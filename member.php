@@ -153,7 +153,7 @@ $today = date('d/m/Y');
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/member.css">
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="transaction-page member-winloss-page">
     <?php include 'sidebar.php'; ?>

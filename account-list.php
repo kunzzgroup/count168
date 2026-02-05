@@ -213,7 +213,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/account-list.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

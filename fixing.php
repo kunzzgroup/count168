@@ -155,7 +155,7 @@ if (!isset($_SESSION['user_id'])) {
         } */
     </style>
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body>
 

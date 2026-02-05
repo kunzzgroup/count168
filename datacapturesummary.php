@@ -37,7 +37,7 @@ $company_id = $_SESSION['company_id'] ?? null;
     <title>Data Capture Summary</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/datacapturesummary.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

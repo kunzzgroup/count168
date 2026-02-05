@@ -81,7 +81,7 @@ try {
     <title>User Access Management</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/useraccess.css?v=<?php echo time(); ?>">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

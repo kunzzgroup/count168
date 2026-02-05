@@ -44,7 +44,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <link rel="stylesheet" href="css/announcement.css">
     <title>Announcement Management</title>
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

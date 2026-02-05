@@ -22,7 +22,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <title>Formula Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/formula_maintenance.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

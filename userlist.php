@@ -168,7 +168,7 @@ try {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>User List</title>
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/userlist.css?v=<?php echo time(); ?>">
 </head>
