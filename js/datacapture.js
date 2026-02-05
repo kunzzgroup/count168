@@ -4113,10 +4113,9 @@ let isSelecting = false;
                             }
                         }
                     });
-                    // 2.Format：一条数据不拆分。不再因单元格内有<br>/换行而多占一行。
-                    // if (needsSplit) {
-                    //     actualRequiredRows++; // 需要拆分的行会占用两行
-                    // }
+                    if (needsSplit) {
+                        actualRequiredRows++; // 需要拆分的行会占用两行
+                    }
                 });
                 
                 const requiredRows = actualRequiredRows;
@@ -4376,9 +4375,9 @@ let isSelecting = false;
                     
                     console.log(`Format: Row ${sourceRowIndex}: Final check - hasVerticalSplit=${hasVerticalSplit}, cellsWithSplit.length=${cellsWithSplit.length}`);
                     
-                    // 2.Format：用户要求“一条数据不要拆分”。不再把一行按<br>/换行拆成两行，保持一条数据一行。
-                    // If any cell with top and bottom data detected, previously we split into two rows; now disabled.
-                    if (false && hasVerticalSplit && cellsWithSplit.length > 0) {
+                    // 如果检测到任何单元格有上下两个数据，进行拆分处理（一格上下两段 → 拆成两行）
+                    // If any cell with top and bottom data detected, perform split processing
+                    if (hasVerticalSplit && cellsWithSplit.length > 0) {
                         console.log(`Format: ✓ Detected ${cellsWithSplit.length} cell(s) with vertically stacked data in source row ${sourceRowIndex} (actual row ${actualRowIndex}), splitting into two rows`);
                         console.log(`Format: cellsWithSplit details:`, cellsWithSplit.map(s => ({index: s.index, top: s.topData, bottom: s.bottomData})));
                         
