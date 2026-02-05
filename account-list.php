@@ -210,7 +210,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Account List</title>
-    <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/account-list.css">
     <script src="js/sidebar.js"></script>
