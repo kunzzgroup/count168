@@ -3234,6 +3234,10 @@ let isSelecting = false;
                     });
                     cell.addEventListener('blur', function() {
                         this.classList.remove('selected');
+                        // 1.Text 和 2.Format 模式：不自动格式化为金额显示，保持粘贴的 Excel 原始格式（避免 D/E 行等被改成 EXCEL FORMAT）
+                        if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === '1.Text' || currentDataCaptureType === '2.Format')) {
+                            return;
+                        }
                         var t = (this.textContent || '').trim();
                         if (t) {
                             var displayed = formatMoneyDisplay(t);
