@@ -1627,12 +1627,6 @@
                 async function() {
                     closeConfirmDeleteModal();
                     const deleteBtn = document.getElementById('accountDeleteSelectedBtn');
-                    var idsSet = new Set(idsToDelete.map(function(id) { return parseInt(id, 10); }));
-                    var removedAccounts = accounts.filter(function(acc) { return idsSet.has(parseInt(acc.id, 10)); });
-                    accounts = accounts.filter(function(acc) { return !idsSet.has(parseInt(acc.id, 10)); });
-                    renderTable();
-                    renderPagination();
-                    updateDeleteButton();
                     if (deleteBtn) {
                         deleteBtn.disabled = true;
                         deleteBtn.textContent = 'Deleting...';
@@ -1646,19 +1640,15 @@
                         const result = await response.json();
                         if (result.success && result.data && typeof result.data.deleted === 'number') {
                             const deletedCount = result.data.deleted;
-                            showNotification(deletedCount === 1 ? '1 account deleted successfully' : deletedCount + ' accounts deleted successfully', 'success');
-                        } else {
-                            accounts = accounts.concat(removedAccounts);
+                            accounts = accounts.filter(acc => !idsToDelete.includes(parseInt(acc.id, 10)));
                             renderTable();
                             renderPagination();
                             updateDeleteButton();
+                            showNotification(deletedCount === 1 ? '1 account deleted successfully' : deletedCount + ' accounts deleted successfully', 'success');
+                        } else {
                             showNotification(result.message || result.error || 'Failed to delete accounts', 'danger');
                         }
                     } catch (err) {
-                        accounts = accounts.concat(removedAccounts);
-                        renderTable();
-                        renderPagination();
-                        updateDeleteButton();
                         showNotification('Failed to delete accounts: ' + (err.message || 'Network error'), 'danger');
                     } finally {
                         if (deleteBtn) {
