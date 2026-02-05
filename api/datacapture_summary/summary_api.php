@@ -1,7 +1,7 @@
 <?php
 session_start();
 header('Content-Type: application/json');
-require_once 'config.php';
+require_once __DIR__ . '/../../config.php';
 
 // Helper function to convert PHP ini size values to bytes
 function return_bytes($val) {
@@ -1173,7 +1173,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
 // 检查用户是否登录
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'error' => '用户未登录']);
+    echo json_encode(['success' => false, 'message' => '用户未登录', 'data' => null]);
     exit;
 }
 
@@ -1189,7 +1189,7 @@ if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
 
 if (!$company_id) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'error' => '缺少公司信息']);
+    echo json_encode(['success' => false, 'message' => '缺少公司信息', 'data' => null]);
     exit;
 }
 
@@ -1204,7 +1204,7 @@ if ($current_user_role === 'owner') {
     $stmt->execute([$company_id, $owner_id]);
     if ($stmt->fetchColumn() == 0) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => '无权限访问该公司']);
+        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
         exit;
     }
 } else {
@@ -1217,7 +1217,7 @@ if ($current_user_role === 'owner') {
     $stmt->execute([$current_user_id, $company_id]);
     if ($stmt->fetchColumn() == 0) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => '无权限访问该公司']);
+        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
         exit;
     }
 }
@@ -1325,7 +1325,8 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log('Template Save Error: ' . $e->getMessage());
         echo json_encode([
             'success' => false,
-            'error' => $e->getMessage(),
+            'message' => $e->getMessage(),
+            'data' => null,
         ]);
     }
     exit;
@@ -1463,7 +1464,8 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log('Template Delete Error: ' . $e->getMessage());
         echo json_encode([
             'success' => false,
-            'error' => $e->getMessage(),
+            'message' => $e->getMessage(),
+            'data' => null,
         ]);
     }
     exit;
@@ -1521,7 +1523,8 @@ if ($action === 'templates') {
         error_log('Template Fetch Error: ' . $e->getMessage());
         echo json_encode([
             'success' => false,
-            'error' => $e->getMessage(),
+            'message' => $e->getMessage(),
+            'data' => null,
         ]);
     }
     exit;
@@ -2074,7 +2077,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log("Submit Error: " . $e->getMessage());
         echo json_encode([
             'success' => false,
-            'error' => $e->getMessage()
+            'message' => $e->getMessage(),
+            'data' => null
         ]);
     }
     
@@ -2118,7 +2122,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log("API Error: " . $e->getMessage());
         echo json_encode([
             'success' => false,
-            'error' => $e->getMessage()
+            'message' => $e->getMessage(),
+            'data' => null
         ]);
     }
 }

@@ -571,7 +571,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId });
             
             // 构建URL
-            let url = `capture_maintenance_search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+            let url = `api/capture_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
             if (process) {
                 url += `&process=${encodeURIComponent(process)}`;
             }
@@ -606,7 +606,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                             showNotification(`Found ${data.data.length} record(s)`, 'success');
                         }
                     } else {
-                        showNotification(data.error || 'Search failed', 'error');
+                        showNotification(data.message || data.error || 'Search failed', 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
@@ -751,7 +751,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         items: selection
                     };
                     
-                    fetch('capture_maintenance_delete_api.php', {
+                    fetch('api/capture_maintenance/delete_api.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -776,7 +776,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.error || 'Delete failed', 'error');
+                            showNotification(data.message || data.error || 'Delete failed', 'error');
                         }
                     })
                     .catch(error => {

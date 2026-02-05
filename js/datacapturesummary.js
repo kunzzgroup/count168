@@ -2141,10 +2141,10 @@ function getCurrentProcessId() {
             try {
                 console.log('Loading form data...');
                 
-                // Load currency and account data from datacapturesummaryapi.php
+                // Load currency and account data from api/datacapture_summary/summary_api.php
                 // 添加当前选择的 company_id
                 const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                const url = 'datacapturesummaryapi.php';
+                const url = 'api/datacapture_summary/summary_api.php';
                 const finalUrl = currentCompanyId ? `${url}?company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -2238,10 +2238,10 @@ function getCurrentProcessId() {
                         }
                     }
                 } else {
-                    console.error('API returned error:', result.error);
+                    console.error('API returned error:', result.message || result.error);
                     // Only show error notification if not in edit mode (edit mode has pre-populated data)
                     if (!window.isEditMode) {
-                        showNotification('Failed to load form data: ' + result.error, 'error');
+                        showNotification('Failed to load form data: ' + (result.message || result.error), 'error');
                     }
                 }
                 
@@ -2297,7 +2297,7 @@ function getCurrentProcessId() {
                         }
                     }
                 } else {
-                    console.error('API returned error:', result.error);
+                    console.error('API returned error:', result.message || result.error);
                 }
                 
             } catch (error) {
@@ -3203,8 +3203,8 @@ function getCurrentProcessId() {
                     }
                     showNotification(`Currency ${currencyCode} deleted successfully!`, 'success');
                 } else {
-                    console.error('Delete failed:', data.error);
-                    showNotification(data.error || 'Failed to delete currency', 'danger');
+                    console.error('Delete failed:', data.message || data.error);
+                    showNotification(data.message || data.error || 'Failed to delete currency', 'danger');
                 }
             } catch (error) {
                 console.error('Error deleting currency:', error);
@@ -3269,7 +3269,7 @@ function getCurrentProcessId() {
                         itemElement.remove();
                         showNotification(`Currency ${currencyCode} removed from account`, 'success');
                     } else {
-                        const errorMsg = result.error || 'Failed to remove currency';
+                        const errorMsg = result.message || result.error || 'Failed to remove currency';
                         console.error('Currency delete API error:', result);
                         showNotification(errorMsg, 'danger');
                     }
@@ -3348,7 +3348,7 @@ function getCurrentProcessId() {
                     } else {
                         itemElement.classList.remove('selected');
                     }
-                    const errorMsg = result.error || `Currency ${isChecked ? 'add' : 'remove'} failed`;
+                    const errorMsg = result.message || result.error || `Currency ${isChecked ? 'add' : 'remove'} failed`;
                     console.error('Currency toggle API error:', result);
                     showNotification(errorMsg, 'danger');
                 }
@@ -3602,7 +3602,7 @@ function getCurrentProcessId() {
                     
                     input.value = '';
                     } else {
-                    showNotification(result.error || 'Failed to create currency', 'danger');
+                    showNotification(result.message || result.error || 'Failed to create currency', 'danger');
                     }
             } catch (error) {
                 console.error('Error creating currency:', error);
@@ -3757,7 +3757,7 @@ function getCurrentProcessId() {
                         // 刷新账户列表并自动选中新添加的账户（如果 edit formula modal 打开）
                         await refreshAccountList(newAccountId);
                     } else {
-                        showNotification(result.error, 'danger');
+                        showNotification(result.message || result.error, 'danger');
                         }
                     } catch (error) {
                         console.error('Error:', error);
@@ -6215,7 +6215,7 @@ function getCurrentProcessId() {
 
                 // 添加当前选择的 company_id
                 const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                const url = 'datacapturesummaryapi.php?action=save_template';
+                const url = 'api/datacapture_summary/summary_api.php?action=save_template';
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl, {
@@ -6253,7 +6253,7 @@ function getCurrentProcessId() {
                         console.warn('Could not find row to update template attributes');
                     }
                 } else {
-                    console.warn('Template auto-save failed:', result.error);
+                    console.warn('Template auto-save failed:', result.message || result.error);
                 }
                 
                 return result;
@@ -6436,7 +6436,7 @@ function getCurrentProcessId() {
 
                 // 添加当前选择的 company_id
                 const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                const url = 'datacapturesummaryapi.php?action=delete_template';
+                const url = 'api/datacapture_summary/summary_api.php?action=delete_template';
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl, {
@@ -6455,7 +6455,7 @@ function getCurrentProcessId() {
                 if (result.success) {
                     console.log('Template deleted successfully:', templateKey, templateId ? `(ID: ${templateId})` : '');
                 } else {
-                    console.warn('Template delete failed:', result.error);
+                    console.warn('Template delete failed:', result.message || result.error);
                 }
                 
                 return result;
@@ -12926,7 +12926,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         // 添加当前选择的 company_id
         const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-        const url = 'datacapturesummaryapi.php?action=templates';
+        const url = 'api/datacapture_summary/summary_api.php?action=templates';
         const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
         
         const response = await fetch(finalUrl, {
@@ -12948,7 +12948,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         const result = await response.json();
 
         if (!result.success) {
-            throw new Error(result.error || 'Failed to load templates');
+            throw new Error(result.message || result.error || 'Failed to load templates');
         }
 
         const templates = result.templates || {};
@@ -16961,7 +16961,7 @@ function formatPercentValue(value) {
                     
                     // 添加当前选择的 company_id
                     const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                    const url = 'datacapturesummaryapi.php?action=submit';
+                    const url = 'api/datacapture_summary/summary_api.php?action=submit';
                     const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                     
                     const response = await fetch(finalUrl, {
@@ -17007,8 +17007,8 @@ function formatPercentValue(value) {
                     if (!result.success) {
                         throw {
                             status: response.status,
-                            message: result.error || 'Unknown error',
-                            isSizeError: (result.error || '').includes('太大') || (result.error || '').includes('post_max_size')
+                            message: result.message || result.error || 'Unknown error',
+                            isSizeError: (result.message || result.error || '').includes('太大') || (result.message || result.error || '').includes('post_max_size')
                         };
                     }
                     
