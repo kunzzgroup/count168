@@ -23,12 +23,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <title>Transaction Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
-    <div id="main-content">
     <div class="container">
         <div class="maintenance-header">
             <h1>Maintenance - Transaction</h1>
@@ -107,7 +105,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 <p>No data found. Please adjust your search criteria and try again.</p>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- Notification Container -->

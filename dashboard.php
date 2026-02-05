@@ -124,7 +124,6 @@ if (isset($_GET['logout'])) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/dashboard.css">
-    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script>
         // 用户数据供JavaScript使用（外部 js/dashboard.js 依赖此变量）
         window.userData = <?php echo json_encode($userData); ?>;
@@ -135,7 +134,7 @@ if (isset($_GET['logout'])) {
 </head>
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
-    <div id="main-content">
+    
     <div class="dashboard-container">
         <h1 class="dashboard-title">Transaction Dashboard</h1>
         
@@ -304,7 +303,6 @@ if (isset($_GET['logout'])) {
         <div class="calendar-days" id="calendar-days">
             <!-- 动态生成日期 -->
         </div>
-    </div>
     </div>
 
 </body>

@@ -168,13 +168,11 @@ try {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>User List</title>
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/userlist.css?v=<?php echo time(); ?>">
 </head>
 <body>
-    <div id="main-content">
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
         <h1>User List</h1>
@@ -678,7 +676,6 @@ try {
                 </div>
             </div>
         </div>
-    </div>
     </div>
 
     <script>

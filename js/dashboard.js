@@ -1606,34 +1606,36 @@ document.addEventListener('visibilitychange', function() {
     }
 });
 
-// 初始化 - 使用防抖避免多次调用；支持首屏 DOMContentLoaded 与 Pjax 切回时再次初始化
+// 初始化 - 使用防抖避免多次调用
 let isInitializing = false;
-async function initDashboardPage() {
+document.addEventListener('DOMContentLoaded', async function() {
     if (isInitializing) return;
     isInitializing = true;
+    
     try {
-        // 添加全局错误处理（仅首次）
-        if (!window._dashboardErrorHandlersAdded) {
-            window._dashboardErrorHandlersAdded = true;
-            window.addEventListener('error', function(event) {
-                console.error('全局错误:', event.error);
-                if (event.error && event.error.message) {
-                    showError('Page error: ' + event.error.message);
-                } else {
-                    showError('Page error, please refresh the page');
-                }
-                event.preventDefault();
-            });
-            window.addEventListener('unhandledrejection', function(event) {
-                console.error('未处理的Promise拒绝:', event.reason);
-                showError('Request failed, please refresh the page');
-                event.preventDefault();
-            });
-        }
+        // 添加全局错误处理
+        window.addEventListener('error', function(event) {
+            console.error('全局错误:', event.error);
+            if (event.error && event.error.message) {
+                showError('Page error: ' + event.error.message);
+            } else {
+                showError('Page error, please refresh the page');
+            }
+            event.preventDefault(); // 阻止默认错误处理
+        });
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('未处理的Promise拒绝:', event.reason);
+            showError('Request failed, please refresh the page');
+            event.preventDefault(); // 阻止默认错误处理
+        });
+        
+        // 提前发起公司列表请求，与 initDatePickers 并行，减少首屏等待
         const loadCompaniesPromise = loadOwnerCompanies();
         initDatePickers();
         initChartDataButtons();
         await loadCompaniesPromise;
+        // 确保日期范围已设置后再加载数据（首次加载立即请求，不等待防抖）
         if (dateRange.startDate && dateRange.endDate && window.companyId) {
             await loadData(true);
         } else {
@@ -1645,8 +1647,4 @@ async function initDashboardPage() {
     } finally {
         isInitializing = false;
     }
-}
-document.addEventListener('DOMContentLoaded', function() { initDashboardPage(); });
-window.addEventListener('pjax:complete', function(e) {
-    if (e.detail && e.detail.url && String(e.detail.url).indexOf('dashboard') !== -1) initDashboardPage();
 });
