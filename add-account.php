@@ -22,63 +22,66 @@ try {
     $error_message = "无法加载角色列表: " . $e->getMessage();
 }
 
-// 处理表单提交
+// 处理表单提交（支持普通 POST 与 AJAX）
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+        || isset($_POST['_ajax']);
     try {
-        $account_id = trim($_POST['account_id']);
-        $name = trim($_POST['name']);
-        $role = trim($_POST['role']);
-        $password = trim($_POST['password']);
-        $currency_id = (int)$_POST['currency_id'];
-        $payment_alert = isset($_POST['payment_alert']) ? 1 : 0;
+        $account_id = trim($_POST['account_id'] ?? '');
+        $name = trim($_POST['name'] ?? '');
+        $role = trim($_POST['role'] ?? '');
+        $password = trim($_POST['password'] ?? '');
+        $currency_id = (int)($_POST['currency_id'] ?? 0);
+        $payment_alert = isset($_POST['payment_alert']) && $_POST['payment_alert'] != '0' ? 1 : 0;
         $alert_day = !empty($_POST['alert_day']) ? (int)$_POST['alert_day'] : null;
-        $alert_specific_date = !empty($_POST['alert_specific_date']) ? $_POST['alert_specific_date'] : null;
+        $alert_specific_date = !empty($_POST['alert_specific_date']) ? trim($_POST['alert_specific_date']) : null;
         $alert_amount = !empty($_POST['alert_amount']) ? (float)$_POST['alert_amount'] : null;
-        
-        // 验证必填字段
+
         if (empty($account_id) || empty($name) || empty($role) || empty($password) || empty($currency_id)) {
             throw new Exception('请填写所有必填字段');
         }
-        
-        // 检查账户ID是否已存在
+
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM account WHERE account_id = ?");
         $stmt->execute([$account_id]);
         if ($stmt->fetchColumn() > 0) {
             throw new Exception('账户ID已存在');
         }
-        
-        // 验证角色是否存在于role表
+
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE code = ?");
         $stmt->execute([$role]);
         if ($stmt->fetchColumn() == 0) {
             throw new Exception('选择的角色无效');
         }
-        
-        // 从currency表获取货币代码
+
         $stmt = $pdo->prepare("SELECT code FROM currency WHERE id = ?");
         $stmt->execute([$currency_id]);
         $currency_code = $stmt->fetchColumn();
-        
         if (!$currency_code) {
             throw new Exception('选择的货币无效');
         }
-        
-        // 插入新账户 - 将货币代码保存到currency字段
+
         $sql = "INSERT INTO account (account_id, name, role, password, currency, payment_alert, alert_day, alert_specific_date, alert_amount, status, last_login) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())";
-        
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            $account_id, $name, $role, $password, $currency_code, 
+            $account_id, $name, $role, $password, $currency_code,
             $payment_alert, $alert_day, $alert_specific_date, $alert_amount
         ]);
-        
+
+        if ($is_ajax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => true, 'message' => '账户创建成功！', 'data' => null]);
+            exit;
+        }
         $success_message = '账户创建成功！';
-        
-        // 清空表单数据
         $_POST = [];
-        
     } catch (Exception $e) {
+        if ($is_ajax) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $e->getMessage(), 'data' => null]);
+            exit;
+        }
         $error_message = $e->getMessage();
     }
 }
@@ -170,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <!-- Notification will be shown as popup in bottom-right corner -->
             
-            <form method="POST" class="account-form">
+            <form id="addAccountForm" method="POST" class="account-form">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="account_id">Account ID *</label>
@@ -509,24 +512,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
         <?php endif; ?>
 
-        // 表单验证
-        document.querySelector('.account-form').addEventListener('submit', function(e) {
+        // 表单异步提交（无刷新）
+        document.getElementById('addAccountForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
             const accountId = document.getElementById('account_id').value.trim();
             const name = document.getElementById('name').value.trim();
             const role = document.getElementById('role').value.trim();
             const password = document.getElementById('password').value.trim();
             const currencyId = document.getElementById('currency_id').value;
-            
+
             if (!accountId || !name || !role || !password || !currencyId) {
-                e.preventDefault();
                 showNotification('Error', '请填写所有必填字段', 'error');
-                return false;
+                return;
             }
-            
             if (password.length < 8) {
-                e.preventDefault();
                 showNotification('Error', '密码至少需要8个字符', 'error');
-                return false;
+                return;
+            }
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
+            }
+            const formData = new FormData(this);
+            formData.append('_ajax', '1');
+
+            try {
+                const response = await fetch('add-account.php', {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification('Success', result.message || '账户创建成功！', 'success');
+                    setTimeout(function() {
+                        window.location.href = 'account-list.php';
+                    }, 800);
+                } else {
+                    showNotification('Error', result.message || '创建失败', 'error');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Save Account';
+                    }
+                }
+            } catch (err) {
+                showNotification('Error', '请求失败: ' + (err.message || 'Network error'), 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Save Account';
+                }
             }
         });
     </script>

@@ -131,7 +131,7 @@ if ($companyId) {
   sidebar.php 涓鸿 include 鐨勭墖娈碉紝涓嶅湪姝ゅ娣诲姞 <link> / <script src>銆?
   璇峰湪涓婚〉闈紙濡?account-list.php銆乨ashboard.php 绛夛級鐨?<head> 涓姞鍏ワ細
     <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>" defer></script>
   濡傞渶 favicon 涓庡ご鍍忛鍔犺浇锛屽彲鍦ㄤ富椤甸潰 <head> 涓寜闇€娣诲姞锛?
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link rel="preload" href="(褰撳墠鐢ㄦ埛澶村儚 URL)" as="image">

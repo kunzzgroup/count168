@@ -1794,40 +1794,56 @@
                 return;
             }
 
+            closeConfirmDeleteModal();
+            const deleteBtn = document.getElementById('processDeleteSelectedBtn');
+            const confirmBtn = document.querySelector('#confirmDeleteModal .confirm-delete');
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+            }
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Deleting...';
+            }
+
             try {
-                // 创建 FormData 发送删除请求
-                // PHP 期望 $_POST['ids'] 为数组，使用 ids[] 格式
-                const formData = new FormData();
-                pendingDeleteIds.forEach(id => {
-                    formData.append('ids[]', id);
-                });
-
-                // 提交表单（使用表单提交以便跟随重定向）
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = buildApiUrl('processlist.php').toString();
-                pendingDeleteIds.forEach(id => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'ids[]';
-                    input.value = id;
-                    form.appendChild(input);
-                });
+                const body = { ids: pendingDeleteIds };
                 if (selectedPermission === 'Bank') {
-                    const permInput = document.createElement('input');
-                    permInput.type = 'hidden';
-                    permInput.name = 'permission';
-                    permInput.value = 'Bank';
-                    form.appendChild(permInput);
+                    body.permission = 'Bank';
                 }
-                document.body.appendChild(form);
-                form.submit();
+                const response = await fetch(buildApiUrl('api/processes/delete_processes_api.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const result = await response.json();
 
+                if (result.success && result.data && typeof result.data.deleted === 'number') {
+                    const deletedCount = result.data.deleted;
+                    const idSet = new Set(pendingDeleteIds.map(String));
+                    processes = processes.filter(p => !idSet.has(String(p.id)));
+                    renderTable();
+                    renderPagination();
+                    updateDeleteButton();
+                    updateSelectAllProcessesVisibility();
+                    showNotification(deletedCount === 1 ? '1 process deleted successfully' : deletedCount + ' processes deleted successfully', 'success');
+                } else {
+                    const msg = result.message || result.error || (result.data && result.data.error) || 'Delete failed';
+                    showNotification(msg, 'danger');
+                }
             } catch (error) {
                 console.error('Delete error:', error);
-                showNotification('Delete failed: ' + error.message, 'danger');
-                closeConfirmDeleteModal();
+                showNotification('Delete failed: ' + (error.message || 'Network error'), 'danger');
+            } finally {
                 pendingDeleteIds = [];
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = 'Delete';
+                }
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'Delete';
+                }
             }
         }
 

@@ -666,7 +666,7 @@
             
             console.log('User confirmed deletion, sending request to api/accounts/delete_currency_api.php...');
             try {
-                const response = await fetch('api/accounts/delete_currency_api.php', {
+                const response = await fetch('/api/accounts/delete_currency_api.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -748,7 +748,7 @@
                 }
                 
                 try {
-                    const response = await fetch(`api/accounts/account_currency_api.php?action=remove_currency`, {
+                    const response = await fetch('/api/accounts/account_currency_api.php?action=remove_currency', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -823,7 +823,7 @@
             
             try {
                 const action = isChecked ? 'add_currency' : 'remove_currency';
-                const response = await fetch(`api/accounts/account_currency_api.php?action=${action}`, {
+                const response = await fetch('/api/accounts/account_currency_api.php?action=' + encodeURIComponent(action), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1068,7 +1068,7 @@
                 // 绉婚櫎鍏宠仈
                 for (const linkedId of toRemove) {
                     try {
-                        const response = await fetch('api/accounts/account_link_api.php?action=unlink_accounts', {
+                        const response = await fetch('/api/accounts/account_link_api.php?action=unlink_accounts', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1091,7 +1091,7 @@
                 // 娣诲姞鍏宠仈锛堜紶閫掕繛鎺ョ被鍨嬶級
                 for (const linkedId of toAdd) {
                     try {
-                        const response = await fetch('api/accounts/account_link_api.php?action=link_accounts', {
+                        const response = await fetch('/api/accounts/account_link_api.php?action=link_accounts', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1118,7 +1118,7 @@
                     // 鏇存柊鐜版湁鍏宠仈鐨勭被鍨?
                     for (const linkedId of newIds) {
                         try {
-                            const response = await fetch('api/accounts/account_link_api.php?action=update_link_type', {
+                            const response = await fetch('/api/accounts/account_link_api.php?action=update_link_type', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -1417,7 +1417,7 @@
                 const formData = new FormData();
                 formData.append('id', accountId);
                 
-                const response = await fetch('api/accounts/toggle_payment_alert_api.php', {
+                const response = await fetch('/api/accounts/toggle_payment_alert_api.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1460,7 +1460,7 @@
                 const formData = new FormData();
                 formData.append('id', accountId);
                 
-                const response = await fetch('api/accounts/toggle_account_status_api.php', {
+                const response = await fetch('/api/accounts/toggle_account_status_api.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1624,22 +1624,38 @@
             
             showConfirmDelete(
                 `Are you sure you want to delete ${idsToDelete.length} selected inactive account(s)? This action cannot be undone.`,
-                function() {
-                    // Submit form to delete accounts
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = 'account-list.php';
-                    
-                    idsToDelete.forEach(id => {
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'ids[]';
-                        input.value = id;
-                        form.appendChild(input);
-                    });
-                    
-                    document.body.appendChild(form);
-                    form.submit();
+                async function() {
+                    closeConfirmDeleteModal();
+                    const deleteBtn = document.getElementById('accountDeleteSelectedBtn');
+                    if (deleteBtn) {
+                        deleteBtn.disabled = true;
+                        deleteBtn.textContent = 'Deleting...';
+                    }
+                    try {
+                        const response = await fetch('/api/accounts/delete_accounts_api.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ids: idsToDelete })
+                        });
+                        const result = await response.json();
+                        if (result.success && result.data && typeof result.data.deleted === 'number') {
+                            const deletedCount = result.data.deleted;
+                            accounts = accounts.filter(acc => !idsToDelete.includes(parseInt(acc.id, 10)));
+                            renderTable();
+                            renderPagination();
+                            updateDeleteButton();
+                            showNotification(deletedCount === 1 ? '1 account deleted successfully' : deletedCount + ' accounts deleted successfully', 'success');
+                        } else {
+                            showNotification(result.message || result.error || 'Failed to delete accounts', 'danger');
+                        }
+                    } catch (err) {
+                        showNotification('Failed to delete accounts: ' + (err.message || 'Network error'), 'danger');
+                    } finally {
+                        if (deleteBtn) {
+                            deleteBtn.disabled = false;
+                            deleteBtn.textContent = 'Delete';
+                        }
+                    }
                 }
             );
         }
@@ -1791,7 +1807,7 @@
             }
             
             try {
-                const response = await fetch('api/accounts/update_api.php', {
+                const response = await fetch('/api/accounts/update_api.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1847,7 +1863,7 @@
             try {
                 // 鍒涘缓鏂拌揣甯?- 鍖呭惈褰撳墠閫夋嫨鐨?company_id
                 const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
-                const response = await fetch('api/accounts/addcurrencyapi.php', {
+                const response = await fetch('/api/accounts/addcurrencyapi.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1874,7 +1890,7 @@
                     // 濡傛灉鏄紪杈戞ā寮忎笖璐︽埛宸插瓨鍦紝鑷姩鍏宠仈鏂拌揣甯佸埌璐︽埛
                     if (type === 'edit' && accountId) {
                         try {
-                            const linkResponse = await fetch('api/accounts/account_currency_api.php?action=add_currency', {
+                            const linkResponse = await fetch('/api/accounts/account_currency_api.php?action=add_currency', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -1977,7 +1993,7 @@
             }
             
             try {
-                const response = await fetch('api/accounts/addaccountapi.php', {
+                const response = await fetch('/api/accounts/addaccountapi.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1993,7 +2009,7 @@
                         try {
                             // 鎵归噺鍏宠仈璐у竵
                             const currencyPromises = selectedCurrencyIdsForAdd.map(currencyId => 
-                                fetch('api/accounts/account_currency_api.php?action=add_currency', {
+                                fetch('/api/accounts/account_currency_api.php?action=add_currency', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -2023,7 +2039,7 @@
                         try {
                             // 鎵归噺鍏宠仈鍏徃
                             const companyPromises = selectedCompanyIdsForAdd.map(companyId => 
-                                fetch('api/accounts/account_company_api.php?action=add_company', {
+                                fetch('/api/accounts/account_company_api.php?action=add_company', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
