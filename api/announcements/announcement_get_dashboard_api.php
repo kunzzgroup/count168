@@ -3,21 +3,11 @@
  * 公告仪表盘 API：获取活跃公告（供仪表盘展示）
  * 路径: api/announcements/announcement_get_dashboard_api.php
  */
-header('Content-Type: application/json; charset=utf-8');
-
-try {
-    require_once __DIR__ . '/../../config.php';
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-} catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Server config error', 'data' => null], JSON_UNESCAPED_UNICODE);
-    exit;
-}
+header('Content-Type: application/json');
+require_once __DIR__ . '/../../config.php';
+session_start();
 
 function fetchActiveAnnouncementsForDashboard(PDO $pdo, int $limit = 10): array {
-    // 与 announcement_list_api 相同的查询，仅加 LIMIT，保证侧栏与主列表数据一致
     $sql = "SELECT 
                 a.id,
                 a.title,
@@ -27,7 +17,7 @@ function fetchActiveAnnouncementsForDashboard(PDO $pdo, int $limit = 10): array 
             FROM announcements a
             LEFT JOIN user u ON a.created_by = u.id AND a.user_type = 'user'
             LEFT JOIN owner o ON a.created_by = o.id AND a.user_type = 'owner'
-            WHERE a.company_code = 'C168'
+            WHERE a.company_code = 'C168' AND a.status = 'active'
             ORDER BY a.created_at DESC
             LIMIT ?";
     $stmt = $pdo->prepare($sql);
@@ -43,7 +33,7 @@ function formatDashboardRows(array $rows): array {
             'title' => $row['title'] ?? '',
             'content' => $row['content'] ?? '',
             'created_at' => $row['created_at'] ?? '',
-            'created_by' => $row['created_by_name'] ?? '—'
+            'created_by' => $row['created_by_name'] ?? 'Unknown'
         ];
     }
     return $out;
@@ -54,14 +44,14 @@ function jsonResponse(bool $success, string $message, $data = null): void {
         'success' => $success,
         'message' => $message,
         'data' => $data
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
+    ]);
 }
 
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         jsonResponse(false, 'User not logged in', null);
+        return;
     }
 
     $rows = fetchActiveAnnouncementsForDashboard($pdo, 10);
@@ -71,9 +61,8 @@ try {
 } catch (PDOException $e) {
     error_log('Announcement get dashboard API DB error: ' . $e->getMessage());
     http_response_code(500);
-    jsonResponse(false, 'Database error', null);
-} catch (Throwable $e) {
-    error_log('Announcement get dashboard API error: ' . $e->getMessage());
-    http_response_code(500);
-    jsonResponse(false, 'Server error', null);
+    jsonResponse(false, 'Database error: ' . $e->getMessage(), null);
+} catch (Exception $e) {
+    http_response_code(400);
+    jsonResponse(false, $e->getMessage(), null);
 }
