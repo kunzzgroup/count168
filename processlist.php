@@ -34,6 +34,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                     header('Location: processlist.php?error=bank_has_day_start');
                     exit;
                 }
+                // Bank：若该流程在 transactions 中仍有记录（或无 source_bank_process_id 时看 process_accounting_posted），则不允许删除
+                $hasSourceBankProcessId = false;
+                try {
+                    $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+                    $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
+                } catch (PDOException $e) { /* ignore */ }
+                if ($hasSourceBankProcessId) {
+                    $papPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
+                    $stmt = $pdo->prepare("SELECT source_bank_process_id FROM transactions WHERE company_id = ? AND source_bank_process_id IN ($papPlaceholders) LIMIT 1");
+                    $stmt->execute(array_merge([$company_id_session], $inactiveIds));
+                    if ($stmt->fetch()) {
+                        header('Location: processlist.php?error=process_has_transactions');
+                        exit;
+                    }
+                } else {
+                    $papPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
+                    $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND process_id IN ($papPlaceholders) LIMIT 1");
+                    $stmt->execute(array_merge([$company_id_session], $inactiveIds));
+                    if ($stmt->fetch()) {
+                        header('Location: processlist.php?error=process_has_transactions');
+                        exit;
+                    }
+                }
                 $delPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
                 $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive'");
                 $stmt->execute(array_merge($inactiveIds, [$company_id_session]));
@@ -76,6 +99,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             if ($formulaCount > 0) {
                 header('Location: processlist.php?error=process_linked_to_formula');
                 exit;
+            }
+
+            // Gambling：若该流程在 transactions 表中有记录，则不允许删除
+            $hasProcessIdCol = false;
+            try {
+                $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
+                $hasProcessIdCol = $colStmt && $colStmt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+            if ($hasProcessIdCol) {
+                $txnPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+                $stmt = $pdo->prepare("SELECT process_id FROM transactions WHERE process_id IN ($txnPlaceholders) LIMIT 1");
+                $stmt->execute($processIds);
+                if ($stmt->fetch()) {
+                    header('Location: processlist.php?error=process_has_transactions');
+                    exit;
+                }
             }
 
             $deletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
@@ -167,10 +206,8 @@ if ($current_user_id && count($user_companies) > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Process List</title>
-    <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
     <style>
         /* Input formatting - 统一管理输入框格式 */
@@ -617,6 +654,96 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: clamp(20px, 2.08vw, 40px) 20px;
         }
 
+        /* Process Accounting Inbox (需要算账) - 标题右侧 */
+        .process-accounting-inbox-wrap { position: relative; }
+        .process-accounting-inbox-badge {
+            display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 20px;
+            padding: 0 8px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 800;
+        }
+        .process-accounting-inbox-btn {
+            padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 10px; background: #f8fafc;
+            cursor: pointer; font-size: 12px; font-weight: 700; color: #111827; transition: all 0.15s ease;
+        }
+        .process-accounting-inbox-btn:hover { background: #eef2ff; border-color: #a5b4fc; }
+        .process-accounting-inbox-btn.process-accounting-inbox-main {
+            display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
+            background: #ffffff; font-weight: 800; color: #0f172a;
+        }
+        .process-accounting-inbox-icon { width: 16px; height: 16px; display: inline-block; }
+        .process-accounting-inbox-popover {
+            position: absolute; left: 0; top: calc(100% + 8px); width: min(720px, calc(100vw - 60px)); max-height: 420px;
+            overflow: hidden; border: 1px solid #d0d7de; border-radius: 14px; background: #fff;
+            box-shadow: 0 10px 30px rgba(16,24,40,0.18); z-index: 1200; display: none;
+        }
+        .process-accounting-inbox-popover-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 10px 12px; border-bottom: 1px solid #e5e7eb; background: #f8fafc;
+        }
+        .process-accounting-inbox-popover-title { font-weight: 900; color: #0f172a; font-size: 14px; }
+        .process-accounting-inbox-popover-body { max-height: 320px; overflow: auto; padding: 8px; }
+        .process-accounting-inbox-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .process-accounting-inbox-table th, .process-accounting-inbox-table td { padding: 6px 8px; border-top: 1px solid #e5e7eb; text-align: left; }
+        .process-accounting-inbox-table th { background: #f1f5f9; font-weight: 700; }
+        .process-accounting-inbox-table tr.process-accounting-inbox-row-posted { background: #f1f5f9 !important; opacity: 0.7; color: #64748b; }
+        .process-accounting-inbox-table tr.process-accounting-inbox-row-posted td { color: #94a3b8; }
+        .process-accounting-inbox-actions { padding: 10px 0 0; border-top: 1px solid #e5e7eb; margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+
+        /* Accounting Due large modal (same size as Add Process) */
+        #processAccountingDueModal .accounting-due-modal-content {
+            width: 86% !important;
+            max-width: 66rem !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        #processAccountingDueModal .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #processAccountingDueModal .modal-header h2 { display: flex; align-items: center; gap: 8px; }
+        #processAccountingDueModal .modal-header-actions { display: flex; align-items: center; gap: 8px; }
+        #processAccountingDueModal .modal-header .close { position: static; }
+        /* 表格区域：超过约 20 行时出现垂直滚动条，表头固定 */
+        #processAccountingDueModal .process-accounting-inbox-table-wrap {
+            max-height: min(70vh, 520px);
+            overflow-y: auto;
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        #processAccountingDueModal .process-accounting-inbox-table-wrap .process-accounting-inbox-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f1f5f9;
+            box-shadow: 0 1px 0 #e5e7eb;
+        }
+        /* Transaction 与 Cancel 同尺寸、同字体，仅颜色不同 */
+        #processAccountingDueModal .btn-primary {
+            background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+            color: white;
+            font-family: 'Amaranth';
+            width: clamp(5rem, 6.25vw, 7.5rem);
+            padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+            font-size: clamp(0.625rem, 0.83vw, 1rem);
+            border: none;
+            border-radius: 0.375rem;
+            box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3);
+            cursor: pointer;
+        }
+        #processAccountingDueModal .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(180deg, #0f766e 0%, #0d9488 100%);
+            box-shadow: 0 4px 8px rgba(13, 148, 136, 0.4);
+            transform: translateY(-1px);
+        }
+        #processAccountingDueModal .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         /* Bank Modal Styles - Separate from Gambling modal */
         .bank-modal .bank-modal-content {
             max-width: 1000px;
@@ -723,6 +850,24 @@ if ($current_user_id && count($user_companies) > 0) {
 
         .bank-form .form-row {
             margin-bottom: 0;
+        }
+
+        .bank-form .bank-day-start-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .bank-form .bank-day-start-input-wrap {
+            flex: 0 0 auto;
+            max-width: 155px;
+        }
+        .bank-form .bank-day-start-input-wrap .bank-input {
+            width: 100%;
+        }
+        .bank-form .bank-day-start-frequency-wrap {
+            flex: 1;
+            min-width: 160px;
         }
 
         .bank-form .form-group {
@@ -1007,7 +1152,19 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="content">
             <div
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
-                <h1 class="page-title" style="margin: 0;">Process List</h1>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <h1 class="page-title" style="margin: 0;">Process List</h1>
+                    <!-- Accounting Due (Bank only): opens large modal like Add Process -->
+                    <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap" style="display: none;">
+                        <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main" id="processAccountingInboxBtn">
+                            <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                            </svg>
+                            Accounting Due
+                            <span class="process-accounting-inbox-badge" id="processAccountingInboxCount">0</span>
+                        </button>
+                    </div>
+                </div>
                 <!-- Permission Filter -->
                 <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header"
                     style="display: none;">
@@ -1261,6 +1418,44 @@ if ($current_user_id && count($user_companies) > 0) {
                         <button type="button" class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accounting Due Modal (Bank only, large like Add Process) -->
+    <div id="processAccountingDueModal" class="modal" style="display: none;">
+        <div class="modal-content accounting-due-modal-content">
+            <div class="modal-header">
+                <h2>
+                    Accounting Due
+                    <span class="process-accounting-inbox-badge" id="processAccountingInboxCountModal">0</span>
+                </h2>
+                <div class="modal-header-actions">
+                    <span class="close" onclick="closeAccountingDueModal()">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="process-accounting-inbox-table-wrap">
+                    <table class="process-accounting-inbox-table">
+                        <thead>
+                            <tr>
+                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
+                                <th>No</th>
+                                <th>Card Owner</th>
+                                <th>Country</th>
+                                <th>Cost</th>
+                                <th>Price</th>
+                                <th>Profit</th>
+                                <th>Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="processAccountingInboxTbody"></tbody>
+                    </table>
+                </div>
+                <div class="process-accounting-inbox-actions">
+                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Transaction</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1525,10 +1720,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     <!-- Row 3 -->
                     <div class="bank-form-row">
                         <div class="bank-form-cell bank-form-cell-left">
-                            <div class="form-row">
-                                <div class="form-group">
+                            <div class="form-row bank-day-start-row">
+                                <div class="form-group bank-day-start-input-wrap">
                                     <label for="bank_day_start">Day start</label>
                                     <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                </div>
+                                <div class="form-group bank-day-start-frequency-wrap">
+                                    <label for="bank_day_start_frequency">Frequency</label>
+                                    <select id="bank_day_start_frequency" name="day_start_frequency" class="bank-input bank-select">
+                                        <option value="1st_of_every_month">1st of Every Month</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -2131,6 +2333,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (currentPage > totalPages) currentPage = totalPages;
                     renderTable();
                     renderPagination();
+                    // Bank 类别下刷新列表后同步更新 Accounting Due 徽章
+                    if (selectedPermission === 'Bank') loadAccountingInbox();
                 } else {
                     console.error('API error:', result.error);
                     showNotification('Failed to get data: ' + result.error, 'danger');
@@ -2198,7 +2402,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                            ${process.status === 'active' ? '' : (process.has_transactions ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`)}
                         </div>
                     `;
                     container.appendChild(card);
@@ -2281,9 +2485,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const profit = dashIfEmpty(process.profit);
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
+                    (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
+                tr.setAttribute('data-status', process.status || '');
+                tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
                     '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
@@ -2304,6 +2510,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
             renderPagination();
             updateSelectAllProcessesVisibility();
+            updateDeleteButton();
         }
 
         /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
@@ -2608,6 +2815,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
                 const dayStart = process.day_start || '';
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+                const freqEl = document.getElementById('bank_day_start_frequency');
+                if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
                 // Parse profit_sharing string (e.g. "BB - 6, AA - 10") into selectedProfitSharingEntries
                 window.selectedProfitSharingEntries = [];
@@ -2889,12 +3098,210 @@ if ($current_user_id && count($user_companies) > 0) {
                 selectAllCheckbox.checked = allSelected;
             }
 
+            let deleteEnabled = false;
+            if (selectedPermission === 'Bank' && selectedCheckboxes.length > 0) {
+                const hasInactive = Array.from(selectedCheckboxes).some(cb => {
+                    const row = cb.closest('tr');
+                    return row && row.getAttribute('data-status') !== 'active';
+                });
+                deleteEnabled = hasInactive;
+            } else if (selectedCheckboxes.length > 0) {
+                deleteEnabled = true;
+            }
+
             if (selectedCheckboxes.length > 0) {
                 deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
-                deleteBtn.disabled = false;
+                deleteBtn.disabled = !deleteEnabled;
             } else {
                 deleteBtn.textContent = 'Delete';
                 deleteBtn.disabled = true;
+            }
+
+            updatePostToTransactionButton();
+        }
+
+        function updatePostToTransactionButton() {
+            const postBtn = document.getElementById('processPostToTransactionBtn');
+            if (!postBtn) return;
+            postBtn.style.display = selectedPermission === 'Bank' ? 'inline-block' : 'none';
+            if (selectedPermission !== 'Bank') {
+                postBtn.disabled = true;
+                return;
+            }
+            const selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
+            const activeSelectedIds = Array.from(selectedCheckboxes).filter(cb => {
+                const row = cb.closest('tr');
+                return row && row.getAttribute('data-status') === 'active';
+            }).map(cb => cb.dataset.id);
+            postBtn.disabled = activeSelectedIds.length === 0;
+            postBtn.textContent = activeSelectedIds.length > 0 ? `Transaction (${activeSelectedIds.length})` : 'Transaction';
+        }
+
+        window.__accountingInboxList = [];
+        function loadAccountingInbox() {
+            const url = buildApiUrl('process_accounting_inbox_api.php');
+            const currentCompanyId = <?php echo json_encode($company_id); ?>;
+            const u = new URL(url);
+            if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
+            return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
+                .then(r => r.json())
+                .then(data => {
+                    const list = (data && data.success && data.data) ? data.data : [];
+                    window.__accountingInboxList = list;
+                    renderAccountingInbox(list);
+                })
+                .catch(err => { console.error('Accounting inbox load failed:', err); renderAccountingInbox([]); });
+        }
+        function renderAccountingInbox(items) {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            const countEl = document.getElementById('processAccountingInboxCount');
+            const countEl2 = document.getElementById('processAccountingInboxCount2');
+            const postBtn = document.getElementById('processAccountingInboxPostBtn');
+            const selectAllCb = document.getElementById('processAccountingInboxSelectAll');
+            if (!tbody || !countEl) return;
+            const count = Array.isArray(items) ? items.length : 0;
+            const postableCount = Array.isArray(items) ? items.filter(p => !p.already_posted_today).length : 0;
+            countEl.textContent = String(postableCount);
+            if (countEl2) countEl2.textContent = String(postableCount);
+            const countModal = document.getElementById('processAccountingInboxCountModal');
+            if (countModal) countModal.textContent = String(postableCount);
+            if (selectAllCb) { selectAllCb.checked = postableCount > 0; selectAllCb.disabled = postableCount === 0; }
+            if (count === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
+                if (postBtn) postBtn.disabled = true;
+                return;
+            }
+            tbody.innerHTML = items.map((row, idx) => {
+                const name = (row.name || row.bank || '-');
+                const rowClass = row.already_posted_today ? ' class="process-accounting-inbox-row-posted"' : '';
+                const cbDisabled = row.already_posted_today ? ' disabled' : '';
+                const cbChecked = row.already_posted_today ? '' : ' checked';
+                const cbClass = 'process-accounting-inbox-row-cb';
+                const periodType = row.is_partial_first_month ? 'partial_first_month' : 'monthly';
+                const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
+                // 1st of every month 首月按比例只入账 Sell Price，Cost/Profit 在列表中显示为 "-"
+                const costDisplay = row.is_partial_first_month ? '-' : (row.cost != null ? Number(row.cost) : '-');
+                const profitDisplay = row.is_partial_first_month ? '-' : (row.profit != null ? Number(row.profit) : '-');
+                const typeDisplay = row.is_partial_first_month ? 'Remaining days' : 'Monthly';
+                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + costDisplay + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + profitDisplay + '</td><td>' + escapeHtml(typeDisplay) + '</td></tr>';
+            }).join('');
+            updateAccountingInboxPostButton();
+            (function bindSelectAll() {
+                const selectAll = document.getElementById('processAccountingInboxSelectAll');
+                if (!selectAll || selectAll.onAccountingInboxBound) return;
+                selectAll.onAccountingInboxBound = true;
+                selectAll.addEventListener('change', function () {
+                    const checked = this.checked;
+                    const box = document.getElementById('processAccountingInboxTbody');
+                    if (box) box.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled])').forEach(cb => { cb.checked = checked; });
+                    updateAccountingInboxPostButton();
+                });
+            })();
+        }
+        function updateAccountingInboxPostButton() {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            const postBtn = document.getElementById('processAccountingInboxPostBtn');
+            const selectAllCb = document.getElementById('processAccountingInboxSelectAll');
+            if (!tbody || !postBtn) return;
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled]):checked');
+            const count = checked.length;
+            postBtn.disabled = count === 0;
+            if (selectAllCb && !selectAllCb.disabled) {
+                const postable = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled])');
+                selectAllCb.checked = postable.length > 0 && postable.length === checked.length;
+            }
+        }
+        function openAccountingDueModal() {
+            const modal = document.getElementById('processAccountingDueModal');
+            if (modal) { modal.style.display = 'block'; loadAccountingInbox(); }
+        }
+        function closeAccountingDueModal() {
+            const modal = document.getElementById('processAccountingDueModal');
+            if (modal) modal.style.display = 'none';
+        }
+        function openAccountingInbox() {
+            openAccountingDueModal();
+        }
+        function closeAccountingInbox() {
+            closeAccountingDueModal();
+        }
+        function updateAccountingInboxVisibility() {
+            const wrap = document.getElementById('processAccountingInboxWrap');
+            if (!wrap) return;
+            if (selectedPermission === 'Bank') {
+                wrap.style.display = 'block';
+                loadAccountingInbox();
+            } else {
+                wrap.style.display = 'none';
+                closeAccountingInbox();
+            }
+        }
+
+        async function postAccountingInboxToTransaction() {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            if (!tbody) return;
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled]):checked');
+            const pairs = Array.from(checked).map(cb => {
+                const tr = cb.closest('tr');
+                const id = parseInt(cb.dataset.id, 10);
+                const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
+                return { id, periodType };
+            }).filter(p => p.id);
+            if (pairs.length === 0) {
+                showNotification('Please select at least one process to post.', 'warning');
+                return;
+            }
+            if (!confirm('Post ' + pairs.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
+            try {
+                const formData = new FormData();
+                pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
+                const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification(result.message || 'Posted successfully.', 'success');
+                    closeAccountingInbox();
+                    loadAccountingInbox();
+                    fetchProcesses();
+                } else {
+                    showNotification(result.error || 'Post failed.', 'danger');
+                }
+            } catch (err) {
+                console.error('transaction error:', err);
+                showNotification('Request failed: ' + err.message, 'danger');
+            }
+        }
+
+        async function postToTransactionSelected() {
+            const selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
+            const activeSelectedIds = Array.from(selectedCheckboxes).filter(cb => {
+                const row = cb.closest('tr');
+                return row && row.getAttribute('data-status') === 'active';
+            }).map(cb => cb.dataset.id);
+            if (activeSelectedIds.length === 0) {
+                showNotification('请先勾选要入账的 Process（仅 active 的 Process 可入账）', 'warning');
+                return;
+            }
+            if (!confirm('确定将选中的 ' + activeSelectedIds.length + ' 个 Process 入账？\n\nBuy Price → Supplier 账户\nSell Price → Customer 账户\nProfit → Company 账户\n\n将在 Transaction 页面生成对应交易记录。')) {
+                return;
+            }
+            try {
+                const formData = new FormData();
+                activeSelectedIds.forEach(id => formData.append('ids[]', id));
+                const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification(result.message || '入账成功', 'success');
+                    updateDeleteButton();
+                    fetchProcesses();
+                } else {
+                    showNotification(result.error || '入账失败', 'danger');
+                }
+            } catch (err) {
+                console.error('transaction error:', err);
+                showNotification('入账请求失败: ' + err.message, 'danger');
             }
         }
 
@@ -2933,15 +3340,18 @@ if ($current_user_id && count($user_companies) > 0) {
                         // Manual DOM update for simple status change
                         const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                         const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                        const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' + (result.newStatus === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
 
                         if (selectedPermission === 'Bank') {
                             const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+                            const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
+                            const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                                (result.newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                             if (row) {
+                                row.setAttribute('data-status', result.newStatus || '');
                                 const cells = row.querySelectorAll('td');
                                 if (cells.length >= 15) {
                                     cells[12].innerHTML = statusBadge;
-                                    cells[14].innerHTML = actionCellHtml;
+                                    cells[14].innerHTML = bankActionCellHtml;
                                 }
                             }
                         } else {
@@ -2953,10 +3363,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const actionCell = items[6];
                                     if (actionCell) {
                                         const existingCheckbox = actionCell.querySelector('.row-checkbox');
+                                        const existingMuted = actionCell.querySelector('.text-muted');
                                         if (result.newStatus === 'active') {
                                             if (existingCheckbox) existingCheckbox.remove();
+                                            if (existingMuted) existingMuted.remove();
                                         } else {
-                                            if (!existingCheckbox) {
+                                            const proc = processes.find(function (p) { return p.id === processId; });
+                                            if (!existingCheckbox && !existingMuted && (!proc || !proc.has_transactions)) {
                                                 const checkbox = document.createElement('input');
                                                 checkbox.type = 'checkbox';
                                                 checkbox.className = 'row-checkbox';
@@ -3009,7 +3422,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
         async function loadExistingDescriptions() {
             try {
-                const response = await fetch(buildApiUrl('api/processes/addprocessapi.php'));
+                const response = await fetch(buildApiUrl('addprocessapi.php'));
                 const result = await response.json();
                 if (result.success) {
                     const descriptionsList = document.getElementById('existingDescriptions');
@@ -3223,7 +3636,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 formData.append('action', 'delete_description');
                 formData.append('description_id', descriptionId);
 
-                const response = await fetch(buildApiUrl('api/processes/addprocessapi.php'), {
+                const response = await fetch(buildApiUrl('addprocessapi.php'), {
                     method: 'POST',
                     body: formData
                 });
@@ -3281,7 +3694,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // 加载添加表单所需的数据
         async function loadAddProcessData() {
             try {
-                const response = await fetch(buildApiUrl('api/processes/addprocessapi.php'));
+                const response = await fetch(buildApiUrl('addprocessapi.php'));
                 const result = await response.json();
 
                 if (result.success) {
@@ -3390,7 +3803,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Load edit form data (currencies, days, etc.)
         async function loadEditProcessData() {
             try {
-                const response = await fetch(buildApiUrl('api/processes/addprocessapi.php'));
+                const response = await fetch(buildApiUrl('addprocessapi.php'));
                 const result = await response.json();
 
                 if (result.success) {
@@ -3802,7 +4215,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 formData.append('day_use', selectedDays.join(','));
 
                 try {
-                    const response = await fetch(buildApiUrl('api/processes/addprocessapi.php'), {
+                    const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
                         body: formData
                     });
@@ -3877,6 +4290,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     formData.set('day_end', '');
                 }
+                const freqEl = document.getElementById('bank_day_start_frequency');
+                formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
                 try {
                     if (editId) {
                         formData.append('id', editId);
@@ -3889,12 +4304,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(result.message || 'Process updated successfully!', 'success');
                             closeAddBankModal();
                             fetchProcesses();
+                            if (selectedPermission === 'Bank') loadAccountingInbox();
                         } else {
                             showNotification(result.error || 'Update failed', 'danger');
                         }
                         return;
                     }
-                    const response = await fetch(buildApiUrl('api/processes/addprocessapi.php'), {
+                    const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
                         body: formData
                     });
@@ -3907,6 +4323,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         showNotification('Bank process added successfully!', 'success');
                         closeAddBankModal();
                         fetchProcesses();
+                        if (selectedPermission === 'Bank') loadAccountingInbox();
                     } else {
                         showNotification(result.error || 'Unknown error occurred', 'danger');
                     }
@@ -3993,7 +4410,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.append('action', 'add_description');
                     formData.append('description_name', descriptionName);
 
-                    const response = await fetch(buildApiUrl('api/processes/addprocessapi.php'), {
+                    const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
                         body: formData
                     });
@@ -4098,11 +4515,11 @@ if ($current_user_id && count($user_companies) > 0) {
         let bankAccountRoles = [];
         async function loadEditDataBank() {
             try {
-                const res = await fetch(buildApiUrl('api/editdata/editdata_api.php'));
+                const res = await fetch(buildApiUrl('editdataapi.php'));
                 const result = await res.json();
                 if (!result.success) return;
-                bankAccountCurrencies = (result.data && result.data.currencies) ? result.data.currencies : [];
-                bankAccountRoles = (result.data && result.data.roles) ? result.data.roles : [];
+                bankAccountCurrencies = result.currencies || [];
+                bankAccountRoles = result.roles || [];
                 const addRoleSelect = document.getElementById('add_role');
                 if (addRoleSelect) {
                     addRoleSelect.innerHTML = '<option value="">Select Role</option>';
@@ -4176,8 +4593,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (type === 'add' && !accountId) deletedCurrencyIds = [];
             try {
                 const url = accountId
-                    ? buildApiUrl('api/accounts/account_currency_api.php?action=get_available_currencies&account_id=' + accountId)
-                    : buildApiUrl('api/accounts/account_currency_api.php?action=get_available_currencies');
+                    ? buildApiUrl('account_currency_api.php?action=get_available_currencies&account_id=' + accountId)
+                    : buildApiUrl('account_currency_api.php?action=get_available_currencies');
                 const response = await fetch(url);
                 const result = await response.json();
                 if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
@@ -4252,7 +4669,7 @@ if ($current_user_id && count($user_companies) > 0) {
             else itemElement.classList.remove('selected');
             try {
                 const action = shouldSelect ? 'add_currency' : 'remove_currency';
-                const res = await fetch(buildApiUrl('api/accounts/account_currency_api.php?action=' + action), {
+                const res = await fetch(buildApiUrl('account_currency_api.php?action=' + action), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ account_id: accountId, currency_id: currencyId })
@@ -4305,8 +4722,8 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             try {
                 const url = accountId
-                    ? buildApiUrl('api/accounts/account_company_api.php?action=get_available_companies&account_id=' + accountId)
-                    : buildApiUrl('api/accounts/account_company_api.php?action=get_available_companies');
+                    ? buildApiUrl('account_company_api.php?action=get_available_companies&account_id=' + accountId)
+                    : buildApiUrl('account_company_api.php?action=get_available_companies');
                 const response = await fetch(url);
                 const result = await response.json();
                 if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
@@ -4378,7 +4795,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             try {
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const res = await fetch(buildApiUrl('api/accounts/addcurrencyapi.php'), {
+                const res = await fetch(buildApiUrl('addcurrencyapi.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId })
@@ -4389,7 +4806,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     bankAccountCurrencies.push({ id: newCurrencyId, code: result.data.code });
                     if (isEdit && currentEditAccountIdForBank) {
                         await loadAccountCurrenciesBank(currentEditAccountIdForBank, 'edit');
-                        const linkRes = await fetch(buildApiUrl('api/accounts/account_currency_api.php?action=add_currency'), {
+                        const linkRes = await fetch(buildApiUrl('account_currency_api.php?action=add_currency'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ account_id: currentEditAccountIdForBank, currency_id: newCurrencyId })
@@ -4436,7 +4853,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (selectedCurrencyIdsForAdd.length > 0) formData.set('currency_ids', JSON.stringify(selectedCurrencyIdsForAdd));
                 if (selectedCompanyIdsForAdd.length > 0) formData.set('company_ids', JSON.stringify(selectedCompanyIdsForAdd));
                 try {
-                    const response = await fetch(buildApiUrl('api/accounts/addaccountapi.php'), { method: 'POST', body: formData });
+                    const response = await fetch(buildApiUrl('addaccountapi.php'), { method: 'POST', body: formData });
                     const result = await response.json();
                     if (result.success) {
                         const newAccountId = result.data && result.data.id;
@@ -4444,7 +4861,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (selectedCurrencyIdsForAdd.length > 0 && newAccountId) {
                             try {
                                 const currencyPromises = selectedCurrencyIdsForAdd.map(currencyId =>
-                                    fetch(buildApiUrl('api/accounts/account_currency_api.php?action=add_currency'), {
+                                    fetch(buildApiUrl('account_currency_api.php?action=add_currency'), {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ account_id: newAccountId, currency_id: currencyId })
@@ -4457,7 +4874,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (selectedCompanyIdsForAdd.length > 0 && newAccountId) {
                             try {
                                 const companyPromises = selectedCompanyIdsForAdd.map(companyId =>
-                                    fetch(buildApiUrl('api/accounts/account_company_api.php?action=add_company'), {
+                                    fetch(buildApiUrl('account_company_api.php?action=add_company'), {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ account_id: newAccountId, company_id: companyId })
@@ -4513,7 +4930,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.set('company_ids', JSON.stringify(selectedCompanyIdsForEdit));
                 }
                 try {
-                    const response = await fetch(buildApiUrl('api/accounts/update_api.php'), { method: 'POST', body: formData });
+                    const response = await fetch(buildApiUrl('updateaccountapi.php'), { method: 'POST', body: formData });
                     const result = await response.json();
                     if (result.success) {
                         showNotification('Account updated successfully!', 'success');
@@ -4521,7 +4938,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         await loadBankAccounts();
                         refreshBankAccountDropdowns();
                     } else {
-                        showNotification(result.message || result.error || 'Account update failed', 'danger');
+                        showNotification(result.error || 'Account update failed', 'danger');
                     }
                 } catch (err) {
                     console.error('Edit account error', err);
@@ -4690,7 +5107,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const currencyCode = resolveCurrencyCodeFromCountryField(countryOrCurrency);
             if (!currencyCode) return;
             try {
-                const apiUrl = buildApiUrl('api/processes/addprocessapi.php');
+                const apiUrl = buildApiUrl('addprocessapi.php');
                 const res = await fetch(apiUrl);
                 const result = await res.json();
                 if (!result.success) return;
@@ -4698,7 +5115,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 let currency = currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
                 if (!currency || !currency.id) {
                     const currentCompanyId = <?php echo json_encode($company_id ?? null); ?>;
-                    const createRes = await fetch(buildApiUrl('api/accounts/addcurrencyapi.php'), {
+                    const createRes = await fetch(buildApiUrl('addcurrencyapi.php'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId || undefined })
@@ -4718,14 +5135,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
                 }
-                const getCurrUrl = buildApiUrl('api/accounts/account_currency_api.php?action=get_account_currencies&account_id=' + accountId);
+                const getCurrUrl = buildApiUrl('account_currency_api.php?action=get_account_currencies&account_id=' + accountId);
                 const getCurrRes = await fetch(getCurrUrl);
                 const getCurrResult = await getCurrRes.json();
                 if (getCurrResult.success && Array.isArray(getCurrResult.data)) {
                     const alreadyHas = getCurrResult.data.some(c => (c.currency_id || c.id) === currency.id || (c.currency_code || '').toUpperCase() === currencyCode);
                     if (alreadyHas) return;
                 }
-                const addUrl = buildApiUrl('api/accounts/account_currency_api.php?action=add_currency');
+                const addUrl = buildApiUrl('account_currency_api.php?action=add_currency');
                 const addRes = await fetch(addUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4744,7 +5161,7 @@ if ($current_user_id && count($user_companies) > 0) {
         async function loadBankAccounts() {
             try {
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const url = buildApiUrl('api/accounts/accountlistapi.php');
+                const url = buildApiUrl('accountlistapi.php');
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
                 }
@@ -4753,7 +5170,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const result = await response.json();
 
                 if (result.success && result.data) {
-                    window.bankAccounts = result.data.accounts ? result.data.accounts : (result.data || []);
+                    window.bankAccounts = result.data;
                 }
             } catch (error) {
                 console.error('Error loading accounts:', error);
@@ -5719,7 +6136,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!currencySelect || currencySelect.options.length <= 1) {
                     await loadAddProcessData();
                 }
-                const response = await fetch(buildApiUrl(`api/processes/addprocessapi.php?action=copy_from&process_id=${processId}`));
+                const response = await fetch(buildApiUrl(`addprocessapi.php?action=copy_from&process_id=${processId}`));
                 const result = await response.json();
                 if (!result.success || !result.data) {
                     throw new Error(result.error || 'Unknown error');
@@ -5909,6 +6326,9 @@ if ($current_user_id && count($user_companies) > 0) {
             } else if (errorParam === 'no_inactive_processes') {
                 showNotification('Cannot delete: Only inactive processes can be deleted.', 'danger');
                 window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (errorParam === 'process_has_transactions') {
+                showNotification('Cannot delete: This process has transaction records. Remove related transactions first.', 'danger');
+                window.history.replaceState({}, document.title, window.location.pathname);
             } else if (errorParam === 'delete_failed') {
                 showNotification('Delete failed. Please try again.', 'danger');
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -5926,6 +6346,27 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('Error in fetchProcesses:', error);
                 showError('Error loading data: ' + error.message);
             }
+
+            const accountingInboxBtn = document.getElementById('processAccountingInboxBtn');
+            if (accountingInboxBtn) {
+                accountingInboxBtn.addEventListener('click', () => {
+                    const modal = document.getElementById('processAccountingDueModal');
+                    if (modal && modal.style.display === 'block') {
+                        closeAccountingDueModal();
+                    } else {
+                        openAccountingDueModal();
+                    }
+                });
+            }
+            const accountingInboxRefresh = document.getElementById('processAccountingInboxRefreshBtn');
+            if (accountingInboxRefresh) {
+                accountingInboxRefresh.addEventListener('click', () => loadAccountingInbox());
+            }
+            const accountingInboxPost = document.getElementById('processAccountingInboxPostBtn');
+            if (accountingInboxPost) {
+                accountingInboxPost.addEventListener('click', () => postAccountingInboxToTransaction());
+            }
+            /* Accounting Due 弹窗：点击弹窗以外区域不关闭，仅通过 X 或 Cancel 关闭 */
         });
 
         window.addEventListener('resize', function () {
@@ -5949,7 +6390,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
 
             try {
-                const response = await fetch(buildApiUrl('api/domain/domain_api.php'), {
+                const response = await fetch('domainapi.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -5961,7 +6402,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
 
                 const result = await response.json();
-                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
 
                 const permissionContainer = document.getElementById('process-list-permission-buttons');
                 permissionContainer.innerHTML = '';
@@ -6064,6 +6505,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
             }
 
+            // Post to Transaction 仅 Bank 显示，Gambling 隐藏
+            updatePostToTransactionButton();
+            // Accounting Due Inbox: show only on Bank
+            updateAccountingInboxVisibility();
+
             // 重新加载数据
             currentPage = 1;
             fetchProcesses();
@@ -6072,10 +6518,10 @@ if ($current_user_id && count($user_companies) > 0) {
         async function switchProcessListCompany(companyId) {
             // 先更新 session
             try {
-                const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(`update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
-                    console.error('Failed to update session:', result.message);
+                    console.error('Failed to update session:', result.error);
                     // 即使 API 失败，也继续刷新页面（PHP 端会处理）
                 }
             } catch (error) {

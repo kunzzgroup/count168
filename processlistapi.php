@@ -179,6 +179,12 @@ function getProcesses() {
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
         
+        $hasTxnProcessId = false;
+        try {
+            $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
+            $hasTxnProcessId = $colStmt && $colStmt->rowCount() > 0;
+        } catch (PDOException $e) { /* ignore */ }
+        
         $sql = "SELECT 
                     p.id,
                     p.process_id,
@@ -193,7 +199,8 @@ function getProcesses() {
                     COALESCE(u_modified.login_id, o_modified.owner_code) as modified_by_login,
                     p.dts_created,
                     COALESCE(u_created.login_id, o_created.owner_code) as created_by_login,
-                    p.status
+                    p.status" .
+                    ($hasTxnProcessId ? ", (SELECT COUNT(*) FROM transactions t WHERE t.process_id = p.id) AS has_transactions" : "") . "
                 FROM process p
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN currency c ON p.currency_id = c.id
@@ -263,7 +270,8 @@ function getProcesses() {
                 'created_by' => $process['created_by_login'],
                 'remove_word' => $process['remove_word'],
                 'replace_word' => $process['replace_word_from'] . ' == ' . $process['replace_word_to'],
-                'remarks' => $process['remark']
+                'remarks' => $process['remark'],
+                'has_transactions' => $hasTxnProcessId && ((int)($process['has_transactions'] ?? 0)) > 0,
             ];
         }
         
@@ -625,6 +633,15 @@ function getBankProcesses() {
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
 
+        $hasSourceBankProcessId = false;
+        try {
+            $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+            $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
+        } catch (PDOException $e) { /* ignore */ }
+        $hasTxnSubquery = $hasSourceBankProcessId
+            ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
+            : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
+
         $sql = "SELECT 
                     bp.id,
                     bp.country,
@@ -640,12 +657,14 @@ function getBankProcesses() {
                     bp.profit,
                     bp.profit_sharing,
                     bp.day_start,
+                    bp.day_start_frequency,
                     bp.day_end,
                     bp.status,
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
                     a_cm.account_id as card_merchant_account_id,
-                    a_cust.account_id as customer_account
+                    a_cust.account_id as customer_account,
+                    $hasTxnSubquery AS has_transactions
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                 LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
@@ -689,7 +708,9 @@ function getBankProcesses() {
                 'status' => $r['status'],
                 'date' => $r['day_start'] ?? '',
                 'day_start' => $r['day_start'] ?? null,
+                'day_start_frequency' => $r['day_start_frequency'] ?? '1st_of_every_month',
                 'day_end' => $r['day_end'] ?? null,
+                'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
             ];
         }
         echo json_encode(['success' => true, 'data' => $formattedProcesses]);
@@ -718,7 +739,7 @@ function getBankProcess() {
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance,
-                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_end, bp.status,
+                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status,
                 bp.dts_modified, bp.dts_created,
                 a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
                 a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
@@ -754,6 +775,7 @@ function getBankProcess() {
             'profit' => $process['profit'],
             'profit_sharing' => $process['profit_sharing'],
             'day_start' => $process['day_start'],
+            'day_start_frequency' => $process['day_start_frequency'] ?? '1st_of_every_month',
             'day_end' => $process['day_end'] ?? null,
             'status' => $process['status'],
             'dts_modified' => $process['dts_modified'],
@@ -801,7 +823,11 @@ function updateBankProcess() {
         $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : null;
         $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
         $profit_sharing = $_POST['profit_sharing'] ?? null;
-        $day_start = $_POST['day_start'] ?? null;
+        $day_start = isset($_POST['day_start']) && trim((string) $_POST['day_start']) !== '' ? trim($_POST['day_start']) : null;
+        $day_start_frequency = trim($_POST['day_start_frequency'] ?? '1st_of_every_month');
+        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly'], true)) {
+            $day_start_frequency = '1st_of_every_month';
+        }
         $day_end = $_POST['day_end'] ?? null;
         $day_end = ($day_end !== null && $day_end !== '') ? $day_end : null;
         $status = $_POST['status'] ?? 'active';
@@ -814,12 +840,12 @@ function updateBankProcess() {
         $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
         $stmt = $pdo->prepare("UPDATE bank_process SET 
             country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?, profit_account_id=?,
-            contract=?, insurance=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, status=?,
+            contract=?, insurance=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_start_frequency=?, day_end=?, status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?");
         $stmt->execute([
             $country, $bank, $type, $name, $card_merchant_id, $customer_id, $profit_account_id,
-            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $status,
+            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_start_frequency, $day_end, $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         ]);
         if ($country !== '' && $bank !== '') {
