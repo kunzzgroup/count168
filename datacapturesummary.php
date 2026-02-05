@@ -2548,7 +2548,7 @@ function getCurrentProcessId() {
                 console.log('Loading currencies for account:', accountId);
                 
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const url = `account_currency_api.php?action=get_account_currencies&account_id=${accountId}`;
+                const url = `api/accounts/account_currency_api.php?action=get_account_currencies&account_id=${accountId}`;
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -3336,8 +3336,8 @@ function getCurrentProcessId() {
 
             try {
                 const url = accountId
-                    ? `account_currency_api.php?action=get_available_currencies&account_id=${accountId}`
-                    : `account_currency_api.php?action=get_available_currencies`;
+                    ? `api/accounts/account_currency_api.php?action=get_available_currencies&account_id=${accountId}`
+                    : `api/accounts/account_currency_api.php?action=get_available_currencies`;
                 const response = await fetch(url);
                 const result = await response.json();
 
@@ -3535,7 +3535,7 @@ function getCurrentProcessId() {
                 }
                 
                 try {
-                    const response = await fetch(`account_currency_api.php?action=remove_currency`, {
+                    const response = await fetch(`api/accounts/account_currency_api.php?action=remove_currency`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -3610,7 +3610,7 @@ function getCurrentProcessId() {
             
             try {
                 const action = isChecked ? 'add_currency' : 'remove_currency';
-                const response = await fetch(`account_currency_api.php?action=${action}`, {
+                const response = await fetch(`api/accounts/account_currency_api.php?action=${action}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3673,8 +3673,8 @@ function getCurrentProcessId() {
 
             try {
                 const url = accountId
-                    ? `account_company_api.php?action=get_available_companies&account_id=${accountId}`
-                    : `account_company_api.php?action=get_available_companies`;
+                    ? `api/accounts/account_company_api.php?action=get_available_companies&account_id=${accountId}`
+                    : `api/accounts/account_company_api.php?action=get_available_companies`;
                 const response = await fetch(url);
                 const result = await response.json();
 
@@ -3861,7 +3861,7 @@ function getCurrentProcessId() {
                     // 如果是编辑模式且账户已存在，自动关联新货币到账户
                     if (type === 'edit' && accountId) {
                         try {
-                            const linkResponse = await fetch('account_currency_api.php?action=add_currency', {
+                            const linkResponse = await fetch('api/accounts/account_currency_api.php?action=add_currency', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3963,7 +3963,7 @@ function getCurrentProcessId() {
                             try {
                                 // 批量关联货币
                                 const currencyPromises = selectedCurrencyIdsForAdd.map(currencyId => 
-                                    fetch('account_currency_api.php?action=add_currency', {
+                                    fetch('api/accounts/account_currency_api.php?action=add_currency', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -3993,7 +3993,7 @@ function getCurrentProcessId() {
                             try {
                                 // 批量关联公司
                                 const companyPromises = selectedCompanyIdsForAdd.map(companyId => 
-                                    fetch('account_company_api.php?action=add_company', {
+                                    fetch('api/accounts/account_company_api.php?action=add_company', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',

@@ -1158,7 +1158,7 @@ $today = date('d/m/Y');
                 if (filterEl) filterEl.style.display = 'none';
                 return;
             }
-            fetch(`account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
+            fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
                 .then(res => res.text())
                 .then(text => {
                     let data;

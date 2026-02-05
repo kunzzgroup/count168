@@ -868,7 +868,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
         async function fetchAccounts() {
             try {
                 const searchTerm = document.getElementById('searchInput').value;
-                const url = new URL('accountlistapi.php', window.location.origin);
+                const url = new URL('api/accounts/accountlistapi.php', window.location.origin);
                 
                 // 添加当前选择的 company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
@@ -890,7 +890,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 const result = await response.json();
                 
                 if (result.success) {
-                    accounts = result.data;
+                    accounts = result.data && result.data.accounts ? result.data.accounts : (result.data || []);
                     // 应用当前排序
                     applySorting();
                     currentPage = 1;
@@ -898,8 +898,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     renderPagination();
                     updateDeleteButton(); // 更新删除按钮状态
                 } else {
-                    console.error('API error:', result.error);
-                    showNotification('Failed to get data: ' + result.error, 'danger');
+                    console.error('API error:', result.message || result.error);
+                    showNotification('Failed to get data: ' + (result.message || result.error), 'danger');
                 }
             } catch (error) {
                 console.error('Network error:', error);
@@ -1327,8 +1327,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
 
             try {
                 const url = accountId
-                    ? `account_currency_api.php?action=get_available_currencies&account_id=${accountId}`
-                    : `account_currency_api.php?action=get_available_currencies`;
+                    ? `api/accounts/account_currency_api.php?action=get_available_currencies&account_id=${accountId}`
+                    : `api/accounts/account_currency_api.php?action=get_available_currencies`;
                 const response = await fetch(url);
                 const result = await response.json();
 
@@ -1526,7 +1526,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 }
                 
                 try {
-                    const response = await fetch(`account_currency_api.php?action=remove_currency`, {
+                    const response = await fetch(`api/accounts/account_currency_api.php?action=remove_currency`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1601,7 +1601,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
             
             try {
                 const action = isChecked ? 'add_currency' : 'remove_currency';
-                const response = await fetch(`account_currency_api.php?action=${action}`, {
+                const response = await fetch(`api/accounts/account_currency_api.php?action=${action}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1664,8 +1664,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
 
             try {
                 const url = accountId
-                    ? `account_company_api.php?action=get_available_companies&account_id=${accountId}`
-                    : `account_company_api.php?action=get_available_companies`;
+                    ? `api/accounts/account_company_api.php?action=get_available_companies&account_id=${accountId}`
+                    : `api/accounts/account_company_api.php?action=get_available_companies`;
                 const response = await fetch(url);
                 const result = await response.json();
 
@@ -1823,12 +1823,15 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 // 获取当前账户的现有关联（只获取当前连接类型的关联）
                 let currentLinkedIds = [];
                 try {
-                    const response = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${currentLinkAccountId}&company_id=${currentCompanyId}`);
+                    const response = await fetch(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${currentLinkAccountId}&company_id=${currentCompanyId}`);
                     const result = await response.json();
-                    if (result.success && Array.isArray(result.data) && result.link_types_map) {
+                    const data = result.data || {};
+                    const accountsArr = data.accounts || result.data || [];
+                    const typesMap = data.link_types_map || result.link_types_map || {};
+                    if (result.success && Array.isArray(accountsArr) && (data.link_types_map || result.link_types_map)) {
                         // 只获取当前连接类型的关联账户
-                        currentLinkedIds = result.data
-                            .filter(acc => result.link_types_map[acc.id] === linkType)
+                        currentLinkedIds = accountsArr
+                            .filter(acc => typesMap[acc.id] === linkType)
                             .map(acc => acc.id);
                     }
                 } catch (error) {
@@ -1843,7 +1846,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 // 移除关联
                 for (const linkedId of toRemove) {
                     try {
-                        const response = await fetch('account_link_api.php?action=unlink_accounts', {
+                        const response = await fetch('api/accounts/account_link_api.php?action=unlink_accounts', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1854,7 +1857,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         });
                         const result = await response.json();
                         if (!result.success) {
-                            throw new Error(result.error || 'Failed to unlink account');
+                            throw new Error(result.message || result.error || 'Failed to unlink account');
                         }
                     } catch (error) {
                         console.error('Error unlinking account:', error);
@@ -1866,7 +1869,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 // 添加关联（传递连接类型）
                 for (const linkedId of toAdd) {
                     try {
-                        const response = await fetch('account_link_api.php?action=link_accounts', {
+                        const response = await fetch('api/accounts/account_link_api.php?action=link_accounts', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1879,7 +1882,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         });
                         const result = await response.json();
                         if (!result.success) {
-                            throw new Error(result.error || 'Failed to link account');
+                            throw new Error(result.message || result.error || 'Failed to link account');
                         }
                     } catch (error) {
                         console.error('Error linking account:', error);
@@ -1893,7 +1896,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     // 更新现有关联的类型
                     for (const linkedId of newIds) {
                         try {
-                            const response = await fetch('account_link_api.php?action=update_link_type', {
+                            const response = await fetch('api/accounts/account_link_api.php?action=update_link_type', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -1906,7 +1909,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             });
                             const result = await response.json();
                             if (!result.success) {
-                                console.warn(`Failed to update link type: ${result.error}`);
+                                console.warn(`Failed to update link type: ${result.message || result.error}`);
                             }
                         } catch (error) {
                             console.warn('Error updating link type:', error);
@@ -1946,17 +1949,18 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 }
 
                 // 获取当前公司下所有账户（排除当前账户）
-                const url = `accountlistapi.php?company_id=${currentCompanyId}&showAll=1`;
+                const url = `api/accounts/accountlistapi.php?company_id=${currentCompanyId}&showAll=1`;
                 const response = await fetch(url);
                 const result = await response.json();
+                const accountList = result.data && result.data.accounts ? result.data.accounts : (result.data || []);
 
-                if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
+                if (!result.success || !Array.isArray(accountList) || accountList.length === 0) {
                     listElement.innerHTML = '<div class="currency-toggle-note">当前公司下没有其他账户</div>';
                     return;
                 }
 
                 // 过滤掉当前账户
-                const availableAccounts = result.data.filter(acc => acc.id != accountId);
+                const availableAccounts = accountList.filter(acc => acc.id != accountId);
                 
                 if (availableAccounts.length === 0) {
                     listElement.innerHTML = '<div class="currency-toggle-note">当前公司下没有其他账户可关联</div>';
@@ -1968,19 +1972,21 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 let linkTypeInfo = null;
                 let linkTypesMap = {}; // 存储每个账户的连接类型映射
                 try {
-                    const linkResponse = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
+                    const linkResponse = await fetch(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
                     const linkResult = await linkResponse.json();
-                    if (linkResult.success && Array.isArray(linkResult.data)) {
-                        linkedAccountIds = linkResult.data.map(acc => acc.id);
+                    const linkData = linkResult.data || {};
+                    const linkAccounts = linkData.accounts || linkResult.data || [];
+                    if (linkResult.success && Array.isArray(linkAccounts)) {
+                        linkedAccountIds = linkAccounts.map(acc => acc.id);
                         selectedLinkedAccountIdsForLink = [...linkedAccountIds];
                     }
                     // 获取连接类型信息
-                    if (linkResult.success && linkResult.link_type_info) {
-                        linkTypeInfo = linkResult.link_type_info;
+                    if (linkResult.success && (linkData.link_type_info || linkResult.link_type_info)) {
+                        linkTypeInfo = linkData.link_type_info || linkResult.link_type_info;
                     }
                     // 获取每个账户的连接类型映射
-                    if (linkResult.success && linkResult.link_types_map) {
-                        linkTypesMap = linkResult.link_types_map;
+                    if (linkResult.success && (linkData.link_types_map || linkResult.link_types_map)) {
+                        linkTypesMap = linkData.link_types_map || linkResult.link_types_map;
                     }
                 } catch (error) {
                     console.error('Error loading linked accounts:', error);
@@ -2646,7 +2652,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     // 如果是编辑模式且账户已存在，自动关联新货币到账户
                     if (type === 'edit' && accountId) {
                         try {
-                            const linkResponse = await fetch('account_currency_api.php?action=add_currency', {
+                            const linkResponse = await fetch('api/accounts/account_currency_api.php?action=add_currency', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -2765,7 +2771,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         try {
                             // 批量关联货币
                             const currencyPromises = selectedCurrencyIdsForAdd.map(currencyId => 
-                                fetch('account_currency_api.php?action=add_currency', {
+                                fetch('api/accounts/account_currency_api.php?action=add_currency', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -2795,7 +2801,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         try {
                             // 批量关联公司
                             const companyPromises = selectedCompanyIdsForAdd.map(companyId => 
-                                fetch('account_company_api.php?action=add_company', {
+                                fetch('api/accounts/account_company_api.php?action=add_company', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',

@@ -4176,8 +4176,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (type === 'add' && !accountId) deletedCurrencyIds = [];
             try {
                 const url = accountId
-                    ? buildApiUrl('account_currency_api.php?action=get_available_currencies&account_id=' + accountId)
-                    : buildApiUrl('account_currency_api.php?action=get_available_currencies');
+                    ? buildApiUrl('api/accounts/account_currency_api.php?action=get_available_currencies&account_id=' + accountId)
+                    : buildApiUrl('api/accounts/account_currency_api.php?action=get_available_currencies');
                 const response = await fetch(url);
                 const result = await response.json();
                 if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
@@ -4252,7 +4252,7 @@ if ($current_user_id && count($user_companies) > 0) {
             else itemElement.classList.remove('selected');
             try {
                 const action = shouldSelect ? 'add_currency' : 'remove_currency';
-                const res = await fetch(buildApiUrl('account_currency_api.php?action=' + action), {
+                const res = await fetch(buildApiUrl('api/accounts/account_currency_api.php?action=' + action), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ account_id: accountId, currency_id: currencyId })
@@ -4305,8 +4305,8 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             try {
                 const url = accountId
-                    ? buildApiUrl('account_company_api.php?action=get_available_companies&account_id=' + accountId)
-                    : buildApiUrl('account_company_api.php?action=get_available_companies');
+                    ? buildApiUrl('api/accounts/account_company_api.php?action=get_available_companies&account_id=' + accountId)
+                    : buildApiUrl('api/accounts/account_company_api.php?action=get_available_companies');
                 const response = await fetch(url);
                 const result = await response.json();
                 if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
@@ -4389,7 +4389,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     bankAccountCurrencies.push({ id: newCurrencyId, code: result.data.code });
                     if (isEdit && currentEditAccountIdForBank) {
                         await loadAccountCurrenciesBank(currentEditAccountIdForBank, 'edit');
-                        const linkRes = await fetch(buildApiUrl('account_currency_api.php?action=add_currency'), {
+                        const linkRes = await fetch(buildApiUrl('api/accounts/account_currency_api.php?action=add_currency'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ account_id: currentEditAccountIdForBank, currency_id: newCurrencyId })
@@ -4444,7 +4444,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (selectedCurrencyIdsForAdd.length > 0 && newAccountId) {
                             try {
                                 const currencyPromises = selectedCurrencyIdsForAdd.map(currencyId =>
-                                    fetch(buildApiUrl('account_currency_api.php?action=add_currency'), {
+                                    fetch(buildApiUrl('api/accounts/account_currency_api.php?action=add_currency'), {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ account_id: newAccountId, currency_id: currencyId })
@@ -4457,7 +4457,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (selectedCompanyIdsForAdd.length > 0 && newAccountId) {
                             try {
                                 const companyPromises = selectedCompanyIdsForAdd.map(companyId =>
-                                    fetch(buildApiUrl('account_company_api.php?action=add_company'), {
+                                    fetch(buildApiUrl('api/accounts/account_company_api.php?action=add_company'), {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ account_id: newAccountId, company_id: companyId })
@@ -4718,14 +4718,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
                 }
-                const getCurrUrl = buildApiUrl('account_currency_api.php?action=get_account_currencies&account_id=' + accountId);
+                const getCurrUrl = buildApiUrl('api/accounts/account_currency_api.php?action=get_account_currencies&account_id=' + accountId);
                 const getCurrRes = await fetch(getCurrUrl);
                 const getCurrResult = await getCurrRes.json();
                 if (getCurrResult.success && Array.isArray(getCurrResult.data)) {
                     const alreadyHas = getCurrResult.data.some(c => (c.currency_id || c.id) === currency.id || (c.currency_code || '').toUpperCase() === currencyCode);
                     if (alreadyHas) return;
                 }
-                const addUrl = buildApiUrl('account_currency_api.php?action=add_currency');
+                const addUrl = buildApiUrl('api/accounts/account_currency_api.php?action=add_currency');
                 const addRes = await fetch(addUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4744,7 +4744,7 @@ if ($current_user_id && count($user_companies) > 0) {
         async function loadBankAccounts() {
             try {
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const url = buildApiUrl('accountlistapi.php');
+                const url = buildApiUrl('api/accounts/accountlistapi.php');
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
                 }
@@ -4753,7 +4753,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const result = await response.json();
 
                 if (result.success && result.data) {
-                    window.bankAccounts = result.data;
+                    window.bankAccounts = result.data.accounts ? result.data.accounts : (result.data || []);
                 }
             } catch (error) {
                 console.error('Error loading accounts:', error);
