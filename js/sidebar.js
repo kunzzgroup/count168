@@ -185,8 +185,6 @@
         if (panel) panel.classList.remove('show');
         if (overlayEl) overlayEl.classList.remove('show');
     }
-    window.toggleNotificationPanel = toggleNotificationPanel;
-    window.closeNotificationPanel = closeNotificationPanel;
 
     function escapeHtml(text) {
         if (text == null) return '';
@@ -275,6 +273,8 @@
     window.handleLogout = handleLogout;
     window.toggleLanguageDropdown = toggleLanguageDropdown;
     window.selectLanguage = selectLanguage;
+    window.toggleNotificationPanel = toggleNotificationPanel;
+    window.closeNotificationPanel = closeNotificationPanel;
     window.updateExpirationCountdown = updateExpirationCountdown;
 
     function init() {
