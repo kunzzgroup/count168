@@ -73,6 +73,7 @@ try {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>Domain List</title>
     <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/common.js?v=<?php echo time(); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/domain.css">
@@ -83,6 +84,7 @@ try {
     <script src="js/domain.js"></script>
 </head>
 <body>
+    <div id="main-content">
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
         <h1>Domain List</h1>
@@ -350,6 +352,7 @@ try {
                 </form>
             </div>
         </div>
+    </div>
     </div>
 
 </body>
