@@ -34,13 +34,13 @@
         const formData = new FormData();
         formData.append('company_id', companyIdValue);
 
-        fetch('verify_company_api.php', {
+        fetch('api/company/verify_api.php', {
             method: 'POST',
             body: formData
         })
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
+            if (data.success) {
                 companyIdValid = true;
             } else {
                 companyIdValid = false;

@@ -1791,7 +1791,7 @@
             }
             
             try {
-                const response = await fetch('updateaccountapi.php', {
+                const response = await fetch('api/accounts/update_api.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1806,10 +1806,10 @@
                     console.error('Account update failed:', result);
                     console.error('Account ID:', accountId);
                     // 濡傛灉鏄?璐︽埛鏇存柊澶辫触鎴栨棤鏉冮檺鎿嶄綔"锛屽彲鑳芥槸鏁版嵁娌℃湁鍙樺寲
-                    if (result.error && result.error.includes('Account update failed or no permission')) {
+                    if (result.message && result.message.includes('Account update failed or no permission')) {
                         showNotification('Update failed: Data may not have changed, or account does not exist/no permission', 'danger');
                     } else {
-                        showNotification(result.error || 'Account update failed', 'danger');
+                        showNotification(result.message || 'Account update failed', 'danger');
                     }
                 }
             } catch (error) {
@@ -2093,10 +2093,10 @@
         async function switchAccountListCompany(companyId, companyCode) {
             // 鍏堟洿鏂?session
             try {
-                const response = await fetch(`update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
-                    console.error('Failed to update session:', result.error);
+                    console.error('Failed to update session:', result.message);
                     // 鍗充娇 API 澶辫触锛屼篃缁х画鍒锋柊椤甸潰锛圥HP 绔細澶勭悊锛?
                 }
             } catch (error) {

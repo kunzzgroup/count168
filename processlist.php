@@ -4513,7 +4513,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.set('company_ids', JSON.stringify(selectedCompanyIdsForEdit));
                 }
                 try {
-                    const response = await fetch(buildApiUrl('updateaccountapi.php'), { method: 'POST', body: formData });
+                    const response = await fetch(buildApiUrl('api/accounts/update_api.php'), { method: 'POST', body: formData });
                     const result = await response.json();
                     if (result.success) {
                         showNotification('Account updated successfully!', 'success');
@@ -4521,7 +4521,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         await loadBankAccounts();
                         refreshBankAccountDropdowns();
                     } else {
-                        showNotification(result.error || 'Account update failed', 'danger');
+                        showNotification(result.message || result.error || 'Account update failed', 'danger');
                     }
                 } catch (err) {
                     console.error('Edit account error', err);
@@ -6072,10 +6072,10 @@ if ($current_user_id && count($user_companies) > 0) {
         async function switchProcessListCompany(companyId) {
             // 先更新 session
             try {
-                const response = await fetch(`update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
-                    console.error('Failed to update session:', result.error);
+                    console.error('Failed to update session:', result.message);
                     // 即使 API 失败，也继续刷新页面（PHP 端会处理）
                 }
             } catch (error) {

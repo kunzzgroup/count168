@@ -1118,7 +1118,7 @@ $today = date('d/m/Y');
                     return;
                 }
 
-                const url = `update_company_session_api.php?company_id=${companyId}&_t=${Date.now()}`;
+                const url = `api/session/update_company_session_api.php?company_id=${companyId}&_t=${Date.now()}`;
                 fetch(url, { cache: 'no-cache' })
                     .then(res => res.text())
                     .then(text => parseJsonResponse(text))
@@ -1219,14 +1219,15 @@ $today = date('d/m/Y');
                     const code = btn.dataset.accountCode || '';
                     const name = btn.dataset.accountName || '';
                     if (!accountId || accountId === memberConfig.accountId) return;
-                    fetch(`update_account_session_api.php?account_id=${accountId}&_t=${Date.now()}`, { cache: 'no-cache' })
+                    fetch(`api/session/update_account_session_api.php?account_id=${accountId}&_t=${Date.now()}`, { cache: 'no-cache' })
                         .then(res => res.text())
                         .then(text => parseJsonResponse(text))
                         .then(data => {
-                            if (!data.success) throw new Error(data.error || 'Switch failed');
-                            memberConfig.accountId = Number(data.account_id) ?? data.account_id;
-                            memberConfig.accountCode = data.account_code || code;
-                            memberConfig.accountName = data.account_name || name;
+                            if (!data.success) throw new Error(data.message || 'Switch failed');
+                            const payload = data.data || data;
+                            memberConfig.accountId = Number(payload.account_id) ?? payload.account_id;
+                            memberConfig.accountCode = payload.account_code || code;
+                            memberConfig.accountName = payload.account_name || name;
                             container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                             btn.classList.add('active');
                             showNotification(`Switched to account ${code || name || accountId}`, 'success');

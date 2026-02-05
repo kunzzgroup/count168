@@ -113,7 +113,7 @@ function showNotification(message, type = 'success') {
         async function switchCompany(companyId, companyCode) {
             // 先更新 session
             try {
-                const response = await fetch(`update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);

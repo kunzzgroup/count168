@@ -1,4 +1,4 @@
-﻿const API_BASE_URL = 'transaction_dashboard_api.php';
+const API_BASE_URL = 'transaction_dashboard_api.php';
 let trendChart = null;
 let dateRange = {
     startDate: null,
@@ -1420,7 +1420,7 @@ async function switchCompany(companyId, companyCode) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
             
-            const response = await fetch(`update_company_session_api.php?company_id=${companyId}`, {
+            const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`, {
                 signal: controller.signal
             });
             
