@@ -126,7 +126,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <script>
         window.FORMULA_MAINTENANCE_COMPANY_ID = <?php echo json_encode($session_company_id); ?>;
     </script>
-    <script src="js/formula_maintenance.js"></script>
+    <script src="js/formula_maintenance.js?v=<?php echo time(); ?>"></script>
 
 
 </body>

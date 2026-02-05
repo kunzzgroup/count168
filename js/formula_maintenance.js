@@ -107,7 +107,7 @@
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
             }
-            const url = params.length ? `api/processes/processlist_api.php?${params.join('&')}` : 'api/processes/processlist_api.php';
+            const url = params.length ? `/api/processes/processlist_api.php?${params.join('&')}` : '/api/processes/processlist_api.php';
             
             return fetch(url)
                 .then(response => response.json())
@@ -343,7 +343,7 @@
         const SEARCH_INPUT_DEBOUNCE_MS = 300;
 
         function loadOwnerCompanies() {
-            return fetch('api/transactions/get_owner_companies_api.php')
+            return fetch('/api/transactions/get_owner_companies_api.php')
                 .then(response => response.json())
                 .then(data => {
                     const wrapper = document.getElementById('companyButtonsWrapper');
@@ -398,7 +398,7 @@
             
             // 先更新 session
             try {
-                const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
@@ -479,7 +479,7 @@
             }
             
             // 构建 URL
-            let url = `api/formula_maintenance/list_api.php`;
+            let url = `/api/formula_maintenance/list_api.php`;
             const params = [];
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -795,7 +795,7 @@
                     return;
                 }
                 
-                let url = 'api/transactions/get_accounts_api.php';
+                let url = '/api/transactions/get_accounts_api.php';
                 const params = [];
                 if (currentCompanyId) {
                     params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -946,7 +946,7 @@
             
             console.log('保存数据:', saveData);
             
-            fetch('api/formula_maintenance/update_api.php', {
+            fetch('/api/formula_maintenance/update_api.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1054,7 +1054,7 @@
                         deleteData.company_id = currentCompanyId;
                     }
                     
-                    fetch('api/formula_maintenance/delete_api.php', {
+                    fetch('/api/formula_maintenance/delete_api.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
