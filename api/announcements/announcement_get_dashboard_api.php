@@ -4,12 +4,36 @@
  * 路径: api/announcements/announcement_get_dashboard_api.php
  */
 header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/../../config.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+
+function sendJson(bool $success, string $message, $data = null): void {
+    echo json_encode([
+        'success' => $success,
+        'message' => $message,
+        'data' => $data === null ? [] : $data
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
-function fetchActiveAnnouncementsForDashboard(PDO $pdo, int $limit = 10): array {
+try {
+    $configPaths = [__DIR__ . '/../../config.php', __DIR__ . '/../../../config.php'];
+    foreach ($configPaths as $path) {
+        if (is_file($path)) {
+            require_once $path;
+            break;
+        }
+    }
+    if (!isset($pdo)) {
+        throw new Exception('Config file not found');
+    }
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(401);
+        sendJson(false, 'User not logged in', []);
+    }
+
     $sql = "SELECT 
                 a.id,
                 a.title,
@@ -21,16 +45,14 @@ function fetchActiveAnnouncementsForDashboard(PDO $pdo, int $limit = 10): array 
             LEFT JOIN `owner` o ON a.created_by = o.id AND a.user_type = 'owner'
             WHERE a.company_code = 'C168' AND a.status = 'active'
             ORDER BY a.created_at DESC
-            LIMIT ?";
+            LIMIT 10";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$limit]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-function formatDashboardRows(array $rows): array {
-    $out = [];
+    $data = [];
     foreach ($rows as $row) {
-        $out[] = [
+        $data[] = [
             'id' => (int) $row['id'],
             'title' => $row['title'] ?? '',
             'content' => $row['content'] ?? '',
@@ -38,34 +60,11 @@ function formatDashboardRows(array $rows): array {
             'created_by' => $row['created_by_name'] ?? 'Unknown'
         ];
     }
-    return $out;
-}
 
-function jsonResponse(bool $success, string $message, $data = null): void {
-    echo json_encode([
-        'success' => $success,
-        'message' => $message,
-        'data' => $data
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
-}
+    sendJson(true, '', $data);
 
-try {
-    if (!isset($_SESSION['user_id'])) {
-        http_response_code(401);
-        jsonResponse(false, 'User not logged in', null);
-    }
-
-    $rows = fetchActiveAnnouncementsForDashboard($pdo, 10);
-    $data = formatDashboardRows($rows);
-    jsonResponse(true, '', $data);
-
-} catch (PDOException $e) {
-    error_log('Announcement get dashboard API DB error: ' . $e->getMessage());
-    http_response_code(500);
-    jsonResponse(false, 'Database error', null);
 } catch (Throwable $e) {
-    error_log('Announcement get dashboard API error: ' . $e->getMessage());
+    error_log('Announcement get dashboard API error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
-    jsonResponse(false, 'Server error', null);
+    sendJson(false, 'Server error', []);
 }
