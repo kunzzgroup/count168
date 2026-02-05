@@ -161,7 +161,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
         </div>
     </div>
 
-    <script src="js/announcement.js"></script>
+    <script src="js/announcement.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
 
