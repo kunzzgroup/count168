@@ -4692,7 +4692,7 @@ if ($current_user_id && count($user_companies) > 0) {
         async function deleteCurrencyPermanentlyBank(currencyId, currencyCode, itemElement) {
             if (!confirm('Are you sure you want to permanently delete currency ' + currencyCode + '? This action cannot be undone.')) return;
             try {
-                const res = await fetch(buildApiUrl('deletecurrencyapi.php'), {
+                const res = await fetch(buildApiUrl('api/accounts/delete_currency_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: currencyId })

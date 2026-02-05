@@ -3163,9 +3163,9 @@ function getCurrentProcessId() {
                 return;
             }
             
-            console.log('User confirmed deletion, sending request to deletecurrencyapi.php...');
+            console.log('User confirmed deletion, sending request to api/accounts/delete_currency_api.php...');
             try {
-                const response = await fetch('deletecurrencyapi.php', {
+                const response = await fetch('api/accounts/delete_currency_api.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

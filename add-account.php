@@ -420,7 +420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (confirm(`Are you sure you want to delete currency ${currencyCode}?`)) {
                 console.log('User confirmed deletion, sending request...');
                 // Send AJAX request to delete currency
-                fetch('deletecurrencyapi.php', {
+                fetch('api/accounts/delete_currency_api.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
