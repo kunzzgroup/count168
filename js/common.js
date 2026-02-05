@@ -10,6 +10,9 @@
     var MAIN_CONTENT_ID = 'main-content';
     var LOADING_BAR_ID = 'pjax-loading-bar';
     var PAGES_WITHOUT_MAIN_CONTENT = ['index.php', 'reset-password.php', 'owner_secondary_password.php', 'login_process.php'];
+    var progressTimer = null;
+    var CACHE_MAX = 20;
+    var pjaxCache = {};
 
     function getLoadingBar() {
         var bar = document.getElementById(LOADING_BAR_ID);
@@ -18,7 +21,7 @@
         style.textContent = [
             '#' + LOADING_BAR_ID + '{',
             '  position:fixed;top:0;left:0;width:0;height:3px;background:#e53935;z-index:99999;',
-            '  transition:width .2s ease-out,opacity .15s ease-out;',
+            '  transition:width .12s ease-out,opacity .15s ease-out;',
             '}',
             '#' + LOADING_BAR_ID + '.done{ opacity:0; width:100% !important; }'
         ].join('');
@@ -29,25 +32,46 @@
         return bar;
     }
 
+    function stopFakeProgress() {
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+        }
+    }
+
     function showLoadingBar() {
+        stopFakeProgress();
         var bar = getLoadingBar();
-        bar.style.width = '0';
+        bar.style.transition = 'width .12s ease-out';
+        bar.style.width = '0%';
         bar.style.opacity = '1';
         bar.classList.remove('done');
         bar.offsetHeight;
-        bar.style.width = '70%';
+        var start = 0;
+        var target = 88;
+        var step = 4;
+        var interval = 35;
+        progressTimer = setInterval(function () {
+            start += step;
+            if (start >= target) {
+                start = target;
+                stopFakeProgress();
+            }
+            bar.style.width = start + '%';
+        }, interval);
     }
 
     function hideLoadingBar() {
+        stopFakeProgress();
         var bar = document.getElementById(LOADING_BAR_ID);
         if (!bar) return;
-        bar.classList.add('done');
         bar.style.width = '100%';
+        bar.classList.add('done');
         setTimeout(function () {
             bar.style.width = '0';
             bar.style.opacity = '0';
             bar.classList.remove('done');
-        }, 150);
+        }, 120);
     }
 
     function isSameOrigin(href) {
@@ -141,6 +165,30 @@
         return true;
     }
 
+    function applyCacheAndReplace(cached, url, push) {
+        if (!cached || !cached.mainHtml) return false;
+        addStylesFromDoc(cached.doc);
+        doReplace({ mainHtml: cached.mainHtml, title: cached.title });
+        if (push) {
+            try {
+                window.history.pushState({}, cached.title || '', url);
+            } catch (e) {
+                window.history.pushState({}, '', url);
+            }
+        }
+        document.title = cached.title || document.title;
+        window.dispatchEvent(new CustomEvent('pjax:complete', { detail: { url: url } }));
+        return true;
+    }
+
+    function setCache(url, data) {
+        var keys = Object.keys(pjaxCache);
+        if (keys.length >= CACHE_MAX) {
+            delete pjaxCache[keys[0]];
+        }
+        pjaxCache[url] = { mainHtml: data.mainHtml, title: data.title, doc: data.doc };
+    }
+
     function navigate(url, push) {
         url = normalizeUrl(url);
         if (shouldFullLoad(url)) {
@@ -151,6 +199,12 @@
         var currentMain = document.getElementById(MAIN_CONTENT_ID);
         if (!currentMain) {
             window.location.href = url;
+            return;
+        }
+
+        var cached = pjaxCache[url];
+        if (cached) {
+            applyCacheAndReplace(cached, url, push);
             return;
         }
 
@@ -169,16 +223,8 @@
                     window.location.href = url;
                     return;
                 }
-                addStylesFromDoc(data.doc);
-                doReplace({ mainHtml: data.mainHtml, title: data.title });
-                if (push) {
-                    try {
-                        window.history.pushState({}, data.title || '', url);
-                    } catch (e) {
-                        window.history.pushState({}, '', url);
-                    }
-                }
-                window.dispatchEvent(new CustomEvent('pjax:complete', { detail: { url: url } }));
+                setCache(url, data);
+                applyCacheAndReplace(data, url, push);
             })
             .catch(function () {
                 window.location.href = url;
