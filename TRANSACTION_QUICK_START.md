@@ -5,12 +5,12 @@
 ### 数据库文件
 - ✅ `create_transaction_tables.sql` - 数据库表、触发器、视图创建脚本
 
-### API 文件
-- ✅ `transaction_search_api.php` - 搜索交易数据
-- ✅ `transaction_submit_api.php` - 提交交易
-- ✅ `transaction_history_api.php` - 查询历史记录
-- ✅ `transaction_get_categories_api.php` - 获取分类列表
-- ✅ `transaction_get_accounts_api.php` - 获取账户列表
+### API 文件（位于 api/transactions/）
+- ✅ `search_api.php` - 搜索交易数据
+- ✅ `submit_api.php` - 提交交易
+- ✅ `history_api.php` - 查询历史记录
+- ✅ `get_categories_api.php` - 获取分类列表
+- ✅ `get_accounts_api.php` - 获取账户列表
 
 ### 文档文件
 - ✅ `TRANSACTION_DATABASE_README.md` - 完整技术文档
@@ -42,13 +42,13 @@ SHOW TRIGGERS LIKE 'transactions';
 ---
 
 ### 步骤 2️⃣: 上传 API 文件
-将以下 5 个 PHP 文件上传到服务器根目录：
+将 API 文件置于 `api/transactions/` 目录：
 ```
-transaction_search_api.php
-transaction_submit_api.php
-transaction_history_api.php
-transaction_get_categories_api.php
-transaction_get_accounts_api.php
+api/transactions/search_api.php
+api/transactions/submit_api.php
+api/transactions/history_api.php
+api/transactions/get_categories_api.php
+api/transactions/get_accounts_api.php
 ```
 
 ---
@@ -57,7 +57,7 @@ transaction_get_accounts_api.php
 在浏览器中访问：
 
 ```
-http://your-domain.com/transaction_get_categories_api.php
+http://your-domain.com/api/transactions/get_categories_api.php
 ```
 
 应该看到：
@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
 ```javascript
 // 🆕 加载分类列表
 function loadCategories() {
-    fetch('transaction_get_categories_api.php')
+    fetch('api/transactions/get_categories_api.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -134,7 +134,7 @@ function loadCategories() {
 
 // 🆕 加载账户列表
 function loadAccounts() {
-    fetch('transaction_get_accounts_api.php')
+    fetch('api/transactions/get_accounts_api.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -183,7 +183,7 @@ function searchTransactions() {
     
     console.log('🔍 搜索参数:', { dateFrom, dateTo, category, showInactive, hideZero });
     
-    const url = `transaction_search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&hide_zero_balance=${hideZero}`;
+    const url = `api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&hide_zero_balance=${hideZero}`;
     
     fetch(url)
         .then(response => response.json())
@@ -313,7 +313,7 @@ function submitAction() {
     formData.append('description', description);
     formData.append('sms', sms);
     
-    fetch('transaction_submit_api.php', {
+    fetch('api/transactions/submit_api.php', {
         method: 'POST',
         body: formData
     })
@@ -361,7 +361,7 @@ function openHistoryModal(accountId, accountCode, accountName) {
     
     console.log('📜 打开历史记录:', { accountId, accountCode, accountName });
     
-    fetch(`transaction_history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`)
+    fetch(`api/transactions/history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

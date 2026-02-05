@@ -30,8 +30,8 @@ function dashboardContraApprovedWhere(PDO $pdo, string $alias = 't'): string
     return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
 }
 
-// 引入 transaction_search_api.php 中的函数（通过定义函数的方式）
-// 注意：这些函数已经在 transaction_search_api.php 中定义，但为了独立使用，我们需要重新定义
+// 引入 search_api.php 中的函数（通过定义函数的方式）
+// 注意：这些函数已经在 search_api.php 中定义，但为了独立使用，我们需要重新定义
 
 try {
     // 检查用户是否登录

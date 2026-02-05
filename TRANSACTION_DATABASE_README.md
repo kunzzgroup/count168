@@ -53,7 +53,7 @@
 
 ## 🔌 API 文件说明
 
-### 1. `transaction_search_api.php`
+### 1. `api/transactions/search_api.php`
 **功能：** 搜索和显示账户交易数据
 
 **请求方式：** `GET`
@@ -97,7 +97,7 @@
 
 ---
 
-### 2. `transaction_submit_api.php`
+### 2. `api/transactions/submit_api.php`
 **功能：** 提交交易数据
 
 **请求方式：** `POST`
@@ -131,7 +131,7 @@
 
 ---
 
-### 3. `transaction_history_api.php`
+### 3. `api/transactions/history_api.php`
 **功能：** 查询账户交易历史记录（弹窗显示）
 
 **请求方式：** `GET`
@@ -190,7 +190,7 @@
 
 ---
 
-### 4. `transaction_get_categories_api.php`
+### 4. `api/transactions/get_categories_api.php`
 **功能：** 获取账户分类列表
 
 **请求方式：** `GET`
@@ -207,7 +207,7 @@
 
 ---
 
-### 5. `transaction_get_accounts_api.php`
+### 5. `api/transactions/get_accounts_api.php`
 **功能：** 获取账户列表
 
 **请求方式：** `GET`
@@ -277,12 +277,12 @@ VALUES ('WIN', 1, 2, 100, '2025-11-10', 1);
 ```
 
 ### 步骤 4: 上传 API 文件
-将以下文件上传到服务器：
-- `transaction_search_api.php`
-- `transaction_submit_api.php`
-- `transaction_history_api.php`
-- `transaction_get_categories_api.php`
-- `transaction_get_accounts_api.php`
+将 API 文件置于 `api/transactions/` 目录：
+- `api/transactions/search_api.php`
+- `api/transactions/submit_api.php`
+- `api/transactions/history_api.php`
+- `api/transactions/get_categories_api.php`
+- `api/transactions/get_accounts_api.php`
 
 ---
 
@@ -290,7 +290,7 @@ VALUES ('WIN', 1, 2, 100, '2025-11-10', 1);
 
 ### 示例 1: 搜索交易数据
 ```javascript
-fetch('transaction_search_api.php?date_from=01/11/2025&date_to=07/11/2025&category=AGENT')
+fetch('api/transactions/search_api.php?date_from=01/11/2025&date_to=07/11/2025&category=AGENT')
     .then(response => response.json())
     .then(data => {
         if (data.success) {
@@ -310,7 +310,7 @@ formData.append('amount', 1000);
 formData.append('transaction_date', '10/11/2025');
 formData.append('description', 'Win from game');
 
-fetch('transaction_submit_api.php', {
+fetch('api/transactions/submit_api.php', {
     method: 'POST',
     body: formData
 })
@@ -333,7 +333,7 @@ formData.append('transaction_date', '10/11/2025');
 formData.append('description', 'Payment to XXX');
 formData.append('sms', 'Test SMS');
 
-fetch('transaction_submit_api.php', {
+fetch('api/transactions/submit_api.php', {
     method: 'POST',
     body: formData
 })
@@ -347,7 +347,7 @@ fetch('transaction_submit_api.php', {
 
 ### 示例 4: 查询历史记录
 ```javascript
-fetch('transaction_history_api.php?account_id=1&date_from=01/11/2025&date_to=07/11/2025')
+fetch('api/transactions/history_api.php?account_id=1&date_from=01/11/2025&date_to=07/11/2025')
     .then(response => response.json())
     .then(data => {
         if (data.success) {
@@ -364,7 +364,7 @@ fetch('transaction_history_api.php?account_id=1&date_from=01/11/2025&date_to=07/
 ### 1. 页面加载时
 ```javascript
 // 加载分类列表
-fetch('transaction_get_categories_api.php')
+fetch('api/transactions/get_categories_api.php')
     .then(response => response.json())
     .then(data => {
         if (data.success) {
@@ -379,7 +379,7 @@ fetch('transaction_get_categories_api.php')
     });
 
 // 加载账户列表
-fetch('transaction_get_accounts_api.php')
+fetch('api/transactions/get_accounts_api.php')
     .then(response => response.json())
     .then(data => {
         if (data.success) {
@@ -408,7 +408,7 @@ document.getElementById('search_btn').addEventListener('click', function() {
     const showInactive = document.getElementById('show_inactive').checked ? '1' : '0';
     const hideZero = document.getElementById('hide_zero_balance').checked ? '1' : '0';
     
-    const url = `transaction_search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&hide_zero_balance=${hideZero}`;
+    const url = `api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&hide_zero_balance=${hideZero}`;
     
     fetch(url)
         .then(response => response.json())
@@ -488,7 +488,7 @@ document.getElementById('submit_btn').addEventListener('click', function() {
     formData.append('description', document.getElementById('action_description').value);
     formData.append('sms', document.getElementById('action_sms').value);
     
-    fetch('transaction_submit_api.php', {
+    fetch('api/transactions/submit_api.php', {
         method: 'POST',
         body: formData
     })
@@ -516,7 +516,7 @@ function openHistoryModal(accountId, accountCode, accountName) {
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
     
-    fetch(`transaction_history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`)
+    fetch(`api/transactions/history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

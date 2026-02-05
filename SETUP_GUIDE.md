@@ -145,7 +145,7 @@ ORDER BY dc.id DESC;
 
 ### Core Files (Modified):
 - `datacapturesummary.php` - Added submit functionality
-- `datacapturesummaryapi.php` - Added submit API endpoint
+- `api/datacapture_summary/summary_api.php` - Added submit API endpoint
 - `datacapture.php` - (Already saves to localStorage)
 
 ### New Database Files:

@@ -36,7 +36,7 @@
 | 步骤 | 操作 |
 |-----|------|
 | 1 | 执行 `add_sync_source_process_id.sql`（确保列和复合索引存在，可多次执行）。 |
-| 2 | 部署 `addprocessapi.php`、`datacapturesummaryapi.php` 到服务器。 |
+| 2 | 部署 `api/processes/addprocessapi.php`、`api/datacapture_summary/summary_api.php` 到服务器。 |
 | 3 | 在 phpMyAdmin 中确认：新建的 Multi-Process 行里 `sync_source_process_id` 不为 NULL。 |
 
 ---
@@ -52,6 +52,6 @@
 
 ## 涉及文件
 
-- `addprocessapi.php`：创建时写 `sync_source_process_id`、复制 templates、兼容 `selected_processes`。
-- `datacapturesummaryapi.php`：`syncFormulaToMultiUseProcesses`、`syncDeleteTemplateToMultiUseProcesses`，以及 save_template / delete_template 中的同步调用。
+- `api/processes/addprocessapi.php`：创建时写 `sync_source_process_id`、复制 templates、兼容 `selected_processes`。
+- `api/datacapture_summary/summary_api.php`：`syncFormulaToMultiUseProcesses`、`syncDeleteTemplateToMultiUseProcesses`，以及 save_template / delete_template 中的同步调用。
 - `add_sync_source_process_id.sql`：可重复执行的建列与复合索引脚本。

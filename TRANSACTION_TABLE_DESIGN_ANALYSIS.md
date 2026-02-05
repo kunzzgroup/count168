@@ -77,7 +77,7 @@ transactions (主表 - 所有类型的共同字段)
 ### 实现步骤
 1. 创建 `transactions_rate` 扩展表
 2. 创建 `transactions_rate_details` 表存储 RATE 的多条记录
-3. 修改 `transaction_submit_api.php` 支持新表结构
+3. 修改 `api/transactions/submit_api.php` 支持新表结构
 4. 创建视图 `transaction_full_details` 包含扩展信息
 5. 迁移现有 RATE 数据（如果有）
 

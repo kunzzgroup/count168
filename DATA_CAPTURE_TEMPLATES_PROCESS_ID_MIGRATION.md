@@ -18,7 +18,7 @@ mysql -u username -p database_name < migrate_data_capture_templates_process_id_t
 
 #### 已修改的文件：
 
-1. **datacapturesummaryapi.php**
+1. **api/datacapture_summary/summary_api.php**
    - 移除了将 `process_id` 转换为 `VARCHAR(50)` 的代码
    - 修改了 `saveTemplateRow()` 函数，确保接收和存储的是 `process.id`（整数）
    - 添加了向后兼容性：如果接收到字符串类型的 `process_id`，会尝试查找对应的 `process.id`

@@ -44,8 +44,8 @@
 
 #### 修改的文件
 
-- `transaction_submit_api.php`：验证 To Account、From Account、Rate 相关账户时支持 account_company 表
-- `transaction_get_accounts_api.php`：获取账户列表时支持 account_company 表
+- `api/transactions/submit_api.php`：验证 To Account、From Account、Rate 相关账户时支持 account_company 表
+- `api/transactions/get_accounts_api.php`：获取账户列表时支持 account_company 表
 
 ### 2. 自动创建 Currency
 
@@ -82,7 +82,7 @@ if (!$currency_id) {
 
 #### 修改的文件
 
-- `transaction_submit_api.php`：所有 currency 验证的地方都添加了自动创建逻辑
+- `api/transactions/submit_api.php`：所有 currency 验证的地方都添加了自动创建逻辑
 
 ## 使用示例
 
@@ -105,7 +105,7 @@ VALUES (1, 31);
 ```php
 // 提交交易时指定 currency = "USD"
 // 如果该公司没有 USD，系统会自动创建
-POST /transaction_submit_api.php
+POST /api/transactions/submit_api.php
 {
     "transaction_type": "WIN",
     "account_id": 1,

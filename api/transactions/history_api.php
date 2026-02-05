@@ -823,7 +823,7 @@ try {
 
 /**
  * 计算 B/F (Balance Forward)
- * 与 transaction_search_api.php 中的函数相同
+ * 与 search_api.php 中的函数相同
  */
 function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $bf = 0;
@@ -888,7 +888,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
 
 /**
  * 按 Currency 计算 B/F (Balance Forward)
- * 与 transaction_search_api.php 中的函数相同
+ * 与 search_api.php 中的函数相同
  */
 function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id) {
     $bf = 0;

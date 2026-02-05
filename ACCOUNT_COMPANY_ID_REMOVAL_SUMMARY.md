@@ -34,14 +34,14 @@
 
 ## 还需要修改的文件
 
-### Transaction 相关文件
-- ⏳ **transaction_submit_api.php** - 需要移除所有 `account.company_id` 检查
-- ⏳ **transaction_get_accounts_api.php** - 需要移除所有 `account.company_id` 检查
-- ⏳ **transaction_search_api.php** - 可能需要检查
+### Transaction 相关文件（api/transactions/）
+- ⏳ **submit_api.php** - 需要移除所有 `account.company_id` 检查
+- ⏳ **get_accounts_api.php** - 需要移除所有 `account.company_id` 检查
+- ⏳ **search_api.php** - 可能需要检查
 
 ### 其他可能使用 account.company_id 的文件
-- ⏳ **formula_maintenance_update_api.php** - 第 90 行使用了 `account.company_id`
-- ⏳ **datacapturesummaryapi.php** - 第 1614 行使用了 `account.company_id`
+- ⏳ **api/formula_maintenance/update_api.php** - 第 90 行使用了 `account.company_id`
+- ⏳ **api/datacapture_summary/summary_api.php** - 第 1614 行使用了 `account.company_id`
 - ⏳ **其他报表和查询文件** - 需要全面检查
 
 ## SQL 迁移脚本

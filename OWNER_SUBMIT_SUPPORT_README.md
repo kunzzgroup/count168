@@ -39,7 +39,7 @@ source add_owner_support_to_data_captures.sql;
 
 ## 代码修改
 
-### 1. `submittedprocessesapi.php`
+### 1. `api/processes/submitted_processes_api.php`
 
 **主要更改**:
 
@@ -56,7 +56,7 @@ source add_owner_support_to_data_captures.sql;
    - Owner 类型用户不需要权限限制（可以访问所有数据）
    - User 类型用户仍然使用 `process_permissions` 进行权限过滤
 
-### 2. `datacapturesummaryapi.php`
+### 2. `api/datacapture_summary/summary_api.php`
 
 **主要更改**:
 
@@ -149,7 +149,7 @@ source add_owner_support_to_data_captures.sql;
 
 - `add_owner_support_to_submitted_processes.sql` - submitted_processes 表修改脚本
 - `add_owner_support_to_data_captures.sql` - data_captures 表修改脚本
-- `submittedprocessesapi.php` - 提交记录 API
-- `datacapturesummaryapi.php` - 数据捕获摘要 API
+- `api/processes/submitted_processes_api.php` - 提交记录 API
+- `api/datacapture_summary/summary_api.php` - 数据捕获摘要 API
 - `login_process.php` - 登录处理（设置 user_type）
 

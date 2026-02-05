@@ -88,16 +88,16 @@ WHERE a.company_id IS NOT NULL
 - [ ] `account-list.php` - 已修改，但需要移除 company_id 检查
 
 #### API 文件
-- [ ] `transaction_submit_api.php` - 已修改，但需要移除 company_id 检查
-- [ ] `transaction_get_accounts_api.php` - 已修改，但需要移除 company_id 检查
-- [ ] `transaction_search_api.php` - 需要修改
-- [ ] `transaction_history_api.php` - 需要修改
-- [ ] `getaccountapi.php` - 需要修改
-- [ ] `account_currency_api.php` - 需要修改
-- [ ] `datacapturesummaryapi.php` - 需要修改
-- [ ] `formula_maintenance_update_api.php` - 需要修改
-- [ ] `payment_maintenance_update_api.php` - 需要修改
-- [ ] `deletecurrencyapi.php` - 需要修改
+- [ ] `api/transactions/submit_api.php` - 已修改，但需要移除 company_id 检查
+- [ ] `api/transactions/get_accounts_api.php` - 已修改，但需要移除 company_id 检查
+- [ ] `api/transactions/search_api.php` - 需要修改
+- [ ] `api/transactions/history_api.php` - 需要修改
+- [ ] `getaccountapi.php` - 需要修改（根目录）
+- [ ] `api/accounts/account_currency_api.php` - 需要修改
+- [ ] `api/datacapture_summary/summary_api.php` - 需要修改
+- [ ] `api/formula_maintenance/update_api.php` - 需要修改
+- [ ] `api/payment_maintenance/update_api.php` - 需要修改
+- [ ] `api/accounts/delete_currency_api.php` - 需要修改
 - [ ] `domainapi.php` - 需要修改
 - [ ] `useraccessapi.php` - 需要修改
 - [ ] `customer_report_api.php` - 需要修改
