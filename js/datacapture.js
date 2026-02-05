@@ -9,7 +9,21 @@ let isSelecting = false;
             const base = window.location.origin + basePath;
             return new URL(pathAndQuery, base).href;
         }
-        
+
+        // 统一数值格式：粘贴/显示时 D/E 行等不跑格式（逗号小数→点、.50→0.50、0.→0.00）
+        function formatNumberToTwoDecimals(value) {
+            if (value === null || value === undefined) return value;
+            const str = (typeof value === 'string' ? value : String(value)).trim();
+            if (str === '') return value;
+            var normalized = str;
+            // 欧洲格式：仅一个逗号且无小数点 → 逗号为小数位（65,1 → 65.1）
+            if (/^-?\d+,\d+$/.test(normalized)) normalized = normalized.replace(',', '.');
+            else normalized = normalized.replace(/,/g, '');
+            var num = parseFloat(normalized);
+            if (!Number.isFinite(num)) return value;
+            return num.toFixed(2);
+        }
+
         // Track if table is active (user has clicked on table)
         let tableActive = false;
 
@@ -5552,7 +5566,7 @@ let isSelecting = false;
                         const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
                         let text = cell.textContent || cell.innerText || '';
                         text = text.replace(/\s+/g, ' ').trim();
-                        row.push(text);
+                        row.push(formatNumberToTwoDecimals(text));
                         for (let i = 1; i < colspan; i++) {
                             row.push('');
                         }
@@ -5967,7 +5981,7 @@ let isSelecting = false;
                         const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
                         let text = cell.textContent || cell.innerText || '';
                         text = text.replace(/\s+/g, ' ').trim();
-                        row.push(text);
+                        row.push(formatNumberToTwoDecimals(text));
                         for (let i = 1; i < colspan; i++) {
                             row.push('');
                         }
@@ -10742,24 +10756,6 @@ let isSelecting = false;
                         console.log('2.SPECIAL: Trying 2.3 MAXBET format...');
                         console.log('2.SPECIAL: MAXBET raw data sample (first 500 chars):', pastedData.substring(0, 500));
                         
-                        // 辅助函数：格式化数值为2位小数
-                        function formatNumberToTwoDecimals(value) {
-                            if (!value || typeof value !== 'string') return value;
-                            
-                            // 移除千位分隔符（逗号）
-                            let cleaned = value.replace(/,/g, '');
-                            
-                            // 尝试解析为数字
-                            const num = parseFloat(cleaned);
-                            if (!isNaN(num)) {
-                                // 格式化为2位小数，保留负号
-                                return num.toFixed(2);
-                            }
-                            
-                            // 如果不是数字，返回原值
-                            return value;
-                        }
-                        
                         // 优先尝试获取HTML格式的数据（Excel/网页粘贴通常包含HTML格式）
                         let htmlData = null;
                         try {
@@ -11206,21 +11202,6 @@ let isSelecting = false;
                         console.log('2.SPECIAL: C8PLAY format pattern detected');
                         console.log('2.SPECIAL: C8PLAY raw data sample (first 500 chars):', pastedData.substring(0, 500));
                         
-                        // 辅助函数：仅在“严格为数字”时格式化为2位小数（避免把 225C8 误判为 225.00）
-                        function formatNumberToTwoDecimals(value) {
-                            if (!value || typeof value !== 'string') return value;
-                            const trimmed = value.trim();
-
-                            // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
-                            const numericPattern = /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
-                            if (!numericPattern.test(trimmed)) return value;
-
-                            const cleaned = trimmed.replace(/,/g, '');
-                            const num = Number(cleaned);
-                            if (!Number.isFinite(num)) return value;
-                            return num.toFixed(2);
-                        }
-
                         // C8PLAY 报表复制：可能包含树状缩排/群组列，导致每行前导空白 <td> 数量不一致
                         // 这里尝试把每行对齐到真正的 Player（通常以 C8 结尾）并跳过群组标题行
                         function normalizeC8PlayRow(rawRow, expectedCols) {
@@ -13464,20 +13445,6 @@ let isSelecting = false;
                 if (!formatDetected) {
                     console.log('2.SPECIAL: No format detected, continuing with default logic');
                 }
-                    function formatNumberToTwoDecimals(value) {
-                        if (!value || typeof value !== 'string') return value;
-                        const trimmed = value.trim();
-
-                        // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
-                        const numericPattern = /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
-                        if (!numericPattern.test(trimmed)) return value;
-
-                        const cleaned = trimmed.replace(/,/g, '');
-                        const num = Number(cleaned);
-                        if (!Number.isFinite(num)) return value;
-                        return num.toFixed(2);
-                    }
-
                     function normalizeC8PlayRow(rawRow, expectedCols) {
                         if (!Array.isArray(rawRow) || rawRow.length === 0) return null;
 
@@ -17988,20 +17955,6 @@ let isSelecting = false;
                 console.log('C8PLAY: Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
                 
                 // 辅助函数：仅在“严格为数字”时格式化为2位小数（避免把 225C8 误判为 225.00）
-                function formatNumberToTwoDecimals(value) {
-                    if (!value || typeof value !== 'string') return value;
-                    const trimmed = value.trim();
-
-                    // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
-                    const numericPattern = /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
-                    if (!numericPattern.test(trimmed)) return value;
-
-                    const cleaned = trimmed.replace(/,/g, '');
-                    const num = Number(cleaned);
-                    if (!Number.isFinite(num)) return value;
-                    return num.toFixed(2);
-                }
-
                 // C8PLAY 报表复制：可能包含树状缩排/群组列，导致每行前导空白 <td> 数量不一致
                 // 这里尝试把每行对齐到真正的 Player（通常以 C8 结尾）并跳过群组标题行
                 function normalizeC8PlayRow(rawRow, expectedCols) {
@@ -18503,24 +18456,6 @@ let isSelecting = false;
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'MAXBET') {
                 console.log('MAXBET mode detected, preserving row format with 2 decimal places...');
                 console.log('MAXBET: Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
-                
-                // 辅助函数：格式化数值为2位小数
-                function formatNumberToTwoDecimals(value) {
-                    if (!value || typeof value !== 'string') return value;
-                    
-                    // 移除千位分隔符（逗号）
-                    let cleaned = value.replace(/,/g, '');
-                    
-                    // 尝试解析为数字
-                    const num = parseFloat(cleaned);
-                    if (!isNaN(num)) {
-                        // 格式化为2位小数，保留负号
-                        return num.toFixed(2);
-                    }
-                    
-                    // 如果不是数字，返回原值
-                    return value;
-                }
                 
                 // 优先尝试获取HTML格式的数据（Excel/网页粘贴通常包含HTML格式）
                 let htmlData = null;
