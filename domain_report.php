@@ -15,7 +15,7 @@ $isOwner = ($userRole === 'owner');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Domain Report</title>
-    <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js"></script>

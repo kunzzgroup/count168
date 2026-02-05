@@ -17,7 +17,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
-    <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>">
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -1505,5 +1505,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="js/transaction_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

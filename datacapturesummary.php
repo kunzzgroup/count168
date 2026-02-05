@@ -33,7 +33,7 @@ $company_id = $_SESSION['company_id'] ?? null;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
-    <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <title>Data Capture Summary</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/datacapturesummary.css">
