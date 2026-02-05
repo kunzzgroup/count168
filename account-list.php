@@ -301,6 +301,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
             </div>
         </div>
     </div>
+    </div>
 
     <!-- Edit Account Popup Modal -->
     <div id="editModal" class="account-modal" style="display: none;">
