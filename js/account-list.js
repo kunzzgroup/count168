@@ -467,7 +467,7 @@
         // Load currencies and roles for edit modal
         async function loadEditData() {
             try {
-                const response = await fetch('api/editdata/editdata_api.php');
+                const response = await fetch('/api/editdata/editdata_api.php');
                 const result = await response.json();
                 
                 if (result.success && result.data) {

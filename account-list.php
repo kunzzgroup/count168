@@ -621,7 +621,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
         window.ACCOUNT_LIST_COMPANY_ID = <?php echo json_encode($company_id); ?>;
         window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD = <?php echo json_encode($company_id ? [$company_id] : []); ?>;
     </script>
-    <script src="js/account-list.js"></script>
+    <script src="js/account-list.js?v=<?php echo time(); ?>"></script>
 
 
 </body>
