@@ -1,3 +1,10 @@
+// 构造 API 绝对 URL（与 processlist/datacapture 一致，避免 404）
+function buildApiUrl(pathAndQuery) {
+    const pathname = window.location.pathname || '/';
+    const basePath = pathname.replace(/[^/]*$/, '') || '/';
+    const base = window.location.origin + basePath;
+    return new URL(pathAndQuery, base).href;
+}
 const API_BASE_URL = 'api/transactions/dashboard_api.php';
 let trendChart = null;
 let dateRange = {
@@ -796,7 +803,7 @@ async function executeLoadData() {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
                 
-                const response = await fetch(`${API_BASE_URL}?${queryParams}`, {
+                const response = await fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`), {
                     signal: controller.signal
                 });
                 
@@ -1374,7 +1381,7 @@ function createChart(canvas, chartData) {
 
 // ==================== 加载 Owner Companies ====================
 function loadOwnerCompanies() {
-    return fetch('api/transactions/get_owner_companies_api.php')
+    return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php'))
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
@@ -1420,7 +1427,7 @@ async function switchCompany(companyId, companyCode) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
             
-            const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`, {
+            const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), {
                 signal: controller.signal
             });
             

@@ -130,7 +130,7 @@ if (isset($_GET['logout'])) {
         window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
     </script>
     <script src="js/sidebar.js"></script>
-    <script src="js/dashboard.js"></script>
+    <script src="js/dashboard.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
