@@ -311,7 +311,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
             }
-            const url = params.length ? `processlistapi.php?${params.join('&')}` : 'processlistapi.php';
+            const url = params.length ? `api/processes/processlist_api.php?${params.join('&')}` : 'api/processes/processlist_api.php';
             
             return fetch(url)
                 .then(response => response.json())

@@ -24,7 +24,7 @@
                     return;
                 }
                 const searchTerm = searchInput.value;
-                const url = buildApiUrl('processlistapi.php');
+                const url = buildApiUrl('api/processes/processlist_api.php');
 
                 // 添加当前选择的 company_id
                 const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -502,7 +502,7 @@
         /** Bank 编辑：打开与 Add 同格式的弹窗，预填数据，提交时走 update_process */
         async function openBankEditModal(id) {
             try {
-                const response = await fetch(buildApiUrl(`processlistapi.php?action=get_process&id=${id}&permission=Bank`));
+                const response = await fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
                 const result = await response.json();
                 if (!result.success || !result.data) {
                     showNotification(result.error || 'Failed to load process data', 'danger');
@@ -606,7 +606,7 @@
                     return;
                 }
                 await loadEditProcessData();
-                let getProcessUrl = `processlistapi.php?action=get_process&id=${id}`;
+                let getProcessUrl = `api/processes/processlist_api.php?action=get_process&id=${id}`;
                 const response = await fetch(buildApiUrl(getProcessUrl));
                 const result = await response.json();
                 if (result.success && result.data) {
@@ -896,7 +896,7 @@
 
         window.__accountingInboxList = [];
         function loadAccountingInbox() {
-            const url = buildApiUrl('process_accounting_inbox_api.php');
+            const url = buildApiUrl('api/processes/process_accounting_inbox_api.php');
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             const u = new URL(url);
             if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
@@ -1012,7 +1012,7 @@
             try {
                 const formData = new FormData();
                 pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
-                const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), { method: 'POST', body: formData });
+                const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
                     showNotification(result.message || 'Posted successfully.', 'success');
@@ -1044,7 +1044,7 @@
             try {
                 const formData = new FormData();
                 activeSelectedIds.forEach(id => formData.append('ids[]', id));
-                const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), {
+                const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), {
                     method: 'POST',
                     body: formData
                 });
@@ -2052,7 +2052,7 @@
                 try {
                     if (editId) {
                         formData.append('id', editId);
-                        const response = await fetch(buildApiUrl('processlistapi.php?action=update_process'), {
+                        const response = await fetch(buildApiUrl('api/processes/processlist_api.php?action=update_process'), {
                             method: 'POST',
                             body: formData
                         });
@@ -2127,7 +2127,7 @@
                 formData.append('day_use', selectedDays.join(','));
 
                 try {
-                    const response = await fetch(buildApiUrl('processlistapi.php?action=update_process'), {
+                    const response = await fetch(buildApiUrl('api/processes/processlist_api.php?action=update_process'), {
                         method: 'POST',
                         body: formData
                     });
@@ -2218,7 +2218,7 @@
                 try {
                     const formData = new FormData();
                     formData.append('country', countryName);
-                    const res = await fetch(buildApiUrl('processlistapi.php?action=add_country'), { method: 'POST', body: formData });
+                    const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=add_country'), { method: 'POST', body: formData });
                     const result = await res.json();
                     if (!result.success) {
                         showNotification(result.error || 'Failed to save country', 'danger');
@@ -2750,7 +2750,7 @@
             if (!select) return;
             const currentVal = (select.value || '').trim();
             try {
-                const res = await fetch(buildApiUrl('processlistapi.php?action=get_countries'));
+                const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=get_countries'));
                 const result = await res.json();
                 const list = (result.success && result.data) ? result.data : [];
                 select.innerHTML = '';
@@ -2819,7 +2819,7 @@
                 return;
             }
             try {
-                const url = buildApiUrl('processlistapi.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
+                const url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
                 const res = await fetch(url);
                 const result = await res.json();
                 const banks = (result.success && result.data) ? result.data : [];
@@ -3052,7 +3052,7 @@
             window.selectedCountries = [];
             let allCountries = [];
             try {
-                const res = await fetch(buildApiUrl('processlistapi.php?action=get_countries'));
+                const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=get_countries'));
                 const result = await res.json();
                 allCountries = (result.success && result.data) ? result.data : [];
             } catch (e) { console.warn('get_countries', e); }
@@ -3300,7 +3300,7 @@
             let all = [];
             if (countryForApi) {
                 try {
-                    const url = buildApiUrl('processlistapi.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+                    const url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
                     const res = await fetch(url);
                     const result = await res.json();
                     all = (result.success && result.data) ? result.data : [];
@@ -3502,7 +3502,7 @@
                     const fd = new FormData();
                     fd.append('country', country);
                     uniqueBanks.forEach(function (b) { fd.append('banks[]', b); });
-                    const res = await fetch(buildApiUrl('processlistapi.php?action=save_country_banks'), { method: 'POST', body: fd });
+                    const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=save_country_banks'), { method: 'POST', body: fd });
                     const result = await res.json();
                     if (!result.success) console.warn('save_country_banks', result.error);
                 } catch (e) { console.warn('save_country_banks', e); }

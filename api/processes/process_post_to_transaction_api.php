@@ -8,7 +8,18 @@
 
 session_start();
 header('Content-Type: application/json');
-require_once 'config.php';
+
+require_once __DIR__ . '/../../config.php';
+
+/** 统一 JSON 响应 */
+function jsonResponse(bool $success, string $message = '', $data = null): void
+{
+    $payload = ['success' => $success, 'message' => $message];
+    if ($data !== null) {
+        $payload['data'] = $data;
+    }
+    echo json_encode($payload);
+}
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
 {
@@ -24,7 +35,7 @@ function insertTransactionRow(PDO $pdo, array $data): int
     $sql = "INSERT INTO transactions (`" . implode('`,`', $columns) . "`) VALUES ($placeholders)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_values($data));
-    return (int)$pdo->lastInsertId();
+    return (int) $pdo->lastInsertId();
 }
 
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
@@ -48,18 +59,77 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     ];
 }
 
+/** 根据 id 列表获取 active 的 Bank Process（含 company/owner） */
+function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
+{
+    if (empty($ids)) {
+        return [];
+    }
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start,
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, c.owner_id
+            FROM bank_process bp
+            LEFT JOIN company c ON bp.company_id = c.id
+            WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND bp.status = 'active'";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge($ids, [$companyId]));
+    $byId = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $byId[(int) $row['id']] = $row;
+    }
+    return $byId;
+}
+
+/** 获取或创建 currency 的 id（按 code + company_id） */
+function getOrCreateCurrencyId(PDO $pdo, string $code, int $companyId): ?int
+{
+    $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
+    $stmt->execute([$code, $companyId]);
+    $id = $stmt->fetchColumn();
+    if ($id) {
+        return (int) $id;
+    }
+    $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
+    $stmt->execute([$code, $companyId]);
+    return (int) $pdo->lastInsertId();
+}
+
+/** 记录 process 已入账到 process_accounting_posted */
+function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId, string $date, string $periodType, bool $hasPeriodType): void
+{
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return;
+        }
+        if ($hasPeriodType) {
+            $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
+            $ins->execute([$companyId, $processId, $date, $periodType]);
+        } else {
+            $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date) VALUES (?, ?, ?)");
+            $ins->execute([$companyId, $processId, $date]);
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
-        throw new Exception('请先登录');
+        http_response_code(401);
+        jsonResponse(false, '请先登录', null);
+        exit;
     }
 
     $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
     $ids = array_filter($ids);
     $periodTypes = isset($_POST['period_types']) && is_array($_POST['period_types']) ? $_POST['period_types'] : [];
     if (empty($ids)) {
-        throw new Exception('请至少选择一个 Process');
+        http_response_code(400);
+        jsonResponse(false, '请至少选择一个 Process', null);
+        exit;
     }
-    // Pair each id with period_type (same order as Accounting Due rows)
+
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pairs[] = [
@@ -68,30 +138,22 @@ try {
         ];
     }
 
-    $company_id = (int)($_SESSION['company_id'] ?? 0);
+    $company_id = (int) ($_SESSION['company_id'] ?? 0);
     if (!$company_id) {
-        throw new Exception('缺少公司信息');
+        http_response_code(400);
+        jsonResponse(false, '缺少公司信息', null);
+        exit;
     }
     $isOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner';
     $owner_id = $isOwner ? ($_SESSION['owner_id'] ?? $_SESSION['user_id']) : null;
     $created_by_user = $isOwner ? null : $_SESSION['user_id'];
 
     $uniqueIds = array_values(array_unique(array_column($pairs, 'id')));
-    $placeholders = implode(',', array_fill(0, count($uniqueIds), '?'));
-    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, c.owner_id
-            FROM bank_process bp
-            LEFT JOIN company c ON bp.company_id = c.id
-            WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND bp.status = 'active'";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge($uniqueIds, [$company_id]));
-    $processesById = [];
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $processesById[(int)$row['id']] = $row;
-    }
-
+    $processesById = fetchBankProcessesByIds($pdo, $uniqueIds, $company_id);
     if (empty($processesById)) {
-        throw new Exception('未找到可入账的 Process（仅处理当前公司下 active 的 Process）');
+        http_response_code(400);
+        jsonResponse(false, '未找到可入账的 Process（仅处理当前公司下 active 的 Process）', null);
+        exit;
     }
 
     $has_currency_id = tableHasColumn($pdo, 'transactions', 'currency_id');
@@ -108,9 +170,9 @@ try {
             continue;
         }
         $periodType = $pair['period_type'];
-        $cost = (float)($p['cost'] ?? 0);
-        $price = (float)($p['price'] ?? 0);
-        $profit = (float)($p['profit'] ?? 0);
+        $cost = (float) ($p['cost'] ?? 0);
+        $price = (float) ($p['price'] ?? 0);
+        $profit = (float) ($p['profit'] ?? 0);
         if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
             $partial = partialFirstMonthAmounts($p['day_start'], $cost, $price, $profit);
             $cost = $partial['cost'];
@@ -119,7 +181,7 @@ try {
         }
 
         $processLabel = $p['name'] ?: ($p['bank'] . ' #' . $p['id']);
-        $companyId = (int)$p['company_id'];
+        $companyId = (int) $p['company_id'];
         $ownerId = $p['owner_id'] ?? null;
         $currencyCode = trim($p['country'] ?? '');
         if ($currencyCode === '') {
@@ -132,14 +194,7 @@ try {
             if (isset($currencyCache[$cacheKey])) {
                 $currencyId = $currencyCache[$cacheKey];
             } else {
-                $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-                $stmt->execute([$currencyCode, $companyId]);
-                $currencyId = $stmt->fetchColumn();
-                if (!$currencyId) {
-                    $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-                    $stmt->execute([$currencyCode, $companyId]);
-                    $currencyId = (int)$pdo->lastInsertId();
-                }
+                $currencyId = getOrCreateCurrencyId($pdo, $currencyCode, $companyId);
                 $currencyCache[$cacheKey] = $currencyId;
             }
         }
@@ -170,12 +225,11 @@ try {
             }
         }
 
-        // 首月按比例（除以天数×剩余天数）：只入账 Sell Price（customer 要先还的金额）；每月 1 号才入账 Buy Price + Sell Price + Profit
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : '';
         $isPartialFirstMonth = ($periodType === 'partial_first_month');
         if (!$isPartialFirstMonth && !empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
-            $txn['account_id'] = (int)$p['card_merchant_id'];
+            $txn['account_id'] = (int) $p['card_merchant_id'];
             $txn['amount'] = $cost;
             $txn['description'] = "Process: Buy Price for $processLabel" . $suffix;
             insertTransactionRow($pdo, $txn);
@@ -183,7 +237,7 @@ try {
         }
         if (!empty($p['customer_id']) && $price > 0) {
             $txn = $baseTxn;
-            $txn['account_id'] = (int)$p['customer_id'];
+            $txn['account_id'] = (int) $p['customer_id'];
             $txn['amount'] = $price;
             $txn['description'] = "Process: Sell Price for $processLabel" . $suffix;
             insertTransactionRow($pdo, $txn);
@@ -191,41 +245,22 @@ try {
         }
         if (!$isPartialFirstMonth && !empty($p['profit_account_id']) && $profit > 0) {
             $txn = $baseTxn;
-            $txn['account_id'] = (int)$p['profit_account_id'];
+            $txn['account_id'] = (int) $p['profit_account_id'];
             $txn['amount'] = $profit;
             $txn['description'] = "Process: Profit for $processLabel" . $suffix;
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
 
-        // Record posted (with period_type if column exists)
-        try {
-            $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
-            if ($stmtCheck && $stmtCheck->rowCount() > 0) {
-                if ($has_period_type) {
-                    $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
-                    $ins->execute([$companyId, (int)$p['id'], $transactionDate, $periodType]);
-                } else {
-                    $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date) VALUES (?, ?, ?)");
-                    $ins->execute([$companyId, (int)$p['id'], $transactionDate]);
-                }
-            }
-        } catch (Throwable $e) {
-            // ignore
-        }
+        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
     }
 
-    echo json_encode([
-        'success' => true,
-        'message' => "已入账，共生成 $createdCount 条交易记录。",
-        'data' => ['created_count' => $createdCount]
-    ]);
-
+    jsonResponse(true, "已入账，共生成 $createdCount 条交易记录。", ['created_count' => $createdCount]);
 } catch (Exception $e) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    jsonResponse(false, $e->getMessage(), null);
 } catch (PDOException $e) {
     error_log('process_post_to_transaction_api: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => '服务器错误']);
+    jsonResponse(false, '服务器错误', null);
 }

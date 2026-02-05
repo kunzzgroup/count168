@@ -2425,7 +2425,7 @@ let isSelecting = false;
                 
                 // Add currently selected company_id
                 const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-                const url = `processlistapi.php?action=get_process&id=${processId}`;
+                const url = `api/processes/processlist_api.php?action=get_process&id=${processId}`;
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);

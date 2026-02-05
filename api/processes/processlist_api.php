@@ -1,13 +1,25 @@
 <?php
-require_once 'config.php';
-require_once 'permissions.php';
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
 
-// 开启 session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 header('Content-Type: application/json');
+
+/** 统一 JSON 响应：success, message, data；失败时同时返回 error（与 message 相同）以兼容旧前端 */
+function jsonResponse(bool $success, string $message = '', $data = null): void
+{
+    $payload = ['success' => $success, 'message' => $message];
+    if (!$success) {
+        $payload['error'] = $message;
+    }
+    if ($data !== null) {
+        $payload['data'] = $data;
+    }
+    echo json_encode($payload);
+}
 
 // 获取当前登录用户的数值 ID
 function getCurrentUserId(PDO $pdo) {
@@ -136,10 +148,7 @@ function getProcesses() {
         $requested_company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
 
         if (!$requested_company_id) {
-            echo json_encode([
-                'success' => false,
-                'error' => '缺少公司信息'
-            ]);
+            jsonResponse(false, '缺少公司信息', null);
             return;
         }
 
@@ -166,10 +175,7 @@ function getProcesses() {
         }
 
         if (!$has_permission) {
-            echo json_encode([
-                'success' => false,
-                'error' => '您没有权限访问此公司的数据'
-            ]);
+            jsonResponse(false, '您没有权限访问此公司的数据', null);
             return;
         }
         
@@ -275,17 +281,10 @@ function getProcesses() {
             ];
         }
         
-        echo json_encode([
-            'success' => true,
-            'data' => $formattedProcesses
-        ]);
-        
+        jsonResponse(true, '', $formattedProcesses);
     } catch (PDOException $e) {
         error_log("Error fetching processes: " . $e->getMessage());
-        echo json_encode([
-            'success' => false,
-            'error' => 'Failed to fetch processes: ' . $e->getMessage()
-        ]);
+        jsonResponse(false, 'Failed to fetch processes: ' . $e->getMessage(), null);
     }
 }
 
@@ -303,20 +302,12 @@ function getProcess() {
         $currentCompanyId = $_SESSION['company_id'] ?? null;
         
         if (!$currentCompanyId) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'User company_id not found in session'
-            ]);
+            jsonResponse(false, 'User company_id not found in session', null);
             return;
         }
-        
         $processId = $_GET['id'] ?? '';
-        
         if (empty($processId)) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Process ID is required'
-            ]);
+            jsonResponse(false, 'Process ID is required', null);
             return;
         }
         
@@ -389,23 +380,13 @@ function getProcess() {
                 'created_by' => $process['created_by_login']
             ];
             
-            echo json_encode([
-                'success' => true,
-                'data' => $formattedProcess
-            ]);
+            jsonResponse(true, '', $formattedProcess);
         } else {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Process not found'
-            ]);
+            jsonResponse(false, 'Process not found', null);
         }
-        
     } catch (PDOException $e) {
         error_log("Error fetching process: " . $e->getMessage());
-        echo json_encode([
-            'success' => false,
-            'error' => 'Failed to fetch process: ' . $e->getMessage()
-        ]);
+        jsonResponse(false, 'Failed to fetch process: ' . $e->getMessage(), null);
     }
 }
 
@@ -423,13 +404,9 @@ function updateProcess() {
         $currentCompanyId = $_SESSION['company_id'] ?? null;
         
         if (!$currentCompanyId) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'User company_id not found in session'
-            ]);
+            jsonResponse(false, 'User company_id not found in session', null);
             return;
         }
-        
         $id = $_POST['id'] ?? '';
         $processId = $_POST['process_name'] ?? '';  // 前端发送的是 process_name，但数据库字段是 process_id
         $description = $_POST['description'] ?? '';
@@ -443,40 +420,24 @@ function updateProcess() {
         $selectedDescriptions = $_POST['selected_descriptions'] ?? '';
         
         if (empty($id)) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Process ID is required'
-            ]);
+            jsonResponse(false, 'Process ID is required', null);
             return;
         }
-        
         // 验证 process 是否属于当前用户的 company_id
         $checkStmt = $pdo->prepare("SELECT id, company_id FROM process WHERE id = ?");
         $checkStmt->execute([$id]);
         $process = $checkStmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$process) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Process not found'
-            ]);
+            jsonResponse(false, 'Process not found', null);
             return;
         }
-        
         if ($process['company_id'] != $currentCompanyId) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'You do not have permission to update this process'
-            ]);
+            jsonResponse(false, 'You do not have permission to update this process', null);
             return;
         }
-        
-        // 对于编辑操作，只验证process_name和currency_id，description是只读的
         if (empty($processId) || empty($currencyId)) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Process Name and Currency are required'
-            ]);
+            jsonResponse(false, 'Process Name and Currency are required', null);
             return;
         }
         
@@ -571,14 +532,8 @@ function updateProcess() {
                 }
             }
             
-            // 提交事务
             $pdo->commit();
-            
-            echo json_encode([
-                'success' => true,
-                'message' => 'Process updated successfully!'
-            ]);
-            
+            jsonResponse(true, 'Process updated successfully!', null);
         } catch (Exception $e) {
             // 回滚事务
             $pdo->rollback();
@@ -587,16 +542,10 @@ function updateProcess() {
         
     } catch (PDOException $e) {
         error_log("Error updating process: " . $e->getMessage());
-        echo json_encode([
-            'success' => false,
-            'error' => 'Failed to update process: ' . $e->getMessage()
-        ]);
+        jsonResponse(false, 'Failed to update process: ' . $e->getMessage(), null);
     } catch (Exception $e) {
         error_log("Error updating process: " . $e->getMessage());
-        echo json_encode([
-            'success' => false,
-            'error' => 'Failed to update process: ' . $e->getMessage()
-        ]);
+        jsonResponse(false, 'Failed to update process: ' . $e->getMessage(), null);
     }
 }
 
@@ -608,7 +557,7 @@ function getBankProcesses() {
     try {
         $requested_company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
         if (!$requested_company_id) {
-            echo json_encode(['success' => false, 'error' => '缺少公司信息']);
+            jsonResponse(false, '缺少公司信息', null);
             return;
         }
         $current_user_id = $_SESSION['user_id'] ?? null;
@@ -625,7 +574,7 @@ function getBankProcesses() {
             if ($stmt->fetchColumn() > 0) $has_permission = true;
         }
         if (!$has_permission) {
-            echo json_encode(['success' => false, 'error' => '您没有权限访问此公司的数据']);
+            jsonResponse(false, '您没有权限访问此公司的数据', null);
             return;
         }
         $targetCompanyId = $requested_company_id;
@@ -713,10 +662,10 @@ function getBankProcesses() {
                 'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
             ];
         }
-        echo json_encode(['success' => true, 'data' => $formattedProcesses]);
+        jsonResponse(true, '', $formattedProcesses);
     } catch (PDOException $e) {
         error_log("getBankProcesses: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => 'Failed to fetch bank processes: ' . $e->getMessage()]);
+        jsonResponse(false, 'Failed to fetch bank processes: ' . $e->getMessage(), null);
     }
 }
 
@@ -728,12 +677,12 @@ function getBankProcess() {
     try {
         $currentCompanyId = $_SESSION['company_id'] ?? null;
         if (!$currentCompanyId) {
-            echo json_encode(['success' => false, 'error' => 'User company_id not found in session']);
+            jsonResponse(false, 'User company_id not found in session', null);
             return;
         }
         $processId = $_GET['id'] ?? '';
         if (empty($processId)) {
-            echo json_encode(['success' => false, 'error' => 'Process ID is required']);
+            jsonResponse(false, 'Process ID is required', null);
             return;
         }
         $stmt = $pdo->prepare("SELECT 
@@ -751,7 +700,7 @@ function getBankProcess() {
         $stmt->execute([$processId, $currentCompanyId]);
         $process = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$process) {
-            echo json_encode(['success' => false, 'error' => 'Process not found']);
+            jsonResponse(false, 'Process not found', null);
             return;
         }
         $formatted = [
@@ -781,10 +730,10 @@ function getBankProcess() {
             'dts_modified' => $process['dts_modified'],
             'dts_created' => $process['dts_created'],
         ];
-        echo json_encode(['success' => true, 'data' => $formatted]);
+        jsonResponse(true, '', $formatted);
     } catch (PDOException $e) {
         error_log("getBankProcess: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => 'Failed to fetch bank process: ' . $e->getMessage()]);
+        jsonResponse(false, 'Failed to fetch bank process: ' . $e->getMessage(), null);
     }
 }
 
@@ -796,18 +745,18 @@ function updateBankProcess() {
     try {
         $currentCompanyId = $_SESSION['company_id'] ?? null;
         if (!$currentCompanyId) {
-            echo json_encode(['success' => false, 'error' => 'User company_id not found in session']);
+            jsonResponse(false, 'User company_id not found in session', null);
             return;
         }
         $id = $_POST['id'] ?? '';
         if (empty($id)) {
-            echo json_encode(['success' => false, 'error' => 'Process ID is required']);
+            jsonResponse(false, 'Process ID is required', null);
             return;
         }
         $checkStmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ?");
         $checkStmt->execute([$id, $currentCompanyId]);
         if (!$checkStmt->fetch()) {
-            echo json_encode(['success' => false, 'error' => 'Process not found or no permission']);
+            jsonResponse(false, 'Process not found or no permission', null);
             return;
         }
         $country = $_POST['country'] ?? null;
@@ -854,10 +803,10 @@ function updateBankProcess() {
                 $ins->execute([$currentCompanyId, $country, $bank]);
             } catch (Exception $e) { /* ignore */ }
         }
-        echo json_encode(['success' => true, 'message' => 'Process updated successfully!']);
+        jsonResponse(true, 'Process updated successfully!', null);
     } catch (Exception $e) {
         error_log("updateBankProcess: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => 'Failed to update process: ' . $e->getMessage()]);
+        jsonResponse(false, 'Failed to update process: ' . $e->getMessage(), null);
     }
 }
 
@@ -873,7 +822,7 @@ function getCountries() {
     try {
         $companyId = $_SESSION['company_id'] ?? null;
         if (!$companyId) {
-            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            jsonResponse(false, 'Company not found', null);
             return;
         }
         $stmt = $pdo->prepare("
@@ -885,10 +834,10 @@ function getCountries() {
         ");
         $stmt->execute([$companyId, $companyId]);
         $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo json_encode(['success' => true, 'data' => array_values($rows)]);
+        jsonResponse(true, '', array_values($rows));
     } catch (Exception $e) {
         error_log("getCountries: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'data' => []]);
+        jsonResponse(false, $e->getMessage(), []);
     }
 }
 
@@ -898,26 +847,26 @@ function getCountries() {
 function addCountry() {
     global $pdo;
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+        jsonResponse(false, 'Method not allowed', null);
         return;
     }
     try {
         $companyId = $_SESSION['company_id'] ?? null;
         if (!$companyId) {
-            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            jsonResponse(false, 'Company not found', null);
             return;
         }
         $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
         if ($country === '') {
-            echo json_encode(['success' => false, 'error' => 'Country name is required']);
+            jsonResponse(false, 'Country name is required', null);
             return;
         }
         $stmt = $pdo->prepare("INSERT IGNORE INTO company_countries (company_id, country) VALUES (?, ?)");
         $stmt->execute([$companyId, $country]);
-        echo json_encode(['success' => true, 'message' => 'Saved']);
+        jsonResponse(true, 'Saved', null);
     } catch (Exception $e) {
         error_log("addCountry: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        jsonResponse(false, $e->getMessage(), null);
     }
 }
 
@@ -926,21 +875,21 @@ function getBanksByCountry() {
     try {
         $companyId = $_SESSION['company_id'] ?? null;
         if (!$companyId) {
-            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            jsonResponse(false, 'Company not found', null);
             return;
         }
         $country = isset($_GET['country']) ? trim((string)$_GET['country']) : '';
         if ($country === '') {
-            echo json_encode(['success' => true, 'data' => []]);
+            jsonResponse(true, '', []);
             return;
         }
         $stmt = $pdo->prepare("SELECT bank FROM country_bank WHERE company_id = ? AND country = ? ORDER BY bank ASC");
         $stmt->execute([$companyId, $country]);
         $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo json_encode(['success' => true, 'data' => array_values($rows)]);
+        jsonResponse(true, '', array_values($rows));
     } catch (Exception $e) {
         error_log("getBanksByCountry: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'data' => []]);
+        jsonResponse(false, $e->getMessage(), []);
     }
 }
 
@@ -952,14 +901,14 @@ function saveCountryBanks() {
     try {
         $companyId = $_SESSION['company_id'] ?? null;
         if (!$companyId) {
-            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            jsonResponse(false, 'Company not found', null);
             return;
         }
         $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
         $banks = isset($_POST['banks']) ? $_POST['banks'] : [];
         if (!is_array($banks)) $banks = [];
         if ($country === '') {
-            echo json_encode(['success' => true, 'message' => 'No country']);
+            jsonResponse(true, 'No country', null);
             return;
         }
         foreach ($banks as $bank) {
@@ -968,10 +917,9 @@ function saveCountryBanks() {
             $stmt = $pdo->prepare("INSERT IGNORE INTO country_bank (company_id, country, bank) VALUES (?, ?, ?)");
             $stmt->execute([$companyId, $country, $bank]);
         }
-        echo json_encode(['success' => true, 'message' => 'Saved']);
+        jsonResponse(true, 'Saved', null);
     } catch (Exception $e) {
         error_log("saveCountryBanks: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        jsonResponse(false, $e->getMessage(), null);
     }
 }
-?>
