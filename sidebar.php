@@ -249,7 +249,7 @@ if ($companyId) {
                 <button class="language-btn" onclick="toggleLanguageDropdown()">
                     <img src="images/uk.png" alt="English" class="flag-icon" id="current-flag">
                     <span class="language-text" id="current-lang">English</span>
-                    <span class="dropdown-arrow">鈻?/span>
+                    <span class="dropdown-arrow">&#9658;</span>
                 </button>
                 <div class="language-dropdown-list" id="languageDropdown">
                     <div class="language-option" onclick="selectLanguage('en')">
@@ -405,7 +405,7 @@ if ($companyId) {
                             <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                         </svg>
                         Report
-                        <span class="section-arrow">鈻?/span>
+                        <span class="section-arrow">&#9658;</span>
                     </div>
                     <div class="submenu" id="report-submenu">
                         <div class="submenu-content">
@@ -430,7 +430,7 @@ if ($companyId) {
                             <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
                         </svg>
                         Maintenance
-                        <span class="section-arrow">鈻?/span>
+                        <span class="section-arrow">&#9658;</span>
                     </div>
                     <div class="submenu" id="maintenance-submenu">
                         <div class="submenu-content">
