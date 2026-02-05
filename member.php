@@ -918,6 +918,8 @@ $today = date('d/m/Y');
             text-transform: uppercase;
         }
     </style>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
 </head>
 <body class="transaction-page member-winloss-page">
     <?php include 'sidebar.php'; ?>

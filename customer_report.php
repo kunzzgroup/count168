@@ -17,6 +17,8 @@ $isOwner = ($userRole === 'owner');
     <title>Customer Report</title>
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="transaction.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
     <style>
         /* Override container styles for scrolling */

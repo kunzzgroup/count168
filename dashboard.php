@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once 'config.php'; // 使用统一的数据库配置
 
@@ -122,12 +122,14 @@ if (isset($_GET['logout'])) {
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <script>
         // 用户数据供JavaScript使用（外部 js/dashboard.js 依赖此变量）
         window.userData = <?php echo json_encode($userData); ?>;
         window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
     </script>
+    <script src="js/sidebar.js"></script>
     <script src="js/dashboard.js"></script>
 </head>
 <body class="dashboard-page">

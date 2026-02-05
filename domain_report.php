@@ -17,6 +17,8 @@ $isOwner = ($userRole === 'owner');
     <title>Domain Report</title>
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="transaction.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
     <style>
         body {

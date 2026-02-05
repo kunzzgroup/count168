@@ -169,6 +169,8 @@ if ($current_user_id && count($user_companies) > 0) {
     <title>Process List</title>
     <link rel="stylesheet" href="processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
     <style>
         /* Input formatting - 统一管理输入框格式 */

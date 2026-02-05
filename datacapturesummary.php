@@ -35,6 +35,8 @@ $company_id = $_SESSION['company_id'] ?? null;
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <title>Data Capture Summary</title>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

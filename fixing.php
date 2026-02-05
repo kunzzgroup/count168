@@ -154,6 +154,8 @@ if (!isset($_SESSION['user_id'])) {
             }
         } */
     </style>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
 </head>
 <body>
 

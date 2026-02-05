@@ -20,6 +20,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="transaction.css?v=<?php echo time(); ?>" />
     <title>Formula Maintenance</title>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

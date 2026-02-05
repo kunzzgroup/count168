@@ -68,6 +68,8 @@ if (!$company_id) {
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <title>自动登录管理</title>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
     <style>
         body {

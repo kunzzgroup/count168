@@ -108,6 +108,8 @@ if ($current_user_id && count($user_companies) > 0) {
             opacity: 1;
         }
     </style>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

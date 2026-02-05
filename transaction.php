@@ -456,6 +456,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     }
     
     </style>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
 </head>
 <body class="transaction-page">
     <?php include 'sidebar.php'; ?>

@@ -22,6 +22,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <title>Data Capture Maintenance</title>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>

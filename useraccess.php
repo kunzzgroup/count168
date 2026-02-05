@@ -79,6 +79,8 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>User Access Management</title>
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js"></script>
     <?php include 'sidebar.php'; ?>
     <style>
         body {
