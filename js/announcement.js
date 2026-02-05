@@ -3,7 +3,7 @@
 // 加载公告列表
 async function loadAnnouncements() {
     try {
-        const response = await fetch('announcement_list_api.php');
+        const response = await fetch('api/announcements/announcement_list_api.php');
         const result = await response.json();
 
         const listContainer = document.getElementById('announcementList');
@@ -58,7 +58,7 @@ async function deleteAnnouncement(id, title) {
         const formData = new FormData();
         formData.append('id', id);
 
-        const response = await fetch('announcement_delete_api.php', {
+        const response = await fetch('api/announcements/announcement_delete_api.php', {
             method: 'POST',
             body: formData
         });
@@ -69,7 +69,7 @@ async function deleteAnnouncement(id, title) {
             showNotification('Announcement deleted successfully', 'success');
             loadAnnouncements();
         } else {
-            showNotification('Delete failed: ' + result.error, 'error');
+            showNotification('Delete failed: ' + (result.message || result.error), 'error');
         }
     } catch (error) {
         console.error('Failed to delete announcement:', error);
@@ -95,7 +95,7 @@ function initAnnouncementForm() {
             formData.append('title', title);
             formData.append('content', content);
 
-            const response = await fetch('announcement_create_api.php', {
+            const response = await fetch('api/announcements/announcement_create_api.php', {
                 method: 'POST',
                 body: formData
             });
@@ -107,7 +107,7 @@ function initAnnouncementForm() {
                 document.getElementById('announcementForm').reset();
                 loadAnnouncements();
             } else {
-                showNotification('Publish failed: ' + result.error, 'error');
+                showNotification('Publish failed: ' + (result.message || result.error), 'error');
             }
         } catch (error) {
             console.error('Failed to publish announcement:', error);
@@ -183,7 +183,7 @@ function initEditAnnouncementForm() {
             formData.append('title', title);
             formData.append('content', content);
 
-            const response = await fetch('announcement_update_api.php', {
+            const response = await fetch('api/announcements/announcement_update_api.php', {
                 method: 'POST',
                 body: formData
             });
@@ -195,7 +195,7 @@ function initEditAnnouncementForm() {
                 closeEditAnnouncementModal();
                 loadAnnouncements();
             } else {
-                showNotification('Update failed: ' + result.error, 'error');
+                showNotification('Update failed: ' + (result.message || result.error), 'error');
             }
         } catch (error) {
             console.error('Failed to update announcement:', error);
@@ -302,7 +302,7 @@ async function deleteMaintenanceContent(id) {
             showNotification('Maintenance content deleted successfully', 'success');
             loadMaintenanceContent();
         } else {
-            showNotification('Delete failed: ' + result.error, 'error');
+            showNotification('Delete failed: ' + (result.message || result.error), 'error');
         }
     } catch (error) {
         console.error('Failed to delete maintenance content:', error);
@@ -338,7 +338,7 @@ function initMaintenanceForm() {
                 document.getElementById('maintenanceForm').reset();
                 loadMaintenanceContent();
             } else {
-                showNotification('Publish failed: ' + result.error, 'error');
+                showNotification('Publish failed: ' + (result.message || result.error), 'error');
             }
         } catch (error) {
             console.error('Failed to publish maintenance content:', error);
@@ -393,7 +393,7 @@ function initEditMaintenanceForm() {
                 closeEditMaintenanceModal();
                 loadMaintenanceContent();
             } else {
-                showNotification('Update failed: ' + result.error, 'error');
+                showNotification('Update failed: ' + (result.message || result.error), 'error');
             }
         } catch (error) {
             console.error('Failed to update maintenance content:', error);

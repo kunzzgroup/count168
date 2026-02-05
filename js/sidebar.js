@@ -196,7 +196,7 @@
     function loadAnnouncements() {
         var contentContainer = document.getElementById('notificationContent');
         if (!contentContainer) return;
-        fetch('announcement_get_dashboard_api.php').then(function(response) {
+        fetch('api/announcements/announcement_get_dashboard_api.php').then(function(response) {
             return response.json();
         }).then(function(result) {
             if (result.success && result.data && result.data.length > 0) {
