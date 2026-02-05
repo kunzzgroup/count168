@@ -31,8 +31,8 @@ function fetchAllAnnouncements(PDO $pdo): array {
                 COALESCE(u.name, o.name) as created_by_name,
                 COALESCE(u.login_id, o.owner_code) as created_by_login
             FROM announcements a
-            LEFT JOIN user u ON a.created_by = u.id AND a.user_type = 'user'
-            LEFT JOIN owner o ON a.created_by = o.id AND a.user_type = 'owner'
+            LEFT JOIN `user` u ON a.created_by = u.id AND a.user_type = 'user'
+            LEFT JOIN `owner` o ON a.created_by = o.id AND a.user_type = 'owner'
             WHERE a.company_code = 'C168'
             ORDER BY a.created_at DESC";
     $stmt = $pdo->prepare($sql);

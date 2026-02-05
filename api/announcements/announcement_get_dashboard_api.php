@@ -3,9 +3,11 @@
  * 公告仪表盘 API：获取活跃公告（供仪表盘展示）
  * 路径: api/announcements/announcement_get_dashboard_api.php
  */
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../../config.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 function fetchActiveAnnouncementsForDashboard(PDO $pdo, int $limit = 10): array {
     $sql = "SELECT 
@@ -15,8 +17,8 @@ function fetchActiveAnnouncementsForDashboard(PDO $pdo, int $limit = 10): array 
                 DATE_FORMAT(a.created_at, '%d/%m/%Y %H:%i:%s') as created_at,
                 COALESCE(u.name, o.name) as created_by_name
             FROM announcements a
-            LEFT JOIN user u ON a.created_by = u.id AND a.user_type = 'user'
-            LEFT JOIN owner o ON a.created_by = o.id AND a.user_type = 'owner'
+            LEFT JOIN `user` u ON a.created_by = u.id AND a.user_type = 'user'
+            LEFT JOIN `owner` o ON a.created_by = o.id AND a.user_type = 'owner'
             WHERE a.company_code = 'C168' AND a.status = 'active'
             ORDER BY a.created_at DESC
             LIMIT ?";
@@ -44,14 +46,14 @@ function jsonResponse(bool $success, string $message, $data = null): void {
         'success' => $success,
         'message' => $message,
         'data' => $data
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         jsonResponse(false, 'User not logged in', null);
-        return;
     }
 
     $rows = fetchActiveAnnouncementsForDashboard($pdo, 10);
@@ -61,8 +63,9 @@ try {
 } catch (PDOException $e) {
     error_log('Announcement get dashboard API DB error: ' . $e->getMessage());
     http_response_code(500);
-    jsonResponse(false, 'Database error: ' . $e->getMessage(), null);
-} catch (Exception $e) {
-    http_response_code(400);
-    jsonResponse(false, $e->getMessage(), null);
+    jsonResponse(false, 'Database error', null);
+} catch (Throwable $e) {
+    error_log('Announcement get dashboard API error: ' . $e->getMessage());
+    http_response_code(500);
+    jsonResponse(false, 'Server error', null);
 }
