@@ -4108,15 +4108,25 @@ let isSelecting = false;
                             } else if (hasNewline) {
                                 lines = cellText.split(/\r?\n|\r/).map(e => e.trim()).filter(e => e !== '');
                             }
+                            // 仅当该格包含 SUB TOTAL 或 GRAND TOTAL 时才标记为需拆分（小计+总计同格才拆成两行）
                             if (lines.length >= 2) {
+                                let cellLower = cellText.toLowerCase();
+                                if (cellLower.includes('grand total') || cellLower.includes('sub total')) {
+                                    needsSplit = true;
+                                }
+                            }
+                        }
+                        // 无 br/换行时也检查：纯文本里 "Sub Total" + "Grand Total" 连在一起
+                        if (!needsSplit && cellText) {
+                            let cellLower = cellText.toLowerCase();
+                            if (cellLower.includes('sub total') && cellLower.includes('grand total') && cellText.search(/\bGrand\s*Total\b/i) > 0) {
                                 needsSplit = true;
                             }
                         }
                     });
-                    // 2.Format：一条数据不拆分。不再因单元格内有<br>/换行而多占一行。
-                    // if (needsSplit) {
-                    //     actualRequiredRows++; // 需要拆分的行会占用两行
-                    // }
+                    if (needsSplit) {
+                        actualRequiredRows++; // SUB TOTAL + GRAND TOTAL 同格时占用两行
+                    }
                 });
                 
                 const requiredRows = actualRequiredRows;
@@ -4376,9 +4386,10 @@ let isSelecting = false;
                     
                     console.log(`Format: Row ${sourceRowIndex}: Final check - hasVerticalSplit=${hasVerticalSplit}, cellsWithSplit.length=${cellsWithSplit.length}`);
                     
-                    // 2.Format：用户要求“一条数据不要拆分”。不再把一行按<br>/换行拆成两行，保持一条数据一行。
-                    // If any cell with top and bottom data detected, previously we split into two rows; now disabled.
-                    if (false && hasVerticalSplit && cellsWithSplit.length > 0) {
+                    // 仅当该行是「SUB TOTAL + GRAND TOTAL 在同一格」时才拆分：一行拆成两行（SUB TOTAL 一行、GRAND TOTAL 一行）
+                    let rowTextLower = (sourceRow.textContent || sourceRow.innerText || '').toLowerCase();
+                    let isSubTotalGrandTotalRow = rowTextLower.includes('sub total') && rowTextLower.includes('grand total');
+                    if (isSubTotalGrandTotalRow && hasVerticalSplit && cellsWithSplit.length > 0) {
                         console.log(`Format: ✓ Detected ${cellsWithSplit.length} cell(s) with vertically stacked data in source row ${sourceRowIndex} (actual row ${actualRowIndex}), splitting into two rows`);
                         console.log(`Format: cellsWithSplit details:`, cellsWithSplit.map(s => ({index: s.index, top: s.topData, bottom: s.bottomData})));
                         
