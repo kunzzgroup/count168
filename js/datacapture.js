@@ -4087,45 +4087,35 @@ let isSelecting = false;
                 let actualRequiredRows = dataRows.length;
                 dataRows.forEach((sourceRow) => {
                     const sourceCells = sourceRow.querySelectorAll('td, th');
+                    if (sourceCells.length === 0) return;
+                    // 只根据第一格（行标签列）的 BR/SPAN 结构判断，不抓字
+                    const firstCell = sourceCells[0];
+                    let cellHtml = firstCell.innerHTML || '';
+                    let cellText = (firstCell.textContent || firstCell.innerText || '').trim();
+                    let hasBrTag = /<br\s*\/?>/i.test(cellHtml) || /<br\s+[^>]*>/i.test(cellHtml);
+                    let hasNewline = cellText.includes('\n') || cellText.includes('\r\n') || cellText.includes('\r');
                     let needsSplit = false;
-                    sourceCells.forEach((sourceCell) => {
-                        let cellHtml = sourceCell.innerHTML || '';
-                        let cellText = (sourceCell.textContent || sourceCell.innerText || '').trim();
-                        let hasBrTag = /<br\s*\/?>/i.test(cellHtml);
-                        let hasNewline = cellText.includes('\n') || cellText.includes('\r\n') || cellText.includes('\r');
-                        if (hasBrTag || hasNewline) {
-                            let lines = [];
-                            if (hasBrTag) {
-                                let htmlWithMarker = cellHtml.replace(/<br\s*\/?>/gi, '|||SPLIT_MARKER|||');
-                                let tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = htmlWithMarker;
-                                let textWithMarker = tempDiv.textContent || tempDiv.innerText || '';
-                                lines = textWithMarker.split('|||SPLIT_MARKER|||').map(e => {
-                                    let cleanDiv = document.createElement('div');
-                                    cleanDiv.innerHTML = e;
-                                    return (cleanDiv.textContent || cleanDiv.innerText || '').trim();
-                                }).filter(e => e !== '');
-                            } else if (hasNewline) {
-                                lines = cellText.split(/\r?\n|\r/).map(e => e.trim()).filter(e => e !== '');
-                            }
-                            // 仅当该格包含 SUB TOTAL 或 GRAND TOTAL 时才标记为需拆分（小计+总计同格才拆成两行）
-                            if (lines.length >= 2) {
-                                let cellLower = cellText.toLowerCase();
-                                if (cellLower.includes('grand total') || cellLower.includes('sub total')) {
-                                    needsSplit = true;
-                                }
-                            }
+                    if (hasBrTag || hasNewline) {
+                        let lines = [];
+                        if (hasBrTag) {
+                            let htmlWithMarker = cellHtml.replace(/<br\s+[^>]*>/gi, '|||SPLIT_MARKER|||').replace(/<br\s*\/?>/gi, '|||SPLIT_MARKER|||');
+                            let tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlWithMarker;
+                            let textWithMarker = tempDiv.textContent || tempDiv.innerText || '';
+                            lines = textWithMarker.split('|||SPLIT_MARKER|||').map(e => (e || '').trim()).filter(e => e !== '');
+                        } else {
+                            lines = cellText.split(/\r?\n|\r/).map(e => e.trim()).filter(e => e !== '');
                         }
-                        // 无 br/换行时也检查：纯文本里 "Sub Total" + "Grand Total" 连在一起
-                        if (!needsSplit && cellText) {
-                            let cellLower = cellText.toLowerCase();
-                            if (cellLower.includes('sub total') && cellLower.includes('grand total') && cellText.search(/\bGrand\s*Total\b/i) > 0) {
-                                needsSplit = true;
-                            }
+                        if (lines.length >= 2) needsSplit = true;
+                    } else {
+                        let directSpans = firstCell.querySelectorAll(':scope > span');
+                        if (directSpans.length >= 2) {
+                            let parts = Array.from(directSpans).map(s => (s.textContent || '').trim()).filter(e => e !== '');
+                            if (parts.length >= 2) needsSplit = true;
                         }
-                    });
+                    }
                     if (needsSplit) {
-                        actualRequiredRows++; // SUB TOTAL + GRAND TOTAL 同格时占用两行
+                        actualRequiredRows++; // 第一格有 BR/SPAN 结构时占用两行
                     }
                 });
                 
@@ -4325,25 +4315,15 @@ let isSelecting = false;
                                 console.log(`Format: Row ${sourceRowIndex}, Cell ${cellIndex}: Split by newline, found ${lines.length} lines:`, lines);
                             }
                         } else {
-                            // 无<br>无换行：按文本内容推断是否"两段连在一起"（如 Sub TotalGrand Total、191191）
-                            // Sub Total + Grand Total 连在一起：在 "Grand Total" 前拆分
-                            let upper = cellText;
-                            let lower = '';
-                            const grandIdx = cellText.search(/\bGrand\s*Total\b/i);
-                            if (grandIdx > 0) {
-                                upper = cellText.substring(0, grandIdx).trim();
-                                lower = cellText.substring(grandIdx).trim();
-                                if (upper !== '' && lower !== '') {
-                                    lines = [upper, lower];
+                            // 无 br/换行：只抓取 SPAN 结构，不抓字。多个直接子 span 视为上下两段
+                            let directSpans = sourceCell.querySelectorAll(':scope > span');
+                            if (directSpans.length >= 2) {
+                                let parts = Array.from(directSpans).map(s => (s.textContent || '').trim()).filter(e => e !== '');
+                                if (parts.length >= 2) {
+                                    lines = [parts[0], parts[1]];
                                 }
-                            }
-                            // 若未拆出两段，再尝试：完全重复的两段（如 191191）
-                            if (lines.length < 2 && cellText.length >= 2) {
-                                const half = Math.floor(cellText.length / 2);
-                                const first = cellText.substring(0, half).trim();
-                                const second = cellText.substring(half).trim();
-                                if (first !== '' && second !== '' && first === second) {
-                                    lines = [first, second];
+                                if (cellIndex < 5 && lines.length >= 2) {
+                                    console.log(`Format: Row ${sourceRowIndex}, Cell ${cellIndex}: Split by span, found ${parts.length} parts`);
                                 }
                             }
                         }
@@ -4363,7 +4343,7 @@ let isSelecting = false;
                         }
                     });
                     
-                    // 若本行已因 Sub Total/Grand Total 或重复段被标记为需拆分，对尚未拆分的单元格按“长度一半”拆（如 53,627.0053,627.00）
+                    // 若本行已因第一格 BR/SPAN 被标记为需拆分，对尚未拆分的单元格按“长度一半”拆（如 53,627.0053,627.00）
                     if (hasVerticalSplit && cellsWithSplit.length > 0) {
                         sourceCells.forEach((sourceCell, cellIndex) => {
                             if (cellsWithSplit.some(s => s.index === cellIndex)) return;
@@ -4386,10 +4366,9 @@ let isSelecting = false;
                     
                     console.log(`Format: Row ${sourceRowIndex}: Final check - hasVerticalSplit=${hasVerticalSplit}, cellsWithSplit.length=${cellsWithSplit.length}`);
                     
-                    // 仅当该行是「SUB TOTAL + GRAND TOTAL 在同一格」时才拆分：一行拆成两行（SUB TOTAL 一行、GRAND TOTAL 一行）
-                    let rowTextLower = (sourceRow.textContent || sourceRow.innerText || '').toLowerCase();
-                    let isSubTotalGrandTotalRow = rowTextLower.includes('sub total') && rowTextLower.includes('grand total');
-                    if (isSubTotalGrandTotalRow && hasVerticalSplit && cellsWithSplit.length > 0) {
+                    // 不抓字，只抓 BR/SPAN：仅当第一格（行标签列）有 BR 或 多 SPAN 结构时才拆分
+                    let isFirstCellWithBrOrSpan = cellsWithSplit.some(s => s.index === 0);
+                    if (isFirstCellWithBrOrSpan && hasVerticalSplit && cellsWithSplit.length > 0) {
                         console.log(`Format: ✓ Detected ${cellsWithSplit.length} cell(s) with vertically stacked data in source row ${sourceRowIndex} (actual row ${actualRowIndex}), splitting into two rows`);
                         console.log(`Format: cellsWithSplit details:`, cellsWithSplit.map(s => ({index: s.index, top: s.topData, bottom: s.bottomData})));
                         
