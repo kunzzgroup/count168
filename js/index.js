@@ -149,7 +149,7 @@
 
     async function loadMaintenanceContent() {
         try {
-            const response = await fetch('maintenance_get_public_api.php');
+            const response = await fetch('api/maintenance/get_public_api.php');
             const result = await response.json();
 
             const wrapper = document.getElementById('maintenanceMarqueeWrapper');

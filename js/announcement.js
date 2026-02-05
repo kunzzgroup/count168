@@ -223,7 +223,7 @@ function initModalClickOutside() {
 // 加载维护内容列表
 async function loadMaintenanceContent() {
     try {
-        const response = await fetch('maintenance_list_api.php');
+        const response = await fetch('api/maintenance/list_api.php');
         const result = await response.json();
 
         const listContainer = document.getElementById('maintenanceList');
@@ -291,7 +291,7 @@ async function deleteMaintenanceContent(id) {
         const formData = new FormData();
         formData.append('id', id);
 
-        const response = await fetch('maintenance_delete_api.php', {
+        const response = await fetch('api/maintenance/delete_api.php', {
             method: 'POST',
             body: formData
         });
@@ -326,7 +326,7 @@ function initMaintenanceForm() {
             const formData = new FormData();
             formData.append('content', content);
 
-            const response = await fetch('maintenance_create_api.php', {
+            const response = await fetch('api/maintenance/create_api.php', {
                 method: 'POST',
                 body: formData
             });
@@ -381,7 +381,7 @@ function initEditMaintenanceForm() {
             formData.append('id', id);
             formData.append('content', content);
 
-            const response = await fetch('maintenance_update_api.php', {
+            const response = await fetch('api/maintenance/update_api.php', {
                 method: 'POST',
                 body: formData
             });
