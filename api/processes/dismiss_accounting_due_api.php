@@ -103,8 +103,7 @@ try {
             continue;
         }
         $skippedType = toSkippedPeriodType($periodType);
-        // 兼容旧库唯一键（可能不含 posted_date）：跳过记录也应更新到当月，避免后续月份被异常锁死。
-        $ins = $pdo->prepare("INSERT INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE posted_date = VALUES(posted_date)");
+        $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
         $ins->execute([$companyId, $processId, $today, $skippedType]);
         if ($ins->rowCount() > 0) {
             $inserted++;

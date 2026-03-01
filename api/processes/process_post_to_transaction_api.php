@@ -197,11 +197,10 @@ function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId,
             return;
         }
         if ($hasPeriodType) {
-            // 兼容旧库唯一键（可能不含 posted_date）：同一 process 的 monthly 再次入账时，更新 posted_date 为最新月份。
-            $ins = $pdo->prepare("INSERT INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE posted_date = VALUES(posted_date)");
+            $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
             $ins->execute([$companyId, $processId, $date, $periodType]);
         } else {
-            $ins = $pdo->prepare("INSERT INTO process_accounting_posted (company_id, process_id, posted_date) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE posted_date = VALUES(posted_date)");
+            $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date) VALUES (?, ?, ?)");
             $ins->execute([$companyId, $processId, $date]);
         }
     } catch (Throwable $e) {
@@ -357,10 +356,8 @@ try {
             continue;
         }
 
-        // partial_first_month：交易与 posted_date 用 day_start 所在日；monthly / manual_inactive：用入账当天，
-        // 否则 posted_date 永远等于 day_start，唯一键下无法记录 4月、5月 等后续月份，Accounting Due 也不会消失。
         $effectiveDate = $fallbackDate;
-        if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
+        if (!empty($p['day_start'])) {
             $dateStr = str_replace('/', '-', trim($p['day_start']));
             if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
                 $dateStr .= '-' . date('Y');
