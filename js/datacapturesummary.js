@@ -31,7 +31,7 @@ function findColumnIndexByValue(processValue, numericValue) {
             return null;
         }
 
-        // Get data capture table dat
+        // Get data capture table data
         let parsedTableData;
         if (window.transformedTableData) {
             parsedTableData = window.transformedTableData;
