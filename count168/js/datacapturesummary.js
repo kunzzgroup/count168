@@ -67,6 +67,7 @@ function findColumnIndexByValue(processValue, numericValue) {
     }
 }
 
+
 function hideNotification() {
     const popup = document.getElementById('notificationPopup');
     popup.classList.remove('show');
