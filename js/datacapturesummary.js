@@ -101,11 +101,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-        loadAndRenderCapturedTable().catch(function (e) {
-            console.warn('loadAndRenderCapturedTable error:', e);
-            hideLoadingState();
-            showEmptyState();
-        });
+
+        loadAndRenderCapturedTable()
+            .then(function () {
+
+                // ⭐ 关键：等 table 出来之后再处理
+                hydrateRowDataAttributes();   // 先补数据
+                fixAllIdProductDisplay();     // 再更新 UI
+
+            })
+            .catch(function (e) {
+                console.warn('loadAndRenderCapturedTable error:', e);
+                hideLoadingState();
+                showEmptyState();
+            });
 
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
@@ -140,6 +149,49 @@ window.addEventListener('beforeunload', function () {
 // Close modal when clicking outside
 window.onclick = function () {
     // Prevent modals from closing when clicking outside their content.
+}
+
+function fixAllIdProductDisplay() {
+    const rows = document.querySelectorAll('#summaryTableBody tr');
+
+    rows.forEach(row => {
+        const cell = row.querySelector('td:first-child');
+        if (!cell) return;
+
+        const id = row.getAttribute('data-id-product') || '';
+        const desc = row.getAttribute('data-original-description') || '';
+
+        cell.textContent = desc ? `${id}（${desc}）` : id;
+    });
+}
+
+function hydrateRowDataAttributes() {
+    const rows = document.querySelectorAll('#summaryTableBody tr');
+
+    rows.forEach(row => {
+        const cell = row.querySelector('td:first-child');
+        if (!cell) return;
+
+        let rawId = row.getAttribute('data-id-product') || '';
+        let desc = row.getAttribute('data-original-description') || '';
+
+        // 如果缺任何一个，就从 UI 解析
+        if (!rawId || !desc) {
+            const text = cell.textContent.trim();
+
+            let idPart = text;
+            let descPart = '';
+
+            const match = text.match(/^(.*?)[\s]*[\(（](.*?)[\)）]$/);
+            if (match) {
+                idPart = match[1].trim();
+                descPart = match[2].trim();
+            }
+
+            if (!rawId) row.setAttribute('data-id-product', idPart);
+            if (!desc) row.setAttribute('data-original-description', descPart);
+        }
+    });
 }
 
 // Escape special regex characters to match them literally
