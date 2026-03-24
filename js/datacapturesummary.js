@@ -102,19 +102,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
 
-        loadAndRenderCapturedTable()
-            .then(function () {
-
-                // ⭐ 关键：等 table 出来之后再处理
-                hydrateRowDataAttributes();   // 先补数据
-                fixAllIdProductDisplay();     // 再更新 UI
-
-            })
-            .catch(function (e) {
+        loadAndRenderCapturedTable().catch(function (e) {
                 console.warn('loadAndRenderCapturedTable error:', e);
                 hideLoadingState();
                 showEmptyState();
             });
+
+            waitForTableAndFix();
 
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
@@ -193,6 +187,25 @@ function hydrateRowDataAttributes() {
         }
     });
 }
+
+function waitForTableAndFix() {
+    const target = document.querySelector('#summaryTableBody');
+    if (!target) return;
+
+    const observer = new MutationObserver(() => {
+        const rows = target.querySelectorAll('tr');
+        if (rows.length > 0) {
+            // 真正有数据了才执行
+            hydrateRowDataAttributes();
+            fixAllIdProductDisplay();
+
+            observer.disconnect(); // 只执行一次
+        }
+    });
+
+    observer.observe(target, { childList: true });
+}
+
 
 // Escape special regex characters to match them literally
 function escapeRegex(str) {
