@@ -75,7 +75,6 @@ function hideNotification() {
     }, 300);
 }
 
-
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     try {
