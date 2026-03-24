@@ -256,47 +256,17 @@ function normalizeIdProductForKey(idProduct) {
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
-    let rawIdProduct = (row && row.getAttribute) ? (row.getAttribute('data-id-product') || ''): '';
-    let description = (row && row.getAttribute)? (row.getAttribute('data-original-description') || ''): '';
+    const rawIdProduct = (row && row.getAttribute)
+    ? (row.getAttribute('data-id-product') || '')
+    : '';
+
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
     // 使用行上的原始描述（不从单元格文本重新解析），确保带描述与不带描述的行在 key 上可区分
+    const description = (row && row.getAttribute) ? (row.getAttribute('data-original-description') || '') : '';
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
-
-    
-
-    // ✅ fallback：从 UI 拆 + 写回
-    if (!rawIdProduct && cells[0]) {
-        const text = cells[0].textContent || '';
-
-        let idPart = text;
-        let descPart = '';
-
-        const match = text.match(/^(.*?)[\s]*[\(（](.*?)[\)）]$/);
-        if (match) {
-            idPart = match[1].trim();
-            descPart = match[2].trim();
-        }
-
-        rawIdProduct = idPart;
-
-        // 关键：写回 DOM（以后不用再解析）
-        row.setAttribute('data-id-product', idPart);
-        row.setAttribute('data-original-description', descPart);
-    }
-    
-
-    // fallback：从 UI 拆
-    if (!description && cells[0]) {
-        const text = cells[0].textContent || '';
-        const match = text.match(/[\(（](.*?)[\)）]/);
-        if (match) {
-            description = match[1].trim();
-            row.setAttribute('data-original-description', description);
-        }
-}
 
     let formula = '';
     if (cells[4]) {
@@ -326,7 +296,7 @@ function getSummaryRowKey(row) {
 // 结构：id_product\taccount(identity)\tcurrency\tproductType\tsubOrder
 function getSummaryRowStableKey(row) {
     const cells = row.querySelectorAll('td');
-    const rawIdProduct = (row && row.getAttribute)? (row.getAttribute('data-id-product') || ''): '';
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
