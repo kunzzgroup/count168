@@ -291,6 +291,13 @@ function getSummaryRowKey(row) {
         }
     }
 
+    let desc = '';
+    if (description && description.trim() !== ''){
+        desc = description.trim();
+    }else if (cells[2]){
+        desc = cells[2].textContent.trim();
+    }
+
     const source = (cells[5] && cells[5].textContent ? cells[5].textContent.trim() : '');
     const rateValue = (cells[7] && cells[7].textContent ? cells[7].textContent.trim() : '');
 
