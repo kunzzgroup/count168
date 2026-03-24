@@ -256,15 +256,38 @@ function normalizeIdProductForKey(idProduct) {
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
-    const rawIdProduct = (row && row.getAttribute)
-    ? (row.getAttribute('data-id-product') || '')
-    : '';
+    let rawIdProduct = row.getAttribute('data-id-product') || '';
+    let description = row.getAttribute('data-original-description') || '';
+
+    if ((!rawIdProduct || !description) && cells[0]) {
+        const text = cells[0].textContent || '';
+
+        let idPart = text;
+        let descPart = '';
+
+        const match = text.match(/^(.*?)[\s]*[\(（](.*?)[\)）]$/);
+        if (match) {
+            idPart = match[1].trim();
+            descPart = match[2].trim();
+        }
+
+        // ✅ 分开补，不互相覆盖
+        if (!rawIdProduct) {
+            rawIdProduct = idPart;
+            row.setAttribute('data-id-product', idPart);
+        }
+
+        if (!description) {
+            description = descPart;
+            row.setAttribute('data-original-description', descPart);
+        }
+    }
 
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
+
     // 使用行上的原始描述（不从单元格文本重新解析），确保带描述与不带描述的行在 key 上可区分
-    const description = (row && row.getAttribute) ? (row.getAttribute('data-original-description') || '') : '';
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
 
@@ -296,7 +319,7 @@ function getSummaryRowKey(row) {
 // 结构：id_product\taccount(identity)\tcurrency\tproductType\tsubOrder
 function getSummaryRowStableKey(row) {
     const cells = row.querySelectorAll('td');
-    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
+    const rawIdProduct = (row && row.getAttribute) ? (row.getAttribute('data-id-product') || '') : '';
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
