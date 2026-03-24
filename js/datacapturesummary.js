@@ -102,13 +102,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
 
-        loadAndRenderCapturedTable().catch(function (e) {
+        loadAndRenderCapturedTable()
+        .then(function(){
+            waitForTableAndFix();
+
+            //第二层：再延迟一次（防止后续函数覆盖）
+            setTimeout(() => {
+                hydrateRowDataAttributes();
+                fixAllIdProductDisplay();
+            }, 100); // 关键：让后面的逻辑先跑完
+
+        }).catch(function (e) {
                 console.warn('loadAndRenderCapturedTable error:', e);
                 hideLoadingState();
                 showEmptyState();
             });
-
-            waitForTableAndFix();
 
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
@@ -128,6 +136,20 @@ document.addEventListener('DOMContentLoaded', function () {
         hideLoadingState();
         showEmptyState();
     }
+
+    function forceFixDisplay() {
+    hydrateRowDataAttributes();
+    fixAllIdProductDisplay();
+    }
+
+    // 每 300ms 检查一次（只跑 3 次）
+    let fixCount = 0;
+    const interval = setInterval(() => {
+        forceFixDisplay();
+        fixCount++;
+        if (fixCount >= 3) clearInterval(interval);
+    }, 300);
+
 });
 
 // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
