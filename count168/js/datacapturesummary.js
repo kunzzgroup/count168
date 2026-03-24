@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.style.height = 'auto';
     
     // 确保隐藏任何可能存在的 company 按钮（此页面不需要 company 按钮）
-    // 因为 company 是根据 process 自动计算的
+    // 因为 company 是根据 process 自动计算
     const companyFilter = document.getElementById('data-capture-summary-company-filter');
     if (companyFilter) {
         companyFilter.style.display = 'none';
