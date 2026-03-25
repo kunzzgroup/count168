@@ -1,3 +1,5 @@
+window.__PROCESS_AMOUNT_READY = false;
+
 // Notification functions
 function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
@@ -110,8 +112,21 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(() => {
                 hydrateRowDataAttributes();
                 fixAllIdProductDisplay();
-            }, 200); //让后面的逻辑先跑完
+            }, 100); //让后面的逻辑先跑完
 
+            setTimeout(() => {
+                console.log('✅ ALL RESTORE DONE → start final calculation');
+                window.__PROCESS_AMOUNT_READY = true;
+                const rows = document.querySelectorAll('#summaryTableBody tr');
+                rows.forEach(row => {
+                    // 清掉旧标记（防止之前错误计算）
+                    row.removeAttribute('data-calculated');
+                    recalculateAndRenderProcessedAmount(row, { updateTotal: false });
+                });
+                if (typeof updateProcessedAmountTotal === 'function') {
+                    updateProcessedAmountTotal();
+                }
+            }, 300);
         }).catch(function (e) {
                 console.warn('loadAndRenderCapturedTable error:', e);
                 hideLoadingState();
@@ -149,6 +164,15 @@ document.addEventListener('DOMContentLoaded', function () {
         fixCount++;
         if (fixCount >= 3) clearInterval(interval);
     }, 300);
+
+    function safeRecalculate(row, options) {
+    if (!window.__PROCESS_AMOUNT_READY) {
+        console.log('skip calc (not ready)');
+        return;
+    }
+
+    recalculateAndRenderProcessedAmount(row, options);
+}
 
 });
 
@@ -927,7 +951,7 @@ function restoreFormulaSourceFromRefresh() {
 
             // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
             const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
-            
+
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
             const span = cells[4].querySelector('.formula-text');
             if (span) span.textContent = finalFormula;
@@ -948,7 +972,7 @@ function restoreFormulaSourceFromRefresh() {
         if (resolvedRate != null && String(resolvedRate).trim() !== '' && cells[7]) {
             cells[7].textContent = String(resolvedRate).trim();
         }
-        recalculateAndRenderProcessedAmount(row, {
+        safeRecalculate(row, {
             formulaOperators: formula,
             sourcePercent: sourcePercentText,
             inputMethod,
@@ -985,7 +1009,7 @@ function restoreRateValuesFromRefresh() {
         const rateValueCell = cells[7];
         if (!rateValueCell || val === undefined || val === null || String(val).trim() === '') return false;
         rateValueCell.textContent = String(val).trim();
-        recalculateAndRenderProcessedAmount(row, { updateTotal: false });
+        safeRecalculate(row, { updateTotal: false });
         return true;
     }
 
@@ -2700,7 +2724,7 @@ function recalculateAllRowsWithRate() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            recalculateAndRenderProcessedAmount(row, { updateTotal: false });
+            safeRecalculate(row, { updateTotal: false });
         }
     });
 
@@ -2745,7 +2769,7 @@ function submitRateValues() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            recalculateAndRenderProcessedAmount(row, { updateTotal: false });
+            safeRecalculate(row, { updateTotal: false });
 
             // IMPORTANT: Uncheck the Rate checkbox after submitting, but keep Rate Value
             rateCheckbox.checked = false;
@@ -9346,6 +9370,11 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         return { baseProcessedAmount: 0, finalProcessedAmount: 0 };
     }
 
+    if (row.getAttribute('data-calculated') === '1') {
+        console.log('skip duplicate calculation');
+        return;
+    }
+    row.setAttribute('data-calculated', '1');
     const cells = row.querySelectorAll('td');
     const inputMethod = options.inputMethod !== undefined
         ? String(options.inputMethod || '').trim()
@@ -11230,7 +11259,7 @@ function attachRateValueEditListener(cell, row) {
                 cellElement.textContent = newValue;
 
                 // Recalculate processed amount when Rate Value changes
-                recalculateAndRenderProcessedAmount(row);
+                safeRecalculate(row);
                 // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
             } else {
                 // Cancel: restore original value
@@ -11748,7 +11777,7 @@ function updateRowFormulaFromColumns(row) {
         attachInlineEditListeners(row);
     }
 
-    recalculateAndRenderProcessedAmount(row, {
+    safeRecalculate(row, {
         formulaOperators: row.getAttribute('data-formula-operators'),
         sourcePercent: sourcePercentText,
         inputMethod,
@@ -12139,7 +12168,7 @@ function updateFormulaAndProcessedAmount(row, data) {
             }
 
             // Recalculate processed amount when rate checkbox is toggled
-            recalculateAndRenderProcessedAmount(row);
+            safeRecalculate(row);
         });
 
         cells[6].appendChild(rateCheckbox);
@@ -12171,7 +12200,7 @@ function updateFormulaAndProcessedAmount(row, data) {
         ((row.getAttribute('data-source-columns') || '').trim() !== '')
     );
     if (canRecalculateProcessedAmount) {
-        recalculateAndRenderProcessedAmount(row, restoredRecalculateOptions);
+        safeRecalculate(row, restoredRecalculateOptions);
     } else if (cells[8]) {
         const fallbackProcessedAmount = Number(data.processedAmount);
         if (!Number.isNaN(fallbackProcessedAmount) && Number.isFinite(fallbackProcessedAmount)) {
@@ -13345,7 +13374,7 @@ function recalculateRowFormula(row, newSourcePercent) {
 
         // Rate column already exists, no need to recreate
 
-        recalculateAndRenderProcessedAmount(row, {
+        safeRecalculate(row, {
             formulaOperators: baseFormula,
             sourcePercent: newSourcePercent,
             inputMethod,
@@ -13954,7 +13983,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
                 rateValueCell.textContent = '';
             }
 
-            recalculateAndRenderProcessedAmount(row);
+            safeRecalculate(row);
         });
 
         cells[6].appendChild(rateCheckbox);
@@ -14127,7 +14156,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     )
 
     if (canRecalculateSubProcessedAmount) {
-        recalculateAndRenderProcessedAmount(row, {
+        safeRecalculate(row, {
             formulaOperators: subFormulaOperators,
             formula: subFormulaText,
             sourcePercent: subSourcePercent,
@@ -18558,7 +18587,7 @@ function updateBatchSourceColumns() {
                 // Recalculate processed amount when rate checkbox is toggled
                 const cells = row.querySelectorAll('td');
 
-                recalculateAndRenderProcessedAmount(row);
+                safeRecalculate(row);
             });
 
             cells[6].appendChild(rateCheckbox);
