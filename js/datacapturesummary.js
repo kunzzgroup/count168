@@ -11749,7 +11749,7 @@ function updateRowFormulaFromColumns(row) {
     }
 
     recalculateAndRenderProcessedAmount(row, {
-        formulaOperators: resolvedSourceExpression,
+        formulaOperators: row.getAttribute('data-formula-operators'),
         sourcePercent: sourcePercentText,
         inputMethod,
         enableInputMethod,
