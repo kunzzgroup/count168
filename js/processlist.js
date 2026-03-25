@@ -541,29 +541,19 @@
                 }
 
                 // 添加权限过滤
-                if (selectedPermission) {
-                    url.searchParams.set('permission', selectedPermission);
-                }
+                if (selectedPermission) url.searchParams.set('permission', selectedPermission);
 
-                if (searchTerm.trim()) {
-                    url.searchParams.set('search', searchTerm);
-                }
+                if (searchTerm.trim()) url.searchParams.set('search', searchTerm);
+
                 if (selectedPermission === 'Bank') {
                     // Bank 列表统一先取完整数据，再由前端做 Status / Official / E-Invoice 过滤，
                     // 避免旧数据分散在 flag / issue_flag 时出现筛选不一致。
                     url.searchParams.set('showAll', '1');
                 } else {
-                    if (showInactive) {
-                        url.searchParams.set('showInactive', '1');
-                    }
-                    if (showAll) {
-                        url.searchParams.set('showAll', '1');
-                    }
+                    if (showInactive) url.searchParams.set('showInactive', '1');
+                    if (showAll) url.searchParams.set('showAll', '1');  
                 }
-                if (waiting) {
-                    url.searchParams.set('waiting', '1');
-                }
-
+            
                 console.log('fetchProcesses ->', url.toString());
                 const response = await fetch(url.toString());
 
@@ -582,24 +572,18 @@
                         sortBankProcessesBySupplier();
                     } else {
                         // Games 类别的排序逻辑（原有逻辑）
-                        processes.sort((a, b) => {
-                            const aKey = String(a.process_name || '').toLowerCase();
-                            const bKey = String(b.process_name || '').toLowerCase();
-                            if (aKey < bKey) return -1;
-                            if (aKey > bKey) return 1;
-                            const aDesc = String(a.description || a.description_name || '').toLowerCase();
-                            const bDesc = String(b.description || b.description_name || '').toLowerCase();
-                            if (aDesc < bDesc) return -1;
-                            if (aDesc > bDesc) return 1;
-                            return 0;
-                        });
-                    }
+                        processes.sort((a, b) =>
+                            (a.process_name || '').localeCompare(b.process_name || ''));
+                        };
+                    
                     const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
                     if (currentPage > totalPages) currentPage = totalPages;
+
                     renderTable();
                     renderPagination();
+
                     // Bank 类别下刷新列表后同步更新 Accounting Due 徽章
-                    if (selectedPermission === 'Bank') loadAccountingInbox();
+                    if (selectedPermission === 'Bank') setTimeout(() => loadAccountingInbox(),50);
                 } else {
                     console.error('API error:', result.error);
                     showNotification('Failed to get data: ' + result.error, 'danger');
