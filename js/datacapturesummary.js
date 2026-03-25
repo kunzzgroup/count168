@@ -416,11 +416,9 @@ function getSummaryRowStableKey(row) {
     const accountIdentity = accountId ? ('id:' + accountId) : ('txt:' + accountText);
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim().replace(/\s+/g, ' ') : '');
     const productType = (row.getAttribute('data-product-type') || 'main').trim();
-    const hasParent = row.getAttribute('data-parent-id-product');
-    const finalType = (productType === 'sub' && !hasParent) ? 'main' : productType;
     const subOrderRaw = (row.getAttribute('data-sub-order') || '').trim();
     const subOrder = subOrderRaw !== '' ? subOrderRaw : (productType === 'sub' ? '1' : '0');
-    return [idProduct, accountIdentity, currency, finalType, subOrder].join('\t');
+    return [idProduct, accountIdentity, currency, productType, subOrder].join('\t');
 }
 
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
@@ -924,11 +922,11 @@ function restoreFormulaSourceFromRefresh() {
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
 
             // 先读取当前单元格中从后端加载的公式文本
-            const existingSpan = cells[4].querySelector('.formula-text');
-            const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
+            const rawFormula = row.getAttribute('data-formula-operators') || '';
+            const savedFormula = savedFormulaDisplay || formula || '';
 
             // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
-            const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
+            const finalFormula = rawFormula || savedFormula;
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
             const span = cells[4].querySelector('.formula-text');
@@ -1129,6 +1127,7 @@ async function loadAndRenderCapturedTable() {
             if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined') {
                 window.DATACAPTURESUMMARY_CAPTURE_ID = null;
             }
+
             const parsedTableData = JSON.parse(tableData);
             const parsedProcessData = JSON.parse(processData);
 
@@ -1543,6 +1542,8 @@ function populateOriginalTableWithColumnAData(tableData) {
             const originalRowIndex = rowIndexMap[index] !== undefined ? rowIndexMap[index] : index;
             row.setAttribute('data-row-index', String(originalRowIndex));
             row.setAttribute('data-product-type', 'main');
+
+            row.setAttribute('data-id-product', value.trim());
 
             // Id Product column (merged main and sub) - title 用于悬停显示完整 id_product
             const idProductCell = document.createElement('td');
