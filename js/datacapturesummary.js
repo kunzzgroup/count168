@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(() => {
                 hydrateRowDataAttributes();
                 fixAllIdProductDisplay();
-            }, 100); //让后面的逻辑先跑完
+            }, 200); //让后面的逻辑先跑完
 
         }).catch(function (e) {
                 console.warn('loadAndRenderCapturedTable error:', e);
@@ -416,9 +416,11 @@ function getSummaryRowStableKey(row) {
     const accountIdentity = accountId ? ('id:' + accountId) : ('txt:' + accountText);
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim().replace(/\s+/g, ' ') : '');
     const productType = (row.getAttribute('data-product-type') || 'main').trim();
+    const hasParent = row.getAttribute('data-parent-id-product');
+    const finalType = (productType === 'sub' && !hasParent) ? 'main' : productType;
     const subOrderRaw = (row.getAttribute('data-sub-order') || '').trim();
     const subOrder = subOrderRaw !== '' ? subOrderRaw : (productType === 'sub' ? '1' : '0');
-    return [idProduct, accountIdentity, currency, productType, subOrder].join('\t');
+    return [idProduct, accountIdentity, currency, finalType, subOrder].join('\t');
 }
 
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
