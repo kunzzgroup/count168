@@ -164,17 +164,12 @@ document.addEventListener('DOMContentLoaded', function () {
         fixCount++;
         if (fixCount >= 3) clearInterval(interval);
     }, 300);
+});
 
-    function safeRecalculate(row, options) {
-    if (!window.__PROCESS_AMOUNT_READY) {
-        console.log('skip calc (not ready)');
-        return;
-    }
-
+function safeRecalculate(row, options) {
+    if (!window.__PROCESS_AMOUNT_READY) return;
     recalculateAndRenderProcessedAmount(row, options);
 }
-
-});
 
 // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
 window.addEventListener('beforeunload', function () {
