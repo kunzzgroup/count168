@@ -277,6 +277,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
                             <label for="showInactive">Show Inactive</label>
                         </div>
+                        <div id="process-list-bank-only-filters" class="process-list-bank-only-filters" style="display: none; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <div class="checkbox-section">
                             <input type="checkbox" id="showOfficial" name="showOfficial" <?php echo $showOfficialChecked ? 'checked' : ''; ?>>
                             <label for="showOfficial">Show Official</label>
@@ -284,6 +285,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="checkbox-section">
                             <input type="checkbox" id="showEInvoice" name="showEInvoice" <?php echo $showEInvoiceChecked ? 'checked' : ''; ?>>
                             <label for="showEInvoice">Show E-Invoice</label>
+                        </div>
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllChecked ? 'checked' : ''; ?>>

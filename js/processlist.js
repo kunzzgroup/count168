@@ -5839,6 +5839,18 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
 
             updateProcessListDateFilterVisibility();
 
+            const bankOnlyFiltersEl = document.getElementById('process-list-bank-only-filters');
+            if (bankOnlyFiltersEl) {
+                if (permission === 'Bank') {
+                    bankOnlyFiltersEl.style.display = 'flex';
+                } else {
+                    bankOnlyFiltersEl.style.display = 'none';
+                    showOfficial = false;
+                    showEInvoice = false;
+                    syncBankFilterCheckboxes();
+                }
+            }
+
             // Post to Transaction 仅 Bank 显示，Games 隐藏
             updatePostToTransactionButton();
             // Accounting Due Inbox: show only on Bank
