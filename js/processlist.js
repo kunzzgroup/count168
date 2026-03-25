@@ -541,19 +541,29 @@
                 }
 
                 // 添加权限过滤
-                if (selectedPermission) url.searchParams.set('permission', selectedPermission);
+                if (selectedPermission) {
+                    url.searchParams.set('permission', selectedPermission);
+                }
 
-                if (searchTerm.trim()) url.searchParams.set('search', searchTerm);
-
+                if (searchTerm.trim()) {
+                    url.searchParams.set('search', searchTerm);
+                }
                 if (selectedPermission === 'Bank') {
                     // Bank 列表统一先取完整数据，再由前端做 Status / Official / E-Invoice 过滤，
                     // 避免旧数据分散在 flag / issue_flag 时出现筛选不一致。
                     url.searchParams.set('showAll', '1');
                 } else {
-                    if (showInactive) url.searchParams.set('showInactive', '1');
-                    if (showAll) url.searchParams.set('showAll', '1');  
+                    if (showInactive) {
+                        url.searchParams.set('showInactive', '1');
+                    }
+                    if (showAll) {
+                        url.searchParams.set('showAll', '1');
+                    }
                 }
-            
+                if (waiting) {
+                    url.searchParams.set('waiting', '1');
+                }
+
                 console.log('fetchProcesses ->', url.toString());
                 const response = await fetch(url.toString());
 
@@ -572,18 +582,24 @@
                         sortBankProcessesBySupplier();
                     } else {
                         // Games 类别的排序逻辑（原有逻辑）
-                        processes.sort((a, b) =>
-                            (a.process_name || '').localeCompare(b.process_name || ''));
-                        };
-                    
+                        processes.sort((a, b) => {
+                            const aKey = String(a.process_name || '').toLowerCase();
+                            const bKey = String(b.process_name || '').toLowerCase();
+                            if (aKey < bKey) return -1;
+                            if (aKey > bKey) return 1;
+                            const aDesc = String(a.description || a.description_name || '').toLowerCase();
+                            const bDesc = String(b.description || b.description_name || '').toLowerCase();
+                            if (aDesc < bDesc) return -1;
+                            if (aDesc > bDesc) return 1;
+                            return 0;
+                        });
+                    }
                     const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
                     if (currentPage > totalPages) currentPage = totalPages;
-
                     renderTable();
                     renderPagination();
-
                     // Bank 类别下刷新列表后同步更新 Accounting Due 徽章
-                    if (selectedPermission === 'Bank') setTimeout(() => loadAccountingInbox(),50);
+                    if (selectedPermission === 'Bank') loadAccountingInbox();
                 } else {
                     console.error('API error:', result.error);
                     showNotification('Failed to get data: ' + result.error, 'danger');
@@ -1187,11 +1203,6 @@
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
                 const freqEl = document.getElementById('bank_day_start_frequency');
                 if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
-                const dayEndEl = document.getElementById('bank_day_end');
-                if (dayEndEl) {
-                    var de = process.day_end || '';
-                    dayEndEl.value = de ? (String(de).length >= 10 ? String(de).slice(0, 10) : String(de).split(' ')[0]) : '';
-                }
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
                 window.selectedProfitSharingEntries = [];
                 const psStr = (process.profit_sharing || '').trim();
@@ -3031,12 +3042,15 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
                     formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
                 }
-                var manualDayEnd = (document.getElementById('bank_day_end') && document.getElementById('bank_day_end').value || '').trim();
-                if (manualDayEnd) {
-                    formData.set('day_end', manualDayEnd);
+                var dayStartVal = document.getElementById('bank_day_start').value;
+                var contractVal = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value) || '';
+                var months = parseInt(contractVal.match(/\d+/), 10) || 0;
+                if (dayStartVal && months > 0) {
+                    var d = new Date(dayStartVal + 'T00:00:00');
+                    d.setMonth(d.getMonth() + months);
+                    formData.set('day_end', d.toISOString().slice(0, 10));
                 } else {
-                    var computedEnd = computeBankDayEndFromContract();
-                    formData.set('day_end', computedEnd || '');
+                    formData.set('day_end', '');
                 }
                 const freqEl = document.getElementById('bank_day_start_frequency');
                 formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
@@ -5247,25 +5261,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             renderSelectedProfitSharing();
         }
 
-        /** 与 Add/Edit Bank 提交时 day_end 逻辑一致：Day start + Contract 月数 */
-        function computeBankDayEndFromContract() {
-            var dayStartVal = document.getElementById('bank_day_start') && document.getElementById('bank_day_start').value;
-            var contractVal = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value) || '';
-            var months = parseInt(contractVal.match(/\d+/), 10) || 0;
-            if (dayStartVal && months > 0) {
-                var d = new Date(dayStartVal + 'T00:00:00');
-                d.setMonth(d.getMonth() + months);
-                return d.toISOString().slice(0, 10);
-            }
-            return '';
-        }
-
-        function syncBankDayEndInput() {
-            var el = document.getElementById('bank_day_end');
-            if (!el) return;
-            el.value = computeBankDayEndFromContract();
-        }
-
         document.addEventListener('DOMContentLoaded', function () {
             restoreSelectedCountriesFromStorage();
             // Add Account modal: payment alert toggle
@@ -5311,12 +5306,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (el) {
                     el.addEventListener('input', updateBankSubmitButtonState);
                     el.addEventListener('change', updateBankSubmitButtonState);
-                }
-            });
-            ['bank_day_start', 'bank_contract'].forEach(function (id) {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.addEventListener('change', syncBankDayEndInput);
                 }
             });
 

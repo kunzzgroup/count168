@@ -818,22 +818,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="bank-form-row">
                         <div class="bank-form-cell bank-form-cell-left">
                             <div class="form-row bank-day-start-row">
-                                <div class="bank-day-start-stack">
-                                    <div class="form-group bank-day-start-input-wrap">
-                                        <label for="bank_day_start">Day start</label>
-                                        <input type="date" id="bank_day_start" name="day_start" class="bank-input">
-                                    </div>
-                                    <div class="form-group bank-day-start-frequency-wrap">
-                                        <label for="bank_day_start_frequency">Frequency</label>
-                                        <select id="bank_day_start_frequency" name="day_start_frequency" class="bank-input bank-select">
-                                            <option value="1st_of_every_month">1st of Every Month</option>
-                                            <option value="monthly">Monthly</option>
-                                        </select>
-                                    </div>
+                                <div class="form-group bank-day-start-input-wrap">
+                                    <label for="bank_day_start">Day start</label>
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
                                 </div>
-                                <div class="form-group bank-day-start-end-wrap">
-                                    <label for="bank_day_end">Date End</label>
-                                    <input type="date" id="bank_day_end" name="day_end" class="bank-input">
+                                <div class="form-group bank-day-start-frequency-wrap">
+                                    <label for="bank_day_start_frequency">Frequency</label>
+                                    <select id="bank_day_start_frequency" name="day_start_frequency" class="bank-input bank-select">
+                                        <option value="1st_of_every_month">1st of Every Month</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
