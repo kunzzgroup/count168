@@ -652,9 +652,15 @@
 }
  .bank-form .bank-day-start-row {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 12px;
     flex-wrap: wrap;
+}
+.bank-form .bank-day-start-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 0 0 auto;
 }
 .bank-form .bank-day-start-input-wrap {
     flex: 0 0 auto;
@@ -664,12 +670,15 @@
     width: 100%;
 }
 .bank-form .bank-day-start-frequency-wrap {
-    flex: 1;
+    flex: 0 0 auto;
     min-width: 160px;
+    max-width: 220px;
+    width: 100%;
 }
 .bank-form .bank-day-start-end-wrap {
     flex: 0 0 auto;
     max-width: 155px;
+    align-self: flex-start;
 }
 .bank-form .bank-day-start-end-wrap .bank-input {
     width: 100%;
