@@ -667,6 +667,13 @@
     flex: 1;
     min-width: 160px;
 }
+.bank-form .bank-day-start-end-wrap {
+    flex: 0 0 auto;
+    max-width: 155px;
+}
+.bank-form .bank-day-start-end-wrap .bank-input {
+    width: 100%;
+}
  .bank-form .form-group {
     display: flex;
     flex-direction: column;

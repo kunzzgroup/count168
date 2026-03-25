@@ -829,6 +829,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <option value="monthly">Monthly</option>
                                     </select>
                                 </div>
+                                <div class="form-group bank-day-start-end-wrap">
+                                    <label for="bank_day_end">Date End</label>
+                                    <input type="date" id="bank_day_end" name="day_end" class="bank-input">
+                                </div>
                             </div>
                         </div>
                         <div class="bank-form-cell bank-form-cell-right">

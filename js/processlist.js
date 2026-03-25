@@ -1203,6 +1203,11 @@
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
                 const freqEl = document.getElementById('bank_day_start_frequency');
                 if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+                const dayEndEl = document.getElementById('bank_day_end');
+                if (dayEndEl) {
+                    var de = process.day_end || '';
+                    dayEndEl.value = de ? (String(de).length >= 10 ? String(de).slice(0, 10) : String(de).split(' ')[0]) : '';
+                }
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
                 window.selectedProfitSharingEntries = [];
                 const psStr = (process.profit_sharing || '').trim();
@@ -3042,15 +3047,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
                     formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
                 }
-                var dayStartVal = document.getElementById('bank_day_start').value;
-                var contractVal = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value) || '';
-                var months = parseInt(contractVal.match(/\d+/), 10) || 0;
-                if (dayStartVal && months > 0) {
-                    var d = new Date(dayStartVal + 'T00:00:00');
-                    d.setMonth(d.getMonth() + months);
-                    formData.set('day_end', d.toISOString().slice(0, 10));
+                var manualDayEnd = (document.getElementById('bank_day_end') && document.getElementById('bank_day_end').value || '').trim();
+                if (manualDayEnd) {
+                    formData.set('day_end', manualDayEnd);
                 } else {
-                    formData.set('day_end', '');
+                    var computedEnd = computeBankDayEndFromContract();
+                    formData.set('day_end', computedEnd || '');
                 }
                 const freqEl = document.getElementById('bank_day_start_frequency');
                 formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
@@ -5261,6 +5263,25 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             renderSelectedProfitSharing();
         }
 
+        /** 与 Add/Edit Bank 提交时 day_end 逻辑一致：Day start + Contract 月数 */
+        function computeBankDayEndFromContract() {
+            var dayStartVal = document.getElementById('bank_day_start') && document.getElementById('bank_day_start').value;
+            var contractVal = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value) || '';
+            var months = parseInt(contractVal.match(/\d+/), 10) || 0;
+            if (dayStartVal && months > 0) {
+                var d = new Date(dayStartVal + 'T00:00:00');
+                d.setMonth(d.getMonth() + months);
+                return d.toISOString().slice(0, 10);
+            }
+            return '';
+        }
+
+        function syncBankDayEndInput() {
+            var el = document.getElementById('bank_day_end');
+            if (!el) return;
+            el.value = computeBankDayEndFromContract();
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             restoreSelectedCountriesFromStorage();
             // Add Account modal: payment alert toggle
@@ -5306,6 +5327,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (el) {
                     el.addEventListener('input', updateBankSubmitButtonState);
                     el.addEventListener('change', updateBankSubmitButtonState);
+                }
+            });
+            ['bank_day_start', 'bank_contract'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', syncBankDayEndInput);
                 }
             });
 
