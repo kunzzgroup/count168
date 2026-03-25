@@ -684,7 +684,7 @@
             if (!headRow || !tbody) return;
 
             const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
-            headRow.innerHTML = thLabels.map((label, i) => {
+            headRow.innerHTML = thLabels.map((label) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
                 if (label === 'Supplier') {
                     return '<th class="bank-th-supplier bank-th-sortable" onclick="toggleBankSupplierSort()">' +
@@ -708,17 +708,21 @@
             tbody.innerHTML = '';
             const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
             const now = new Date();
-            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            const todayStr = new Date().toISOString().split('T')[0]; // 优化日期获取
             function getContractStateClass(dayStart, dayEnd) {
-                // No day_start set → same as waiting for start date (yellow)
-                const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
-                if (!hasDayStart) return 'contract-pending';
-                if (todayStr < dayStart) return 'contract-pending';
+                if (!dayStart || todayStr < dayStart) return 'contract-pending';
                 if (dayEnd && todayStr > dayEnd) return 'contract-expired';
-                if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
-                if (dayStart && todayStr >= dayStart) return 'contract-active';
-                return 'contract-expired';
+                return 'contract-active';
             }
+            //     // No day_start set → same as waiting for start date (yellow)
+            //     const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
+            //     if (!hasDayStart) return 'contract-pending';
+            //     if (todayStr < dayStart) return 'contract-pending';
+            //     if (dayEnd && todayStr > dayEnd) return 'contract-expired';
+            //     if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
+            //     if (dayStart && todayStr >= dayStart) return 'contract-active';
+            //     return 'contract-expired';
+            // }
             let listToShow = Array.isArray(processes)
                 ? processes.filter(function (p) { return matchesCurrentBankFilters(p); })
                 : [];
@@ -736,6 +740,7 @@
                 return;
             }
 
+            //分页处理
             let pageItems, startIndex;
             if (showAll) {
                 pageItems = listToShow;
