@@ -563,7 +563,6 @@
                 if (waiting) {
                     url.searchParams.set('waiting', '1');
                 }
-
                 console.log('fetchProcesses ->', url.toString());
                 const response = await fetch(url.toString());
 
@@ -596,10 +595,12 @@
                     }
                     const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
                     if (currentPage > totalPages) currentPage = totalPages;
+                    
                     renderTable();
                     renderPagination();
+
                     // Bank 类别下刷新列表后同步更新 Accounting Due 徽章
-                    if (selectedPermission === 'Bank') loadAccountingInbox();
+                    if (selectedPermission === 'Bank') setTimeout(() => loadAccountingInbox(),50);
                 } else {
                     console.error('API error:', result.error);
                     showNotification('Failed to get data: ' + result.error, 'danger');
@@ -710,19 +711,16 @@
             const now = new Date();
             const todayStr = new Date().toISOString().split('T')[0]; // 优化日期获取
             function getContractStateClass(dayStart, dayEnd) {
-                if (!dayStart || todayStr < dayStart) return 'contract-pending';
+                // No day_start set → same as waiting for start date (yellow)
+                const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
+                if (!hasDayStart) return 'contract-pending';
+                if (todayStr < dayStart) return 'contract-pending';
                 if (dayEnd && todayStr > dayEnd) return 'contract-expired';
-                return 'contract-active';
+                if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
+                if (dayStart && todayStr >= dayStart) return 'contract-active';
+                return 'contract-expired';
             }
-            //     // No day_start set → same as waiting for start date (yellow)
-            //     const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
-            //     if (!hasDayStart) return 'contract-pending';
-            //     if (todayStr < dayStart) return 'contract-pending';
-            //     if (dayEnd && todayStr > dayEnd) return 'contract-expired';
-            //     if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
-            //     if (dayStart && todayStr >= dayStart) return 'contract-active';
-            //     return 'contract-expired';
-            // }
+
             let listToShow = Array.isArray(processes)
                 ? processes.filter(function (p) { return matchesCurrentBankFilters(p); })
                 : [];
@@ -757,6 +755,8 @@
                 const s = String(val).trim();
                 return s === '' ? '-' : val;
             }
+
+            const fragment = document.createDocumentFragment();
             pageItems.forEach((process, idx) => {
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
@@ -793,13 +793,18 @@
                     '<td class="bank-td-status">' + statusSelect + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
-                tbody.appendChild(tr);
+                    fragment.appendChild(tr);
                 applyBankStatusSelectAppearance(tr.querySelector('.bank-status-dropdown'), getBankStatusSelectValue(process));
             });
+            tbody.appendChild(fragment);
 
             renderPagination();
             updateSelectAllProcessesVisibility();
             updateDeleteButton();
+
+            if (typeof syncBankTableColumnWidth === 'function') {
+                requestAnimationFrame(syncBankTableColumnWidth);
+            }
         }
 
         /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
