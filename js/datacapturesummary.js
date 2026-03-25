@@ -107,13 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
         loadAndRenderCapturedTable()
         .then(function(){
             waitForTableAndFix();
-
-            //第二层：再延迟一次（防止后续函数覆盖）
-            setTimeout(() => {
-                hydrateRowDataAttributes();
-                fixAllIdProductDisplay();
-            }, 100); //让后面的逻辑先跑完
-
+            
             setTimeout(() => {
                 console.log('✅ ALL RESTORE DONE → start final calculation');
                 window.__PROCESS_AMOUNT_READY = true;
@@ -151,19 +145,6 @@ document.addEventListener('DOMContentLoaded', function () {
         hideLoadingState();
         showEmptyState();
     }
-
-    function forceFixDisplay() {
-    hydrateRowDataAttributes();
-    fixAllIdProductDisplay();
-    }
-
-    // 每 300ms 检查一次（只跑 3 次）
-    let fixCount = 0;
-    const interval = setInterval(() => {
-        forceFixDisplay();
-        fixCount++;
-        if (fixCount >= 3) clearInterval(interval);
-    }, 300);
 });
 
 function safeRecalculate(row, options) {
