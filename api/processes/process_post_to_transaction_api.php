@@ -238,7 +238,7 @@ function resolveAccountIdByText(PDO $pdo, int $companyId, string $accountText): 
     }
     $stmt = $pdo->prepare("SELECT a.id FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id AND ac.company_id = ?
-            WHERE (a.account_id = ? OR a.name = ?) LIMIT 1");
+            WHERE (LOWER(TRIM(a.account_id)) = LOWER(?) OR LOWER(TRIM(a.name)) = LOWER(?)) LIMIT 1");
     $stmt->execute([$companyId, $text, $text]);
     $id = $stmt->fetchColumn();
     return $id ? (int) $id : null;

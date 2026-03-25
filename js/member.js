@@ -462,9 +462,9 @@ function fetchMemberSummary() {
                 loadMemberCurrencyOrder().then(() => {
                     const currencies = getAvailableCurrencies();
                     if (currencies.length > 0) {
-                        memberIsAllSelected = false;
+                        // 默认「全部货币」拉 history（一次请求、前端按币别分表），避免 Profit Sharing 等在非首列币别时被漏掉
+                        memberIsAllSelected = true;
                         memberSelectedCurrencies.clear();
-                        memberSelectedCurrencies.add(currencies[0]);
                     }
                     renderCurrencyFilters();
                     resolve();
@@ -501,8 +501,7 @@ function updateCurrencySelection() {
     retained.forEach(code => memberSelectedCurrencies.add(code));
 
     if (memberSelectedCurrencies.size === 0) {
-        memberIsAllSelected = false;
-        memberSelectedCurrencies.add(currencies[0]);
+        memberIsAllSelected = true;
     }
 }
 
@@ -577,9 +576,8 @@ function saveMemberCurrencyOrder(order) {
                 memberCurrencyDisplayOrder = data.data?.order ?? order;
                 showNotification('货币顺序已保存', 'success');
                 if (memberCurrencyDisplayOrder && memberCurrencyDisplayOrder.length > 0) {
-                    memberIsAllSelected = false;
+                    memberIsAllSelected = true;
                     memberSelectedCurrencies.clear();
-                    memberSelectedCurrencies.add(memberCurrencyDisplayOrder[0]);
                     renderCurrencyFilters();
                     fetchMemberHistory();
                 }

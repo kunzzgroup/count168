@@ -180,7 +180,7 @@ function getProfitSharingAmountForAccount(?string $profitSharing, string $accoun
             $accountText = trim(substr($t, 0, $dash));
             $amountStr = trim(substr($t, $dash + 3));
             $amount = (float) $amountStr;
-            if ($accountText !== '' && ($accountText === $code || $accountText === $name)) {
+            if ($accountText !== '' && (strcasecmp($accountText, $code) === 0 || strcasecmp($accountText, $name) === 0)) {
                 return $amount;
             }
         }
