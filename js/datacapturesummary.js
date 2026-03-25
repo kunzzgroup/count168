@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(() => {
                 hydrateRowDataAttributes();
                 fixAllIdProductDisplay();
-            }, 100); // 关键：让后面的逻辑先跑完
+            }, 100); //让后面的逻辑先跑完
 
         }).catch(function (e) {
                 console.warn('loadAndRenderCapturedTable error:', e);
@@ -343,6 +343,7 @@ function normalizeIdProductForKey(idProduct) {
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
+    //将id product与description优先从data获取
     let rawIdProduct = row.getAttribute('data-id-product') || '';
     let description = row.getAttribute('data-original-description') || '';
 
@@ -358,7 +359,7 @@ function getSummaryRowKey(row) {
             descPart = match[2].trim();
         }
 
-        // ✅ 分开补，不互相覆盖
+        //分开补，不互相覆盖
         if (!rawIdProduct) {
             rawIdProduct = idPart;
             row.setAttribute('data-id-product', idPart);
@@ -373,8 +374,7 @@ function getSummaryRowKey(row) {
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
-
-    // 使用行上的原始描述（不从单元格文本重新解析），确保带描述与不带描述的行在 key 上可区分
+        
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
 
