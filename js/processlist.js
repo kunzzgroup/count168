@@ -680,45 +680,8 @@
 
         /** Bank 用真实 table 渲染，th/td 列由浏览器对齐 */
         function renderBankTable() {
-            const headRow = document.getElementById('bankTableHeadRow');
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
-
-            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
-            headRow.innerHTML = thLabels.map((label) => {
-                if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
-                if (label === 'Supplier') {
-                    return '<th class="bank-th-supplier bank-th-sortable" onclick="toggleBankSupplierSort()">' +
-                        '<span class="bank-th-supplier-text">' + escapeHtml(label) + '</span>' +
-                        ' <span class="bank-sort-indicator" id="bankSupplierSortIndicator">' +
-                        (bankSupplierSortDirection === 'asc' ? '▲' : '▼') +
-                        '</span>' +
-                        '</th>';
-                }
-                if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
-                if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
-                if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
-                if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
-                if (label === 'Action') {
-                    const showActionCheckbox = showInactive || showOfficial || showEInvoice || showAll;
-                    return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
-                }
-                return '<th>' + escapeHtml(label) + '</th>';
-            }).join('');
-
-            tbody.innerHTML = '';
-            const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
-            const todayStr = new Date().toISOString().split('T')[0]; // 优化日期获取
-            function getContractStateClass(dayStart, dayEnd) {
-                // No day_start set → same as waiting for start date (yellow)
-                const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
-                if (!hasDayStart) return 'contract-pending';
-                if (todayStr < dayStart) return 'contract-pending';
-                if (dayEnd && todayStr > dayEnd) return 'contract-expired';
-                if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
-                if (dayStart && todayStr >= dayStart) return 'contract-active';
-                return 'contract-expired';
-            }
 
             let listToShow = Array.isArray(processes)
                 ? processes.filter(function (p) { return matchesCurrentBankFilters(p); })
@@ -760,7 +723,7 @@
                 const p = pageItems[i];
 
                 const statusSelect = renderBankStatusSelect(p.id, p);
-                const statusValue = getBankStatusSelectValue(p); // ✅ 提前算好
+                const statusValue = getBankStatusSelectValue(p); // 提前算好
 
                 html += `
                 <tr data-id="${p.id}">
@@ -777,7 +740,7 @@
                     <td>${escapeHtml(p.price || '-')}</td>
                     <td>${escapeHtml(p.profit || '-')}</td>
 
-                    <!-- 🚀 关键：直接写 data，不用后面 query -->
+                    <!-- 直接写 data，不用后面 query -->
                     <td class="bank-td-status" data-status-value="${statusValue}">
                         ${statusSelect}
                     </td>
@@ -790,7 +753,7 @@
 
             tbody.innerHTML = html;
 
-            // 🚀 批量处理（但不再 find）
+            //批量处理（但不再 find）
             requestAnimationFrame(() => {
                 document.querySelectorAll('.bank-status-dropdown').forEach(el => {
                     const row = el.closest('tr');
