@@ -2748,7 +2748,7 @@ function submitRateValues() {
             safeRecalculate(row, { updateTotal: false });
 
             // IMPORTANT: Uncheck the Rate checkbox after submitting, but keep Rate Value
-            rateCheckbox.checked = false;
+            rateCheckbox.checked = true;
 
             updatedCount++;
         }
