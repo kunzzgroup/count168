@@ -680,8 +680,45 @@
 
         /** Bank 用真实 table 渲染，th/td 列由浏览器对齐 */
         function renderBankTable() {
+            const headRow = document.getElementById('bankTableHeadRow');
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
+
+            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
+            headRow.innerHTML = thLabels.map((label) => {
+                if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
+                if (label === 'Supplier') {
+                    return '<th class="bank-th-supplier bank-th-sortable" onclick="toggleBankSupplierSort()">' +
+                        '<span class="bank-th-supplier-text">' + escapeHtml(label) + '</span>' +
+                        ' <span class="bank-sort-indicator" id="bankSupplierSortIndicator">' +
+                        (bankSupplierSortDirection === 'asc' ? '▲' : '▼') +
+                        '</span>' +
+                        '</th>';
+                }
+                if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
+                if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
+                if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
+                if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
+                if (label === 'Action') {
+                    const showActionCheckbox = showInactive || showOfficial || showEInvoice || showAll;
+                    return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
+                }
+                return '<th>' + escapeHtml(label) + '</th>';
+            }).join('');
+
+            tbody.innerHTML = '';
+            const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
+            const todayStr = new Date().toISOString().split('T')[0]; // 优化日期获取
+            function getContractStateClass(dayStart, dayEnd) {
+                // No day_start set → same as waiting for start date (yellow)
+                const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
+                if (!hasDayStart) return 'contract-pending';
+                if (todayStr < dayStart) return 'contract-pending';
+                if (dayEnd && todayStr > dayEnd) return 'contract-expired';
+                if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
+                if (dayStart && todayStr >= dayStart) return 'contract-active';
+                return 'contract-expired';
+            }
 
             let listToShow = Array.isArray(processes)
                 ? processes.filter(function (p) { return matchesCurrentBankFilters(p); })
@@ -712,57 +749,61 @@
                 pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
             }
 
-            const processMap = new Map();
-            for (const p of processes) {
-                processMap.set(p.id, p);
+            function dashIfEmpty(val) {
+                if (val == null) return '-';
+                const s = String(val).trim();
+                return s === '' ? '-' : val;
             }
 
-            let html = '';
-
-            for (let i = 0; i < pageItems.length; i++) {
-                const p = pageItems[i];
-
-                const statusSelect = renderBankStatusSelect(p.id, p);
-                const statusValue = getBankStatusSelectValue(p); // 提前算好
-
-                html += `
-                <tr data-id="${p.id}">
-                    <td>${startIndex + i + 1}</td>
-                    <td>${escapeHtml(p.card_lower || '-')}</td>
-                    <td>${escapeHtml(p.country || '-')}</td>
-                    <td>${escapeHtml(p.bank || '-')}</td>
-                    <td>${escapeHtml(p.types || '-')}</td>
-                    <td>${escapeHtml(p.supplier || '-')}</td>
-                    <td>${escapeHtml(p.contract || '-')}</td>
-                    <td>${escapeHtml(p.insurance || '-')}</td>
-                    <td>${escapeHtml(p.customer || '-')}</td>
-                    <td>${escapeHtml(p.cost || '-')}</td>
-                    <td>${escapeHtml(p.price || '-')}</td>
-                    <td>${escapeHtml(p.profit || '-')}</td>
-
-                    <!-- 直接写 data，不用后面 query -->
-                    <td class="bank-td-status" data-status-value="${statusValue}">
-                        ${statusSelect}
-                    </td>
-
-                    <td>${escapeHtml(p.date || '')}</td>
-                    <td>${buildBankActionCellHtml(p.id, p.status, p.has_transactions, p.issue_flag)}</td>
-                </tr>
-                `;
-            }
-
-            tbody.innerHTML = html;
-
-            //批量处理（但不再 find）
-            requestAnimationFrame(() => {
-                document.querySelectorAll('.bank-status-dropdown').forEach(el => {
-                    const row = el.closest('tr');
-                    const status = row.querySelector('.bank-td-status').dataset.statusValue;
-                    applyBankStatusSelectAppearance(el, status);
-                });
+            const fragment = document.createDocumentFragment();
+            pageItems.forEach((process, idx) => {
+                const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
+                const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
+                // Special rule: 1 MONTH / 1+1 / 1+2 / 1+3 during active period use gray style
+                const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
+                const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
+                    ? 'contract-1month-active'
+                    : baseContractClass;
+                const contractCell = (contract && contractClass)
+                    ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
+                    : (contract ? escapeHtml(contract) : escapeHtml('-'));
+                const cost = dashIfEmpty(process.cost);
+                const price = dashIfEmpty(process.price);
+                const profit = dashIfEmpty(process.profit);
+                const statusSelect = renderBankStatusSelect(process.id, process);
+                const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag);
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', process.id);
+                tr.setAttribute('data-status', process.status || '');
+                tr.setAttribute('data-issue-flag', normalizeBankIssueFlag(process.issue_flag));
+                tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
+                tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
+                    '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.bank)) + '</td>' +
+                    '<td class="bank-td-types">' + escapeHtml(dashIfEmpty(process.types)) + '</td>' +
+                    '<td class="bank-td-card-owner">' + escapeHtml(dashIfEmpty(process.supplier)) + '</td>' +
+                    '<td>' + contractCell + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.insurance)) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.customer)) + '</td>' +
+                    '<td>' + escapeHtml(String(cost)) + '</td>' +
+                    '<td>' + escapeHtml(String(price)) + '</td>' +
+                    '<td>' + escapeHtml(String(profit)) + '</td>' +
+                    '<td class="bank-td-status">' + statusSelect + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
+                    '<td class="bank-td-action">' + actionCell + '</td>';
+                    fragment.appendChild(tr);
+                applyBankStatusSelectAppearance(tr.querySelector('.bank-status-dropdown'), getBankStatusSelectValue(process));
             });
+            tbody.appendChild(fragment);
 
             renderPagination();
+            updateSelectAllProcessesVisibility();
+            updateDeleteButton();
+
+            if (typeof syncBankTableColumnWidth === 'function') {
+                requestAnimationFrame(syncBankTableColumnWidth);
+            }
         }
 
         /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
