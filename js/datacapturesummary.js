@@ -1,5 +1,15 @@
 window.__PROCESS_AMOUNT_READY = false;
 
+async function init() {
+    // 等 API / 数据准备
+    await loadSomething();
+
+    window.__PROCESS_AMOUNT_READY = true;
+
+    // ✅ 初始化计算（这里不需要 force）
+    recalcAllRows(false);
+}
+
 // Notification functions
 function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
@@ -148,7 +158,9 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function safeRecalculate(row, options) {
-    if (!window.__PROCESS_AMOUNT_READY) return;
+    const { force = false } = options;
+
+    if (!force && !window.__PROCESS_AMOUNT_READY) return;
     recalculateAndRenderProcessedAmount(row, options);
 }
 
@@ -2682,6 +2694,8 @@ function recalculateAllRowsWithRate() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach(row => {
+        row.removeAttribute('data-calculated');
+
         const processValue = getProcessValueFromRow(row);
         if (!processValue) return;
 
@@ -2700,11 +2714,14 @@ function recalculateAllRowsWithRate() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false });
+            safeRecalculate(row, { updateTotal: false }, {force: force});
         }
     });
 
-    updateProcessedAmountTotal();
+    if(typeof updateProcessedAmountTotal === 'function'){
+        updateProcessedAmountTotal();
+    }
+    
 }
 
 // Submit Rate Values: Update Rate Value for all rows with checked Rate checkbox
@@ -18751,22 +18768,9 @@ function extractOperatorsSequence(expression) {
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
 async function submitSummaryData() {
-    const rows = document.querySelectorAll('#summaryTableBody tr');
-    rows.forEach(row => {
-        row.removeAttribute('data-calculated');
-        safeRecalculate(row, { updateTotal: false });
-    });
-
-    if (typeof updateProcessedAmountTotal === 'function') {
-        updateProcessedAmountTotal();
-    }
-    // Prevent duplicate submissions
-    if (isSubmitting) {
-        console.log('Submission already in progress, ignoring duplicate request');
-        return;
-    }
-
     console.log('Submit summary data');
+
+    recalculateAllRowsWithRate(true);
 
     // Disable submit button and set submitting flag
     const submitBtn = document.getElementById('summarySubmitBtn');
