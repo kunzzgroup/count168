@@ -1,12 +1,12 @@
 window.__PROCESS_AMOUNT_READY = false;
 
 async function init() {
-    // 等 API / 数据准备
+    //等API/数据准备
     await loadSomething();
 
     window.__PROCESS_AMOUNT_READY = true;
 
-    // ✅ 初始化计算（这里不需要 force）
+    //初始化计算
     recalcAllRows(false);
 }
 
@@ -2694,6 +2694,7 @@ function recalculateAllRowsWithRate() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach(row => {
+        //强制重算
         row.removeAttribute('data-calculated');
 
         const processValue = getProcessValueFromRow(row);
@@ -2714,7 +2715,7 @@ function recalculateAllRowsWithRate() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false }, {force: force});
+            safeRecalculate(row, { updateTotal: false }, {force: force});//通过force绕开READY
         }
     });
 
@@ -18770,6 +18771,7 @@ let isSubmitting = false; // Flag to prevent duplicate submissions
 async function submitSummaryData() {
     console.log('Submit summary data');
 
+    //提交前强制更新
     recalculateAllRowsWithRate(true);
 
     // Disable submit button and set submitting flag
