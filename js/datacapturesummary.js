@@ -2748,7 +2748,7 @@ function submitRateValues() {
             safeRecalculate(row, { updateTotal: false });
 
             // IMPORTANT: Uncheck the Rate checkbox after submitting, but keep Rate Value
-            rateCheckbox.checked = true;
+            rateCheckbox.checked = false;
 
             updatedCount++;
         }
@@ -18751,6 +18751,15 @@ function extractOperatorsSequence(expression) {
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
 async function submitSummaryData() {
+    const rows = document.querySelectorAll('#summaryTableBody tr');
+    rows.forEach(row => {
+        row.removeAttribute('data-calculated');
+        safeRecalculate(row, { updateTotal: false });
+    });
+
+    if (typeof updateProcessedAmountTotal === 'function') {
+        updateProcessedAmountTotal();
+    }
     // Prevent duplicate submissions
     if (isSubmitting) {
         console.log('Submission already in progress, ignoring duplicate request');
