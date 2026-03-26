@@ -107,9 +107,9 @@ document.addEventListener('DOMContentLoaded', function () {
         loadAndRenderCapturedTable()
         .then(function(){
             waitForTableAndFix();
-            
+
             setTimeout(() => {
-                console.log('✅ ALL RESTORE DONE → start final calculation');
+                console.log('ALL RESTORE DONE → start final calculation');
                 window.__PROCESS_AMOUNT_READY = true;
                 const rows = document.querySelectorAll('#summaryTableBody tr');
                 rows.forEach(row => {
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function safeRecalculate(row, options) {
     if (!window.__PROCESS_AMOUNT_READY) return;
-    recalculateAndRenderProcessedAmount(row, options);
+    recalculateAndRenderProcessedAmount(row, { updateTotal: true });
 }
 
 // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
@@ -214,15 +214,14 @@ function waitForTableAndFix() {
     const target = document.querySelector('#summaryTableBody');
     if (!target) return;
 
+    let timeout;
     const observer = new MutationObserver(() => {
-        const rows = target.querySelectorAll('tr');
-        if (rows.length > 0) {
-            // 真正有数据了才执行
+        clearTimeout(timeout);
+
+        timeout = setTimeout(() =>{
             hydrateRowDataAttributes();
             fixAllIdProductDisplay();
-
-            observer.disconnect(); // 只执行一次
-        }
+        },200);
     });
 
     observer.observe(target, { childList: true });
@@ -1343,7 +1342,8 @@ function renderCapturedTable(tableData) {
 
     // Generate rows
     const tbody = document.getElementById('capturedTableBody');
-    tableData.rows.forEach((rowData, rowIndex) => {
+    const fragment = document.createDocumentFragment();
+    tableData.rows.forEach((rowData) => {
         const tr = document.createElement('tr');
 
         // Get row label (A, B, C, etc.) from the first cell (header)
@@ -1354,6 +1354,7 @@ function renderCapturedTable(tableData) {
 
         rowData.forEach((cellData, colIndex) => {
             const td = document.createElement('td');
+            td.textContent = cellData.value;
 
             if (cellData.type === 'header') {
                 // Row header
@@ -1391,22 +1392,18 @@ function renderCapturedTable(tableData) {
                 if (tr.getAttribute('data-id-product')) {
                     td.setAttribute('data-id-product', tr.getAttribute('data-id-product'));
                 }
-                // Add click listener to insert value into formula
-                td.addEventListener('click', function () {
-                    insertCellValueToFormula(this);
-                });
             }
 
             tr.appendChild(td);
         });
 
-        tbody.appendChild(tr);
+        fragment.appendChild(tr);
     });
 
-    // Make cells clickable after table is rendered
-    setTimeout(() => {
-        makeTableCellsClickable();
-    }, 100);
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+
+    attachTableClickDelegation(tbody);
 }
 
 // Populate the original table's Id Product column with data from column A
