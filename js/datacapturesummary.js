@@ -1891,7 +1891,7 @@ function isNewIdProductColumnFormat(sourceColumnsValue) {
 
 // Parse new format source_columns and get cell values
 // id_product 抓取完整（可含冒号），如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)
-function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
+function getCellValuesFromNewFormat(sourceColumnsValue) {
     if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
         console.log('getCellValuesFromNewFormat: sourceColumnsValue is empty');
         return [];
@@ -2236,7 +2236,7 @@ function handleAddAccount(button, productValue) {
 }
 
 // Show Edit Formula Form as modal positioned slightly towards top
-function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
+function showEditFormulaForm(productValue, prePopulatedData = null) {
     // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
     if (!prePopulatedData || !prePopulatedData.accountDbId) {
         window._editFormulaRowCurrency = null;
