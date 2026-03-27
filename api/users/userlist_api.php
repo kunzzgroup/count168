@@ -455,13 +455,6 @@ try {
             if (!$originalUser) {
                 sendResponse(false, 'User not found');
             }
-
-            // 仅针对 C168 公司的 JK：强制移除 account 系统权限（最小范围定向修正）
-            $isC168Company = false;
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-            $stmt->execute([$current_company_id]);
-            $isC168Company = ((int)$stmt->fetchColumn()) > 0;
-            $isJkInCurrentCompany = (isset($originalUser['login_id']) && strtoupper(trim((string)$originalUser['login_id'])) === 'JK');
             
             // 验证用户是否至少属于当前公司（用于权限检查）
             // 如果用户要编辑其他公司的用户，需要确保有权限
@@ -530,25 +523,6 @@ try {
             $updateValues[] = $input['status'];
 
             // 添加权限字段到更新列表（系统级权限仍然存储在 user 表）
-            if ($isC168Company && $isJkInCurrentCompany) {
-                // 若前端未提交 permissions，则基于当前库里权限做最小改动（仅去掉 account）
-                if (!isset($input['permissions']) || !is_array($input['permissions'])) {
-                    $stmt = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
-                    $stmt->execute([$input['id']]);
-                    $currentPermissionsJson = $stmt->fetchColumn();
-                    $decodedPermissions = json_decode((string)$currentPermissionsJson, true);
-                    $input['permissions'] = is_array($decodedPermissions) ? $decodedPermissions : [];
-                }
-
-                $filteredPermissions = [];
-                foreach ($input['permissions'] as $perm) {
-                    if (strtolower(trim((string)$perm)) !== 'account') {
-                        $filteredPermissions[] = $perm;
-                    }
-                }
-                $input['permissions'] = array_values($filteredPermissions);
-            }
-
             $updateFields[] = "permissions = ?";
             $updateValues[] = isset($input['permissions']) ? json_encode($input['permissions']) : null;
             
