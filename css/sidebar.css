@@ -434,6 +434,9 @@
     margin: 0;
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .informationmenu-section-title::before {
