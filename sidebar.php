@@ -31,7 +31,7 @@ if (!$isMember) {
     $permissions = $userPermissions ? json_decode($userPermissions, true) : [];
 }
 
-// 检查当前登录用户是否为 owner/admin 并与 c168 相关（支持多 company）
+// 检查当前登录用户是否为 owner/admin 并与 c168 相关（仅当前选中公司）
 $hasC168Access = false;
 $companyId = $_SESSION['company_id'] ?? null;  // company 的数字主键（移到外边，确保作用域正确）
 if ($user_id) {
@@ -71,6 +71,9 @@ if ($currentCompanyCode === 'C168') {
         $isCurrentCompanyC168 = false;
     }
 }
+
+// 仅当“当前公司是 C168”且“角色为 owner/admin”时，才启用 C168 专属菜单
+$hasC168Access = $isCurrentCompanyC168 && in_array(strtolower($role ?? ''), ['owner', 'admin'], true);
 
 $avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
 
