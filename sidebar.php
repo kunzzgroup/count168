@@ -56,6 +56,22 @@ if ($user_id) {
     }
 }
 
+// 当前选中公司是否为 C168（用于侧边栏菜单显示控制，不受角色限制）
+$isCurrentCompanyC168 = false;
+$currentCompanyCode = strtoupper(trim((string)($_SESSION['company_code'] ?? '')));
+if ($currentCompanyCode === 'C168') {
+    $isCurrentCompanyC168 = true;
+} elseif ($companyId) {
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+        $stmt->execute([$companyId]);
+        $isCurrentCompanyC168 = $stmt->fetchColumn() > 0;
+    } catch (PDOException $e) {
+        error_log("检查当前公司是否 c168 失败: " . $e->getMessage());
+        $isCurrentCompanyC168 = false;
+    }
+}
+
 $avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
 
 // 头像 ID 与路径映射（与前端 avatarImages 一致，用于服务端输出初始 src 避免切换页面混乱）
@@ -369,7 +385,7 @@ if ($companyId) {
             <?php endif; ?>
 
             <!-- Process Section -->
-            <?php if (empty($permissions) || in_array('process', $permissions)): ?>
+            <?php if ((empty($permissions) || in_array('process', $permissions)) && !$isCurrentCompanyC168): ?>
             <div class="informationmenu-section">
                 <div class="informationmenu-section-title" data-page="processlist.php" onclick="window.location.href='processlist.php'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -381,7 +397,7 @@ if ($companyId) {
             <?php endif; ?>
 
             <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新） -->
-            <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
+            <?php if ((empty($permissions) || in_array('datacapture', $permissions)) && !$isCurrentCompanyC168): ?>
             <div class="informationmenu-section" id="sidebar-datacapture-section"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                 <div class="informationmenu-section-title" data-page="datacapture.php" onclick="window.location.href='datacapture.php'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -405,7 +421,7 @@ if ($companyId) {
             <?php endif; ?>
 
             <!-- Report Section（仅当前公司有 Games 权限时显示） -->
-            <?php if (empty($permissions) || in_array('report', $permissions)): ?>
+            <?php if ((empty($permissions) || in_array('report', $permissions)) && !$isCurrentCompanyC168): ?>
             <div class="informationmenu-section" id="sidebar-report-section"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                 <div class="menu-item-wrapper">
                     <div class="informationmenu-section-title" data-section="report">
