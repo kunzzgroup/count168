@@ -986,38 +986,6 @@ function restoreRateValuesFromRefresh() {
     }
 }
 
-function recalculateAllProcessedAmounts() {
-    const summaryTableBody = document.getElementById('summaryTableBody');
-    if (!summaryTableBody) return;
-
-    const rows = summaryTableBody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        try {
-            const cells = row.querySelectorAll('td');
-
-            // 取 base amount（如果没有就用 0）
-            const baseAmount = parseFloat(cells[4]?.textContent || '0') || 0;
-
-            // 重新计算
-            recalculateAndRenderProcessedAmount(row, {
-                baseAmount: baseAmount,
-                updateTotal: false
-            });
-
-        } catch (err) {
-            console.warn('Row recalculation error:', err);
-        }
-    });
-
-    // 更新总计
-    if (typeof updateProcessedAmountTotal === 'function') {
-        updateProcessedAmountTotal();
-    }
-
-    console.log('All processed amounts recalculated');
-}
-
 // Go back to datacapture page, preserving localStorage data
 // 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
 function goBackToDataCapture() {
@@ -1106,26 +1074,6 @@ async function loadAndRenderCapturedTable() {
 
                 // Display process information
                 displayProcessInfo(parsedProcessData);
-
-                setTimeout(() => {
-                    try {
-                        console.log('🔄 Restoring and recalculating after refresh...');
-
-                        if (typeof restoreFormulaSourceFromRefresh === 'function') {
-                            restoreFormulaSourceFromRefresh();
-                        }
-
-                        if (typeof restoreRateValuesFromRefresh === 'function') {
-                            restoreRateValuesFromRefresh();
-                        }
-
-                        //重新计算所有 processed amount
-                        recalculateAllProcessedAmounts();
-
-                    } catch (e) {
-                        console.error('Recalculate after refresh error:', e);
-                    }
-                }, 200);
             } catch (renderError) {
                 console.error('Error rendering table:', renderError);
                 // Show empty state if rendering fails
@@ -9348,9 +9296,6 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         ? String(options.processValue).trim()
         : (typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null)
 
-    // 保存 base amount（避免 refresh 丢失）
-    row.setAttribute('data-base-processed-amount', baseAmount);
-    
     let baseProcessedAmount = 0;
     if (formulaText && formulaText !== 'Formula') {
         baseProcessedAmount = calculateFormulaResultFromExpression(
