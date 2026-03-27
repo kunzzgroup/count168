@@ -1,3 +1,5 @@
+
+
 // Notification functions
 function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
@@ -84,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.body.style.height = 'auto';
 
         // 确保隐藏任何可能存在的 company 按钮（此页面不需要 company 按钮）
-        // 因为 company 是根据 process 自动计算
+        // 因为 company 是根据 process 自动计算的
         const companyFilter = document.getElementById('data-capture-summary-company-filter');
         if (companyFilter) {
             companyFilter.style.display = 'none';
@@ -11150,7 +11152,7 @@ function attachRateValueEditListener(cell, row) {
 
                 // Recalculate processed amount using the live DOM element explicitly 
                 recalculateAndRenderProcessedAmount(liveRow, { updateTotal: true });
-                
+
                 // Immediately save the manual edits so they are persistent
                 if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
                 if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
@@ -14182,9 +14184,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             } else {
                 row.removeAttribute('data-original-description');
             }
-            if (typeof refreshIdProductCellDisplay === 'function') {
-                refreshIdProductCellDisplay(row);
-            }
+            // refreshIdProductCellDisplay(row) moved to the end of updateSummaryTableRow
             // cells[0].style.backgroundColor = '#e8f5e8'; // Removed
         }
 
@@ -14497,6 +14497,12 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         updateProcessedAmountTotal();
         if (typeof updateHeaderCurrencyFromSummaryTable === 'function') {
             updateHeaderCurrencyFromSummaryTable();
+        }
+
+        // Now that all data- attributes (including data-original-description and data-product-type) are set,
+        // refresh the Id Product display to correctly reflect the description.
+        if (cells[0] && typeof refreshIdProductCellDisplay === 'function') {
+            refreshIdProductCellDisplay(row);
         }
     }
 }
