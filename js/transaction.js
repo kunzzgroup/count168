@@ -1094,11 +1094,12 @@ function loadCompanyCurrencies() {
             });
             
             if (data.success && data.data.length > 0) {
-                // 应用保存的拖动顺序（与 Member Win/Loss 一致）
+                // 应用保存的拖动顺序（公司级优先，全局兜底）
                 const savedOrderKey = 'transaction_currency_order_' + (currentCompanyId || 0);
+                const savedGlobalOrderKey = 'transaction_currency_order_global';
                 let orderedData = [...data.data];
                 try {
-                    const saved = localStorage.getItem(savedOrderKey);
+                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem(savedGlobalOrderKey);
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
@@ -1331,6 +1332,7 @@ function initCurrencyDragDrop() {
         try {
             const key = 'transaction_currency_order_' + (currentCompanyId || 0);
             localStorage.setItem(key, JSON.stringify(newOrder));
+            localStorage.setItem('transaction_currency_order_global', JSON.stringify(newOrder));
         } catch (err) { /* ignore */ }
     });
 }
