@@ -1017,7 +1017,6 @@ function loadOwnerCompanies() {
 
 // ==================== 切换 Company ====================
 async function switchCompany(companyId, companyCode) {
-    let shouldReloadForC168 = false;
     // 先更新 session
     try {
         const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
@@ -1028,20 +1027,9 @@ async function switchCompany(companyId, companyCode) {
         } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
             window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
         }
-        
-        // 仅在用户点击的目标公司是 C168 时强制整页刷新，避免其他公司误触发
-        const targetCompanyCode = String(companyCode || '').trim().toUpperCase();
-        shouldReloadForC168 = targetCompanyCode === 'C168';
     } catch (error) {
         console.error('更新 session 时出错:', error);
         // 即使 API 失败，也继续更新前端状态
-    }
-    
-    if (shouldReloadForC168) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('company_id', companyId);
-        window.location.href = url.toString();
-        return;
     }
     
     currentCompanyId = companyId;
