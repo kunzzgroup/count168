@@ -18392,8 +18392,8 @@ function deleteSelectedRows() {
 
                 // 清空 Processed Amount (TD 8)
                 if (cells[8]) {
-                    cells[8].textContent = '';
-                    cells[8].style.color = '';
+                    cells[8].textContent = '0.00';
+                    cells[8].style.color = '#000000';
                 }
 
                 // 重置行属性 (Template IDs, Keys, etc.)
