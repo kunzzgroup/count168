@@ -1118,14 +1118,9 @@ async function updateChart(data) {
         console.warn('缺少 profit 数据，使用空对象');
         dailyData.profit = {};
     }
-<<<<<<< HEAD
     const strictProfitDailyFlow = (dailyData.profit_payment_flow_daily && typeof dailyData.profit_payment_flow_daily === 'object')
         ? dailyData.profit_payment_flow_daily
         : null;
-    
-=======
-
->>>>>>> 85dd5fe653043693c047d1bea1d63d48f10f48bc
     // 准备图表数据
     const dates = [];
     const capitalData = [];
@@ -1176,25 +1171,15 @@ async function updateChart(data) {
                 const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dateObj = new Date(dateStr);
                 if (dateObj >= startDate && dateObj <= endDate) {
-<<<<<<< HEAD
-                    const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
-                    const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
-                    const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                    const displayProfit = strictProfitDailyFlow
-                        ? (parseFloat(strictProfitDailyFlow[dateStr] || 0) || 0)
-                        : (capital + rawExpenses);
-                    monthCapital += capital;
-                    monthExpenses += displayExpenses;
-                    monthProfit += displayProfit;
-=======
                     const profitDelta = parseFloat(dailyData.profit && dailyData.profit[dateStr] ? dailyData.profit[dateStr] : 0) || 0;
                     const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
                     const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
-                    
-                    monthProfit += profitDelta;
+
+                    monthProfit += strictProfitDailyFlow
+                        ? (parseFloat(strictProfitDailyFlow[dateStr] || 0) || 0)
+                        : profitDelta;
                     monthExpenses += (expensesDelta > 0 ? -expensesDelta : expensesDelta);
                     monthCapital += capitalDelta;
->>>>>>> 85dd5fe653043693c047d1bea1d63d48f10f48bc
                 }
             }
 
@@ -1277,39 +1262,28 @@ async function updateChart(data) {
         }
 
         // 为范围内的每一天准备数据，没有数据的日期默认为0
-        let strictProfitRunning = 0;
         allSortedDates.forEach(date => {
             try {
                 dates.push(date);
-<<<<<<< HEAD
-                const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
-                const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
-                const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                if (strictProfitDailyFlow) {
-                    strictProfitRunning += (parseFloat(strictProfitDailyFlow[date] || 0) || 0);
-                }
-                const displayProfit = strictProfitDailyFlow ? strictProfitRunning : (capital + rawExpenses);
-                capitalData.push(capital);
-                expensesData.push(displayExpenses);
-                profitData.push(displayProfit);
-=======
-                
+
                 // 使用 profit 和 expenses 角色，与仪表盘卡片逻辑一致
                 const profitDelta = parseFloat(dailyData.profit && dailyData.profit[date] ? dailyData.profit[date] : 0) || 0;
                 const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
-                
+
                 // 累计计算
-                currentProfit += profitDelta;
+                const strictProfitDelta = strictProfitDailyFlow
+                    ? (parseFloat(strictProfitDailyFlow[date] || 0) || 0)
+                    : profitDelta;
+                currentProfit += strictProfitDelta;
                 currentExpenses += (expensesDelta > 0 ? -expensesDelta : expensesDelta);
 
                 profitData.push(currentProfit);
                 expensesData.push(currentExpenses);
-                
+
                 // 如果需要 capital 数据（虽然当前图表不显示），也可以累计
                 const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
                 currentCapital += capitalDelta;
                 capitalData.push(currentCapital);
->>>>>>> 85dd5fe653043693c047d1bea1d63d48f10f48bc
             } catch (e) {
                 console.warn('Error processing date data:', date, e);
                 profitData.push(currentProfit);
@@ -1414,8 +1388,6 @@ async function updateChart(data) {
 
     // 创建新图表
     createChart(chartCanvas, chartData);
-<<<<<<< HEAD
-
     // 非按月聚合范围：先渲染，再异步用“按日卡片口径”覆盖，避免首屏空白
     if (!shouldAggregateByMonth() && dates.length > 0) {
         const requestKeyAtStart = JSON.stringify({
@@ -1497,8 +1469,6 @@ async function updateChart(data) {
                 console.warn('按日卡片口径加载失败，回退当前图表数据:', pointError);
             });
     }
-=======
->>>>>>> 85dd5fe653043693c047d1bea1d63d48f10f48bc
 }
 
 // 创建图表的辅助函数

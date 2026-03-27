@@ -411,7 +411,6 @@ try {
     ], JSON_UNESCAPED_UNICODE);
 }
 
-<<<<<<< HEAD
 /**
  * 严格流水口径：仅统计 PAYMENT 且账户角色为 PROFIT 的当日净额
  * To Account(PROFIT) 记负数；From Account(PROFIT) 记正数
@@ -847,6 +846,4 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 
     return ['value' => $cr_dr, 'has_transactions' => $has_transactions];
 }
-=======
->>>>>>> 85dd5fe653043693c047d1bea1d63d48f10f48bc
 ?>
