@@ -72,11 +72,14 @@
             return fetch('api/transactions/get_owner_companies_api.php')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success && data.data.length > 0) {
-                        ownerCompanies = data.data;
-                        if (data.data.length > 1) {
+                    const companies = data.success && Array.isArray(data.data)
+                        ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
+                        : []
+                    if (companies.length > 0) {
+                        ownerCompanies = companies;
+                        if (companies.length > 1) {
                             container.innerHTML = '';
-                            data.data.forEach((company) => {
+                            companies.forEach((company) => {
                                 const btn = document.createElement('button');
                                 btn.className = 'maintenance-company-btn';
                                 btn.textContent = company.company_id;
@@ -85,20 +88,20 @@
                                 container.appendChild(btn);
                             });
                             if (!currentCompanyId) {
-                                currentCompanyId = data.data[0].id;
+                                currentCompanyId = companies[0].id;
                             } else {
-                                const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                                if (!exists && data.data.length > 0) {
-                                    currentCompanyId = data.data[0].id;
+                                const exists = companies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
+                                if (!exists && companies.length > 0) {
+                                    currentCompanyId = companies[0].id;
                                 }
                             }
-                            const cur = data.data.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
+                            const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
                             currentCompanyCode = cur ? (cur.company_id || '') : '';
                             wrapper.style.display = 'flex';
                             activateCompanyButton(currentCompanyId);
                         } else {
-                            currentCompanyId = data.data[0].id;
-                            const cur = data.data.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
+                            currentCompanyId = companies[0].id;
+                            const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
                             currentCompanyCode = cur ? (cur.company_id || '') : '';
                             wrapper.style.display = 'none';
                         }

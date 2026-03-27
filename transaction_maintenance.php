@@ -305,11 +305,14 @@ if (!empty($session_company_id)) {
                     const wrapper = document.getElementById('companyButtonsWrapper');
                     const container = document.getElementById('companyButtonsContainer');
                     
-                    if (data.success && data.data.length > 0 && wrapper && container) {
-                        ownerCompanies = data.data;
+                    const companies = data.success && Array.isArray(data.data)
+                        ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
+                        : []
+                    if (companies.length > 0 && wrapper && container) {
+                        ownerCompanies = companies;
                         container.innerHTML = '';
                         
-                        data.data.forEach(company => {
+                        companies.forEach(company => {
                             const btn = document.createElement('button');
                             btn.type = 'button';
                             btn.className = 'maintenance-company-btn';
@@ -320,12 +323,12 @@ if (!empty($session_company_id)) {
                         });
                         
                         // 仅在没有选中公司时使用第一个；在 TEST 公司时打开本页保持选 TEST，不自动选 C168
-                        if (!currentCompanyId && data.data.length > 0) {
-                            currentCompanyId = data.data[0].id;
+                        if (!currentCompanyId && companies.length > 0) {
+                            currentCompanyId = companies[0].id;
                         }
                         
                         updateCompanyButtonsState();
-                        wrapper.style.display = data.data.length > 1 ? 'flex' : 'none';
+                        wrapper.style.display = companies.length > 1 ? 'flex' : 'none';
                     } else if (wrapper) {
                         wrapper.style.display = 'none';
                         ownerCompanies = [];
