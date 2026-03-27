@@ -1907,7 +1907,8 @@ function createCurrencyTable(tableId, rows) {
                 const nWinLoss = parseFloat(winLossValue);
                 const nBalance = parseFloat(balanceValue);
                 if (!isNaN(nWinLoss)) winLossValue = Math.abs(nWinLoss);
-                if (!isNaN(nBalance)) balanceValue = Math.abs(nBalance);
+                // Balance 必须与 Payment History 的 API 返回符号一致
+                if (!isNaN(nBalance)) balanceValue = nBalance;
             }
             
             tr.innerHTML = `
@@ -1977,7 +1978,7 @@ function calculateTotals(rows) {
         })();
         if (isRateMiddleman || isFormMiddleman) {
             winLoss = Math.abs(winLoss);
-            balance = Math.abs(balance);
+            // Balance 不做绝对值，避免与 Payment History 不一致
         }
 
         totals.bf += bf;
