@@ -142,7 +142,6 @@ try {
         $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $total_balance = 0;
-        $total_opening_balance = 0;
         $daily_data = []; // 用于存储每日数据
         
         // 为每个账户计算余额
@@ -227,7 +226,6 @@ try {
                 
                 // 计算 B/F（传入已缓存的列检测，避免重复 SHOW COLUMNS）
                 $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $hasTransactionCurrency, $excludeClear);
-                $total_opening_balance += $bf;
                 
                 // 计算 Win/Loss
                 $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
@@ -347,7 +345,6 @@ try {
         $result[strtolower($role)] = [
             'role' => $role,
             'total_balance' => $total_balance,
-            'opening_balance' => $total_opening_balance,
             'daily_data' => $daily_data
         ];
     }
@@ -363,11 +360,6 @@ try {
                 'capital' => $result['capital']['daily_data'],
                 'expenses' => $result['expenses']['daily_data'],
                 'profit' => $result['profit']['daily_data']
-            ],
-            'opening_balance' => [
-                'capital' => $result['capital']['opening_balance'],
-                'expenses' => $result['expenses']['opening_balance'],
-                'profit' => $result['profit']['opening_balance']
             ],
             'date_range' => [
                 'from' => $date_from,
