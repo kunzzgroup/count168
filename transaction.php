@@ -39,7 +39,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <!-- Flatpickr CSS（用于单日日期选择） -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/sidebar.css?v=1">
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo file_exists('css/sidebar.css') ? filemtime('css/sidebar.css') : time(); ?>">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="transaction-page">

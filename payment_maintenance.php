@@ -34,7 +34,7 @@ if (!empty($session_company_id)) {
     <title>Payment Maintenance</title>
     <link rel="stylesheet" href="css/payment_maintenance.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo file_exists('css/sidebar.css') ? filemtime('css/sidebar.css') : time(); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
