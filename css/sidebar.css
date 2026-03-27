@@ -315,7 +315,7 @@
 }
 
 .informationmenu {
-    width: clamp(160px, 11.98vw, 230px);
+    width: clamp(160px, 12.98vw, 235px);
     height: 100%;
     background: #002d49;
     backdrop-filter: blur(20px);
@@ -434,6 +434,9 @@
     margin: 0;
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .informationmenu-section-title::before {

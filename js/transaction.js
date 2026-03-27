@@ -1031,6 +1031,12 @@ async function switchCompany(companyId, companyCode) {
         console.error('更新 session 时出错:', error);
         // 即使 API 失败，也继续更新前端状态
     }
+
+    // 立即刷新整页，让 sidebar 按新 company 的 session 状态重渲染
+    const url = new URL(window.location.href);
+    url.searchParams.set('company_id', companyId);
+    window.location.href = url.toString();
+    return;
     
     currentCompanyId = companyId;
     
@@ -1088,11 +1094,12 @@ function loadCompanyCurrencies() {
             });
             
             if (data.success && data.data.length > 0) {
-                // 应用保存的拖动顺序（与 Member Win/Loss 一致）
+                // 应用保存的拖动顺序（公司级优先，全局兜底）
                 const savedOrderKey = 'transaction_currency_order_' + (currentCompanyId || 0);
+                const savedGlobalOrderKey = 'transaction_currency_order_global';
                 let orderedData = [...data.data];
                 try {
-                    const saved = localStorage.getItem(savedOrderKey);
+                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem(savedGlobalOrderKey);
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
@@ -1325,6 +1332,7 @@ function initCurrencyDragDrop() {
         try {
             const key = 'transaction_currency_order_' + (currentCompanyId || 0);
             localStorage.setItem(key, JSON.stringify(newOrder));
+            localStorage.setItem('transaction_currency_order_global', JSON.stringify(newOrder));
         } catch (err) { /* ignore */ }
     });
 }
@@ -1482,9 +1490,13 @@ function searchTransactions(isInitialLoad) {
         const totalAccounts = (searchData.left_table?.length || 0) + (searchData.right_table?.length || 0);
 
         if (totalAccounts === 0) {
-            // 没有数据，隐藏表格区域
-            if (tablesSection) tablesSection.style.display = 'none';
-            if (summarySection) summarySection.style.display = 'none';
+            // 无数据时也保留空表结构
+            if (tablesSection) {
+                tablesSection.style.display = 'flex';
+                tablesSection.style.flexDirection = '';
+            }
+            if (summarySection) summarySection.style.display = 'flex';
+            applyZeroBalanceFilterAndRender();
             showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
             return;
         }
@@ -1610,6 +1622,50 @@ function searchTransactions(isInitialLoad) {
                         .catch(error => {
                             if (loadingEl) loadingEl.style.display = 'none';
                             console.error('❌ 单币别兜底搜索失败:', error);
+                            commitSearchData(currentSearchData);
+                        });
+                }
+
+                // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
+                if (showCaptureOnly && totalAccounts === 0) {
+                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                    if (currentCompanyId) {
+                        fallbackUrl += `&company_id=${currentCompanyId}`;
+                    }
+                    if (!showAllCurrencies && selectedCurrencies.length > 0) {
+                        fallbackUrl += `&currency=${selectedCurrencies.join(',')}`;
+                    }
+                    fallbackUrl += '&_t=' + Date.now();
+
+                    if (loadingEl) {
+                        loadingEl.textContent = 'Loading data';
+                        loadingEl.style.display = 'flex';
+                    }
+
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        cache: 'no-cache',
+                        headers: {
+                            'Cache-Control': 'no-cache'
+                        }
+                    })
+                        .then(resp => resp.json())
+                        .then(fallback => {
+                            if (loadingEl) loadingEl.style.display = 'none';
+                            if (!fallback.success || !fallback.data || !fallback.data.totals) {
+                                commitSearchData(currentSearchData);
+                                return;
+                            }
+
+                            const rebuiltData = {
+                                ...currentSearchData,
+                                totals: fallback.data.totals
+                            };
+                            commitSearchData(rebuiltData);
+                        })
+                        .catch(error => {
+                            if (loadingEl) loadingEl.style.display = 'none';
+                            console.error('❌ Win/Loss 空结果 totals 兜底失败:', error);
                             commitSearchData(currentSearchData);
                         });
                 }
@@ -2343,35 +2399,7 @@ function applyZeroBalanceFilterAndRender() {
         filteredLeft = rawLeft.filter(shouldShow);
         filteredRight = rawRight.filter(shouldShow);
 
-        // 兜底：若付款筛选结果为空，但原始列表有非 0 数据，回退到原始列表，避免把当天数据全隐藏
-        if (filteredLeft.length === 0 && filteredRight.length === 0) {
-            const fallbackLeft = rawLeft.filter(row => {
-                const bf = parseBalanceValue(row?.bf);
-                const wl = parseBalanceValue(row?.win_loss);
-                const crdr = parseBalanceValue(row?.cr_dr);
-                const bal = parseBalanceValue(row?.balance);
-                const eps = 0.00001;
-                return (bf !== null && Math.abs(bf) > eps)
-                    || (wl !== null && Math.abs(wl) > eps)
-                    || (crdr !== null && Math.abs(crdr) > eps)
-                    || (bal !== null && Math.abs(bal) > eps);
-            });
-            const fallbackRight = rawRight.filter(row => {
-                const bf = parseBalanceValue(row?.bf);
-                const wl = parseBalanceValue(row?.win_loss);
-                const crdr = parseBalanceValue(row?.cr_dr);
-                const bal = parseBalanceValue(row?.balance);
-                const eps = 0.00001;
-                return (bf !== null && Math.abs(bf) > eps)
-                    || (wl !== null && Math.abs(wl) > eps)
-                    || (crdr !== null && Math.abs(crdr) > eps)
-                    || (bal !== null && Math.abs(bal) > eps);
-            });
-            if (fallbackLeft.length > 0 || fallbackRight.length > 0) {
-                filteredLeft = fallbackLeft;
-                filteredRight = fallbackRight;
-            }
-        }
+        // 不做回退：Show Payment Only 为空时应保持空结果，避免误判为筛选失效
     }
     
     // 再应用 Show 0 balance 过滤

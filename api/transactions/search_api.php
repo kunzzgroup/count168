@@ -636,9 +636,13 @@ if (!empty($target_account_ids)) {
             }
         }
         
-        // 4. 计算 Balance
-        // 公式：Balance = B/F + Win/Loss + Cr/Dr
-        $balance = $bf + $win_loss + $cr_dr;
+        // 4. 计算 Balance（显示口径）
+        // 公式：Balance = round(B/F,2) + round(Win/Loss,2) + round(Cr/Dr,2)
+        // 这样与表格上可见列值的手算结果一致，避免 0.01 浮点尾差
+        $bf_display = round((float)$bf, 2);
+        $win_loss_display = round((float)$win_loss, 2);
+        $cr_dr_display = round((float)$cr_dr, 2);
+        $balance = round($bf_display + $win_loss_display + $cr_dr_display, 2);
         
         // 4b. 本期是否有 RATE Middle-Man 分录（该账户+货币在本期作为 Middle-Man 收取手续费）
         $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
@@ -743,14 +747,11 @@ if (!empty($target_account_ids)) {
             'role' => $account['role'],
             'currency' => $currency_code,
             'currency_id_debug' => $currency_id,
-            // IMPORTANT: Keep raw values (not rounded) for accurate calculations
-            // Frontend will round to 2 decimal places for display
-            // 重要：保持原始值（不四舍五入）以确保计算精度
-            // 前端会在显示时四舍五入到2位小数
-            'bf' => $bf,
-            'win_loss' => $win_loss,
-            'cr_dr' => $cr_dr,
-            'balance' => $balance,
+            // 与 history_api 显示口径保持一致：统一在后端保留 2 位小数再返回
+            'bf' => $bf_display,
+            'win_loss' => $win_loss_display,
+            'cr_dr' => $cr_dr_display,
+            'balance' => round((float)$balance, 2),
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'is_alert' => $is_alert ? 1 : 0,
             'is_rate_middleman' => $is_rate_middleman ? 1 : 0
@@ -877,7 +878,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM，作为 To Account）
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
+                    WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
+                    WHEN transaction_type = 'RATE' THEN amount
                     WHEN transaction_type = 'CONTRA' THEN -amount
                     WHEN transaction_type = 'CLEAR' THEN -amount
                     WHEN transaction_type = 'PAYMENT' THEN -amount
@@ -959,7 +961,8 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to) {
     // 作为 To Account - 包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
+                    WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
+                    WHEN transaction_type = 'RATE' THEN amount
                     WHEN transaction_type = 'CONTRA' THEN -amount
                     WHEN transaction_type = 'CLEAR' THEN -amount
                     WHEN transaction_type = 'PAYMENT' THEN -amount
@@ -987,7 +990,8 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to) {
     // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('CONTRA', 'RATE') THEN -amount
+                    WHEN transaction_type = 'CONTRA' THEN amount
+                    WHEN transaction_type = 'RATE' THEN -amount
                     WHEN transaction_type = 'CLEAR' THEN amount
                     WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
                     ELSE 0
@@ -1045,7 +1049,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
     // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
+    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -1236,7 +1240,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss = 0;
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
+    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?

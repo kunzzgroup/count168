@@ -127,6 +127,11 @@
                 filterEl.style.display = 'none';
                 return;
             }
+            if (String(code).trim().toUpperCase() === 'C168') {
+                containerEl.innerHTML = '';
+                filterEl.style.display = 'none';
+                return;
+            }
             try {
                 const response = await fetch('api/domain/domain_api.php', {
                     method: 'POST',
@@ -387,6 +392,13 @@
                 });
         }
 
+        // Bank Process 入账 description 存库为 "Process: ..."，本页仅展示时去掉前缀（不影响 DB / Win-Loss 等依赖 Process: 的逻辑）
+        function stripBankProcessDescriptionPrefix(text) {
+            const s = String(text || '');
+            const m = s.match(/^\s*process:\s*(.*)$/i);
+            return m ? m[1].trim() : s;
+        }
+
         // 针对手动 PROFIT（WIN/LOSE）账目：Maintenance - Payment 只显示一行，To=客户 From=PROFIT，Description=PROFIT FROM {Account(To)}
         function mergeProfitRows(data) {
             if (!Array.isArray(data) || data.length === 0) return data || [];
@@ -451,7 +463,8 @@
                 const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';
                 const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
                 const rawDescription = row.description || '';
-                const safeDescription = escapeHtml(rawDescription);
+                const displayDescription = stripBankProcessDescriptionPrefix(rawDescription);
+                const safeDescription = escapeHtml(displayDescription);
                 const remarkUpper = row.remark ? row.remark.toUpperCase() : '';
                 const safeRemark = escapeHtml(remarkUpper);
                 const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
@@ -475,7 +488,7 @@
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-amount">${currencyDisplay} ${amountDisplay}</td>
-                    <td class="maintenance-table-cell" title="${rawDescription ? escapeHtml(rawDescription) : '-'}">${safeDescription || '-'}</td>
+                    <td class="maintenance-table-cell" title="${displayDescription ? escapeHtml(displayDescription) : '-'}">${safeDescription || '-'}</td>
                     <td class="maintenance-table-cell">${safeRemark || '-'}</td>
                     <td class="maintenance-table-cell">${createdByDisplay}</td>
                     <td class="maintenance-table-cell">${deletedDisplay}</td>

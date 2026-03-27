@@ -118,11 +118,14 @@
                 const wrapper = document.getElementById('companyButtonsWrapper');
                 const container = document.getElementById('companyButtonsContainer');
 
-                if (data.success && data.data.length > 0 && wrapper && container) {
-                    ownerCompanies = data.data;
+                const companies = data.success && Array.isArray(data.data)
+                    ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
+                    : []
+                if (companies.length > 0 && wrapper && container) {
+                    ownerCompanies = companies;
                     container.innerHTML = '';
 
-                    data.data.forEach(company => {
+                    companies.forEach(company => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
                         btn.className = 'maintenance-company-btn';
@@ -133,17 +136,17 @@
                     });
 
                     if (!currentCompanyId) {
-                        currentCompanyId = data.data[0].id;
+                        currentCompanyId = companies[0].id;
                     } else {
-                        const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                        if (!exists && data.data.length > 0) {
-                            currentCompanyId = data.data[0].id;
+                        const exists = companies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
+                        if (!exists && companies.length > 0) {
+                            currentCompanyId = companies[0].id;
                         }
                     }
 
                     updateCompanyButtonsState();
-                    wrapper.style.display = data.data.length > 1 ? 'flex' : 'none';
-                    const cur = data.data.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
+                    wrapper.style.display = companies.length > 1 ? 'flex' : 'none';
+                    const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
                     currentCompanyCode = cur ? (cur.company_id || '') : (currentCompanyCode || '');
                     loadPermissionButtons();
                 } else if (wrapper) {

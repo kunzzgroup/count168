@@ -580,7 +580,7 @@
                 }
 
                 result.data.forEach(currency => {
-                    // 杩囨护鎺夊凡鍒犻櫎鐨勮揣甯?
+                    
                     if (deletedCurrencyIds.includes(currency.id)) {
                         return;
                     }
@@ -629,7 +629,7 @@
                         }
                     }
 
-                    // 娣诲姞妯″紡鎴栫紪杈戞ā寮忛兘鍙互閫夋嫨锛堢偣鍑昏揣甯佷唬鐮佸垏鎹㈤€変腑鐘舵€侊級
+                    
                     if (isAddMode || isSelectable) {
                         codeSpan.addEventListener('click', (e) => {
                             e.preventDefault(); // 闃绘榛樿琛屼负
@@ -946,7 +946,7 @@
         }
         
         // 鍒囨崲鍏徃寮€鍏筹紙娣诲姞鎴栫Щ闄ゅ叕鍙革級
-        async function toggleAccountCompany(accountId, companyId, companyCode, type, isChecked, itemElement) {
+        async function toggleAccountCompany(accountId, companyId, type, isChecked, itemElement) {
             const isAddMode = type === 'add' && !accountId;
             
             // 濡傛灉鏄坊鍔犳ā寮忥紝鍙洿鏂板墠绔姸鎬侊紝涓嶈皟鐢?API
@@ -980,34 +980,26 @@
             }
         }
         
-        // 褰撳墠姝ｅ湪绠＄悊鍏宠仈鐨勮处鎴稩D
         let currentLinkAccountId = null;
         
-        // 瀛樺偍閾炬帴璐︽埛妯℃€佹涓€夋嫨鐨勮处鎴稩D
         let selectedLinkedAccountIdsForLink = [];
         
-        // 瀛樺偍褰撳墠杩炴帴绫诲瀷锛堝弻鍚?鍗曞悜锛?
         let currentLinkType = 'bidirectional';
         
-        // 鎵撳紑閾炬帴璐︽埛妯℃€佹
         async function linkAccount(accountId) {
             currentLinkAccountId = accountId;
             selectedLinkedAccountIdsForLink = [];
-            currentLinkType = 'bidirectional'; // 榛樿鍙屽悜
+            currentLinkType = 'bidirectional';
             
-            // 閲嶇疆鍗曢€夋寜閽?
             document.getElementById('linkTypeBidirectional').checked = true;
             document.getElementById('linkTypeUnidirectional').checked = false;
             updateLinkTypeDescription();
             
-            // 鍔犺浇鍏宠仈璐︽埛鍒楄〃
             await loadAccountLinks(accountId);
             
-            // 鏄剧ず妯℃€佹
             document.getElementById('linkAccountModal').style.display = 'block';
         }
         
-        // 鍏抽棴閾炬帴璐︽埛妯℃€佹
         function closeLinkAccountModal() {
             document.getElementById('linkAccountModal').style.display = 'none';
             currentLinkAccountId = null;
@@ -1024,7 +1016,6 @@
                 : 'Unidirectional flows from A to B.';
         }
         
-        // 淇濆瓨璐︽埛鍏宠仈
         async function saveAccountLinks() {
             if (!currentLinkAccountId) {
                 showNotification('No account selected', 'error');
@@ -1038,11 +1029,9 @@
                     return;
                 }
                 
-                // 鑾峰彇褰撳墠閫夋嫨鐨勮繛鎺ョ被鍨?
                 const linkTypeRadio = document.querySelector('input[name="linkType"]:checked');
                 const linkType = linkTypeRadio ? linkTypeRadio.value : 'bidirectional';
                 
-                // 鑾峰彇褰撳墠璐︽埛鐨勭幇鏈夊叧鑱旓紙鍙幏鍙栧綋鍓嶈繛鎺ョ被鍨嬬殑鍏宠仈锛?
                 let currentLinkedIds = [];
                 try {
                     const response = await fetch(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${currentLinkAccountId}&company_id=${currentCompanyId}`);
@@ -1051,7 +1040,6 @@
                     const accountsArr = data.accounts || result.data || [];
                     const typesMap = data.link_types_map || result.link_types_map || {};
                     if (result.success && Array.isArray(accountsArr) && (data.link_types_map || result.link_types_map)) {
-                        // 鍙幏鍙栧綋鍓嶈繛鎺ョ被鍨嬬殑鍏宠仈璐︽埛
                         currentLinkedIds = accountsArr
                             .filter(acc => typesMap[acc.id] === linkType)
                             .map(acc => acc.id);
@@ -1088,7 +1076,6 @@
                     }
                 }
                 
-                // 娣诲姞鍏宠仈锛堜紶閫掕繛鎺ョ被鍨嬶級
                 for (const linkedId of toAdd) {
                     try {
                         const response = await fetch('/api/accounts/account_link_api.php?action=link_accounts', {
@@ -1113,9 +1100,7 @@
                     }
                 }
                 
-                // 濡傛灉杩炴帴绫诲瀷鏀瑰彉锛岄渶瑕佹洿鏂扮幇鏈夊叧鑱旂殑绫诲瀷
                 if (toAdd.length === 0 && toRemove.length === 0 && newIds.length > 0) {
-                    // 鏇存柊鐜版湁鍏宠仈鐨勭被鍨?
                     for (const linkedId of newIds) {
                         try {
                             const response = await fetch('/api/accounts/account_link_api.php?action=update_link_type', {
@@ -1141,7 +1126,6 @@
                 
                 showNotification('Account links saved successfully', 'success');
                 closeLinkAccountModal();
-                // 鍒锋柊璐︽埛鍒楄〃锛堝鏋滈渶瑕侊級
                 fetchAccounts();
             } catch (error) {
                 console.error('Error saving account links:', error);
@@ -1149,7 +1133,6 @@
             }
         }
         
-        // 鍔犺浇鍏宠仈璐︽埛鍒楄〃锛堢敤浜庨摼鎺ヨ处鎴锋ā鎬佹锛?
         async function loadAccountLinks(accountId) {
             const listElement = document.getElementById('linkAccountList');
             if (!listElement) return;
@@ -1163,7 +1146,6 @@
             }
 
             try {
-                // 鑾峰彇褰撳墠鍏徃ID
                 const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
                 if (!currentCompanyId) {
                     listElement.innerHTML = '<div class="currency-toggle-note">璇峰厛閫夋嫨鍏徃</div>';

@@ -78,6 +78,13 @@ try {
     error_log("Failed to get user company list: " . $e->getMessage());
 }
 
+// Data Capture 页面不显示 C168 公司按钮
+if (!empty($user_companies)) {
+    $user_companies = array_values(array_filter($user_companies, function($comp) {
+        return strtoupper(trim((string)($comp['company_id'] ?? ''))) !== 'C168';
+    }));
+}
+
 // If company_id parameter exists in URL, use it (for switching company)
 $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
 

@@ -563,7 +563,6 @@
                 if (waiting) {
                     url.searchParams.set('waiting', '1');
                 }
-
                 console.log('fetchProcesses ->', url.toString());
                 const response = await fetch(url.toString());
 
@@ -596,10 +595,12 @@
                     }
                     const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
                     if (currentPage > totalPages) currentPage = totalPages;
+                    
                     renderTable();
                     renderPagination();
+
                     // Bank 类别下刷新列表后同步更新 Accounting Due 徽章
-                    if (selectedPermission === 'Bank') loadAccountingInbox();
+                    if (selectedPermission === 'Bank') setTimeout(() => loadAccountingInbox(),50);
                 } else {
                     console.error('API error:', result.error);
                     showNotification('Failed to get data: ' + result.error, 'danger');
@@ -684,7 +685,7 @@
             if (!headRow || !tbody) return;
 
             const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
-            headRow.innerHTML = thLabels.map((label, i) => {
+            headRow.innerHTML = thLabels.map((label) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
                 if (label === 'Supplier') {
                     return '<th class="bank-th-supplier bank-th-sortable" onclick="toggleBankSupplierSort()">' +
@@ -707,8 +708,7 @@
 
             tbody.innerHTML = '';
             const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
-            const now = new Date();
-            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            const todayStr = new Date().toISOString().split('T')[0]; // 优化日期获取
             function getContractStateClass(dayStart, dayEnd) {
                 // No day_start set → same as waiting for start date (yellow)
                 const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
@@ -719,6 +719,7 @@
                 if (dayStart && todayStr >= dayStart) return 'contract-active';
                 return 'contract-expired';
             }
+
             let listToShow = Array.isArray(processes)
                 ? processes.filter(function (p) { return matchesCurrentBankFilters(p); })
                 : [];
@@ -736,6 +737,7 @@
                 return;
             }
 
+            //分页处理
             let pageItems, startIndex;
             if (showAll) {
                 pageItems = listToShow;
@@ -747,54 +749,57 @@
                 pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
             }
 
-            function dashIfEmpty(val) {
-                if (val == null) return '-';
-                const s = String(val).trim();
-                return s === '' ? '-' : val;
+            const processMap = new Map();
+            for (const p of processes) {
+                processMap.set(p.id, p);
             }
-            pageItems.forEach((process, idx) => {
-                const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
-                const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                // Special rule: 1 MONTH / 1+1 / 1+2 / 1+3 during active period use gray style
-                const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
-                const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
-                    ? 'contract-1month-active'
-                    : baseContractClass;
-                const contractCell = (contract && contractClass)
-                    ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
-                    : (contract ? escapeHtml(contract) : escapeHtml('-'));
-                const cost = dashIfEmpty(process.cost);
-                const price = dashIfEmpty(process.price);
-                const profit = dashIfEmpty(process.profit);
-                const statusSelect = renderBankStatusSelect(process.id, process);
-                const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag);
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-id', process.id);
-                tr.setAttribute('data-status', process.status || '');
-                tr.setAttribute('data-issue-flag', normalizeBankIssueFlag(process.issue_flag));
-                tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
-                tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
-                    '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
-                    '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
-                    '<td>' + escapeHtml(dashIfEmpty(process.bank)) + '</td>' +
-                    '<td class="bank-td-types">' + escapeHtml(dashIfEmpty(process.types)) + '</td>' +
-                    '<td class="bank-td-card-owner">' + escapeHtml(dashIfEmpty(process.supplier)) + '</td>' +
-                    '<td>' + contractCell + '</td>' +
-                    '<td>' + escapeHtml(dashIfEmpty(process.insurance)) + '</td>' +
-                    '<td>' + escapeHtml(dashIfEmpty(process.customer)) + '</td>' +
-                    '<td>' + escapeHtml(String(cost)) + '</td>' +
-                    '<td>' + escapeHtml(String(price)) + '</td>' +
-                    '<td>' + escapeHtml(String(profit)) + '</td>' +
-                    '<td class="bank-td-status">' + statusSelect + '</td>' +
-                    '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
-                    '<td class="bank-td-action">' + actionCell + '</td>';
-                tbody.appendChild(tr);
-                applyBankStatusSelectAppearance(tr.querySelector('.bank-status-dropdown'), getBankStatusSelectValue(process));
+
+            let html = '';
+
+            for (let i = 0; i < pageItems.length; i++) {
+                const p = pageItems[i];
+
+                const statusSelect = renderBankStatusSelect(p.id, p);
+                const statusValue = getBankStatusSelectValue(p); // ✅ 提前算好
+
+                html += `
+                <tr data-id="${p.id}">
+                    <td>${startIndex + i + 1}</td>
+                    <td>${escapeHtml(p.card_lower || '-')}</td>
+                    <td>${escapeHtml(p.country || '-')}</td>
+                    <td>${escapeHtml(p.bank || '-')}</td>
+                    <td>${escapeHtml(p.types || '-')}</td>
+                    <td>${escapeHtml(p.supplier || '-')}</td>
+                    <td>${escapeHtml(p.contract || '-')}</td>
+                    <td>${escapeHtml(p.insurance || '-')}</td>
+                    <td>${escapeHtml(p.customer || '-')}</td>
+                    <td>${escapeHtml(p.cost || '-')}</td>
+                    <td>${escapeHtml(p.price || '-')}</td>
+                    <td>${escapeHtml(p.profit || '-')}</td>
+
+                    <!--直接写 data，不用后面 query -->
+                    <td class="bank-td-status" data-status-value="${statusValue}">
+                        ${statusSelect}
+                    </td>
+
+                    <td>${escapeHtml(p.date || '')}</td>
+                    <td>${buildBankActionCellHtml(p.id, p.status, p.has_transactions, p.issue_flag)}</td>
+                </tr>
+                `;
+            }
+
+            tbody.innerHTML = html;
+
+            //批量处理（但不再 find）
+            requestAnimationFrame(() => {
+                document.querySelectorAll('.bank-status-dropdown').forEach(el => {
+                    const row = el.closest('tr');
+                    const status = row.querySelector('.bank-td-status').dataset.statusValue;
+                    applyBankStatusSelectAppearance(el, status);
+                });
             });
 
             renderPagination();
-            updateSelectAllProcessesVisibility();
-            updateDeleteButton();
         }
 
         /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
@@ -5838,6 +5843,18 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
 
             updateProcessListDateFilterVisibility();
+
+            const bankOnlyFiltersEl = document.getElementById('process-list-bank-only-filters');
+            if (bankOnlyFiltersEl) {
+                if (permission === 'Bank') {
+                    bankOnlyFiltersEl.style.display = 'flex';
+                } else {
+                    bankOnlyFiltersEl.style.display = 'none';
+                    showOfficial = false;
+                    showEInvoice = false;
+                    syncBankFilterCheckboxes();
+                }
+            }
 
             // Post to Transaction 仅 Bank 显示，Games 隐藏
             updatePostToTransactionButton();

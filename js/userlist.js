@@ -755,10 +755,10 @@ function editUser(id, isOwnerShadow = false) {
      // 根据当前用户角色控制 Company 字段的显示
      toggleCompanyFieldVisibility();
     
-    // 如果是owner影子，隐藏permissions面板
+    // owner 影子也显示 permissions 面板（只读）
     const permissionsPanel = document.querySelector('.permissions-panel');
     if (isOwnerShadow) {
-        permissionsPanel.style.display = 'none';
+        permissionsPanel.style.display = 'flex';
     } else {
         permissionsPanel.style.display = 'flex';
     }
@@ -891,14 +891,6 @@ function editUser(id, isOwnerShadow = false) {
             if (data.success) {
                 const permissions = data.data.permissions ? JSON.parse(data.data.permissions) : [];
                 setUserPermissions(permissions);
-                // 编辑时若接口返回的权限为空且该角色有默认权限，用角色默认权限填充显示（修复历史数据导致 Supervisor 等角色左侧权限全未勾选）
-                if (isEditMode && (!permissions || permissions.length === 0)) {
-                    const cardForRole = document.querySelector(`.user-card[data-id="${id}"]`);
-                    const editingUserRole = cardForRole ? cardForRole.getAttribute('data-role')?.toLowerCase() : '';
-                    if (editingUserRole) {
-                        setDefaultPermissionsByRole(editingUserRole, { force: true });
-                    }
-                }
                 
                 // 加载 Account 和 Process 权限
                 // null 表示未设置（默认全选），[] 表示已设置但为空（不选），有值表示只选这些
@@ -1069,12 +1061,32 @@ function editUser(id, isOwnerShadow = false) {
             }
         });
     } else {
-        // 清空permissions
-        clearAllPermissions();
+        // owner 影子：显示并预设为全选（强制勾选全部权限，且只读，不提交）
+        const allPermissionCheckboxes = document.querySelectorAll('.permission-checkbox');
+        allPermissionCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        const sidebarCheckboxes = document.querySelectorAll('.permission-checkbox');
+        sidebarCheckboxes.forEach(checkbox => {
+            checkbox.disabled = true;
+            checkbox.style.opacity = '0.6';
+            checkbox.style.cursor = 'not-allowed';
+        });
+        const sidebarActions = document.querySelector('#sidebarPermissionsWrapper .permissions-actions');
+        if (sidebarActions) {
+            const sidebarButtons = sidebarActions.querySelectorAll('button');
+            sidebarButtons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                btn.style.cursor = 'not-allowed';
+            });
+        }
         // owner 影子不显示 company 按钮
         selectedCompanyIds = [];
-        // owner 影子不显示 Account 和 Process 权限区域
-        document.getElementById('accountProcessPermissionsSection').style.display = 'none';
+        // owner 影子：Account / Process 默认全选
+        document.getElementById('accountProcessPermissionsSection').style.display = 'block';
+        loadAccountPermissions(null);
+        loadProcessPermissions(null);
     }
     
     document.getElementById('userModal').style.display = 'block';
