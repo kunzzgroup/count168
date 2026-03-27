@@ -1203,18 +1203,18 @@ function updateChart(data) {
         allSortedDates.forEach(date => {
             try {
                 dates.push(date);
-                const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0
-                const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0
+                const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
+                const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
                 // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
-                let profit = 0
+                let profit = 0;
                 if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
-                    profit = parseFloat(dailyData.profit[date] || 0) || 0
+                    profit = parseFloat(dailyData.profit[date] || 0) || 0;
                 } else {
-                    profit = capital + expenses
+                    profit = capital + expenses;
                 }
-                capitalData.push(capital)
-                expensesData.push(expenses)
-                profitData.push(profit)
+                capitalData.push(capital);
+                expensesData.push(expenses);
+                profitData.push(profit);
             } catch (e) {
                 console.warn('Error processing date data:', date, e);
                 // 如果出错，也添加0值

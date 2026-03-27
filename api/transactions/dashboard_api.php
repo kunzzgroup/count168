@@ -275,7 +275,7 @@ try {
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
                                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
-                                  WHEN transaction_type = 'CONTRA' THEN -t.amount
+                                   WHEN transaction_type = 'CONTRA' THEN t.amount
                                    WHEN transaction_type = 'CLEAR' THEN -t.amount
                                    WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                    WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
@@ -311,7 +311,7 @@ try {
                     $txn_from_daily_stmt = $pdo->prepare("
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
-                                  WHEN transaction_type = 'CONTRA' THEN t.amount
+                                   WHEN transaction_type = 'CONTRA' THEN -t.amount
                                    WHEN transaction_type = 'CLEAR' THEN t.amount
                                    WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                                    ELSE 0
