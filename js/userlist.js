@@ -755,10 +755,10 @@ function editUser(id, isOwnerShadow = false) {
      // 根据当前用户角色控制 Company 字段的显示
      toggleCompanyFieldVisibility();
     
-    // 如果是owner影子，隐藏permissions面板
+    // owner 影子也显示 permissions 面板（只读）
     const permissionsPanel = document.querySelector('.permissions-panel');
     if (isOwnerShadow) {
-        permissionsPanel.style.display = 'none';
+        permissionsPanel.style.display = 'flex';
     } else {
         permissionsPanel.style.display = 'flex';
     }
@@ -1069,8 +1069,23 @@ function editUser(id, isOwnerShadow = false) {
             }
         });
     } else {
-        // 清空permissions
-        clearAllPermissions();
+        // owner 影子：显示并预设为全选（只读，不提交）
+        selectAllPermissions();
+        const sidebarCheckboxes = document.querySelectorAll('.permission-checkbox');
+        sidebarCheckboxes.forEach(checkbox => {
+            checkbox.disabled = true;
+            checkbox.style.opacity = '0.6';
+            checkbox.style.cursor = 'not-allowed';
+        });
+        const sidebarActions = document.querySelector('#sidebarPermissionsWrapper .permissions-actions');
+        if (sidebarActions) {
+            const sidebarButtons = sidebarActions.querySelectorAll('button');
+            sidebarButtons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                btn.style.cursor = 'not-allowed';
+            });
+        }
         // owner 影子不显示 company 按钮
         selectedCompanyIds = [];
         // owner 影子不显示 Account 和 Process 权限区域
