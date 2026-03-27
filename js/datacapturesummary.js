@@ -11964,6 +11964,7 @@ function updateFormulaAndProcessedAmount(row, data) {
 
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
+        row.setAttribute('data-formula-operators', rawFormula || '');
         const displayText = formulaText;
         if (displayText) row.setAttribute('data-formula-display', displayText);
         else row.removeAttribute('data-formula-display');
@@ -14402,6 +14403,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
             if (!rawFormula) rawFormula = formulaText;
             row.setAttribute('data-formula-raw', rawFormula || '');
+            row.setAttribute('data-formula-operators', rawFormula || '');
             const displayText = formulaText;
             if (displayText) row.setAttribute('data-formula-display', displayText);
             else row.removeAttribute('data-formula-display');
