@@ -1049,7 +1049,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
     // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
+    // 与 history_api 的 BF 计算一致：BF 在最后 round，而不是在明细处提前 round
+    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -1255,7 +1256,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
     if ($stmt->rowCount() > 0) {
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
+        // 与 history_api 的事件口径一致：每条 transaction 金额先 round(2) 再求和
+        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN ROUND(amount, 2) WHEN transaction_type = 'LOSE' THEN -ROUND(amount, 2) ELSE 0 END), 0) as total
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
@@ -1265,7 +1267,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $win_loss += $stmt->fetchColumn();
 
         // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）：Select To 显示负数、Select From 显示正数（WIN -> -amount, LOSE -> +amount）
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN -amount WHEN transaction_type = 'LOSE' THEN amount ELSE 0 END), 0) as total
+        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN -ROUND(amount, 2) WHEN transaction_type = 'LOSE' THEN ROUND(amount, 2) ELSE 0 END), 0) as total
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
@@ -1276,7 +1278,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
         // 4. RATE Middle-Man：手续费应显示在 Win/Loss，而不是 Cr/Dr
         $rateStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(e.amount), 0) AS total
+            SELECT COALESCE(SUM(ROUND(e.amount, 2)), 0) AS total
             FROM transaction_entry e
             JOIN transactions h ON e.header_id = h.id
             WHERE h.company_id = ?
@@ -1343,16 +1345,16 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                 COALESCE(SUM(
                     CASE
                         -- 作为 To Account（收到 / 支付）；CONTRA 时 TO 显示负数
-                        WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN -t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
 
                         -- 作为 From Account（支付 / 收到）；CONTRA 时 FROM 显示正数
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN t.amount
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN t.amount
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN t.amount
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN ROUND(t.amount, 2)
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
 
                         ELSE 0
                     END
@@ -1383,10 +1385,10 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         // 旧环境（没有 currency_id 字段）：Cr/Dr 仅 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM；WIN/LOSE 计入 Win/Loss
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr,
                     COUNT(*) as txn_count
@@ -1415,10 +1417,10 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         // From Account（旧逻辑）；CONTRA 时 FROM 显示正数
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr,
                     COUNT(*) as txn_count
@@ -1450,9 +1452,9 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     $rateStmt = $pdo->prepare("
         SELECT 
             COALESCE(SUM(CASE
-              WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
-              WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-              ELSE e.amount
+              WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+              WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
+              ELSE ROUND(e.amount, 2)
             END), 0) AS cr_dr,
             COUNT(CASE WHEN e.entry_type <> 'RATE_MIDDLEMAN' THEN 1 END) AS txn_count
         FROM transaction_entry e
