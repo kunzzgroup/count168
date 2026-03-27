@@ -1362,7 +1362,29 @@ async function updateChart(data) {
             company_id: window.companyId,
             currency: window.dashboardCurrency || ''
         });
-        Promise.allSettled(dates.map((d) => fetchCardPointByDate(d)))
+        // 只请求关键日期（有变动的日期 + 首尾日期），其余日期沿用前一日 balance
+        const datesSet = new Set(dates);
+        const keyDatesSet = new Set();
+        if (dailyData.capital && typeof dailyData.capital === 'object') {
+            Object.keys(dailyData.capital).forEach((d) => {
+                if (datesSet.has(d)) keyDatesSet.add(d);
+            });
+        }
+        if (dailyData.expenses && typeof dailyData.expenses === 'object') {
+            Object.keys(dailyData.expenses).forEach((d) => {
+                if (datesSet.has(d)) keyDatesSet.add(d);
+            });
+        }
+        if (dailyData.profit && typeof dailyData.profit === 'object') {
+            Object.keys(dailyData.profit).forEach((d) => {
+                if (datesSet.has(d)) keyDatesSet.add(d);
+            });
+        }
+        keyDatesSet.add(dates[0]);
+        keyDatesSet.add(dates[dates.length - 1]);
+        const keyDates = Array.from(keyDatesSet).sort();
+
+        Promise.allSettled(keyDates.map((d) => fetchCardPointByDate(d)))
             .then((results) => {
                 const requestKeyNow = JSON.stringify({
                     date_from: dateRange.startDate,
@@ -1372,13 +1394,29 @@ async function updateChart(data) {
                 });
                 if (requestKeyNow !== requestKeyAtStart) return;
 
+                const pointMap = new Map();
                 let appliedCount = 0;
                 for (let i = 0; i < results.length; i++) {
                     const item = results[i];
                     if (item.status === 'fulfilled' && item.value) {
-                        profitData[i] = item.value.profit;
-                        expensesData[i] = item.value.expenses;
+                        pointMap.set(keyDates[i], item.value);
                         appliedCount++;
+                    }
+                }
+
+                // 用“最近已知日期”的 balance 前向填充，生成完整每日曲线
+                let lastProfit = null;
+                let lastExpenses = null;
+                for (let i = 0; i < dates.length; i++) {
+                    const dateKey = dates[i];
+                    if (pointMap.has(dateKey)) {
+                        const p = pointMap.get(dateKey);
+                        lastProfit = p.profit;
+                        lastExpenses = p.expenses;
+                    }
+                    if (lastProfit !== null && lastExpenses !== null) {
+                        profitData[i] = lastProfit;
+                        expensesData[i] = lastExpenses;
                     }
                 }
 
@@ -1393,7 +1431,7 @@ async function updateChart(data) {
 
                 const failedCount = results.length - appliedCount;
                 if (failedCount > 0) {
-                    console.warn(`按日卡片口径覆盖部分失败: ${failedCount}/${results.length}`);
+                    console.warn(`按日卡片口径关键日期覆盖部分失败: ${failedCount}/${results.length}`);
                 }
             })
             .catch((pointError) => {
