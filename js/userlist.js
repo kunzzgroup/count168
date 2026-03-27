@@ -891,14 +891,6 @@ function editUser(id, isOwnerShadow = false) {
             if (data.success) {
                 const permissions = data.data.permissions ? JSON.parse(data.data.permissions) : [];
                 setUserPermissions(permissions);
-                // 编辑时若接口返回的权限为空且该角色有默认权限，用角色默认权限填充显示（修复历史数据导致 Supervisor 等角色左侧权限全未勾选）
-                if (isEditMode && (!permissions || permissions.length === 0)) {
-                    const cardForRole = document.querySelector(`.user-card[data-id="${id}"]`);
-                    const editingUserRole = cardForRole ? cardForRole.getAttribute('data-role')?.toLowerCase() : '';
-                    if (editingUserRole) {
-                        setDefaultPermissionsByRole(editingUserRole, { force: true });
-                    }
-                }
                 
                 // 加载 Account 和 Process 权限
                 // null 表示未设置（默认全选），[] 表示已设置但为空（不选），有值表示只选这些
