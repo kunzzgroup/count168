@@ -1308,6 +1308,7 @@ function populateOriginalTableWithColumnAData(tableData) {
 
     // Clear existing rows first
     originalTableBody.innerHTML = '';
+    row.setAttribute('data-base-processed-amount', calculatedBaseAmount);
 
     // Get data from column A (index 1, since index 0 is row header)
     // IMPORTANT: For 655 mode, handle D row (index 3) with multiple account entries
@@ -11964,7 +11965,7 @@ function updateFormulaAndProcessedAmount(row, data) {
 
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
-        row.setAttribute('data-formula-operators', rawFormula || '');
+        row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
         const displayText = formulaText;
         if (displayText) row.setAttribute('data-formula-display', displayText);
         else row.removeAttribute('data-formula-display');
@@ -14403,7 +14404,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
             if (!rawFormula) rawFormula = formulaText;
             row.setAttribute('data-formula-raw', rawFormula || '');
-            row.setAttribute('data-formula-operators', rawFormula || '');
+            row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
             const displayText = formulaText;
             if (displayText) row.setAttribute('data-formula-display', displayText);
             else row.removeAttribute('data-formula-display');
@@ -17895,7 +17896,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             sourcePercent: convertedPercentValue || '1',
             formula: formulaDisplay,
             formulaDisplay: formulaDisplay || template.formula_display || '',
-            formulaOperators: formulaOperatorsValue,
+            formulaOperators: formulaDisplay || formulaOperatorsValue,
             processedAmount: processedAmount,
             inputMethod: template.input_method || '',
             enableInputMethod: (template.input_method && template.input_method.trim() !== '') ? true : false,
