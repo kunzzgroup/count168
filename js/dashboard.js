@@ -1228,6 +1228,12 @@ function updateChart(data) {
     // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
     const sortedDates = dates;
     
+    // Profit 图表数据是“区间内每日变动”，卡片 Profit 是“总余额（含历史 B/F）”
+    // 为了 tooltip 显示“当日总 Profit”，需要补上区间起点前的余额
+    const rangeProfitTotal = parseFloat(data.profit) || 0;
+    const rangeProfitMovement = profitData.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+    const openingProfitBalance = rangeProfitTotal - rangeProfitMovement;
+
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
         sortedDates: sortedDates,
@@ -1236,12 +1242,6 @@ function updateChart(data) {
         profitData: profitData,
         openingProfitBalance: openingProfitBalance
     };
-
-    // Profit 图表数据是“区间内每日变动”，卡片 Profit 是“总余额（含历史 B/F）”
-    // 为了 tooltip 显示“当日总 Profit”，需要补上区间起点前的余额
-    const rangeProfitTotal = parseFloat(data.profit) || 0;
-    const rangeProfitMovement = profitData.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
-    const openingProfitBalance = rangeProfitTotal - rangeProfitMovement;
     
     // 只显示 Profit 和 Expenses 数据集
     const allDatasets = [
