@@ -1235,6 +1235,12 @@ function updateChart(data) {
         expensesData: expensesData,
         profitData: profitData
     };
+
+    // Profit 图表数据是“区间内每日变动”，卡片 Profit 是“总余额（含历史 B/F）”
+    // 为了 tooltip 显示“当日总 Profit”，需要补上区间起点前的余额
+    const rangeProfitTotal = parseFloat(data.profit) || 0;
+    const rangeProfitMovement = profitData.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+    const openingProfitBalance = rangeProfitTotal - rangeProfitMovement;
     
     // 只显示 Profit 和 Expenses 数据集
     const allDatasets = [
@@ -1497,7 +1503,7 @@ function createChart(canvas, chartData) {
                                 const value = context.parsed.y;
                                 if (context.dataset && context.dataset.dataType === 'profit') {
                                     const dataIndex = context.dataIndex;
-                                    const totalProfit = profitData
+                                    const totalProfit = openingProfitBalance + profitData
                                         .slice(0, dataIndex + 1)
                                         .reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
                                     return `${label} (Total): RM ${formatCurrency(totalProfit)}`;
