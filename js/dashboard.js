@@ -1128,12 +1128,7 @@ function updateChart(data) {
                     const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
                     const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
                     const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                    let displayProfit = 0;
-                    if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[dateStr] !== undefined) {
-                        displayProfit = parseFloat(dailyData.profit[dateStr] || 0) || 0;
-                    } else {
-                        displayProfit = capital + rawExpenses;
-                    }
+                    const displayProfit = capital + rawExpenses;
                     const displayNetProfit = displayProfit + displayExpenses;
                     monthCapital += capital;
                     monthExpenses += displayExpenses;
@@ -1225,12 +1220,7 @@ function updateChart(data) {
                 const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
                 const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
                 const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                let displayProfit = 0;
-                if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
-                    displayProfit = parseFloat(dailyData.profit[date] || 0) || 0;
-                } else {
-                    displayProfit = capital + rawExpenses;
-                }
+                const displayProfit = capital + rawExpenses;
                 const displayNetProfit = displayProfit + displayExpenses;
                 capitalData.push(capital);
                 expensesData.push(displayExpenses);
