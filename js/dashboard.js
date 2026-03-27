@@ -1081,6 +1081,9 @@ function updateChart(data) {
         dailyData.profit = {};
     }
     
+    const cardProfitDisplay = parseFloat(chartMetadata.cardProfitDisplay || 0) || 0;
+    const cardExpensesDisplay = parseFloat(chartMetadata.cardExpensesDisplay || 0) || 0;
+
     // 准备图表数据
     const dates = [];
     const capitalData = [];
@@ -1125,7 +1128,12 @@ function updateChart(data) {
                     const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
                     const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
                     const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                    const displayProfit = capital;
+                    let displayProfit = 0;
+                    if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[dateStr] !== undefined) {
+                        displayProfit = parseFloat(dailyData.profit[dateStr] || 0) || 0;
+                    } else {
+                        displayProfit = capital + rawExpenses;
+                    }
                     const displayNetProfit = displayProfit + displayExpenses;
                     monthCapital += capital;
                     monthExpenses += displayExpenses;
@@ -1217,7 +1225,12 @@ function updateChart(data) {
                 const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
                 const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
                 const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                const displayProfit = capital;
+                let displayProfit = 0;
+                if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
+                    displayProfit = parseFloat(dailyData.profit[date] || 0) || 0;
+                } else {
+                    displayProfit = capital + rawExpenses;
+                }
                 const displayNetProfit = displayProfit + displayExpenses;
                 capitalData.push(capital);
                 expensesData.push(displayExpenses);
@@ -1234,6 +1247,22 @@ function updateChart(data) {
         });
     }
     
+    // 把「区间变动」转换为「余额曲线」：
+    // 期初余额 = 卡片余额 - 区间内变动合计；每个点显示该点的累计余额
+    const totalProfitMovement = profitData.reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+    const totalExpensesMovement = expensesData.reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+    const openingProfitBalance = cardProfitDisplay - totalProfitMovement;
+    const openingExpensesBalance = cardExpensesDisplay - totalExpensesMovement;
+    let runningProfitBalance = openingProfitBalance;
+    let runningExpensesBalance = openingExpensesBalance;
+    for (let i = 0; i < dates.length; i++) {
+        runningProfitBalance += parseFloat(profitData[i] || 0) || 0;
+        runningExpensesBalance += parseFloat(expensesData[i] || 0) || 0;
+        profitData[i] = runningProfitBalance;
+        expensesData[i] = runningExpensesBalance;
+        netProfitData[i] = runningProfitBalance + runningExpensesBalance;
+    }
+
     // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
     const sortedDates = dates;
     
@@ -1243,7 +1272,9 @@ function updateChart(data) {
         capitalData: capitalData,
         expensesData: expensesData,
         profitData: profitData,
-        netProfitData: netProfitData
+        netProfitData: netProfitData,
+        cardProfitDisplay: cardProfitDisplay,
+        cardExpensesDisplay: cardExpensesDisplay
     };
     
     // 只显示 Profit 和 Expenses 数据集
