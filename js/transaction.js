@@ -2350,35 +2350,7 @@ function applyZeroBalanceFilterAndRender() {
         filteredLeft = rawLeft.filter(shouldShow);
         filteredRight = rawRight.filter(shouldShow);
 
-        // 兜底：若付款筛选结果为空，但原始列表有非 0 数据，回退到原始列表，避免把当天数据全隐藏
-        if (filteredLeft.length === 0 && filteredRight.length === 0) {
-            const fallbackLeft = rawLeft.filter(row => {
-                const bf = parseBalanceValue(row?.bf);
-                const wl = parseBalanceValue(row?.win_loss);
-                const crdr = parseBalanceValue(row?.cr_dr);
-                const bal = parseBalanceValue(row?.balance);
-                const eps = 0.00001;
-                return (bf !== null && Math.abs(bf) > eps)
-                    || (wl !== null && Math.abs(wl) > eps)
-                    || (crdr !== null && Math.abs(crdr) > eps)
-                    || (bal !== null && Math.abs(bal) > eps);
-            });
-            const fallbackRight = rawRight.filter(row => {
-                const bf = parseBalanceValue(row?.bf);
-                const wl = parseBalanceValue(row?.win_loss);
-                const crdr = parseBalanceValue(row?.cr_dr);
-                const bal = parseBalanceValue(row?.balance);
-                const eps = 0.00001;
-                return (bf !== null && Math.abs(bf) > eps)
-                    || (wl !== null && Math.abs(wl) > eps)
-                    || (crdr !== null && Math.abs(crdr) > eps)
-                    || (bal !== null && Math.abs(bal) > eps);
-            });
-            if (fallbackLeft.length > 0 || fallbackRight.length > 0) {
-                filteredLeft = fallbackLeft;
-                filteredRight = fallbackRight;
-            }
-        }
+        // 不做回退：Show Payment Only 为空时应保持空结果，避免误判为筛选失效
     }
     
     // 再应用 Show 0 balance 过滤
