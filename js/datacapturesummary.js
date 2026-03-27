@@ -1,15 +1,5 @@
 window.__PROCESS_AMOUNT_READY = false;
 
-async function init() {
-    // 等 API / 数据准备
-    await loadSomething();
-
-    window.__PROCESS_AMOUNT_READY = true;
-
-    // ✅ 初始化计算（这里不需要 force）
-    recalcAllRows(false);
-}
-
 // Notification functions
 function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
@@ -158,9 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function safeRecalculate(row, options) {
-    const { force = false } = options;
-
-    if (!force && !window.__PROCESS_AMOUNT_READY) return;
+    if (!window.__PROCESS_AMOUNT_READY) return;
     recalculateAndRenderProcessedAmount(row, options);
 }
 
@@ -2694,8 +2682,6 @@ function recalculateAllRowsWithRate() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach(row => {
-        row.removeAttribute('data-calculated');
-
         const processValue = getProcessValueFromRow(row);
         if (!processValue) return;
 
@@ -2714,14 +2700,11 @@ function recalculateAllRowsWithRate() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false }, {force: force});
+            safeRecalculate(row, { updateTotal: false });
         }
     });
 
-    if(typeof updateProcessedAmountTotal === 'function'){
-        updateProcessedAmountTotal();
-    }
-    
+    updateProcessedAmountTotal();
 }
 
 // Submit Rate Values: Update Rate Value for all rows with checked Rate checkbox
@@ -2761,9 +2744,8 @@ function submitRateValues() {
                 rateValueCell.textContent = rateValue;
             }
 
-            row.removeAttribute('data-calculated');
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: true });
+            safeRecalculate(row, { updateTotal: false });
 
             // IMPORTANT: Uncheck the Rate checkbox after submitting, but keep Rate Value
             rateCheckbox.checked = false;
@@ -11252,8 +11234,6 @@ function attachRateValueEditListener(cell, row) {
                 // Update cell content with new value (even if empty, user intentionally cleared it)
                 cellElement.textContent = newValue;
 
-                row.removeAttribute('data-calculated');
-
                 // Recalculate processed amount when Rate Value changes
                 safeRecalculate(row);
                 // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
@@ -11276,19 +11256,6 @@ function attachRateValueEditListener(cell, row) {
         });
 
         input.addEventListener('input', function () {
-            const val = this.value.trim();
-
-            const cells = row.querySelectorAll('td');
-            const rateCheckbox = cells[6]?.querySelector('.rate-checkbox');
-
-            // 输入时取消 checkbox
-            if (val && rateCheckbox) {
-                rateCheckbox.checked = false;
-            }
-
-            row.removeAttribute('data-calculated');
-
-            safeRecalculate(row, { updateTotal: true });
             // Update captured value as user types
             capturedValue = input.value || '';
         });
@@ -12163,33 +12130,22 @@ function updateFormulaAndProcessedAmount(row, data) {
             const cells = row.querySelectorAll('td');
             const rateValueCell = cells[7];
 
-            const input = rateValueCell ? rateValueCell.querySelector('input') : null;
-
             // When checkbox is checked, display rateInput value in Rate Value cell
-            if (this.checked) {
-            const rateInput = document.getElementById('rateInput');
-
-            if (rateInput && rateInput.value.trim() !== '') {
-                if (input) {
-                    input.value = rateInput.value.trim();
-                } else {
+            if (this.checked && rateValueCell) {
+                const rateInput = document.getElementById('rateInput');
+                if (rateInput && rateInput.value.trim() !== '') {
                     rateValueCell.textContent = rateInput.value.trim();
+                } else {
+                    rateValueCell.textContent = '';
                 }
-            }
-        } else {
-            //取消勾选 → 清空
-            if (input) {
-                input.value = '';
-            } else {
+            } else if (!this.checked && rateValueCell) {
+                // When checkbox is unchecked, clear Rate Value cell
                 rateValueCell.textContent = '';
             }
-        }
 
-        row.removeAttribute('data-calculated'); 
-
-        // Recalculate processed amount when rate checkbox is toggled
-        safeRecalculate(row, { updateTotal: true });
-    });
+            // Recalculate processed amount when rate checkbox is toggled
+            safeRecalculate(row);
+        });
 
         cells[6].appendChild(rateCheckbox);
     }
@@ -18795,9 +18751,22 @@ function extractOperatorsSequence(expression) {
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
 async function submitSummaryData() {
-    console.log('Submit summary data');
+    const rows = document.querySelectorAll('#summaryTableBody tr');
+    rows.forEach(row => {
+        row.removeAttribute('data-calculated');
+        safeRecalculate(row, { updateTotal: false });
+    });
 
-    recalculateAllRowsWithRate(true);
+    if (typeof updateProcessedAmountTotal === 'function') {
+        updateProcessedAmountTotal();
+    }
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+        console.log('Submission already in progress, ignoring duplicate request');
+        return;
+    }
+
+    console.log('Submit summary data');
 
     // Disable submit button and set submitting flag
     const submitBtn = document.getElementById('summarySubmitBtn');
