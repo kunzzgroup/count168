@@ -1175,9 +1175,12 @@ async function updateChart(data) {
                     const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
                     const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
 
-                    monthProfit += strictProfitDailyFlow
-                        ? (parseFloat(strictProfitDailyFlow[dateStr] || 0) || 0)
-                        : profitDelta;
+                    const hasStrictProfitDelta = strictProfitDailyFlow
+                        && Object.prototype.hasOwnProperty.call(strictProfitDailyFlow, dateStr)
+                    const strictProfitDelta = hasStrictProfitDelta
+                        ? (parseFloat(strictProfitDailyFlow[dateStr]) || 0)
+                        : profitDelta
+                    monthProfit += strictProfitDelta;
                     monthExpenses += (expensesDelta > 0 ? -expensesDelta : expensesDelta);
                     monthCapital += capitalDelta;
                 }
@@ -1271,9 +1274,11 @@ async function updateChart(data) {
                 const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
 
                 // 累计计算
-                const strictProfitDelta = strictProfitDailyFlow
-                    ? (parseFloat(strictProfitDailyFlow[date] || 0) || 0)
-                    : profitDelta;
+                const hasStrictProfitDelta = strictProfitDailyFlow
+                    && Object.prototype.hasOwnProperty.call(strictProfitDailyFlow, date)
+                const strictProfitDelta = hasStrictProfitDelta
+                    ? (parseFloat(strictProfitDailyFlow[date]) || 0)
+                    : profitDelta
                 currentProfit += strictProfitDelta;
                 currentExpenses += (expensesDelta > 0 ? -expensesDelta : expensesDelta);
 
