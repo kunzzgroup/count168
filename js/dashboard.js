@@ -1493,13 +1493,8 @@ function createChart(canvas, chartData) {
                                 return '';
                             },
                             label: function(context) {
-                                const dataIndex = context.dataIndex;
-                                const dailyProfit = profitData[dataIndex] || 0;
                                 const label = context.dataset.label || '';
                                 const value = context.parsed.y;
-                                if (label === 'Profit') {
-                                    return 'Daily Profit: RM ' + formatCurrency(dailyProfit);
-                                }
                                 return label + ': RM ' + formatCurrency(value);
                             },
                             afterBody: function(context) {
