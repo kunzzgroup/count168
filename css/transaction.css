@@ -762,7 +762,7 @@ body.transaction-page {
 
 .transaction-modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
-    max-height: 700px;
+    max-height: 983px;
     overflow-y: auto;
 }
 
