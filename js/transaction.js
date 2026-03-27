@@ -1045,22 +1045,9 @@ async function switchCompany(companyId, companyCode) {
     });
     
     console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
-    
-    // 重新加载 currency 列表和账户列表
-    Promise.all([
-        loadCompanyCurrencies(),
-        loadAccounts()
-    ]).then(() => {
-        // 初始化自定义下拉选单
-        initCustomSelects();
-        // 如果有搜索结果，重新搜索
-        const dateFrom = document.getElementById('date_from').value;
-        const dateTo = document.getElementById('date_to').value;
-        if (dateFrom && dateTo) {
-            loadContraInbox();
-            searchTransactions();
-        }
-    });
+
+    // 关键修复：切换公司后整页刷新，确保 sidebar 按当前公司（含 C168）重新渲染
+    window.location.reload();
 }
 
 // ==================== 加载 Company Currencies ====================
