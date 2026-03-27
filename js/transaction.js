@@ -1031,6 +1031,12 @@ async function switchCompany(companyId, companyCode) {
         console.error('更新 session 时出错:', error);
         // 即使 API 失败，也继续更新前端状态
     }
+
+    // 立即刷新整页，让 sidebar 按新 company 的 session 状态重渲染
+    const url = new URL(window.location.href);
+    url.searchParams.set('company_id', companyId);
+    window.location.href = url.toString();
+    return;
     
     currentCompanyId = companyId;
     
