@@ -1233,7 +1233,8 @@ function updateChart(data) {
         sortedDates: sortedDates,
         capitalData: capitalData,
         expensesData: expensesData,
-        profitData: profitData
+        profitData: profitData,
+        openingProfitBalance: openingProfitBalance
     };
 
     // Profit 图表数据是“区间内每日变动”，卡片 Profit 是“总余额（含历史 B/F）”
@@ -1355,6 +1356,7 @@ function createChart(canvas, chartData) {
         const capitalData = chartMetadata.capitalData || [];
         const expensesData = chartMetadata.expensesData || [];
         const profitData = chartMetadata.profitData || [];
+        const openingProfitBalance = parseFloat(chartMetadata.openingProfitBalance) || 0;
         
         // 确保 chartData 结构正确
         if (!chartData || !chartData.labels || !chartData.datasets) {
