@@ -1,12 +1,12 @@
 window.__PROCESS_AMOUNT_READY = false;
 
 async function init() {
-    //等API/数据准备
+    // 等 API / 数据准备
     await loadSomething();
 
     window.__PROCESS_AMOUNT_READY = true;
 
-    //初始化计算
+    // ✅ 初始化计算（这里不需要 force）
     recalcAllRows(false);
 }
 
@@ -996,10 +996,7 @@ function restoreRateValuesFromRefresh() {
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         if (!rateValueCell || val === undefined || val === null || String(val).trim() === '') return false;
-        const input = rateValueCell.querySelector('.rate-value-input');
-        if (input) {
-            input.value = val;
-        }
+        rateValueCell.textContent = String(val).trim();
         safeRecalculate(row, { updateTotal: false });
         return true;
     }
@@ -1196,11 +1193,6 @@ async function loadAndRenderCapturedTable() {
 
                 // Populate the original table with data from column A (transformed)
                 populateOriginalTableWithColumnAData(transformedTableData);
-
-                setTimeout(() => {
-                    bindRateValueEvents();
-                }, 100);
-
                 // Build initial used accounts from any existing rows
                 rebuildUsedAccountIds();
 
@@ -1427,34 +1419,6 @@ function renderCapturedTable(tableData) {
     setTimeout(() => {
         makeTableCellsClickable();
     }, 100);
-
-    setTimeout(() => {
-        bindRateValueEvents();
-    }, 100);
-}
-
-function bindRateValueEvents() {
-    const inputs = document.querySelectorAll('.rate-value-input');
-
-    inputs.forEach(input => {
-        input.addEventListener('input', function () {
-            const row = this.closest('tr');
-
-            let value = parseFloat(this.value);
-            if (isNaN(value)) value = 0;
-
-            //存到 row attribute（方便其他函数用）
-            row.setAttribute('data-rate-value', value);
-
-            //重新计算
-            safeRecalculate(row, { updateTotal: true });
-
-            //保存（refresh用）
-            if (typeof saveRateValuesForRefresh === 'function') {
-                saveRateValuesForRefresh();
-            }
-        });
-    });
 }
 
 // Populate the original table's Id Product column with data from column A
@@ -1641,14 +1605,12 @@ function populateOriginalTableWithColumnAData(tableData) {
 
             // Rate Value column (new column for individual rate input)
             const rateValueCell = document.createElement('td');
-            rateValueCell.innerHTML = `
-                <input 
-                    type="number" 
-                    class="rate-value-input"
-                    step="0.0001"
-                    style="width:80px;text-align:center;"
-                />
-            `;
+            rateValueCell.style.textAlign = 'center';
+            rateValueCell.classList.add('editable-cell');
+            rateValueCell.style.cursor = 'text';
+            rateValueCell.textContent = '';
+            // Make cell editable on click
+            attachRateValueEditListener(rateValueCell, row);
             row.appendChild(rateValueCell);
 
             // Processed Amount column
@@ -2732,7 +2694,6 @@ function recalculateAllRowsWithRate() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach(row => {
-        //强制重算
         row.removeAttribute('data-calculated');
 
         const processValue = getProcessValueFromRow(row);
@@ -2746,19 +2707,14 @@ function recalculateAllRowsWithRate() {
             const rateValueCell = cells[7];
             if (rateValueCell) {
                 if (rateInput.value.trim() !== '') {
-                    const input = rateValueCell.querySelector('input');
-                    if (input) {
-                        input.value = rateInput.value.trim();
-                    } else {
-                        rateValueCell.textContent = rateInput.value.trim();
-                    }
+                    rateValueCell.textContent = rateInput.value.trim();
                 } else {
                     rateValueCell.textContent = '';
                 }
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false }, {force: force});//通过force绕开READY
+            safeRecalculate(row, { updateTotal: false }, {force: force});
         }
     });
 
@@ -2802,12 +2758,7 @@ function submitRateValues() {
             // Update Rate Value cell with rateInput value
             const rateValueCell = cells[7];
             if (rateValueCell) {
-                const input = rateValueCell.querySelector('input');
-                if (input) {
-                    input.value = rateValue;
-                } else {
-                    rateValueCell.textContent = rateValue;
-                }
+                rateValueCell.textContent = rateValue;
             }
 
             // Recalculate processed amount for this row from the current formula/source state
@@ -11301,7 +11252,7 @@ function attachRateValueEditListener(cell, row) {
                 cellElement.textContent = newValue;
 
                 // Recalculate processed amount when Rate Value changes
-                safeRecalculate(row, { updateTotal: true });
+                safeRecalculate(row);
                 // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
             } else {
                 // Cancel: restore original value
@@ -11322,17 +11273,6 @@ function attachRateValueEditListener(cell, row) {
         });
 
         input.addEventListener('input', function () {
-            const val = this.value.trim();
-
-            const cells = row.querySelectorAll('td');
-            const rateCheckbox = cells[6]?.querySelector('.rate-checkbox');
-
-            // 输入时取消 checkbox
-            if (val && rateCheckbox) {
-                rateCheckbox.checked = false;
-            }
-            safeRecalculate(row, { updateTotal: true });
-            
             // Update captured value as user types
             capturedValue = input.value || '';
         });
@@ -18830,7 +18770,6 @@ let isSubmitting = false; // Flag to prevent duplicate submissions
 async function submitSummaryData() {
     console.log('Submit summary data');
 
-    //提交前强制更新
     recalculateAllRowsWithRate(true);
 
     // Disable submit button and set submitting flag
@@ -19115,16 +19054,7 @@ async function submitSummaryData() {
             const rateInput = document.getElementById('rateInput');
             // Get Rate Value from Rate Value column (index 7)
             const rateValueCell = cells[7];
-
-            let rateValueFromColumn = '';
-            // 优先从 input 读取
-            const input = rateValueCell ? rateValueCell.querySelector('input') : null;
-
-            if (input) {
-                rateValueFromColumn = input.value.trim();
-            } else if (rateValueCell && rateValueCell.textContent) {
-                rateValueFromColumn = rateValueCell.textContent.trim();
-            }
+            const rateValueFromColumn = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
 
             // Priority: Rate Value column > Global rateInput (if checkbox checked)
             let rateValue = null;
