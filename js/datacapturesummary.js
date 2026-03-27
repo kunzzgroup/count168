@@ -1,15 +1,5 @@
 window.__PROCESS_AMOUNT_READY = false;
 
-async function init() {
-    //等API/数据准备
-    await loadSomething();
-
-    window.__PROCESS_AMOUNT_READY = true;
-
-    //初始化计算
-    recalcAllRows(false);
-}
-
 // Notification functions
 function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
@@ -158,9 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function safeRecalculate(row, options) {
-    const { force = false } = options;
-
-    if (!force && !window.__PROCESS_AMOUNT_READY) return;
+    if (!window.__PROCESS_AMOUNT_READY) return;
     recalculateAndRenderProcessedAmount(row, options);
 }
 
@@ -2248,7 +2236,7 @@ function handleAddAccount(button, productValue) {
 }
 
 // Show Edit Formula Form as modal positioned slightly towards top
-function showEditFormulaForm(productValue, prePopulatedData = null) {
+function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
     // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
     if (!prePopulatedData || !prePopulatedData.accountDbId) {
         window._editFormulaRowCurrency = null;
@@ -2694,9 +2682,6 @@ function recalculateAllRowsWithRate() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach(row => {
-        //强制重算
-        row.removeAttribute('data-calculated');
-
         const processValue = getProcessValueFromRow(row);
         if (!processValue) return;
 
@@ -2715,14 +2700,11 @@ function recalculateAllRowsWithRate() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false }, {force: force});//通过force绕开READY
+            safeRecalculate(row, { updateTotal: false });
         }
     });
 
-    if(typeof updateProcessedAmountTotal === 'function'){
-        updateProcessedAmountTotal();
-    }
-    
+    updateProcessedAmountTotal();
 }
 
 // Submit Rate Values: Update Rate Value for all rows with checked Rate checkbox
@@ -11194,12 +11176,18 @@ function attachRateValueEditListener(cell, row) {
         input.style.fontSize = 'inherit';
         input.style.fontFamily = 'inherit';
 
+        // // Store reference to current input
+        // currentInput = input;
+
         // Store original value in a closure variable to ensure it's preserved
         const savedOriginalValue = originalValue;
 
         // Replace cell content with input
         cellElement.innerHTML = '';
         cellElement.appendChild(input);
+
+        input.focus();
+        input.select();
 
         // IMPORTANT: Set value AFTER appending to DOM to ensure it's preserved
         input.value = savedOriginalValue || '';
@@ -11212,7 +11200,6 @@ function attachRateValueEditListener(cell, row) {
             }
         }, 0);
 
-        // Handle input changes - save the value
         function save() {
             let newValue = input.value?.trim() || '';
 
@@ -11242,6 +11229,16 @@ function attachRateValueEditListener(cell, row) {
                 cancel();
             }
         });
+    });
+    // Handle Enter key - save changes
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleInput(true);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            handleInput(false); // Cancel: restore original value
+        }
     });
 }
 
@@ -18706,10 +18703,13 @@ function extractOperatorsSequence(expression) {
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
 async function submitSummaryData() {
-    console.log('Submit summary data');
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+        console.log('Submission already in progress, ignoring duplicate request');
+        return;
+    }
 
-    //提交前强制更新
-    recalculateAllRowsWithRate(true);
+    console.log('Submit summary data');
 
     // Disable submit button and set submitting flag
     const submitBtn = document.getElementById('summarySubmitBtn');
