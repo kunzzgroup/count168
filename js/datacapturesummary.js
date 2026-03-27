@@ -157,8 +157,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-function safeRecalculate(row, options) {
-    const { force = false } = options;
+function safeRecalculate(row, options = {}) {
+    const { force = false } = options || {};
 
     if (!force && !window.__PROCESS_AMOUNT_READY) return;
     recalculateAndRenderProcessedAmount(row, options);
@@ -2715,7 +2715,7 @@ function recalculateAllRowsWithRate() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false }, {force: force});//通过force绕开READY
+            safeRecalculate(row, { updateTotal: false, force: true });//通过force绕开READY
         }
     });
 
@@ -11166,7 +11166,7 @@ function attachRateValueEditListener(cell, row) {
     let isEditing = false;
     let currentInput = null;
 
-    cell.addEventListener('click', function (e) {
+    const startEdit = function (e) {
         // Prevent editing if already editing
         if (isEditing) return;
 
@@ -11305,7 +11305,10 @@ function attachRateValueEditListener(cell, row) {
                 handleInput(false); // Cancel: restore original value
             }
         });
-    });
+    };
+
+    cell.addEventListener('click', startEdit);
+    cell.addEventListener('dblclick', startEdit);
 }
 
 // Apply rate multiplication or division to processed amount
