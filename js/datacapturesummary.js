@@ -18356,9 +18356,74 @@ function deleteSelectedRows() {
                     });
                 }
             });
-            // 先立刻从表格移除行并更新 UI，再在后台调 API，避免等 5～10 秒
+            // 修改删除逻辑：不以整行 row 删掉，而是除了 id product 其他的全部清空。
+            // Clear all data fields but keep the row and Id Product
             validRowsToDelete.forEach(item => {
-                if (item.row && item.row.parentNode) item.row.remove();
+                const row = item.row;
+                if (!row) return;
+
+                const cells = row.querySelectorAll('td');
+
+                // 保持 cells[0] (Id Product)
+                // 保持 cells[2] (+)
+
+                // 清空 Account (TD 1)
+                if (cells[1]) {
+                    cells[1].textContent = '';
+                    cells[1].removeAttribute('data-account-id');
+                    cells[1].removeAttribute('data-account-db-id');
+                }
+
+                // 清空 Currency (TD 3)
+                if (cells[3]) cells[3].textContent = '';
+
+                // 清空 Formula (TD 4)
+                if (cells[4]) cells[4].textContent = '';
+
+                // 清空 Source (TD 5)
+                if (cells[5]) cells[5].textContent = '';
+
+                // 取消 Rate Checkbox (TD 6)
+                const rateCheckbox = row.querySelector('.rate-checkbox');
+                if (rateCheckbox) rateCheckbox.checked = false;
+
+                // 清空 Rate Value (TD 7)
+                if (cells[7]) cells[7].textContent = '';
+
+                // 清空 Processed Amount (TD 8)
+                if (cells[8]) {
+                    cells[8].textContent = '';
+                    cells[8].style.color = '';
+                }
+
+                // 重置行属性 (Template IDs, Keys, etc.)
+                row.removeAttribute('data-template-id');
+                row.removeAttribute('data-template-key');
+                row.removeAttribute('data-formula-raw');
+                row.removeAttribute('data-formula-display');
+                row.removeAttribute('data-source-columns');
+                row.removeAttribute('data-formula-operators');
+                row.removeAttribute('data-source-percent');
+                row.removeAttribute('data-input-method');
+                row.removeAttribute('data-enable-input-method');
+                row.removeAttribute('data-original-description');
+                row.removeAttribute('data-formula-variant');
+                row.removeAttribute('data-account-id');
+                row.removeAttribute('data-account-db-id');
+
+                // 取消勾选 Select 和 Delete (TD 9, TD 10)
+                const selectCb = row.querySelector('.summary-select-checkbox');
+                if (selectCb) {
+                    selectCb.checked = false;
+                    row.classList.remove('summary-row-selected');
+                }
+                const deleteCb = row.querySelector('.summary-row-checkbox');
+                if (deleteCb) deleteCb.checked = false;
+                
+                // 刷新 Id Product 单元格显示（以清掉 description 渲染）
+                if (typeof refreshIdProductCellDisplay === 'function') {
+                   refreshIdProductCellDisplay(row);
+                }
             });
             rebuildUsedAccountIds();
             updateDeleteButton();
