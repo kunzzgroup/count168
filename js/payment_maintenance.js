@@ -127,6 +127,11 @@
                 filterEl.style.display = 'none';
                 return;
             }
+            if (String(code).trim().toUpperCase() === 'C168') {
+                containerEl.innerHTML = '';
+                filterEl.style.display = 'none';
+                return;
+            }
             try {
                 const response = await fetch('api/domain/domain_api.php', {
                     method: 'POST',
