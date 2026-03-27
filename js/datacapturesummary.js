@@ -1640,6 +1640,17 @@ function populateOriginalTableWithColumnAData(tableData) {
                 recalculateSummaryProcessedAmountsFromDisplayedFormula()
             }
             updateProcessedAmountTotal();
+
+            // CRITICAL FIX: After restoring and recalculating, re-save the state
+            // to localStorage so that subsequent refreshes can also restore it.
+            // Without this, restoreFormulaSourceFromRefresh deletes the cache after
+            // one restore, causing the wipe block above to fire on the next refresh.
+            if (!isFreshFromCapture && typeof saveFormulaSourceForRefresh === 'function') {
+                setTimeout(() => {
+                    saveFormulaSourceForRefresh();
+                    console.log('Re-saved formula state to localStorage after restore (for subsequent refreshes)');
+                }, 200);
+            }
         });
 }
 
@@ -9350,7 +9361,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
 
     // 保存 base amount（避免 refresh 丢失）
     row.setAttribute('data-base-processed-amount', baseAmount);
-    
+
     let baseProcessedAmount = 0;
     if (formulaText && formulaText !== 'Formula') {
         baseProcessedAmount = calculateFormulaResultFromExpression(
