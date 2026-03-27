@@ -1490,7 +1490,19 @@ function searchTransactions(isInitialLoad) {
         const totalAccounts = (searchData.left_table?.length || 0) + (searchData.right_table?.length || 0);
 
         if (totalAccounts === 0) {
-            // 没有数据，隐藏表格区域
+            // Show Win/Loss Only：无数据时也保留空表结构（与 Show Payment Only 体验一致）
+            if (showCaptureOnly) {
+                if (tablesSection) {
+                    tablesSection.style.display = 'flex';
+                    tablesSection.style.flexDirection = '';
+                }
+                if (summarySection) summarySection.style.display = 'flex';
+                applyZeroBalanceFilterAndRender();
+                showNotification('Search completed but no win/loss data found in current range', 'info');
+                return;
+            }
+
+            // 其他情况：维持原逻辑，隐藏表格区域
             if (tablesSection) tablesSection.style.display = 'none';
             if (summarySection) summarySection.style.display = 'none';
             showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
