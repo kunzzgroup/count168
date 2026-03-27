@@ -1091,8 +1091,10 @@ function editUser(id, isOwnerShadow = false) {
         }
         // owner 影子不显示 company 按钮
         selectedCompanyIds = [];
-        // owner 影子不显示 Account 和 Process 权限区域
-        document.getElementById('accountProcessPermissionsSection').style.display = 'none';
+        // owner 影子：Account / Process 也默认全选显示（与其他用户默认行为一致）
+        document.getElementById('accountProcessPermissionsSection').style.display = 'block';
+        loadAccountPermissions(null);
+        loadProcessPermissions(null);
     }
     
     document.getElementById('userModal').style.display = 'block';
