@@ -997,16 +997,13 @@ function recalculateAllProcessedAmounts() {
             const cells = row.querySelectorAll('td');
 
             // 取 base amount（如果没有就用 0）
-            const baseAmount =
-                parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+            const baseAmount = parseFloat(cells[4]?.textContent || '0') || 0;
 
             // 重新计算
-            if (typeof recalculateAndRenderProcessedAmount === 'function') {
-                recalculateAndRenderProcessedAmount(row, {
-                    baseAmount: baseAmount,
-                    updateTotal: false
-                });
-            }
+            recalculateAndRenderProcessedAmount(row, {
+                baseAmount: baseAmount,
+                updateTotal: false
+            });
 
         } catch (err) {
             console.warn('Row recalculation error:', err);
