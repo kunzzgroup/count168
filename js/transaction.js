@@ -928,6 +928,11 @@ function getAccountId(buttonElement) {
 }
 
 // ==================== 加载 Owner Companies ====================
+function getCompanyDisplayCode(companyCode) {
+    if (companyCode === 'IG') return 'AG';
+    return companyCode;
+}
+
 function loadOwnerCompanies() {
     return fetch('/api/transactions/get_owner_companies_api.php')
         .then(response => response.json())
@@ -944,10 +949,10 @@ function loadOwnerCompanies() {
                     data.data.forEach(company => {
                         const btn = document.createElement('button');
                         btn.className = 'transaction-company-btn';
-                        btn.textContent = company.company_id;
+                        btn.textContent = getCompanyDisplayCode(company.company_id);
                         btn.dataset.companyId = company.id;
                         btn.addEventListener('click', function() {
-                            switchCompany(company.id, company.company_id);
+                            switchCompany(company.id, getCompanyDisplayCode(company.company_id));
                         });
                         container.appendChild(btn);
                     });
