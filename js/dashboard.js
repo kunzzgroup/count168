@@ -1281,6 +1281,11 @@ function updateChart(data) {
         runningProfitTotal += parseFloat(profitData[idx]) || 0;
         cumulativeProfitByDate[dateKey] = runningProfitTotal;
     });
+    const totalProfitSeries = sortedDates.map(dateKey => (
+        cumulativeProfitByDate[dateKey] !== undefined
+            ? cumulativeProfitByDate[dateKey]
+            : openingProfitBalance
+    ));
 
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
@@ -1288,6 +1293,7 @@ function updateChart(data) {
         capitalData: capitalData,
         expensesData: expensesData,
         profitData: profitData,
+        totalProfitSeries: totalProfitSeries,
         openingProfitBalance: openingProfitBalance,
         cumulativeProfitByDate: cumulativeProfitByDate
     };
@@ -1296,7 +1302,8 @@ function updateChart(data) {
     const allDatasets = [
             {
                 label: 'Profit',
-                data: profitData,
+                // 使用“当日总 Profit”作图，和卡片/tooltip 口径一致
+                data: totalProfitSeries,
                 borderColor: '#3b82f6',
             backgroundColor: function(context) {
                 const chart = context.chart;
