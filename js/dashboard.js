@@ -1572,28 +1572,7 @@ function createChart(canvas, chartData) {
                                 }
                                 return label + ': RM ' + formatCurrency(value);
                             },
-                            afterBody: function(context) {
-                                if (context.length > 0) {
-                                    const dataIndex = context[0].dataIndex;
-                                    const date = sortedDates[dataIndex];
-                                    if (date) {
-                                        try {
-                                            const dateObj = new Date(date);
-                                            if (!isNaN(dateObj.getTime())) {
-                                                const expenses = expensesData[dataIndex] || 0;
-                                                const profit = profitData[dataIndex] || 0;
-                                                return [
-                                                    '',
-                                                    '--- Daily Summary ---',
-                                                    `Daily Profit: RM ${formatCurrency(profit)}`,
-                                                    `Expenses: RM ${formatCurrency(expenses)}`
-                                                ];
-                                            }
-                                        } catch (e) {
-                                            return [];
-                                        }
-                                    }
-                                }
+                            afterBody: function() {
                                 return [];
                             }
                         }
