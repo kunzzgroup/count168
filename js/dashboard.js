@@ -1399,7 +1399,7 @@ async function updateChart(data) {
             company_id: window.companyId,
             currency: window.dashboardCurrency || ''
         });
-        // 只请求关键日期（有变动的日期 + 首尾日期），其余日期沿用前一日 balance
+        // 只请求关键日期（有变动的日期 + 首尾日期）
         const datesSet = new Set(dates);
         const keyDatesSet = new Set();
         if (dailyData.capital && typeof dailyData.capital === 'object') {
@@ -1441,16 +1441,12 @@ async function updateChart(data) {
                     }
                 }
 
-                // 用“最近已知日期”的 balance 前向填充，生成完整每日曲线
-                let lastExpenses = null;
+                // 仅覆盖命中的日期，未命中日期保持原本的按日值（通常为 0）
                 for (let i = 0; i < dates.length; i++) {
                     const dateKey = dates[i];
                     if (pointMap.has(dateKey)) {
                         const p = pointMap.get(dateKey);
-                        lastExpenses = p.expenses;
-                    }
-                    if (lastExpenses !== null) {
-                        expensesData[i] = lastExpenses;
+                        expensesData[i] = parseFloat(p.expenses || 0) || 0;
                     }
                 }
 
