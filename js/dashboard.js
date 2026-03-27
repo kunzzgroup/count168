@@ -30,65 +30,6 @@ let chartMetadata = {
     expensesData: [],
     profitData: []
 };
-const singleDayProfitCache = new Map();
-const singleDayProfitPending = new Set();
-
-function getProfitCacheKey(dateKey) {
-    return `${window.companyId || ''}|${(window.dashboardCurrency || '').toUpperCase()}|${dateKey || ''}`;
-}
-
-function requestSingleDayProfitTotal(dateKey) {
-    try {
-        if (!dateKey || !window.companyId) return;
-        // 按月聚合（YYYY-MM）时不走单日查询
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
-
-        const cacheKey = getProfitCacheKey(dateKey);
-        if (singleDayProfitCache.has(cacheKey) || singleDayProfitPending.has(cacheKey)) return;
-
-        singleDayProfitPending.add(cacheKey);
-        const queryParams = new URLSearchParams({
-            date_from: dateKey,
-            date_to: dateKey,
-            company_id: window.companyId
-        });
-        if (window.dashboardCurrency) {
-            queryParams.append('currency', window.dashboardCurrency);
-        }
-
-        fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`))
-            .then(response => response.json())
-            .then(result => {
-                if (result && result.success && result.data) {
-                    const singleDayTotal = parseFloat(result.data.profit) || 0;
-                    singleDayProfitCache.set(cacheKey, singleDayTotal);
-                    // 同步修正曲线点位，确保点位高度与 tooltip 数值一致
-                    if (chartMetadata && Array.isArray(chartMetadata.sortedDates) && Array.isArray(chartMetadata.totalProfitSeries)) {
-                        const idx = chartMetadata.sortedDates.indexOf(dateKey);
-                        if (idx >= 0) {
-                            chartMetadata.totalProfitSeries[idx] = singleDayTotal;
-                        }
-                    }
-                    if (trendChart && trendChart.data && Array.isArray(trendChart.data.datasets)) {
-                        const profitDataset = trendChart.data.datasets.find(ds => ds && ds.dataType === 'profit');
-                        if (profitDataset && Array.isArray(profitDataset.data)) {
-                            const idx = chartMetadata.sortedDates.indexOf(dateKey);
-                            if (idx >= 0) {
-                                profitDataset.data[idx] = singleDayTotal;
-                            }
-                        }
-                    }
-                    if (trendChart) {
-                        trendChart.update('none');
-                    }
-                }
-            })
-            .catch(() => {})
-            .finally(() => {
-                singleDayProfitPending.delete(cacheKey);
-            });
-    } catch (e) {}
-}
 
 // 当前选择的图表数据类型（'all', 'capital', 'expenses', 'profit'）
 let selectedChartDataType = 'all';
@@ -1287,40 +1228,19 @@ function updateChart(data) {
     // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
     const sortedDates = dates;
     
-    // Profit 图表数据是“区间内每日变动”，卡片 Profit 是“总余额（含历史 B/F）”
-    // 为了 tooltip 显示“当日总 Profit”，需要补上区间起点前的余额
-    const rangeProfitTotal = parseFloat(data.profit) || 0;
-    const rangeProfitMovement = profitData.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
-    const openingProfitBalance = rangeProfitTotal - rangeProfitMovement;
-    const cumulativeProfitByDate = {};
-    let runningProfitTotal = openingProfitBalance;
-    sortedDates.forEach((dateKey, idx) => {
-        runningProfitTotal += parseFloat(profitData[idx]) || 0;
-        cumulativeProfitByDate[dateKey] = runningProfitTotal;
-    });
-    const totalProfitSeries = sortedDates.map(dateKey => (
-        cumulativeProfitByDate[dateKey] !== undefined
-            ? cumulativeProfitByDate[dateKey]
-            : openingProfitBalance
-    ));
-
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
         sortedDates: sortedDates,
         capitalData: capitalData,
         expensesData: expensesData,
-        profitData: profitData,
-        totalProfitSeries: totalProfitSeries,
-        openingProfitBalance: openingProfitBalance,
-        cumulativeProfitByDate: cumulativeProfitByDate
+        profitData: profitData
     };
     
     // 只显示 Profit 和 Expenses 数据集
     const allDatasets = [
             {
                 label: 'Profit',
-                // 使用“当日总 Profit”作图，和卡片/tooltip 口径一致
-                data: totalProfitSeries,
+                data: profitData,
                 borderColor: '#3b82f6',
             backgroundColor: function(context) {
                 const chart = context.chart;
@@ -1429,8 +1349,6 @@ function createChart(canvas, chartData) {
         const capitalData = chartMetadata.capitalData || [];
         const expensesData = chartMetadata.expensesData || [];
         const profitData = chartMetadata.profitData || [];
-        const openingProfitBalance = parseFloat(chartMetadata.openingProfitBalance) || 0;
-        const cumulativeProfitByDate = chartMetadata.cumulativeProfitByDate || {};
         
         // 确保 chartData 结构正确
         if (!chartData || !chartData.labels || !chartData.datasets) {
@@ -1577,26 +1495,30 @@ function createChart(canvas, chartData) {
                             label: function(context) {
                                 const label = context.dataset.label || '';
                                 const value = context.parsed.y;
-                                if (context.dataset && context.dataset.dataType === 'profit') {
-                                    const dataIndex = context.dataIndex;
-                                    const dateKey = sortedDates[dataIndex];
-                                    const cacheKey = getProfitCacheKey(dateKey);
-                                    const cachedTotal = singleDayProfitCache.get(cacheKey);
-                                    if (cachedTotal === undefined) {
-                                        requestSingleDayProfitTotal(dateKey);
-                                    }
-                                    const totalProfit = cachedTotal !== undefined
-                                        ? cachedTotal
-                                        : (dateKey && cumulativeProfitByDate[dateKey] !== undefined
-                                            ? cumulativeProfitByDate[dateKey]
-                                            : (openingProfitBalance + profitData
-                                                .slice(0, dataIndex + 1)
-                                                .reduce((sum, v) => sum + (parseFloat(v) || 0), 0)));
-                                    return `${label} (Total): RM ${formatCurrency(totalProfit)}`;
-                                }
                                 return label + ': RM ' + formatCurrency(value);
                             },
-                            afterBody: function() {
+                            afterBody: function(context) {
+                                if (context.length > 0) {
+                                    const dataIndex = context[0].dataIndex;
+                                    const date = sortedDates[dataIndex];
+                                    if (date) {
+                                        try {
+                                            const dateObj = new Date(date);
+                                            if (!isNaN(dateObj.getTime())) {
+                                                const expenses = expensesData[dataIndex] || 0;
+                                                const profit = profitData[dataIndex] || 0;
+                                                return [
+                                                    '',
+                                                    '--- Daily Summary ---',
+                                                    `Profit: RM ${formatCurrency(profit)}`,
+                                                    `Expenses: RM ${formatCurrency(expenses)}`
+                                                ];
+                                            }
+                                        } catch (e) {
+                                            return [];
+                                        }
+                                    }
+                                }
                                 return [];
                             }
                         }
