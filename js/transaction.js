@@ -1626,6 +1626,50 @@ function searchTransactions(isInitialLoad) {
                         });
                 }
 
+                // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
+                if (showCaptureOnly && totalAccounts === 0) {
+                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                    if (currentCompanyId) {
+                        fallbackUrl += `&company_id=${currentCompanyId}`;
+                    }
+                    if (!showAllCurrencies && selectedCurrencies.length > 0) {
+                        fallbackUrl += `&currency=${selectedCurrencies.join(',')}`;
+                    }
+                    fallbackUrl += '&_t=' + Date.now();
+
+                    if (loadingEl) {
+                        loadingEl.textContent = 'Loading data';
+                        loadingEl.style.display = 'flex';
+                    }
+
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        cache: 'no-cache',
+                        headers: {
+                            'Cache-Control': 'no-cache'
+                        }
+                    })
+                        .then(resp => resp.json())
+                        .then(fallback => {
+                            if (loadingEl) loadingEl.style.display = 'none';
+                            if (!fallback.success || !fallback.data || !fallback.data.totals) {
+                                commitSearchData(currentSearchData);
+                                return;
+                            }
+
+                            const rebuiltData = {
+                                ...currentSearchData,
+                                totals: fallback.data.totals
+                            };
+                            commitSearchData(rebuiltData);
+                        })
+                        .catch(error => {
+                            if (loadingEl) loadingEl.style.display = 'none';
+                            console.error('❌ Win/Loss 空结果 totals 兜底失败:', error);
+                            commitSearchData(currentSearchData);
+                        });
+                }
+
                 if (loadingEl) loadingEl.style.display = 'none';
                 commitSearchData(currentSearchData);
             } else {
