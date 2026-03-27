@@ -28,7 +28,9 @@ let chartMetadata = {
     sortedDates: [],
     capitalData: [],
     expensesData: [],
-    profitData: []
+    profitData: [],
+    cardProfitDisplay: 0,
+    cardExpensesDisplay: 0
 };
 
 // 当前选择的图表数据类型（'all', 'capital', 'expenses', 'profit'）
@@ -992,6 +994,10 @@ function updateDashboard(data) {
                 // 规则：NET PROFIT = Profit(显示) + Expenses(显示)
                 const netProfitDisplay = displayProfitNum + displayExpensesNum;
 
+                // 记录卡片显示值，供图表 tooltip 统一读取，避免口径不一致
+                chartMetadata.cardProfitDisplay = displayProfitNum;
+                chartMetadata.cardExpensesDisplay = displayExpensesNum;
+
                 if (capitalEl) capitalEl.textContent = formatCurrency(displayProfitNum);
                 if (expensesEl) expensesEl.textContent = formatCurrency(displayExpensesNum);
                 if (profitEl) profitEl.textContent = formatCurrency(netProfitDisplay);
@@ -1349,6 +1355,8 @@ function createChart(canvas, chartData) {
         const capitalData = chartMetadata.capitalData || [];
         const expensesData = chartMetadata.expensesData || [];
         const profitData = chartMetadata.profitData || [];
+        const cardProfitDisplay = parseFloat(chartMetadata.cardProfitDisplay || 0) || 0;
+        const cardExpensesDisplay = parseFloat(chartMetadata.cardExpensesDisplay || 0) || 0;
         
         // 确保 chartData 结构正确
         if (!chartData || !chartData.labels || !chartData.datasets) {
@@ -1505,13 +1513,11 @@ function createChart(canvas, chartData) {
                                         try {
                                             const dateObj = new Date(date);
                                             if (!isNaN(dateObj.getTime())) {
-                                                const expenses = expensesData[dataIndex] || 0;
-                                                const profit = profitData[dataIndex] || 0;
                                                 return [
                                                     '',
                                                     '--- Daily Summary ---',
-                                                    `Profit: RM ${formatCurrency(profit)}`,
-                                                    `Expenses: RM ${formatCurrency(expenses)}`
+                                                    `Profit: RM ${formatCurrency(cardProfitDisplay)}`,
+                                                    `Expenses: RM ${formatCurrency(cardExpensesDisplay)}`
                                                 ];
                                             }
                                         } catch (e) {
