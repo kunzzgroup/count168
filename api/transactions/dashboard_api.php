@@ -349,6 +349,17 @@ try {
         ];
     }
     
+    // 严格流水口径：仅 PAYMENT + PROFIT 账户 的日净额（To 为负，From 为正）
+    $profit_payment_flow_daily = calculateProfitPaymentDailyFlow(
+        $pdo,
+        $company_id,
+        $date_from_db,
+        $date_to_db,
+        $filter_currency_code,
+        $hasTransactionCurrency,
+        dashboardHasContraApprovalColumns($pdo)
+    );
+
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
     echo json_encode([
         'success' => true,
@@ -359,7 +370,8 @@ try {
             'daily_data' => [
                 'capital' => $result['capital']['daily_data'],
                 'expenses' => $result['expenses']['daily_data'],
-                'profit' => $result['profit']['daily_data']
+                'profit' => $result['profit']['daily_data'],
+                'profit_payment_flow_daily' => $profit_payment_flow_daily
             ],
             'date_range' => [
                 'from' => $date_from,
@@ -376,6 +388,105 @@ try {
         'data' => null,
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 严格流水口径：仅统计 PAYMENT 且账户角色为 PROFIT 的当日净额
+ * To Account(PROFIT) 记负数；From Account(PROFIT) 记正数
+ */
+function calculateProfitPaymentDailyFlow(
+    PDO $pdo,
+    int $company_id,
+    string $date_from,
+    string $date_to,
+    ?string $filter_currency_code,
+    bool $hasTransactionCurrency,
+    bool $hasContraApproval
+): array {
+    $rows = [];
+
+    if ($hasTransactionCurrency && $filter_currency_code !== null) {
+        $sql = "
+            SELECT DATE(t.transaction_date) AS date,
+                   COALESCE(SUM(
+                     CASE
+                       WHEN to_ac.account_id IS NOT NULL THEN -t.amount
+                       WHEN from_ac.account_id IS NOT NULL THEN t.amount
+                       ELSE 0
+                     END
+                   ), 0) AS flow_amount
+            FROM transactions t
+            LEFT JOIN account to_acc
+              ON to_acc.id = t.account_id
+             AND UPPER(to_acc.role) = 'PROFIT'
+            LEFT JOIN account_company to_ac
+              ON to_ac.account_id = to_acc.id
+             AND to_ac.company_id = t.company_id
+            LEFT JOIN account from_acc
+              ON from_acc.id = t.from_account_id
+             AND UPPER(from_acc.role) = 'PROFIT'
+            LEFT JOIN account_company from_ac
+              ON from_ac.account_id = from_acc.id
+             AND from_ac.company_id = t.company_id
+            INNER JOIN currency c
+              ON c.id = t.currency_id
+             AND c.company_id = t.company_id
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              AND UPPER(c.code) = ?
+              " . ($hasContraApproval ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
+              AND (to_ac.account_id IS NOT NULL OR from_ac.account_id IS NOT NULL)
+            GROUP BY DATE(t.transaction_date)
+            ORDER BY DATE(t.transaction_date)
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $date_from, $date_to, $filter_currency_code]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $sql = "
+            SELECT DATE(t.transaction_date) AS date,
+                   COALESCE(SUM(
+                     CASE
+                       WHEN to_ac.account_id IS NOT NULL THEN -t.amount
+                       WHEN from_ac.account_id IS NOT NULL THEN t.amount
+                       ELSE 0
+                     END
+                   ), 0) AS flow_amount
+            FROM transactions t
+            LEFT JOIN account to_acc
+              ON to_acc.id = t.account_id
+             AND UPPER(to_acc.role) = 'PROFIT'
+            LEFT JOIN account_company to_ac
+              ON to_ac.account_id = to_acc.id
+             AND to_ac.company_id = t.company_id
+            LEFT JOIN account from_acc
+              ON from_acc.id = t.from_account_id
+             AND UPPER(from_acc.role) = 'PROFIT'
+            LEFT JOIN account_company from_ac
+              ON from_ac.account_id = from_acc.id
+             AND from_ac.company_id = t.company_id
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              " . ($hasContraApproval ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
+              AND (to_ac.account_id IS NOT NULL OR from_ac.account_id IS NOT NULL)
+            GROUP BY DATE(t.transaction_date)
+            ORDER BY DATE(t.transaction_date)
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $date_from, $date_to]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    $daily = [];
+    foreach ($rows as $row) {
+        $date = (string)($row['date'] ?? '');
+        if ($date === '') continue;
+        $daily[$date] = (float)($row['flow_amount'] ?? 0);
+    }
+
+    return $daily;
 }
 
 /**

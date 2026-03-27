@@ -1113,6 +1113,9 @@ async function updateChart(data) {
         console.warn('缺少 profit 数据，使用空对象');
         dailyData.profit = {};
     }
+    const strictProfitDailyFlow = (dailyData.profit_payment_flow_daily && typeof dailyData.profit_payment_flow_daily === 'object')
+        ? dailyData.profit_payment_flow_daily
+        : null;
     
     // 准备图表数据
     const dates = [];
@@ -1156,7 +1159,9 @@ async function updateChart(data) {
                     const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
                     const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
                     const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                    const displayProfit = capital + rawExpenses;
+                    const displayProfit = strictProfitDailyFlow
+                        ? (parseFloat(strictProfitDailyFlow[dateStr] || 0) || 0)
+                        : (capital + rawExpenses);
                     monthCapital += capital;
                     monthExpenses += displayExpenses;
                     monthProfit += displayProfit;
@@ -1238,13 +1243,17 @@ async function updateChart(data) {
         }
         
         // 为范围内的每一天准备数据，没有数据的日期默认为0
+        let strictProfitRunning = 0;
         allSortedDates.forEach(date => {
             try {
                 dates.push(date);
                 const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
                 const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
                 const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                const displayProfit = capital + rawExpenses;
+                if (strictProfitDailyFlow) {
+                    strictProfitRunning += (parseFloat(strictProfitDailyFlow[date] || 0) || 0);
+                }
+                const displayProfit = strictProfitDailyFlow ? strictProfitRunning : (capital + rawExpenses);
                 capitalData.push(capital);
                 expensesData.push(displayExpenses);
                 profitData.push(displayProfit);
@@ -1405,17 +1414,14 @@ async function updateChart(data) {
                 }
 
                 // 用“最近已知日期”的 balance 前向填充，生成完整每日曲线
-                let lastProfit = null;
                 let lastExpenses = null;
                 for (let i = 0; i < dates.length; i++) {
                     const dateKey = dates[i];
                     if (pointMap.has(dateKey)) {
                         const p = pointMap.get(dateKey);
-                        lastProfit = p.profit;
                         lastExpenses = p.expenses;
                     }
-                    if (lastProfit !== null && lastExpenses !== null) {
-                        profitData[i] = lastProfit;
+                    if (lastExpenses !== null) {
                         expensesData[i] = lastExpenses;
                     }
                 }
