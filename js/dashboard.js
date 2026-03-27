@@ -1199,34 +1199,22 @@ function updateChart(data) {
             return;
         }
         
-        const isSingleDayRange = !!(dateRange.startDate && dateRange.endDate && dateRange.startDate === dateRange.endDate);
-
         // 为范围内的每一天准备数据，没有数据的日期默认为0
         allSortedDates.forEach(date => {
             try {
                 dates.push(date);
-                if (isSingleDayRange) {
-                    // 单日范围：图表与上方卡片口径一致，避免 daily_data 与卡片口径差异导致错位
-                    const rawProfit = parseFloat(data.profit) || 0
-                    const rawExpenses = parseFloat(data.expenses) || 0
-                    const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses
-                    capitalData.push(rawProfit)
-                    expensesData.push(displayExpenses)
-                    profitData.push(rawProfit)
+                const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0
+                const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0
+                // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
+                let profit = 0
+                if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
+                    profit = parseFloat(dailyData.profit[date] || 0) || 0
                 } else {
-                    const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0
-                    const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0
-                    // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
-                    let profit = 0
-                    if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
-                        profit = parseFloat(dailyData.profit[date] || 0) || 0
-                    } else {
-                        profit = capital + expenses
-                    }
-                    capitalData.push(capital)
-                    expensesData.push(expenses)
-                    profitData.push(profit)
+                    profit = capital + expenses
                 }
+                capitalData.push(capital)
+                expensesData.push(expenses)
+                profitData.push(profit)
             } catch (e) {
                 console.warn('Error processing date data:', date, e);
                 // 如果出错，也添加0值
