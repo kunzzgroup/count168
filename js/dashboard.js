@@ -60,7 +60,24 @@ function requestSingleDayProfitTotal(dateKey) {
             .then(response => response.json())
             .then(result => {
                 if (result && result.success && result.data) {
-                    singleDayProfitCache.set(cacheKey, parseFloat(result.data.profit) || 0);
+                    const singleDayTotal = parseFloat(result.data.profit) || 0;
+                    singleDayProfitCache.set(cacheKey, singleDayTotal);
+                    // 同步修正曲线点位，确保点位高度与 tooltip 数值一致
+                    if (chartMetadata && Array.isArray(chartMetadata.sortedDates) && Array.isArray(chartMetadata.totalProfitSeries)) {
+                        const idx = chartMetadata.sortedDates.indexOf(dateKey);
+                        if (idx >= 0) {
+                            chartMetadata.totalProfitSeries[idx] = singleDayTotal;
+                        }
+                    }
+                    if (trendChart && trendChart.data && Array.isArray(trendChart.data.datasets)) {
+                        const profitDataset = trendChart.data.datasets.find(ds => ds && ds.dataType === 'profit');
+                        if (profitDataset && Array.isArray(profitDataset.data)) {
+                            const idx = chartMetadata.sortedDates.indexOf(dateKey);
+                            if (idx >= 0) {
+                                profitDataset.data[idx] = singleDayTotal;
+                            }
+                        }
+                    }
                     if (trendChart) {
                         trendChart.update('none');
                     }
