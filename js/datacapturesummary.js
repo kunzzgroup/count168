@@ -13983,6 +13983,26 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         cells[6].appendChild(rateCheckbox);
     }
 
+    // Update Rate Value column (index 7) and ensure it is editable
+    if (cells[7]) {
+        cells[7].style.textAlign = 'center';
+        cells[7].classList.add('editable-cell');
+        cells[7].style.cursor = 'text';
+
+        // Keep existing displayed value unless API explicitly provides rateValue
+        let nextRateValueText = cells[7].textContent ? cells[7].textContent.trim() : '';
+        if (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') {
+            nextRateValueText = String(data.rateValue).trim();
+        }
+        cells[7].textContent = nextRateValueText;
+
+        // Prevent duplicate click listeners when this function runs multiple times
+        if (cells[7].getAttribute('data-rate-edit-bound') !== '1') {
+            attachRateValueEditListener(cells[7], row);
+            cells[7].setAttribute('data-rate-edit-bound', '1');
+        }
+    }
+
     if (data.inputMethod !== undefined) {
         row.setAttribute('data-input-method', data.inputMethod);
     }
