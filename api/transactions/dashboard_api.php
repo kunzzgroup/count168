@@ -142,6 +142,7 @@ try {
         $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $total_balance = 0;
+        $total_bf = 0; // 用于存储该角色的初始余额（B/F 总和）
         $daily_data = []; // 用于存储每日数据
         
         // 为每个账户计算余额
@@ -226,6 +227,7 @@ try {
                 
                 // 计算 B/F（传入已缓存的列检测，避免重复 SHOW COLUMNS）
                 $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $hasTransactionCurrency, $excludeClear);
+                $total_bf += $bf;
                 
                 // 计算 Win/Loss
                 $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
@@ -331,13 +333,49 @@ try {
                     $txn_from_daily_rows = $txn_from_daily_stmt->fetchAll(PDO::FETCH_ASSOC);
                     
                     // 合并 From Account 的每日 Cr/Dr
-                    foreach ($txn_from_daily_rows as $txn_row) {
-                        $date = $txn_row['date'];
-                        if (!isset($daily_data[$date])) {
-                            $daily_data[$date] = 0;
+                        foreach ($txn_from_daily_rows as $txn_row) {
+                            $date = $txn_row['date'];
+                            if (!isset($daily_data[$date])) {
+                                $daily_data[$date] = 0;
+                            }
+                            $daily_data[$date] += (float)$txn_row['cr_dr'];
                         }
-                        $daily_data[$date] += (float)$txn_row['cr_dr'];
-                    }
+
+                        // 3. 获取 RATE 的每日数据（从 transaction_entry）
+                        try {
+                            $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
+                            if ($rateCheck && $rateCheck->rowCount() > 0) {
+                                $rate_daily_stmt = $pdo->prepare("
+                                    SELECT DATE(h.transaction_date) as date,
+                                           COALESCE(SUM(CASE
+                                               WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                                               WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+                                               WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+                                               ELSE e.amount
+                                           END), 0) as rate_delta
+                                    FROM transaction_entry e
+                                    JOIN transactions h ON e.header_id = h.id
+                                    WHERE h.company_id = ?
+                                      AND e.company_id = ?
+                                      AND h.transaction_type = 'RATE'
+                                      AND e.account_id = ?
+                                      AND e.currency_id = ?
+                                      AND h.transaction_date BETWEEN ? AND ?
+                                    GROUP BY DATE(h.transaction_date)
+                                ");
+                                $rate_daily_stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
+                                $rate_daily_rows = $rate_daily_stmt->fetchAll(PDO::FETCH_ASSOC);
+                                foreach ($rate_daily_rows as $rate_row) {
+                                    $date = $rate_row['date'];
+                                    if (!isset($daily_data[$date])) {
+                                        $daily_data[$date] = 0;
+                                    }
+                                    $daily_data[$date] += (float)$rate_row['rate_delta'];
+                                }
+                            }
+                        } catch (Throwable $e) {
+                            // 忽略
+                        }
                 }
             }
         }
@@ -345,6 +383,7 @@ try {
         $result[strtolower($role)] = [
             'role' => $role,
             'total_balance' => $total_balance,
+            'initial_balance' => $total_bf,
             'daily_data' => $daily_data
         ];
     }
@@ -356,6 +395,11 @@ try {
             'capital' => $result['capital']['total_balance'],
             'expenses' => $result['expenses']['total_balance'],
             'profit' => $result['profit']['total_balance'],
+            'initial_balance' => [
+                'capital' => $result['capital']['initial_balance'],
+                'expenses' => $result['expenses']['initial_balance'],
+                'profit' => $result['profit']['initial_balance']
+            ],
             'daily_data' => [
                 'capital' => $result['capital']['daily_data'],
                 'expenses' => $result['expenses']['daily_data'],
