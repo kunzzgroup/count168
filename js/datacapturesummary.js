@@ -996,7 +996,10 @@ function restoreRateValuesFromRefresh() {
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         if (!rateValueCell || val === undefined || val === null || String(val).trim() === '') return false;
-        rateValueCell.textContent = String(val).trim();
+        const input = rateValueCell.querySelector('.rate-value-input');
+        if (input) {
+            input.value = val;
+        }
         safeRecalculate(row, { updateTotal: false });
         return true;
     }
@@ -1193,6 +1196,11 @@ async function loadAndRenderCapturedTable() {
 
                 // Populate the original table with data from column A (transformed)
                 populateOriginalTableWithColumnAData(transformedTableData);
+
+                setTimeout(() => {
+                    bindRateValueEvents();
+                }, 100);
+
                 // Build initial used accounts from any existing rows
                 rebuildUsedAccountIds();
 
@@ -1419,6 +1427,34 @@ function renderCapturedTable(tableData) {
     setTimeout(() => {
         makeTableCellsClickable();
     }, 100);
+
+    setTimeout(() => {
+        bindRateValueEvents();
+    }, 100);
+}
+
+function bindRateValueEvents() {
+    const inputs = document.querySelectorAll('.rate-value-input');
+
+    inputs.forEach(input => {
+        input.addEventListener('input', function () {
+            const row = this.closest('tr');
+
+            let value = parseFloat(this.value);
+            if (isNaN(value)) value = 0;
+
+            //存到 row attribute（方便其他函数用）
+            row.setAttribute('data-rate-value', value);
+
+            //重新计算
+            safeRecalculate(row, { updateTotal: true });
+
+            //保存（refresh用）
+            if (typeof saveRateValuesForRefresh === 'function') {
+                saveRateValuesForRefresh();
+            }
+        });
+    });
 }
 
 // Populate the original table's Id Product column with data from column A
@@ -1605,12 +1641,14 @@ function populateOriginalTableWithColumnAData(tableData) {
 
             // Rate Value column (new column for individual rate input)
             const rateValueCell = document.createElement('td');
-            rateValueCell.style.textAlign = 'center';
-            rateValueCell.classList.add('editable-cell');
-            rateValueCell.style.cursor = 'text';
-            rateValueCell.textContent = '';
-            // Make cell editable on click
-            attachRateValueEditListener(rateValueCell, row);
+            rateValueCell.innerHTML = `
+                <input 
+                    type="number" 
+                    class="rate-value-input"
+                    step="0.0001"
+                    style="width:80px;text-align:center;"
+                />
+            `;
             row.appendChild(rateValueCell);
 
             // Processed Amount column
