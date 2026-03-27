@@ -1502,6 +1502,12 @@ function createChart(canvas, chartData) {
                             },
                             label: function(context) {
                                 const label = context.dataset.label || '';
+                                if (label === 'Profit') {
+                                    return label + ': RM ' + formatCurrency(cardProfitDisplay);
+                                }
+                                if (label === 'Expenses') {
+                                    return label + ': RM ' + formatCurrency(cardExpensesDisplay);
+                                }
                                 const value = context.parsed.y;
                                 return label + ': RM ' + formatCurrency(value);
                             },
