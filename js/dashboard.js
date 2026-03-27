@@ -1227,6 +1227,14 @@ function updateChart(data) {
     
     // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
     const sortedDates = dates;
+
+    // 单日范围时，图表值必须与卡片显示值一致（避免 daily_data 口径差异）
+    const isSingleDayRange = dateRange.startDate && dateRange.endDate &&
+        dateRange.startDate === dateRange.endDate && sortedDates.length === 1;
+    if (isSingleDayRange) {
+        profitData[0] = parseFloat(chartMetadata.cardProfitDisplay || 0) || 0;
+        expensesData[0] = parseFloat(chartMetadata.cardExpensesDisplay || 0) || 0;
+    }
     
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
