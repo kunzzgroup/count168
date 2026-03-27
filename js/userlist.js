@@ -1069,8 +1069,11 @@ function editUser(id, isOwnerShadow = false) {
             }
         });
     } else {
-        // owner 影子：显示并预设为全选（只读，不提交）
-        selectAllPermissions();
+        // owner 影子：显示并预设为全选（强制勾选全部权限，且只读，不提交）
+        const allPermissionCheckboxes = document.querySelectorAll('.permission-checkbox');
+        allPermissionCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
         const sidebarCheckboxes = document.querySelectorAll('.permission-checkbox');
         sidebarCheckboxes.forEach(checkbox => {
             checkbox.disabled = true;
