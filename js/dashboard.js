@@ -1230,9 +1230,12 @@ function updateChart(data) {
     
     // Profit 图表数据是“区间内每日变动”，卡片 Profit 是“总余额（含历史 B/F）”
     // 为了 tooltip 显示“当日总 Profit”，需要补上区间起点前的余额
+    const openingProfitBalanceFromApi = parseFloat(data.opening_balance && data.opening_balance.profit);
     const rangeProfitTotal = parseFloat(data.profit) || 0;
     const rangeProfitMovement = profitData.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
-    const openingProfitBalance = rangeProfitTotal - rangeProfitMovement;
+    const openingProfitBalance = Number.isFinite(openingProfitBalanceFromApi)
+        ? openingProfitBalanceFromApi
+        : (rangeProfitTotal - rangeProfitMovement);
 
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
