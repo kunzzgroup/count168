@@ -1495,6 +1495,13 @@ function createChart(canvas, chartData) {
                             label: function(context) {
                                 const label = context.dataset.label || '';
                                 const value = context.parsed.y;
+                                if (context.dataset && context.dataset.dataType === 'profit') {
+                                    const dataIndex = context.dataIndex;
+                                    const totalProfit = profitData
+                                        .slice(0, dataIndex + 1)
+                                        .reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+                                    return `${label} (Total): RM ${formatCurrency(totalProfit)}`;
+                                }
                                 return label + ': RM ' + formatCurrency(value);
                             },
                             afterBody: function(context) {
@@ -1510,7 +1517,7 @@ function createChart(canvas, chartData) {
                                                 return [
                                                     '',
                                                     '--- Daily Summary ---',
-                                                    `Profit: RM ${formatCurrency(profit)}`,
+                                                    `Daily Profit: RM ${formatCurrency(profit)}`,
                                                     `Expenses: RM ${formatCurrency(expenses)}`
                                                 ];
                                             }
