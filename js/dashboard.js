@@ -1362,8 +1362,8 @@ async function updateChart(data) {
             company_id: window.companyId,
             currency: window.dashboardCurrency || ''
         });
-        Promise.all(dates.map((d) => fetchCardPointByDate(d)))
-            .then((dayPoints) => {
+        Promise.allSettled(dates.map((d) => fetchCardPointByDate(d)))
+            .then((results) => {
                 const requestKeyNow = JSON.stringify({
                     date_from: dateRange.startDate,
                     date_to: dateRange.endDate,
@@ -1372,9 +1372,14 @@ async function updateChart(data) {
                 });
                 if (requestKeyNow !== requestKeyAtStart) return;
 
-                for (let i = 0; i < dayPoints.length; i++) {
-                    profitData[i] = dayPoints[i].profit;
-                    expensesData[i] = dayPoints[i].expenses;
+                let appliedCount = 0;
+                for (let i = 0; i < results.length; i++) {
+                    const item = results[i];
+                    if (item.status === 'fulfilled' && item.value) {
+                        profitData[i] = item.value.profit;
+                        expensesData[i] = item.value.expenses;
+                        appliedCount++;
+                    }
                 }
 
                 chartMetadata.profitData = profitData;
@@ -1384,6 +1389,11 @@ async function updateChart(data) {
                     trendChart.data.datasets[0].data = [...profitData];
                     trendChart.data.datasets[1].data = [...expensesData];
                     trendChart.update('none');
+                }
+
+                const failedCount = results.length - appliedCount;
+                if (failedCount > 0) {
+                    console.warn(`按日卡片口径覆盖部分失败: ${failedCount}/${results.length}`);
                 }
             })
             .catch((pointError) => {
