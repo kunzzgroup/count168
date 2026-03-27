@@ -743,14 +743,11 @@ if (!empty($target_account_ids)) {
             'role' => $account['role'],
             'currency' => $currency_code,
             'currency_id_debug' => $currency_id,
-            // IMPORTANT: Keep raw values (not rounded) for accurate calculations
-            // Frontend will round to 2 decimal places for display
-            // 重要：保持原始值（不四舍五入）以确保计算精度
-            // 前端会在显示时四舍五入到2位小数
-            'bf' => $bf,
-            'win_loss' => $win_loss,
-            'cr_dr' => $cr_dr,
-            'balance' => $balance,
+            // 与 history_api 显示口径保持一致：统一在后端保留 2 位小数再返回
+            'bf' => round((float)$bf, 2),
+            'win_loss' => round((float)$win_loss, 2),
+            'cr_dr' => round((float)$cr_dr, 2),
+            'balance' => round((float)$balance, 2),
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'is_alert' => $is_alert ? 1 : 0,
             'is_rate_middleman' => $is_rate_middleman ? 1 : 0
