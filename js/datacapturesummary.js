@@ -13739,9 +13739,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     const productValues = getProductValuesFromCell(idProductCell);
     productValues.sub = idProductText;
     idProductCell.setAttribute('data-sub-product', idProductText);
-    if (typeof refreshIdProductCellDisplay === 'function') {
-        refreshIdProductCellDisplay(row);
-    }
+    // refreshIdProductCellDisplay(row) moved to the end of updateSubIdProductRow
     idProductCell.setAttribute('data-processed-sub', 'true');
 
     // Account column (index 1)
@@ -14086,6 +14084,12 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
 
     console.log('Updated sub id product row with data:', data);
+
+    // Refresh display after all attributes (including data-original-description) are set
+    if (cells[0] && typeof refreshIdProductCellDisplay === 'function') {
+        refreshIdProductCellDisplay(row);
+    }
+
     updateProcessedAmountTotal();
 }
 
