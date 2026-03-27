@@ -30,6 +30,48 @@ let chartMetadata = {
     expensesData: [],
     profitData: []
 };
+const singleDayProfitCache = new Map();
+const singleDayProfitPending = new Set();
+
+function getProfitCacheKey(dateKey) {
+    return `${window.companyId || ''}|${(window.dashboardCurrency || '').toUpperCase()}|${dateKey || ''}`;
+}
+
+function requestSingleDayProfitTotal(dateKey) {
+    try {
+        if (!dateKey || !window.companyId) return;
+        // 按月聚合（YYYY-MM）时不走单日查询
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+
+        const cacheKey = getProfitCacheKey(dateKey);
+        if (singleDayProfitCache.has(cacheKey) || singleDayProfitPending.has(cacheKey)) return;
+
+        singleDayProfitPending.add(cacheKey);
+        const queryParams = new URLSearchParams({
+            date_from: dateKey,
+            date_to: dateKey,
+            company_id: window.companyId
+        });
+        if (window.dashboardCurrency) {
+            queryParams.append('currency', window.dashboardCurrency);
+        }
+
+        fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`))
+            .then(response => response.json())
+            .then(result => {
+                if (result && result.success && result.data) {
+                    singleDayProfitCache.set(cacheKey, parseFloat(result.data.profit) || 0);
+                    if (trendChart) {
+                        trendChart.update('none');
+                    }
+                }
+            })
+            .catch(() => {})
+            .finally(() => {
+                singleDayProfitPending.delete(cacheKey);
+            });
+    } catch (e) {}
+}
 
 // 当前选择的图表数据类型（'all', 'capital', 'expenses', 'profit'）
 let selectedChartDataType = 'all';
@@ -1514,11 +1556,18 @@ function createChart(canvas, chartData) {
                                 if (context.dataset && context.dataset.dataType === 'profit') {
                                     const dataIndex = context.dataIndex;
                                     const dateKey = sortedDates[dataIndex];
-                                    const totalProfit = dateKey && cumulativeProfitByDate[dateKey] !== undefined
-                                        ? cumulativeProfitByDate[dateKey]
-                                        : (openingProfitBalance + profitData
-                                            .slice(0, dataIndex + 1)
-                                            .reduce((sum, v) => sum + (parseFloat(v) || 0), 0));
+                                    const cacheKey = getProfitCacheKey(dateKey);
+                                    const cachedTotal = singleDayProfitCache.get(cacheKey);
+                                    if (cachedTotal === undefined) {
+                                        requestSingleDayProfitTotal(dateKey);
+                                    }
+                                    const totalProfit = cachedTotal !== undefined
+                                        ? cachedTotal
+                                        : (dateKey && cumulativeProfitByDate[dateKey] !== undefined
+                                            ? cumulativeProfitByDate[dateKey]
+                                            : (openingProfitBalance + profitData
+                                                .slice(0, dataIndex + 1)
+                                                .reduce((sum, v) => sum + (parseFloat(v) || 0), 0)));
                                     return `${label} (Total): RM ${formatCurrency(totalProfit)}`;
                                 }
                                 return label + ': RM ' + formatCurrency(value);
