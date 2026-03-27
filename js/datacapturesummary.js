@@ -2746,7 +2746,12 @@ function recalculateAllRowsWithRate() {
             const rateValueCell = cells[7];
             if (rateValueCell) {
                 if (rateInput.value.trim() !== '') {
-                    rateValueCell.textContent = rateInput.value.trim();
+                    const input = rateValueCell.querySelector('input');
+                    if (input) {
+                        input.value = rateInput.value.trim();
+                    } else {
+                        rateValueCell.textContent = rateInput.value.trim();
+                    }
                 } else {
                     rateValueCell.textContent = '';
                 }
@@ -2797,7 +2802,12 @@ function submitRateValues() {
             // Update Rate Value cell with rateInput value
             const rateValueCell = cells[7];
             if (rateValueCell) {
-                rateValueCell.textContent = rateValue;
+                const input = rateValueCell.querySelector('input');
+                if (input) {
+                    input.value = rateValue;
+                } else {
+                    rateValueCell.textContent = rateValue;
+                }
             }
 
             // Recalculate processed amount for this row from the current formula/source state
@@ -11291,7 +11301,7 @@ function attachRateValueEditListener(cell, row) {
                 cellElement.textContent = newValue;
 
                 // Recalculate processed amount when Rate Value changes
-                safeRecalculate(row);
+                safeRecalculate(row, { updateTotal: true });
                 // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
             } else {
                 // Cancel: restore original value
@@ -11312,6 +11322,17 @@ function attachRateValueEditListener(cell, row) {
         });
 
         input.addEventListener('input', function () {
+            const val = this.value.trim();
+
+            const cells = row.querySelectorAll('td');
+            const rateCheckbox = cells[6]?.querySelector('.rate-checkbox');
+
+            // 输入时取消 checkbox
+            if (val && rateCheckbox) {
+                rateCheckbox.checked = false;
+            }
+            safeRecalculate(row, { updateTotal: true });
+            
             // Update captured value as user types
             capturedValue = input.value || '';
         });
@@ -19094,7 +19115,16 @@ async function submitSummaryData() {
             const rateInput = document.getElementById('rateInput');
             // Get Rate Value from Rate Value column (index 7)
             const rateValueCell = cells[7];
-            const rateValueFromColumn = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+
+            let rateValueFromColumn = '';
+            // 优先从 input 读取
+            const input = rateValueCell ? rateValueCell.querySelector('input') : null;
+
+            if (input) {
+                rateValueFromColumn = input.value.trim();
+            } else if (rateValueCell && rateValueCell.textContent) {
+                rateValueFromColumn = rateValueCell.textContent.trim();
+            }
 
             // Priority: Rate Value column > Global rateInput (if checkbox checked)
             let rateValue = null;
