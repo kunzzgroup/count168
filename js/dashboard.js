@@ -801,6 +801,7 @@ document.addEventListener('click', function(e) {
 let loadDataTimeout = null;
 let isLoading = false; // 防止重复请求
 let lastRequestParams = null; // 记录上次请求参数，避免重复请求相同数据
+let dailyCardPointCache = new Map(); // key: company|currency|date
 
 // 实际执行数据加载的函数
 async function executeLoadData() {
@@ -1007,12 +1008,10 @@ function updateDashboard(data) {
                         `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)}`;
                     chartDateRangeEl.style.color = '#6b7280';
                 }
-                try {
-                    updateChart(data);
-                } catch (chartError) {
+                Promise.resolve(updateChart(data)).catch((chartError) => {
                     console.error('更新图表失败:', chartError);
                     showError('Chart update failed');
-                }
+                });
             } catch (domError) {
                 console.error('更新DOM失败:', domError);
                 showError('UI update failed');
@@ -1022,6 +1021,40 @@ function updateDashboard(data) {
         console.error('updateDashboard 错误:', error);
         showError('Data update failed');
     }
+}
+
+async function fetchCardPointByDate(dateStr) {
+    const cacheKey = `${window.companyId || ''}|${window.dashboardCurrency || ''}|${dateStr}`;
+    if (dailyCardPointCache.has(cacheKey)) {
+        return dailyCardPointCache.get(cacheKey);
+    }
+
+    const queryParams = new URLSearchParams({
+        date_from: dateStr,
+        date_to: dateStr,
+        company_id: window.companyId
+    });
+    if (window.dashboardCurrency) {
+        queryParams.append('currency', window.dashboardCurrency);
+    }
+
+    const response = await fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`));
+    if (!response.ok) {
+        throw new Error(`Daily point request failed: ${response.status}`);
+    }
+    const result = await response.json();
+    if (!result.success || !result.data) {
+        throw new Error(result.message || 'Daily point payload invalid');
+    }
+
+    const rawProfit = parseFloat(result.data.profit) || 0;
+    const rawExpenses = parseFloat(result.data.expenses) || 0;
+    const point = {
+        profit: rawProfit,
+        expenses: rawExpenses > 0 ? -rawExpenses : rawExpenses
+    };
+    dailyCardPointCache.set(cacheKey, point);
+    return point;
 }
 
 function formatCurrency(value) {
@@ -1039,7 +1072,7 @@ function formatDateForDisplay(dateString) {
     return `${day}/${month}/${year}`;
 }
 
-function updateChart(data) {
+async function updateChart(data) {
     const chartCanvas = document.getElementById('trend-chart');
     if (!chartCanvas) {
         console.error('图表canvas元素不存在');
@@ -1225,16 +1258,35 @@ function updateChart(data) {
         });
     }
     
+    // 非按月聚合范围：图表每个点与该日卡片口径保持一致
+    if (!shouldAggregateByMonth() && dates.length > 0) {
+        const requestKeyAtStart = JSON.stringify({
+            date_from: dateRange.startDate,
+            date_to: dateRange.endDate,
+            company_id: window.companyId,
+            currency: window.dashboardCurrency || ''
+        });
+        try {
+            const dayPoints = await Promise.all(dates.map((d) => fetchCardPointByDate(d)));
+            const requestKeyNow = JSON.stringify({
+                date_from: dateRange.startDate,
+                date_to: dateRange.endDate,
+                company_id: window.companyId,
+                currency: window.dashboardCurrency || ''
+            });
+            if (requestKeyNow === requestKeyAtStart) {
+                for (let i = 0; i < dayPoints.length; i++) {
+                    profitData[i] = dayPoints[i].profit;
+                    expensesData[i] = dayPoints[i].expenses;
+                }
+            }
+        } catch (pointError) {
+            console.warn('按日卡片口径加载失败，回退当前图表数据:', pointError);
+        }
+    }
+
     // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
     const sortedDates = dates;
-
-    // 单日范围时，图表值必须与卡片显示值一致（避免 daily_data 口径差异）
-    const isSingleDayRange = dateRange.startDate && dateRange.endDate &&
-        dateRange.startDate === dateRange.endDate && sortedDates.length === 1;
-    if (isSingleDayRange) {
-        profitData[0] = parseFloat(chartMetadata.cardProfitDisplay || 0) || 0;
-        expensesData[0] = parseFloat(chartMetadata.cardExpensesDisplay || 0) || 0;
-    }
     
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
