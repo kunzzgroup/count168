@@ -1308,7 +1308,6 @@ function populateOriginalTableWithColumnAData(tableData) {
 
     // Clear existing rows first
     originalTableBody.innerHTML = '';
-    row.setAttribute('data-base-processed-amount', calculatedBaseAmount);
 
     // Get data from column A (index 1, since index 0 is row header)
     // IMPORTANT: For 655 mode, handle D row (index 3) with multiple account entries
