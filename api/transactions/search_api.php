@@ -1049,7 +1049,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
     // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
+    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -1240,7 +1240,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss = 0;
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
+    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
