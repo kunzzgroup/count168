@@ -1273,27 +1273,25 @@ async function updateChart(data) {
                 const profitDelta = parseFloat(dailyData.profit && dailyData.profit[date] ? dailyData.profit[date] : 0) || 0;
                 const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
 
-                // 累计计算
+                // 按天图表显示“当日增量”，无数据日为 0（不做累计）
                 const hasStrictProfitDelta = strictProfitDailyFlow
                     && Object.prototype.hasOwnProperty.call(strictProfitDailyFlow, date)
                 const strictProfitDelta = hasStrictProfitDelta
                     ? (parseFloat(strictProfitDailyFlow[date]) || 0)
                     : profitDelta
-                currentProfit += strictProfitDelta;
-                currentExpenses += (expensesDelta > 0 ? -expensesDelta : expensesDelta);
-
-                profitData.push(currentProfit);
-                expensesData.push(currentExpenses);
+                const displayProfit = strictProfitDelta
+                const displayExpenses = (expensesDelta > 0 ? -expensesDelta : expensesDelta)
+                profitData.push(displayProfit);
+                expensesData.push(displayExpenses);
 
                 // 如果需要 capital 数据（虽然当前图表不显示），也可以累计
                 const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
-                currentCapital += capitalDelta;
-                capitalData.push(currentCapital);
+                capitalData.push(capitalDelta);
             } catch (e) {
                 console.warn('Error processing date data:', date, e);
-                profitData.push(currentProfit);
-                expensesData.push(currentExpenses);
-                capitalData.push(currentCapital);
+                profitData.push(0);
+                expensesData.push(0);
+                capitalData.push(0);
             }
         });
     }
