@@ -157,8 +157,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-function safeRecalculate(row, options = {}) {
-    const { force = false } = options || {};
+function safeRecalculate(row, options) {
+    const { force = false } = options;
 
     if (!force && !window.__PROCESS_AMOUNT_READY) return;
     recalculateAndRenderProcessedAmount(row, options);
@@ -2715,7 +2715,7 @@ function recalculateAllRowsWithRate() {
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false, force: true });//通过force绕开READY
+            safeRecalculate(row, { updateTotal: false }, {force: force});//通过force绕开READY
         }
     });
 
@@ -11166,19 +11166,14 @@ function attachRateValueEditListener(cell, row) {
     let isEditing = false;
     let currentInput = null;
 
-    const startEdit = function (e) {
-        // Prevent editing if already editing
-        if (isEditing) return;
+    cell.addEventListener('click', function (e) {
 
-        // If clicking on input element itself, don't do anything
-        if (e.target.tagName === 'INPUT') {
-            return;
-        }
+        //用 DOM 判断，而不是 isEditing
+        if (cell.querySelector('input')) return;
+        if (e.target.tagName === 'INPUT') return;
 
         // Stop event propagation to prevent other handlers
         e.stopPropagation();
-
-        isEditing = true;
 
         // Get original value from cell text content BEFORE clearing
         const originalValue = this.textContent.trim();
@@ -11199,9 +11194,6 @@ function attachRateValueEditListener(cell, row) {
         input.style.fontSize = 'inherit';
         input.style.fontFamily = 'inherit';
 
-        // Store reference to current input
-        currentInput = input;
-
         // Store original value in a closure variable to ensure it's preserved
         const savedOriginalValue = originalValue;
 
@@ -11221,94 +11213,36 @@ function attachRateValueEditListener(cell, row) {
         }, 0);
 
         // Handle input changes - save the value
-        const handleInput = (saveChanges = true) => {
-            // Make sure we're using the current input element
-            const activeInput = currentInput || input;
-            if (!activeInput || !activeInput.parentElement) {
-                isEditing = false;
-                currentInput = null;
-                return;
-            }
+        function save() {
+            let newValue = input.value?.trim() || '';
 
-            // Get value directly from input element - use the actual input.value
-            let newValue = activeInput.value;
-            if (newValue !== null && newValue !== undefined) {
-                newValue = String(newValue).trim();
-            } else {
-                // Fallback: if value is somehow null/undefined, use empty string
-                newValue = '';
-            }
-
-            console.log('handleInput called, newValue:', newValue, 'savedOriginalValue:', savedOriginalValue, 'input.value:', activeInput.value, 'activeInput:', activeInput); // Debug log
             const cells = row.querySelectorAll('td');
-            const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
+            const rateCheckbox = cells[6]?.querySelector('.rate-checkbox');
 
-            if (saveChanges) {
-                // When Rate Value has value, uncheck checkbox
-                if (newValue && rateCheckbox) {
-                    rateCheckbox.checked = false;
-                }
-
-                // Update cell content with new value (even if empty, user intentionally cleared it)
-                cellElement.textContent = newValue;
-
-                // Recalculate processed amount when Rate Value changes
-                safeRecalculate(row);
-                // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
-            } else {
-                // Cancel: restore original value
-                cellElement.textContent = savedOriginalValue;
+            if (newValue && rateCheckbox) {
+                rateCheckbox.checked = false;
             }
 
-            isEditing = false;
-            currentInput = null;
-        };
+            cellElement.textContent = newValue;
+            safeRecalculate(row);
+        }
 
-        // Handle blur (when input loses focus) - always save changes
-        // Capture value immediately when blur starts
-        let capturedValue = savedOriginalValue;
+        function cancel() {
+            cellElement.textContent = savedOriginalValue;
+        }
 
-        input.addEventListener('focus', function () {
-            // Update captured value when input gets focus
-            capturedValue = input.value || '';
-        });
+        input.addEventListener('blur', save);
 
-        input.addEventListener('input', function () {
-            // Update captured value as user types
-            capturedValue = input.value || '';
-        });
-
-        const blurHandler = function (e) {
-            // Use the most recent captured value
-            const valueToSave = capturedValue || input.value || '';
-            console.log('Blur event, valueToSave:', valueToSave, 'input.value:', input.value, 'capturedValue:', capturedValue); // Debug log
-
-            // Save immediately
-            if (isEditing && currentInput === input) {
-                // Temporarily set input.value to captured value to ensure it's saved
-                if (input.value !== valueToSave) {
-                    input.value = valueToSave;
-                }
-                handleInput(true);
-            }
-        };
-
-        input.addEventListener('blur', blurHandler, { once: true });
-
-        // Handle Enter key - save changes
         input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                handleInput(true);
+                save();
             } else if (e.key === 'Escape') {
                 e.preventDefault();
-                handleInput(false); // Cancel: restore original value
+                cancel();
             }
         });
-    };
-
-    cell.addEventListener('click', startEdit);
-    cell.addEventListener('dblclick', startEdit);
+    });
 }
 
 // Apply rate multiplication or division to processed amount
@@ -13984,26 +13918,6 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         });
 
         cells[6].appendChild(rateCheckbox);
-    }
-
-    // Update Rate Value column (index 7) and ensure it is editable
-    if (cells[7]) {
-        cells[7].style.textAlign = 'center';
-        cells[7].classList.add('editable-cell');
-        cells[7].style.cursor = 'text';
-
-        // Keep existing displayed value unless API explicitly provides rateValue
-        let nextRateValueText = cells[7].textContent ? cells[7].textContent.trim() : '';
-        if (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') {
-            nextRateValueText = String(data.rateValue).trim();
-        }
-        cells[7].textContent = nextRateValueText;
-
-        // Prevent duplicate click listeners when this function runs multiple times
-        if (cells[7].getAttribute('data-rate-edit-bound') !== '1') {
-            attachRateValueEditListener(cells[7], row);
-            cells[7].setAttribute('data-rate-edit-bound', '1');
-        }
     }
 
     if (data.inputMethod !== undefined) {
