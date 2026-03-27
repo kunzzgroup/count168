@@ -1086,6 +1086,7 @@ function updateChart(data) {
     const capitalData = [];
     const expensesData = [];
     const profitData = [];
+    const netProfitData = [];
     
     // 检查是否应按月份聚合（年份范围或跨越多个月）
     if (shouldAggregateByMonth() && dateRange.startDate && dateRange.endDate) {
@@ -1111,6 +1112,7 @@ function updateChart(data) {
             let monthCapital = 0;
             let monthExpenses = 0;
             let monthProfit = 0;
+            let monthNetProfit = 0;
             
             // 遍历该月的所有日期
             const firstDay = new Date(year, month - 1, 1);
@@ -1121,16 +1123,14 @@ function updateChart(data) {
                 const dateObj = new Date(dateStr);
                 if (dateObj >= startDate && dateObj <= endDate) {
                     const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
-                    const expenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
-                    let profit = 0;
-                    if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[dateStr] !== undefined) {
-                        profit = parseFloat(dailyData.profit[dateStr] || 0) || 0;
-                    } else {
-                        profit = capital + expenses;
-                    }
+                    const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
+                    const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+                    const displayProfit = capital;
+                    const displayNetProfit = displayProfit + displayExpenses;
                     monthCapital += capital;
-                    monthExpenses += expenses;
-                    monthProfit += profit;
+                    monthExpenses += displayExpenses;
+                    monthProfit += displayProfit;
+                    monthNetProfit += displayNetProfit;
                 }
             }
             
@@ -1138,6 +1138,7 @@ function updateChart(data) {
             capitalData.push(monthCapital);
             expensesData.push(monthExpenses);
             profitData.push(monthProfit);
+            netProfitData.push(monthNetProfit);
         });
     } else {
         // 非年份范围：按天显示
@@ -1161,6 +1162,9 @@ function updateChart(data) {
         if (allSortedDates.length === 0) {
             // 如果没有日期范围，尝试从API数据中获取日期
             const allDates = new Set();
+            if (dailyData.capital && typeof dailyData.capital === 'object') {
+                Object.keys(dailyData.capital).forEach(date => allDates.add(date));
+            }
             if (dailyData.expenses && typeof dailyData.expenses === 'object') {
                 Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
             }
@@ -1179,7 +1183,8 @@ function updateChart(data) {
                 sortedDates: [],
                 capitalData: [],
                 expensesData: [],
-                profitData: []
+                profitData: [],
+                netProfitData: []
             };
             if (trendChart) {
                 trendChart.destroy();
@@ -1210,23 +1215,21 @@ function updateChart(data) {
             try {
                 dates.push(date);
                 const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
-                const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
-                // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
-                let profit = 0;
-                if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
-                    profit = parseFloat(dailyData.profit[date] || 0) || 0;
-                } else {
-                    profit = capital + expenses;
-                }
+                const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
+                const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+                const displayProfit = capital;
+                const displayNetProfit = displayProfit + displayExpenses;
                 capitalData.push(capital);
-                expensesData.push(expenses);
-                profitData.push(profit);
+                expensesData.push(displayExpenses);
+                profitData.push(displayProfit);
+                netProfitData.push(displayNetProfit);
             } catch (e) {
                 console.warn('Error processing date data:', date, e);
                 // 如果出错，也添加0值
                 capitalData.push(0);
                 expensesData.push(0);
                 profitData.push(0);
+                netProfitData.push(0);
             }
         });
     }
@@ -1239,7 +1242,8 @@ function updateChart(data) {
         sortedDates: sortedDates,
         capitalData: capitalData,
         expensesData: expensesData,
-        profitData: profitData
+        profitData: profitData,
+        netProfitData: netProfitData
     };
     
     // 只显示 Profit 和 Expenses 数据集
@@ -1291,6 +1295,30 @@ function updateChart(data) {
             pointRadius: 0,
             pointHoverRadius: 8,
             dataType: 'expenses'
+        },
+        {
+            label: 'Net Profit',
+            data: netProfitData,
+            borderColor: '#10b981',
+            backgroundColor: function(context) {
+                const chart = context.chart;
+                const {ctx, chartArea} = chart;
+                if (!chartArea) {
+                    return null;
+                }
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+                gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.18)');
+                gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.08)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+                return gradient;
+            },
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 8,
+            dataType: 'net_profit'
         }
     ];
     
@@ -1355,8 +1383,7 @@ function createChart(canvas, chartData) {
         const capitalData = chartMetadata.capitalData || [];
         const expensesData = chartMetadata.expensesData || [];
         const profitData = chartMetadata.profitData || [];
-        const cardProfitDisplay = parseFloat(chartMetadata.cardProfitDisplay || 0) || 0;
-        const cardExpensesDisplay = parseFloat(chartMetadata.cardExpensesDisplay || 0) || 0;
+        const netProfitData = chartMetadata.netProfitData || [];
         
         // 确保 chartData 结构正确
         if (!chartData || !chartData.labels || !chartData.datasets) {
@@ -1516,8 +1543,9 @@ function createChart(canvas, chartData) {
                                                 return [
                                                     '',
                                                     '--- Daily Summary ---',
-                                                    `Profit: RM ${formatCurrency(cardProfitDisplay)}`,
-                                                    `Expenses: RM ${formatCurrency(cardExpensesDisplay)}`
+                                                    `Profit: RM ${formatCurrency(profitData[dataIndex] || 0)}`,
+                                                    `Expenses: RM ${formatCurrency(expensesData[dataIndex] || 0)}`,
+                                                    `Net Profit: RM ${formatCurrency(netProfitData[dataIndex] || 0)}`
                                                 ];
                                             }
                                         } catch (e) {
