@@ -877,7 +877,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM，作为 To Account）
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
+                    WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
+                    WHEN transaction_type = 'RATE' THEN amount
                     WHEN transaction_type = 'CONTRA' THEN -amount
                     WHEN transaction_type = 'CLEAR' THEN -amount
                     WHEN transaction_type = 'PAYMENT' THEN -amount
@@ -959,7 +960,8 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to) {
     // 作为 To Account - 包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
+                    WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
+                    WHEN transaction_type = 'RATE' THEN amount
                     WHEN transaction_type = 'CONTRA' THEN -amount
                     WHEN transaction_type = 'CLEAR' THEN -amount
                     WHEN transaction_type = 'PAYMENT' THEN -amount
@@ -987,7 +989,8 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to) {
     // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('CONTRA', 'RATE') THEN -amount
+                    WHEN transaction_type = 'CONTRA' THEN amount
+                    WHEN transaction_type = 'RATE' THEN -amount
                     WHEN transaction_type = 'CLEAR' THEN amount
                     WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
                     ELSE 0
