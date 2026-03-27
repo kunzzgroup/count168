@@ -1258,33 +1258,6 @@ async function updateChart(data) {
         });
     }
     
-    // 非按月聚合范围：图表每个点与该日卡片口径保持一致
-    if (!shouldAggregateByMonth() && dates.length > 0) {
-        const requestKeyAtStart = JSON.stringify({
-            date_from: dateRange.startDate,
-            date_to: dateRange.endDate,
-            company_id: window.companyId,
-            currency: window.dashboardCurrency || ''
-        });
-        try {
-            const dayPoints = await Promise.all(dates.map((d) => fetchCardPointByDate(d)));
-            const requestKeyNow = JSON.stringify({
-                date_from: dateRange.startDate,
-                date_to: dateRange.endDate,
-                company_id: window.companyId,
-                currency: window.dashboardCurrency || ''
-            });
-            if (requestKeyNow === requestKeyAtStart) {
-                for (let i = 0; i < dayPoints.length; i++) {
-                    profitData[i] = dayPoints[i].profit;
-                    expensesData[i] = dayPoints[i].expenses;
-                }
-            }
-        } catch (pointError) {
-            console.warn('按日卡片口径加载失败，回退当前图表数据:', pointError);
-        }
-    }
-
     // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
     const sortedDates = dates;
     
@@ -1380,6 +1353,43 @@ async function updateChart(data) {
     
     // 创建新图表
     createChart(chartCanvas, chartData);
+
+    // 非按月聚合范围：先渲染，再异步用“按日卡片口径”覆盖，避免首屏空白
+    if (!shouldAggregateByMonth() && dates.length > 0) {
+        const requestKeyAtStart = JSON.stringify({
+            date_from: dateRange.startDate,
+            date_to: dateRange.endDate,
+            company_id: window.companyId,
+            currency: window.dashboardCurrency || ''
+        });
+        Promise.all(dates.map((d) => fetchCardPointByDate(d)))
+            .then((dayPoints) => {
+                const requestKeyNow = JSON.stringify({
+                    date_from: dateRange.startDate,
+                    date_to: dateRange.endDate,
+                    company_id: window.companyId,
+                    currency: window.dashboardCurrency || ''
+                });
+                if (requestKeyNow !== requestKeyAtStart) return;
+
+                for (let i = 0; i < dayPoints.length; i++) {
+                    profitData[i] = dayPoints[i].profit;
+                    expensesData[i] = dayPoints[i].expenses;
+                }
+
+                chartMetadata.profitData = profitData;
+                chartMetadata.expensesData = expensesData;
+
+                if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 2) {
+                    trendChart.data.datasets[0].data = [...profitData];
+                    trendChart.data.datasets[1].data = [...expensesData];
+                    trendChart.update('none');
+                }
+            })
+            .catch((pointError) => {
+                console.warn('按日卡片口径加载失败，回退当前图表数据:', pointError);
+            });
+    }
 }
 
 // 创建图表的辅助函数
