@@ -1160,7 +1160,7 @@ try {
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
-        $balance_by_currency[$bfCurrency] = (float) $bf;
+        $balance_by_currency[$bfCurrency] = round((float) $bf, 2);
     }
     
     foreach ($events as $event) {
@@ -1169,7 +1169,9 @@ try {
         if (!isset($balance_by_currency[$curKey])) {
             $balance_by_currency[$curKey] = 0;
         }
-        $balance_by_currency[$curKey] += (float)($event['win_loss'] ?? 0) + (float)($event['cr_dr'] ?? 0);
+        $eventWinLoss = round((float)($event['win_loss'] ?? 0), 2);
+        $eventCrDr = round((float)($event['cr_dr'] ?? 0), 2);
+        $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
         $row_balance = $balance_by_currency[$curKey];
         
         // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化
@@ -1249,8 +1251,8 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $event['win_loss'] != 0 ? number_format($event['win_loss'], 2) : '0.00',
-            'cr_dr' => $event['cr_dr'] != 0 ? number_format($event['cr_dr'], 2) : '0.00',
+            'win_loss' => $eventWinLoss != 0 ? number_format($eventWinLoss, 2) : '0.00',
+            'cr_dr' => $eventCrDr != 0 ? number_format($eventCrDr, 2) : '0.00',
             'balance' => number_format($row_balance, 2),
             'description' => $finalDescription,
             'sms' => $event['sms'],
