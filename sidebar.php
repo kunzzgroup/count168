@@ -458,29 +458,31 @@ if ($companyId) {
                     </div>
                     <div class="submenu" id="maintenance-submenu">
                         <div class="submenu-content">
-                            <?php if ($companyHasGambling && $hasMaintenance): ?>
+                            <?php if (!$isCurrentCompanyC168 && $companyHasGambling && $hasMaintenance): ?>
                             <a href="capture_maintenance.php"
                                class="submenu-item"
                                id="maintenance-capture-link">
                                 <span>Data Capture</span>
                             </a>
                             <?php endif; ?>
+                            <?php if (!$isCurrentCompanyC168): ?>
                             <a href="transaction_maintenance.php" class="submenu-item">
                                 <span>Transaction</span>
                             </a>
+                            <?php endif; ?>
                             <?php if ($hasMaintenance): ?>
                             <a href="payment_maintenance.php" class="submenu-item">
                                 <span>Payment</span>
                             </a>
                             <?php endif; ?>
-                            <?php if ($companyHasGambling): ?>
+                            <?php if (!$isCurrentCompanyC168 && $companyHasGambling): ?>
                             <a href="formula_maintenance.php"
                                class="submenu-item"
                                id="maintenance-formula-link">
                                 <span>Formula</span>
                             </a>
                             <?php endif; ?>
-                            <?php if ($hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
+                            <?php if (!$isCurrentCompanyC168 && $hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
                             <a href="bankprocess_maintenance.php" class="submenu-item">
                                 <span>Process</span>
                             </a>
