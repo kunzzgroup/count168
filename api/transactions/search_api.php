@@ -636,9 +636,13 @@ if (!empty($target_account_ids)) {
             }
         }
         
-        // 4. 计算 Balance
-        // 公式：Balance = B/F + Win/Loss + Cr/Dr
-        $balance = $bf + $win_loss + $cr_dr;
+        // 4. 计算 Balance（显示口径）
+        // 公式：Balance = round(B/F,2) + round(Win/Loss,2) + round(Cr/Dr,2)
+        // 这样与表格上可见列值的手算结果一致，避免 0.01 浮点尾差
+        $bf_display = round((float)$bf, 2);
+        $win_loss_display = round((float)$win_loss, 2);
+        $cr_dr_display = round((float)$cr_dr, 2);
+        $balance = round($bf_display + $win_loss_display + $cr_dr_display, 2);
         
         // 4b. 本期是否有 RATE Middle-Man 分录（该账户+货币在本期作为 Middle-Man 收取手续费）
         $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
@@ -744,9 +748,9 @@ if (!empty($target_account_ids)) {
             'currency' => $currency_code,
             'currency_id_debug' => $currency_id,
             // 与 history_api 显示口径保持一致：统一在后端保留 2 位小数再返回
-            'bf' => round((float)$bf, 2),
-            'win_loss' => round((float)$win_loss, 2),
-            'cr_dr' => round((float)$cr_dr, 2),
+            'bf' => $bf_display,
+            'win_loss' => $win_loss_display,
+            'cr_dr' => $cr_dr_display,
             'balance' => round((float)$balance, 2),
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'is_alert' => $is_alert ? 1 : 0,
