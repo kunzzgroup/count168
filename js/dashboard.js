@@ -1233,6 +1233,12 @@ function updateChart(data) {
     const rangeProfitTotal = parseFloat(data.profit) || 0;
     const rangeProfitMovement = profitData.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
     const openingProfitBalance = rangeProfitTotal - rangeProfitMovement;
+    const cumulativeProfitByDate = {};
+    let runningProfitTotal = openingProfitBalance;
+    sortedDates.forEach((dateKey, idx) => {
+        runningProfitTotal += parseFloat(profitData[idx]) || 0;
+        cumulativeProfitByDate[dateKey] = runningProfitTotal;
+    });
 
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
@@ -1240,7 +1246,8 @@ function updateChart(data) {
         capitalData: capitalData,
         expensesData: expensesData,
         profitData: profitData,
-        openingProfitBalance: openingProfitBalance
+        openingProfitBalance: openingProfitBalance,
+        cumulativeProfitByDate: cumulativeProfitByDate
     };
     
     // 只显示 Profit 和 Expenses 数据集
@@ -1357,6 +1364,7 @@ function createChart(canvas, chartData) {
         const expensesData = chartMetadata.expensesData || [];
         const profitData = chartMetadata.profitData || [];
         const openingProfitBalance = parseFloat(chartMetadata.openingProfitBalance) || 0;
+        const cumulativeProfitByDate = chartMetadata.cumulativeProfitByDate || {};
         
         // 确保 chartData 结构正确
         if (!chartData || !chartData.labels || !chartData.datasets) {
@@ -1505,9 +1513,12 @@ function createChart(canvas, chartData) {
                                 const value = context.parsed.y;
                                 if (context.dataset && context.dataset.dataType === 'profit') {
                                     const dataIndex = context.dataIndex;
-                                    const totalProfit = openingProfitBalance + profitData
-                                        .slice(0, dataIndex + 1)
-                                        .reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+                                    const dateKey = sortedDates[dataIndex];
+                                    const totalProfit = dateKey && cumulativeProfitByDate[dateKey] !== undefined
+                                        ? cumulativeProfitByDate[dateKey]
+                                        : (openingProfitBalance + profitData
+                                            .slice(0, dataIndex + 1)
+                                            .reduce((sum, v) => sum + (parseFloat(v) || 0), 0));
                                     return `${label} (Total): RM ${formatCurrency(totalProfit)}`;
                                 }
                                 return label + ': RM ' + formatCurrency(value);
