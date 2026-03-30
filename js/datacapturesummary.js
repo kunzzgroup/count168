@@ -531,11 +531,15 @@ function saveFormulaSourceForRefresh(opts) {
             (existing.formula || existing.source || existing.rateValue) &&
             !nextFormula && !nextSource && !nextRateValue;
 
+        // Prefer data-template-formula-operators (original $notation) over data-formula-operators (resolved display text)
+        const templateFormulaOps = (row.getAttribute('data-template-formula-operators') || '').trim();
+        const formulaOps = (row.getAttribute('data-formula-operators') || '').trim();
         const nextData = shouldPreferExisting ? existing : {
             formula: nextFormula,
             source: nextSource,
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
-            formulaOperators: (row.getAttribute('data-formula-operators') || ''),
+            formulaOperators: formulaOps,
+            templateFormulaOperators: templateFormulaOps || '',
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
             rateValue: nextRateValue,
             rowUid: rowUid,
@@ -799,6 +803,13 @@ function restoreFormulaSourceFromRefresh() {
         const source = data.source != null ? String(data.source) : '';
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
+        // Restore data-template-formula-operators (original $notation) if saved
+        if (data.templateFormulaOperators != null && data.templateFormulaOperators.trim() !== '') {
+            row.setAttribute('data-template-formula-operators', data.templateFormulaOperators);
+        } else if (data.formulaOperators != null && data.formulaOperators.includes('$')) {
+            // If formulaOperators itself contains $ notation, also set it as template version
+            row.setAttribute('data-template-formula-operators', data.formulaOperators);
+        }
         if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
