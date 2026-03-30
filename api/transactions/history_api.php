@@ -180,7 +180,7 @@ function getProfitSharingAmountForAccount(?string $profitSharing, string $accoun
             $accountText = trim(substr($t, 0, $dash));
             $amountStr = trim(substr($t, $dash + 3));
             $amount = (float) $amountStr;
-            if ($accountText !== '' && (strcasecmp($accountText, $code) === 0 || strcasecmp($accountText, $name) === 0)) {
+            if ($accountText !== '' && ($accountText === $code || $accountText === $name)) {
                 return $amount;
             }
         }
@@ -401,7 +401,8 @@ try {
                         dcd.rate,
                         c.code as currency_code,
                         COALESCE(u.login_id, o.owner_code) as capture_created_by,
-                        a_cm.name as card_owner_name
+                        a_cm.name as card_owner_name,
+                        bp.day_start
                     FROM data_capture_details dcd
                     JOIN data_captures dc ON dcd.capture_id = dc.id
                     JOIN currency c ON dcd.currency_id = c.id
@@ -420,7 +421,7 @@ try {
                               OR CAST(dcd.account_id AS CHAR) IN (SELECT CAST(a.id AS CHAR) FROM account a INNER JOIN account_company ac ON a.id = ac.account_id WHERE a.account_id = ? AND ac.company_id = ?)
                           ))
                       )
-                      AND dc.capture_date BETWEEN ? AND ?";
+                      AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), dc.capture_date) BETWEEN ? AND ?";
     
     // dcd.account_id 可能存请求的 id、其他公司的同代码 account.id、或账户代码；用「当前公司下同 account_id 的所有 id」子查询兜底
     $captureParams = [$company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $account_code ?: '', $company_id, $date_from_db, $date_to_db];
@@ -471,12 +472,12 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
         } else {
-            $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type";
+            $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(COALESCE(NULLIF(bp_t.day_start, '0000-00-00'), t.transaction_date)) LIMIT 1) AS period_type";
         }
     }
     
@@ -500,7 +501,7 @@ try {
     $sql .= " WHERE t.company_id = ?
               AND t.transaction_type <> 'RATE'
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
-              AND t.transaction_date BETWEEN ? AND ?";
+              AND COALESCE(NULLIF(bp_t.day_start, '0000-00-00'), t.transaction_date) BETWEEN ? AND ?";
     
     $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
     
@@ -585,9 +586,10 @@ try {
     $eventIndex = 0;
     
     foreach ($captureRows as $capture) {
-        $captureTimestamp = strtotime($capture['capture_date'] . ' ' . ($capture['capture_created_at'] ?? '00:00:00'));
+        $effectiveDate = !empty($capture['day_start']) && $capture['day_start'] !== '0000-00-00' ? $capture['day_start'] : $capture['capture_date'];
+        $captureTimestamp = strtotime($effectiveDate . ' ' . ($capture['capture_created_at'] ?? '00:00:00'));
         if ($captureTimestamp === false) {
-            $captureTimestamp = strtotime($capture['capture_date']);
+            $captureTimestamp = strtotime($effectiveDate);
         }
         
         // Product: 使用 id_product（id_product_sub 或 id_product_main），如果有 description 则附加在后面（括号内）
@@ -663,7 +665,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => (float)$capture['processed_amount'],
             'cr_dr' => 0,
-            'date' => date('d/m/Y', strtotime($capture['capture_date'])),
+            'date' => date('d/m/Y', strtotime($effectiveDate)),
             'source' => $capture['transaction_type'] ?? 'DATA_CAPTURE',
             'product' => $product ?: '-',
             'card_owner' => !empty($capture['card_owner_name']) ? trim($capture['card_owner_name']) : '-',
@@ -923,9 +925,10 @@ try {
             $description = '[PENDING APPROVAL] ' . $description;
         }
         
-        $transactionTimestamp = strtotime($t['transaction_date'] . ' ' . ($t['created_at'] ?? '00:00:00'));
+        $effectiveDate = ($has_source_bank_process_id && !empty($t['day_start']) && $t['day_start'] !== '0000-00-00') ? $t['day_start'] : $t['transaction_date'];
+        $transactionTimestamp = strtotime($effectiveDate . ' ' . ($t['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($t['transaction_date']);
+            $transactionTimestamp = strtotime($effectiveDate);
         }
         
         // 确定交易的 currency：
@@ -987,7 +990,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $win_loss,
             'cr_dr' => $cr_dr,
-            'date' => date('d/m/Y', strtotime($t['transaction_date'])),
+            'date' => date('d/m/Y', strtotime($effectiveDate)),
             'source' => $t['transaction_type'],
             'product' => $productLabel,
             'card_owner' => $cardOwner,
@@ -1029,6 +1032,7 @@ try {
                     o.name AS created_by_owner_name
                 FROM transaction_entry e
                 JOIN transactions h ON e.header_id = h.id
+                LEFT JOIN bank_process bp_r ON h.source_bank_process_id = bp_r.id
                 LEFT JOIN currency c ON e.currency_id = c.id
                 LEFT JOIN transactions_rate tr ON h.id = tr.transaction_id
                 LEFT JOIN account transfer_from_acc ON tr.rate_transfer_from_account_id = transfer_from_acc.id
@@ -1040,7 +1044,7 @@ try {
                   AND e.company_id = ?
                   AND h.transaction_type = 'RATE'
                   AND e.account_id IN ($ratePh)
-                  AND h.transaction_date BETWEEN ? AND ?";
+                  AND COALESCE(NULLIF(bp_r.day_start, '0000-00-00'), h.transaction_date) BETWEEN ? AND ?";
     $rateParams = array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db]);
     
     if ($currency && $currency_id) {
@@ -1055,9 +1059,10 @@ try {
     $rateRows = $rateStmt->fetchAll(PDO::FETCH_ASSOC);
     
     foreach ($rateRows as $row) {
-        $transactionTimestamp = strtotime($row['transaction_date'] . ' ' . ($row['created_at'] ?? '00:00:00'));
+        $effectiveDate = (!empty($row['day_start']) && $row['day_start'] !== '0000-00-00') ? $row['day_start'] : $row['transaction_date'];
+        $transactionTimestamp = strtotime($effectiveDate . ' ' . ($row['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($row['transaction_date']);
+            $transactionTimestamp = strtotime($effectiveDate);
         }
         
         $amount = (float)$row['amount'];
@@ -1129,7 +1134,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $entryType === 'RATE_MIDDLEMAN' ? $amount : 0,
             'cr_dr' => $entryType === 'RATE_MIDDLEMAN' ? 0 : $amount,
-            'date' => date('d/m/Y', strtotime($row['transaction_date'])),
+            'date' => date('d/m/Y', strtotime($effectiveDate)),
             'source' => 'RATE',
             'product' => mapEntryTypeToProduct($row['entry_type']),
             'card_owner' => '-',
@@ -1160,7 +1165,7 @@ try {
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
-        $balance_by_currency[$bfCurrency] = round((float) $bf, 2);
+        $balance_by_currency[$bfCurrency] = (float) $bf;
     }
     
     foreach ($events as $event) {
@@ -1169,9 +1174,7 @@ try {
         if (!isset($balance_by_currency[$curKey])) {
             $balance_by_currency[$curKey] = 0;
         }
-        $eventWinLoss = round((float)($event['win_loss'] ?? 0), 2);
-        $eventCrDr = round((float)($event['cr_dr'] ?? 0), 2);
-        $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
+        $balance_by_currency[$curKey] += (float)($event['win_loss'] ?? 0) + (float)($event['cr_dr'] ?? 0);
         $row_balance = $balance_by_currency[$curKey];
         
         // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化
@@ -1251,8 +1254,8 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $eventWinLoss != 0 ? number_format($eventWinLoss, 2) : '0.00',
-            'cr_dr' => $eventCrDr != 0 ? number_format($eventCrDr, 2) : '0.00',
+            'win_loss' => $event['win_loss'] != 0 ? number_format($event['win_loss'], 2) : '0.00',
+            'cr_dr' => $event['cr_dr'] != 0 ? number_format($event['cr_dr'], 2) : '0.00',
             'balance' => number_format($row_balance, 2),
             'description' => $finalDescription,
             'sms' => $event['sms'],
@@ -1308,21 +1311,20 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $bf = 0;
     
     // 1. 计算日期之前所有 data_capture 的 processed_amount
-    // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
+            LEFT JOIN bank_process bp ON dc.process_id = bp.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dc.capture_date < ?";
+              AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), dc.capture_date) < ?";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
     // 2. 计算日期之前所有 transactions 的影响
-    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 影响 Cr/Dr（作为 To Account）；CONTRA/CLEAR 时 TO 显示负数
     $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
@@ -1333,19 +1335,19 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
                         WHEN transaction_type = 'LOSE' THEN -amount
                         ELSE 0
                     END), 0) as cr_dr
-            FROM transactions
-            WHERE company_id = ?
-              AND account_id = ?
-              AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
-              AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)"
-              . historyContraApprovedWhere($pdo, '');
+            FROM transactions t
+            LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
+            WHERE t.company_id = ?
+              AND t.account_id = ?
+              AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), t.transaction_date) < ?
+              AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+              AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)"
+              . historyContraApprovedWhere($pdo, 't');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
-    // PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM/RATE 影响 Cr/Dr（作为 From Account）；CONTRA/CLEAR 时 FROM 显示正数
     $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN amount
@@ -1353,16 +1355,17 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
                         WHEN transaction_type = 'CLEAR' THEN amount
                         ELSE 0
                     END), 0) as cr_dr
-            FROM transactions
-            WHERE company_id = ?
-              AND from_account_id = ?
-              AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
-              . historyContraApprovedWhere($pdo, '');
+            FROM transactions t
+            LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
+            WHERE t.company_id = ?
+              AND t.from_account_id = ?
+              AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), t.transaction_date) < ?
+              AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
+              . historyContraApprovedWhere($pdo, 't');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
-    $bf += $stmt->fetchColumn(); // 改为加号
+    $bf += $stmt->fetchColumn();
     
     return $bf;
 }
@@ -1382,132 +1385,40 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
     
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
-    // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
+            LEFT JOIN bank_process bp ON dc.process_id = bp.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dcd.currency_id = ?
-              AND dc.capture_date < ?";
+              AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), dc.capture_date) < ?";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
-    // 2. 起始日期之前：Win/Loss 来自 WIN/LOSE（含 PROFIT）+ Cr/Dr 来自 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM（作为 To Account）；RATE 单独用 transaction_entry 处理
+    // 2. 计算起始日期之前所有 Cr/Dr（作为 To Account，按 currency 过滤）；CONTRA 时 TO 显示负数
     if ($has_transaction_currency) {
-        // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
-        $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
-                  ELSE 0
-                END), 0) as total
-                FROM transactions t
-                WHERE t.company_id = ?
-                  AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND t.transaction_date < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
-                  AND (
-                      (t.currency_id = ?)
-                      OR (t.currency_id IS NULL AND EXISTS (
-                          SELECT 1 FROM data_capture_details dcd
-                          JOIN data_captures dc ON dcd.capture_id = dc.id
-                          WHERE dcd.company_id = ? AND dc.company_id = ?
-                            AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
-                            AND dcd.currency_id = ?
-                      ))
-                  )" . historyContraApprovedWhere($pdo, 't');
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
-        $bf += $stmt->fetchColumn();
-
-        // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
                         WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'WIN' THEN t.amount
+                        WHEN transaction_type = 'LOSE' THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
-                WHERE t.company_id = ?
-                  AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
-                  AND t.currency_id = ?"
-                  . historyContraApprovedWhere($pdo, 't');
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $currency_id]);
-        $bf += $stmt->fetchColumn();
-    } else {
-        // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
-        $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
-                  ELSE 0
-                END), 0) as total
-                FROM transactions t
-                WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
-                  AND EXISTS (
-                      SELECT 1 FROM data_capture_details dcd
-                      JOIN data_captures dc ON dcd.capture_id = dc.id
-                      WHERE dcd.company_id = ? AND dc.company_id = ? AND dcd.account_id = t.account_id AND dcd.currency_id = ?
-                  )" . historyContraApprovedWhere($pdo, 't');
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
-        $bf += $stmt->fetchColumn();
-
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
-                        ELSE 0
-                    END), 0) as cr_dr
-                FROM transactions t
+                LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
                 WHERE t.company_id = ?
                   AND t.account_id = ?
-                  AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
-                  AND EXISTS (
-                      SELECT 1
-                      FROM data_capture_details dcd
-                      JOIN data_captures dc ON dcd.capture_id = dc.id
-                      WHERE dcd.company_id = ?
-                        AND dc.company_id = ?
-                        AND dcd.account_id = t.account_id
-                        AND dcd.currency_id = ?
-                  )"
-                  . historyContraApprovedWhere($pdo, 't');
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
-        $bf += $stmt->fetchColumn();
-    }
-
-    // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤；RATE 单独用 transaction_entry 处理）
-    if ($has_transaction_currency) {
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
-                        ELSE 0
-                    END), 0) as cr_dr
-                FROM transactions t
-                WHERE t.company_id = ?
-                  AND t.from_account_id = ?
                   AND t.currency_id = ?
-                  AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
+                  AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), t.transaction_date) < ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)"
                   . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
@@ -1515,51 +1426,84 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'WIN' THEN t.amount
+                        WHEN transaction_type = 'LOSE' THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
+                LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
                 WHERE t.company_id = ?
-                  AND t.from_account_id = ?
-                  AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND t.account_id = ?
+                  AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), t.transaction_date) < ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
-                      JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
-                        AND dc.company_id = ?
-                        AND dcd.account_id = t.from_account_id
+                        AND dcd.account_id = t.account_id
                         AND dcd.currency_id = ?
                   )"
                   . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
     }
     $bf += $stmt->fetchColumn();
-
-    // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
-    $rateStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(CASE
-          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
-          WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
-          ELSE e.amount
-        END), 0) AS total
-        FROM transaction_entry e
-        JOIN transactions h ON e.header_id = h.id
-        WHERE h.company_id = ?
-          AND e.company_id = ?
-          AND h.transaction_type = 'RATE'
-          AND e.account_id = ?
-          AND e.currency_id = ?
-          AND h.transaction_date < ?
-    ");
-    $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
-    $bf += $rateStmt->fetchColumn();
+    
+    // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤）；CONTRA 时 FROM 显示正数
+    if ($has_transaction_currency) {
+        $sql = "SELECT 
+                    COALESCE(SUM(CASE 
+                        WHEN transaction_type = 'RATE' THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
+                        WHEN transaction_type = 'CONTRA' THEN t.amount
+                        ELSE 0
+                    END), 0) as cr_dr
+                FROM transactions t
+                LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
+                WHERE t.company_id = ?
+                  AND t.from_account_id = ?
+                  AND t.currency_id = ?
+                  AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), t.transaction_date) < ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
+                  . historyContraApprovedWhere($pdo, 't');
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
+    } else {
+        $sql = "SELECT 
+                    COALESCE(SUM(CASE 
+                        WHEN transaction_type = 'RATE' THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
+                        WHEN transaction_type = 'CONTRA' THEN t.amount
+                        ELSE 0
+                    END), 0) as cr_dr
+                FROM transactions t
+                LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
+                WHERE t.company_id = ?
+                  AND t.from_account_id = ?
+                  AND COALESCE(NULLIF(bp.day_start, '0000-00-00'), t.transaction_date) < ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')
+                  AND EXISTS (
+                      SELECT 1
+                      FROM data_capture_details dcd
+                      WHERE dcd.company_id = ?
+                        AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
+                        AND dcd.currency_id = ?
+                  )"
+                  . historyContraApprovedWhere($pdo, 't');
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
+    }
+    $bf += $stmt->fetchColumn();
     
     return $bf;
 }
