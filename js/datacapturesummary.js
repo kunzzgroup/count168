@@ -7302,7 +7302,7 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
                             // 只对有实际数据的行持久化顺序（空 sub 行跳过）
                             if (type === 'sub' && typeof isSubRowEmpty === 'function' && isSubRowEmpty(gr)) return;
                             const formDataForGroup = buildFormDataFromRow(gr);
-                            const rowDataForGroup = getRowDataForTemplate(gr, formDataForGroup);
+                            const rowDataForGroup = extractRowDataForTemplate(gr, formDataForGroup);
                             // 内部调用禁止再次触发重排，避免递归
                             saveTemplateAsync(rowDataForGroup, gr, { skipResequence: true })
                                 .catch(err => console.warn('Failed to sync sub_order for group row', err));
