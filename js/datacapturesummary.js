@@ -9472,6 +9472,39 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
             const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
+            
+            // 检查公式是否已经包含了同样的 source percent 乘法，避免双重叠加（如从 localStorage 恢复后再次附加）
+            const formulaTrimmed = balancedPart.replace(/\s+/g, '');
+            const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
+            let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
+            if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
+                const lastClose = formulaTrimmed.length - 1;
+                let depth = 1;
+                let i = lastClose - 1;
+                while (i >= 0 && depth > 0) {
+                    if (formulaTrimmed[i] === ')') depth++;
+                    else if (formulaTrimmed[i] === '(') { depth--; if (depth === 0) break; }
+                    i--;
+                }
+                if (depth === 0 && i >= 0) {
+                    const beforeParen = formulaTrimmed.substring(0, i).trimEnd();
+                    const trailingExpr = formulaTrimmed.substring(i + 1, lastClose);
+                    if (beforeParen.endsWith('*') && trailingExpr && /^[0-9+\-*/().\s]+$/.test(trailingExpr.replace(/\s/g, ''))) {
+                        try {
+                            const trailingVal = evaluateExpression(trailingExpr);
+                            if (!isNaN(trailingVal) && Number.isFinite(trailingVal) && Math.abs(trailingVal - decimalValue) < 0.0001) {
+                                alreadyHasSource = true;
+                            }
+                        } catch (e) { /* ignore */ }
+                    }
+                }
+            }
+
+            if (alreadyHasSource) {
+                console.log('Formula display already has source percent, not adding again:', balancedPart);
+                return formatNegativeNumbersInFormula(balancedPart);
+            }
+
             const formulaDisplay = `${balancedPart}*${percentDisplay}`;
             console.log('Formula display created from expression:', formulaDisplay);
             return formatNegativeNumbersInFormula(formulaDisplay);
