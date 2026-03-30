@@ -4859,6 +4859,38 @@ function getRowLabelFromProcessValue(processValue) {
     }
 }
 
+/**
+ * Helper to get row label from the currently active edit/calculator context.
+ * Prioritizes the actual DOM row being edited over a generic Id Product search.
+ * This is crucial for correctly identifying rows when multiple products share the same Id Product.
+ */
+function getRowLabelFromCurrentEditContext(processValue) {
+    const activeRow = window.currentEditRow || currentSelectedRowForCalculator || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
+    if (activeRow) {
+        const capturedTableBody = document.getElementById('capturedTableBody');
+        if (capturedTableBody) {
+            const rowIndexAttr = activeRow.getAttribute('data-preserved-row-index') || activeRow.getAttribute('data-row-index');
+            if (rowIndexAttr != null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                const rowIndex = Number(rowIndexAttr);
+                const capturedRows = capturedTableBody.querySelectorAll('tr');
+                if (rowIndex >= 0 && rowIndex < capturedRows.length) {
+                    const capturedRow = capturedRows[rowIndex];
+                    const rowHeaderCell = capturedRow.querySelector('.row-header');
+                    const label = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    if (label) {
+                        console.log('getRowLabelFromCurrentEditContext: Found label from context row:', label);
+                        return label;
+                    }
+                }
+            }
+        }
+    }
+    // Fallback to process value search (which might find the first row of duplicate Id Products)
+    const fallbackLabel = getRowLabelFromProcessValue(processValue);
+    console.log('getRowLabelFromCurrentEditContext: Falling back to process value search:', fallbackLabel);
+    return fallbackLabel;
+}
+
 // 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
 // 这确保删除数据后，data-clicked-cell-refs 也被正确更新
 function syncClickedCellRefsWithFormula(formulaInput, formulaValue, processValue) {
@@ -5140,11 +5172,12 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
                     // 如果从引用中找不到值，使用当前编辑的id_product
                     if (columnValue === null && currentIdProduct) {
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        // CRITICAL FIX: Use current row context instead of generic search to handle duplicate Id Products
+                        const rowLabel = getRowLabelFromCurrentEditContext(processValue);
                         if (rowLabel) {
                             const dataColumnIndex = match.columnNumber - 1;
                             columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
-                            console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
+                            console.log('updateFormulaDisplay: Handled $' + match.columnNumber + ' using row label ' + rowLabel + ', value:', columnValue);
                         }
                     }
                 }
@@ -5185,8 +5218,8 @@ function updateFormulaDisplay(formulaValue, processValue) {
             }
         } else {
             // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
-            // 获取行标签
-            const rowLabel = getRowLabelFromProcessValue(processValue);
+            // 获取行标签（优先从当前编辑上下文获取）
+            const rowLabel = getRowLabelFromCurrentEditContext(processValue);
             if (!rowLabel) {
                 formulaDisplayInput.value = formulaValue;
                 return;
@@ -8806,10 +8839,12 @@ function parseReferenceFormula(formula, processValueOverride = null) {
 
                     // 如果从引用中找不到值，回退到使用当前编辑的 id_product
                     if (columnValue === null) {
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        // CRITICAL FIX: Use current row context instead of generic search to handle duplicate Id Products
+                        const rowLabel = getRowLabelFromCurrentEditContext(processValue);
                         if (rowLabel) {
                             const columnReference = rowLabel + dollarMatch.columnNumber;
                             columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                            console.log('parseReferenceFormula: Resolved $' + dollarMatch.columnNumber + ' using row label ' + rowLabel + ', value:', columnValue);
                         }
                     }
 
@@ -8840,7 +8875,8 @@ function parseReferenceFormula(formula, processValueOverride = null) {
                 }
             } else {
                 // 如果没有 data-clicked-cell-refs，使用原来的逻辑
-                const rowLabel = getRowLabelFromProcessValue(processValue);
+                // CRITICAL FIX: Use current row context instead of generic search to handle duplicate Id Products
+                const rowLabel = getRowLabelFromCurrentEditContext(processValue);
                 if (rowLabel) {
                     for (let i = 0; i < dollarMatches.length; i++) {
                         const dollarMatch = dollarMatches[i];
