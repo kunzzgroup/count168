@@ -3161,25 +3161,10 @@ function updateBankFrequencyOptions() {
 
 // Auto calculate Day End based on Day Start and Contract
 function autoCalculateBankDayEnd() {
-    const dayStartVal = document.getElementById('bank_day_start').value;
-    const contractEl = document.getElementById('bank_contract');
-    const dayEndEl = document.getElementById('bank_day_end');
+    // We no longer auto-calculate Day End. It must be entered manually.
     
-    if (!dayStartVal || !contractEl || !dayEndEl) return;
-
-    const contractVal = contractEl.value || '';
-    const monthsMatch = contractVal.match(/\d+/);
-    const months = monthsMatch ? parseInt(monthsMatch[0], 10) : 0;
-
-    if (dayStartVal && months > 0) {
-        const d = new Date(dayStartVal + 'T00:00:00');
-        d.setMonth(d.getMonth() + months);
-        dayEndEl.value = d.toISOString().slice(0, 10);
-    } else {
-        dayEndEl.value = '';
-    }
-
-    // After calculating Day End, sync the frequency options
+    // After any change to Day Start or Contract, we still sync the frequency options 
+    // in case the user has manually entered a Day End.
     updateBankFrequencyOptions();
 }
 
