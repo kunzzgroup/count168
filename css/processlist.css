@@ -652,20 +652,25 @@
 }
  .bank-form .bank-day-start-row {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: stretch;
     gap: 12px;
-    flex-wrap: wrap;
 }
-.bank-form .bank-day-start-input-wrap {
-    flex: 0 0 auto;
-    max-width: 155px;
+.bank-form .bank-day-combined {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
 }
-.bank-form .bank-day-start-input-wrap .bank-input {
+.bank-form .bank-day-start-input-wrap,
+.bank-form .bank-day-end-input-wrap {
+    flex: 1;
+}
+.bank-form .bank-day-start-input-wrap .bank-input,
+.bank-form .bank-day-end-input-wrap .bank-input {
     width: 100%;
 }
 .bank-form .bank-day-start-frequency-wrap {
-    flex: 1;
-    min-width: 160px;
+    width: 100%;
 }
  .bank-form .form-group {
     display: flex;
