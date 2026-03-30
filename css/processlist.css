@@ -579,37 +579,10 @@
 .bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-remark-actions .btn {
     min-width: 120px;
 }
- .bank-form-cell .selected-countries-list {
+.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-input {
     flex: 1;
-    min-height: 100px;
-    border: 1px dashed #cbd5e1;
-    background-color: #f8fafc;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
+    min-height: 2.5em;
 }
-
-.bank-modal .modal-header {
-    border-bottom: 1px solid #f1f5f9;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-}
-
-.bank-modal .modal-header h2 {
-    font-size: 24px;
-    font-weight: 800;
-    color: #0f172a;
-    font-family: 'Amaranth', sans-serif;
-    letter-spacing: -0.025em;
-}
-
-.bank-modal .no-countries {
-    margin: auto;
-    color: #94a3b8;
-    font-size: 14px;
-    font-weight: 500;
-}
-
  .bank-form-cell {
     display: flex;
     flex-direction: column;
@@ -648,15 +621,16 @@
     margin-top: 0;
 }
  .bank-section-title {
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 800;
-    color: #1e293b;
-    margin-bottom: 16px;
-    margin-top: 5px;
-    padding-bottom: 6px;
-    border-bottom: 2px solid #f1f5f9;
+    font-size: 16px;
+    font-weight: bold;
+    color: #002C49;
+    margin-bottom: 10px;
+    margin-top: 0;
+    margin-left: 0;
+    padding-left: 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e0e0;
+    overflow: visible;
 }
  .bank-chinese {
     font-size: 12px;
@@ -728,23 +702,10 @@
     grid-template-columns: 0.85fr 0.85fr 1fr;
 }
  .bank-form .form-group label {
-    font-size: 12px;
-    font-weight: 700;
-    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
     margin-bottom: 0;
-}
-
-/* Financial fields highlight */
-#bank_buy_price, #bank_sell_price, #bank_profit {
-    font-weight: 800;
-    color: #0f172a;
-    border-color: #cbd5e1;
-}
-
-#bank_profit {
-    background-color: #f8fafc !important;
-    border-style: dashed;
-    color: #059669; /* Green for profit */
 }
  .select-with-add {
     display: flex;
@@ -968,75 +929,66 @@
  .profit-sharing-with-add .bank-input {
     flex: 1;
 }
-/* Fix modal containment: Restore scrollbars and white background to modal content */
-#addBankModal .modal-content,
-#profitSharingModal .modal-content {
-    background-color: #ffffff;
-    overflow: auto !important; /* Contain contents and allow scrolling */
-    max-height: 85vh;
-}
-
-/* Allow dropdowns to overflow their immediate containers but keep them inside the modal scroll */
-#addBankModal .modal-body,
-#addBankModal .bank-form,
-#profitSharingModal .modal-body,
-#profitSharingModal .bank-form {
-    overflow: visible !important;
-}
-
-/* Remove redundant shadow and max-width from the process form when inside a bank modal */
-.bank-modal .process-form {
-    max-width: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}
-
-/* Footer buttons alignment and styling */
-.bank-actions {
+ .bank-actions {
     grid-column: 1 / -1;
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
-    margin-top: 30px;
-    padding: 20px 0;
-    border-top: 1px solid #f1f5f9;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
 }
 
-/* Contract Actions styling */
-.bank-actions-row {
-    display: flex;
-    gap: 12px;
-    margin-top: 12px;
+/* Supplier/Customer/Company 账户下拉可溢出 Bank 弹窗显示，不被裁切 */
+#addBankModal .modal-content,
+#addBankModal .modal-body,
+#addBankModal .bank-form,
+#addBankModal .bank-form-row,
+#addBankModal .bank-form-cell,
+#addBankModal .bank-form-cell-left,
+#addBankModal .bank-form-cell-right,
+#addBankModal .form-row,
+#addBankModal .form-group,
+#addBankModal .account-select-with-buttons,
+#addBankModal .custom-select-wrapper {
+    overflow: visible !important;
+}
+#addBankModal .custom-select-wrapper {
+    position: relative;
+}
+/* Bank 弹窗内 Supplier/Customer/Company 下拉：选项区尽量占满视口，减少滚动 */
+#addBankModal .custom-select-dropdown {
+    max-height: min(500px, 85vh) !important;
+}
+#addBankModal .custom-select-options {
+    max-height: min(460px, 80vh) !important;
 }
 
-.bank-actions-row .btn {
-    flex: 1;
-    height: 36px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 14px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
+/* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
+#addAccountModal {
+    z-index: 10002 !important;
 }
-
-.bank-actions-row .btn-sop {
-    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+/* Add Profit Sharing 弹窗层级低于 Add Account，避免盖住 Add Account */
+#profitSharingModal {
+    z-index: 10000;
 }
-
-.bank-actions-row .btn-remark {
-    background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+/* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示（覆盖 processCSS 的 overflow: hidden） */
+#profitSharingModal.modal,
+#profitSharingModal .modal-content,
+#profitSharingModal .modal-header,
+#profitSharingModal .modal-body,
+#profitSharingModal .bank-form,
+#profitSharingModal .form-row,
+#profitSharingModal .form-group,
+#profitSharingModal .account-select-with-buttons,
+#profitSharingModal .custom-select-wrapper {
+    overflow: visible !important;
 }
-
-.bank-actions-row .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
-    filter: brightness(1.05);
+/* 列表区域最高约 7 行高度，再多 Account 行时出现垂直滚动条 */
+#profitSharingModal #profitSharingRowsContainer {
+    max-height: 500px;
+    overflow-y: auto !important;
+    overflow-x: visible;
 }
 /* 下拉可向下溢出弹窗，不设 max-height 裁切，选项区内部滚动 */
 #profitSharingModal .custom-select-wrapper {
