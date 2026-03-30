@@ -890,15 +890,15 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                         </div>
+                        <div class="form-group bank-day-start-frequency-wrap">
+                            <label for="bank_day_start_frequency">Frequency</label>
+                            <select id="bank_day_start_frequency" name="day_start_frequency"
+                                class="bank-input bank-select">
+                                <option value="1st_of_every_month">1st of Every Month</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
                         <div class="bank-form-cell bank-form-cell-right">
-                            <div class="form-group bank-day-start-frequency-wrap">
-                                    <label for="bank_day_start_frequency">Frequency</label>
-                                    <select id="bank_day_start_frequency" name="day_start_frequency"
-                                        class="bank-input bank-select">
-                                        <option value="1st_of_every_month">1st of Every Month</option>
-                                        <option value="monthly">Monthly</option>
-                                    </select>
-                                </div>
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_contract">Contract</label>
