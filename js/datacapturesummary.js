@@ -4859,38 +4859,6 @@ function getRowLabelFromProcessValue(processValue) {
     }
 }
 
-/**
- * Helper to get row label from the currently active edit/calculator context.
- * Prioritizes the actual DOM row being edited over a generic Id Product search.
- * This is crucial for correctly identifying rows when multiple products share the same Id Product.
- */
-function getRowLabelFromCurrentEditContext(processValue) {
-    const activeRow = window.currentEditRow || currentSelectedRowForCalculator || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
-    if (activeRow) {
-        const capturedTableBody = document.getElementById('capturedTableBody');
-        if (capturedTableBody) {
-            const rowIndexAttr = activeRow.getAttribute('data-preserved-row-index') || activeRow.getAttribute('data-row-index');
-            if (rowIndexAttr != null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
-                const rowIndex = Number(rowIndexAttr);
-                const capturedRows = capturedTableBody.querySelectorAll('tr');
-                if (rowIndex >= 0 && rowIndex < capturedRows.length) {
-                    const capturedRow = capturedRows[rowIndex];
-                    const rowHeaderCell = capturedRow.querySelector('.row-header');
-                    const label = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                    if (label) {
-                        console.log('getRowLabelFromCurrentEditContext: Found label from context row:', label);
-                        return label;
-                    }
-                }
-            }
-        }
-    }
-    // Fallback to process value search (which might find the first row of duplicate Id Products)
-    const fallbackLabel = getRowLabelFromProcessValue(processValue);
-    console.log('getRowLabelFromCurrentEditContext: Falling back to process value search:', fallbackLabel);
-    return fallbackLabel;
-}
-
 // 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
 // 这确保删除数据后，data-clicked-cell-refs 也被正确更新
 function syncClickedCellRefsWithFormula(formulaInput, formulaValue, processValue) {
@@ -5172,36 +5140,25 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
                     // 如果从引用中找不到值，使用当前编辑的id_product
                     if (columnValue === null && currentIdProduct) {
-                        // CRITICAL FIX: Use current row context instead of generic search to handle duplicate Id Products
-                        const rowLabel = getRowLabelFromCurrentEditContext(processValue);
+                        const rowLabel = getRowLabelFromProcessValue(processValue);
                         if (rowLabel) {
                             const dataColumnIndex = match.columnNumber - 1;
                             columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
-                            console.log('updateFormulaDisplay: Handled $' + match.columnNumber + ' using row label ' + rowLabel + ', value:', columnValue);
+                            console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                         }
                     }
                 }
 
                 if (columnValue === null) {
-                    hasMissingColumnValue = true;
-                    break;
+                    columnValue = '0';
+                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber}, substituting with 0`);
                 }
 
                 // 存储匹配的值
                 matchValues.push({
                     match: match,
-                    value: columnValue
+                    value: String(columnValue)
                 });
-            }
-
-            if (hasMissingColumnValue) {
-                formulaDisplayInput.value = previousDisplayValue || formulaValue;
-                console.warn('updateFormulaDisplay: missing column value, keep previous display formula:', {
-                    processValue,
-                    formula: formulaValue,
-                    display: formulaDisplayInput.value
-                });
-                return;
             }
 
             // 从后往前替换，避免位置偏移
@@ -5218,8 +5175,8 @@ function updateFormulaDisplay(formulaValue, processValue) {
             }
         } else {
             // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
-            // 获取行标签（优先从当前编辑上下文获取）
-            const rowLabel = getRowLabelFromCurrentEditContext(processValue);
+            // 获取行标签
+            const rowLabel = getRowLabelFromProcessValue(processValue);
             if (!rowLabel) {
                 formulaDisplayInput.value = formulaValue;
                 return;
@@ -5249,32 +5206,21 @@ function updateFormulaDisplay(formulaValue, processValue) {
             // 从后往前处理，避免位置偏移
             allMatches.sort((a, b) => b.index - a.index);
 
-            let hasMissingColumnValue = false;
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
                 // 获取列的实际值
                 const columnReference = rowLabel + match.columnNumber;
-                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                let columnValue = getColumnValueFromCellReference(columnReference, processValue);
 
-                if (columnValue !== null) {
-                    // 替换 $数字 为实际值
-                    displayFormula = displayFormula.substring(0, match.index) +
-                        columnValue +
-                        displayFormula.substring(match.index + match.fullMatch.length);
-                } else {
-                    hasMissingColumnValue = true;
-                    break;
+                if (columnValue === null) {
+                    columnValue = '0';
+                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber} (${columnReference}), substituting with 0`);
                 }
-            }
 
-            if (hasMissingColumnValue) {
-                formulaDisplayInput.value = previousDisplayValue || formulaValue;
-                console.warn('updateFormulaDisplay: missing current-row column value, keep previous display formula:', {
-                    processValue,
-                    formula: formulaValue,
-                    display: formulaDisplayInput.value
-                });
-                return;
+                // 替换 $数字 为实际值
+                displayFormula = displayFormula.substring(0, match.index) +
+                    columnValue +
+                    displayFormula.substring(match.index + match.fullMatch.length);
             }
         }
 
@@ -7346,7 +7292,7 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
                             // 只对有实际数据的行持久化顺序（空 sub 行跳过）
                             if (type === 'sub' && typeof isSubRowEmpty === 'function' && isSubRowEmpty(gr)) return;
                             const formDataForGroup = buildFormDataFromRow(gr);
-                            const rowDataForGroup = getRowDataForTemplate(gr, formDataForGroup);
+                            const rowDataForGroup = extractRowDataForTemplate(gr, formDataForGroup);
                             // 内部调用禁止再次触发重排，避免递归
                             saveTemplateAsync(rowDataForGroup, gr, { skipResequence: true })
                                 .catch(err => console.warn('Failed to sync sub_order for group row', err));
@@ -8839,12 +8785,10 @@ function parseReferenceFormula(formula, processValueOverride = null) {
 
                     // 如果从引用中找不到值，回退到使用当前编辑的 id_product
                     if (columnValue === null) {
-                        // CRITICAL FIX: Use current row context instead of generic search to handle duplicate Id Products
-                        const rowLabel = getRowLabelFromCurrentEditContext(processValue);
+                        const rowLabel = getRowLabelFromProcessValue(processValue);
                         if (rowLabel) {
                             const columnReference = rowLabel + dollarMatch.columnNumber;
                             columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                            console.log('parseReferenceFormula: Resolved $' + dollarMatch.columnNumber + ' using row label ' + rowLabel + ', value:', columnValue);
                         }
                     }
 
@@ -8875,8 +8819,7 @@ function parseReferenceFormula(formula, processValueOverride = null) {
                 }
             } else {
                 // 如果没有 data-clicked-cell-refs，使用原来的逻辑
-                // CRITICAL FIX: Use current row context instead of generic search to handle duplicate Id Products
-                const rowLabel = getRowLabelFromCurrentEditContext(processValue);
+                const rowLabel = getRowLabelFromProcessValue(processValue);
                 if (rowLabel) {
                     for (let i = 0; i < dollarMatches.length; i++) {
                         const dollarMatch = dollarMatches[i];
@@ -9508,7 +9451,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
             const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
-            
+
             // 检查公式是否已经包含了同样的 source percent 乘法，避免双重叠加（如从 localStorage 恢复后再次附加）
             const formulaTrimmed = balancedPart.replace(/\s+/g, '');
             const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
