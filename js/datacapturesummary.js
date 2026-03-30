@@ -13914,6 +13914,20 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     if (data.formulaOperators !== undefined) {
         row.setAttribute('data-formula-operators', data.formulaOperators);
         row.setAttribute('data-template-formula-operators', data.formulaOperators);
+    } else {
+        // If formulaOperators is not provided but formula text exists, try to preserve it
+        // This ensures sub rows can be edited even if formulaOperators was not set during creation
+        const formulaCell = cells[4];
+        if (formulaCell) {
+            const formulaTextElement = formulaCell.querySelector('.formula-text');
+            const formulaText = formulaTextElement ? formulaTextElement.textContent.trim() : '';
+            // Only set if formula text exists and data-formula-operators is not already set
+            if (formulaText && formulaText !== '' && !row.getAttribute('data-formula-operators')) {
+                // Use the displayed formula text as fallback (may be converted values, but better than empty)
+                row.setAttribute('data-formula-operators', formulaText);
+                console.log('updateSubIdProductRow - Set data-formula-operators from displayed text:', formulaText);
+            }
+        }
     }
     // sourceColumns no longer used, but keep for compatibility
     // IMPORTANT: If formula is empty, also clear sourceColumns to prevent regeneration
@@ -17885,7 +17899,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             sourcePercent: convertedPercentValue || '1',
             formula: formulaDisplay,
             formulaDisplay: formulaDisplay || template.formula_display || '',
-            formulaOperators: formulaOperatorsValue || formulaDisplay,
+            formulaOperators: formulaDisplay || formulaOperatorsValue,
             processedAmount: processedAmount,
             inputMethod: template.input_method || '',
             enableInputMethod: (template.input_method && template.input_method.trim() !== '') ? true : false,
