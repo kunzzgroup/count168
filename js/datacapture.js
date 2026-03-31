@@ -1006,8 +1006,8 @@ async function loadSubmittedProcesses() {
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
         
-        // 按 capture_date 显示该日期下的提交记录（逻辑日期）
-        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${encodeURIComponent(selectedDate)}`);
+        // 按 capture_date 显示该日期下的提交记录（逻辑日期）；没有提交则返回空数组
+        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${encodeURIComponent(selectedDate)}`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
         const response = await fetch(finalUrl);
