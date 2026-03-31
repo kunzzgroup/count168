@@ -57,7 +57,8 @@ function getCompanyIdForRequest(PDO $pdo) {
  * 查询 Data Capture 记录（未删除）
  */
 function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, string $date_to_db, ?int $process_id, ?string $process_name) {
-    $where_conditions = ["dc.capture_date BETWEEN ? AND ?", "p.company_id = ?"];
+    // 与页面「Dts Created」一致：按实际入库时间 created_at 过滤，避免 capture_date 为 30 号但创建时间为 31 号的错行
+    $where_conditions = ["DATE(dc.created_at) BETWEEN ? AND ?", "p.company_id = ?"];
     $params = [$company_id, $company_id, $date_from_db, $date_to_db, $company_id];
     if ($process_id !== null) {
         $where_conditions[] = "p.id = ?";
@@ -81,7 +82,7 @@ function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, st
             LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
             WHERE dc.company_id = ? AND dcd.company_id = ? $where_sql
             GROUP BY dc.id, p.process_id, COALESCE(d.name, p.process_id), dc.capture_date, dc.created_at
-            ORDER BY dc.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
+            ORDER BY dc.created_at DESC, p.process_id, COALESCE(d.name, p.process_id)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -120,7 +121,7 @@ function fetchDeletedRecords(PDO $pdo, int $company_id, string $date_from_db, st
             LEFT JOIN owner o ON dcd.created_by = o.id AND dcd.user_type = 'owner'
             LEFT JOIN user du ON dcd.deleted_by_user_id = du.id
             LEFT JOIN owner do ON dcd.deleted_by_owner_id = do.id
-            WHERE dcd.company_id = ? AND dcd.capture_date BETWEEN ? AND ? $deletedWhereSql
+            WHERE dcd.company_id = ? AND DATE(dcd.created_at) BETWEEN ? AND ? $deletedWhereSql
             ORDER BY dcd.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($deletedParams);
