@@ -93,9 +93,9 @@ async function fetchAccounts() {
         const url = new URL('api/accounts/accountlistapi.php', window.location.href);
 
         // 娣诲姞褰撳墠閫夋嫨鐨?company_id
-        const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
-        if (currentCompanyId) {
-            url.searchParams.set('company_id', currentCompanyId);
+        const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID
+        if (currentCompanyId !== null && currentCompanyId !== undefined && currentCompanyId !== '') {
+            url.searchParams.set('company_id', currentCompanyId)
         }
 
         if (searchTerm.trim()) {
@@ -2116,6 +2116,10 @@ function getDaySuffix(day) {
 
 // 鍒囨崲 Company锛堝埛鏂伴〉闈互鍔犺浇鏂?company 鐨勮处鎴峰垪琛級
 async function switchAccountListCompany(companyId, companyCode) {
+    if (!companyId) {
+        console.error('switchAccountListCompany: missing companyId', { companyId, companyCode })
+        return
+    }
     // 鍏堟洿鏂?session
     try {
         const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
