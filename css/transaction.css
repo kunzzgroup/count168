@@ -1473,57 +1473,62 @@ body.transaction-page .expiration-countdown-text {
 }
 
 /* Category Tag Colors - matching Role colors */
-.category-tag[data-category-value="capital"] {
+.category-tag[data-category-value="CAPITAL"] {
     background-color: #ffe0e0 !important;
     color: #a30b0b !important;
 }
 
-.category-tag[data-category-value="bank"] {
+.category-tag[data-category-value="BANK"] {
     background-color: #dfe3ff !important;
     color: #14228a !important;
 }
 
-.category-tag[data-category-value="cash"] {
+.category-tag[data-category-value="CASH"] {
     background-color: #dff4e7 !important;
     color: #0f6d38 !important;
 }
 
-.category-tag[data-category-value="profit"] {
+.category-tag[data-category-value="PROFIT"] {
     background-color: #fff2c7 !important;
     color: #7a5b00 !important;
 }
 
-.category-tag[data-category-value="expenses"] {
+.category-tag[data-category-value="EXPENSES"] {
     background-color: #f0e1ff !important;
     color: #4f148f !important;
 }
 
-.category-tag[data-category-value="company"] {
+.category-tag[data-category-value="COMPANY"] {
     background-color: #d4edda !important;
     color: #155724 !important;
 }
 
-.category-tag[data-category-value="staff"] {
+.category-tag[data-category-value="STAFF"] {
     background-color: #ffe5cc !important;
     color: #a24700 !important;
 }
 
-.category-tag[data-category-value="upline"] {
+.category-tag[data-category-value="UPLINE"] {
     background-color: #d6f9ff !important;
     color: #0a6b78 !important;
 }
 
-.category-tag[data-category-value="agent"] {
+.category-tag[data-category-value="SUPPLIER"] {
+    background-color: #d6f9ff !important;
+    color: #0a6b78 !important;
+}
+
+.category-tag[data-category-value="AGENT"] {
     background-color: #ffe0f3 !important;
     color: #a02578 !important;
 }
 
-.category-tag[data-category-value="member"] {
+.category-tag[data-category-value="MEMBER"] {
     background-color: #f2dfd2 !important;
     color: #5f2e0f !important;
 }
 
-.category-tag[data-category-value="none"] {
+.category-tag[data-category-value="NONE"] {
     background-color: #eceef2 !important;
     color: #3e434f !important;
 }
