@@ -1847,14 +1847,7 @@ function forceUppercase(input) {
 let searchTimeout;
 const searchInputEl = document.getElementById('searchInput');
 if (searchInputEl) {
-    // 鎼滅储妗嗭細鍙厑璁稿瓧姣嶅拰鏁板瓧
     searchInputEl.addEventListener('input', function () {
-        const cursorPosition = this.selectionStart;
-        // 鍙繚鐣欏ぇ鍐欏瓧姣嶅拰鏁板瓧
-        const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-        this.value = filteredValue;
-        this.setSelectionRange(cursorPosition, cursorPosition);
-
         // 鎼滅储鍔熻兘
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
@@ -1862,15 +1855,7 @@ if (searchInputEl) {
         }, 300); // 寤惰繜300ms閬垮厤棰戠箒璇锋眰
     });
 
-    // 绮樿创浜嬩欢澶勭悊
-    searchInputEl.addEventListener('paste', function () {
-        setTimeout(() => {
-            const cursorPosition = this.selectionStart;
-            const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-            this.value = filteredValue;
-            this.setSelectionRange(cursorPosition, cursorPosition);
-        }, 0);
-    });
+    // paste 不做过滤，允许空格与符号
 }
 
 // Real-time filter when checkbox changes
