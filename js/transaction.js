@@ -612,6 +612,8 @@ function updateCategoryDisplay() {
         // 使用事件委托方式处理删除按钮点击
         selectedTagsContainer.addEventListener('click', function(e) {
             if (e.target.classList.contains('category-tag-remove')) {
+                e.preventDefault();  // 阻止默认行为
+                e.stopPropagation(); // 阻止事件冒泡
                 const categoryValue = e.target.getAttribute('data-category-value');
                 removeCategory(categoryValue);
             }
