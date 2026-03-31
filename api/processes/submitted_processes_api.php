@@ -743,6 +743,17 @@ function getTodayEntries($user_id)
             }
         }
 
+        // 检查 capture_date 列是否存在
+        try {
+            $testStmt = $pdo->prepare("SELECT capture_date FROM submitted_processes LIMIT 1");
+            $testStmt->execute();
+            $hasCaptureDateColumn = true;
+        } catch (PDOException $e) {
+            $hasCaptureDateColumn = false;
+        }
+
+        $captureDateSelect = $hasCaptureDateColumn ? "sp.capture_date," : "sp.date_submitted AS capture_date,";
+
         // 构建权限过滤条件
         $permissionCondition = "";
         $params = [$currentCompanyId];
@@ -755,7 +766,7 @@ function getTodayEntries($user_id)
 
         $stmt = $pdo->prepare("
             SELECT 
-                sp.id, sp.process_id, sp.date_submitted, sp.capture_date, sp.created_at,
+                sp.id, sp.process_id, sp.date_submitted, $captureDateSelect sp.created_at,
                 p.process_id as process_code, d.name as description_name,
                 COALESCE(u.login_id, o.owner_code) as submitted_by
             FROM submitted_processes sp
