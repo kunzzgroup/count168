@@ -10,25 +10,41 @@ require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
 
-function fetchRolesFromDb(PDO $pdo): array {
+function fetchRolesFromDb(PDO $pdo): array
+{
     $stmt = $pdo->query("SELECT code FROM role ORDER BY id ASC");
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
-function orderRolesByPriority(array $roles): array {
-    $priority = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+function orderRolesByPriority(array $roles): array
+{
+    $priority = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
     $upper = array_map('strtoupper', $roles);
     $map = array_combine($upper, $roles);
     $ordered = [];
     $done = [];
+    
     foreach ($priority as $p) {
         $pu = strtoupper($p);
         if (isset($map[$pu])) {
-            $ordered[] = strtoupper($map[$pu]);
+            // Keep existing case from DB if found
+            $val = $map[$pu];
+            // Display mapping: UPLINE -> SUPPLIER
+            if (strtoupper($val) === 'UPLINE') {
+                $val = 'SUPPLIER';
+            }
+            $ordered[] = strtoupper($val);
             $done[] = $pu;
+        } else if ($pu === 'SUPPLIER' && isset($map['UPLINE'])) {
+            // Mapping for sorting: map UPLINE to SUPPLIER priority position
+            $ordered[] = 'SUPPLIER';
+            $done[] = 'UPLINE';
         }
     }
+    
     $rest = array_diff($upper, $done);
+    // Remove UPLINE from rest if it was mapped
+    $rest = array_filter($rest, fn($r) => $r !== 'UPLINE');
     sort($rest);
     return array_merge($ordered, $rest);
 }
