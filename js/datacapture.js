@@ -2156,25 +2156,44 @@ function renderSubmittedProcesses() {
 
     let html = '';
     submittedProcesses.forEach((process, index) => {
-        // 使用 created_at（实际提交时刻）显示日期+时间，顾客可看到「这笔账是几月几号几点才 submit」
-        // 若员工遗忘提交，例如 2 号的账 4 号才 submit，列表会显示 04/03/2026，便于发现问题
-        let dateObj;
-        let timeObj;
-        if (process.created_at) {
-            const createdDate = new Date(process.created_at);
-            dateObj = createdDate;
-            timeObj = createdDate;
-        } else {
-            dateObj = new Date();
-            timeObj = new Date();
+        // 使用 date_submitted（或 capture_date）显示日期，作为该笔账的逻辑日期
+        // 时间部分仍然使用 created_at（实际物理提交时刻），保留提交的时间戳
+        let formattedDate = '';
+        let formattedTime = '';
+
+        // 1. 处理日期部分 (Logical Date)
+        const logicalDateStr = process.date_submitted || process.capture_date;
+        if (logicalDateStr) {
+            const parts = logicalDateStr.split('-');
+            if (parts.length === 3) {
+                // 假设输入格式为 YYYY-MM-DD，转换为 DD/MM/YYYY
+                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
         }
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
-        const formattedDate = `${day}/${month}/${year}`;
-        const hours = String(timeObj.getHours()).padStart(2, '0');
-        const minutes = String(timeObj.getMinutes()).padStart(2, '0');
-        const formattedTime = `${hours}:${minutes}`;
+
+        // 2. 处理时间部分 (Physical Time)
+        if (process.created_at) {
+            const createdObj = new Date(process.created_at);
+            const hours = String(createdObj.getHours()).padStart(2, '0');
+            const minutes = String(createdObj.getMinutes()).padStart(2, '0');
+            formattedTime = `${hours}:${minutes}`;
+
+            // 如果逻辑日期为空，则日期也 fallback 到 created_at
+            if (!formattedDate) {
+                const day = String(createdObj.getDate()).padStart(2, '0');
+                const month = String(createdObj.getMonth() + 1).padStart(2, '0');
+                const year = createdObj.getFullYear();
+                formattedDate = `${day}/${month}/${year}`;
+            }
+        } else {
+            // 完全兜底：若无 created_at 则使用当前系统时间
+            const now = new Date();
+            if (!formattedDate) {
+                formattedDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+            }
+            formattedTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        }
+
         const formattedDateTime = `${formattedDate} ${formattedTime}`;
 
         html += `
