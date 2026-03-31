@@ -85,7 +85,7 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $hasFlagColumn = tableHasColumn($pdo, 'bank_process', 'flag');
     $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, bp.day_start_frequency, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
             WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND (" .
@@ -238,7 +238,7 @@ function resolveAccountIdByText(PDO $pdo, int $companyId, string $accountText): 
     }
     $stmt = $pdo->prepare("SELECT a.id FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id AND ac.company_id = ?
-            WHERE (LOWER(TRIM(a.account_id)) = LOWER(?) OR LOWER(TRIM(a.name)) = LOWER(?)) LIMIT 1");
+            WHERE (a.account_id = ? OR a.name = ?) LIMIT 1");
     $stmt->execute([$companyId, $text, $text]);
     $id = $stmt->fetchColumn();
     return $id ? (int) $id : null;
@@ -305,7 +305,7 @@ try {
     $has_source_bank_process_id = tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
     $has_source_bank_process_period_type = tableHasColumn($pdo, 'transactions', 'source_bank_process_period_type');
     $has_period_type = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
-    $transactionDate = date('Y-m-d');
+    $postingDate = date('Y-m-d');
     $createdCount = 0;
     $currencyCache = [];
 
@@ -352,6 +352,33 @@ try {
         }
         if (!$currencyId && $has_currency_id) {
             continue;
+        }
+
+        $transactionDate = $postingDate;
+        if (!empty($p['day_start'])) {
+            $ts = strtotime($p['day_start']);
+            if ($ts !== false) {
+                if ($periodType === 'partial_first_month') {
+                    $transactionDate = date('Y-m-d', $ts);
+                } elseif ($periodType === 'manual_inactive') {
+                    $baseDate = (!empty($p['day_end']) && $p['day_end'] !== '0000-00-00') ? $p['day_end'] : $p['day_start'];
+                    $bts = strtotime($baseDate);
+                    $transactionDate = ($bts !== false) ? date('Y-m-d', $bts) : $postingDate;
+                } elseif ($periodType === 'monthly') {
+                    $freq = $p['day_start_frequency'] ?? '1st_of_every_month';
+                    if ($freq === '1st_of_every_month') {
+                        $transactionDate = date('Y-m-01');
+                    } else {
+                        // Monthly: use the day from day_start in the current month
+                        $bDay = (int)date('j', $ts);
+                        $lastDayInCurrentMonth = (int)date('t');
+                        if ($bDay > $lastDayInCurrentMonth) {
+                            $bDay = $lastDayInCurrentMonth;
+                        }
+                        $transactionDate = date('Y-m-') . sprintf('%02d', $bDay);
+                    }
+                }
+            }
         }
 
         $baseTxn = [
@@ -446,7 +473,7 @@ try {
             $createdCount++;
         }
 
-        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
+        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postingDate, $periodType, $has_period_type);
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {
