@@ -364,8 +364,7 @@ body {
             gap: 10px;
         }
 
-        .submitted-by,
-        .submitted-date {
+        .submitted-by {
             width: clamp(80px, 6.25vw, 120px);
             text-align: right;
             font-size: clamp(8px, 0.625vw, 12px);
@@ -374,12 +373,16 @@ body {
             flex-shrink: 0;
         }
 
-        .submitted-by {
-            color: #666;
-        }
-
         .submitted-date {
+            text-align: right;
+            font-size: clamp(8px, 0.625vw, 12px);
+            font-weight: 800;
             color: #333;
+            flex-shrink: 0;
+            /* 日期+时间一行，避免窄宽度强制换行成上下两行 */
+            width: auto;
+            min-width: 9.5em;
+            white-space: nowrap;
         }
 
         .field-help {
