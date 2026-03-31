@@ -9,7 +9,24 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+function translateApiMessage(string $message): string {
+    $map = [
+        'Only POST method is allowed' => 'Only POST method is allowed',
+        '用户未登录' => 'User not logged in',
+        '缺少公司信息' => 'Missing company information',
+        '无权限访问该公司' => 'No permission to access this company',
+        '请填写所有必填字段' => 'Please fill in all required fields',
+        '当支付提醒为是时，必须填写提醒类型和开始日期' => 'When Payment Alert is enabled, Alert Type and Start Date are required',
+        '账户ID已存在' => 'Account ID already exists',
+        '选择的角色无效' => 'Invalid role selected',
+        '账户创建成功！' => 'Account created successfully!',
+    ];
+
+    return $map[$message] ?? $message;
+}
+
 function jsonResponse(bool $success, string $message, $data = null): void {
+    $message = translateApiMessage($message);
     // 兼容旧前端：失败时部分页面读取 result.error 而不是 message
     echo json_encode([
         'success' => $success,
@@ -66,7 +83,13 @@ function roleExists(PDO $pdo, string $role): bool {
     // 容错：角色 code 可能存在大小写差异，按不区分大小写匹配
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE LOWER(code) = LOWER(?)");
     $stmt->execute([$role]);
-    return $stmt->fetchColumn() > 0;
+    if ($stmt->fetchColumn() > 0) {
+        return true;
+    }
+
+    // 容错：部分环境 role 表可能缺少核心角色，但前端仍会展示（如 PARTNER/STAFF/DEBTOR）
+    $core = strtoupper(trim($role));
+    return in_array($core, ['PARTNER', 'STAFF', 'DEBTOR'], true);
 }
 
 function insertAccount(PDO $pdo, array $row): int {
@@ -217,6 +240,10 @@ try {
     // 角色兼容映射：前端 SUPPLIER 等价于旧的 UPLINE
     $role_db_code = $role;
     if ($role_db_code !== '') {
+        // 容错：前端/数据源可能拼错 PARTNER 为 PARTHER
+        if (strcasecmp($role_db_code, 'PARTHER') === 0) {
+            $role_db_code = 'PARTNER';
+        }
         if (strcasecmp($role_db_code, 'SUPPLIER') === 0) {
             $role_db_code = 'UPLINE';
         }
