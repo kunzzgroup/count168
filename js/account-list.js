@@ -2090,7 +2090,8 @@ document.getElementById('addAccountForm').addEventListener('submit', async funct
             closeAddModal();
             fetchAccounts(); // Refresh the list
         } else {
-            showNotification(result.error, 'danger');
+            const msg = result.error || result.message || 'Failed to add account'
+            showNotification(msg, 'danger')
         }
     } catch (error) {
         console.error('Error:', error);
