@@ -762,11 +762,6 @@ async function loadAccountCurrencies(accountId, type) {
                 // 缂栬緫妯″紡涓嬶紝姣忔鍔犺浇鍏徃鍒楄〃鍓嶉噸缃€変腑鍏徃鍒楄〃
                 if (type === 'edit') {
                     selectedCompanyIdsForEdit = [];
-                // 濡傛灉娌℃湁MYR锛岄€夋嫨id鏈€灏忕殑璐у竵锛堟渶鍏堟坊鍔犵殑锛?
-                // 鎸塱d鎺掑簭锛岄€夋嫨绗竴涓?
-                const sortedById = [...result.data].sort((a, b) => a.id - b.id);
-                if (sortedById.length > 0) {
-                    currencyToAutoSelect = sortedById[0];
                 }
             }
         }
