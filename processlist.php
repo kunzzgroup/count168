@@ -888,9 +888,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="bank-profit-sharing-container">
                                 <div class="bank-profit-sharing-header">
                                     <h3>Selected Profit Sharing</h3>
-                                    <button type="button" class="bank-add-ps-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">
-                                        <i class="fas fa-plus"></i> Add
-                                    </button>
+                                    <button type="button" class="bank-add-btn"
+                                            onclick="showAddProfitSharingModal()"
+                                            title="Add Profit Sharing">+</button>
                                 </div>
                                 <div class="bank-profit-sharing-list" id="selectedProfitSharingList">
                                     <div class="no-profit-sharing">
