@@ -24232,16 +24232,12 @@ async function restoreFromLocalStorage() {
         const dateInput = document.getElementById('capture_date');
         if (dateInput && processData.date) {
             dateInput.value = processData.date;
-        } else {
-            // If no date in saved data, use today's submit date
-            await loadSubmittedProcesses();
         }
 
         // Reload processes for the selected date
         await loadProcessesByDate();
 
-        // Reload submitted processes filtered by the selected capture_date
-        const selectedDate = document.getElementById('capture_date').value || getLocalDateString();
+        // Submitted Processes：始终按「当天物理提交」刷新（与左侧 Date 无关；选其他账务日 submit 仍会计入今天）
         await loadSubmittedProcesses();
 
         // Wait a bit for process dropdown to populate, then restore process selection
@@ -24559,7 +24555,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const shouldRestore = urlParams.get('restore') === '1';
 
     if (!shouldRestore) {
-        // Load submitted processes filtered by capture_date from form
+        // Submitted Processes：当天物理提交（get_today_entries），与左侧 Date 无关
         loadSubmittedProcesses();
         // Initialize table with default 26 rows (A-Z) and 20 columns
         initializeTable(26, 20);
