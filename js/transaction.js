@@ -2404,16 +2404,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         }
     }
     
-    // 设置 currency（如果用户已手动选择，则不覆盖）
+    // 设置 currency：余额列数字以表格行币种为准（与筛选/展示一致），无行币种再用账户主币种
     let currencySet = false;
     let currencyToSet = null;
     if (currencySelect) {
-        const currentSelectedCurrency = currencySelect.value;
-        // 用户已选币种：不覆盖；否则才按账户/行币种自动带入
-        currencyToSet = currentSelectedCurrency || accountCurrency || currency;
-        if (!currentSelectedCurrency && currencyToSet) {
+        const rowCurrency = (currency && String(currency).trim()) ? String(currency).trim() : ''
+        currencyToSet = rowCurrency || accountCurrency || null;
+        if (currencyToSet) {
             const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === currencyToSet);
-            if (currencyOption) {
+            if (currencyOption && currencySelect.value !== currencyToSet) {
                 currencySelect.value = currencyToSet;
                 currencySet = true;
             }
