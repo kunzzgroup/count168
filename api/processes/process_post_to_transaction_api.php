@@ -45,6 +45,15 @@ function normalizedBankIssueFlagSql(string $columnRef): string
     return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
 }
 
+/** Parses date strings robustly, converting slashes to hyphens so strtotime treats it as DD-MM-YYYY */
+function parseDateRobust(?string $dateStr)
+{
+    if (empty($dateStr) || $dateStr === '0000-00-00') {
+        return false;
+    }
+    return strtotime(str_replace('/', '-', $dateStr));
+}
+
 function insertTransactionRow(PDO $pdo, array $data): int
 {
     $columns = array_keys($data);
@@ -58,7 +67,7 @@ function insertTransactionRow(PDO $pdo, array $data): int
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
 function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, float $profit): array
 {
-    $ts = strtotime($dayStart);
+    $ts = parseDateRobust($dayStart);
     if ($ts === false) {
         return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
     }
@@ -157,8 +166,9 @@ function addMonthsToDate(?string $dateStr, int $months): ?string
 /** 根据 contract 与当前 day_start 计算下次 day_start（用于 manual_inactive 入账后恢复 active 并更新日期） */
 function nextDayStartFromContract(?string $dayStart, ?string $contract): string
 {
-    $base = $dayStart && strtotime($dayStart) !== false ? $dayStart : date('Y-m-d');
-    $ts = strtotime($base);
+    $baseTs = parseDateRobust($dayStart);
+    $base = ($baseTs !== false) ? date('Y-m-d', $baseTs) : date('Y-m-d');
+    $ts = strtotime($base); // already formatted as Y-m-d above
     if ($ts === false) {
         return date('Y-m-d');
     }
@@ -358,13 +368,13 @@ try {
 
         $transactionDate = $postingDate;
         if (!empty($p['day_start'])) {
-            $ts = strtotime($p['day_start']);
+            $ts = parseDateRobust($p['day_start']);
             if ($ts !== false) {
                 if ($periodType === 'partial_first_month') {
                     $transactionDate = date('Y-m-d', $ts);
                 } elseif ($periodType === 'manual_inactive') {
                     $baseDate = (!empty($p['day_end']) && $p['day_end'] !== '0000-00-00') ? $p['day_end'] : $p['day_start'];
-                    $bts = strtotime($baseDate);
+                    $bts = parseDateRobust($baseDate);
                     $transactionDate = ($bts !== false) ? date('Y-m-d', $bts) : $postingDate;
                 } elseif ($periodType === 'monthly') {
                     $freq = $p['day_start_frequency'] ?? '1st_of_every_month';
@@ -433,7 +443,7 @@ try {
         // 1st of every month 首月按比例时，Profit Sharing 金额也按「剩余天数/当月天数」折算，再分给各 account
         $psRatio = 1.0;
         if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
-            $ts = strtotime($p['day_start']);
+            $ts = parseDateRobust($p['day_start']);
             if ($ts !== false) {
                 $daysInMonth = (int) date('t', $ts);
                 $dayOfMonth = (int) date('j', $ts);
