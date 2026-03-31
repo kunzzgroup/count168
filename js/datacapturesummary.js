@@ -19489,21 +19489,13 @@ async function submitSummaryData() {
                     const formData = new FormData();
                     formData.append('action', 'save_submission');
                     formData.append('process_id', parsedProcessData.process);
-                    // 使用表单中选择的日期（parsedProcessData.date）加上当前时刻作为 date_submitted
-                    const datePart = parsedProcessData.date || (new Date().getFullYear() + '-' +
+                    // 使用表单中选择的日期（parsedProcessData.date）作为 date_submitted，使记录显示在选择的日期下
+                    const selectedDate = parsedProcessData.date || (new Date().getFullYear() + '-' +
                         String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
                         String(new Date().getDate()).padStart(2, '0'));
-                    
-                    // 获取当前时刻
-                    const now = new Date();
-                    const timePart = String(now.getHours()).padStart(2, '0') + ':' + 
-                                   String(now.getMinutes()).padStart(2, '0') + ':' + 
-                                   String(now.getSeconds()).padStart(2, '0');
-                    
-                    const fullDateSubmitted = `${datePart} ${timePart}`;
-                    formData.append('date_submitted', fullDateSubmitted);
-                    // capture_date 也使用相同的日期（仅日期部分）
-                    formData.append('capture_date', datePart);
+                    formData.append('date_submitted', selectedDate);
+                    // capture_date 也使用相同的日期
+                    formData.append('capture_date', selectedDate);
 
                     // 添加当前选择的 company_id
                     const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);

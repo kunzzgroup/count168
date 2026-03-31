@@ -2112,18 +2112,7 @@ let isSelecting = false;
                 formData.append('process_id', processData.process); // This is the id of the process table
                 // Use capture_date from form for date_submitted (so records show under selected date)
                 const captureDate = processData.date || document.getElementById('capture_date').value || getLocalDateString();
-                
-                // 获取当前本地时间 (HH:MM:SS)
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const seconds = String(now.getSeconds()).padStart(2, '0');
-                const timeString = `${hours}:${minutes}:${seconds}`;
-                
-                // 将日期和当前时间拼接，确保后端保存的是「所选日期+当前时刻」
-                const fullTimestamp = `${captureDate} ${timeString}`;
-                
-                formData.append('date_submitted', fullTimestamp);
+                formData.append('date_submitted', captureDate);
                 // Also save capture_date for consistency
                 formData.append('capture_date', captureDate);
                 
@@ -2169,32 +2158,18 @@ let isSelecting = false;
             
             let html = '';
             submittedProcesses.forEach((process, index) => {
-                // 解决「时间显示为 00:00」的问题：
-                // 1. 日期（dateObj）取自 date_submitted（用户选择的逻辑日期）
-                // 2. 时间（timeObj）取自 created_at（实际入库时的精确时刻）
-                let dateObj = new Date();
-                let timeObj = new Date();
-                
-                // 解析日期部分
-                if (process.date_submitted) {
-                    const dateStr = process.date_submitted.split(' ')[0]; // 只要 YYYY-MM-DD
-                    dateObj = new Date(dateStr.replace(/-/g, '/'));
-                }
-                
-                // 解析时间部分
+                // 使用 created_at（实际提交时刻）显示日期+时间，顾客可看到「这笔账是几月几号几点才 submit」
+                // 若员工遗忘提交，例如 2 号的账 4 号才 submit，列表会显示 04/03/2026，便于发现问题
+                let dateObj;
+                let timeObj;
                 if (process.created_at) {
-                    const createdDateTime = new Date(process.created_at.replace(/-/g, '/'));
-                    if (!isNaN(createdDateTime.getTime())) {
-                        timeObj = createdDateTime;
-                    }
-                } else if (process.date_submitted && process.date_submitted.includes(' ')) {
-                    // 如果没有 created_at，尝试从 date_submitted 中提取时间
-                    const submittedDateTime = new Date(process.date_submitted.replace(/-/g, '/'));
-                    if (!isNaN(submittedDateTime.getTime())) {
-                        timeObj = submittedDateTime;
-                    }
+                    const createdDate = new Date(process.created_at);
+                    dateObj = createdDate;
+                    timeObj = createdDate;
+                } else {
+                    dateObj = new Date();
+                    timeObj = new Date();
                 }
-                
                 const day = String(dateObj.getDate()).padStart(2, '0');
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const year = dateObj.getFullYear();
