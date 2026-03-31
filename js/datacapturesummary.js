@@ -11860,7 +11860,6 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // Replace from back to front to preserve indices
                             allMatches.sort((a, b) => b.index - a.index);
 
-                            let hasMissingColumnValue = false;
                             for (let i = 0; i < allMatches.length; i++) {
                                 const match = allMatches[i];
                                 let columnValue = null;
@@ -11872,31 +11871,28 @@ function updateFormulaAndProcessedAmount(row, data) {
                                     console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
 
-                                // Fallback to old logic if not found in columnRefMap
+                                // Fallback to current row id_product if not found in columnRefMap
                                 if (columnValue === null) {
                                     const columnReference = rowLabel + match.columnNumber;
                                     columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                     console.log('Fallback to current row id_product:', processValue, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
 
-                                if (columnValue !== null) {
-                                    displayFormula = displayFormula.substring(0, match.index) +
-                                        columnValue +
-                                        displayFormula.substring(match.index + match.fullMatch.length);
-                                } else {
-                                    hasMissingColumnValue = true;
-                                    break;
+                                // CRITICAL: If column value is still null (missing data), default to "0"
+                                // This satisfies the requirement that missing data should be treated as 0 instead of using old values
+                                if (columnValue === null) {
+                                    columnValue = "0";
+                                    console.warn(`updateFormulaAndProcessedAmount: column $${match.columnNumber} not found for ${processValue}, defaulting to 0`);
                                 }
+
+                                displayFormula = displayFormula.substring(0, match.index) +
+                                    columnValue +
+                                    displayFormula.substring(match.index + match.fullMatch.length);
                             }
 
-                            if (hasMissingColumnValue) {
-                                formulaText = formatNegativeNumbersInFormula(preferredFormulaDisplay || data.formula || formulaOperators);
-                                rawFormula = preferredFormulaDisplay || data.formula || formulaOperators;
-                                console.warn('updateFormulaAndProcessedAmount: missing column value, fallback to saved formula display:', {
-                                    processValue,
-                                    formulaText
-                                });
-                            } else {
+                            // Always use the resolved displayFormula for display and calculation
+                            // No more fallback to stale preferredFormulaDisplay/formulaOperators
+                            {
                                 // Also parse other reference formats (A4, [id_product:column])
                                 const parsedFormula = parseReferenceFormula(displayFormula);
                                 if (parsedFormula) {
