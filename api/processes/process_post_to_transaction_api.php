@@ -33,8 +33,10 @@ function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn
     if ($hasIssueFlagColumn && $hasFlagColumn) {
         return "COALESCE(NULLIF($tableAlias.`flag`, ''), NULLIF($tableAlias.`issue_flag`, ''))";
     }
-    if ($hasFlagColumn) return "$tableAlias.`flag`";
-    if ($hasIssueFlagColumn) return "$tableAlias.`issue_flag`";
+    if ($hasFlagColumn)
+        return "$tableAlias.`flag`";
+    if ($hasIssueFlagColumn)
+        return "$tableAlias.`issue_flag`";
     return "NULL";
 }
 
@@ -89,10 +91,10 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
             WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND (" .
-                (($hasIssueFlagColumn || $hasFlagColumn)
-                    ? "bp.status IN ('active','inactive') OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice')"
-                    : "bp.status IN ('active','inactive')") .
-            ")";
+        (($hasIssueFlagColumn || $hasFlagColumn)
+            ? "bp.status IN ('active','inactive') OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice')"
+            : "bp.status IN ('active','inactive')") .
+        ")";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
@@ -305,7 +307,7 @@ try {
     $has_source_bank_process_id = tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
     $has_source_bank_process_period_type = tableHasColumn($pdo, 'transactions', 'source_bank_process_period_type');
     $has_period_type = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
-    $transactionDate = date('Y-m-d');
+    $fallbackDate = date('Y-m-d');
     $createdCount = 0;
     $currencyCache = [];
 
@@ -354,10 +356,22 @@ try {
             continue;
         }
 
+        $effectiveDate = $fallbackDate;
+        if (!empty($p['day_start'])) {
+            $dateStr = str_replace('/', '-', trim($p['day_start']));
+            if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+                $dateStr .= '-' . date('Y');
+            }
+            $ts = strtotime($dateStr);
+            if ($ts !== false) {
+                $effectiveDate = date('Y-m-d', $ts);
+            }
+        }
+
         $baseTxn = [
             'company_id' => $companyId,
             'transaction_type' => 'WIN',
-            'transaction_date' => $transactionDate,
+            'transaction_date' => $effectiveDate,
             'created_by' => $created_by_user,
             'created_by_owner' => $ownerId,
         ];
@@ -446,7 +460,7 @@ try {
             $createdCount++;
         }
 
-        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
+        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $effectiveDate, $periodType, $has_period_type);
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {

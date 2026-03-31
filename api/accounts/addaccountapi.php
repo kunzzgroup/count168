@@ -9,8 +9,31 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+function translateApiMessage(string $message): string {
+    $map = [
+        'Only POST method is allowed' => 'Only POST method is allowed',
+        '用户未登录' => 'User not logged in',
+        '缺少公司信息' => 'Missing company information',
+        '无权限访问该公司' => 'No permission to access this company',
+        '请填写所有必填字段' => 'Please fill in all required fields',
+        '当支付提醒为是时，必须填写提醒类型和开始日期' => 'When Payment Alert is enabled, Alert Type and Start Date are required',
+        '账户ID已存在' => 'Account ID already exists',
+        '选择的角色无效' => 'Invalid role selected',
+        '账户创建成功！' => 'Account created successfully!',
+    ];
+
+    return $map[$message] ?? $message;
+}
+
 function jsonResponse(bool $success, string $message, $data = null): void {
-    echo json_encode(['success' => $success, 'message' => $message, 'data' => $data]);
+    $message = translateApiMessage($message);
+    // 兼容旧前端：失败时部分页面读取 result.error 而不是 message
+    echo json_encode([
+        'success' => $success,
+        'message' => $message,
+        'error' => $success ? null : $message,
+        'data' => $data,
+    ]);
 }
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
@@ -57,9 +80,16 @@ function accountExistsInCompany(PDO $pdo, string $account_id, int $company_id): 
 }
 
 function roleExists(PDO $pdo, string $role): bool {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE code = ?");
+    // 容错：角色 code 可能存在大小写差异，按不区分大小写匹配
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE LOWER(code) = LOWER(?)");
     $stmt->execute([$role]);
-    return $stmt->fetchColumn() > 0;
+    if ($stmt->fetchColumn() > 0) {
+        return true;
+    }
+
+    // 容错：部分环境 role 表可能缺少核心角色，但前端仍会展示（如 PARTNER/STAFF/DEBTOR）
+    $core = strtoupper(trim($role));
+    return in_array($core, ['PARTNER', 'STAFF', 'DEBTOR'], true);
 }
 
 function insertAccount(PDO $pdo, array $row): int {
@@ -171,6 +201,22 @@ try {
     } elseif (isset($_SESSION['company_id'])) {
         $company_id = (int)$_SESSION['company_id'];
     }
+
+    // 容错：前端有时仅传 company_ids，不传 company_id
+    if (!$company_id) {
+        if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
+            $decodedCompanyIds = json_decode($_POST['company_ids'], true);
+            if (is_array($decodedCompanyIds)) {
+                foreach ($decodedCompanyIds as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid > 0) {
+                        $company_id = $cid;
+                        break;
+                    }
+                }
+            }
+        }
+    }
     if (!$company_id) {
         throw new Exception('缺少公司信息');
     }
@@ -191,7 +237,19 @@ try {
         $alert_start_date = trim($_POST['alert_specific_date']);
     }
 
-    if (empty($account_id) || empty($name) || empty($role) || empty($password)) {
+    // 角色兼容映射：前端 SUPPLIER 等价于旧的 UPLINE
+    $role_db_code = $role;
+    if ($role_db_code !== '') {
+        // 容错：前端/数据源可能拼错 PARTNER 为 PARTHER
+        if (strcasecmp($role_db_code, 'PARTHER') === 0) {
+            $role_db_code = 'PARTNER';
+        }
+        if (strcasecmp($role_db_code, 'SUPPLIER') === 0) {
+            $role_db_code = 'UPLINE';
+        }
+    }
+
+    if (empty($account_id) || empty($name) || empty($role_db_code) || empty($password)) {
         throw new Exception('请填写所有必填字段');
     }
 
@@ -234,7 +292,7 @@ try {
     if (accountExistsInCompany($pdo, $account_id, $company_id)) {
         throw new Exception('账户ID已存在');
     }
-    if (!roleExists($pdo, $role)) {
+    if (!roleExists($pdo, $role_db_code)) {
         throw new Exception('选择的角色无效');
     }
 
@@ -246,7 +304,7 @@ try {
         $newAccountId = insertAccount($pdo, [
             'account_id' => $account_id,
             'name' => $name,
-            'role' => $role,
+            'role' => $role_db_code,
             'password' => $password,
             'payment_alert' => $payment_alert,
             'alert_day' => $alert_day,

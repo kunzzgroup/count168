@@ -400,11 +400,6 @@ document.addEventListener('DOMContentLoaded', function() {
         showZeroCk.addEventListener('change', handleCheckboxChange);
     }
     
-    const categorySelect = document.getElementById('filter_category');
-    if (categorySelect) {
-        categorySelect.addEventListener('change', () => searchTransactions());
-    }
-    
     // 绑定关闭弹窗
     const modalClose = document.getElementById('modal_close');
     if (modalClose) {
@@ -456,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return loadAccounts().then(() => { initCustomSelects(); });
         }
         // Contra Inbox 延后到用户点击再加载
-        loadAccounts().then(() => { initCustomSelects(); console.log('✅ 初始数据加载完成'); });
+        loadAccounts().then(() => { initCustomSelects(); bindContraCurrencyAutoSync(); console.log('✅ 初始数据加载完成'); });
         searchTransactions(true);
     }).catch(error => {
         console.error('❌ 初始数据加载失败:', error);
@@ -503,23 +498,181 @@ function loadCategories() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const categorySelect = document.getElementById('filter_category');
-                categorySelect.innerHTML = '<option value="">--Select All--</option>';
+                const categoryOptionsContainer = document.getElementById('category_options_container');
+                categoryOptionsContainer.innerHTML = ''; // 清空现有选项
+                
                 data.data.forEach(role => {
-                    const option = document.createElement('option');
-                    option.value = role;
-                    option.textContent = role.toUpperCase(); // 确保显示为大写
-                    categorySelect.appendChild(option);
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'category-option';
+                    
+                    const label = document.createElement('label');
+                    label.className = 'category-checkbox-label';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'category-checkbox';
+                    checkbox.value = role;
+                    
+                    const span = document.createElement('span');
+                    span.textContent = role.toUpperCase(); // 确保显示为大写
+                    
+                    label.appendChild(checkbox);
+                    label.appendChild(span);
+                    optionDiv.appendChild(label);
+                    categoryOptionsContainer.appendChild(optionDiv);
                 });
+                
+                // 添加事件监听器
+                setupCategoryDropdown();
                 console.log('✅ 分类列表加载成功');
             }
             return data;
         })
         .catch(error => {
-            console.error('❌ 加载分类列表失败:', error);
+            console.error(' 加载分类列表失败:', error);
             showNotification('Failed to load category list', 'error');
             throw error;
         });
+}
+
+// ==================== 分类多选下拉框功能 ====================
+function setupCategoryDropdown() {
+    const dropdownButton = document.getElementById('category_dropdown_button');
+    const dropdownMenu = document.getElementById('category_dropdown_menu');
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    // 切换下拉菜单显示
+    dropdownButton.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdownMenu.classList.toggle('show');
+    });
+    
+    // 点击外部关闭下拉菜单
+    document.addEventListener('click', function(e) {
+        if (!dropdownButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            dropdownMenu.classList.remove('show');
+        }
+    });
+    
+    // "Select All" 复选框逻辑
+    categoryAllCheckbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        categoryCheckboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+        updateCategoryDisplay();
+        searchTransactions(); // 触发搜索
+    });
+    
+    // 单个分类复选框逻辑
+    categoryCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateCategoryDisplay();
+            updateSelectAllCheckbox();
+            searchTransactions(); // 触发搜索
+        });
+    });
+}
+
+// 更新分类显示文本
+function updateCategoryDisplay() {
+    const selectedTagsContainer = document.getElementById('category_selected_tags');
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    if (categoryAllCheckbox.checked) {
+        selectedTagsContainer.innerHTML = '<span class="category-placeholder">--Select All--</span>';
+        return;
+    }
+    
+    const selectedCategories = [];
+    categoryCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedCategories.push({
+                value: checkbox.value,
+                display: checkbox.value.toUpperCase()
+            });
+        }
+    });
+    
+    console.log(' 选中的分类:', selectedCategories); // 调试信息
+    
+    if (selectedCategories.length === 0) {
+        selectedTagsContainer.innerHTML = '<span class="category-placeholder">--Select All--</span>';
+    } else {
+        // 生成标签HTML
+        const tagsHTML = selectedCategories.map(category => `
+            <div class="category-tag" data-category-value="${category.value}">
+                <span>${category.display}</span>
+                <span class="category-tag-remove" data-category-value="${category.value}">×</span>
+            </div>
+        `).join('');
+        
+        selectedTagsContainer.innerHTML = tagsHTML;
+        
+        // 使用事件委托方式处理删除按钮点击
+        selectedTagsContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('category-tag-remove')) {
+                e.preventDefault();  // 阻止默认行为
+                e.stopPropagation(); // 阻止事件冒泡
+                const categoryValue = e.target.getAttribute('data-category-value');
+                removeCategory(categoryValue);
+            }
+        });
+    }
+}
+
+// 删除单个分类
+function removeCategory(categoryValue) {
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    // 如果是全选状态，先取消全选
+    if (categoryAllCheckbox.checked) {
+        categoryAllCheckbox.checked = false;
+    }
+    
+    // 取消对应复选框的选中状态
+    categoryCheckboxes.forEach(checkbox => {
+        if (checkbox.value === categoryValue) {
+            checkbox.checked = false;
+        }
+    });
+    
+    // 更新显示和搜索
+    updateCategoryDisplay();
+    updateSelectAllCheckbox();
+    searchTransactions();
+}
+
+// 更新 "Select All" 复选框状态
+function updateSelectAllCheckbox() {
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    const checkedCount = Array.from(categoryCheckboxes).filter(cb => cb.checked).length;
+    
+    categoryAllCheckbox.checked = checkedCount === categoryCheckboxes.length;
+    categoryAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < categoryCheckboxes.length;
+}
+
+// 获取选中的分类值
+function getSelectedCategories() {
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    if (categoryAllCheckbox.checked) {
+        return ['']; // 空字符串表示全部
+    }
+    
+    const selectedCategories = [];
+    categoryCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedCategories.push(checkbox.value);
+        }
+    });
+    
+    return selectedCategories;
 }
 
 // ==================== 账户数据存储 ====================
@@ -916,6 +1069,30 @@ function initCustomSelects() {
                 }
             }
         });
+    });
+}
+
+function syncContraCurrencyFromButton(buttonEl) {
+    if (!buttonEl) return;
+    const type = document.getElementById('transaction_type')?.value || '';
+    if (type !== 'CONTRA') return;
+    const currency = (buttonEl.getAttribute('data-currency') || '').trim().toUpperCase();
+    if (!currency) return;
+    const currencySelect = document.getElementById('transaction_currency');
+    if (!currencySelect) return;
+    const opt = currencySelect.querySelector(`option[value="${currency}"]`);
+    if (!opt) return;
+    currencySelect.value = currency;
+}
+
+function bindContraCurrencyAutoSync() {
+    if (window.__contraCurrencyAutoSyncBound) return;
+    window.__contraCurrencyAutoSyncBound = true;
+
+    ['action_account_from', 'action_account_id'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener('change', () => syncContraCurrencyFromButton(btn));
     });
 }
 
@@ -1429,7 +1606,7 @@ function updateCurrencyButtonsState() {
 function searchTransactions(isInitialLoad) {
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
-    const category = document.getElementById('filter_category').value;
+    const selectedCategories = getSelectedCategories(); // 使用新的多选函数
     const showInactive = document.getElementById('show_inactive').checked ? '1' : '0';
     const showCaptureOnly = document.getElementById('show_capture_only').checked ? '1' : '0';
     const showZero = document.getElementById('show_zero_balance').checked ? '1' : '0';
@@ -1451,8 +1628,14 @@ function searchTransactions(isInitialLoad) {
         return;
     }
     
-    // 构建 URL，如果指定了 company_id 或 currency 则添加参数
-    let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+    // 构建 URL，处理多选分类
+    let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+    
+    // 处理分类参数：如果是全选则不传参数，否则传递多个分类
+    if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
+        url += `&category=${selectedCategories.join(',')}`;
+    }
+    
     if (currentCompanyId) {
         url += `&company_id=${currentCompanyId}`;
     }
@@ -1461,7 +1644,7 @@ function searchTransactions(isInitialLoad) {
         url += `&currency=${selectedCurrencies.join(',')}`;
     }
     
-    console.log('🔍 搜索参数:', { dateFrom, dateTo, category, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
+    console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
     
     // 添加时间戳防止缓存
     url += '&_t=' + Date.now();
@@ -1516,6 +1699,9 @@ function searchTransactions(isInitialLoad) {
     const singleSelectedCurrency = (!showAllCurrencies && selectedCurrencies.length === 1)
         ? String(selectedCurrencies[0] || '').toUpperCase()
         : '';
+    const categoryParam = (selectedCategories.length > 0 && !selectedCategories.includes(''))
+        ? selectedCategories.join(',')
+        : ''
     
     fetch(url, {
         method: 'GET',
@@ -1576,7 +1762,10 @@ function searchTransactions(isInitialLoad) {
 
                 // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
                 if (singleSelectedCurrency && totalAccounts === 0) {
-                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                    if (categoryParam) {
+                        fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
+                    }
                     if (currentCompanyId) {
                         fallbackUrl += `&company_id=${currentCompanyId}`;
                     }
@@ -1628,7 +1817,10 @@ function searchTransactions(isInitialLoad) {
 
                 // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
                 if (showCaptureOnly && totalAccounts === 0) {
-                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                    if (categoryParam) {
+                        fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
+                    }
                     if (currentCompanyId) {
                         fallbackUrl += `&company_id=${currentCompanyId}`;
                     }
@@ -2052,6 +2244,7 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const balance = balanceCell.getAttribute('data-balance');
     const rowCrDr = balanceCell.getAttribute('data-crdr');
     const currency = balanceCell.getAttribute('data-currency');
+    const rowCurrency = (currency && String(currency).trim()) ? String(currency).trim().toUpperCase() : '';
     
     const isRateView = isRateTypeSelected();
     const currentType = document.getElementById('transaction_type')?.value || '';
@@ -2089,6 +2282,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     
     let accountSet = false;
     let accountCurrency = null; // 从账户列表中获取的 currency
+    // 同步币种优先用表格行币种（与当前余额行口径一致），没有再用账户主币种
+    let syncCurrency = rowCurrency || null;
     
     // 根据 account_db_id 找到对应的 display_text
     // 首先尝试通过 ID 匹配（支持字符串和数字类型）
@@ -2107,6 +2302,9 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             data.account_id === accountCode) {
             accountDisplayText = displayText;
             accountCurrency = data.currency;
+            if (!syncCurrency && data.currency) {
+                syncCurrency = String(data.currency).trim().toUpperCase();
+            }
             foundAccountCode = data.account_id || accountCode;
             break;
         }
@@ -2118,6 +2316,9 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             if (data.account_id === accountCode) {
                 accountDisplayText = displayText;
                 accountCurrency = data.currency;
+                if (!syncCurrency && data.currency) {
+                    syncCurrency = String(data.currency).trim().toUpperCase();
+                }
                 foundAccountCode = data.account_id || accountCode;
                 break;
             }
@@ -2145,8 +2346,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             positiveAccountSelect.textContent = accountDisplayText;
             positiveAccountSelect.setAttribute('data-value', accountId);
             positiveAccountSelect.setAttribute('data-account-code', foundAccountCode);
-            if (accountCurrency) {
-                positiveAccountSelect.setAttribute('data-currency', accountCurrency);
+            if (syncCurrency) {
+                positiveAccountSelect.setAttribute('data-currency', syncCurrency);
             } else {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
@@ -2156,8 +2357,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 rateTransferFromSelect.textContent = accountDisplayText;
                 rateTransferFromSelect.setAttribute('data-value', accountId);
                 rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
-                if (accountCurrency) {
-                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
+                if (syncCurrency) {
+                    rateTransferFromSelect.setAttribute('data-currency', syncCurrency);
                 } else {
                     rateTransferFromSelect.removeAttribute('data-currency');
                 }
@@ -2169,8 +2370,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             negativeAccountSelect.textContent = accountDisplayText;
             negativeAccountSelect.setAttribute('data-value', accountId);
             negativeAccountSelect.setAttribute('data-account-code', foundAccountCode);
-            if (accountCurrency) {
-                negativeAccountSelect.setAttribute('data-currency', accountCurrency);
+            if (syncCurrency) {
+                negativeAccountSelect.setAttribute('data-currency', syncCurrency);
             } else {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
@@ -2180,8 +2381,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 rateTransferToSelect.textContent = accountDisplayText;
                 rateTransferToSelect.setAttribute('data-value', accountId);
                 rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
-                if (accountCurrency) {
-                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
+                if (syncCurrency) {
+                    rateTransferToSelect.setAttribute('data-currency', syncCurrency);
                 } else {
                     rateTransferToSelect.removeAttribute('data-currency');
                 }
@@ -2212,14 +2413,14 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         }
     }
     
-    // 设置 currency（优先使用账户列表中的 currency）
+    // 设置 currency：余额列数字以表格行币种为准（与筛选/展示一致），无行币种再用账户主币种
     let currencySet = false;
+    let currencyToSet = null;
     if (currencySelect) {
-        // 优先使用从账户选项中获取的 currency
-        const currencyToSet = accountCurrency || currency;
+        currencyToSet = syncCurrency || (accountCurrency ? String(accountCurrency).trim().toUpperCase() : null);
         if (currencyToSet) {
             const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === currencyToSet);
-            if (currencyOption) {
+            if (currencyOption && currencySelect.value !== currencyToSet) {
                 currencySelect.value = currencyToSet;
                 currencySet = true;
             }
@@ -2252,8 +2453,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     if (amountSet) {
         parts.push(`Amount: ${formatNumber(balance)}`);
     }
-    if (currencySet && accountCurrency) {
-        parts.push(`Currency: ${accountCurrency}`);
+    if (currencySet && currencyToSet) {
+        parts.push(`Currency: ${currencyToSet}`);
     }
     
     if (parts.length > 0) {
@@ -3212,6 +3413,7 @@ function handleReverseAccounts(event) {
     if (!fromBtn || !toBtn || fromBtn.closest('.transaction-form-group')?.style.display === 'none') return;
     
     swapAccountButtons(fromBtn, toBtn);
+    syncContraCurrencyFromButton(fromBtn);
 }
 
 // ==================== 确认提交 ====================
@@ -3524,28 +3726,39 @@ function initExcelCopyWithStyles() {
 function showNotification(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
     
+    // 检查容器是否存在
+    if (!container) {
+        console.error('Notification container not found!');
+        console.log('Message:', message, 'Type:', type);
+        return;
+    }
+    
+    // 检查消息是否为空
+    if (!message || message.trim() === '') {
+        console.error('Empty notification message!');
+        return;
+    }
+
     // 检查现有通知，最多保留2个
     const existingNotifications = container.querySelectorAll('.transaction-notification');
     if (existingNotifications.length >= 2) {
+        // 立即移除最旧的通知，不等待动画
         const oldestNotification = existingNotifications[0];
-        oldestNotification.classList.remove('show');
-        setTimeout(() => {
-            if (oldestNotification.parentNode) {
-                oldestNotification.remove();
-            }
-        }, 300);
+        oldestNotification.remove();
     }
-    
+
     const notification = document.createElement('div');
     notification.className = `transaction-notification transaction-notification-${type}`;
     notification.textContent = message;
     
+    console.log('Creating notification:', message, type);
+
     container.appendChild(notification);
     
     setTimeout(() => {
         notification.classList.add('show');
     }, 10);
-    
+
     // 2秒后淡出
     setTimeout(() => {
         notification.classList.remove('show');
