@@ -491,7 +491,6 @@ function getSubmissionsByCaptureDate($user_id)
         ]);
     }
 }
-
 // 根据物理提交日期（created_at）获取提交的processes
 function getSubmissionsByPhysicalDate($user_id)
 {
@@ -509,11 +508,11 @@ function getSubmissionsByPhysicalDate($user_id)
             return;
         }
 
-        // 获取选择的物理日期，默认为今天 (CURDATE)
-        $physical_date = $_GET['date'] ?? date('Y-m-d');
+        // 获取目标日期（可以是物理日期，也可以是逻辑日期）
+        $target_date = $_GET['date'] ?? date('Y-m-d');
 
         // 验证日期格式
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $physical_date)) {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $target_date)) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Invalid date format'
@@ -564,20 +563,20 @@ function getSubmissionsByPhysicalDate($user_id)
             LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
             LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
             WHERE sp.company_id = ?
-              AND DATE(sp.created_at) = ?
+              AND (DATE(sp.created_at) = ? OR DATE(sp.date_submitted) = ?)
               AND p.company_id = ?
             $permissionCondition
             ORDER BY sp.created_at DESC
         ");
 
-        $params = array_merge([$currentCompanyId, $physical_date, $currentCompanyId], !empty($processIds) ? $processIds : []);
+        $params = array_merge([$currentCompanyId, $target_date, $target_date, $currentCompanyId], !empty($processIds) ? $processIds : []);
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
             'success' => true,
             'data' => $submissions,
-            'physical_date' => $physical_date
+            'target_date' => $target_date
         ]);
     } catch (Exception $e) {
         error_log("Error in getSubmissionsByPhysicalDate: " . $e->getMessage());

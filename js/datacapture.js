@@ -1000,16 +1000,17 @@ function getLocalDateString(date = null) {
 // Load submitted processes from database by date
 async function loadSubmittedProcesses(date = null) {
     try {
-        // 我们改为按“实际物理提交日期” (created_at) 来加载
-        // 这样“今天的 Submitted Processes”侧边栏就始终反映我在“今天”这个 session 里做的所有动作
-        // 即使我是在 31 号补录 29 号的数据，它也会立刻出现在这个列表中
-        const todayDate = getLocalDateString();
+        // 我们改为按“实际物理提交日期” (created_at) 或“逻辑业务日期” (date_submitted) 来加载
+        // 这样当我们选择 31 号时，侧边栏显示的是：
+        // 1. 逻辑日期是 31 号的记录 (不管什么时候提交的)
+        // 2. 物理提交日期是 31 号的记录 (即使它是补录 29 号的数据)
+        const targetDate = date || document.getElementById('capture_date').value || getLocalDateString();
 
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
         
-        // 关键点：action 改为 get_submissions_by_physical_date，且 date 始终传入“今天”
-        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_submissions_by_physical_date&date=${encodeURIComponent(todayDate)}`);
+        // 使用 get_submissions_by_physical_date，并将选择的日期作为双重过滤条件（Logical OR Physical）
+        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_submissions_by_physical_date&date=${encodeURIComponent(targetDate)}`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
         const response = await fetch(finalUrl);
@@ -1017,7 +1018,7 @@ async function loadSubmittedProcesses(date = null) {
 
         if (result.success) {
             submittedProcesses = result.data || [];
-            console.log('Loaded', submittedProcesses.length, 'physically submitted processes for TODAY:', todayDate);
+            console.log('Loaded', submittedProcesses.length, 'processes (Logical OR Physical) for date:', targetDate);
             renderSubmittedProcesses();
         } else {
             console.error('Failed to load submitted processes:', result.error);
@@ -2162,15 +2163,24 @@ function renderSubmittedProcesses() {
         let dateObj = new Date();
         let timeObj = new Date();
         
+        // 鲁棒地解析日期，避免 Invalid Date 导致显示 NaN
         if (process.date_submitted) {
-            // 解析 date_submitted (YYYY-MM-DD)
-            const dateOnly = process.date_submitted.split(' ')[0];
-            dateObj = new Date(dateOnly.replace(/-/g, '/'));
+            const dStr = process.date_submitted.split(' ')[0];
+            const dParts = dStr.split('-');
+            if (dParts.length === 3) {
+                dateObj = new Date(dParts[0], dParts[1] - 1, dParts[2]);
+            }
         }
         
         if (process.created_at) {
-            // 解析 created_at (YYYY-MM-DD HH:MM:SS)
-            timeObj = new Date(process.created_at.replace(/-/g, '/'));
+            // created_at 通常是 YYYY-MM-DD HH:MM:SS
+            const tParts = process.created_at.split(' ');
+            const dParts = tParts[0].split('-');
+            const timeParts = tParts[1] ? tParts[1].split(':') : [0, 0, 0];
+            
+            if (dParts.length === 3) {
+                timeObj = new Date(dParts[0], dParts[1] - 1, dParts[2], timeParts[0], timeParts[1], timeParts[2] || 0);
+            }
         }
         
         const day = String(dateObj.getDate()).padStart(2, '0');
