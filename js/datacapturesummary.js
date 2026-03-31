@@ -12560,7 +12560,8 @@ function enableFormulaInlineEdit(element, row) {
     // Priority: 使用 data-formula-operators（原始值，包含 $数字）
     // 这样编辑时显示的是原始值（如 "$4+$6"），而不是转换后的值（如 "7+5"）
     let formulaValueToEdit = '';
-    const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
+    const storedTemplateFormulaOperators = row.getAttribute('data-template-formula-operators') || '';
+    const storedFormulaOperators = storedTemplateFormulaOperators || row.getAttribute('data-formula-operators') || '';
 
     // Check if Source % is empty (no source percent)
     const sourcePercentCell = cells[5]; // Source % column (index 5)
