@@ -3747,9 +3747,17 @@ if (addAccountFormEl) {
         if (currentCompanyId) formData.set('company_id', currentCompanyId);
         if (selectedCurrencyIdsForAdd.length > 0) formData.set('currency_ids', JSON.stringify(selectedCurrencyIdsForAdd));
         if (selectedCompanyIdsForAdd.length > 0) formData.set('company_ids', JSON.stringify(selectedCompanyIdsForAdd));
+        
+        // 调试：打印表单数据
+        console.log('Form data being submitted:');
+        for (let [key, value] of formData.entries()) {
+            console.log(key, ':', value);
+        }
+        
         try {
             const response = await fetch(buildApiUrl('api/accounts/addaccountapi.php'), { method: 'POST', body: formData });
             const result = await response.json();
+            console.log('Add account response:', result);
             if (result.success) {
                 const newAccountId = result.data && result.data.id;
                 let hasErrors = false;

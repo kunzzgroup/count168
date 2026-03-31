@@ -3682,6 +3682,19 @@ function initExcelCopyWithStyles() {
 // ==================== 通知系统 ====================
 function showNotification(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
+    
+    // 检查容器是否存在
+    if (!container) {
+        console.error('Notification container not found!');
+        console.log('Message:', message, 'Type:', type);
+        return;
+    }
+    
+    // 检查消息是否为空
+    if (!message || message.trim() === '') {
+        console.error('Empty notification message!');
+        return;
+    }
 
     // 检查现有通知，最多保留2个
     const existingNotifications = container.querySelectorAll('.transaction-notification');
@@ -3694,9 +3707,11 @@ function showNotification(message, type = 'success') {
     const notification = document.createElement('div');
     notification.className = `transaction-notification transaction-notification-${type}`;
     notification.textContent = message;
+    
+    console.log('Creating notification:', message, type);
 
     container.appendChild(notification);
-
+    
     setTimeout(() => {
         notification.classList.add('show');
     }, 10);
