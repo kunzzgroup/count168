@@ -57,7 +57,8 @@ function accountExistsInCompany(PDO $pdo, string $account_id, int $company_id): 
 }
 
 function roleExists(PDO $pdo, string $role): bool {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE code = ?");
+    // 容错：角色 code 可能存在大小写差异，按不区分大小写匹配
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE LOWER(code) = LOWER(?)");
     $stmt->execute([$role]);
     return $stmt->fetchColumn() > 0;
 }
