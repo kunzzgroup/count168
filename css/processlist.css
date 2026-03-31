@@ -756,37 +756,48 @@
     margin-top: 20px;
 }
 
-.bank-form-row-last {
-    min-height: 160px;
+.bank-form-row-full {
+    grid-template-columns: 1fr;
 }
 
-/* 右侧 Remark 区域拉伸至与左侧 Selected Profit Sharing 底部对齐 */
-.bank-form-row-last .bank-form-cell-right {
+.bank-form-row-full .bank-profit-sharing-container {
+    width: 100%;
+}
+
+.bank-form-row-full .bank-profit-sharing-list {
+    max-height: 400px; /* Much larger for full-width view */
+    min-height: 200px;
+}
+
+.bank-note-section {
+    padding-top: 10px;
+    border-top: 1px dashed #e2e8f0;
+    margin-top: 5px;
+}
+
+.bank-note-actions {
     display: flex;
-    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px 0;
 }
 
-.bank-form-row-last .bank-form-cell-right .bank-remark-wrap {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+.btn-note {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    padding: 10px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s;
+    min-width: 160px;
 }
 
-.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-remark-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-remark-actions .btn {
-    min-width: 120px;
-}
-
-.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-input {
-    flex: 1;
-    min-height: 2.5em;
+.btn-note:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .bank-form-cell {
@@ -810,7 +821,6 @@
 .bank-form-cell .selected-countries-list {
     flex: 1;
     min-height: 120px;
-    max-height: 280px; /* Enlarge height as requested */
 }
 
 .bank-form-left {
