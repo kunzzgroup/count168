@@ -1452,6 +1452,7 @@ body {
     border: 1px solid #ffc58c;
 }
 
+.account-role-upline,
 .account-role-supplier {
     background-color: #d6f9ff;
     color: #0a6b78;
