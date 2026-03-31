@@ -1445,11 +1445,46 @@ body.transaction-page .expiration-countdown-text {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.category-dropdown-button #category_selected_text {
+.category-selected-tags {
     flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    min-height: 20px;
+}
+
+.category-placeholder {
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.category-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e5e7eb;
+    color: #374151;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+}
+
+.category-tag-remove {
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1;
+    padding: 1px;
+    border-radius: 2px;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.category-tag-remove:hover {
+    color: #ef4444;
+    background-color: #fca5a5;
 }
 
 .category-dropdown-button:hover {

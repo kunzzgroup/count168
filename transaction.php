@@ -107,7 +107,9 @@ $default_date_to = $today_dt->format('d/m/Y');
                     <div id="filter_category" class="transaction-category-multiselect">
                         <div class="category-dropdown">
                             <button type="button" class="category-dropdown-button" id="category_dropdown_button">
-                                <span id="category_selected_text">--Select All--</span>
+                                <div id="category_selected_tags" class="category-selected-tags">
+                                    <span class="category-placeholder">--Select All--</span>
+                                </div>
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="category-dropdown-menu" id="category_dropdown_menu">

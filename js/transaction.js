@@ -577,29 +577,61 @@ function setupCategoryDropdown() {
 
 // 更新分类显示文本
 function updateCategoryDisplay() {
-    const selectedText = document.getElementById('category_selected_text');
+    const selectedTagsContainer = document.getElementById('category_selected_tags');
     const categoryAllCheckbox = document.getElementById('category_all');
     const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
     
     if (categoryAllCheckbox.checked) {
-        selectedText.textContent = '--Select All--';
+        selectedTagsContainer.innerHTML = '<span class="category-placeholder">--Select All--</span>';
         return;
     }
     
     const selectedCategories = [];
     categoryCheckboxes.forEach(checkbox => {
         if (checkbox.checked) {
-            selectedCategories.push(checkbox.value.toUpperCase());
+            selectedCategories.push({
+                value: checkbox.value,
+                display: checkbox.value.toUpperCase()
+            });
         }
     });
     
     if (selectedCategories.length === 0) {
-        selectedText.textContent = '--Select All--';
-    } else if (selectedCategories.length === 1) {
-        selectedText.textContent = selectedCategories[0];
+        selectedTagsContainer.innerHTML = '<span class="category-placeholder">--Select All--</span>';
     } else {
-        selectedText.textContent = `${selectedCategories.length} Selected`;
+        // 生成标签HTML
+        const tagsHTML = selectedCategories.map(category => `
+            <div class="category-tag" data-category-value="${category.value}">
+                <span>${category.display}</span>
+                <span class="category-tag-remove" onclick="removeCategory('${category.value}')">×</span>
+            </div>
+        `).join('');
+        
+        selectedTagsContainer.innerHTML = tagsHTML;
     }
+}
+
+// 删除单个分类
+function removeCategory(categoryValue) {
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    // 如果是全选状态，先取消全选
+    if (categoryAllCheckbox.checked) {
+        categoryAllCheckbox.checked = false;
+    }
+    
+    // 取消对应复选框的选中状态
+    categoryCheckboxes.forEach(checkbox => {
+        if (checkbox.value === categoryValue) {
+            checkbox.checked = false;
+        }
+    });
+    
+    // 更新显示和搜索
+    updateCategoryDisplay();
+    updateSelectAllCheckbox();
+    searchTransactions();
 }
 
 // 更新 "Select All" 复选框状态
