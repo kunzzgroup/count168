@@ -1000,11 +1000,14 @@ function getLocalDateString(date = null) {
 // Load submitted processes from database by date
 async function loadSubmittedProcesses() {
     try {
+        const dateInput = document.getElementById('capture_date');
+        const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
+
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
         
-        // Use get_today_entries to show all entries submitted today (physical date)
-        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_today_entries`);
+        // 按 capture_date 显示该日期下的提交记录（逻辑日期）
+        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${encodeURIComponent(selectedDate)}`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
         const response = await fetch(finalUrl);
@@ -1012,7 +1015,7 @@ async function loadSubmittedProcesses() {
 
         if (result.success) {
             submittedProcesses = result.data || [];
-            console.log('Loaded', submittedProcesses.length, 'submitted processes for today');
+            console.log('Loaded', submittedProcesses.length, 'submitted processes for date:', selectedDate);
             console.log('Sample submission dates:', submittedProcesses.slice(0, 3).map(p => ({
                 process: p.process_code,
                 date_submitted: p.date_submitted,
