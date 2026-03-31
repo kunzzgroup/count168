@@ -46,7 +46,45 @@ function orderRolesByPriority(array $roles): array
     // Remove UPLINE from rest if it was mapped
     $rest = array_filter($rest, fn($r) => $r !== 'UPLINE');
     sort($rest);
-    return array_merge($ordered, $rest);
+    
+    $finalRoles = array_merge($ordered, $rest);
+    
+    // Ensure PARTNER is in the list (if it's in the priority list but not in DB)
+    if (!in_array('PARTNER', $finalRoles)) {
+        // Find COMPANY position to insert PARTNER after it
+        $companyIdx = array_search('COMPANY', $finalRoles);
+        if ($companyIdx !== false) {
+            array_splice($finalRoles, $companyIdx + 1, 0, 'PARTNER');
+        } else {
+            $finalRoles[] = 'PARTNER';
+        }
+    }
+    
+    // Ensure STAFF is in the list
+    if (!in_array('STAFF', $finalRoles)) {
+        // Try to insert after PARTNER or COMPANY
+        $insertAfter = array_search('PARTNER', $finalRoles);
+        if ($insertAfter === false) $insertAfter = array_search('COMPANY', $finalRoles);
+        
+        if ($insertAfter !== false) {
+            array_splice($finalRoles, $insertAfter + 1, 0, 'STAFF');
+        } else {
+            $finalRoles[] = 'STAFF';
+        }
+    }
+
+    // Ensure DEBTOR is in the list (if it's in the priority list but not in DB)
+    if (!in_array('DEBTOR', $finalRoles)) {
+        // Try to insert after MEMBER
+        $memberIdx = array_search('MEMBER', $finalRoles);
+        if ($memberIdx !== false) {
+            array_splice($finalRoles, $memberIdx + 1, 0, 'DEBTOR');
+        } else {
+            $finalRoles[] = 'DEBTOR';
+        }
+    }
+    
+    return $finalRoles;
 }
 
 try {
