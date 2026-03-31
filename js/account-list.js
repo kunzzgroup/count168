@@ -436,6 +436,10 @@ function getOrderedRoles(includeStaff = true) {
         normalizedMap.set('PARTNER', 'PARTNER');
     }
 
+    if (!normalizedMap.has('DEBTOR')) {
+        normalizedMap.set('DEBTOR', 'DEBTOR');
+    }
+
     const orderedRoles = [];
     ROLE_PRIORITY.forEach(role => {
         if (normalizedMap.has(role)) {
