@@ -2404,12 +2404,14 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         }
     }
     
-    // 设置 currency（优先使用账户列表中的 currency）
+    // 设置 currency（如果用户已手动选择，则不覆盖）
     let currencySet = false;
+    let currencyToSet = null;
     if (currencySelect) {
-        // 优先使用从账户选项中获取的 currency
-        const currencyToSet = accountCurrency || currency;
-        if (currencyToSet) {
+        const currentSelectedCurrency = currencySelect.value;
+        // 用户已选币种：不覆盖；否则才按账户/行币种自动带入
+        currencyToSet = currentSelectedCurrency || accountCurrency || currency;
+        if (!currentSelectedCurrency && currencyToSet) {
             const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === currencyToSet);
             if (currencyOption) {
                 currencySelect.value = currencyToSet;
@@ -2444,8 +2446,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     if (amountSet) {
         parts.push(`Amount: ${formatNumber(balance)}`);
     }
-    if (currencySet && accountCurrency) {
-        parts.push(`Currency: ${accountCurrency}`);
+    if (currencySet && currencyToSet) {
+        parts.push(`Currency: ${currencyToSet}`);
     }
     
     if (parts.length > 0) {
