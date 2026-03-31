@@ -2165,7 +2165,8 @@ function renderSubmittedProcesses() {
         let formattedTime = '';
 
         // 1. 处理日期部分 (Logical Date)
-        const logicalDateStr = process.date_submitted || process.capture_date;
+        // 优先使用 capture_date（表单选择日期），修正历史数据里 date_submitted 可能写错的问题
+        const logicalDateStr = process.capture_date || process.date_submitted;
         if (logicalDateStr) {
             const parts = logicalDateStr.split('-');
             if (parts.length === 3) {
