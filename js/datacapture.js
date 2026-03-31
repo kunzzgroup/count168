@@ -2169,39 +2169,32 @@ let isSelecting = false;
             
             let html = '';
             submittedProcesses.forEach((process, index) => {
-                // 优先使用 date_submitted（包含用户选择的逻辑日期 + 提交时的时刻）
-                // 解决「进行 process 时间与提交时间不一致」的问题，以用户所选日期为准显示
-                let dateObj;
-                let timeObj;
+                // 解决「时间显示为 00:00」的问题：
+                // 1. 日期（dateObj）取自 date_submitted（用户选择的逻辑日期）
+                // 2. 时间（timeObj）取自 created_at（实际入库时的精确时刻）
+                let dateObj = new Date();
+                let timeObj = new Date();
                 
-                // 尝试从 date_submitted 解析日期和时间
+                // 解析日期部分
                 if (process.date_submitted) {
-                    const submittedDate = new Date(process.date_submitted.replace(/-/g, '/')); // 兼容 Safari
-                    if (!isNaN(submittedDate.getTime())) {
-                        dateObj = submittedDate;
-                        timeObj = submittedDate;
+                    const dateStr = process.date_submitted.split(' ')[0]; // 只要 YYYY-MM-DD
+                    dateObj = new Date(dateStr.replace(/-/g, '/'));
+                }
+                
+                // 解析时间部分
+                if (process.created_at) {
+                    const createdDateTime = new Date(process.created_at.replace(/-/g, '/'));
+                    if (!isNaN(createdDateTime.getTime())) {
+                        timeObj = createdDateTime;
+                    }
+                } else if (process.date_submitted && process.date_submitted.includes(' ')) {
+                    // 如果没有 created_at，尝试从 date_submitted 中提取时间
+                    const submittedDateTime = new Date(process.date_submitted.replace(/-/g, '/'));
+                    if (!isNaN(submittedDateTime.getTime())) {
+                        timeObj = submittedDateTime;
                     }
                 }
                 
-                // 如果 date_submitted 无效或不含时间，回退到使用 created_at 的时间部分，但保留 date_submitted 的日期部分
-                if (!dateObj && process.created_at) {
-                    const createdDate = new Date(process.created_at.replace(/-/g, '/'));
-                    if (process.date_submitted) {
-                        const onlyDate = new Date(process.date_submitted.replace(/-/g, '/'));
-                        dateObj = onlyDate;
-                        timeObj = createdDate;
-                    } else {
-                        dateObj = createdDate;
-                        timeObj = createdDate;
-                    }
-                }
-                
-                // Final fallback
-                if (!dateObj) {
-                    dateObj = new Date();
-                    timeObj = new Date();
-                }
-
                 const day = String(dateObj.getDate()).padStart(2, '0');
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const year = dateObj.getFullYear();
