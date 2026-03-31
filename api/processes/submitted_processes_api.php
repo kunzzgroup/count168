@@ -133,8 +133,8 @@ function getWeekSubmissions($user_id)
     $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
 
     if ($user_type === 'user') {
-        $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
-        $userStmt->execute([$user_id]);
+        $userStmt = $pdo->prepare("SELECT process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+        $userStmt->execute([$user_id, $currentCompanyId]);
         $user = $userStmt->fetch(PDO::FETCH_ASSOC);
 
         // 检查 process_permissions 字段是否存在且非空
@@ -728,8 +728,8 @@ function getTodayEntries($user_id)
         $processIds = [];
         $user_type = $_SESSION['user_type'] ?? 'user';
         if ($user_type === 'user') {
-            $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
-            $userStmt->execute([$user_id]);
+            $userStmt = $pdo->prepare("SELECT process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+            $userStmt->execute([$user_id, $currentCompanyId]);
             $user = $userStmt->fetch(PDO::FETCH_ASSOC);
             if ($user && !empty($user['process_permissions'])) {
                 $processPermissions = json_decode($user['process_permissions'], true);
@@ -743,17 +743,6 @@ function getTodayEntries($user_id)
             }
         }
 
-        // 检查 capture_date 列是否存在
-        try {
-            $testStmt = $pdo->prepare("SELECT capture_date FROM submitted_processes LIMIT 1");
-            $testStmt->execute();
-            $hasCaptureDateColumn = true;
-        } catch (PDOException $e) {
-            $hasCaptureDateColumn = false;
-        }
-
-        $captureDateSelect = $hasCaptureDateColumn ? "sp.capture_date," : "sp.date_submitted AS capture_date,";
-
         // 构建权限过滤条件
         $permissionCondition = "";
         $params = [$currentCompanyId];
@@ -766,7 +755,7 @@ function getTodayEntries($user_id)
 
         $stmt = $pdo->prepare("
             SELECT 
-                sp.id, sp.process_id, sp.date_submitted, $captureDateSelect sp.created_at,
+                sp.id, sp.process_id, sp.date_submitted, sp.capture_date, sp.created_at,
                 p.process_id as process_code, d.name as description_name,
                 COALESCE(u.login_id, o.owner_code) as submitted_by
             FROM submitted_processes sp
