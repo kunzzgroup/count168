@@ -431,6 +431,11 @@ function getOrderedRoles(includeStaff = true) {
         normalizedMap.set('STAFF', 'STAFF');
     }
 
+    // 确保 PARTNER 始终作为一个可选项，即使数据库中目前没有这个角色的账户
+    if (!normalizedMap.has('PARTNER')) {
+        normalizedMap.set('PARTNER', 'PARTNER');
+    }
+
     const orderedRoles = [];
     ROLE_PRIORITY.forEach(role => {
         if (normalizedMap.has(role)) {
