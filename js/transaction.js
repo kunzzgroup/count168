@@ -3682,29 +3682,25 @@ function initExcelCopyWithStyles() {
 // ==================== 通知系统 ====================
 function showNotification(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
-    
+
     // 检查现有通知，最多保留2个
     const existingNotifications = container.querySelectorAll('.transaction-notification');
     if (existingNotifications.length >= 2) {
+        // 立即移除最旧的通知，不等待动画
         const oldestNotification = existingNotifications[0];
-        oldestNotification.classList.remove('show');
-        setTimeout(() => {
-            if (oldestNotification.parentNode) {
-                oldestNotification.remove();
-            }
-        }, 300);
+        oldestNotification.remove();
     }
-    
+
     const notification = document.createElement('div');
     notification.className = `transaction-notification transaction-notification-${type}`;
     notification.textContent = message;
-    
+
     container.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.classList.add('show');
     }, 10);
-    
+
     // 2秒后淡出
     setTimeout(() => {
         notification.classList.remove('show');
