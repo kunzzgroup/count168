@@ -2984,7 +2984,7 @@ async function loadFormData() {
                     // Add account options
                     result.accounts.forEach(account => {
                         // Only for upline, agent, member: display "Account [name]"; other roles show account_id only
-                        const rolesToShowName = ['upline', 'agent', 'member'];
+                        const rolesToShowName = ['supplier', 'agent', 'member'];
                         let displayText;
                         if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
                             displayText = account.account_id + ' [' + account.name + ']';
@@ -3197,7 +3197,7 @@ async function refreshAccountList(selectAccountId = null) {
 // Global variables for add account modal
 let roles = [];
 let currencies = [];
-const ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+const ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
 
 function getOrderedRoles(includeStaff = true) {
     const normalizedMap = new Map();
@@ -19551,7 +19551,7 @@ async function submitSummaryData() {
 }
 
 // Only upline, member, agent show "Account [name]"; other roles show account_id only.
-const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'agent', 'member'];
+const ROLES_TO_SHOW_ACCOUNT_NAME = ['supplier', 'agent', 'member'];
 
 // Format account display by role: strip [name] for roles not in ROLES_TO_SHOW_ACCOUNT_NAME.
 // accountList: optional array with { id, account_id, name, role }; uses window.__accountListWithRoles or __summaryAccountListCache if not provided.

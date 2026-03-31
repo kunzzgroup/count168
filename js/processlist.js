@@ -3356,7 +3356,7 @@ let bankAddAccountTriggerHiddenInputId = null;
 
 let bankAccountRoles = [];
 /** Role 排序优先级（与 account-list 一致，Add Account 弹窗开放完整 Role 列表） */
-const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
 
 function getOrderedRolesBank(roles, includeStaff = true) {
     const normalizedMap = new Map();
