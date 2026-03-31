@@ -10,7 +10,13 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 function jsonResponse(bool $success, string $message, $data = null): void {
-    echo json_encode(['success' => $success, 'message' => $message, 'data' => $data]);
+    // 兼容旧前端：失败时部分页面读取 result.error 而不是 message
+    echo json_encode([
+        'success' => $success,
+        'message' => $message,
+        'error' => $success ? null : $message,
+        'data' => $data,
+    ]);
 }
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
