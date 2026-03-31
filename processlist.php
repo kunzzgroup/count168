@@ -885,7 +885,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </select>
                             </div>
                             <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
-                            <div class="bank-profit-sharing-container" >
+                            <div class="bank-profit-sharing-container" class="form-group">
                                 <div class="bank-profit-sharing-header">
                                     <h3>Selected Profit Sharing</h3>
                                     <button type="button" class="bank-add-btn"
