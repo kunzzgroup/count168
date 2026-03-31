@@ -18,8 +18,7 @@ require_once __DIR__ . '/../../config.php';
 function historyHasContraApprovalColumns(PDO $pdo): bool
 {
     static $has = null;
-    if ($has !== null)
-        return $has;
+    if ($has !== null) return $has;
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'");
     $has = $stmt->rowCount() > 0;
     return $has;
@@ -37,12 +36,11 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
 /**
  * 将 entry_type 映射为友好的 Product 显示名称
  */
-function mapEntryTypeToProduct($entryType)
-{
+function mapEntryTypeToProduct($entryType) {
     if (empty($entryType)) {
         return 'RATE';
     }
-
+    
     $mapping = [
         'RATE_FIRST_FROM' => 'RATE',
         'RATE_FIRST_TO' => 'RATE',
@@ -53,7 +51,7 @@ function mapEntryTypeToProduct($entryType)
         'NORMAL_FROM' => 'TRANSFER',
         'NORMAL_TO' => 'TRANSFER'
     ];
-
+    
     return $mapping[$entryType] ?? $entryType;
 }
 
@@ -78,14 +76,14 @@ function formatExchangeRateDescription(string $description, ?string $fromCurrenc
     $direction = strtoupper(trim($matches[1]));
     $otherAccount = trim($matches[2]);
     $rateText = $rateOverride !== null && $rateOverride !== ''
-        ? trim((string) $rateOverride)
+        ? trim((string)$rateOverride)
         : trim($matches[3]);
 
     $formatted = 'EXCH RATE ' . $rateText;
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
         $formatted .= ' ' . trim($fromCurrencyCode);
         if ($fromAmount !== null && $fromAmount !== '') {
-            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
             if ($formattedAmount !== '') {
                 $formatted .= ' ' . $formattedAmount;
             }
@@ -108,14 +106,14 @@ function formatMarkupDescription(string $description, ?string $fromCurrencyCode 
         }
         $middlemanRate = trim($matches[1]);
     } else {
-        $middlemanRate = rtrim(rtrim(number_format((float) $middlemanRate, 6, '.', ''), '0'), '.');
+        $middlemanRate = rtrim(rtrim(number_format((float)$middlemanRate, 6, '.', ''), '0'), '.');
     }
 
     $formatted = 'MARKUP ' . $middlemanRate;
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
         $formatted .= ' ' . trim($fromCurrencyCode);
         if ($fromAmount !== null && $fromAmount !== '') {
-            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
             if ($formattedAmount !== '') {
                 $formatted .= ' ' . $formattedAmount;
             }
@@ -148,10 +146,10 @@ function ensureHistoryRatePrecision(PDO $pdo): void
             return;
         }
 
-        $type = strtolower((string) ($column['Type'] ?? ''));
+        $type = strtolower((string)($column['Type'] ?? ''));
         $needsUpgrade = false;
         if (preg_match('/decimal\(\s*\d+\s*,\s*(\d+)\s*\)/i', $type, $matches)) {
-            $scale = (int) $matches[1];
+            $scale = (int)$matches[1];
             $needsUpgrade = $scale < 8;
         } elseif ($type !== '' && strpos($type, 'decimal') !== 0) {
             $needsUpgrade = true;
@@ -169,8 +167,7 @@ function ensureHistoryRatePrecision(PDO $pdo): void
 /**
  * 从 profit_sharing 字符串（如 "D - 500, A - 100"）中解析出指定账户的金额；按 account_id 或 name 匹配
  */
-function getProfitSharingAmountForAccount(?string $profitSharing, string $accountCode, string $accountName): ?float
-{
+function getProfitSharingAmountForAccount(?string $profitSharing, string $accountCode, string $accountName): ?float {
     if ($profitSharing === null || trim($profitSharing) === '') {
         return null;
     }
@@ -183,7 +180,7 @@ function getProfitSharingAmountForAccount(?string $profitSharing, string $accoun
             $accountText = trim(substr($t, 0, $dash));
             $amountStr = trim(substr($t, $dash + 3));
             $amount = (float) $amountStr;
-            if ($accountText !== '' && ($accountText === $code || $accountText === $name)) {
+            if ($accountText !== '' && (strcasecmp($accountText, $code) === 0 || strcasecmp($accountText, $name) === 0)) {
                 return $amount;
             }
         }
@@ -199,16 +196,16 @@ try {
 
     // 运行时兜底：确保 rate 不会在写入/读取链路中被 4 位小数截断
     ensureHistoryRatePrecision($pdo);
-    $sessionUserType = isset($_SESSION['user_type']) ? strtolower((string) $_SESSION['user_type']) : '';
+    $sessionUserType = isset($_SESSION['user_type']) ? strtolower((string)$_SESSION['user_type']) : '';
     $isMemberUser = ($sessionUserType === 'member');
-
+    
     // 确定要访问的 company_id：优先使用参数，否则使用 session
     $company_id = null;
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requested_company_id = (int) $_GET['company_id'];
+        $requested_company_id = (int)$_GET['company_id'];
         $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
         $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
-
+        
         if ($userRole === 'owner') {
             // owner 可以访问自己名下的其他公司
             $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
@@ -221,7 +218,7 @@ try {
             }
         } elseif ($userType === 'member') {
             // member 用户可以访问通过 account_company 关联的公司
-            $memberAccountId = (int) $_SESSION['user_id'];
+            $memberAccountId = (int)$_SESSION['user_id'];
             $stmt = $pdo->prepare("
                 SELECT 1 
                 FROM account_company ac
@@ -235,7 +232,7 @@ try {
             }
         } else {
             // 普通用户只能访问当前 session 公司
-            if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested_company_id) {
+            if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === $requested_company_id) {
                 $company_id = $requested_company_id;
             } else {
                 throw new Exception('无权访问该公司');
@@ -245,28 +242,28 @@ try {
         if (!isset($_SESSION['company_id'])) {
             throw new Exception('缺少公司信息');
         }
-        $company_id = (int) $_SESSION['company_id'];
+        $company_id = (int)$_SESSION['company_id'];
     }
-
+    
     // 获取参数
-    $account_id = (int) ($_GET['account_id'] ?? 0);
+    $account_id = (int)($_GET['account_id'] ?? 0);
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
     $currency = $_GET['currency'] ?? null; // 可选：按 data_capture 的 currency 筛选
-
+    
     // 验证必填参数
     if ($account_id <= 0) {
         throw new Exception('账户ID是必填项');
     }
-
+    
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
     }
-
+    
     // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
-
+    
     // 获取 currency_id（如果指定了 currency）
     $currency_id = null;
     if ($currency) {
@@ -275,7 +272,7 @@ try {
         $currency_id = $currency_stmt->fetchColumn();
         error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
     }
-
+    
     // 查询账户信息 - 使用 account_company 表过滤
     $stmt = $pdo->prepare("
         SELECT a.id, a.account_id, a.name 
@@ -285,20 +282,20 @@ try {
     ");
     $stmt->execute([$account_id, $company_id]);
     $account = $stmt->fetch(PDO::FETCH_ASSOC);
-
+    
     if (!$account) {
         throw new Exception('账户不存在或不属于当前公司');
     }
     // 强制校验：返回的账户必须与请求的 account_id 一致，避免单向/双向连接时误显示其他账户数据
-    if ((int) $account['id'] !== (int) $account_id) {
+    if ((int)$account['id'] !== (int)$account_id) {
         throw new Exception('账户校验失败');
     }
-
+    
     // 仅使用当前请求的账户：Win/Loss 与 Payment History 只显示该账户自身数据，不聚合关联账户
     $account_ids = [$account_id];
     // 账户代码（用于 data_capture_details 中可能按代码存储的 account_id 匹配）
-    $account_code = isset($account['account_id']) ? trim((string) $account['account_id']) : '';
-
+    $account_code = isset($account['account_id']) ? trim((string)$account['account_id']) : '';
+    
     // 1. 计算 B/F (Opening Balance)（仅当前账户）
     // 如果指定了 currency，按 currency 计算
     // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
@@ -323,7 +320,7 @@ try {
         ");
         $stmt->execute(array_merge([$company_id], $account_ids));
         $bfCurrency = $stmt->fetchColumn();
-
+        
         if ($bfCurrency) {
             $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
             $stmt->execute([$bfCurrency, $company_id]);
@@ -351,7 +348,7 @@ try {
             ");
             $stmt->execute([$account_ids[0]]);
             $bfCurrency = $stmt->fetchColumn();
-
+            
             if ($bfCurrency) {
                 $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
                 $stmt->execute([$bfCurrency, $company_id]);
@@ -375,7 +372,7 @@ try {
             }
         }
     }
-
+    
     // 2. 查询日期范围内的数据采集记录（视为 Win/Loss）- 如果指定了 currency，按 currency 筛选
     $sqlCapture = "SELECT 
                         dcd.id as detail_id,
@@ -404,8 +401,7 @@ try {
                         dcd.rate,
                         c.code as currency_code,
                         COALESCE(u.login_id, o.owner_code) as capture_created_by,
-                        a_cm.name as card_owner_name,
-                        bp.day_start
+                        a_cm.name as card_owner_name
                     FROM data_capture_details dcd
                     JOIN data_captures dc ON dcd.capture_id = dc.id
                     JOIN currency c ON dcd.currency_id = c.id
@@ -425,19 +421,19 @@ try {
                           ))
                       )
                       AND dc.capture_date BETWEEN ? AND ?";
-
+    
     // dcd.account_id 可能存请求的 id、其他公司的同代码 account.id、或账户代码；用「当前公司下同 account_id 的所有 id」子查询兜底
     $captureParams = [$company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $account_code ?: '', $company_id, $date_from_db, $date_to_db];
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
     }
-
+    
     $sqlCapture .= " ORDER BY dc.capture_date ASC, dc.created_at ASC, dcd.id ASC";
     $stmt = $pdo->prepare($sqlCapture);
     $stmt->execute($captureParams);
     $captureRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+    
     // 3. 查询日期范围内的所有交易记录
     // 如果指定了 currency，根据 data_capture 的 currency 或 transactions.currency_id 来过滤
     // 检查 transactions 表是否有 currency_id 字段
@@ -448,7 +444,7 @@ try {
     $has_source_bank_process_id = $stmt->rowCount() > 0;
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
     $has_source_bank_process_period_type = $stmt->rowCount() > 0;
-
+    
     $sql = "SELECT 
                 t.id,
                 t.transaction_type,
@@ -466,7 +462,7 @@ try {
                 to_acc.account_id as to_account_code,
                 from_acc.account_id as from_account_code,
                 tr.rate_group_id";
-
+    
     // 如果表有 currency_id 字段，也查询它
     if ($has_currency_id) {
         $sql .= ", t.currency_id, c.code as transaction_currency_code";
@@ -475,7 +471,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -483,14 +479,14 @@ try {
             $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type";
         }
     }
-
+    
     $sql .= " FROM transactions t
             LEFT JOIN user u ON t.created_by = u.id
             LEFT JOIN account to_acc ON t.account_id = to_acc.id
             LEFT JOIN account from_acc ON t.from_account_id = from_acc.id
             LEFT JOIN owner o ON t.created_by_owner = o.id
             LEFT JOIN transactions_rate tr ON t.id = tr.transaction_id";
-
+    
     // 如果表有 currency_id 字段，JOIN currency 表
     if ($has_currency_id) {
         $sql .= " LEFT JOIN currency c ON t.currency_id = c.id";
@@ -498,16 +494,16 @@ try {
     if ($has_source_bank_process_id) {
         $sql .= " LEFT JOIN bank_process bp_t ON t.source_bank_process_id = bp_t.id LEFT JOIN account a_cm_t ON bp_t.card_merchant_id = a_cm_t.id";
     }
-
+    
     $ph = implode(',', array_fill(0, count($account_ids), '?'));
     // 这里只查询非 RATE 的交易（RATE 在后续通过 transaction_entry 单独处理）
     $sql .= " WHERE t.company_id = ?
               AND t.transaction_type <> 'RATE'
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
               AND t.transaction_date BETWEEN ? AND ?";
-
+    
     $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
-
+    
     // 如果指定了 currency，根据 data_capture 的 currency 或 transactions.currency_id 来过滤
     if ($currency) {
         if ($has_currency_id) {
@@ -535,16 +531,16 @@ try {
             $transactionParams = array_merge($transactionParams, $account_ids, [$company_id], $account_ids, [$currency_id], $account_ids, [$company_id], $account_ids, [$currency_id]);
         }
     }
-
+    
     $sql .= " ORDER BY t.transaction_date ASC, t.created_at ASC";
-
+    
     $stmt = $pdo->prepare($sql);
     $stmt->execute($transactionParams);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+    
     // 4. 构建历史记录数据
     $history = [];
-
+    
     // 第一行：B/F (Opening Balance)
     // 使用从 data_capture 中获取的 currency，如果没有则尝试从 account_currency 表获取（使用第一个聚合账户）
     if (!$bfCurrency) {
@@ -583,22 +579,21 @@ try {
         'sms' => '-',
         'created_by' => '-'
     ];
-
+    
     // 后续行：数据采集 + 交易记录（余额在下方按币别分别累计）
     $events = [];
     $eventIndex = 0;
-
+    
     foreach ($captureRows as $capture) {
-        $captureDisplayDate = (!empty($capture['day_start'])) ? $capture['day_start'] : $capture['capture_date'];
-        $captureTimestamp = strtotime($captureDisplayDate . ' ' . ($capture['capture_created_at'] ?? '00:00:00'));
+        $captureTimestamp = strtotime($capture['capture_date'] . ' ' . ($capture['capture_created_at'] ?? '00:00:00'));
         if ($captureTimestamp === false) {
-            $captureTimestamp = strtotime($captureDisplayDate);
+            $captureTimestamp = strtotime($capture['capture_date']);
         }
-
+        
         // Product: 使用 id_product（id_product_sub 或 id_product_main），如果有 description 则附加在后面（括号内）
         $product = '';
         $productDescription = null; // 用于存储 description_main 或 description_sub
-
+        
         if ($capture['product_type'] === 'sub' && !empty($capture['id_product_sub'])) {
             $product = $capture['id_product_sub'];
             // 获取对应的 description_sub
@@ -620,20 +615,20 @@ try {
                 $productDescription = $capture['description_main'];
             }
         }
-
+        
         // 如果产品编号里已包含相同 description，则不要重复追加，避免出现
         // "ABB5ADMIN (PROCESS FEE 3%) (PROCESS FEE 3%)" 这类重复显示
         if (!empty($productDescription)) {
-            $normalizedProductDescription = trim((string) $productDescription);
+            $normalizedProductDescription = trim((string)$productDescription);
             $wrappedProductDescription = '(' . $normalizedProductDescription . ')';
-            if ($normalizedProductDescription !== '' && stripos((string) $product, $wrappedProductDescription) === false) {
+            if ($normalizedProductDescription !== '' && stripos((string)$product, $wrappedProductDescription) === false) {
                 $product = $product . ' ' . $wrappedProductDescription;
             }
         }
-
+        
         // Percent: 不再使用 source_percent，留空
         $percent = '';
-
+        
         // Description: 格式为 description.name:formula
         $descriptionText = '';
         $formula = $capture['formula'] ?? '';
@@ -645,30 +640,30 @@ try {
             $fallbackName = $capture['product_name'] ?? 'Data Capture';
             $descriptionText = trim($fallbackName) . ' : ' . ($formula !== '' ? $formula : '0');
         }
-
+        
         // Rate: 从 data_capture_details 中获取 rate 值（最多显示 8 位小数，去掉尾随 0）
         $rate = null;
         if (isset($capture['rate']) && $capture['rate'] !== null && $capture['rate'] !== '') {
             // 与 Data Summary 保持一致：保留有效小数，不强制补 0；但小数位最多 8 位
-            $rateRounded = round((float) $capture['rate'], 8);
+            $rateRounded = round((float)$capture['rate'], 8);
             $rate = rtrim(rtrim(number_format($rateRounded, 8, '.', ''), '0'), '.');
             if ($rate === '') {
                 $rate = '0';
             }
         }
-
+        
         // Remark: 不再使用 description_main 或 description_sub（因为它们已经显示在 product 列），只使用 capture_remark
         $remark = $capture['capture_remark'] ?? null;
-
+        
         $events[] = [
             'row_type' => 'data_capture',
             'transaction_id' => null,
             'transaction_type' => 'DATA_CAPTURE',
             'order_ts' => $captureTimestamp ?: 0,
             'order_index' => $eventIndex++,
-            'win_loss' => (float) $capture['processed_amount'],
+            'win_loss' => (float)$capture['processed_amount'],
             'cr_dr' => 0,
-            'date' => date('d/m/Y', strtotime($captureDisplayDate)),
+            'date' => date('d/m/Y', strtotime($capture['capture_date'])),
             'source' => $capture['transaction_type'] ?? 'DATA_CAPTURE',
             'product' => $product ?: '-',
             'card_owner' => !empty($capture['card_owner_name']) ? trim($capture['card_owner_name']) : '-',
@@ -682,11 +677,11 @@ try {
             'created_by' => $capture['capture_created_by'] ?: '-'
         ];
     }
-
+    
     $account_ids_int = array_map('intval', $account_ids);
     foreach ($transactions as $t) {
-        $is_to_account = in_array((int) $t['account_id'], $account_ids_int);
-        $is_from_account = in_array((int) ($t['from_account_id'] ?? 0), $account_ids_int);
+        $is_to_account = in_array((int)$t['account_id'], $account_ids_int);
+        $is_from_account = in_array((int)($t['from_account_id'] ?? 0), $account_ids_int);
         $win_loss = 0;
         $cr_dr = 0;
         $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
@@ -696,7 +691,7 @@ try {
         $is_internal_transfer = $is_to_account && $is_from_account;
         // 手动 PROFIT：WIN/LOSE 且非 Bank Process，description 不以 "Process: " 开头
         $isManualProfit = in_array($t['transaction_type'], ['WIN', 'LOSE'], true)
-            && stripos((string) $rawDescription, 'Process: ') !== 0;
+            && stripos((string)$rawDescription, 'Process: ') !== 0;
 
         // 为手动 PROFIT 尝试找出对应的对手账户（另一条相反类型、相同日期和金额的交易）
         $otherAccountCodeForManualProfit = null;
@@ -728,24 +723,24 @@ try {
             ]);
             $otherAccountCodeForManualProfit = $manualProfitPairStmt->fetchColumn() ?: null;
         }
-
+        
         // 根据交易类型计算 Win/Loss 和 Cr/Dr
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
         switch ($t['transaction_type']) {
             case 'WIN':
                 if (!$is_internal_transfer && $is_to_account) {
                     // 手动 PROFIT：Select To 显示负数、Select From 显示正数
-                    $cr_dr = $isManualProfit ? -(float) $t['amount'] : (float) $t['amount'];
+                    $cr_dr = $isManualProfit ? -(float)$t['amount'] : (float)$t['amount'];
                 }
                 break;
-
+                
             case 'LOSE':
                 if (!$is_internal_transfer && $is_to_account) {
                     // 手动 PROFIT：Select To 显示负数、Select From 显示正数（LOSE 条是 From 账户，显示正数）
-                    $cr_dr = $isManualProfit ? (float) $t['amount'] : -(float) $t['amount'];
+                    $cr_dr = $isManualProfit ? (float)$t['amount'] : -(float)$t['amount'];
                 }
                 break;
-
+                
             case 'RECEIVE':
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
@@ -755,7 +750,7 @@ try {
                     $cr_dr = $t['amount'];
                 }
                 break;
-
+                
             case 'CLAIM':
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
@@ -765,7 +760,7 @@ try {
                     $cr_dr = $t['amount'];
                 }
                 break;
-
+                
             case 'PAYMENT':
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
@@ -775,10 +770,10 @@ try {
                     $cr_dr = $t['amount'];
                 }
                 break;
-
+                
             case 'CLEAR':
                 // FROM ACCOUNT 正数，TO ACCOUNT 负数
-                if ($approvalStatus && strtoupper((string) $approvalStatus) === 'PENDING') {
+                if ($approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
                     $cr_dr = 0;
                 } else {
                     if ($is_internal_transfer) {
@@ -792,7 +787,7 @@ try {
                 break;
             case 'CONTRA':
                 // FROM 显示正数，TO 显示负数
-                if ($approvalStatus && strtoupper((string) $approvalStatus) === 'PENDING') {
+                if ($approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
                     $cr_dr = 0;
                 } else {
                     if ($is_internal_transfer) {
@@ -814,9 +809,9 @@ try {
                     $cr_dr = -(float) $t['amount'];
                 }
                 break;
-
+                
         }
-
+        
         // Bank process 的 WIN/LOSE + 手动 PROFIT：
         // History 中金额统一显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
         $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
@@ -824,13 +819,13 @@ try {
             $win_loss = $cr_dr;
             $cr_dr = 0;
         }
-
+        
         // 动态调整 description
         $description = $t['description'] ?: '-';
-
+        
         // WIN/LOSE（Bank process 入账）：按入账类型显示；Description 金额按当前账户：Supplier 用 Buy Price(cost)，Customer 用 Sell Price(price)，Company 用 Profit，Profit sharing 用对应金额，格式如 Remaining days bill 2000 (MBB)
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
-            $periodType = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
+            $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
                 $description = 'Remaining days bill';
             } elseif ($periodType === 'manual_inactive') {
@@ -861,7 +856,7 @@ try {
                 $description = $description . ' (' . trim($t['bank_name']) . ')';
             }
         }
-
+        
         // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前账户在 Win/Loss 的正负来决定 FROM / TO
         if ($isManualProfit) {
             // 先根据配对交易找对手账户编号，找不到就退回到 join 出来的 account code
@@ -879,7 +874,7 @@ try {
                 $description = 'PROFIT';
             }
         }
-
+        
         // 如果是 CONTRA/CLEAR/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
         if (in_array($t['transaction_type'], ['CONTRA', 'CLEAR', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
             if (empty($t['description'])) {
@@ -908,7 +903,7 @@ try {
                     $type = $matches[1];
                     $direction = $matches[2];
                     $other_account = $matches[3];
-
+                    
                     if (!$is_to_account) {
                         // 如果当前查看的是 From Account，需要反转方向
                         $description = $type . ' TO ' . ($t['to_account_code'] ?: $other_account);
@@ -924,16 +919,15 @@ try {
         }
 
         // 追加审批标记（只对未批准 CONTRA；CLEAR 没有审批流程，只沿用金额逻辑）
-        if ($t['transaction_type'] === 'CONTRA' && $approvalStatus && strtoupper((string) $approvalStatus) === 'PENDING') {
+        if ($t['transaction_type'] === 'CONTRA' && $approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
             $description = '[PENDING APPROVAL] ' . $description;
         }
-
-        $transactionDisplayDate = ($has_source_bank_process_id && !empty($t['day_start'])) ? $t['day_start'] : $t['transaction_date'];
-        $transactionTimestamp = strtotime($transactionDisplayDate . ' ' . ($t['created_at'] ?? '00:00:00'));
+        
+        $transactionTimestamp = strtotime($t['transaction_date'] . ' ' . ($t['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($transactionDisplayDate);
+            $transactionTimestamp = strtotime($t['transaction_date']);
         }
-
+        
         // 确定交易的 currency：
         // 1. 如果 transactions 表有 currency_id 字段，优先使用 transaction_currency_code
         // 2. 如果指定了 currency filter，使用它
@@ -961,13 +955,13 @@ try {
             ");
             $stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$t['transaction_date']]));
             $transactionCurrency = $stmt->fetchColumn();
-
+            
             // 如果找不到，使用 B/F 的 currency
             if (!$transactionCurrency) {
                 $transactionCurrency = $bfCurrency;
             }
         }
-
+        
         // 确定 Created By：优先 login_id / owner_code，其次姓名
         $transactionCreatedBy = '-';
         if (!empty($t['created_by_login_id'])) {
@@ -979,12 +973,12 @@ try {
         } elseif (!empty($t['created_by_owner_name'])) {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
-
+        
         // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）；仅 bank process 交易显示 card_owner，其余显示 id product
         $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
         // Id Product：手动 PROFIT（WIN/LOSE，非 Bank Process）统一显示为 PROFIT，其余沿用 transaction_type
         $productLabel = $isManualProfit ? 'PROFIT' : $t['transaction_type'];
-
+        
         $events[] = [
             'row_type' => 'transaction',
             'transaction_id' => $t['id'],
@@ -993,7 +987,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $win_loss,
             'cr_dr' => $cr_dr,
-            'date' => date('d/m/Y', strtotime($transactionDisplayDate)),
+            'date' => date('d/m/Y', strtotime($t['transaction_date'])),
             'source' => $t['transaction_type'],
             'product' => $productLabel,
             'card_owner' => $cardOwner,
@@ -1006,7 +1000,7 @@ try {
             'created_by' => $transactionCreatedBy
         ];
     }
-
+    
     // ==================== 追加 RATE 分录（从 transaction_entry 读取） ====================
     $ratePh = implode(',', array_fill(0, count($account_ids), '?'));
     $rateSql = "SELECT 
@@ -1032,8 +1026,7 @@ try {
                     u.login_id AS created_by_login_id,
                     u.name AS created_by_name,
                     o.owner_code AS created_by_owner_code,
-                    o.name AS created_by_owner_name,
-                    bp_r.day_start
+                    o.name AS created_by_owner_name
                 FROM transaction_entry e
                 JOIN transactions h ON e.header_id = h.id
                 LEFT JOIN currency c ON e.currency_id = c.id
@@ -1043,33 +1036,31 @@ try {
                 LEFT JOIN currency ct ON tr.rate_to_currency_id = ct.id
                 LEFT JOIN user u ON h.created_by = u.id
                 LEFT JOIN owner o ON h.created_by_owner = o.id
-                LEFT JOIN bank_process bp_r ON h.source_bank_process_id = bp_r.id
                 WHERE h.company_id = ?
                   AND e.company_id = ?
                   AND h.transaction_type = 'RATE'
                   AND e.account_id IN ($ratePh)
                   AND h.transaction_date BETWEEN ? AND ?";
     $rateParams = array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db]);
-
+    
     if ($currency && $currency_id) {
         $rateSql .= " AND e.currency_id = ?";
         $rateParams[] = $currency_id;
     }
-
+    
     $rateSql .= " ORDER BY h.transaction_date ASC, h.created_at ASC, e.id ASC";
-
+    
     $rateStmt = $pdo->prepare($rateSql);
     $rateStmt->execute($rateParams);
     $rateRows = $rateStmt->fetchAll(PDO::FETCH_ASSOC);
-
+    
     foreach ($rateRows as $row) {
-        $transactionDisplayDate = (!empty($row['day_start'])) ? $row['day_start'] : $row['transaction_date'];
-        $transactionTimestamp = strtotime($transactionDisplayDate . ' ' . ($row['created_at'] ?? '00:00:00'));
+        $transactionTimestamp = strtotime($row['transaction_date'] . ' ' . ($row['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($transactionDisplayDate);
+            $transactionTimestamp = strtotime($row['transaction_date']);
         }
-
-        $amount = (float) $row['amount'];
+        
+        $amount = (float)$row['amount'];
         // RATE 第二行/第四行：TO 负数、FROM 正数（与 PAYMENT 一致）
         // Middle-Man（RATE_MIDDLEMAN）保留正数，并显示在 Win/Loss
         $entryType = $row['entry_type'] ?? '';
@@ -1083,8 +1074,8 @@ try {
         // 适用于第一行与第二行（RATE_FIRST_TO / RATE_TRANSFER_TO）。
         $displayRateForSuffix = null;
         if (in_array($entryType, ['RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
-            $exchangeRate = isset($row['exchange_rate']) ? (float) $row['exchange_rate'] : null;
-            $middlemanRate = isset($row['rate_middleman_rate']) ? (float) $row['rate_middleman_rate'] : null;
+            $exchangeRate = isset($row['exchange_rate']) ? (float)$row['exchange_rate'] : null;
+            $middlemanRate = isset($row['rate_middleman_rate']) ? (float)$row['rate_middleman_rate'] : null;
             if ($exchangeRate !== null && $middlemanRate !== null) {
                 $netRate = $exchangeRate - $middlemanRate;
                 if ($netRate > 0) {
@@ -1117,7 +1108,7 @@ try {
             $description = stripTrailingRateSuffix($description);
         }
         $transactionCurrency = $row['currency_code'] ?: $bfCurrency;
-
+        
         // 确定 Created By：优先 login_id / owner_code，其次姓名
         $transactionCreatedBy = '-';
         if (!empty($row['created_by_login_id'])) {
@@ -1129,7 +1120,7 @@ try {
         } elseif (!empty($row['created_by_owner_name'])) {
             $transactionCreatedBy = $row['created_by_owner_name'];
         }
-
+        
         $events[] = [
             'row_type' => 'transaction',
             'transaction_id' => $row['header_id'],
@@ -1138,7 +1129,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $entryType === 'RATE_MIDDLEMAN' ? $amount : 0,
             'cr_dr' => $entryType === 'RATE_MIDDLEMAN' ? 0 : $amount,
-            'date' => date('d/m/Y', strtotime($transactionDisplayDate)),
+            'date' => date('d/m/Y', strtotime($row['transaction_date'])),
             'source' => 'RATE',
             'product' => mapEntryTypeToProduct($row['entry_type']),
             'card_owner' => '-',
@@ -1158,29 +1149,31 @@ try {
             'entry_type' => $entryType
         ];
     }
-
-    usort($events, function ($a, $b) {
+    
+    usort($events, function($a, $b) {
         if ($a['order_ts'] === $b['order_ts']) {
             return $a['order_index'] <=> $b['order_index'];
         }
         return $a['order_ts'] <=> $b['order_ts'];
     });
-
+    
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
-        $balance_by_currency[$bfCurrency] = (float) $bf;
+        $balance_by_currency[$bfCurrency] = round((float) $bf, 2);
     }
-
+    
     foreach ($events as $event) {
         $displayCurrency = $event['currency'] ?? $bfCurrency;
-        $curKey = ($displayCurrency !== null && (string) $displayCurrency !== '') ? (string) $displayCurrency : '-';
+        $curKey = ($displayCurrency !== null && (string)$displayCurrency !== '') ? (string)$displayCurrency : '-';
         if (!isset($balance_by_currency[$curKey])) {
             $balance_by_currency[$curKey] = 0;
         }
-        $balance_by_currency[$curKey] += (float) ($event['win_loss'] ?? 0) + (float) ($event['cr_dr'] ?? 0);
+        $eventWinLoss = round((float)($event['win_loss'] ?? 0), 2);
+        $eventCrDr = round((float)($event['cr_dr'] ?? 0), 2);
+        $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
         $row_balance = $balance_by_currency[$curKey];
-
+        
         // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化
         $finalDescription = $event['description'];
         if ($isMemberUser) {
@@ -1196,14 +1189,14 @@ try {
                     if ($fromCode && $toCode) {
                         $finalDescription = 'Markup (' . $fromCode;
                         if ($fromAmount !== null && $fromAmount !== '') {
-                            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+                            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
                             if ($formattedAmount !== '') {
                                 $finalDescription .= ' ' . $formattedAmount;
                             }
                         }
                         $finalDescription .= ' > ' . $toCode . ')';
                         if ($middlemanRate !== null && $middlemanRate !== '') {
-                            $formattedRate = rtrim(rtrim(number_format((float) $middlemanRate, 6, '.', ''), '0'), '.');
+                            $formattedRate = rtrim(rtrim(number_format((float)$middlemanRate, 6, '.', ''), '0'), '.');
                             if ($formattedRate !== '') {
                                 $finalDescription .= ' Rate ' . $formattedRate;
                             }
@@ -1220,14 +1213,14 @@ try {
                     if ($fromCode && $toCode) {
                         $finalDescription = 'Currency Exchange (' . $fromCode;
                         if ($fromAmount !== null && $fromAmount !== '') {
-                            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+                            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
                             if ($formattedAmount !== '') {
                                 $finalDescription .= ' ' . $formattedAmount;
                             }
                         }
                         $finalDescription .= ' > ' . $toCode . ')';
                         if ($exchangeRate !== null && $exchangeRate !== '') {
-                            $formattedRate = rtrim(rtrim(number_format((float) $exchangeRate, 6, '.', ''), '0'), '.');
+                            $formattedRate = rtrim(rtrim(number_format((float)$exchangeRate, 6, '.', ''), '0'), '.');
                             if ($formattedRate !== '') {
                                 $finalDescription .= ' Rate ' . $formattedRate;
                             }
@@ -1246,7 +1239,7 @@ try {
                 $finalDescription = 'Claim Settlement';
             }
         }
-
+        
         $history[] = [
             'row_type' => $event['row_type'],
             'transaction_id' => $event['transaction_id'],
@@ -1258,8 +1251,8 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $event['win_loss'] != 0 ? number_format($event['win_loss'], 2) : '0.00',
-            'cr_dr' => $event['cr_dr'] != 0 ? number_format($event['cr_dr'], 2) : '0.00',
+            'win_loss' => $eventWinLoss != 0 ? number_format($eventWinLoss, 2) : '0.00',
+            'cr_dr' => $eventCrDr != 0 ? number_format($eventCrDr, 2) : '0.00',
             'balance' => number_format($row_balance, 2),
             'description' => $finalDescription,
             'sms' => $event['sms'],
@@ -1268,7 +1261,7 @@ try {
             'transaction_type' => $event['transaction_type']
         ];
     }
-
+    
     // 返回结果
     echo json_encode([
         'success' => true,
@@ -1286,7 +1279,7 @@ try {
             'history' => $history
         ]
     ]);
-
+    
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([
@@ -1311,10 +1304,9 @@ try {
  * 计算 B/F (Balance Forward)
  * 与 search_api.php 中的函数相同
  */
-function calculateBF($pdo, $account_id, $date_from, $company_id)
-{
+function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $bf = 0;
-
+    
     // 1. 计算日期之前所有 data_capture 的 processed_amount
     // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
@@ -1324,11 +1316,11 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dc.capture_date < ?";
-
+    
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $date_from]);
     $bf += $stmt->fetchColumn();
-
+    
     // 2. 计算日期之前所有 transactions 的影响
     // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 影响 Cr/Dr（作为 To Account）；CONTRA/CLEAR 时 TO 显示负数
     $sql = "SELECT 
@@ -1347,12 +1339,12 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
               AND transaction_date < ?
               AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
               AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)"
-        . historyContraApprovedWhere($pdo, '');
-
+              . historyContraApprovedWhere($pdo, '');
+    
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
     $bf += $stmt->fetchColumn();
-
+    
     // PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM/RATE 影响 Cr/Dr（作为 From Account）；CONTRA/CLEAR 时 FROM 显示正数
     $sql = "SELECT 
                     COALESCE(SUM(CASE 
@@ -1366,12 +1358,12 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
               AND from_account_id = ?
               AND transaction_date < ?
               AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
-        . historyContraApprovedWhere($pdo, '');
-
+              . historyContraApprovedWhere($pdo, '');
+    
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
     $bf += $stmt->fetchColumn(); // 改为加号
-
+    
     return $bf;
 }
 
@@ -1379,17 +1371,16 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
  * 按 Currency 计算 B/F (Balance Forward)
  * 与 search_api.php 中的函数相同
  */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id)
-{
+function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id) {
     $bf = 0;
-
+    
     // 检查 transactions 表是否有 currency_id 字段（仅检查一次）
     static $has_transaction_currency = null;
     if ($has_transaction_currency === null) {
         $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
         $has_transaction_currency = $stmt->rowCount() > 0;
     }
-
+    
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
     // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
@@ -1400,73 +1391,115 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dcd.currency_id = ?
               AND dc.capture_date < ?";
-
+    
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
-
-    // 2. 计算起始日期之前所有 Cr/Dr（作为 To Account，按 currency 过滤）；CONTRA 时 TO 显示负数
+    
+    // 2. 起始日期之前：Win/Loss 来自 WIN/LOSE（含 PROFIT）+ Cr/Dr 来自 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM（作为 To Account）；RATE 单独用 transaction_entry 处理
     if ($has_transaction_currency) {
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'WIN' THEN t.amount
-                        WHEN transaction_type = 'LOSE' THEN -t.amount
-                        ELSE 0
-                    END), 0) as cr_dr
+        // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
+        $sql = "SELECT COALESCE(SUM(CASE
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                  ELSE 0
+                END), 0) as total
                 FROM transactions t
                 WHERE t.company_id = ?
-                  AND t.account_id = ?
-                  AND t.currency_id = ?
+                  AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
-                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)"
-            . historyContraApprovedWhere($pdo, 't');
-
+                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND (
+                      (t.currency_id = ?)
+                      OR (t.currency_id IS NULL AND EXISTS (
+                          SELECT 1 FROM data_capture_details dcd
+                          JOIN data_captures dc ON dcd.capture_id = dc.id
+                          WHERE dcd.company_id = ? AND dc.company_id = ?
+                            AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
+                            AND dcd.currency_id = ?
+                      ))
+                  )" . historyContraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
-    } else {
+        $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
+        $bf += $stmt->fetchColumn();
+
+        // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                         WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'WIN' THEN t.amount
-                        WHEN transaction_type = 'LOSE' THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                        ELSE 0
+                    END), 0) as cr_dr
+                FROM transactions t
+                WHERE t.company_id = ?
+                  AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
+                  AND t.transaction_date < ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND t.currency_id = ?"
+                  . historyContraApprovedWhere($pdo, 't');
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $currency_id]);
+        $bf += $stmt->fetchColumn();
+    } else {
+        // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
+        $sql = "SELECT COALESCE(SUM(CASE
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                  ELSE 0
+                END), 0) as total
+                FROM transactions t
+                WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date < ?
+                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND EXISTS (
+                      SELECT 1 FROM data_capture_details dcd
+                      JOIN data_captures dc ON dcd.capture_id = dc.id
+                      WHERE dcd.company_id = ? AND dc.company_id = ? AND dcd.account_id = t.account_id AND dcd.currency_id = ?
+                  )" . historyContraApprovedWhere($pdo, 't');
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
+        $bf += $stmt->fetchColumn();
+
+        $sql = "SELECT 
+                    COALESCE(SUM(CASE 
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND t.account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
-                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
+                      JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
+                        AND dc.company_id = ?
                         AND dcd.account_id = t.account_id
                         AND dcd.currency_id = ?
                   )"
-            . historyContraApprovedWhere($pdo, 't');
-
+                  . historyContraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
+        $bf += $stmt->fetchColumn();
     }
-    $bf += $stmt->fetchColumn();
 
-    // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤）；CONTRA 时 FROM 显示正数
+    // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤；RATE 单独用 transaction_entry 处理）
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'RATE' THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                         WHEN transaction_type = 'CONTRA' THEN t.amount
+                        WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -1474,39 +1507,60 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
-            . historyContraApprovedWhere($pdo, 't');
-
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
+                  . historyContraApprovedWhere($pdo, 't');
+        
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'RATE' THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                         WHEN transaction_type = 'CONTRA' THEN t.amount
+                        WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND t.from_account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
+                      JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
-                        AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
+                        AND dc.company_id = ?
+                        AND dcd.account_id = t.from_account_id
                         AND dcd.currency_id = ?
                   )"
-            . historyContraApprovedWhere($pdo, 't');
-
+                  . historyContraApprovedWhere($pdo, 't');
+        
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
     }
     $bf += $stmt->fetchColumn();
 
+    // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
+    $rateStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(CASE
+          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+          WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+          ELSE e.amount
+        END), 0) AS total
+        FROM transaction_entry e
+        JOIN transactions h ON e.header_id = h.id
+        WHERE h.company_id = ?
+          AND e.company_id = ?
+          AND h.transaction_type = 'RATE'
+          AND e.account_id = ?
+          AND e.currency_id = ?
+          AND h.transaction_date < ?
+    ");
+    $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
+    $bf += $rateStmt->fetchColumn();
+    
     return $bf;
 }
 ?>
