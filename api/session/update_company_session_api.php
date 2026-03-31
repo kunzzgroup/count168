@@ -8,27 +8,51 @@ require_once __DIR__ . '/../../session_check.php';
 
 header('Content-Type: application/json');
 
+function translateApiMessage(string $message): string {
+    $map = [
+        '用户未登录' => 'User not logged in',
+        '缺少 company_id 参数' => 'Missing company_id parameter',
+        '获取公司列表失败' => 'Failed to load company list',
+        '无权限访问该公司' => 'No permission to access this company',
+        'Company 已更新' => 'Company updated',
+    ];
+
+    return $map[$message] ?? $message;
+}
+
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
         http_response_code($httpCode);
     }
+    $message = translateApiMessage((string)$message);
     echo json_encode([
         'success' => (bool) $success,
         'message' => $message,
+        'error' => $success ? null : $message,
         'data' => $data
     ], JSON_UNESCAPED_UNICODE);
 }
 
 function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
     if (strtolower($user_type) === 'member') {
+        // member 可能来自不同登录入口：有的用 account_company(account_id)，有的仍走 user_company_map(user_id)
+        // 为避免切换 company 误判无权限，这里同时检查两种映射。
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.id, c.company_id
             FROM company c
             INNER JOIN account_company ac ON c.id = ac.company_id
             WHERE ac.account_id = ?
-            ORDER BY c.company_id ASC
+
+            UNION
+
+            SELECT DISTINCT c2.id, c2.company_id
+            FROM company c2
+            INNER JOIN user_company_map ucm ON c2.id = ucm.company_id
+            WHERE ucm.user_id = ?
+
+            ORDER BY company_id ASC
         ");
-        $stmt->execute([$user_id]);
+        $stmt->execute([$user_id, $user_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     if (strtolower($user_role) === 'owner') {
