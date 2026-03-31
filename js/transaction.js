@@ -2244,6 +2244,7 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const balance = balanceCell.getAttribute('data-balance');
     const rowCrDr = balanceCell.getAttribute('data-crdr');
     const currency = balanceCell.getAttribute('data-currency');
+    const rowCurrency = (currency && String(currency).trim()) ? String(currency).trim().toUpperCase() : '';
     
     const isRateView = isRateTypeSelected();
     const currentType = document.getElementById('transaction_type')?.value || '';
@@ -2281,6 +2282,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     
     let accountSet = false;
     let accountCurrency = null; // 从账户列表中获取的 currency
+    // 同步币种优先用表格行币种（与当前余额行口径一致），没有再用账户主币种
+    let syncCurrency = rowCurrency || null;
     
     // 根据 account_db_id 找到对应的 display_text
     // 首先尝试通过 ID 匹配（支持字符串和数字类型）
@@ -2299,6 +2302,9 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             data.account_id === accountCode) {
             accountDisplayText = displayText;
             accountCurrency = data.currency;
+            if (!syncCurrency && data.currency) {
+                syncCurrency = String(data.currency).trim().toUpperCase();
+            }
             foundAccountCode = data.account_id || accountCode;
             break;
         }
@@ -2310,6 +2316,9 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             if (data.account_id === accountCode) {
                 accountDisplayText = displayText;
                 accountCurrency = data.currency;
+                if (!syncCurrency && data.currency) {
+                    syncCurrency = String(data.currency).trim().toUpperCase();
+                }
                 foundAccountCode = data.account_id || accountCode;
                 break;
             }
@@ -2337,8 +2346,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             positiveAccountSelect.textContent = accountDisplayText;
             positiveAccountSelect.setAttribute('data-value', accountId);
             positiveAccountSelect.setAttribute('data-account-code', foundAccountCode);
-            if (accountCurrency) {
-                positiveAccountSelect.setAttribute('data-currency', accountCurrency);
+            if (syncCurrency) {
+                positiveAccountSelect.setAttribute('data-currency', syncCurrency);
             } else {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
@@ -2348,8 +2357,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 rateTransferFromSelect.textContent = accountDisplayText;
                 rateTransferFromSelect.setAttribute('data-value', accountId);
                 rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
-                if (accountCurrency) {
-                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
+                if (syncCurrency) {
+                    rateTransferFromSelect.setAttribute('data-currency', syncCurrency);
                 } else {
                     rateTransferFromSelect.removeAttribute('data-currency');
                 }
@@ -2361,8 +2370,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             negativeAccountSelect.textContent = accountDisplayText;
             negativeAccountSelect.setAttribute('data-value', accountId);
             negativeAccountSelect.setAttribute('data-account-code', foundAccountCode);
-            if (accountCurrency) {
-                negativeAccountSelect.setAttribute('data-currency', accountCurrency);
+            if (syncCurrency) {
+                negativeAccountSelect.setAttribute('data-currency', syncCurrency);
             } else {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
@@ -2372,8 +2381,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 rateTransferToSelect.textContent = accountDisplayText;
                 rateTransferToSelect.setAttribute('data-value', accountId);
                 rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
-                if (accountCurrency) {
-                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
+                if (syncCurrency) {
+                    rateTransferToSelect.setAttribute('data-currency', syncCurrency);
                 } else {
                     rateTransferToSelect.removeAttribute('data-currency');
                 }
@@ -2408,8 +2417,7 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     let currencySet = false;
     let currencyToSet = null;
     if (currencySelect) {
-        const rowCurrency = (currency && String(currency).trim()) ? String(currency).trim() : ''
-        currencyToSet = rowCurrency || accountCurrency || null;
+        currencyToSet = syncCurrency || (accountCurrency ? String(accountCurrency).trim().toUpperCase() : null);
         if (currencyToSet) {
             const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === currencyToSet);
             if (currencyOption && currencySelect.value !== currencyToSet) {
