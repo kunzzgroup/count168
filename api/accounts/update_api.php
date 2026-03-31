@@ -156,10 +156,16 @@ try {
 
     $status = isset($_POST['status']) && trim($_POST['status']) !== '' ? trim($_POST['status']) : $currentAccount['status'];
 
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE code = ?");
+    // 容错：角色 code 可能存在大小写差异，按不区分大小写匹配
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE LOWER(code) = LOWER(?)");
     $stmt->execute([$role]);
-    if ($stmt->fetchColumn() == 0) {
-        throw new Exception('选择的角色无效');
+    $roleExists = ((int) $stmt->fetchColumn()) > 0;
+    if (!$roleExists) {
+        // 容错：部分环境 role 表可能缺少核心角色，但前端仍会展示（如 PARTNER/STAFF/DEBTOR）
+        $core = strtoupper(trim($role));
+        if (!in_array($core, ['PARTNER', 'STAFF', 'DEBTOR'], true)) {
+            throw new Exception('选择的角色无效');
+        }
     }
 
     if (is_array($submitted_company_ids) && !empty($submitted_company_ids)) {
