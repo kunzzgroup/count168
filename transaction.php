@@ -104,9 +104,25 @@ $default_date_to = $today_dt->format('d/m/Y');
             <div class="transaction-search-section">
                 <div class="transaction-form-group">
                     <label class="transaction-label">Category</label>
-                    <select id="filter_category" class="transaction-select">
-                        <option value="">--Select All--</option>
-                    </select>
+                    <div id="filter_category" class="transaction-category-multiselect">
+                        <div class="category-dropdown">
+                            <button type="button" class="category-dropdown-button" id="category_dropdown_button">
+                                <span id="category_selected_text">--Select All--</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="category-dropdown-menu" id="category_dropdown_menu">
+                                <div class="category-option">
+                                    <label class="category-checkbox-label">
+                                        <input type="checkbox" value="" class="category-checkbox" id="category_all">
+                                        <span>--Select All--</span>
+                                    </label>
+                                </div>
+                                <div id="category_options_container">
+                                    <!-- Category options will be dynamically added here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Capture Date：标签在左，select bar + Period 在右（不显示 Quick Select 字眼） -->

@@ -400,11 +400,6 @@ document.addEventListener('DOMContentLoaded', function() {
         showZeroCk.addEventListener('change', handleCheckboxChange);
     }
     
-    const categorySelect = document.getElementById('filter_category');
-    if (categorySelect) {
-        categorySelect.addEventListener('change', () => searchTransactions());
-    }
-    
     // 绑定关闭弹窗
     const modalClose = document.getElementById('modal_close');
     if (modalClose) {
@@ -503,23 +498,137 @@ function loadCategories() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const categorySelect = document.getElementById('filter_category');
-                categorySelect.innerHTML = '<option value="">--Select All--</option>';
+                const categoryOptionsContainer = document.getElementById('category_options_container');
+                categoryOptionsContainer.innerHTML = ''; // 清空现有选项
+                
                 data.data.forEach(role => {
-                    const option = document.createElement('option');
-                    option.value = role;
-                    option.textContent = role.toUpperCase(); // 确保显示为大写
-                    categorySelect.appendChild(option);
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'category-option';
+                    
+                    const label = document.createElement('label');
+                    label.className = 'category-checkbox-label';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'category-checkbox';
+                    checkbox.value = role;
+                    
+                    const span = document.createElement('span');
+                    span.textContent = role.toUpperCase(); // 确保显示为大写
+                    
+                    label.appendChild(checkbox);
+                    label.appendChild(span);
+                    optionDiv.appendChild(label);
+                    categoryOptionsContainer.appendChild(optionDiv);
                 });
+                
+                // 添加事件监听器
+                setupCategoryDropdown();
                 console.log('✅ 分类列表加载成功');
             }
             return data;
         })
         .catch(error => {
-            console.error('❌ 加载分类列表失败:', error);
+            console.error(' 加载分类列表失败:', error);
             showNotification('Failed to load category list', 'error');
             throw error;
         });
+}
+
+// ==================== 分类多选下拉框功能 ====================
+function setupCategoryDropdown() {
+    const dropdownButton = document.getElementById('category_dropdown_button');
+    const dropdownMenu = document.getElementById('category_dropdown_menu');
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    // 切换下拉菜单显示
+    dropdownButton.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdownMenu.classList.toggle('show');
+    });
+    
+    // 点击外部关闭下拉菜单
+    document.addEventListener('click', function(e) {
+        if (!dropdownButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            dropdownMenu.classList.remove('show');
+        }
+    });
+    
+    // "Select All" 复选框逻辑
+    categoryAllCheckbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        categoryCheckboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+        updateCategoryDisplay();
+        searchTransactions(); // 触发搜索
+    });
+    
+    // 单个分类复选框逻辑
+    categoryCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateCategoryDisplay();
+            updateSelectAllCheckbox();
+            searchTransactions(); // 触发搜索
+        });
+    });
+}
+
+// 更新分类显示文本
+function updateCategoryDisplay() {
+    const selectedText = document.getElementById('category_selected_text');
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    if (categoryAllCheckbox.checked) {
+        selectedText.textContent = '--Select All--';
+        return;
+    }
+    
+    const selectedCategories = [];
+    categoryCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedCategories.push(checkbox.value.toUpperCase());
+        }
+    });
+    
+    if (selectedCategories.length === 0) {
+        selectedText.textContent = '--Select All--';
+    } else if (selectedCategories.length === 1) {
+        selectedText.textContent = selectedCategories[0];
+    } else {
+        selectedText.textContent = `${selectedCategories.length} Selected`;
+    }
+}
+
+// 更新 "Select All" 复选框状态
+function updateSelectAllCheckbox() {
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    const checkedCount = Array.from(categoryCheckboxes).filter(cb => cb.checked).length;
+    
+    categoryAllCheckbox.checked = checkedCount === categoryCheckboxes.length;
+    categoryAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < categoryCheckboxes.length;
+}
+
+// 获取选中的分类值
+function getSelectedCategories() {
+    const categoryAllCheckbox = document.getElementById('category_all');
+    const categoryCheckboxes = document.querySelectorAll('.category-checkbox:not(#category_all)');
+    
+    if (categoryAllCheckbox.checked) {
+        return ['']; // 空字符串表示全部
+    }
+    
+    const selectedCategories = [];
+    categoryCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedCategories.push(checkbox.value);
+        }
+    });
+    
+    return selectedCategories;
 }
 
 // ==================== 账户数据存储 ====================
@@ -1429,7 +1538,7 @@ function updateCurrencyButtonsState() {
 function searchTransactions(isInitialLoad) {
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
-    const category = document.getElementById('filter_category').value;
+    const selectedCategories = getSelectedCategories(); // 使用新的多选函数
     const showInactive = document.getElementById('show_inactive').checked ? '1' : '0';
     const showCaptureOnly = document.getElementById('show_capture_only').checked ? '1' : '0';
     const showZero = document.getElementById('show_zero_balance').checked ? '1' : '0';
@@ -1451,8 +1560,14 @@ function searchTransactions(isInitialLoad) {
         return;
     }
     
-    // 构建 URL，如果指定了 company_id 或 currency 则添加参数
-    let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+    // 构建 URL，处理多选分类
+    let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+    
+    // 处理分类参数：如果是全选则不传参数，否则传递多个分类
+    if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
+        url += `&category=${selectedCategories.join(',')}`;
+    }
+    
     if (currentCompanyId) {
         url += `&company_id=${currentCompanyId}`;
     }
@@ -1461,7 +1576,7 @@ function searchTransactions(isInitialLoad) {
         url += `&currency=${selectedCurrencies.join(',')}`;
     }
     
-    console.log('🔍 搜索参数:', { dateFrom, dateTo, category, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
+    console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
     
     // 添加时间戳防止缓存
     url += '&_t=' + Date.now();

@@ -70,7 +70,17 @@ try {
     // 获取搜索参数
 $date_from = $_GET['date_from'] ?? null;
 $date_to = $_GET['date_to'] ?? null;
-$category = $_GET['category'] ?? null; // account.role
+$category = $_GET['category'] ?? null; // account.role，支持多个分类用逗号分隔
+$category_filters = [];
+if ($category && $category !== '') {
+    $rawCategories = explode(',', $category);
+    foreach ($rawCategories as $cat) {
+        $cat = strtoupper(trim($cat));
+        if ($cat !== '') {
+            $category_filters[] = $cat;
+        }
+    }
+}
 $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
 $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
 $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
@@ -167,7 +177,7 @@ if (empty($target_account_ids) && $isMemberUser) {
     $cache_key = md5(
         $cache_version . '|' .
         ($_SESSION['user_id'] ?? '') . '|' . $company_id . '|' . $date_from_db . '|' . $date_to_db . '|' .
-        implode(',', $currency_filters) . '|' . ($category ?? '') . '|' . ($show_inactive ? '1' : '0') . '|' .
+        implode(',', $currency_filters) . '|' . implode(',', $category_filters) . '|' . ($show_inactive ? '1' : '0') . '|' .
         ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' .
         implode(',', $target_account_ids)
     );
@@ -199,9 +209,16 @@ if (!empty($target_account_ids)) {
     $params = array_merge($params, $target_account_ids);
 }
     
-    if ($category) {
-        $where_conditions[] = "a.role = ?";
-        $params[] = $category;
+    if (!empty($category_filters)) {
+        if (count($category_filters) === 1) {
+            $where_conditions[] = "a.role = ?";
+            $params[] = $category_filters[0];
+        } else {
+            // 多个分类使用 IN 子句
+            $placeholders = str_repeat('?,', count($category_filters) - 1) . '?';
+            $where_conditions[] = "a.role IN ($placeholders)";
+            $params = array_merge($params, $category_filters);
+        }
     }
     
     // 注意：member 用户查询时，show_inactive=1 表示显示所有状态（包括 inactive）
