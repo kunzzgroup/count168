@@ -1417,9 +1417,19 @@ body.transaction-page .expiration-countdown-text {
 /* Category Multi-Select Dropdown Styles */
 .transaction-category-multiselect {
     position: relative;
+    flex: 1 1 auto;
+    min-width: 250px;
+    max-width: 100%;
+}
+
+.transaction-two-col .transaction-category-multiselect {
+    flex: 1 1 auto;
+    min-width: 250px;
 }
 
 .category-dropdown-button {
+    min-width: 200px;
+    max-width: 100%;
     width: 100%;
     padding: 8px 12px;
     border: 1px solid #d1d5db;
@@ -1433,6 +1443,13 @@ body.transaction-page .expiration-countdown-text {
     font-size: 14px;
     color: #374151;
     transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.category-dropdown-button #category_selected_text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .category-dropdown-button:hover {
@@ -1449,7 +1466,8 @@ body.transaction-page .expiration-countdown-text {
     position: absolute;
     top: 100%;
     left: 0;
-    right: 0;
+    min-width: 100%;
+    width: auto;
     background: white;
     border: 1px solid #d1d5db;
     border-radius: 6px;
@@ -1480,6 +1498,8 @@ body.transaction-page .expiration-countdown-text {
     font-size: 14px;
     color: #374151;
     margin: 0;
+    white-space: nowrap;
+    width: 100%;
 }
 
 .category-checkbox {
