@@ -171,6 +171,22 @@ try {
     } elseif (isset($_SESSION['company_id'])) {
         $company_id = (int)$_SESSION['company_id'];
     }
+
+    // 容错：前端有时仅传 company_ids，不传 company_id
+    if (!$company_id) {
+        if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
+            $decodedCompanyIds = json_decode($_POST['company_ids'], true);
+            if (is_array($decodedCompanyIds)) {
+                foreach ($decodedCompanyIds as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid > 0) {
+                        $company_id = $cid;
+                        break;
+                    }
+                }
+            }
+        }
+    }
     if (!$company_id) {
         throw new Exception('缺少公司信息');
     }

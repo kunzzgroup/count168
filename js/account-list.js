@@ -535,7 +535,9 @@ let deletedCurrencyIds = [];
 
 // 瀛樺偍娣诲姞璐︽埛鏃堕€変腑鐨勫叕鍙窱D锛堜复鏃跺瓨鍌紝鍦ㄨ处鎴峰垱寤哄悗鍏宠仈锛?
 // 榛樿閫変腑褰撳墠鍏徃
-let selectedCompanyIdsForAdd = (window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD && Array.isArray(window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD)) ? [...window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD] : (window.ACCOUNT_LIST_COMPANY_ID ? [window.ACCOUNT_LIST_COMPANY_ID] : []);
+let selectedCompanyIdsForAdd = (window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD && Array.isArray(window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD))
+    ? [...window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD]
+    : (window.ACCOUNT_LIST_COMPANY_ID !== null && window.ACCOUNT_LIST_COMPANY_ID !== undefined && window.ACCOUNT_LIST_COMPANY_ID !== '' ? [window.ACCOUNT_LIST_COMPANY_ID] : []);
 
 // 瀛樺偍缂栬緫璐︽埛鏃堕€変腑鐨勫叕鍙窱D锛堝湪鐐瑰嚮 Update 鏃朵竴娆℃€т繚瀛橈級
 let selectedCompanyIdsForEdit = [];
@@ -1986,9 +1988,9 @@ document.getElementById('addAccountForm').addEventListener('submit', async funct
     }
 
     // 娣诲姞褰撳墠閫夋嫨鐨?company_id
-    const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
-    if (currentCompanyId) {
-        formData.set('company_id', currentCompanyId);
+    const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID
+    if (currentCompanyId !== null && currentCompanyId !== undefined && currentCompanyId !== '') {
+        formData.set('company_id', currentCompanyId)
     }
 
     // 娣诲姞閫変腑鐨勮揣甯両D锛堝鏋滄湁锛?
