@@ -74,12 +74,19 @@ $category = $_GET['category'] ?? null; // account.role，支持多个分类用�
 $category_filters = [];
 if ($category && $category !== '') {
     $rawCategories = explode(',', $category);
+    $categorySet = [];
     foreach ($rawCategories as $cat) {
         $cat = strtoupper(trim($cat));
         if ($cat !== '') {
-            $category_filters[] = $cat;
+            // 兼容显示映射：前端展示 SUPPLIER，但数据库可能仍存 UPLINE
+            if ($cat === 'SUPPLIER') {
+                $categorySet['UPLINE'] = true;
+            } else {
+                $categorySet[$cat] = true;
+            }
         }
     }
+    $category_filters = array_keys($categorySet);
 }
 $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
 $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
