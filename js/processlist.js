@@ -3728,6 +3728,7 @@ async function addCurrencyFromInputBank(type) {
 }
 
 // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
+const addAccountFormEl = document.getElementById('addAccountForm');
 if (addAccountFormEl) {
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
