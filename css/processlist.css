@@ -741,6 +741,7 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+    max-width: 100% !important; /* Ensure form fills the full modal content width */
 }
 
 .bank-form-row {
@@ -808,8 +809,8 @@
 
 .bank-form-cell .selected-countries-list {
     flex: 1;
-    min-height: 80px;
-    max-height: 180px; /* Limit height to save space */
+    min-height: 120px;
+    max-height: 280px; /* Enlarge height as requested */
 }
 
 .bank-form-left {
@@ -876,9 +877,9 @@
     flex-wrap: wrap;
 }
 
-.bank-form .bank-day-start-input-wrap {
-    flex: 0 0 auto;
-    max-width: 155px;
+.bank-form .bank-day-start-input-wrap,
+.bank-form .bank-day-end-input-wrap {
+    flex: 1 1 0; /* Balanced widths */
 }
 
 .bank-form .bank-day-start-input-wrap .bank-input {
@@ -915,7 +916,7 @@
 
 .bank-form-left .bank-row-type-name,
 .bank-form-cell-left .bank-row-type-name {
-    grid-template-columns: 0.45fr 1fr;
+    grid-template-columns: 1fr 1fr; /* Balanced Type and Card Owner */
 }
 
 .bank-form-left .bank-row-three-cols,
