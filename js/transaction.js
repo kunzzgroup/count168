@@ -603,11 +603,19 @@ function updateCategoryDisplay() {
         const tagsHTML = selectedCategories.map(category => `
             <div class="category-tag" data-category-value="${category.value}">
                 <span>${category.display}</span>
-                <span class="category-tag-remove" onclick="removeCategory('${category.value}')">×</span>
+                <span class="category-tag-remove" data-category-value="${category.value}">×</span>
             </div>
         `).join('');
         
         selectedTagsContainer.innerHTML = tagsHTML;
+        
+        // 使用事件委托方式处理删除按钮点击
+        selectedTagsContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('category-tag-remove')) {
+                const categoryValue = e.target.getAttribute('data-category-value');
+                removeCategory(categoryValue);
+            }
+        });
     }
 }
 
