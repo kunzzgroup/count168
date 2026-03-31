@@ -45,15 +45,6 @@ function normalizedBankIssueFlagSql(string $columnRef): string
     return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
 }
 
-/** Parses date strings robustly, converting slashes to hyphens so strtotime treats it as DD-MM-YYYY */
-function parseDateRobust(?string $dateStr)
-{
-    if (empty($dateStr) || $dateStr === '0000-00-00') {
-        return false;
-    }
-    return strtotime(str_replace('/', '-', $dateStr));
-}
-
 function insertTransactionRow(PDO $pdo, array $data): int
 {
     $columns = array_keys($data);
@@ -67,7 +58,7 @@ function insertTransactionRow(PDO $pdo, array $data): int
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
 function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, float $profit): array
 {
-    $ts = parseDateRobust($dayStart);
+    $ts = strtotime($dayStart);
     if ($ts === false) {
         return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
     }
@@ -166,9 +157,8 @@ function addMonthsToDate(?string $dateStr, int $months): ?string
 /** 根据 contract 与当前 day_start 计算下次 day_start（用于 manual_inactive 入账后恢复 active 并更新日期） */
 function nextDayStartFromContract(?string $dayStart, ?string $contract): string
 {
-    $baseTs = parseDateRobust($dayStart);
-    $base = ($baseTs !== false) ? date('Y-m-d', $baseTs) : date('Y-m-d');
-    $ts = strtotime($base); // already formatted as Y-m-d above
+    $base = $dayStart && strtotime($dayStart) !== false ? $dayStart : date('Y-m-d');
+    $ts = strtotime($base);
     if ($ts === false) {
         return date('Y-m-d');
     }
@@ -368,28 +358,18 @@ try {
 
         $transactionDate = $postingDate;
         if (!empty($p['day_start'])) {
-            $ts = parseDateRobust($p['day_start']);
+            $ts = strtotime($p['day_start']);
             if ($ts !== false) {
                 if ($periodType === 'partial_first_month') {
                     $transactionDate = date('Y-m-d', $ts);
                 } elseif ($periodType === 'manual_inactive') {
                     $baseDate = (!empty($p['day_end']) && $p['day_end'] !== '0000-00-00') ? $p['day_end'] : $p['day_start'];
-                    $bts = parseDateRobust($baseDate);
+                    $bts = strtotime($baseDate);
                     $transactionDate = ($bts !== false) ? date('Y-m-d', $bts) : $postingDate;
                 } elseif ($periodType === 'monthly') {
                     $freq = $p['day_start_frequency'] ?? '1st_of_every_month';
                     if ($freq === '1st_of_every_month') {
-                        // If it's a catch-up or initial Monthly payment, follow the month of day_start if it is recent?
-                        // But standard logic is 1st of current month. 
-                        // To satisfy "follows day start display date", we force the day from day_start even for '1st' if preferred?
-                        // USER says: "展示日期都要跟着day start". 
-                        // So regardless of frequency, we use the DAY from day_start if present.
-                        $bDay = (int)date('j', $ts);
-                        $lastDayInCurrentMonth = (int)date('t');
-                        if ($bDay > $lastDayInCurrentMonth) {
-                            $bDay = $lastDayInCurrentMonth;
-                        }
-                        $transactionDate = date('Y-m-') . sprintf('%02d', $bDay);
+                        $transactionDate = date('Y-m-01');
                     } else {
                         // Monthly: use the day from day_start in the current month
                         $bDay = (int)date('j', $ts);
@@ -453,7 +433,7 @@ try {
         // 1st of every month 首月按比例时，Profit Sharing 金额也按「剩余天数/当月天数」折算，再分给各 account
         $psRatio = 1.0;
         if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
-            $ts = parseDateRobust($p['day_start']);
+            $ts = strtotime($p['day_start']);
             if ($ts !== false) {
                 $daysInMonth = (int) date('t', $ts);
                 $dayOfMonth = (int) date('j', $ts);

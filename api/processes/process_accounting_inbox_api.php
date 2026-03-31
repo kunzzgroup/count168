@@ -32,7 +32,7 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool
 /** Pro-rated cost/price/profit for partial first month: day_start to end of that month */
 function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, float $profit): array
 {
-    $ts = parseDateRobust($dayStart);
+    $ts = strtotime($dayStart);
     if ($ts === false) {
         return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
     }
@@ -66,25 +66,14 @@ function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn
     if ($hasIssueFlagColumn && $hasFlagColumn) {
         return "COALESCE(NULLIF($tableAlias.`flag`, ''), NULLIF($tableAlias.`issue_flag`, ''))";
     }
-    if ($hasFlagColumn)
-        return "$tableAlias.`flag`";
-    if ($hasIssueFlagColumn)
-        return "$tableAlias.`issue_flag`";
+    if ($hasFlagColumn) return "$tableAlias.`flag`";
+    if ($hasIssueFlagColumn) return "$tableAlias.`issue_flag`";
     return "NULL";
 }
 
 function normalizedBankIssueFlagSql(string $columnRef): string
 {
     return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
-}
-
-/** Parses date strings robustly, converting slashes to hyphens so strtotime treats it as DD-MM-YYYY */
-function parseDateRobust(?string $dateStr)
-{
-    if (empty($dateStr) || $dateStr === '0000-00-00') {
-        return false;
-    }
-    return strtotime(str_replace('/', '-', $dateStr));
 }
 
 /** 获取当前公司下可用于 Accounting Inbox 的 active Bank Process 列表 */
@@ -109,8 +98,8 @@ function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId, 
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.contract
             FROM bank_process bp
             WHERE bp.company_id = ? AND " . (($hasIssueFlagColumn || $hasFlagColumn)
-        ? "(bp.status = 'inactive' OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice'))"
-        : "bp.status = 'inactive'") . "
+                ? "(bp.status = 'inactive' OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice'))"
+                : "bp.status = 'inactive'") . "
             AND bp.contract IN ('1+1','1+2','1+3')
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
             AND (COALESCE(bp.cost,0) > 0 OR COALESCE(bp.price,0) > 0 OR COALESCE(bp.profit,0) > 0)";
@@ -265,11 +254,10 @@ try {
             if (empty($dayStart)) {
                 continue;
             }
-            $startTs = parseDateRobust($dayStart);
-            if ($startTs === false) {
+            if (strtotime($dayStart) === false) {
                 continue;
             }
-            $startDate = date('Y-m-d', $startTs);
+            $startDate = date('Y-m-d', strtotime($dayStart));
             if ($today < $startDate) {
                 continue;
             }
@@ -303,7 +291,7 @@ try {
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
         $need = false;
-        $startTs = (!empty($dayStart)) ? parseDateRobust($dayStart) : false;
+        $startTs = (!empty($dayStart)) ? strtotime($dayStart) : false;
         $startDate = $startTs !== false ? date('Y-m-d', $startTs) : '';
 
         if ($frequency === '1st_of_every_month') {
