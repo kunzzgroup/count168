@@ -33,8 +33,10 @@ function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn
     if ($hasIssueFlagColumn && $hasFlagColumn) {
         return "COALESCE(NULLIF($tableAlias.`flag`, ''), NULLIF($tableAlias.`issue_flag`, ''))";
     }
-    if ($hasFlagColumn) return "$tableAlias.`flag`";
-    if ($hasIssueFlagColumn) return "$tableAlias.`issue_flag`";
+    if ($hasFlagColumn)
+        return "$tableAlias.`flag`";
+    if ($hasIssueFlagColumn)
+        return "$tableAlias.`issue_flag`";
     return "NULL";
 }
 
@@ -89,10 +91,10 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
             WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND (" .
-                (($hasIssueFlagColumn || $hasFlagColumn)
-                    ? "bp.status IN ('active','inactive') OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice')"
-                    : "bp.status IN ('active','inactive')") .
-            ")";
+        (($hasIssueFlagColumn || $hasFlagColumn)
+            ? "bp.status IN ('active','inactive') OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice')"
+            : "bp.status IN ('active','inactive')") .
+        ")";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
