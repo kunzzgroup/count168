@@ -89,7 +89,8 @@ let sortDirection = 'asc'; // 'asc' 鎴?'desc'
 // 浠嶢PI鑾峰彇鏁版嵁
 async function fetchAccounts() {
     try {
-        const searchTerm = document.getElementById('searchInput').value;
+        const searchInput = document.getElementById('searchInput');
+        const searchTerm = searchInput ? searchInput.value : '';
         const url = new URL('api/accounts/accountlistapi.php', window.location.href);
 
         // 娣诲姞褰撳墠閫夋嫨鐨?company_id
