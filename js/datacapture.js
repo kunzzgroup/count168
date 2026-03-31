@@ -997,13 +997,16 @@ function getLocalDateString(date = null) {
     return `${year}-${month}-${day}`;
 }
 
-// Load submitted processes：今天物理提交的记录（与左侧 Date 无关）；列表里日期显示账务日、时间显示实际提交时刻
+// Load submitted processes：随左侧 Date（capture_date）筛选；行内日期为账务日，时间为 created_at
 async function loadSubmittedProcesses() {
     try {
+        const dateInput = document.getElementById('capture_date');
+        const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
+
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
 
-        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_today_entries`);
+        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${encodeURIComponent(selectedDate)}`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
         const response = await fetch(finalUrl);
@@ -1011,7 +1014,7 @@ async function loadSubmittedProcesses() {
 
         if (result.success) {
             submittedProcesses = result.data || [];
-            console.log('Loaded', submittedProcesses.length, 'submitted processes (physical today)');
+            console.log('Loaded', submittedProcesses.length, 'submitted processes for capture_date:', selectedDate);
             console.log('Sample submission dates:', submittedProcesses.slice(0, 3).map(p => ({
                 process: p.process_code,
                 date_submitted: p.date_submitted,
@@ -2149,7 +2152,7 @@ function renderSubmittedProcesses() {
     const listContainer = document.getElementById('submittedProcessesList');
 
     if (submittedProcesses.length === 0) {
-        listContainer.innerHTML = '<div class="no-data">No processes submitted today</div>';
+        listContainer.innerHTML = '<div class="no-data">No processes submitted for this date</div>';
         return;
     }
 
@@ -24237,7 +24240,7 @@ async function restoreFromLocalStorage() {
         // Reload processes for the selected date
         await loadProcessesByDate();
 
-        // Submitted Processes：始终按「当天物理提交」刷新（与左侧 Date 无关；选其他账务日 submit 仍会计入今天）
+        // Submitted Processes：按当前恢复的 capture_date 筛选
         await loadSubmittedProcesses();
 
         // Wait a bit for process dropdown to populate, then restore process selection
@@ -24555,7 +24558,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const shouldRestore = urlParams.get('restore') === '1';
 
     if (!shouldRestore) {
-        // Submitted Processes：当天物理提交（get_today_entries），与左侧 Date 无关
+        // Submitted Processes：按左侧 Date（capture_date）加载
         loadSubmittedProcesses();
         // Initialize table with default 26 rows (A-Z) and 20 columns
         initializeTable(26, 20);
@@ -24708,7 +24711,7 @@ function setupFormValidationListeners() {
             console.log('Date changed to:', this.value);
             // Reload processes based on new date
             await loadProcessesByDate();
-            // Submitted Processes 按「今天物理提交」加载，与左侧 Date 无关，不在此重复请求
+            await loadSubmittedProcesses();
             // Clear process selection when date changes (but not during restoration)
             if (!isRestoringData) {
                 const processInput = document.getElementById('capture_process');
