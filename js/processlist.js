@@ -3159,7 +3159,7 @@ function updateBankFrequencyOptions() {
     }
 }
 
-// Remove Auto calculate Day End based on Day Start and Contract
+// Auto calculate Day End based on Day Start and Contract
 function autoCalculateBankDayEnd() {
     // We no longer auto-calculate Day End. It must be entered manually.
     
@@ -3356,7 +3356,7 @@ let bankAddAccountTriggerHiddenInputId = null;
 
 let bankAccountRoles = [];
 /** Role 排序优先级（与 account-list 一致，Add Account 弹窗开放完整 Role 列表） */
-const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
+const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
 
 function getOrderedRolesBank(roles, includeStaff = true) {
     const normalizedMap = new Map();
@@ -5294,7 +5294,7 @@ function renderSelectedProfitSharing() {
     if (!container) return;
     const entries = window.selectedProfitSharingEntries || [];
     if (entries.length === 0) {
-        container.innerHTML = '<div class="no-profit-sharing"><p>No profit sharing selected</p></div>';
+        container.innerHTML = '<div class="no-countries">No profit sharing selected</div>';
         if (mainInput) mainInput.value = '';
         return;
     }
@@ -5302,26 +5302,13 @@ function renderSelectedProfitSharing() {
     container.innerHTML = '';
     entries.forEach(function (entry, index) {
         const amt = entry.amount;
-        const displayAmount = (amt !== '' && amt != null && !isNaN(parseFloat(amt))) ? parseFloat(amt).toFixed(2) : (amt || '0.00');
+        const displayAmount = (amt !== '' && amt != null && !isNaN(parseFloat(amt))) ? parseFloat(amt).toFixed(2) : (amt || '');
         const text = (entry.accountText || '') + ' - ' + displayAmount;
         parts.push(text);
         const div = document.createElement('div');
-        div.className = 'profit-sharing-item';
+        div.className = 'selected-country-modal-item';
         div.dataset.index = String(index);
-
-        const escapedAccount = (typeof escapeHtml === 'function' ? escapeHtml(entry.accountText || '') : (entry.accountText || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-        
-        div.innerHTML = `
-            <div class="ps-item-content">
-                <div class="ps-account-info">
-                    <span class="ps-account-name">${escapedAccount}</span>
-                </div>
-                <div class="ps-amount-info">
-                    <span class="ps-amount-value">${displayAmount}</span>
-                </div>
-            </div>
-            <button type="button" class="remove-profit-sharing-item" onclick="removeProfitSharingEntry(${index})">&times;</button>
-        `;
+        div.innerHTML = '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(text) : text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span><button type="button" class="remove-country-modal" onclick="removeProfitSharingEntry(' + index + ')">&times;</button>';
         container.appendChild(div);
     });
     if (mainInput) mainInput.value = parts.join(', ');
