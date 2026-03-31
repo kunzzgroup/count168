@@ -1675,6 +1675,9 @@ function searchTransactions(isInitialLoad) {
     const singleSelectedCurrency = (!showAllCurrencies && selectedCurrencies.length === 1)
         ? String(selectedCurrencies[0] || '').toUpperCase()
         : '';
+    const categoryParam = (selectedCategories.length > 0 && !selectedCategories.includes(''))
+        ? selectedCategories.join(',')
+        : ''
     
     fetch(url, {
         method: 'GET',
@@ -1735,7 +1738,10 @@ function searchTransactions(isInitialLoad) {
 
                 // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
                 if (singleSelectedCurrency && totalAccounts === 0) {
-                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                    if (categoryParam) {
+                        fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
+                    }
                     if (currentCompanyId) {
                         fallbackUrl += `&company_id=${currentCompanyId}`;
                     }
@@ -1787,7 +1793,10 @@ function searchTransactions(isInitialLoad) {
 
                 // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
                 if (showCaptureOnly && totalAccounts === 0) {
-                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                    if (categoryParam) {
+                        fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
+                    }
                     if (currentCompanyId) {
                         fallbackUrl += `&company_id=${currentCompanyId}`;
                     }
