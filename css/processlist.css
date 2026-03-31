@@ -729,8 +729,12 @@
 
 /* Bank Modal Styles - Separate from Gambling modal */
 .bank-modal .bank-modal-content {
-    max-width: 1000px;
-    width: 90%;
+    max-width: 1100px;
+    width: 95%;
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important; /* Force modal scrolling to be handled by body */
 }
 
 .bank-form {
@@ -805,6 +809,7 @@
 .bank-form-cell .selected-countries-list {
     flex: 1;
     min-height: 80px;
+    max-height: 180px; /* Limit height to save space */
 }
 
 .bank-form-left {
@@ -1185,7 +1190,7 @@
     justify-content: flex-end;
     gap: 10px;
     margin-top: 20px;
-    padding-top: 20px;
+    padding: 20px 0 30px 0; /* Add bottom padding */
     border-top: 1px solid #eee;
 }
 
@@ -1201,7 +1206,12 @@
 #addBankModal .form-group,
 #addBankModal .account-select-with-buttons,
 #addBankModal .custom-select-wrapper {
-    overflow: visible !important;
+    overflow: visible;
+}
+
+#addBankModal .modal-body {
+    overflow-y: auto !important;
+    flex: 1;
 }
 
 #addBankModal .custom-select-wrapper {
