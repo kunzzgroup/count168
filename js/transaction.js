@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return loadAccounts().then(() => { initCustomSelects(); });
         }
         // Contra Inbox 延后到用户点击再加载
-        loadAccounts().then(() => { initCustomSelects(); console.log('✅ 初始数据加载完成'); });
+        loadAccounts().then(() => { initCustomSelects(); bindContraCurrencyAutoSync(); console.log('✅ 初始数据加载完成'); });
         searchTransactions(true);
     }).catch(error => {
         console.error('❌ 初始数据加载失败:', error);
@@ -1069,6 +1069,30 @@ function initCustomSelects() {
                 }
             }
         });
+    });
+}
+
+function syncContraCurrencyFromButton(buttonEl) {
+    if (!buttonEl) return;
+    const type = document.getElementById('transaction_type')?.value || '';
+    if (type !== 'CONTRA') return;
+    const currency = (buttonEl.getAttribute('data-currency') || '').trim().toUpperCase();
+    if (!currency) return;
+    const currencySelect = document.getElementById('transaction_currency');
+    if (!currencySelect) return;
+    const opt = currencySelect.querySelector(`option[value="${currency}"]`);
+    if (!opt) return;
+    currencySelect.value = currency;
+}
+
+function bindContraCurrencyAutoSync() {
+    if (window.__contraCurrencyAutoSyncBound) return;
+    window.__contraCurrencyAutoSyncBound = true;
+
+    ['action_account_from', 'action_account_id'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener('change', () => syncContraCurrencyFromButton(btn));
     });
 }
 
@@ -3380,6 +3404,7 @@ function handleReverseAccounts(event) {
     if (!fromBtn || !toBtn || fromBtn.closest('.transaction-form-group')?.style.display === 'none') return;
     
     swapAccountButtons(fromBtn, toBtn);
+    syncContraCurrencyFromButton(fromBtn);
 }
 
 // ==================== 确认提交 ====================
