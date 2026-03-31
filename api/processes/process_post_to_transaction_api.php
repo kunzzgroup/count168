@@ -379,7 +379,17 @@ try {
                 } elseif ($periodType === 'monthly') {
                     $freq = $p['day_start_frequency'] ?? '1st_of_every_month';
                     if ($freq === '1st_of_every_month') {
-                        $transactionDate = date('Y-m-01');
+                        // If it's a catch-up or initial Monthly payment, follow the month of day_start if it is recent?
+                        // But standard logic is 1st of current month. 
+                        // To satisfy "follows day start display date", we force the day from day_start even for '1st' if preferred?
+                        // USER says: "展示日期都要跟着day start". 
+                        // So regardless of frequency, we use the DAY from day_start if present.
+                        $bDay = (int)date('j', $ts);
+                        $lastDayInCurrentMonth = (int)date('t');
+                        if ($bDay > $lastDayInCurrentMonth) {
+                            $bDay = $lastDayInCurrentMonth;
+                        }
+                        $transactionDate = date('Y-m-') . sprintf('%02d', $bDay);
                     } else {
                         // Monthly: use the day from day_start in the current month
                         $bDay = (int)date('j', $ts);
