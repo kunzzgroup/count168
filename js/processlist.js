@@ -3728,18 +3728,14 @@ async function addCurrencyFromInputBank(type) {
 }
 
 // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
-const addAccountFormEl = document.getElementById('addAccountForm');
 if (addAccountFormEl) {
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
         if (!validatePaymentAlertForAddBank()) return;
         const formData = new FormData(this);
-        // 转换字段名以匹配API期望
         const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
         if (paymentAlert) {
             formData.set('payment_alert', paymentAlert.value);
-            // 移除原有的add_payment_alert字段
-            formData.delete('add_payment_alert');
             if (paymentAlert.value === '0' || paymentAlert.value === 0) {
                 formData.set('alert_type', '');
                 formData.set('alert_start_date', '');
