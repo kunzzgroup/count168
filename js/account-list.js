@@ -316,16 +316,20 @@ function applySorting() {
             const aRole = String(a.role || '').toUpperCase().trim();
             const bRole = String(b.role || '').toUpperCase().trim();
 
-            const aOrder = roleOrder[aRole] !== undefined ? roleOrder[aRole] : 9999;
-            const bOrder = roleOrder[bRole] !== undefined ? roleOrder[bRole] : 9999;
+            // 兼容性：列表排序时也将 UPLINE 按 SUPPLIER 的优先级处理，确保与下拉顺序一致
+            const aRoleForOrder = aRole === 'UPLINE' ? 'SUPPLIER' : aRole;
+            const bRoleForOrder = bRole === 'UPLINE' ? 'SUPPLIER' : bRole;
+
+            const aOrder = roleOrder[aRoleForOrder] !== undefined ? roleOrder[aRoleForOrder] : 9999;
+            const bOrder = roleOrder[bRoleForOrder] !== undefined ? roleOrder[bRoleForOrder] : 9999;
 
             let result = 0;
             if (aOrder < bOrder) result = -1;
             else if (aOrder > bOrder) result = 1;
             else {
                 // 濡傛灉灞傜骇鐩稿悓锛屾寜 role 鍚嶇О瀛楁瘝椤哄簭鎺掑簭
-                if (aRole < bRole) result = -1;
-                else if (aRole > bRole) result = 1;
+                if (aRoleForOrder < bRoleForOrder) result = -1;
+                else if (aRoleForOrder > bRoleForOrder) result = 1;
                 else {
                     // 濡傛灉 role 涔熺浉鍚岋紝鎸?account_id 鎺掑簭
                     const aKey = String(a.account_id || '').toLowerCase();
