@@ -16,7 +16,7 @@ function fetchRolesFromDb(PDO $pdo): array {
 }
 
 function orderRolesByPriority(array $roles): array {
-    $priority = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+    $priority = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
     $upper = array_map('strtoupper', $roles);
     $map = array_combine($upper, $roles);
     $ordered = [];
