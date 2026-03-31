@@ -596,6 +596,8 @@ function updateCategoryDisplay() {
         }
     });
     
+    console.log(' 选中的分类:', selectedCategories); // 调试信息
+    
     if (selectedCategories.length === 0) {
         selectedTagsContainer.innerHTML = '<span class="category-placeholder">--Select All--</span>';
     } else {
