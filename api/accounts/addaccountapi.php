@@ -207,7 +207,15 @@ try {
         $alert_start_date = trim($_POST['alert_specific_date']);
     }
 
-    if (empty($account_id) || empty($name) || empty($role) || empty($password)) {
+    // 角色兼容映射：前端 SUPPLIER 等价于旧的 UPLINE
+    $role_db_code = $role;
+    if ($role_db_code !== '') {
+        if (strcasecmp($role_db_code, 'SUPPLIER') === 0) {
+            $role_db_code = 'UPLINE';
+        }
+    }
+
+    if (empty($account_id) || empty($name) || empty($role_db_code) || empty($password)) {
         throw new Exception('请填写所有必填字段');
     }
 
@@ -250,7 +258,7 @@ try {
     if (accountExistsInCompany($pdo, $account_id, $company_id)) {
         throw new Exception('账户ID已存在');
     }
-    if (!roleExists($pdo, $role)) {
+    if (!roleExists($pdo, $role_db_code)) {
         throw new Exception('选择的角色无效');
     }
 
@@ -262,7 +270,7 @@ try {
         $newAccountId = insertAccount($pdo, [
             'account_id' => $account_id,
             'name' => $name,
-            'role' => $role,
+            'role' => $role_db_code,
             'password' => $password,
             'payment_alert' => $payment_alert,
             'alert_day' => $alert_day,
