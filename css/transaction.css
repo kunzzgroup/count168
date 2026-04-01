@@ -690,10 +690,7 @@ body.transaction-page {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
-    /* Inner panel scrolls; avoid scrolling the whole viewport behind the modal */
-    overflow: hidden;
-    align-items: center;
-    justify-content: center;
+    overflow: auto;
 }
 
 .transaction-modal-content {
@@ -734,7 +731,6 @@ body.transaction-page {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0;
 }
 
 .transaction-modal-header h3 {
@@ -769,22 +765,8 @@ body.transaction-page {
 
 .transaction-modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
-    flex: 1 1 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-/* Scroll + border frame so long history lists stay inside the card (no clipped rows) */
-.transaction-history-table-frame {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow: auto;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    background: #ffffff;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+    max-height: 983px;
+    overflow-y: auto;
 }
 
 .transaction-modal-body .transaction-table {

@@ -525,29 +525,27 @@ $default_date_to = $today_dt->format('d/m/Y');
                 <button id="modal_close" class="transaction-modal-close">×</button>
             </div>
             <div class="transaction-modal-body">
-                <div class="transaction-history-table-frame">
-                    <table class="transaction-table">
-                        <thead>
-                            <tr class="transaction-table-header">
-                                <th class="transaction-history-col-date">Date</th>
-                                <th class="transaction-history-col-product">Id Product</th>
-                                <th class="transaction-history-col-currency">Currency</th>
-                                <th class="transaction-history-col-rate">Rate</th>
-                                <th class="transaction-history-col-winloss">Win/Loss</th>
-                                <th class="transaction-history-col-crdr">Cr/Dr</th>
-                                <th class="transaction-history-col-balance">Balance</th>
-                                <?php if ($useDescriptionColumn): ?>
-                                    <th class="transaction-history-col-description">Description</th>
-                                    <th class="transaction-history-col-remark">Remark</th>
-                                <?php else: ?>
-                                    <th class="transaction-history-col-remark">Remark</th>
-                                <?php endif; ?>
-                                <th class="transaction-history-col-created">Created by</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modal_tbody"></tbody>
-                    </table>
-                </div>
+                <table class="transaction-table">
+                    <thead>
+                        <tr class="transaction-table-header">
+                            <th class="transaction-history-col-date">Date</th>
+                            <th class="transaction-history-col-product">Id Product</th>
+                            <th class="transaction-history-col-currency">Currency</th>
+                            <th class="transaction-history-col-rate">Rate</th>
+                            <th class="transaction-history-col-winloss">Win/Loss</th>
+                            <th class="transaction-history-col-crdr">Cr/Dr</th>
+                            <th class="transaction-history-col-balance">Balance</th>
+                            <?php if ($useDescriptionColumn): ?>
+                                <th class="transaction-history-col-description">Description</th>
+                                <th class="transaction-history-col-remark">Remark</th>
+                            <?php else: ?>
+                                <th class="transaction-history-col-remark">Remark</th>
+                            <?php endif; ?>
+                            <th class="transaction-history-col-created">Created by</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal_tbody"></tbody>
+                </table>
             </div>
         </div>
     </div>
