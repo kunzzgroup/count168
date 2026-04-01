@@ -1603,6 +1603,13 @@ if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
     $company_id = $_SESSION['company_id'];
 }
 
+// Summary 状态读写必须与当前会话公司一致；忽略 query 里可能过期的 company_id（多标签切公司、缓存页等），避免 403
+$req_action_for_company = isset($_GET['action']) ? (string)$_GET['action'] : '';
+if (($req_action_for_company === 'save_summary_state' || $req_action_for_company === 'get_summary_state')
+    && isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] > 0) {
+    $company_id = (int)$_SESSION['company_id'];
+}
+
 if (!$company_id) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => '缺少公司信息', 'data' => null]);
