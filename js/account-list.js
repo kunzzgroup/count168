@@ -89,7 +89,8 @@ let sortDirection = 'asc'; // 'asc' 鎴?'desc'
 // 浠嶢PI鑾峰彇鏁版嵁
 async function fetchAccounts() {
     try {
-        const searchTerm = document.getElementById('searchInput').value;
+        const searchInput = document.getElementById('searchInput');
+        const searchTerm = searchInput ? searchInput.value : '';
         const url = new URL('api/accounts/accountlistapi.php', window.location.href);
 
         // 娣诲姞褰撳墠閫夋嫨鐨?company_id
@@ -315,16 +316,20 @@ function applySorting() {
             const aRole = String(a.role || '').toUpperCase().trim();
             const bRole = String(b.role || '').toUpperCase().trim();
 
-            const aOrder = roleOrder[aRole] !== undefined ? roleOrder[aRole] : 9999;
-            const bOrder = roleOrder[bRole] !== undefined ? roleOrder[bRole] : 9999;
+            // 兼容性：列表排序时也将 UPLINE 按 SUPPLIER 的优先级处理，确保与下拉顺序一致
+            const aRoleForOrder = aRole === 'UPLINE' ? 'SUPPLIER' : aRole;
+            const bRoleForOrder = bRole === 'UPLINE' ? 'SUPPLIER' : bRole;
+
+            const aOrder = roleOrder[aRoleForOrder] !== undefined ? roleOrder[aRoleForOrder] : 9999;
+            const bOrder = roleOrder[bRoleForOrder] !== undefined ? roleOrder[bRoleForOrder] : 9999;
 
             let result = 0;
             if (aOrder < bOrder) result = -1;
             else if (aOrder > bOrder) result = 1;
             else {
                 // 濡傛灉灞傜骇鐩稿悓锛屾寜 role 鍚嶇О瀛楁瘝椤哄簭鎺掑簭
-                if (aRole < bRole) result = -1;
-                else if (aRole > bRole) result = 1;
+                if (aRoleForOrder < bRoleForOrder) result = -1;
+                else if (aRoleForOrder > bRoleForOrder) result = 1;
                 else {
                     // 濡傛灉 role 涔熺浉鍚岋紝鎸?account_id 鎺掑簭
                     const aKey = String(a.account_id || '').toLowerCase();
@@ -1676,14 +1681,7 @@ function forceUppercase(input) {
 let searchTimeout;
 const searchInputEl = document.getElementById('searchInput');
 if (searchInputEl) {
-    // 鎼滅储妗嗭細鍙厑璁稿瓧姣嶅拰鏁板瓧
     searchInputEl.addEventListener('input', function () {
-        const cursorPosition = this.selectionStart;
-        // 鍙繚鐣欏ぇ鍐欏瓧姣嶅拰鏁板瓧
-        const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-        this.value = filteredValue;
-        this.setSelectionRange(cursorPosition, cursorPosition);
-
         // 鎼滅储鍔熻兘
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
@@ -1691,15 +1689,7 @@ if (searchInputEl) {
         }, 300); // 寤惰繜300ms閬垮厤棰戠箒璇锋眰
     });
 
-    // 绮樿创浜嬩欢澶勭悊
-    searchInputEl.addEventListener('paste', function () {
-        setTimeout(() => {
-            const cursorPosition = this.selectionStart;
-            const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-            this.value = filteredValue;
-            this.setSelectionRange(cursorPosition, cursorPosition);
-        }, 0);
-    });
+    // paste 不做过滤，允许空格与符号
 }
 
 // Real-time filter when checkbox changes

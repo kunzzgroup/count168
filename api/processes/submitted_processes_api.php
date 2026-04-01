@@ -297,6 +297,7 @@ function getSubmissionsByDate($user_id)
                 sp.id,
                 sp.process_id,
                 sp.date_submitted,
+                sp.capture_date,
                 sp.created_at,
                 sp.user_type,
                 p.process_id as process_code,
