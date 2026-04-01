@@ -267,7 +267,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                         <label class="transaction-label">Account</label>
                         <div class="rate-row rate-row-two-cols">
                             <div class="custom-select-wrapper">
-                                <button type="button" class="custom-select-button" id="rate_account_from" data-placeholder="--Select From Account--">--Select From Account--</button>
+                                <button type="button" class="custom-select-button" id="rate_account_from" data-placeholder="--Select To Account--">--Select To Account--</button>
                                 <div class="custom-select-dropdown" id="rate_account_from_dropdown">
                                     <div class="custom-select-search">
                                         <input type="text" placeholder="Search account..." autocomplete="off">
@@ -276,7 +276,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                                 </div>
                             </div>
                             <div class="custom-select-wrapper">
-                                <button type="button" class="custom-select-button" id="rate_account_to" data-placeholder="--Select To Account--">--Select To Account--</button>
+                                <button type="button" class="custom-select-button" id="rate_account_to" data-placeholder="--Select From Account--">--Select From Account--</button>
                                 <div class="custom-select-dropdown" id="rate_account_to_dropdown">
                                     <div class="custom-select-search">
                                         <input type="text" placeholder="Search account..." autocomplete="off">
