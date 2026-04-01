@@ -2276,7 +2276,6 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         : document.getElementById('action_account_id');
     const rateTransferAmountInput = document.getElementById('rate_transfer_amount');
     const rateTransferFromSelect = document.getElementById('rate_transfer_from_account');
-    const rateTransferToSelect = document.getElementById('rate_transfer_to_account');
     const amountInput = isRateView
         ? rateTransferAmountInput
         : document.getElementById('action_amount');
