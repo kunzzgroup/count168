@@ -7154,7 +7154,7 @@ function extractRowDataForTemplate(row, formData) {
     const sourcePercent = sourcePercentAttr || formData.sourcePercentValue || '1';
     // Auto-enable if source percent has value
     const enableSourcePercent = sourcePercent && sourcePercent.trim() !== '';
-    const templateKey = row.getAttribute('data-template-key') || (productType === 'main' ? idProduct : null);
+    let templateKey = row.getAttribute('data-template-key') || null;
 
     // Get batch selection from checkbox
     // Always read the current state directly from the checkbox to ensure accuracy
@@ -7183,6 +7183,22 @@ function extractRowDataForTemplate(row, formData) {
     // Get template_id from row attribute if available (for editing existing templates)
     const templateIdAttr = row.getAttribute('data-template-id');
     const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
+
+    // CRITICAL: main 行必须有唯一且稳定的 template_key，否则同 id_product 会在后端互相覆盖（unique index 命中）
+    // 方案A：后续更新/删除以 template_id 为准；首次创建时用 (id_product + account_id + formula_variant + row_index) 生成唯一 key
+    if (!templateKey && productType === 'main') {
+        if (templateId) {
+            templateKey = `tid_${templateId}`
+        } else {
+            const acc = (formData.accountValue != null && String(formData.accountValue).trim() !== '')
+                ? String(formData.accountValue).trim()
+                : ''
+            const fv = (formulaVariant != null && !Number.isNaN(Number(formulaVariant))) ? String(formulaVariant) : '0'
+            const ri = (rowIndex != null && !Number.isNaN(Number(rowIndex))) ? String(Number(rowIndex)) : ''
+            const key = [idProduct, acc, fv, ri].filter(Boolean).join('_')
+            templateKey = key ? key.slice(0, 250) : (idProduct || '').slice(0, 250)
+        }
+    }
 
     // Get sub_order from row attribute (only for sub rows)
     let subOrder = null;
