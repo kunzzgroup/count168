@@ -549,7 +549,17 @@ function saveFormulaSourceForRefresh(opts) {
             rowUid: rowUid,
             originalDescription: nextDescription
         };
-        byKey[normKey] = nextData;
+        // 允许同一个 normKey 存多条（例如相同 main id_product + account + formula 的重复行）
+        // 否则对象 key 会覆盖，refresh 后会“少一条”
+        if (byKey[normKey]) {
+            if (Array.isArray(byKey[normKey])) {
+                byKey[normKey].push(nextData);
+            } else {
+                byKey[normKey] = [byKey[normKey], nextData];
+            }
+        } else {
+            byKey[normKey] = nextData;
+        }
         if (stableKey) {
             const existingStable = byStableKey[stableKey];
             const shouldPreferExistingStable =
@@ -653,7 +663,14 @@ function hasRestorableSummaryState(saved) {
         if (!map || typeof map !== 'object') continue;
         const entries = Object.values(map);
         for (let j = 0; j < entries.length; j++) {
-            if (hasRestorableSummaryRowData(entries[j])) return true;
+            const entry = entries[j];
+            if (Array.isArray(entry)) {
+                for (let k = 0; k < entry.length; k++) {
+                    if (hasRestorableSummaryRowData(entry[k])) return true;
+                }
+            } else {
+                if (hasRestorableSummaryRowData(entry)) return true;
+            }
         }
     }
     return false;
@@ -667,7 +684,23 @@ function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey) {
     }
     const key = getSummaryRowKey(row);
     const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-    return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
+    if (!(rowsByKey && typeof rowsByKey === 'object')) return null;
+    const candidate = rowsByKey[normKey] || rowsByKey[key] || null;
+    if (!candidate) return null;
+    if (!Array.isArray(candidate)) return candidate;
+
+    // 如果同一个 key 存了多条，优先按 rowUid 精确匹配；否则按 DOM 顺序依次取用，避免 refresh 后“少一条/串行”
+    const rowUid = (row && row.getAttribute) ? (row.getAttribute('data-row-uid') || '').trim() : '';
+    if (rowUid) {
+        for (let i = 0; i < candidate.length; i++) {
+            const item = candidate[i];
+            if (item && item.rowUid && String(item.rowUid).trim() === rowUid) return item;
+        }
+    }
+    if (!window.__summaryRestorePickIndexByKey) window.__summaryRestorePickIndexByKey = {};
+    const used = window.__summaryRestorePickIndexByKey[normKey] || 0;
+    window.__summaryRestorePickIndexByKey[normKey] = used + 1;
+    return candidate[Math.min(used, candidate.length - 1)] || null;
 }
 
 function readSummaryStateFromLocalStorage() {
@@ -704,6 +737,8 @@ function choosePreferredSummaryState(localState, serverState) {
 // Restore Formula + Source after load. 优先使用服务端状态，若无则用 localStorage（按 id_product + Account 匹配恢复，行顺序变化也不会贴错行）。
 function restoreFormulaSourceFromRefresh() {
     window._summaryHasRefreshStateToPreserve = false;
+    // 用于处理 rowsByKey 同 key 多条的顺序取用（每次 restore 重置）
+    window.__summaryRestorePickIndexByKey = {};
     const localState = readSummaryStateFromLocalStorage();
     const serverState = (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer))
         ? window._summaryStateFromServer
