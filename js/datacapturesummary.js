@@ -7555,6 +7555,8 @@ function saveFormula() {
     let currencyName = currencyText;
     const formulaInput = document.getElementById('formula');
     const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
+    // 用于让 Summary 表的 Formula 与 Edit Formula 的 Display Formula 一致（解析 $n / [id,n] 必需）
+    const clickedCellRefsForPayload = formulaInput ? String(formulaInput.getAttribute('data-clicked-cell-refs') || '').trim() : '';
 
     if (!accountValue) {
         showNotification('Error', 'Please select an account', 'error');
@@ -7897,6 +7899,7 @@ function saveFormula() {
             currency: currencyName || 'Currency',
             currencyDbId: currencyValue,
             columns: columnsDisplay,
+            clickedColumns: clickedCellRefsForPayload,
             // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
             // 如果formula为空，清空sourceColumns以防止页面刷新时重新生成formula
             sourceColumns: sourceColumns || finalSourceColumns,
@@ -7962,6 +7965,7 @@ function saveFormula() {
             currency: currencyName || 'Currency',
             currencyDbId: currencyValue, // Database ID
             columns: columnsDisplay,
+            clickedColumns: clickedCellRefsForPayload,
             sourceColumns: finalSourceColumnsForSub, // Store clicked column numbers
             batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
             source: formulaValue || 'Source', // Use formula as source
@@ -8002,6 +8006,7 @@ function saveFormula() {
                     currency: currencyName || 'Currency',
                     currencyDbId: currencyValue,
                     columns: columnsDisplay,
+                    clickedColumns: clickedCellRefsForPayload,
                     sourceColumns: finalSourceColumnsForMain,
                     batchSelection: batchSelectionChecked,
                     source: formulaValue || 'Source',
@@ -8042,6 +8047,7 @@ function saveFormula() {
                 currency: currencyName || 'Currency',
                 currencyDbId: currencyValue, // Database ID
                 columns: columnsDisplay,
+                clickedColumns: clickedCellRefsForPayload,
                 sourceColumns: finalSourceColumnsForSub2, // Store clicked column numbers
                 batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                 source: formulaValue || 'Source', // Use formula as source
