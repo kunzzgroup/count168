@@ -45,6 +45,32 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
     return false;
 }
 
+/**
+ * Dashboard 交易币别过滤（与 search_api 对齐）：
+ * - 优先使用 transactions.currency_id
+ * - 若 currency_id 为空，则用 data_capture_details 的 account + currency 映射兜底
+ */
+function dashboardTxnCurrencyFilter(string $accountColumn): string
+{
+    if ($accountColumn !== 'account_id' && $accountColumn !== 'from_account_id') {
+        $accountColumn = 'account_id';
+    }
+    return " AND (
+        t.currency_id = ?
+        OR (
+            t.currency_id IS NULL
+            AND EXISTS (
+                SELECT 1
+                FROM data_capture_details dcd
+                JOIN data_captures dc ON dcd.capture_id = dc.id
+                WHERE dcd.company_id = ? AND dc.company_id = ?
+                  AND CAST(dcd.account_id AS CHAR) = CAST(t.`{$accountColumn}` AS CHAR)
+                  AND dcd.currency_id = ?
+            )
+        )
+    )";
+}
+
 // 引入 search_api.php 中的函数（通过定义函数的方式）
 // 注意：这些函数已经在 search_api.php 中定义，但为了独立使用，我们需要重新定义
 
@@ -160,16 +186,24 @@ try {
         $ids_placeholder = implode(',', array_fill(0, count($account_ids), '?'));
         // Prepare currency filters with explicit aliases to avoid ambiguity in joins
         $currency_filter_dcd = "";
-        $currency_filter_t = "";
+        $currency_filter_t_to = "";
+        $currency_filter_t_from = "";
         $currency_filter_e = "";
-        $currency_params = [];
+        $currency_params_dcd = [];
+        $currency_params_t_to = [];
+        $currency_params_t_from = [];
+        $currency_params_e = [];
         if ($filter_currency_code !== null) {
             $curr_id = array_search($filter_currency_code, $currency_map);
             if ($curr_id !== false) {
                 $currency_filter_dcd = " AND dcd.currency_id = ?";
-                $currency_filter_t = " AND t.currency_id = ?";
+                $currency_filter_t_to = dashboardTxnCurrencyFilter('account_id');
+                $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
                 $currency_filter_e = " AND e.currency_id = ?";
-                $currency_params = [$curr_id];
+                $currency_params_dcd = [$curr_id];
+                $currency_params_t_to = [$curr_id, $company_id, $company_id, $curr_id];
+                $currency_params_t_from = [$curr_id, $company_id, $company_id, $curr_id];
+                $currency_params_e = [$curr_id];
             } else {
                 // If the specified currency doesn't exist for this company, return empty for this role
                 $result[strtolower($role)] = [
@@ -192,7 +226,7 @@ try {
                   AND dcd.account_id IN ($ids_placeholder)
                   AND dc.capture_date < ?" . $currency_filter_dcd;
         $bf_stmt = $pdo->prepare($sql);
-        $bf_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db], $currency_params));
+        $bf_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db], $currency_params_dcd));
         $total_bf += (float)$bf_stmt->fetchColumn();
 
         // B. Transactions B/F (To/From)
@@ -215,9 +249,9 @@ try {
                     FROM transactions t
                     WHERE t.company_id = ?
                       AND t.account_id IN ($ids_placeholder)
-                      AND t.transaction_date < ?" . $currency_filter_t . $clearFilter . $contraApproval;
+                      AND t.transaction_date < ?" . $currency_filter_t_to . $clearFilter . $contraApproval;
             $bf_stmt = $pdo->prepare($sql);
-            $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params));
+            $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_to));
             $total_bf += (float)$bf_stmt->fetchColumn();
 
             // From Account
@@ -228,9 +262,9 @@ try {
                     FROM transactions t
                     WHERE t.company_id = ?
                       AND t.from_account_id IN ($ids_placeholder)
-                      AND t.transaction_date < ?" . $currency_filter_t . $clearFilter . $contraApproval;
+                      AND t.transaction_date < ?" . $currency_filter_t_from . $clearFilter . $contraApproval;
             $bf_stmt = $pdo->prepare($sql);
-            $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params));
+            $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_from));
             $total_bf += (float)$bf_stmt->fetchColumn();
 
             // RATE B/F from transaction_entry
@@ -250,7 +284,7 @@ try {
                               AND e.account_id IN ($ids_placeholder)
                               AND h.transaction_date < ?" . $currency_filter_e;
                     $bf_stmt = $pdo->prepare($sql);
-                    $bf_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db], $currency_params));
+                    $bf_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db], $currency_params_e));
                     $total_bf += (float)$bf_stmt->fetchColumn();
                 }
             } catch (Throwable $e) {}
@@ -268,7 +302,7 @@ try {
                 GROUP BY DATE(dc.capture_date)
                 ORDER BY DATE(dc.capture_date)";
         $daily_stmt = $pdo->prepare($sql);
-        $daily_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params));
+        $daily_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_dcd));
         foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $daily_data[$row['date']] = ($daily_data[$row['date']] ?? 0) + (float)$row['win_loss'];
         }
@@ -296,11 +330,11 @@ try {
                       AND t.account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
                       AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')" 
-                      . $currency_filter_t . $clearFilter . $contraApproval . "
+                      . $currency_filter_t_to . $clearFilter . $contraApproval . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
         $daily_stmt = $pdo->prepare($sql);
-            $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params));
+            $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_to));
             foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $daily_data[$row['date']] = ($daily_data[$row['date']] ?? 0) + (float)$row['cr_dr'];
             }
@@ -318,11 +352,11 @@ try {
                       AND t.from_account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
                       AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
-                      . $currency_filter_t . $clearFilter . $contraApproval . "
+                      . $currency_filter_t_from . $clearFilter . $contraApproval . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
             $daily_stmt = $pdo->prepare($sql);
-            $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params));
+            $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_from));
             foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $daily_data[$row['date']] = ($daily_data[$row['date']] ?? 0) + (float)$row['cr_dr'];
             }
@@ -346,7 +380,7 @@ try {
                               AND h.transaction_date BETWEEN ? AND ?" . $currency_filter_e . "
                             GROUP BY DATE(h.transaction_date)";
                     $daily_stmt = $pdo->prepare($sql);
-                    $daily_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params));
+                    $daily_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_e));
                     foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                         $daily_data[$row['date']] = ($daily_data[$row['date']] ?? 0) + (float)$row['rate_delta'];
                     }
