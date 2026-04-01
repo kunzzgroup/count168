@@ -2361,6 +2361,17 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
+            // RATE：第二行仅在为空时才自动带入，避免覆盖用户手动选择
+            if (isRateView && rateTransferFromSelect && !getAccountId(rateTransferFromSelect)) {
+                rateTransferFromSelect.textContent = accountDisplayText;
+                rateTransferFromSelect.setAttribute('data-value', accountId);
+                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
+                if (syncCurrency) {
+                    rateTransferFromSelect.setAttribute('data-currency', syncCurrency);
+                } else {
+                    rateTransferFromSelect.removeAttribute('data-currency');
+                }
+            }
         }
     } else {
         // 右边表格（负数）
@@ -2374,6 +2385,17 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
+            // RATE：第二行仅在为空时才自动带入，避免覆盖用户手动选择
+            if (isRateView && rateTransferToSelect && !getAccountId(rateTransferToSelect)) {
+                rateTransferToSelect.textContent = accountDisplayText;
+                rateTransferToSelect.setAttribute('data-value', accountId);
+                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
+                if (syncCurrency) {
+                    rateTransferToSelect.setAttribute('data-currency', syncCurrency);
+                } else {
+                    rateTransferToSelect.removeAttribute('data-currency');
+                }
+            }
         }
     }
     
