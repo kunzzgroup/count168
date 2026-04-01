@@ -1331,21 +1331,26 @@ function loadCompanyCurrencies() {
                 
                 // 先确定要选中的 currency：默认第一个货币（与 Member Win/Loss 一致）
                 let currenciesToSelect = [];
+                let preferredDefault = null;
+                try {
+                    const defaultKey = 'transaction_default_currency_' + (currentCompanyId || 0);
+                    preferredDefault = String(localStorage.getItem(defaultKey) || '').trim().toUpperCase() || null;
+                } catch (e) { /* ignore */ }
                 if (previousSelected.length === 0 && !previousShowAll) {
-                    const firstCurrency = orderedData[0];
-                    if (firstCurrency) {
-                        currenciesToSelect = [firstCurrency.code];
-                    }
+                    const firstCurrency = preferredDefault
+                        ? orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault)
+                        : orderedData[0];
+                    if (firstCurrency) currenciesToSelect = [firstCurrency.code];
                     showAllCurrencies = false;
                 } else {
                     currenciesToSelect = previousSelected.filter(code =>
                         orderedData.some(c => c.code === code)
                     );
                     if (currenciesToSelect.length === 0 && !previousShowAll) {
-                        const firstCurrency = orderedData[0];
-                        if (firstCurrency) {
-                            currenciesToSelect = [firstCurrency.code];
-                        }
+                        const firstCurrency = preferredDefault
+                            ? orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault)
+                            : orderedData[0];
+                        if (firstCurrency) currenciesToSelect = [firstCurrency.code];
                     }
                 }
                 selectedCurrencies = currenciesToSelect;
@@ -1408,7 +1413,9 @@ function loadCompanyCurrencies() {
                     });
                 });
                 
-                const defaultCurrency = orderedData[0];
+                const defaultCurrency = preferredDefault
+                    ? (orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault) || orderedData[0])
+                    : orderedData[0];
                 
                 currencySelects.forEach(sel => {
                     if (!sel.element) return;
@@ -1510,6 +1517,8 @@ function initCurrencyDragDrop() {
             const key = 'transaction_currency_order_' + (currentCompanyId || 0);
             localStorage.setItem(key, JSON.stringify(newOrder));
             localStorage.setItem('transaction_currency_order_global', JSON.stringify(newOrder));
+            const defaultKey = 'transaction_default_currency_' + (currentCompanyId || 0);
+            localStorage.setItem(defaultKey, String(newOrder[0] || '').trim().toUpperCase());
         } catch (err) { /* ignore */ }
     });
 }
