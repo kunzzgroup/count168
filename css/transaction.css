@@ -777,7 +777,7 @@ body.transaction-page {
 .transaction-history-table-frame {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: min(70vh, calc(92vh - 140px));
+    max-height: min(76vh, calc(92vh - 140px));
     overflow: auto;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
