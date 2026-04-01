@@ -14316,21 +14316,39 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 (data.formula_display !== undefined && data.formula_display !== null ? data.formula_display : '')
             ).toString().trim();
 
+            // 强制与 Edit Formula 的 Display Formula 一致：
+            // 只要存在 formulaOperators（如 $11），就用同一套求值器解析出最终数值并展示（负数括号）。
+            // 这能彻底解决重复 id_product 导致表格公式落成 0 的问题。
+            const formulaOperatorsForForce = (data.formulaOperators !== undefined && data.formulaOperators !== null)
+                ? String(data.formulaOperators).trim()
+                : String(row.getAttribute('data-formula-operators') || '').trim()
+            if (formulaOperatorsForForce && formulaOperatorsForForce !== 'Formula' && typeof evaluateFormulaExpression === 'function') {
+                const clickedRefs = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
+                const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
+                const rowIndexOverrideForEval = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
+                const evaluated = evaluateFormulaExpression(formulaOperatorsForForce, processValue, clickedRefs, rowIndexOverrideForEval)
+                if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated))) {
+                    rawFormula = formulaOperatorsForForce
+                    const display = formatFormulaDisplayTo2Decimals(String(evaluated))
+                    formulaText = formatNegativeNumbersInFormula(display)
+                }
+            }
+
             const normalizedApiFormulaDisplay = apiFormulaDisplay.replace(/\s+/g, '')
             const isApiFormulaDisplayMeaningful = apiFormulaDisplay && apiFormulaDisplay !== 'Formula' &&
                 normalizedApiFormulaDisplay !== '0' &&
                 normalizedApiFormulaDisplay !== '(0)'
 
-            if (isApiFormulaDisplayMeaningful) {
+            if (!formulaText && isApiFormulaDisplayMeaningful) {
                 // 直接使用后端返回的展示公式，最多只做负数格式化，保证与 Edit Formula 红框里的内容保持一致
                 rawFormula = apiFormulaDisplay;
                 formulaText = formatNegativeNumbersInFormula(apiFormulaDisplay);
-            } else if (
+            } else if (!formulaText && (
                 // 后端给了 0（或没给），但该行 processedAmount 非 0 且存在 formulaOperators，则用 operators 重新求值得到展示
                 (data.processedAmount !== undefined && data.processedAmount !== null && String(data.processedAmount).trim() !== '' && Number(data.processedAmount) !== 0) &&
                 (data.formulaOperators && String(data.formulaOperators).trim() !== '' && String(data.formulaOperators).trim() !== 'Formula') &&
                 typeof evaluateFormulaExpression === 'function'
-            ) {
+            )) {
                 const clickedRefs = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
                 const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
                 const rowIndexOverrideForEval = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
@@ -14340,7 +14358,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                     const display = formatFormulaDisplayTo2Decimals(String(evaluated))
                     formulaText = formatNegativeNumbersInFormula(display)
                 }
-            } else if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+            } else if (!formulaText && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
                 // 没有单独的 formula_display 时，退回到原来的逻辑（从 formula + Source % 生成展示值）
                 rawFormula = data.formula;
                 const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
