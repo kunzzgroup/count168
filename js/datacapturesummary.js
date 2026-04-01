@@ -555,7 +555,8 @@ function saveFormulaSourceForRefresh(opts) {
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
             rateValue: nextRateValue,
             rowUid: rowUid,
-            originalDescription: nextDescription
+            originalDescription: nextDescription,
+            clickedCellRefs: (row.getAttribute('data-clicked-cell-refs') || '')
         };
         byKey[normKey] = nextData;
         if (stableKey) {
@@ -650,7 +651,8 @@ function hasRestorableSummaryRowData(data) {
         'sourcePercent',
         'rateValue',
         'originalDescription',
-        'inputMethod'
+        'inputMethod',
+        'clickedCellRefs'
     ];
     return candidateFields.some(function (field) {
         const value = data[field];
@@ -852,6 +854,11 @@ function restoreFormulaSourceFromRefresh() {
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const source = data.source != null ? String(data.source) : '';
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
+        if (data.clickedCellRefs != null) {
+            const cr = String(data.clickedCellRefs).trim();
+            if (cr) row.setAttribute('data-clicked-cell-refs', cr);
+            else row.removeAttribute('data-clicked-cell-refs');
+        }
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
         // Restore data-template-formula-operators (original $notation) if saved
         if (data.templateFormulaOperators != null && data.templateFormulaOperators.trim() !== '') {
@@ -1836,6 +1843,13 @@ function parseIdProductColumnRef(part) {
     const dataColumnIndex = parseInt(colPart, 10);
     if (isNaN(dataColumnIndex) || colPart !== String(dataColumnIndex)) return null;
     const rest = p.substring(0, lastColon);
+    // id_product:#12:3 — Data Capture 行序（0-based），同 id_product 多行时避免总命中第一行
+    const rowIdxSegMatch = rest.match(/:#(\d+)$/);
+    if (rowIdxSegMatch) {
+        const captureRowIndex = parseInt(rowIdxSegMatch[1], 10);
+        const idProduct = rest.substring(0, rest.length - rowIdxSegMatch[0].length);
+        return { idProduct, rowLabel: null, dataColumnIndex, captureRowIndex };
+    }
     // 支持多字母 row_label（如 AF），避免 "(T07):AF:3" 被解析成 id_product="(T07):A" rowLabel="F"
     const rowLabelMatch = rest.match(/:([A-Z]+)$/);
     let idProduct, rowLabel = null;
@@ -1845,7 +1859,7 @@ function parseIdProductColumnRef(part) {
     } else {
         idProduct = rest;
     }
-    return { idProduct, rowLabel, dataColumnIndex };
+    return { idProduct, rowLabel, dataColumnIndex, captureRowIndex: null };
 }
 
 // Check if sourceColumnsValue is in new format
@@ -1877,8 +1891,8 @@ function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
     parts.forEach(part => {
         const parsed = parseIdProductColumnRef(part);
         if (parsed) {
-            const { idProduct, rowLabel, dataColumnIndex } = parsed;
-            const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
+            const { idProduct, rowLabel, dataColumnIndex, captureRowIndex } = parsed;
+            const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel, captureRowIndex);
             if (cellValue !== null && cellValue !== '') {
                 cellValues.push(cellValue);
             }
@@ -1890,10 +1904,35 @@ function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
     return cellValues;
 }
 
+// 从 processRow 行数据读取第 columnIndex 个「数据列」（columnIndex 为 1-based data column）
+function readDataColumnCellFromProcessRow(processRow, columnIndex) {
+    if (!processRow || columnIndex == null) return null;
+    const processRowIndex = columnIndex + 1;
+    if (processRowIndex < 2 || processRowIndex >= processRow.length) return null;
+    const cellData = processRow[processRowIndex];
+    if (!cellData || cellData.type !== 'data' || cellData.value === null || cellData.value === undefined || cellData.value === '') {
+        return null;
+    }
+    let cellValue = cellData.value.toString().trim();
+    cellValue = cellValue.replace(/^\s*\([A-Za-z]{2,4}\)\s*/g, '').trim();
+    cellValue = cellValue.replace(/\$/g, '');
+    let numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+    numericValue = numericValue.replace(/^\s*\(\s*\)\s*/, '').trim();
+    if (numericValue && /^\(\s*-\d[\d.]*\)\s*$/.test(numericValue)) {
+        const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
+        if (!isNaN(parseFloat(inner))) numericValue = inner;
+    } else if (numericValue && /^\(\s*\d[\d.]*\)\s*$/.test(numericValue)) {
+        const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
+        if (!isNaN(parseFloat(inner))) numericValue = '-' + inner;
+    }
+    return (numericValue && numericValue !== '') ? numericValue : cellValue;
+}
+
 // Get cell value from data capture table by id_product and column index
 // Supports row_label parameter to distinguish between multiple rows with same id_product
+// captureRowIndex: 可选，Data Capture 行序（0-based），与 id_product:#N:col 一致
 // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
-function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
+function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null, captureRowIndex = null) {
     try {
         // 若传入的是截断 id（如 "(T07)"），先解析为完整 id_product，避免 No row found / Cell value not found（有 row_label 时优先按行标签匹配）
         const idProductResolved = typeof resolveToFullIdProduct === 'function' ? resolveToFullIdProduct(idProduct, rowLabel) : idProduct;
@@ -1909,6 +1948,17 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
                 return null;
             }
             parsedTableData = JSON.parse(tableData);
+        }
+
+        if (captureRowIndex !== null && captureRowIndex !== undefined && String(captureRowIndex).trim() !== '') {
+            const idx = parseInt(String(captureRowIndex), 10);
+            if (!Number.isNaN(idx) && idx >= 0) {
+                const rowByIdx = findProcessRow(parsedTableData, idProductResolved, idx);
+                if (rowByIdx) {
+                    const v = readDataColumnCellFromProcessRow(rowByIdx, columnIndex);
+                    if (v !== null) return v;
+                }
+            }
         }
 
         // If row_label is provided, find the row by both id_product and row_label
@@ -1997,29 +2047,10 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
         // columnIndex is 1-based data column index (1 = first data column)
         // In processRow: index 0 = row header, index 1 = id_product, index 2 = first data column (column 1)
         // So: columnIndex 1 -> processRow index 2, columnIndex 2 -> processRow index 3, etc.
-        const processRowIndex = columnIndex + 1; // Convert 1-based column index to processRow index
-
-        if (processRowIndex >= 2 && processRowIndex < processRow.length) {
-            const cellData = processRow[processRowIndex];
-            if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                let cellValue = cellData.value.toString().trim();
-                // 只去掉货币代码 (MYR)、(USD) 等，不要去掉会计格式负数如 (-12410.00) 或 (12410.00)
-                cellValue = cellValue.replace(/^\s*\([A-Za-z]{2,4}\)\s*/g, '').trim();
-                cellValue = cellValue.replace(/\$/g, '');
-                let numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                // 去掉前导空括号 "() "，保留带数字的括号如 (-12410.00)
-                numericValue = numericValue.replace(/^\s*\(\s*\)\s*/, '').trim();
-                // 括号内已是负数的 (-12410.00) 直接取内层；会计格式 (12410.00) 表示负数，转为 -12410.00
-                if (numericValue && /^\(\s*-\d[\d.]*\)\s*$/.test(numericValue)) {
-                    const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
-                    if (!isNaN(parseFloat(inner))) numericValue = inner;
-                } else if (numericValue && /^\(\s*\d[\d.]*\)\s*$/.test(numericValue)) {
-                    const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
-                    if (!isNaN(parseFloat(inner))) numericValue = '-' + inner;
-                }
-                console.log('Found cell value for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
-                return (numericValue && numericValue !== '') ? numericValue : cellValue;
-            }
+        const fallbackVal = readDataColumnCellFromProcessRow(processRow, columnIndex);
+        if (fallbackVal !== null) {
+            console.log('Found cell value for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', fallbackVal);
+            return fallbackVal;
         }
 
         console.error('Cell not found for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex);
@@ -5168,18 +5199,20 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
                     // 尝试从引用中获取 row_label（用 parseIdProductColumnRef 保留完整 id_product）
                     let rowLabel = null;
+                    let capIdx = null;
                     if (refIndex < refs.length) {
                         const ref = refs[refIndex];
                         const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
                         if (parsed && (normalizeIdProductText(parsed.idProduct) === normalizeIdProductText(idProduct)) && parsed.dataColumnIndex === dataColumnIndex) {
                             rowLabel = parsed.rowLabel;
+                            capIdx = parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null;
                             refIndex++;
                         }
                     }
 
                     // 使用id_product和列号获取值
                     if (dataColumnIndex > 0) {
-                        columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
+                        columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel, capIdx);
                         console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
                     }
                 } else {
@@ -5191,6 +5224,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
                             const refIdProduct = parsed.idProduct;
                             const refDataColumnIndex = parsed.dataColumnIndex;
                             const refRowLabel = parsed.rowLabel;
+                            const refCapIdx = parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null;
                             const isCurrentRowRef = currentIdProduct && (
                                 (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
                                     ? (refIdProduct.trim() === (currentIdProduct || '').trim())
@@ -5199,7 +5233,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
                             if (isCurrentRowRef) {
                                 const displayColumnIndex = refDataColumnIndex + 1;
                                 if (displayColumnIndex === match.columnNumber) {
-                                    columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
+                                    columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel, refCapIdx);
                                     refIndex++;
                                 }
                             }
@@ -6404,13 +6438,15 @@ function insertCellValueToFormula(cell) {
             }
         }
 
-        // Build cell reference with row label if available
+        // 优先用 data-row-index 固定 Data Capture 行序（同 id_product 多行时避免与 row_label 混淆）
+        const dataRowIdxAttr = row && row.getAttribute ? row.getAttribute('data-row-index') : null;
+        const rowIdxNum = dataRowIdxAttr != null && dataRowIdxAttr !== '' && !Number.isNaN(Number(dataRowIdxAttr)) ? Number(dataRowIdxAttr) : null;
         let cellReference;
-        if (rowLabel) {
-            // New format with row label: "id_product:row_label:column_index" (e.g., "BB:C:3")
+        if (rowIdxNum !== null && rowIdxNum >= 0) {
+            cellReference = `${idProduct}:#${rowIdxNum}:${dataColumnIndex}`;
+        } else if (rowLabel) {
             cellReference = `${idProduct}:${rowLabel}:${dataColumnIndex}`;
         } else {
-            // Backward compatibility: "id_product:column_index" (e.g., "BB:3")
             cellReference = `${idProduct}:${dataColumnIndex}`;
         }
 
@@ -8871,7 +8907,7 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
                         const ref = refs[j];
                         const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
                         if (parsed && parsed.dataColumnIndex === dataColumnIndex) {
-                            columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel);
+                            columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel, parsed.captureRowIndex);
                             refIndex = j + 1;
                             break;
                         }
@@ -11944,7 +11980,8 @@ function updateFormulaAndProcessedAmount(row, data) {
                                     columnRefMap.set(displayColumnIndex, {
                                         idProduct: parsed.idProduct,
                                         rowLabel: parsed.rowLabel || null,
-                                        dataColumnIndex: parsed.dataColumnIndex
+                                        dataColumnIndex: parsed.dataColumnIndex,
+                                        captureRowIndex: parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null
                                     });
                                 });
                             }
@@ -11959,7 +11996,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                                 // Try to get from columnRefMap first (uses correct id_product from sourceColumns)
                                 if (columnRefMap.has(match.columnNumber)) {
                                     const ref = columnRefMap.get(match.columnNumber);
-                                    columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel);
+                                    columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel, ref.captureRowIndex);
                                     console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
 
@@ -16248,20 +16285,31 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                 // 从 sourceColumns 中提取 id_product 和 row_label 信息
                 const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
                 parts.forEach(part => {
+                    const parsedPart = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
+                    if (parsedPart && parsedPart.captureRowIndex != null && parsedPart.captureRowIndex !== undefined) {
+                        const displayColumnKey = parsedPart.dataColumnIndex + 1;
+                        columnRefMap.set(displayColumnKey, {
+                            idProduct: parsedPart.idProduct,
+                            rowLabel: null,
+                            dataColumnIndex: parsedPart.dataColumnIndex,
+                            captureRowIndex: parsedPart.captureRowIndex
+                        });
+                        return;
+                    }
                     // Try format with row label: "id_product:row_label:displayColumnIndex"
                     let partMatch = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                     if (partMatch) {
                         const refIdProduct = partMatch[1];
                         const refRowLabel = partMatch[2];
                         const displayColumnIndex = parseInt(partMatch[3]);
-                        columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: displayColumnIndex - 1 });
+                        columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: displayColumnIndex - 1, captureRowIndex: null });
                     } else {
                         // Try format without row label: "id_product:displayColumnIndex"
                         partMatch = part.match(/^([^:]+):(\d+)$/);
                         if (partMatch) {
                             const refIdProduct = partMatch[1];
                             const displayColumnIndex = parseInt(partMatch[2]);
-                            columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: displayColumnIndex - 1 });
+                            columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: displayColumnIndex - 1, captureRowIndex: null });
                         }
                     }
                 });
@@ -16274,7 +16322,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                 // 优先从 columnRefMap 获取（使用 sourceColumns 中保存的 id_product）
                 if (columnRefMap.has(match.columnNumber)) {
                     const ref = columnRefMap.get(match.columnNumber);
-                    columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel);
+                    columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel, ref.captureRowIndex);
                     console.log('applyMainTemplateToRow: Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                 }
 
@@ -17585,20 +17633,32 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
                 const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
                 parts.forEach(part => {
+                    const parsedPart = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
+                    if (parsedPart && parsedPart.captureRowIndex != null && parsedPart.captureRowIndex !== undefined) {
+                        const displayColumnKey = parsedPart.dataColumnIndex + 1;
+                        sourceColumnRefsMap.set(displayColumnKey, {
+                            idProduct: parsedPart.idProduct,
+                            rowLabel: null,
+                            dataColumnIndex: parsedPart.dataColumnIndex,
+                            displayColumnIndex: displayColumnKey,
+                            captureRowIndex: parsedPart.captureRowIndex
+                        });
+                        return;
+                    }
                     let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                     if (match) {
                         const refIdProduct = match[1];
                         const refRowLabel = match[2];
                         const displayColumnIndex = parseInt(match[3]);
                         const dataColumnIndex = displayColumnIndex - 1;
-                        sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex });
+                        sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex, captureRowIndex: null });
                     } else {
                         match = part.match(/^([^:]+):(\d+)$/);
                         if (match) {
                             const refIdProduct = match[1];
                             const displayColumnIndex = parseInt(match[2]);
                             const dataColumnIndex = displayColumnIndex - 1;
-                            sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex });
+                            sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex, captureRowIndex: null });
                         }
                     }
                 });
@@ -17614,7 +17674,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
                 if (mappedRef) {
                     // 使用 sourceColumns 中的 id_product 和 row_label
-                    columnValue = getCellValueByIdProductAndColumn(mappedRef.idProduct, mappedRef.dataColumnIndex, mappedRef.rowLabel);
+                    columnValue = getCellValueByIdProductAndColumn(mappedRef.idProduct, mappedRef.dataColumnIndex, mappedRef.rowLabel, mappedRef.captureRowIndex);
                     console.log('applySubTemplatesToSummaryRow: Using id_product from sourceColumns:', mappedRef.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                 } else {
                     // 回退到当前 sub row 的 idProduct（如果 sourceColumns 中没有找到）
