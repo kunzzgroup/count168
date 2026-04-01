@@ -2260,9 +2260,9 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const isProfitType = !isRateView && currentType === 'PROFIT';
     const numericBalance = parseBalanceValue(balance);
     const numericCrDr = parseBalanceValue(rowCrDr);
-    // RATE 场景以当前行 Cr/Dr 正负决定 From/To；其余场景沿用左右表映射
+    // RATE 场景：按左右表摆放（左表 -> Select To，右表 -> Select From），避免 Cr/Dr 正负导致摆放到错误一侧
     const treatAsPositiveRow = isRateView
-        ? (numericCrDr === null || Math.abs(numericCrDr) < 0.00001 ? isLeftTable : numericCrDr > 0)
+        ? isLeftTable
         : (isProfitType ? (numericBalance === null ? isLeftTable : numericBalance >= 0) : isLeftTable);
     
     // 获取表单元素
