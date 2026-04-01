@@ -1932,10 +1932,10 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
             return null;
         }
 
-        // columnIndex is 1-based data column index (1 = first data column)
-        // In processRow: index 0 = row header, index 1 = id_product, index 2 = first data column (column 1)
-        // So: columnIndex 1 -> processRow index 2, columnIndex 2 -> processRow index 3, etc.
-        const processRowIndex = columnIndex + 1; // Convert 1-based column index to processRow index
+        // columnIndex is 0-based data column index (0 = first data column)
+        // In processRow: index 0 = row header, index 1 = id_product, index 2 = first data column (dataColumnIndex 0)
+        // So: columnIndex 0 -> processRow index 2, columnIndex 1 -> processRow index 3, etc.
+        const processRowIndex = columnIndex + 2;
 
         if (processRowIndex >= 2 && processRowIndex < processRow.length) {
             const cellData = processRow[processRowIndex];
@@ -5116,7 +5116,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
                     }
 
                     // 使用id_product和列号获取值
-                    if (dataColumnIndex > 0) {
+                    if (dataColumnIndex >= 0) {
                         columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
                         console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
                     }
