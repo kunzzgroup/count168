@@ -3236,6 +3236,8 @@ function handleTypeToggle() {
     if (!typeSel) return;
     
     const isRate = typeSel.value === RATE_TYPE_VALUE;
+    const wasRate = !!window.__lastTransactionTypeWasRate;
+    window.__lastTransactionTypeWasRate = isRate;
     
     if (standardFields) {
         standardFields.style.display = isRate ? 'none' : 'block';
@@ -3251,9 +3253,10 @@ function handleTypeToggle() {
     const standardDateInput = document.getElementById('transaction_date');
     const rateDateInput = document.getElementById('rate_transaction_date');
     if (standardDateInput && rateDateInput) {
+        // 只在 standard <-> RATE 切换时同步日期，避免切换普通 type 时覆盖日期
         if (isRate) {
             rateDateInput.value = standardDateInput.value;
-        } else {
+        } else if (wasRate) {
             standardDateInput.value = rateDateInput.value;
         }
     }
