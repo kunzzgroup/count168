@@ -150,7 +150,6 @@ try {
     
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);
-        $onlyWinLossForExpenses = (strtoupper((string)$role) === 'EXPENSES');
         // 获取该角色的所有账户
         $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
                 FROM account a
@@ -231,7 +230,7 @@ try {
         $total_bf += (float)$bf_stmt->fetchColumn();
 
         // B. Transactions B/F (To/From)
-        if ($hasTransactionCurrency && !$onlyWinLossForExpenses) {
+        if ($hasTransactionCurrency) {
             $clearFilter = $excludeClear ? " AND t.transaction_type <> 'CLEAR'" : "";
             $contraApproval = dashboardContraApprovedWhere($pdo, 't');
             
@@ -309,7 +308,7 @@ try {
         }
 
         // B. Transactions Daily Cr/Dr
-        if ($hasTransactionCurrency && !$onlyWinLossForExpenses) {
+        if ($hasTransactionCurrency) {
             $clearFilter = $excludeClear ? " AND t.transaction_type <> 'CLEAR'" : "";
             $contraApproval = dashboardContraApprovedWhere($pdo, 't');
             
