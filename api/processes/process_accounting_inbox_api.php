@@ -96,6 +96,36 @@ function firstDayOfNextMonthYmd(string $dayStartRaw): ?string
     }
 }
 
+/** Monthly：返回第 N 期账单的应算账日（N 从 1 开始）。短月则压到该月最后一天。 */
+function monthlyDueDateByIndex(string $dayStartRaw, int $index): ?string
+{
+    if ($index <= 0) {
+        return null;
+    }
+    $startYmd = parseBankDateToYmd($dayStartRaw);
+    if ($startYmd === null) {
+        return null;
+    }
+    try {
+        $start = new DateTime($startYmd);
+        $anchorDom = (int) $start->format('j');
+        // 目标月份：起始月份 + (index-1) 个月
+        $monthBase = new DateTime($startYmd);
+        if ($index > 1) {
+            $monthBase->modify('first day of this month');
+            $monthBase->modify('+' . ($index - 1) . ' month');
+        } else {
+            $monthBase->modify('first day of this month');
+        }
+        $lastDay = (int) $monthBase->format('t');
+        $targetDom = min($anchorDom, $lastDay);
+        $monthBase->setDate((int) $monthBase->format('Y'), (int) $monthBase->format('m'), $targetDom);
+        return $monthBase->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 /** Monthly 频率：今天是否为「与 day_start 同日」的算账日（短月则落在该月最后一天） */
 function isMonthDayBillingAnchor(string $todayYmd, string $dayStartRaw): bool
 {
@@ -388,18 +418,36 @@ try {
         }
 
         if ($frequency === '1st_of_every_month') {
-            if ($dayOfMonth !== 1) {
-                $need = false;
-            } elseif (empty($dayStart)) {
-                $need = true;
+            // 允许「到期/逾期」显示：只要 today >= 下次应算账日，就显示（不要求 today 必须是 1 号）
+            if (empty($dayStart)) {
+                // 没有 day_start：按每月1号，未入账时只要到 1 号或之后就显示
+                $need = ($today >= date('Y-m-01'));
             } else {
                 // day_start 非 1 号：首月按比例后，从「下个月1号」开始每月1号全额
                 // day_start 是 1 号：首月按比例（通常=整月）后，也是从「下个月1号」开始
                 $firstAccountingDate = firstDayOfNextMonthYmd($dayStart);
-                $need = ($firstAccountingDate !== null && $today >= $firstAccountingDate);
+                if ($firstAccountingDate !== null) {
+                    $nextDue = null;
+                    try {
+                        // postedCount 已包含 partial_first_month，所以 full-month 的偏移为 (postedCount-1)
+                        $dt = new DateTime($firstAccountingDate);
+                        if ($postedCount > 1) {
+                            $dt->modify('+' . ($postedCount - 1) . ' month');
+                        }
+                        $nextDue = $dt->format('Y-m-d');
+                    } catch (Throwable $e) {
+                        $nextDue = null;
+                    }
+                    $need = ($nextDue !== null && $today >= $nextDue);
+                    if ($need && $dayEndYmd !== null && $nextDue !== null && $nextDue > $dayEndYmd) {
+                        $need = false;
+                    }
+                } else {
+                    $need = false;
+                }
             }
         } else {
-            // Monthly：按 day_start 的「日」每月同一天（>= 起始日当月）
+            // Monthly：显示「下次应算账日」到期/逾期的记录（today >= nextDue）
             if (empty($dayStart) || $startTs === false) {
                 continue;
             }
@@ -407,7 +455,11 @@ try {
             if ($startYmd === null || $today < $startYmd) {
                 $need = false;
             } else {
-                $need = isMonthDayBillingAnchor($today, $dayStart);
+                $nextDue = monthlyDueDateByIndex($dayStart, $postedCount + 1);
+                $need = ($nextDue !== null && $today >= $nextDue);
+                if ($need && $dayEndYmd !== null && $nextDue !== null && $nextDue > $dayEndYmd) {
+                    $need = false;
+                }
             }
         }
 
