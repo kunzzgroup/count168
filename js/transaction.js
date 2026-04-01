@@ -850,6 +850,13 @@ function loadAccounts() {
                     
                     // 清空选项
                     optionsContainer.innerHTML = '';
+
+                    // 追加“清空/取消选择”
+                    const clearOpt = document.createElement('div')
+                    clearOpt.className = 'custom-select-option'
+                    clearOpt.textContent = button.getAttribute('data-placeholder') || '--Select Account--'
+                    clearOpt.setAttribute('data-clear', '1')
+                    optionsContainer.appendChild(clearOpt)
                     
                     // 添加所有账户选项
                     data.data.forEach(account => {
@@ -950,6 +957,23 @@ function initCustomSelects() {
                 noResults.style.display = 'none';
             }
         }
+
+        function clearSelection() {
+            const placeholder = button.getAttribute('data-placeholder') || '--Select Account--'
+            button.textContent = placeholder
+            button.title = placeholder
+            button.removeAttribute('data-value')
+            button.removeAttribute('data-account-code')
+            button.removeAttribute('data-currency')
+
+            // 清除选中状态
+            optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
+                opt.classList.remove('selected')
+            })
+
+            button.dispatchEvent(new Event('change', { bubbles: true }))
+            toggleDropdown()
+        }
         
         // 打开/关闭下拉选单
         function toggleDropdown() {
@@ -1020,7 +1044,11 @@ function initCustomSelects() {
         optionsContainer.addEventListener('click', function(e) {
             const option = e.target.closest('.custom-select-option');
             if (option && option.style.display !== 'none') {
-                selectOption(option);
+                if (option.getAttribute('data-clear') === '1') {
+                    clearSelection()
+                } else {
+                    selectOption(option);
+                }
             }
         });
         
@@ -1037,6 +1065,9 @@ function initCustomSelects() {
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 toggleDropdown();
+            } else if (e.key === 'Backspace' && !this.value) {
+                // 空搜索框下 Backspace 直接清空选择（不影响输入时的 Backspace）
+                clearSelection()
             } else if (e.key === 'Enter') {
                 e.preventDefault();
                 const visibleOptions = filteredOptions.filter(opt => opt.style.display !== 'none');
