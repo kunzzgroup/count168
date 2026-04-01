@@ -307,7 +307,11 @@ function getSummaryRowStableKey(row) {
     const productType = (row.getAttribute('data-product-type') || 'main').trim();
     const subOrderRaw = (row.getAttribute('data-sub-order') || '').trim();
     const subOrder = subOrderRaw !== '' ? subOrderRaw : (productType === 'sub' ? '1' : '0');
-    return [idProduct, accountIdentity, currency, productType, subOrder].join('\t');
+    // IMPORTANT: 同一 main id_product + account 可能出现多行（不同 description/formula 等）。
+    // 为避免 refresh 后 rowsByStableKey 覆盖串行，若该行已有 rowUid，则将其拼入 stableKey 以保证唯一。
+    const rowUid = (row && row.getAttribute) ? (row.getAttribute('data-row-uid') || '').trim() : '';
+    const base = [idProduct, accountIdentity, currency, productType, subOrder].join('\t');
+    return rowUid ? (base + '\t' + rowUid) : base;
 }
 
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
@@ -500,13 +504,13 @@ function saveFormulaSourceForRefresh(opts) {
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
         const normKey = normalizeSummaryRowKey(key);
-        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         // 为每一行分配稳定且唯一的 rowUid，用于在 refresh 前后精确识别同一行
         let rowUid = row.getAttribute('data-row-uid');
         if (!rowUid) {
             rowUid = 'r_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e8).toString(36);
             row.setAttribute('data-row-uid', rowUid);
         }
+        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         // 行顺序只保存「Id Product + rowUid」，既能分组又保证唯一
         const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
         const orderKey = idPart ? (idPart + '\t' + rowUid) : rowUid;
