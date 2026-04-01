@@ -397,6 +397,7 @@ try {
             'role' => $role,
             'total_balance' => $total_balance,
             'initial_balance' => $total_bf,
+            'period_total' => $total_period_delta,
             'daily_data' => $daily_data
         ];
     }
@@ -419,6 +420,11 @@ try {
             'capital' => $result['capital']['total_balance'],
             'expenses' => $result['expenses']['total_balance'],
             'profit' => $result['profit']['total_balance'],
+            'period_total' => [
+                'capital' => $result['capital']['period_total'],
+                'expenses' => $result['expenses']['period_total'],
+                'profit' => $result['profit']['period_total']
+            ],
             'initial_balance' => [
                 'capital' => $result['capital']['initial_balance'],
                 'expenses' => $result['expenses']['initial_balance'],
