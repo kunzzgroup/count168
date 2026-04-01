@@ -80,6 +80,22 @@ function parseBankDateToYmd(?string $raw): ?string
     return date('Y-m-d', $ts);
 }
 
+/** day_start 所在月的「下个月1号」(Y-m-d) */
+function firstDayOfNextMonthYmd(string $dayStartRaw): ?string
+{
+    $startYmd = parseBankDateToYmd($dayStartRaw);
+    if ($startYmd === null) {
+        return null;
+    }
+    try {
+        $dt = new DateTime($startYmd);
+        $dt->modify('first day of next month');
+        return $dt->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 /** Monthly 频率：今天是否为「与 day_start 同日」的算账日（短月则落在该月最后一天） */
 function isMonthDayBillingAnchor(string $todayYmd, string $dayStartRaw): bool
 {
@@ -377,9 +393,10 @@ try {
             } elseif (empty($dayStart)) {
                 $need = true;
             } else {
-                $firstAccountingTs = $startTs !== false ? strtotime('+1 month', $startTs) : false;
-                $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
-                $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
+                // day_start 非 1 号：首月按比例后，从「下个月1号」开始每月1号全额
+                // day_start 是 1 号：首月按比例（通常=整月）后，也是从「下个月1号」开始
+                $firstAccountingDate = firstDayOfNextMonthYmd($dayStart);
+                $need = ($firstAccountingDate !== null && $today >= $firstAccountingDate);
             }
         } else {
             // Monthly：按 day_start 的「日」每月同一天（>= 起始日当月）
