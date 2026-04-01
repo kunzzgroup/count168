@@ -516,6 +516,17 @@ function saveFormulaSourceForRefresh(opts) {
         const orderKey = idPart ? (idPart + '\t' + rowUid) : rowUid;
         rowOrder.push(orderKey);
         const cells = row.querySelectorAll('td');
+        const rawIdProductText = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+        const idProductText = typeof normalizeIdProductForKey === 'function' ? normalizeIdProductForKey(rawIdProductText) : rawIdProductText;
+        const accountCell = cells[1] || null;
+        const accountText = (accountCell && accountCell.textContent ? accountCell.textContent.trim() : '');
+        const accountId = (accountCell && accountCell.getAttribute ? (accountCell.getAttribute('data-account-id') || '').trim() : '');
+        const currencyText = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
+        const productType = (row.getAttribute('data-product-type') || 'main').trim();
+        const subOrder = (row.getAttribute('data-sub-order') || '').trim();
+        const rowIndexAttr = (row.getAttribute('data-row-index') || '').trim();
+        const creationOrderAttr = (row.getAttribute('data-creation-order') || '').trim();
+        const parentIdProduct = (row.getAttribute('data-parent-id-product') || '').trim();
         const formulaCell = cells[4];
         let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
@@ -547,7 +558,17 @@ function saveFormulaSourceForRefresh(opts) {
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
             rateValue: nextRateValue,
             rowUid: rowUid,
-            originalDescription: nextDescription
+            originalDescription: nextDescription,
+            idProduct: idProductText,
+            rawIdProduct: rawIdProductText,
+            account: accountText,
+            accountId: accountId,
+            currency: currencyText,
+            productType: productType,
+            subOrder: subOrder,
+            rowIndex: rowIndexAttr,
+            creationOrder: creationOrderAttr,
+            parentIdProduct: parentIdProduct
         };
         byKey[normKey] = nextData;
         if (stableKey) {
@@ -740,6 +761,66 @@ function restoreFormulaSourceFromRefresh() {
     }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
+
+    // 若 saved state 中存在当前 DOM 里没有的行（常见于同 main id_product+account 多行），则在恢复前补回这些行，
+    // 否则 refresh 后会“缺行”（因为初始渲染来自 Data Capture Table/模板，未必包含用户临时新增的重复行）。
+    try {
+        const currentRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+        const currentRowUidSet = new Set(
+            currentRows.map(r => (r.getAttribute('data-row-uid') || '').trim()).filter(Boolean)
+        );
+        const savedRows = byStableKey ? Object.values(byStableKey) : [];
+        savedRows.forEach((savedRow) => {
+            const uid = savedRow && savedRow.rowUid ? String(savedRow.rowUid).trim() : '';
+            if (!uid || currentRowUidSet.has(uid)) return;
+
+            const idProduct = (savedRow.rawIdProduct || savedRow.idProduct || '').toString().trim();
+            const productType = (savedRow.productType || 'main').toString().trim();
+            // 找一条同 id_product + productType 的现有行做模板 clone（最小改动：复用现有列结构/事件）
+            const anchor = currentRows.find(r => {
+                const cells = r.querySelectorAll('td');
+                const raw = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+                const norm = typeof normalizeIdProductForKey === 'function' ? normalizeIdProductForKey(raw) : raw;
+                const wantedNorm = typeof normalizeIdProductForKey === 'function' ? normalizeIdProductForKey(idProduct) : idProduct;
+                const type = (r.getAttribute('data-product-type') || 'main').toString().trim();
+                return norm && wantedNorm && norm === wantedNorm && type === productType;
+            });
+            if (!anchor) return;
+
+            const newRow = anchor.cloneNode(true);
+            newRow.setAttribute('data-row-uid', uid);
+            if (savedRow.productType != null) newRow.setAttribute('data-product-type', String(savedRow.productType));
+            if (savedRow.subOrder != null && String(savedRow.subOrder).trim() !== '') newRow.setAttribute('data-sub-order', String(savedRow.subOrder));
+            if (savedRow.rowIndex != null && String(savedRow.rowIndex).trim() !== '') newRow.setAttribute('data-row-index', String(savedRow.rowIndex));
+            if (savedRow.creationOrder != null && String(savedRow.creationOrder).trim() !== '') newRow.setAttribute('data-creation-order', String(savedRow.creationOrder));
+            if (savedRow.parentIdProduct != null && String(savedRow.parentIdProduct).trim() !== '') newRow.setAttribute('data-parent-id-product', String(savedRow.parentIdProduct));
+            if (savedRow.originalDescription != null) {
+                const desc = String(savedRow.originalDescription || '').trim();
+                if (desc) newRow.setAttribute('data-original-description', desc);
+                else newRow.removeAttribute('data-original-description');
+            }
+
+            const cells = newRow.querySelectorAll('td');
+            if (cells[0]) {
+                cells[0].textContent = idProduct;
+                if (idProduct) cells[0].setAttribute('title', idProduct);
+            }
+            if (cells[1]) {
+                cells[1].textContent = (savedRow.account || '').toString().trim();
+                if (cells[1].getAttribute && savedRow.accountId) {
+                    cells[1].setAttribute('data-account-id', String(savedRow.accountId).trim());
+                }
+            }
+            if (cells[3]) cells[3].textContent = (savedRow.currency || '').toString().trim();
+            // 公式/来源/Rate 等具体值仍由下面统一 restore 逻辑写入
+
+            anchor.insertAdjacentElement('afterend', newRow);
+            currentRows.splice(currentRows.indexOf(anchor) + 1, 0, newRow);
+            currentRowUidSet.add(uid);
+        });
+    } catch (e) {
+        console.warn('restoreFormulaSourceFromRefresh: failed to re-insert missing rows from saved state', e);
+    }
 
     // 在按照 rowOrder 重排之前，先根据保存的 rowsByKey 为当前 DOM 行补上 data-row-uid。
     // 这样在「无 Maintenance 模板」场景下，reorderSummaryRowsBySavedOrder 也能正确匹配到同一行，
