@@ -1459,6 +1459,11 @@ function loadCompanyCurrencies() {
                         sel.element.value = defaultCurrency.code;
                     }
                 });
+
+                // RATE：右侧 Currency（rate_currency_to）固定默认 MYR，不参与自动选择
+                if (rateCurrencyToSelect && rateCurrencyToSelect.querySelector('option[value="MYR"]')) {
+                    rateCurrencyToSelect.value = 'MYR';
+                }
                 
                 console.log('✅ Currency 按钮加载成功:', orderedData, '选中的:', selectedCurrencies);
             } else {
@@ -2464,7 +2469,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     // 设置 currency：余额列数字以表格行币种为准（与筛选/展示一致），无行币种再用账户主币种
     let currencySet = false;
     let currencyToSet = null;
-    if (currencySelect) {
+    // RATE：红框的 rate_currency_to 固定 MYR，不做自动同步
+    if (currencySelect && !(isRateView && currencySelect.id === 'rate_currency_to')) {
         currencyToSet = syncCurrency || (accountCurrency ? String(accountCurrency).trim().toUpperCase() : null);
         if (currencyToSet) {
             const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === currencyToSet);
@@ -3430,14 +3436,7 @@ function handleReverseAccounts(event) {
         const rateToBtn = document.getElementById('rate_account_to');
         swapAccountButtons(rateFromBtn, rateToBtn);
         
-        // 交换货币选择
-        const rateFromCurrency = document.getElementById('rate_currency_from');
-        const rateToCurrency = document.getElementById('rate_currency_to');
-        if (rateFromCurrency && rateToCurrency) {
-            const tmpCurrency = rateFromCurrency.value;
-            rateFromCurrency.value = rateToCurrency.value;
-            rateToCurrency.value = tmpCurrency;
-        }
+        // RATE：rate_currency_to 固定 MYR，不参与 reverse 自动交换
         
         // 交换货币金额
         const rateCurrencyFromAmount = document.getElementById('rate_currency_from_amount');
