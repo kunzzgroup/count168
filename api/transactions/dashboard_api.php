@@ -41,7 +41,8 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
         return false;
     }
     $role = strtoupper(trim((string)$role));
-    return in_array($role, ['EXPENSES', 'PROFIT'], true);
+    // 与 Transaction List/search_api 口径对齐：不排除 CLEAR（EXPENSES 也要算入）
+    return false;
 }
 
 // 引入 search_api.php 中的函数（通过定义函数的方式）
