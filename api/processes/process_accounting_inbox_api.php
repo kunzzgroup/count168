@@ -3,8 +3,8 @@
  * Process Accounting Inbox API
  * 返回「当天需要算账」的 Bank Process 列表（用于 Process List 标题旁的“需要算账”Inbox）
  * 规则：
- * - 1st of Every Month = 每月1号算账；若设置了 Day start（如 2月20），则先出现一笔「首月按比例」：sell price/当月天数*（20号到月底天数），客户先还这笔，1号起再还全额。
- * - Monthly = 每月(day_start 日 - 1)号，如 2月8日开始则每月7号算账
+ * - 1st of Every Month：非1号 day_start 先「首月按比例」，之后每月1号全额；day_start 在当月1号则首月按比例（通常=整月）后，次月起每月1号。合同 N 个月 / 1+N 则共 N 期账单后不再出现。
+ * - Monthly：按 day_start 的「日」每月同一天算账（如 10/3 开始则每月10号），闰月/短月则压到该月最后一天。
  */
 
 session_start();
@@ -50,6 +50,77 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     ];
 }
 
+/** 解析合同为「账单期数」：3 MONTHS→3；1+1→2（1个月+再1次）；1+2→3；0=不限制 */
+function parseContractToTotalBillingPeriods(?string $contract): int
+{
+    if ($contract === null || trim($contract) === '') {
+        return 0;
+    }
+    $c = trim($contract);
+    if (preg_match('/^(\d+)\s*MONTHS?$/i', $c, $m)) {
+        return max(0, (int) $m[1]);
+    }
+    if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
+        return 1 + (int) $m[1];
+    }
+    return 0;
+}
+
+/** day_start / day_end → Y-m-d */
+function parseBankDateToYmd(?string $raw): ?string
+{
+    if ($raw === null || trim($raw) === '') {
+        return null;
+    }
+    $s = trim($raw);
+    $ts = strtotime(str_replace('/', '-', $s));
+    if ($ts === false) {
+        return null;
+    }
+    return date('Y-m-d', $ts);
+}
+
+/** Monthly 频率：今天是否为「与 day_start 同日」的算账日（短月则落在该月最后一天） */
+function isMonthDayBillingAnchor(string $todayYmd, string $dayStartRaw): bool
+{
+    $startYmd = parseBankDateToYmd($dayStartRaw);
+    if ($startYmd === null) {
+        return false;
+    }
+    try {
+        $today = new DateTime($todayYmd);
+        $start = new DateTime($startYmd);
+    } catch (Throwable $e) {
+        return false;
+    }
+    $anchorDom = (int) $start->format('j');
+    $lastDayOfMonth = (int) $today->format('t');
+    $targetDom = min($anchorDom, $lastDayOfMonth);
+
+    return (int) $today->format('j') === $targetDom;
+}
+
+/** 各 process 已入账期数（partial + monthly + skipped） */
+function getPostedBillingPeriodsCountBatch(PDO $pdo, int $companyId, array $processIds): array
+{
+    if (empty($processIds)) {
+        return [];
+    }
+    $placeholders = implode(',', array_fill(0, count($processIds), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT process_id, COUNT(*) AS c FROM process_accounting_posted
+         WHERE company_id = ? AND process_id IN ($placeholders)
+         AND period_type IN ('partial_first_month','partial_first_month_skipped','monthly','monthly_skipped')
+         GROUP BY process_id"
+    );
+    $stmt->execute(array_merge([$companyId], $processIds));
+    $map = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $map[(int) $row['process_id']] = (int) $row['c'];
+    }
+    return $map;
+}
+
 /** 检查 bank_process 表是否有 day_start_frequency 列 */
 function hasBankProcessFrequencyColumn(PDO $pdo): bool
 {
@@ -80,7 +151,7 @@ function normalizedBankIssueFlagSql(string $columnRef): string
 function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.contract" .
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.contract, bp.day_end" .
         ($hasFrequency ? ", bp.day_start_frequency" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
@@ -137,28 +208,6 @@ function getMonthlyPostedIdsForDate(PDO $pdo, int $companyId, string $date, arra
     $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND posted_date = ? AND process_id IN ($placeholders) AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '')");
     $stmt->execute(array_merge([$companyId, $date], $processIds));
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-}
-
-/** 获取曾入账过「monthly」的 process_id 列表（任意日期，用于 Monthly 第一笔是否已做过） */
-function getMonthlyEverPostedIds(PDO $pdo, int $companyId): array
-{
-    try {
-        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
-        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
-            return [];
-        }
-        $stmt = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
-        if (!$stmt || $stmt->rowCount() === 0) {
-            $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ?");
-            $stmt->execute([$companyId]);
-            return array_map('intval', array_unique($stmt->fetchAll(PDO::FETCH_COLUMN)));
-        }
-        $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '')");
-        $stmt->execute([$companyId]);
-        return array_map('intval', array_unique($stmt->fetchAll(PDO::FETCH_COLUMN)));
-    } catch (Throwable $e) {
-        return [];
-    }
 }
 
 /** 获取指定日期已入账的 process_id 列表（无 period_type 时） */
@@ -241,7 +290,8 @@ try {
     $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency);
     $needToday = [];
 
-    $monthlyEverPostedIds = $hasPeriodType ? getMonthlyEverPostedIds($pdo, $company_id) : [];
+    $processIds = array_column($rows, 'id');
+    $postedCountsByProcess = getPostedBillingPeriodsCountBatch($pdo, $company_id, $processIds);
 
     // 1) Partial first month
     if ($hasFrequency && $hasPeriodType) {
@@ -262,6 +312,15 @@ try {
                 continue;
             }
             $processId = (int) $r['id'];
+            $contractPeriods = parseContractToTotalBillingPeriods($r['contract'] ?? '');
+            $postedCount = $postedCountsByProcess[$processId] ?? 0;
+            if ($contractPeriods > 0 && $postedCount >= $contractPeriods) {
+                continue;
+            }
+            $dayEndYmd = parseBankDateToYmd($r['day_end'] ?? null);
+            if ($dayEndYmd !== null && $today > $dayEndYmd) {
+                continue;
+            }
             if (isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
                 continue;
             }
@@ -286,13 +345,31 @@ try {
         }
     }
 
-    // 2) Regular: 每月1号 或 Monthly(day_start-1) 的当天
+    // 2) Regular：每月1号（1st_of_every_month）或 Monthly（与 day_start 同日）
     foreach ($rows as $r) {
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
+        $processId = (int) $r['id'];
+        $contractPeriods = parseContractToTotalBillingPeriods($r['contract'] ?? '');
+        $postedCount = $postedCountsByProcess[$processId] ?? 0;
+        if ($contractPeriods > 0 && $postedCount >= $contractPeriods) {
+            continue;
+        }
+        $dayEndYmd = parseBankDateToYmd($r['day_end'] ?? null);
+        if ($dayEndYmd !== null && $today > $dayEndYmd) {
+            continue;
+        }
+
         $need = false;
         $startTs = (!empty($dayStart)) ? strtotime($dayStart) : false;
         $startDate = $startTs !== false ? date('Y-m-d', $startTs) : '';
+
+        // 首月按比例未入账（或未跳过）前，不显示「每月1号」全额行，避免与首月重复
+        if ($frequency === '1st_of_every_month' && $hasFrequency && $hasPeriodType && !empty($dayStart)) {
+            if (!isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
+                continue;
+            }
+        }
 
         if ($frequency === '1st_of_every_month') {
             if ($dayOfMonth !== 1) {
@@ -300,32 +377,20 @@ try {
             } elseif (empty($dayStart)) {
                 $need = true;
             } else {
-                $firstAccountingTs = $startTs !== false ? strtotime('first day of next month', $startTs) : false;
+                $firstAccountingTs = $startTs !== false ? strtotime('+1 month', $startTs) : false;
                 $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
                 $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
             }
         } else {
-            // Monthly：第一笔从未入账过则马上出现在 Accounting Due；之后按每月 (day_start-1) 日出现
-            if (empty($dayStart)) {
+            // Monthly：按 day_start 的「日」每月同一天（>= 起始日当月）
+            if (empty($dayStart) || $startTs === false) {
                 continue;
             }
-            $processId = (int) $r['id'];
-            $neverPostedMonthly = !in_array($processId, $monthlyEverPostedIds, true);
-            if ($neverPostedMonthly) {
-                $need = ($startDate !== '' && $today >= $startDate);
+            $startYmd = parseBankDateToYmd($dayStart);
+            if ($startYmd === null || $today < $startYmd) {
+                $need = false;
             } else {
-                if ($startTs === false) {
-                    continue;
-                }
-                $startDayOfMonth = (int) date('j', $startTs);
-                $accountingDay = max(1, $startDayOfMonth - 1);
-                if ($dayOfMonth !== $accountingDay) {
-                    $need = false;
-                } else {
-                    $firstPeriodEndTs = strtotime('-1 day', strtotime('+1 month', $startTs));
-                    $firstPeriodEndDate = $firstPeriodEndTs !== false ? date('Y-m-d', $firstPeriodEndTs) : '';
-                    $need = ($firstPeriodEndDate !== '' && $today >= $firstPeriodEndDate);
-                }
+                $need = isMonthDayBillingAnchor($today, $dayStart);
             }
         }
 
