@@ -1981,8 +1981,10 @@ if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'processCode' => $payload['processCode'] ?? '',
             'rowsByKey' => $payload['rowsByKey'] ?? [],
             'rowsByStableKey' => $payload['rowsByStableKey'] ?? [],
+            'rowsByRowUid' => $payload['rowsByRowUid'] ?? [],
             'rowOrder' => $payload['rowOrder'] ?? [],
             'rateValuesByKey' => $payload['rateValuesByKey'] ?? [],
+            'rateValuesByRowUid' => $payload['rateValuesByRowUid'] ?? [],
             'savedAt' => $payload['savedAt'] ?? null,
         ]);
         $stmt = $pdo->prepare("
