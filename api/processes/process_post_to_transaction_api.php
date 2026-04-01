@@ -197,10 +197,11 @@ function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId,
             return;
         }
         if ($hasPeriodType) {
-            $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
+            // 兼容旧库唯一键（可能不含 posted_date）：同一 process 的 monthly 再次入账时，更新 posted_date 为最新月份。
+            $ins = $pdo->prepare("INSERT INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE posted_date = VALUES(posted_date)");
             $ins->execute([$companyId, $processId, $date, $periodType]);
         } else {
-            $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date) VALUES (?, ?, ?)");
+            $ins = $pdo->prepare("INSERT INTO process_accounting_posted (company_id, process_id, posted_date) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE posted_date = VALUES(posted_date)");
             $ins->execute([$companyId, $processId, $date]);
         }
     } catch (Throwable $e) {
