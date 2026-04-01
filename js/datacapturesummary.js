@@ -5156,8 +5156,9 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 }
 
                 if (columnValue === null) {
-                    columnValue = '0';
-                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber}, substituting with 0`);
+                    // Keep the original reference for display; do not silently turn into 0.
+                    columnValue = match.fullMatch
+                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber}, keeping reference`);
                 }
 
                 // 存储匹配的值
@@ -5219,8 +5220,9 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 let columnValue = getColumnValueFromCellReference(columnReference, processValue);
 
                 if (columnValue === null) {
-                    columnValue = '0';
-                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber} (${columnReference}), substituting with 0`);
+                    // Keep the original reference for display; do not silently turn into 0.
+                    columnValue = match.fullMatch
+                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber} (${columnReference}), keeping reference`);
                 }
 
                 // 替换 $数字 为实际值
@@ -9268,6 +9270,16 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         return { baseProcessedAmount: 0, finalProcessedAmount: 0 };
     }
 
+    // If the formula has missing references (e.g. $11 / [ID:11] cannot be resolved),
+    // do not overwrite existing processed amount with 0.
+    const hasMissingFormulaRef = options.hasMissingFormulaRef === true || row.getAttribute('data-missing-formula-ref') === 'true'
+    if (hasMissingFormulaRef) {
+        return {
+            baseProcessedAmount: parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0,
+            finalProcessedAmount: parseFloat((row.querySelectorAll('td')[8]?.textContent || '').replace(/,/g, '')) || 0
+        }
+    }
+
     const cells = row.querySelectorAll('td');
     const inputMethod = options.inputMethod !== undefined
         ? String(options.inputMethod || '').trim()
@@ -11822,6 +11834,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                         const rowLabel = getRowLabelFromProcessValue(processValue, rowIndexOverrideForDisplay);
                         if (rowLabel) {
                             let displayFormula = formulaOperators;
+                            let hasMissingRef = false
 
                             // Replace $number references with actual column values
                             const dollarPattern = /\$(\d+)(?!\d)/g;
@@ -11898,8 +11911,10 @@ function updateFormulaAndProcessedAmount(row, data) {
                                 // CRITICAL: If column value is still null (missing data), default to "0"
                                 // This satisfies the requirement that missing data should be treated as 0 instead of using old values
                                 if (columnValue === null) {
-                                    columnValue = "0";
-                                    console.warn(`updateFormulaAndProcessedAmount: column $${match.columnNumber} not found for ${processValue}, defaulting to 0`);
+                                    hasMissingRef = true
+                                    row.setAttribute('data-missing-formula-ref', 'true')
+                                    console.warn(`updateFormulaAndProcessedAmount: column $${match.columnNumber} not found for ${processValue}, keeping reference and skipping recalc`);
+                                    columnValue = match.fullMatch
                                 }
 
                                 displayFormula = displayFormula.substring(0, match.index) +
@@ -11910,6 +11925,10 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // Always use the resolved displayFormula for display and calculation
                             // No more fallback to stale preferredFormulaDisplay/formulaOperators
                             {
+                                if (hasMissingRef) {
+                                    formulaText = formatNegativeNumbersInFormula(formulaOperators)
+                                    rawFormula = formulaOperators
+                                } else {
                                 // Also parse other reference formats (A4, [id_product:column])
                                 const parsedFormula = parseReferenceFormula(displayFormula, processValue, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
                                 if (parsedFormula) {
@@ -11927,6 +11946,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                                 formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent, processValue, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
                                 rawFormula = formulaText;
                                 console.log('updateFormulaAndProcessedAmount: Parsed column references for display:', formulaOperators, '->', formulaText);
+                                }
                             }
                         } else {
                             // No row label, use formulaOperators as-is
@@ -12047,6 +12067,7 @@ function updateFormulaAndProcessedAmount(row, data) {
         inputMethod: restoredInputMethod,
         enableInputMethod: restoredEnableInputMethod,
         enableSourcePercent: restoredEnableSourcePercent,
+        hasMissingFormulaRef: row.getAttribute('data-missing-formula-ref') === 'true',
         updateTotal: false
     };
 
@@ -14431,10 +14452,11 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                             const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct);
                             let columnValue = getCellValueByIdProductAndColumn(refMatch.idProduct, dataColumnIndex, rowLabel);
 
-                            // DEFAULT TO 0: satisfy user requirement to use 0 instead of old data for missing cells
+                            // If missing, keep reference and mark row so we don't overwrite amounts with 0.
                             if (columnValue === null || columnValue === '') {
-                                columnValue = "0";
-                                console.warn(`updateSummaryTableRow: Cell value missing for [${refMatch.idProduct}:${refMatch.displayColumnIndex}], defaulting to 0`);
+                                row.setAttribute('data-missing-formula-ref', 'true')
+                                console.warn(`updateSummaryTableRow: Cell value missing for [${refMatch.idProduct}:${refMatch.displayColumnIndex}], keeping reference and skipping recalc`);
+                                columnValue = refMatch.fullMatch
                             }
 
                             parsedExpression = parsedExpression.substring(0, refMatch.index) +
@@ -16213,10 +16235,11 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                     }
                 }
 
-                // DEFAULT TO 0 IF MISSING: Resolve to 0 to align with user expectation
+                // If missing, keep reference and mark row so we don't overwrite amounts with 0.
                 if (columnValue === null) {
-                    columnValue = "0";
-                    console.warn(`applyMainTemplateToRow: column value missing for $${match.columnNumber}, defaulting to 0`);
+                    row.setAttribute('data-missing-formula-ref', 'true')
+                    columnValue = match.fullMatch
+                    console.warn(`applyMainTemplateToRow: column value missing for $${match.columnNumber}, keeping reference and skipping recalc`);
                 }
 
                 // 替换 $数字 为实际值
@@ -17551,10 +17574,11 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     }
                 }
 
-                // DEFAULT TO 0 IF MISSING: Resolve to 0 to align with user expectation
+                // If missing, keep reference and mark row so we don't overwrite amounts with 0.
                 if (columnValue === null) {
-                    columnValue = "0";
-                    console.warn(`applySubTemplatesToSummaryRow: column value missing for $${match.columnNumber}, defaulting to 0`);
+                    row.setAttribute('data-missing-formula-ref', 'true')
+                    columnValue = match.fullMatch
+                    console.warn(`applySubTemplatesToSummaryRow: column value missing for $${match.columnNumber}, keeping reference and skipping recalc`);
                 }
 
                 // 替换 $数字 为实际值
