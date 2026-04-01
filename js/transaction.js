@@ -850,6 +850,13 @@ function loadAccounts() {
                     
                     // 清空选项
                     optionsContainer.innerHTML = '';
+
+                    // 追加“清空/取消选择”
+                    const clearOpt = document.createElement('div')
+                    clearOpt.className = 'custom-select-option'
+                    clearOpt.textContent = button.getAttribute('data-placeholder') || '--Select Account--'
+                    clearOpt.setAttribute('data-clear', '1')
+                    optionsContainer.appendChild(clearOpt)
                     
                     // 添加所有账户选项
                     data.data.forEach(account => {
@@ -950,6 +957,23 @@ function initCustomSelects() {
                 noResults.style.display = 'none';
             }
         }
+
+        function clearSelection() {
+            const placeholder = button.getAttribute('data-placeholder') || '--Select Account--'
+            button.textContent = placeholder
+            button.title = placeholder
+            button.removeAttribute('data-value')
+            button.removeAttribute('data-account-code')
+            button.removeAttribute('data-currency')
+
+            // 清除选中状态
+            optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
+                opt.classList.remove('selected')
+            })
+
+            button.dispatchEvent(new Event('change', { bubbles: true }))
+            toggleDropdown()
+        }
         
         // 打开/关闭下拉选单
         function toggleDropdown() {
@@ -1020,7 +1044,11 @@ function initCustomSelects() {
         optionsContainer.addEventListener('click', function(e) {
             const option = e.target.closest('.custom-select-option');
             if (option && option.style.display !== 'none') {
-                selectOption(option);
+                if (option.getAttribute('data-clear') === '1') {
+                    clearSelection()
+                } else {
+                    selectOption(option);
+                }
             }
         });
         
@@ -1037,6 +1065,9 @@ function initCustomSelects() {
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 toggleDropdown();
+            } else if (e.key === 'Backspace' && !this.value) {
+                // 空搜索框下 Backspace 直接清空选择（不影响输入时的 Backspace）
+                clearSelection()
             } else if (e.key === 'Enter') {
                 e.preventDefault();
                 const visibleOptions = filteredOptions.filter(opt => opt.style.display !== 'none');
@@ -1331,21 +1362,26 @@ function loadCompanyCurrencies() {
                 
                 // 先确定要选中的 currency：默认第一个货币（与 Member Win/Loss 一致）
                 let currenciesToSelect = [];
+                let preferredDefault = null;
+                try {
+                    const defaultKey = 'transaction_default_currency_' + (currentCompanyId || 0);
+                    preferredDefault = String(localStorage.getItem(defaultKey) || '').trim().toUpperCase() || null;
+                } catch (e) { /* ignore */ }
                 if (previousSelected.length === 0 && !previousShowAll) {
-                    const firstCurrency = orderedData[0];
-                    if (firstCurrency) {
-                        currenciesToSelect = [firstCurrency.code];
-                    }
+                    const firstCurrency = preferredDefault
+                        ? orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault)
+                        : orderedData[0];
+                    if (firstCurrency) currenciesToSelect = [firstCurrency.code];
                     showAllCurrencies = false;
                 } else {
                     currenciesToSelect = previousSelected.filter(code =>
                         orderedData.some(c => c.code === code)
                     );
                     if (currenciesToSelect.length === 0 && !previousShowAll) {
-                        const firstCurrency = orderedData[0];
-                        if (firstCurrency) {
-                            currenciesToSelect = [firstCurrency.code];
-                        }
+                        const firstCurrency = preferredDefault
+                            ? orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault)
+                            : orderedData[0];
+                        if (firstCurrency) currenciesToSelect = [firstCurrency.code];
                     }
                 }
                 selectedCurrencies = currenciesToSelect;
@@ -1408,7 +1444,9 @@ function loadCompanyCurrencies() {
                     });
                 });
                 
-                const defaultCurrency = orderedData[0];
+                const defaultCurrency = preferredDefault
+                    ? (orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault) || orderedData[0])
+                    : orderedData[0];
                 
                 currencySelects.forEach(sel => {
                     if (!sel.element) return;
@@ -1421,6 +1459,11 @@ function loadCompanyCurrencies() {
                         sel.element.value = defaultCurrency.code;
                     }
                 });
+
+                // RATE：右侧 Currency（rate_currency_to）固定默认 MYR，不参与自动选择
+                if (rateCurrencyToSelect && rateCurrencyToSelect.querySelector('option[value="MYR"]')) {
+                    rateCurrencyToSelect.value = 'MYR';
+                }
                 
                 console.log('✅ Currency 按钮加载成功:', orderedData, '选中的:', selectedCurrencies);
             } else {
@@ -1510,6 +1553,8 @@ function initCurrencyDragDrop() {
             const key = 'transaction_currency_order_' + (currentCompanyId || 0);
             localStorage.setItem(key, JSON.stringify(newOrder));
             localStorage.setItem('transaction_currency_order_global', JSON.stringify(newOrder));
+            const defaultKey = 'transaction_default_currency_' + (currentCompanyId || 0);
+            localStorage.setItem(defaultKey, String(newOrder[0] || '').trim().toUpperCase());
         } catch (err) { /* ignore */ }
     });
 }
@@ -1599,6 +1644,19 @@ function updateCurrencyButtonsState() {
             }
         }
     });
+
+    // RATE：左侧 Currency 跟随当前选中的货币（仅单选时自动同步）
+    if (typeof isRateTypeSelected === 'function' && isRateTypeSelected()) {
+        const singleSelected = (!showAllCurrencies && selectedCurrencies.length === 1)
+            ? String(selectedCurrencies[0] || '').trim().toUpperCase()
+            : ''
+        if (singleSelected) {
+            const rateFromCurrency = document.getElementById('rate_currency_from')
+            if (rateFromCurrency && rateFromCurrency.querySelector(`option[value="${singleSelected}"]`)) {
+                rateFromCurrency.value = singleSelected
+            }
+        }
+    }
 }
 
 // ==================== 搜索功能 ====================
@@ -2251,21 +2309,25 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const isProfitType = !isRateView && currentType === 'PROFIT';
     const numericBalance = parseBalanceValue(balance);
     const numericCrDr = parseBalanceValue(rowCrDr);
-    // RATE 场景以当前行 Cr/Dr 正负决定 From/To；其余场景沿用左右表映射
+    // RATE 场景：按你要求用“点左表/点右表”决定落点
     const treatAsPositiveRow = isRateView
-        ? (numericCrDr === null || Math.abs(numericCrDr) < 0.00001 ? isLeftTable : numericCrDr > 0)
+        ? isLeftTable
         : (isProfitType ? (numericBalance === null ? isLeftTable : numericBalance >= 0) : isLeftTable);
     
     // 获取表单元素
-    // RATE 页面两个按钮的显示文案与 id 命名是反的：
-    // rate_account_from 显示 "Select To Account"
-    // rate_account_to   显示 "Select From Account"
-    // 点击带入时统一按显示文案语义处理：左/正 -> Select To，右/负 -> Select From
+    // RATE 页面：
+    // - rate_account_from 显示 "Select To Account"
+    // - rate_account_to   显示 "Select From Account"
+    // RATE（按你要求）：
+    // - 点左表：第2行填左边 Select To（rate_account_from）；第4行填右边 Select From（rate_transfer_to_account）
+    // - 点右表：第2行填右边 Select From（rate_account_to）；第4行填左边 Select To（rate_transfer_from_account）
+    const rateSelectToBtn = document.getElementById('rate_account_from');   // UI: Select To Account
+    const rateSelectFromBtn = document.getElementById('rate_account_to');  // UI: Select From Account
     const positiveAccountSelect = isRateView
-        ? document.getElementById('rate_account_from')
+        ? (isLeftTable ? rateSelectToBtn : rateSelectFromBtn)
         : document.getElementById('action_account_from');
     const negativeAccountSelect = isRateView
-        ? document.getElementById('rate_account_to')
+        ? (isLeftTable ? rateSelectToBtn : rateSelectFromBtn)
         : document.getElementById('action_account_id');
     const rateTransferAmountInput = document.getElementById('rate_transfer_amount');
     const rateTransferFromSelect = document.getElementById('rate_transfer_from_account');
@@ -2339,7 +2401,7 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     }
     
     // 根据是左边还是右边的表格，填充到对应的账户字段
-    // 左(正) -> Select To，右(负) -> Select From
+    // RATE：第一组按点左/点右决定落点
     if (treatAsPositiveRow) {
         // 左边表格（正数）
         if (positiveAccountSelect) {
@@ -2352,15 +2414,17 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferFromSelect) {
-                // RATE 第二行也按显示文案语义：正数填到 Select To
-                rateTransferFromSelect.textContent = accountDisplayText;
-                rateTransferFromSelect.setAttribute('data-value', accountId);
-                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
+            // RATE：第二行仅在为空时才自动带入，避免覆盖用户手动选择
+            // RATE：点左表 -> 第4行填右边 Select From（rate_transfer_to_account）
+            const rateTransferTargetBtn = isRateView ? document.getElementById('rate_transfer_to_account') : null;
+            if (isRateView && rateTransferTargetBtn && !getAccountId(rateTransferTargetBtn)) {
+                rateTransferTargetBtn.textContent = accountDisplayText;
+                rateTransferTargetBtn.setAttribute('data-value', accountId);
+                rateTransferTargetBtn.setAttribute('data-account-code', foundAccountCode);
                 if (syncCurrency) {
-                    rateTransferFromSelect.setAttribute('data-currency', syncCurrency);
+                    rateTransferTargetBtn.setAttribute('data-currency', syncCurrency);
                 } else {
-                    rateTransferFromSelect.removeAttribute('data-currency');
+                    rateTransferTargetBtn.removeAttribute('data-currency');
                 }
             }
         }
@@ -2376,15 +2440,17 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferToSelect) {
-                // RATE 第二行也按显示文案语义：负数填到 Select From
-                rateTransferToSelect.textContent = accountDisplayText;
-                rateTransferToSelect.setAttribute('data-value', accountId);
-                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
+            // RATE：第二行仅在为空时才自动带入，避免覆盖用户手动选择
+            // RATE：点右表 -> 第4行填左边 Select To（rate_transfer_from_account）
+            const rateTransferTargetBtn = isRateView ? document.getElementById('rate_transfer_from_account') : null;
+            if (isRateView && rateTransferTargetBtn && !getAccountId(rateTransferTargetBtn)) {
+                rateTransferTargetBtn.textContent = accountDisplayText;
+                rateTransferTargetBtn.setAttribute('data-value', accountId);
+                rateTransferTargetBtn.setAttribute('data-account-code', foundAccountCode);
                 if (syncCurrency) {
-                    rateTransferToSelect.setAttribute('data-currency', syncCurrency);
+                    rateTransferTargetBtn.setAttribute('data-currency', syncCurrency);
                 } else {
-                    rateTransferToSelect.removeAttribute('data-currency');
+                    rateTransferTargetBtn.removeAttribute('data-currency');
                 }
             }
         }
@@ -2416,7 +2482,8 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     // 设置 currency：余额列数字以表格行币种为准（与筛选/展示一致），无行币种再用账户主币种
     let currencySet = false;
     let currencyToSet = null;
-    if (currencySelect) {
+    // RATE：红框的 rate_currency_to 固定 MYR，不做自动同步
+    if (currencySelect && !(isRateView && currencySelect.id === 'rate_currency_to')) {
         currencyToSet = syncCurrency || (accountCurrency ? String(accountCurrency).trim().toUpperCase() : null);
         if (currencyToSet) {
             const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === currencyToSet);
@@ -3081,7 +3148,6 @@ function submitAction() {
                     'rate_currency_from_amount',
                     'rate_currency_to_amount',
                     'rate_transfer_amount',
-                    'rate_exchange_rate',
                     'rate_middleman_rate',
                     'rate_middleman_amount'
                 ].forEach(id => {
@@ -3236,6 +3302,8 @@ function handleTypeToggle() {
     if (!typeSel) return;
     
     const isRate = typeSel.value === RATE_TYPE_VALUE;
+    const wasRate = !!window.__lastTransactionTypeWasRate;
+    window.__lastTransactionTypeWasRate = isRate;
     
     if (standardFields) {
         standardFields.style.display = isRate ? 'none' : 'block';
@@ -3251,9 +3319,10 @@ function handleTypeToggle() {
     const standardDateInput = document.getElementById('transaction_date');
     const rateDateInput = document.getElementById('rate_transaction_date');
     if (standardDateInput && rateDateInput) {
+        // 只在 standard <-> RATE 切换时同步日期，避免切换普通 type 时覆盖日期
         if (isRate) {
             rateDateInput.value = standardDateInput.value;
-        } else {
+        } else if (wasRate) {
             standardDateInput.value = rateDateInput.value;
         }
     }
@@ -3380,14 +3449,7 @@ function handleReverseAccounts(event) {
         const rateToBtn = document.getElementById('rate_account_to');
         swapAccountButtons(rateFromBtn, rateToBtn);
         
-        // 交换货币选择
-        const rateFromCurrency = document.getElementById('rate_currency_from');
-        const rateToCurrency = document.getElementById('rate_currency_to');
-        if (rateFromCurrency && rateToCurrency) {
-            const tmpCurrency = rateFromCurrency.value;
-            rateFromCurrency.value = rateToCurrency.value;
-            rateToCurrency.value = tmpCurrency;
-        }
+        // RATE：rate_currency_to 固定 MYR，不参与 reverse 自动交换
         
         // 交换货币金额
         const rateCurrencyFromAmount = document.getElementById('rate_currency_from_amount');

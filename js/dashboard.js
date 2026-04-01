@@ -987,8 +987,8 @@ function updateDashboard(data) {
                 const profitEl = document.getElementById('profit-value');
 
                 // 原始值（跟 Payment 一致）
-                const rawProfit = parseFloat(data.profit) || 0;
-                const rawExpenses = parseFloat(data.expenses) || 0;
+                const rawProfit = parseFloat(data?.period_total?.profit ?? data.profit) || 0
+                const rawExpenses = parseFloat(data?.period_total?.expenses ?? data.expenses) || 0;
 
                 // Profit 卡片：直接沿用 Payment 的符号（Payment 为负，这里也显示负）
                 const displayProfitNum = rawProfit;

@@ -75,6 +75,29 @@ function deleteByIds(PDO $pdo, string $table, string $column, array $ids): void
     }
     
     $placeholders = buildInPlaceholders(count($ids));
+
+    // transactions 需要先清理子表 transaction_entry，避免外键约束失败
+    if ($table === 'transactions') {
+        $txnIds = fetchIds(
+            $pdo,
+            sprintf("SELECT `id` FROM `transactions` WHERE `%s` IN (%s)", $column, $placeholders),
+            $ids
+        );
+
+        if (!empty($txnIds)) {
+            try {
+                $hasEntry = $pdo->query("SHOW TABLES LIKE 'transaction_entry'")->rowCount() > 0;
+                if ($hasEntry) {
+                    $txnPh = buildInPlaceholders(count($txnIds));
+                    $delEntry = $pdo->prepare("DELETE FROM `transaction_entry` WHERE `header_id` IN ($txnPh)");
+                    $delEntry->execute($txnIds);
+                }
+            } catch (Exception $e) {
+                // 保持旧环境兼容：如果不支持/不存在则忽略
+            }
+        }
+    }
+
     $sql = sprintf("DELETE FROM `%s` WHERE `%s` IN (%s)", $table, $column, $placeholders);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($ids);
