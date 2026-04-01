@@ -2361,17 +2361,6 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferFromSelect) {
-                // RATE 第二行也按显示文案语义：正数填到 Select To
-                rateTransferFromSelect.textContent = accountDisplayText;
-                rateTransferFromSelect.setAttribute('data-value', accountId);
-                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
-                if (syncCurrency) {
-                    rateTransferFromSelect.setAttribute('data-currency', syncCurrency);
-                } else {
-                    rateTransferFromSelect.removeAttribute('data-currency');
-                }
-            }
         }
     } else {
         // 右边表格（负数）
@@ -2385,17 +2374,6 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferToSelect) {
-                // RATE 第二行也按显示文案语义：负数填到 Select From
-                rateTransferToSelect.textContent = accountDisplayText;
-                rateTransferToSelect.setAttribute('data-value', accountId);
-                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
-                if (syncCurrency) {
-                    rateTransferToSelect.setAttribute('data-currency', syncCurrency);
-                } else {
-                    rateTransferToSelect.removeAttribute('data-currency');
-                }
-            }
         }
     }
     
