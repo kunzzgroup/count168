@@ -11870,29 +11870,20 @@ function updateFormulaAndProcessedAmount(row, data) {
                             const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
                             const isNewFormat = sourceColumnsValue && isNewIdProductColumnFormat(sourceColumnsValue);
 
-                            // Build a map of columnNumber -> {idProduct, rowLabel, dataColumnIndex} from sourceColumns
+                            // Build a map of $columnNumber -> {idProduct, rowLabel, dataColumnIndex} from sourceColumns
+                            // NOTE: sourceColumns 保存的是 dataColumnIndex（0-based），而公式里的 $数字 是 displayColumnIndex（1-based）。
                             const columnRefMap = new Map();
                             if (isNewFormat) {
                                 const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
                                 parts.forEach(part => {
-                                    // Try format with row label: "id_product:row_label:displayColumnIndex"
-                                    let partMatch = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
-                                    if (partMatch) {
-                                        const idProduct = partMatch[1];
-                                        const refRowLabel = partMatch[2];
-                                        const displayColumnIndex = parseInt(partMatch[3]);
-                                        const dataColumnIndex = displayColumnIndex - 1;
-                                        columnRefMap.set(displayColumnIndex, { idProduct, rowLabel: refRowLabel, dataColumnIndex });
-                                    } else {
-                                        // Try format without row label: "id_product:displayColumnIndex"
-                                        partMatch = part.match(/^([^:]+):(\d+)$/);
-                                        if (partMatch) {
-                                            const idProduct = partMatch[1];
-                                            const displayColumnIndex = parseInt(partMatch[2]);
-                                            const dataColumnIndex = displayColumnIndex - 1;
-                                            columnRefMap.set(displayColumnIndex, { idProduct, rowLabel: null, dataColumnIndex });
-                                        }
-                                    }
+                                    const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
+                                    if (!parsed) return;
+                                    const displayColumnIndex = parsed.dataColumnIndex + 1;
+                                    columnRefMap.set(displayColumnIndex, {
+                                        idProduct: parsed.idProduct,
+                                        rowLabel: parsed.rowLabel || null,
+                                        dataColumnIndex: parsed.dataColumnIndex
+                                    });
                                 });
                             }
 
