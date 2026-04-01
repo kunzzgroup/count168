@@ -997,13 +997,16 @@ function getLocalDateString(date = null) {
     return `${year}-${month}-${day}`;
 }
 
-// Load submitted processes：加载今天物理提交的记录（不管左侧 Date 选择哪天）；行内日期为逻辑日期，时间为物理提交时刻
+// Load submitted processes：随左侧 Date（capture_date）筛选；行内日期为账务日，时间为 created_at
 async function loadSubmittedProcesses() {
     try {
+        const dateInput = document.getElementById('capture_date');
+        const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
+
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
 
-        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_today_entries`);
+        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${encodeURIComponent(selectedDate)}`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
         const response = await fetch(finalUrl);
@@ -1011,7 +1014,7 @@ async function loadSubmittedProcesses() {
 
         if (result.success) {
             submittedProcesses = result.data || [];
-            console.log('Loaded', submittedProcesses.length, 'submitted processes for today');
+            console.log('Loaded', submittedProcesses.length, 'submitted processes for capture_date:', selectedDate);
             console.log('Sample submission dates:', submittedProcesses.slice(0, 3).map(p => ({
                 process: p.process_code,
                 date_submitted: p.date_submitted,
@@ -2149,7 +2152,7 @@ function renderSubmittedProcesses() {
     const listContainer = document.getElementById('submittedProcessesList');
 
     if (submittedProcesses.length === 0) {
-        listContainer.innerHTML = '<div class="no-data">No processes submitted yet today</div>';
+        listContainer.innerHTML = '<div class="no-data">No processes submitted for this date</div>';
         return;
     }
 
