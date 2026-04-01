@@ -590,13 +590,14 @@ function saveFormulaSourceForRefresh(opts) {
 
 // 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
 function fetchSummaryStateFromServer(processId, processCode) {
-    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
     const base = 'api/datacapture_summary/summary_api.php?action=get_summary_state';
     const params = new URLSearchParams();
     if (processId != null && processId !== '') params.set('process_id', String(processId));
     if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
+    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null)
+    if (currentCompanyId != null && String(currentCompanyId).trim() !== '') params.set('company_id', String(currentCompanyId))
     const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
-    return fetch(url)
+    return fetch(url, { credentials: 'same-origin' })
         .then(function (res) { return res.json(); })
         .then(function (json) {
             if (json && json.success === true && json.data && typeof json.data === 'object') return json.data;
@@ -608,11 +609,16 @@ function fetchSummaryStateFromServer(processId, processCode) {
 // 将 Summary 状态保存到服务端（与 localStorage 双写），不阻塞 UI
 function saveSummaryStateToServer(payload) {
     if (!payload || typeof payload !== 'object') return;
-    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
-    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state';
+    // 保存 Summary 状态需要通过后端的 company 权限校验：
+    // - JSON body 不会进 $_POST，因此必须通过 querystring 传 company_id
+    // - 同时显式带上 credentials，避免部分环境下 Cookie 未发送导致后端识别成未授权
+    const baseUrl = 'api/datacapture_summary/summary_api.php?action=save_summary_state'
+    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null)
+    const url = currentCompanyId ? `${baseUrl}&company_id=${encodeURIComponent(String(currentCompanyId))}` : baseUrl
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify(payload)
     }).catch(function () { });
 }
