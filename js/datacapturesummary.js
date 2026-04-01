@@ -8652,7 +8652,7 @@ function getColumnValueFromCellReference(cellReference, processValue) {
 // Parse reference format formula and replace with actual values
 // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
 // Also supports cell references: "A4 + A3" -> "17 + 42"
-function parseReferenceFormula(formula, processValueOverride = null) {
+function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return '';
@@ -8729,7 +8729,10 @@ function parseReferenceFormula(formula, processValueOverride = null) {
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 重要：优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         const formulaInput = document.getElementById('formula');
-        const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+        const clickedCellRefs = (
+            (clickedCellRefsOverride != null ? String(clickedCellRefsOverride) : '') ||
+            (formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '')
+        );
 
         if (processValue) {
             // Match $ followed by digits (e.g., $2, $10, $123)
@@ -8968,7 +8971,7 @@ function parseReferenceFormula(formula, processValueOverride = null) {
 }
 
 // Evaluate formula expression directly
-function evaluateFormulaExpression(formula, processValueOverride = null) {
+function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return 0;
@@ -8997,7 +9000,7 @@ function evaluateFormulaExpression(formula, processValueOverride = null) {
         }
 
         // First, parse reference format if present (e.g., [iphsp3 : 4] -> 17)
-        const parsedFormula = parseReferenceFormula(formula, processValueOverride);
+        const parsedFormula = parseReferenceFormula(formula, processValueOverride, clickedCellRefsOverride);
 
         // Remove spaces and evaluate
         // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234)-(-2234)),
@@ -13818,7 +13821,22 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         // Prefer saved formula_display so this row matches Edit Formula exactly.
         const preferredFormulaDisplay = getPreferredFormulaDisplay(data, row);
         const rawFormula = preferredFormulaDisplay || ((data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '');
-        const formulaText = rawFormula ? formatNegativeNumbersInFormula(rawFormula) : '';
+        let formulaText = rawFormula ? formatNegativeNumbersInFormula(rawFormula) : '';
+
+        // 如果外部表格拿不到已保存的 formula_display（常见为空或被回落成 "0"），
+        // 但 formulaOperators 仍存在（例如 "$11"），则用现有求值器算出结果并展示，
+        // 以保持与 Edit Formula 弹窗的 Display Formula 一致。
+        const shouldFallbackToEvaluatedOperators = (!formulaText || formulaText.trim() === '' || formulaText.trim() === '0' || formulaText.trim() === '(0)') &&
+            data && data.formulaOperators && String(data.formulaOperators).trim() !== '' && String(data.formulaOperators).trim() !== 'Formula'
+        if (shouldFallbackToEvaluatedOperators && typeof evaluateFormulaExpression === 'function') {
+            const processValueForRefs = getProcessValueFromRow(row) || null
+            const clickedRefsForDisplay = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
+            const evaluated = evaluateFormulaExpression(String(data.formulaOperators).trim(), processValueForRefs, clickedRefsForDisplay)
+            if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated)) && Math.abs(Number(evaluated)) > 0) {
+                const display = formatFormulaDisplayTo2Decimals(String(evaluated))
+                formulaText = formatNegativeNumbersInFormula(display)
+            }
+        }
         row.setAttribute('data-formula-raw', rawFormula || '');
         if (formulaText) row.setAttribute('data-formula-display', formulaText);
         else row.removeAttribute('data-formula-display');
