@@ -237,7 +237,7 @@ try {
             // To Account
             $sql = "SELECT COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
-                        WHEN transaction_type = 'CONTRA' THEN amount
+                        WHEN transaction_type = 'CONTRA' THEN -amount
                         WHEN transaction_type = 'CLEAR' THEN -amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
@@ -256,7 +256,8 @@ try {
 
             // From Account
             $sql = "SELECT COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CONTRA', 'CLEAR') THEN amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR') THEN amount
+                        WHEN transaction_type = 'CONTRA' THEN amount
                         ELSE 0
                     END), 0)
                     FROM transactions t
@@ -316,7 +317,7 @@ try {
             $sql = "SELECT DATE(t.transaction_date) as date,
                            COALESCE(SUM(CASE 
                                WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
-                               WHEN transaction_type = 'CONTRA' THEN t.amount
+                               WHEN transaction_type = 'CONTRA' THEN -t.amount
                                WHEN transaction_type = 'CLEAR' THEN -t.amount
                                WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
@@ -342,7 +343,7 @@ try {
             // From Account
             $sql = "SELECT DATE(t.transaction_date) as date,
                            COALESCE(SUM(CASE 
-                               WHEN transaction_type = 'CONTRA' THEN -t.amount
+                               WHEN transaction_type = 'CONTRA' THEN t.amount
                                WHEN transaction_type = 'CLEAR' THEN t.amount
                                WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                                ELSE 0
