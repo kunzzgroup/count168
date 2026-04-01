@@ -3129,7 +3129,6 @@ function submitAction() {
                     'rate_currency_from_amount',
                     'rate_currency_to_amount',
                     'rate_transfer_amount',
-                    'rate_exchange_rate',
                     'rate_middleman_rate',
                     'rate_middleman_amount'
                 ].forEach(id => {
