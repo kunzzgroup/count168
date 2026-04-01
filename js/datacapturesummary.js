@@ -12163,7 +12163,16 @@ function updateFormulaAndProcessedAmount(row, data) {
 
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
-        row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
+        // 勿用「展示用数值公式」覆盖含 $ 的原始公式，否则 Edit Formula 输入框会变成纯数字串
+        const tplKeep = (row.getAttribute('data-template-formula-operators') || '').trim();
+        const opsKeep = (row.getAttribute('data-formula-operators') || '').trim();
+        if (/\$[0-9]+/.test(tplKeep)) {
+            row.setAttribute('data-formula-operators', tplKeep);
+        } else if (/\$[0-9]+/.test(opsKeep)) {
+            row.setAttribute('data-formula-operators', opsKeep);
+        } else {
+            row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
+        }
         const displayText = formulaText;
         if (displayText) row.setAttribute('data-formula-display', displayText);
         else row.removeAttribute('data-formula-display');
@@ -14660,7 +14669,20 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
             if (!rawFormula) rawFormula = formulaText;
             row.setAttribute('data-formula-raw', rawFormula || '');
-            row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
+            // 若本行已从 data.formulaOperators 写入含 $ 的公式（14426），此处不再用展示数值覆盖
+            const incomingOpsForRow = (data.formulaOperators !== undefined && data.formulaOperators !== null)
+                ? String(data.formulaOperators).trim() : '';
+            if (incomingOpsForRow === '') {
+                const tplKeep2 = (row.getAttribute('data-template-formula-operators') || '').trim();
+                const opsKeep2 = (row.getAttribute('data-formula-operators') || '').trim();
+                if (/\$[0-9]+/.test(tplKeep2)) {
+                    row.setAttribute('data-formula-operators', tplKeep2);
+                } else if (/\$[0-9]+/.test(opsKeep2)) {
+                    row.setAttribute('data-formula-operators', opsKeep2);
+                } else {
+                    row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
+                }
+            }
             const displayText = formulaText;
             if (displayText) row.setAttribute('data-formula-display', displayText);
             else row.removeAttribute('data-formula-display');
