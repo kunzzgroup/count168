@@ -5157,7 +5157,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
                 if (columnValue === null) {
                     // Keep the original reference for display; do not silently turn into 0.
-                    columnValue = match.fullMatch
+                    columnValue = match.fullMatch;
                     console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber}, keeping reference`);
                 }
 
@@ -5221,7 +5221,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
                 if (columnValue === null) {
                     // Keep the original reference for display; do not silently turn into 0.
-                    columnValue = match.fullMatch
+                    columnValue = match.fullMatch;
                     console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber} (${columnReference}), keeping reference`);
                 }
 
