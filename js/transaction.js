@@ -1644,6 +1644,19 @@ function updateCurrencyButtonsState() {
             }
         }
     });
+
+    // RATE：左侧 Currency 跟随当前选中的货币（仅单选时自动同步）
+    if (typeof isRateTypeSelected === 'function' && isRateTypeSelected()) {
+        const singleSelected = (!showAllCurrencies && selectedCurrencies.length === 1)
+            ? String(selectedCurrencies[0] || '').trim().toUpperCase()
+            : ''
+        if (singleSelected) {
+            const rateFromCurrency = document.getElementById('rate_currency_from')
+            if (rateFromCurrency && rateFromCurrency.querySelector(`option[value="${singleSelected}"]`)) {
+                rateFromCurrency.value = singleSelected
+            }
+        }
+    }
 }
 
 // ==================== 搜索功能 ====================
