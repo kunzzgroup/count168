@@ -9405,14 +9405,14 @@ function balanceParentheses(s) {
 }
 
 // Create Formula display from expression with source percent
-function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableSourcePercent = true) {
+function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableSourcePercent = true, processValueOverride = null, clickedCellRefsOverride = null) {
     try {
         if (!formula) {
             return 'Formula';
         }
 
         // Always resolve references ($n, An/Sn, [id:n]) to actual values so table Formula column matches Edit Formula modal display
-        let parsedFormula = parseReferenceFormula(formula);
+        let parsedFormula = parseReferenceFormula(formula, processValueOverride, clickedCellRefsOverride);
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
@@ -11647,18 +11647,21 @@ function updateRowFormulaFromColumns(row) {
     const isDisplayReferenceFormat = displayExpression && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(displayExpression);
     const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
 
+    const processValueForDisplay = getProcessValueFromRow(row) || data.processValue || data.process || null
+    const clickedCellRefsForDisplay = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
+
     if (isDisplayReferenceFormat) {
         // Parse reference format to actual values before creating display
-        const parsedExpression = parseReferenceFormula(displayExpression);
+        const parsedExpression = parseReferenceFormula(displayExpression, processValueForDisplay, clickedCellRefsForDisplay);
         if (enableSourcePercent && sourcePercentText) {
-            formulaDisplay = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, enableSourcePercent);
+            formulaDisplay = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, enableSourcePercent, processValueForDisplay, clickedCellRefsForDisplay);
         } else {
             formulaDisplay = parsedExpression;
         }
         console.log('Parsed reference format for display:', displayExpression, '->', parsedExpression, 'Final:', formulaDisplay);
     } else if (savedHasReferenceFormat) {
         // Saved formula has reference format, parse it to actual values
-        const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
+        const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay, processValueForDisplay, clickedCellRefsForDisplay);
         formulaDisplay = parsedSavedFormula;
         console.log('Parsed saved formula_display with reference format:', savedFormulaDisplay, '->', parsedSavedFormula);
     } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
@@ -11668,7 +11671,7 @@ function updateRowFormulaFromColumns(row) {
         // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
         if (preservedFormula === null) {
             console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-            formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
+            formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent, processValueForDisplay, clickedCellRefsForDisplay);
             console.log('Recalculated formula from current source data:', formulaDisplay);
         } else {
             formulaDisplay = preservedFormula;
@@ -11676,7 +11679,7 @@ function updateRowFormulaFromColumns(row) {
         }
     } else {
         // No saved formula structure, create new formula display from display expression (prefer reference)
-        formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
+        formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent, processValueForDisplay, clickedCellRefsForDisplay);
         console.log('Created new formula display from current source data:', formulaDisplay);
     }
 
@@ -11776,6 +11779,7 @@ function getPreferredFormulaDisplay(data, row) {
 // Update formula and processed amount when batch selection is checked
 function updateFormulaAndProcessedAmount(row, data) {
     const cells = row.querySelectorAll('td');
+    const clickedCellRefsForDisplay = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
 
     // Update Formula column (now index 4)
     if (cells[4]) {
@@ -11896,7 +11900,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // No more fallback to stale preferredFormulaDisplay/formulaOperators
                             {
                                 // Also parse other reference formats (A4, [id_product:column])
-                                const parsedFormula = parseReferenceFormula(displayFormula);
+                                const parsedFormula = parseReferenceFormula(displayFormula, processValue, clickedCellRefsForDisplay);
                                 if (parsedFormula) {
                                     displayFormula = parsedFormula;
                                 }
@@ -11909,7 +11913,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                                     ? data.enableSourcePercent
                                     : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
 
-                                formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent);
+                                formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent, processValue, clickedCellRefsForDisplay);
                                 rawFormula = formulaText;
                                 console.log('updateFormulaAndProcessedAmount: Parsed column references for display:', formulaOperators, '->', formulaText);
                             }
@@ -11921,7 +11925,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                             const enableSourcePercent = data.enableSourcePercent !== undefined
                                 ? data.enableSourcePercent
                                 : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                            formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                            formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, processValue, clickedCellRefsForDisplay);
                             rawFormula = formulaText;
                         }
                     } else {
@@ -11932,7 +11936,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                         const enableSourcePercent = data.enableSourcePercent !== undefined
                             ? data.enableSourcePercent
                             : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                        formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                        formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay);
                         rawFormula = formulaText;
                     }
                 } else {
@@ -11943,7 +11947,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                     const enableSourcePercent = data.enableSourcePercent !== undefined
                         ? data.enableSourcePercent
                         : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                    formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                        formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay);
                     rawFormula = formulaText;
                 }
             }
@@ -14271,6 +14275,15 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             row.setAttribute('data-source-columns', '');
         }
 
+        // IMPORTANT: Restore clicked cell refs (id_product:row_label:column_index) for rows with duplicated main id_product.
+        // Without this, $数字 references may resolve to the wrong rowLabel and fallback to 0.
+        if (data.clickedColumns !== undefined && data.clickedColumns !== null && String(data.clickedColumns).trim() !== '') {
+            const clicked = String(data.clickedColumns).trim()
+            if (typeof isNewIdProductColumnFormat === 'function' ? isNewIdProductColumnFormat(clicked) : clicked.includes(':')) {
+                row.setAttribute('data-clicked-cell-refs', clicked)
+            }
+        }
+
         // Formula column (index 4)
         if (cells[4]) {
             // 需求：第二张 Summary 表里的公式，直接显示与 Edit Formula 底部一致的结果，不要再额外“变来变去”
@@ -14297,7 +14310,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 const enableSourcePercent = data.enableSourcePercent !== undefined
                     ? data.enableSourcePercent
                     : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                formulaText = createFormulaDisplayFromExpression(data.formula, sourcePercentText, enableSourcePercent);
+                formulaText = createFormulaDisplayFromExpression(data.formula, sourcePercentText, enableSourcePercent, processValue, row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || '');
             }
 
             // 无 data.formula 时再从 sourceColumns 重建（如从 API 只返回 sourceColumns 时）
