@@ -546,18 +546,39 @@ function saveFormulaSourceForRefresh(opts) {
         // Prefer data-template-formula-operators (original $notation) over data-formula-operators (resolved display text)
         const templateFormulaOps = (row.getAttribute('data-template-formula-operators') || '').trim();
         const formulaOps = (row.getAttribute('data-formula-operators') || '').trim();
-        const nextData = shouldPreferExisting ? existing : {
-            formula: nextFormula,
-            source: nextSource,
-            sourceColumns: (row.getAttribute('data-source-columns') || ''),
-            formulaOperators: formulaOps,
-            templateFormulaOperators: templateFormulaOps || '',
-            sourcePercent: (row.getAttribute('data-source-percent') || ''),
-            rateValue: nextRateValue,
-            rowUid: rowUid,
-            originalDescription: nextDescription,
-            clickedCellRefs: (row.getAttribute('data-clicked-cell-refs') || '')
-        };
+        const accountCell = cells[1];
+        const accountDbIdRaw = accountCell && accountCell.getAttribute ? String(accountCell.getAttribute('data-account-id') || '').trim() : '';
+        const accountDisplayRaw = accountCell ? String(accountCell.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        const currencyCell = cells[3];
+        const currencyDbIdRaw = currencyCell && currencyCell.getAttribute ? String(currencyCell.getAttribute('data-currency-id') || '').trim() : '';
+        const currencyTextRaw = currencyCell ? String(currencyCell.textContent || '').replace(/\s+/g, ' ').trim() : '';
+
+        let nextData;
+        if (shouldPreferExisting) {
+            nextData = existing;
+            nextData.rowUid = rowUid;
+            nextData.accountDbId = accountDbIdRaw || (nextData.accountDbId != null ? String(nextData.accountDbId).trim() : '');
+            nextData.accountDisplay = accountDisplayRaw || (nextData.accountDisplay != null ? String(nextData.accountDisplay).trim() : '');
+            nextData.currencyDbId = currencyDbIdRaw || (nextData.currencyDbId != null ? String(nextData.currencyDbId).trim() : '');
+            nextData.currencyText = currencyTextRaw || (nextData.currencyText != null ? String(nextData.currencyText).trim() : '');
+        } else {
+            nextData = {
+                formula: nextFormula,
+                source: nextSource,
+                sourceColumns: (row.getAttribute('data-source-columns') || ''),
+                formulaOperators: formulaOps,
+                templateFormulaOperators: templateFormulaOps || '',
+                sourcePercent: (row.getAttribute('data-source-percent') || ''),
+                rateValue: nextRateValue,
+                rowUid: rowUid,
+                originalDescription: nextDescription,
+                clickedCellRefs: (row.getAttribute('data-clicked-cell-refs') || ''),
+                accountDbId: accountDbIdRaw,
+                accountDisplay: accountDisplayRaw,
+                currencyDbId: currencyDbIdRaw,
+                currencyText: currencyTextRaw
+            };
+        }
         byKey[normKey] = nextData;
         if (stableKey) {
             const existingStable = byStableKey[stableKey];
@@ -652,7 +673,11 @@ function hasRestorableSummaryRowData(data) {
         'rateValue',
         'originalDescription',
         'inputMethod',
-        'clickedCellRefs'
+        'clickedCellRefs',
+        'accountDbId',
+        'accountDisplay',
+        'currencyDbId',
+        'currencyText'
     ];
     return candidateFields.some(function (field) {
         const value = data[field];
@@ -836,6 +861,25 @@ function restoreFormulaSourceFromRefresh() {
         if (data.rowUid) {
             row.setAttribute('data-row-uid', data.rowUid);
         }
+        // 恢复 Account / Currency（按 rowUid，避免同 Id_Product 多行串行）
+        const accDisp = data.accountDisplay != null ? String(data.accountDisplay).trim() : '';
+        const accId = data.accountDbId != null ? String(data.accountDbId).trim() : '';
+        if (cells[1] && (accDisp || accId)) {
+            if (accDisp) {
+                cells[1].textContent = accDisp;
+            } else if (accId && typeof getAccountDisplayByRole === 'function') {
+                cells[1].textContent = getAccountDisplayByRole('', accId);
+            }
+            if (accId) cells[1].setAttribute('data-account-id', accId);
+            else cells[1].removeAttribute('data-account-id');
+        }
+        const curTxt = data.currencyText != null ? String(data.currencyText).trim() : '';
+        const curId = data.currencyDbId != null ? String(data.currencyDbId).trim() : '';
+        if (cells[3] && (curTxt || curId)) {
+            if (curTxt) cells[3].textContent = curTxt;
+            if (curId) cells[3].setAttribute('data-currency-id', curId);
+            else cells[3].removeAttribute('data-currency-id');
+        }
         // 恢复原始描述，并统一按当前 data-* 重新生成 Id Product 显示，
         // 这样可以清掉旧逻辑遗留在可见文本里的 description 残留。
         if (data.originalDescription !== undefined && data.originalDescription !== null) {
@@ -919,6 +963,9 @@ function restoreFormulaSourceFromRefresh() {
         });
     });
     if (typeof applyAccountDisplayByRoleToAllRows === 'function') applyAccountDisplayByRoleToAllRows();
+    if (typeof rebuildUsedAccountIds === 'function') {
+        try { rebuildUsedAccountIds(); } catch (e) { }
+    }
     try {
         localStorage.removeItem('capturedTableFormulaSourceForRefresh');
     } catch (e) { }
