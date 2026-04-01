@@ -24771,7 +24771,7 @@ function setupFormValidationListeners() {
     setTimeout(updateSubmitButtonState, 500);
 }
 
-// Utility: Uppercase conversion for text inputs (keeps caret position
+// Utility: Uppercase conversion for text inputs (keeps caret position)
 function addUppercaseConversion(inputId) {
     const input = document.getElementById(inputId);
     if (!input) return;
