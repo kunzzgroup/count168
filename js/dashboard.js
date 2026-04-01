@@ -986,9 +986,9 @@ function updateDashboard(data) {
                 const expensesEl = document.getElementById('expenses-value');
                 const profitEl = document.getElementById('profit-value');
 
-                // 原始值（跟 Payment 一致）
-                const rawProfit = parseFloat(data.profit) || 0;
-                const rawExpenses = parseFloat(data.expenses) || 0;
+                // 卡片显示口径：按选择的 Date Range 统计（优先使用 daily_data 汇总，避免显示 B/F 累计值）
+                const rawProfit = getPeriodTotalFromDailyData(data, 'profit', data.profit);
+                const rawExpenses = getPeriodTotalFromDailyData(data, 'expenses', data.expenses);
 
                 // Profit 卡片：直接沿用 Payment 的符号（Payment 为负，这里也显示负）
                 const displayProfitNum = rawProfit;
@@ -1067,6 +1067,25 @@ function formatCurrency(value) {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+}
+
+function getPeriodTotalFromDailyData(data, role, fallbackValue) {
+    try {
+        const daily = data?.daily_data?.[role]
+        if (!daily || typeof daily !== 'object') {
+            return parseFloat(fallbackValue) || 0
+        }
+        let sum = 0
+        for (const k in daily) {
+            if (!Object.prototype.hasOwnProperty.call(daily, k)) continue
+            const v = parseFloat(daily[k])
+            if (!Number.isFinite(v)) continue
+            sum += v
+        }
+        return sum
+    } catch (e) {
+        return parseFloat(fallbackValue) || 0
+    }
 }
 
 function formatDateForDisplay(dateString) {
