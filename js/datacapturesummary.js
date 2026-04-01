@@ -4827,7 +4827,7 @@ function findColumnsFromFormula(formulaValue, processValue) {
 }
 
 // Get row label (A, B, C, etc.) from process value
-function getRowLabelFromProcessValue(processValue) {
+function getRowLabelFromProcessValue(processValue, rowIndexOverride = null) {
     try {
         // Get data capture table data
         let parsedTableData;
@@ -4842,7 +4842,8 @@ function getRowLabelFromProcessValue(processValue) {
         }
 
         // Find the row that matches the process value
-        const processRow = findProcessRow(parsedTableData, processValue);
+        // If rowIndexOverride is provided, use it to disambiguate duplicated id_product rows.
+        const processRow = findProcessRow(parsedTableData, processValue, rowIndexOverride);
         if (!processRow || processRow.length === 0) {
             return null;
         }
@@ -11808,7 +11809,11 @@ function updateFormulaAndProcessedAmount(row, data) {
                     // Parse column references to actual values for display
                     const processValue = getProcessValueFromRow(row);
                     if (processValue) {
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        const rowIndexFromRow = parseInt(row.getAttribute('data-row-index') || '', 10)
+                        const rowLabel = getRowLabelFromProcessValue(
+                            processValue,
+                            !isNaN(rowIndexFromRow) && Number.isFinite(rowIndexFromRow) ? rowIndexFromRow : null
+                        );
                         if (rowLabel) {
                             let displayFormula = formulaOperators;
 
@@ -14273,6 +14278,14 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         } else if (data.sourceColumns === '') {
             // Explicitly empty sourceColumns means columns were deleted, clear the attribute
             row.setAttribute('data-source-columns', '');
+        }
+
+        // If backend provides rowIndex, persist it to disambiguate duplicated id_product rows.
+        if (data.rowIndex !== undefined && data.rowIndex !== null && data.rowIndex !== '') {
+            const idx = parseInt(String(data.rowIndex), 10)
+            if (!isNaN(idx) && Number.isFinite(idx)) {
+                row.setAttribute('data-row-index', String(idx))
+            }
         }
 
         // IMPORTANT: Restore clicked cell refs (id_product:row_label:column_index) for rows with duplicated main id_product.
