@@ -171,7 +171,19 @@ try {
     $logStmt = $pdo->prepare($logSql);
     $logStmt->execute($logParams);
 
-    // 2) 删除 transactions 记录
+    // 2) 先删除 transaction_entry（若存在），避免外键约束导致无法删除 transactions
+    try {
+        $hasEntry = $pdo->query("SHOW TABLES LIKE 'transaction_entry'")->rowCount() > 0;
+        if ($hasEntry) {
+            $entrySql = "DELETE FROM transaction_entry WHERE header_id IN ($validPh)";
+            $entryStmt = $pdo->prepare($entrySql);
+            $entryStmt->execute($validIds);
+        }
+    } catch (Exception $e) {
+        // 兼容旧环境：忽略
+    }
+
+    // 3) 删除 transactions 记录
     $deleteSql = "DELETE FROM transactions WHERE company_id = ? AND id IN ($validPh)";
     $deleteParams = array_merge([$company_id], $validIds);
     $deleteStmt = $pdo->prepare($deleteSql);

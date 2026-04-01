@@ -40,6 +40,18 @@ function deleteContraTransaction(PDO $pdo, int $transactionId, int $companyId): 
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) throw new Exception('记录不存在或不属于当前公司');
     if ($row['transaction_type'] !== 'CONTRA') throw new Exception('仅允许拒绝 CONTRA');
+
+    // 先删除 transaction_entry（若存在），避免外键约束失败
+    try {
+        $hasEntry = $pdo->query("SHOW TABLES LIKE 'transaction_entry'")->rowCount() > 0;
+        if ($hasEntry) {
+            $e = $pdo->prepare("DELETE FROM transaction_entry WHERE header_id = ?");
+            $e->execute([$transactionId]);
+        }
+    } catch (Exception $e) {
+        // 兼容旧环境：忽略
+    }
+
     $del = $pdo->prepare("DELETE FROM transactions WHERE id = ? AND company_id = ?");
     $del->execute([$transactionId, $companyId]);
     if ($del->rowCount() === 0) throw new Exception('删除失败，记录可能已被删除');
