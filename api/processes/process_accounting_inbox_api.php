@@ -50,6 +50,88 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     ];
 }
 
+/** 解析合同为「账单期数」：6 MONTHS→6；1+2→3；0=不限制 */
+function parseContractToTotalBillingPeriods(?string $contract): int
+{
+    if ($contract === null || trim($contract) === '') {
+        return 0;
+    }
+    $c = trim($contract);
+    if (preg_match('/^(\d+)\s*MONTHS?$/i', $c, $m)) {
+        return max(0, (int) $m[1]);
+    }
+    if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
+        return 1 + (int) $m[1];
+    }
+    return 0;
+}
+
+/** day_start / day_end → Y-m-d */
+function parseBankDateToYmd(?string $raw): ?string
+{
+    if ($raw === null || trim($raw) === '') {
+        return null;
+    }
+    $s = trim($raw);
+    $ts = strtotime(str_replace('/', '-', $s));
+    if ($ts === false) {
+        return null;
+    }
+    return date('Y-m-d', $ts);
+}
+
+/** day_start 所在月的「下个月1号」(Y-m-d) */
+function firstDayOfNextMonthYmd(string $dayStartRaw): ?string
+{
+    $startYmd = parseBankDateToYmd($dayStartRaw);
+    if ($startYmd === null) {
+        return null;
+    }
+    try {
+        $dt = new DateTime($startYmd);
+        $dt->modify('first day of next month');
+        return $dt->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** 1st_of_every_month 是否需要首月按比例：仅 day_start 不是 1 号时需要 */
+function shouldUsePartialFirstMonthForFirstOfMonth(?string $dayStartRaw): bool
+{
+    $startYmd = parseBankDateToYmd($dayStartRaw);
+    if ($startYmd === null) {
+        return false;
+    }
+    try {
+        $dt = new DateTime($startYmd);
+        return (int) $dt->format('j') !== 1;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** 各 process 已入账期数（partial + monthly + skipped） */
+function getPostedBillingPeriodsCountBatch(PDO $pdo, int $companyId, array $processIds): array
+{
+    if (empty($processIds)) {
+        return [];
+    }
+    $placeholders = implode(',', array_fill(0, count($processIds), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT process_id, COUNT(*) AS c FROM process_accounting_posted
+         WHERE company_id = ? AND process_id IN ($placeholders)
+         AND period_type IN ('partial_first_month','partial_first_month_skipped','monthly','monthly_skipped')
+         GROUP BY process_id"
+    );
+    $stmt->execute(array_merge([$companyId], $processIds));
+    $map = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $map[(int) $row['process_id']] = (int) $row['c'];
+    }
+    return $map;
+}
+
 /** 检查 bank_process 表是否有 day_start_frequency 列 */
 function hasBankProcessFrequencyColumn(PDO $pdo): bool
 {
@@ -242,6 +324,10 @@ try {
     $needToday = [];
 
     $monthlyEverPostedIds = $hasPeriodType ? getMonthlyEverPostedIds($pdo, $company_id) : [];
+    $processIds = array_column($rows, 'id');
+    $postedCountsByProcess = ($hasPeriodType && !empty($processIds))
+        ? getPostedBillingPeriodsCountBatch($pdo, $company_id, $processIds)
+        : [];
 
     // 1) Partial first month
     if ($hasFrequency && $hasPeriodType) {
@@ -257,11 +343,20 @@ try {
             if (strtotime($dayStart) === false) {
                 continue;
             }
+            // day_start 在 1 号时，按产品预期走 full monthly，不走 partial_first_month
+            if (!shouldUsePartialFirstMonthForFirstOfMonth($dayStart)) {
+                continue;
+            }
             $startDate = date('Y-m-d', strtotime($dayStart));
             if ($today < $startDate) {
                 continue;
             }
             $processId = (int) $r['id'];
+            $contractPeriods = parseContractToTotalBillingPeriods($r['contract'] ?? '');
+            $postedCount = $postedCountsByProcess[$processId] ?? 0;
+            if ($contractPeriods > 0 && $postedCount >= $contractPeriods) {
+                continue;
+            }
             if (isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
                 continue;
             }
@@ -293,6 +388,12 @@ try {
         $need = false;
         $startTs = (!empty($dayStart)) ? strtotime($dayStart) : false;
         $startDate = $startTs !== false ? date('Y-m-d', $startTs) : '';
+        $processId = (int) $r['id'];
+        $contractPeriods = parseContractToTotalBillingPeriods($r['contract'] ?? '');
+        $postedCount = $postedCountsByProcess[$processId] ?? 0;
+        if ($contractPeriods > 0 && $postedCount >= $contractPeriods) {
+            continue;
+        }
 
         if ($frequency === '1st_of_every_month') {
             if ($dayOfMonth !== 1) {
@@ -300,16 +401,21 @@ try {
             } elseif (empty($dayStart)) {
                 $need = true;
             } else {
-                $firstAccountingTs = $startTs !== false ? strtotime('first day of next month', $startTs) : false;
-                $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
-                $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
+                // 非 1 号 day_start：必须先做 partial（或 skip）后，才开始每月1号 full monthly
+                $usePartial = shouldUsePartialFirstMonthForFirstOfMonth($dayStart);
+                if ($usePartial && $hasPeriodType && !isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
+                    $need = false;
+                } else {
+                    $startYmd = parseBankDateToYmd($dayStart);
+                    $firstAccountingDate = $usePartial ? firstDayOfNextMonthYmd($dayStart) : $startYmd;
+                    $need = ($firstAccountingDate !== null && $firstAccountingDate !== '' && $today >= $firstAccountingDate);
+                }
             }
         } else {
             // Monthly：第一笔从未入账过则马上出现在 Accounting Due；之后按每月 (day_start-1) 日出现
             if (empty($dayStart)) {
                 continue;
             }
-            $processId = (int) $r['id'];
             $neverPostedMonthly = !in_array($processId, $monthlyEverPostedIds, true);
             if ($neverPostedMonthly) {
                 $need = ($startDate !== '' && $today >= $startDate);
