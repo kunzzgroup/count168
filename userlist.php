@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // 使用统一的session检查
 require_once 'session_check.php';
 
@@ -401,44 +401,44 @@ try {
         </div>
     </div>
 
-    <!-- User Modal -->
+    <!-- User Edit Page (covers main content area, sidebar stays visible) -->
     <div id="userModal" class="modal">
-        <div class="modal-content" style="max-width: 1920px;">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">Add User</h2>
-            <div class="modal-body" style="display: flex; gap: clamp(20px, 1.5630px;">
-                <!-- Left Panel - User Info -->
-                 <div class="user-info-panel" style="flex: 1;">
-                     <h3>User Information</h3>
-                     <form id="userForm">
-                         <input type="hidden" id="userId" name="id">
-                         <input type="hidden" id="status" name="status" value="active">
+        <div class="modal-content">
+            <!-- Top Header Bar -->
+            <div class="modal-header-bar">
+                <h2 id="modalTitle">Edit User</h2>
+                <button type="button" class="btn-back" onclick="closeModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    Back
+                </button>
+            </div>
 
-                         <!-- User info grid：编辑模式下两列布局（左三、右两 + Company） -->
-                         <div class="user-info-grid">
-                             <div class="form-group user-info-field">
-                                 <label for="login_id">Login ID *</label>
-                                 <input type="text" id="login_id" name="login_id" required>
-                             </div>
+            <!-- Body -->
+            <div class="modal-body">
+                <!-- Left Panel: User Info + Permissions -->
+                <div class="user-info-panel">
+                    <h3>User Information</h3>
+                    <form id="userForm">
+                        <input type="hidden" id="userId" name="id">
+                        <input type="hidden" id="status" name="status" value="active">
+                        <div class="user-info-grid">
+                            <div class="form-group user-info-field">
+                                <label for="login_id">Login ID *</label>
+                                <input type="text" id="login_id" name="login_id" required>
+                            </div>
 
-                            <?php 
-                            // 检查当前公司是否是c168
+                            <?php
                             $is_c168_company = false;
                             if ($company_id) {
                                 try {
                                     $stmt = $pdo->prepare("SELECT company_id FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
                                     $stmt->execute([$company_id]);
-                                    if ($stmt->fetch()) {
-                                        $is_c168_company = true;
-                                    }
-                                } catch (PDOException $e) {
-                                    error_log("Company check error: " . $e->getMessage());
-                                }
+                                    if ($stmt->fetch()) { $is_c168_company = true; }
+                                } catch (PDOException $e) { error_log("Company check error: " . $e->getMessage()); }
                             }
                             ?>
-                            
+
                             <?php if ($is_c168_company): ?>
-                            <!-- C168公司：密码和二级密码在同一行左右排版 -->
                             <div class="form-group user-info-field password-row-container" id="passwordRowContainer">
                                 <div class="password-field-wrapper" id="passwordGroup">
                                     <label for="password">Password *</label>
@@ -449,11 +449,8 @@ try {
                                     <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit password">
                                 </div>
                             </div>
-                            <div class="form-group user-info-field" style="margin-top: -10px; margin-bottom: 10px;">
-                                <small style="color: #64748b; font-size: 12px; display: block;"></small>
-                            </div>
+                            <div class="form-group user-info-field" style="margin-top: -10px; margin-bottom: 10px;"><small style="color: #64748b; font-size: 12px; display: block;"></small></div>
                             <?php else: ?>
-                            <!-- 非C168公司：只显示密码字段 -->
                             <div class="form-group user-info-field" id="passwordGroup">
                                 <label for="password">Password *</label>
                                 <input type="password" id="password" name="password">
@@ -464,226 +461,118 @@ try {
                                 <label for="name">Name *</label>
                                 <input type="text" id="name" name="name" required>
                             </div>
-
-                             <div class="form-group user-info-field">
-                                 <label for="role">Role *</label>
-                                 <select id="role" name="role" required>
-                                     <option value="">Select Role</option>
-                                     <option value="admin">Admin</option>
-                                     <option value="manager">Manager</option>
-                                     <option value="supervisor">Supervisor</option>
-                                     <option value="accountant">Accountant</option>
-                                     <option value="audit">Audit</option>
-                                     <option value="customer service">Customer Service</option>
-                                 </select>
-                             </div>
-
-                             <div class="form-group user-info-field">
-                                 <label for="email">Email *</label>
-                                 <input type="email" id="email" name="email" required>
-                             </div>
-
+                            <div class="form-group user-info-field">
+                                <label for="role">Role *</label>
+                                <select id="role" name="role" required>
+                                    <option value="">Select Role</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="supervisor">Supervisor</option>
+                                    <option value="accountant">Accountant</option>
+                                    <option value="audit">Audit</option>
+                                    <option value="customer service">Customer Service</option>
+                                </select>
+                            </div>
+                            <div class="form-group user-info-field">
+                                <label for="email">Email *</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
                             <div class="form-group user-info-field company-field-group">
                                 <label>Company *</label>
                                 <div id="user-company-buttons-container" class="transaction-company-buttons" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-                                    <!-- Company buttons will be dynamically added here -->
+                                    <!-- Company buttons dynamically added -->
                                 </div>
                             </div>
-                         </div>
+                        </div>
 
-                          <div class="form-actions">
-                              <button type="submit" class="btn btn-save">Save</button>
-                              <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                          </div>
-                     </form>
-                 </div>
+                        <!-- Sidebar Permissions (always in left panel) -->
+                        <div id="sidebarPermissionsWrapper" class="sidebar-permissions-section">
+                            <h3 class="sidebar-permissions-title">Permissions</h3>
+                            <div class="permissions-container">
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="home" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</span></label></div>
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="admin" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Admin</span></label></div>
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="account" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>Account</span></label></div>
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="process" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Process</span></label></div>
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="datacapture" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>Data Capture</span></label></div>
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="payment" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>Transaction Payment</span></label></div>
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="report" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>Report</span></label></div>
+                                <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="maintenance" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>Maintenance</span></label></div>
+                            </div>
+                            <!-- Fixed buttons at bottom of permissions section -->
+                            <div class="permissions-actions">
+                                <button type="button" class="btn btn-secondary" onclick="selectAllPermissions()">Select All</button>
+                                <button type="button" class="btn btn-clearall" onclick="clearAllPermissions()">Clear All</button>
+                            </div>
+                        </div>
 
-            <!-- Right Panel - Permissions -->
-            <div class="permissions-panel" style="flex: 1;">
-                <h3>Permissions</h3>
-                <div class="permissions-panel-wrapper">
-                     <!-- Left Part - General Permissions Container -->
-                     <div id="sidebarPermissionsWrapper" class="permissions-container-wrapper" style="display: flex; flex-direction: column;">
-                        <div class="permissions-container">
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="home" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-                                        </svg>
-                                        Home
-                                    </span>
-                                </label>
+                        <!-- Add Mode Save/Cancel (shown in add mode only) -->
+                        <div class="form-actions add-mode-actions">
+                            <button type="submit" class="btn btn-save">Save</button>
+                            <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right Panel: Account + Process (only in edit mode) -->
+                <div class="permissions-panel" id="editModeRightPanel" style="display:none;">
+                    <div id="accountProcessPermissionsSection">
+                        <!-- Account Permissions -->
+                        <div class="account-process-col">
+                            <label class="acc-proc-label">Account</label>
+                            <div class="account-grid" id="accountGrid">
+                                <?php
+                                $colCount = 0;
+                                foreach($accounts as $account):
+                                    if ($colCount % 3 == 0) {
+                                        if ($colCount > 0) echo '</div>';
+                                        echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
+                                    }
+                                ?>
+                                    <div class="account-item-compact" data-search="<?php echo strtolower($account['account_id']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); border-radius: 4px; background-color: white; border: 1px solid #eee;">
+                                        <input type="checkbox" id="account_<?php echo $account['id']; ?>" value="<?php echo $account['id']; ?>" data-account-id="<?php echo htmlspecialchars($account['account_id']); ?>" onchange="updateAccountSelection()" style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
+                                        <label for="account_<?php echo $account['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;"><?php echo htmlspecialchars($account['account_id']); ?></label>
+                                    </div>
+                                <?php $colCount++; endforeach; if ($colCount > 0) echo '</div>'; ?>
                             </div>
-                            
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="admin" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-                                        </svg>
-                                        Admin
-                                    </span>
-                                </label>
-                            </div>
-                            
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="account" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                        </svg>
-                                        Account
-                                    </span>
-                                </label>
-                            </div>
-                            
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="process" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                                        </svg>
-                                        Process
-                                    </span>
-                                </label>
-                            </div>
-                            
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="datacapture" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-                                        </svg>
-                                        Data Capture
-                                    </span>
-                                </label>
-                            </div>
-                            
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="payment" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                                        </svg>
-                                        Transaction Payment
-                                    </span>
-                                </label>
-                            </div>
-                            
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="report" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                                        </svg>
-                                        Report
-                                    </span>
-                                </label>
-                            </div>
-                            
-                            <div class="permission-item">
-                                <label class="permission-label">
-                                    <input type="checkbox" name="permissions[]" value="maintenance" class="permission-checkbox">
-                                    <span class="permission-name">
-                                        <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
-                                        </svg>
-                                        Maintenance
-                                    </span>
-                                </label>
+                            <!-- Fixed buttons at bottom of account section -->
+                            <div class="account-control-buttons">
+                                <button type="button" class="btn-account-control" onclick="selectAllAccounts()">Select All</button>
+                                <button type="button" class="btn-clearall" onclick="clearAllAccounts()">Clear All</button>
                             </div>
                         </div>
-                        <div class="permissions-actions">
-                            <button type="button" class="btn btn-secondary" onclick="selectAllPermissions()">Select All</button>
-                            <button type="button" class="btn btn-clearall" onclick="clearAllPermissions()">Clear All</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Part - Account and Process Permissions (only shown in edit mode). 列表按页面打开时的 company 加载，与 Account List 同 company 时数目一致 -->
-                    <div id="accountProcessPermissionsSection" style="display: none; flex-direction: row; gap: clamp(12px, 1.25vw, 24px); min-width: 0; overflow-y: auto; max-height: calc(98vh - clamp(120px, 12.5vw, 200px)); min-height: clamp(400px, 36.46vw, 700px);">
-                    <!-- Account Permissions -->
-                    <div class="form-group" style="flex: 1; margin-bottom: 0; margin-top: 0; display: flex; flex-direction: column;">
-                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;">Account</label>
-                        <div class="account-grid" id="accountGrid" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffffff; padding: clamp(8px, 0.78vw, 15px);">
-                            <?php 
-                            $colCount = 0;
-                            foreach($accounts as $account): 
-                                if ($colCount % 3 == 0) {
-                                    if ($colCount > 0) echo '</div>'; // Close previous row
-                                    echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
-                                }
-                            ?>
-                                <div class="account-item-compact" data-search="<?php echo strtolower($account['account_id']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); margin-bottom: 0px; border-radius: 4px; transition: background-color 0.2s; background-color: white; border: 1px solid #eee;">
-                                    <input type="checkbox" 
-                                        id="account_<?php echo $account['id']; ?>" 
-                                        value="<?php echo $account['id']; ?>"
-                                        data-account-id="<?php echo htmlspecialchars($account['account_id']); ?>"
-                                        onchange="updateAccountSelection()"
-                                        style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
-                                    <label for="account_<?php echo $account['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;">
-                                        <?php echo htmlspecialchars($account['account_id']); ?>
-                                    </label>
-                                </div>
-                            <?php 
-                                $colCount++;
-                                endforeach;
-                                if ($colCount > 0) echo '</div>'; // Close last row
-                            ?>
-                        </div>
-                        <div class="account-control-buttons" style="display: flex; gap: 10px; justify-content: center; margin: clamp(8px, 0.73vw, 14px) 0px 0px;">
-                            <button type="button" class="btn-account-control" onclick="selectAllAccounts()" style="background: linear-gradient(180deg, #44e44d 0%, #227426 100%); color: white; font-family: 'Amaranth'; width: clamp(80px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 0px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); cursor: pointer;">Select All</button>
-                            <button type="button" class="btn-clearall" onclick="clearAllAccounts()" style="background: linear-gradient(180deg, #F30E12 0%, #A91215 100%); color: white; font-family: 'Amaranth'; width: clamp(90px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 20px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); cursor: pointer;">Clear All</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Process Permissions -->
-                    <div class="form-group" style="flex: 1; margin-bottom: 0; margin-top: 0; display: flex; flex-direction: column;">
-                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;">Process</label>
-                        <div class="account-grid" id="processGrid" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffffff; padding: clamp(8px, 0.78vw, 15px);">
-                            <?php 
-                            $colCount = 0;
-                            foreach($processes as $process): 
-                                if ($colCount % 3 == 0) {
-                                    if ($colCount > 0) echo '</div>'; // Close previous row
-                                    echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
-                                }
-                            ?>
-                                <div class="account-item-compact" data-search="<?php echo strtolower($process['process_id'] . ' ' . $process['description']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); margin-bottom: 0px; border-radius: 4px; transition: background-color 0.2s; background-color: white; border: 1px solid #eee;">
-                                    <input type="checkbox" 
-                                        id="process_<?php echo $process['id']; ?>" 
-                                        value="<?php echo $process['id']; ?>"
-                                        data-process-name="<?php echo htmlspecialchars($process['process_id']); ?>"
-                                        data-process-description="<?php echo htmlspecialchars($process['description']); ?>"
-                                        onchange="updateProcessSelection()"
-                                        style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
-                                     <label for="process_<?php echo $process['id']; ?>" class="account-label" style="font-size: small ; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;">
-                                         <?php echo htmlspecialchars($process['process_id']); ?>
-                                         <?php if (!empty($process['description'])): ?>
-                                             <br>
-                                             <?php echo htmlspecialchars($process['description']); ?>
-                                         <?php endif; ?>
-                                     </label>
-                                </div>
-                            <?php 
-                                $colCount++;
-                                endforeach;
-                                if ($colCount > 0) echo '</div>'; // Close last row
-                            ?>
-                        </div>
-                        <div class="account-control-buttons" style="display: flex; gap: 10px; justify-content: center; margin: clamp(8px, 0.73vw, 14px) 0px 0px;">
-                            <button type="button" class="btn-account-control" onclick="selectAllProcesses()" style="background: linear-gradient(180deg, #44e44d 0%, #227426 100%); color: white; font-family: 'Amaranth'; width: clamp(80px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 0px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); cursor: pointer;">Select All</button>
-                            <button type="button" class="btn-clearall" onclick="clearAllProcesses()" style="background: linear-gradient(180deg, #F30E12 0%, #A91215 100%); color: white; font-family: 'Amaranth'; width: clamp(90px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 20px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); cursor: pointer;">Clear All</button>
+
+                        <!-- Process Permissions -->
+                        <div class="account-process-col">
+                            <label class="acc-proc-label">Process</label>
+                            <div class="account-grid" id="processGrid">
+                                <?php
+                                $colCount = 0;
+                                foreach($processes as $process):
+                                    if ($colCount % 3 == 0) {
+                                        if ($colCount > 0) echo '</div>';
+                                        echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
+                                    }
+                                ?>
+                                    <div class="account-item-compact" data-search="<?php echo strtolower($process['process_id'] . ' ' . $process['description']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); border-radius: 4px; background-color: white; border: 1px solid #eee;">
+                                        <input type="checkbox" id="process_<?php echo $process['id']; ?>" value="<?php echo $process['id']; ?>" data-process-name="<?php echo htmlspecialchars($process['process_id']); ?>" data-process-description="<?php echo htmlspecialchars($process['description']); ?>" onchange="updateProcessSelection()" style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
+                                        <label for="process_<?php echo $process['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;"><?php echo htmlspecialchars($process['process_id']); ?><?php if (!empty($process['description'])): ?><br><?php echo htmlspecialchars($process['description']); ?><?php endif; ?></label>
+                                    </div>
+                                <?php $colCount++; endforeach; if ($colCount > 0) echo '</div>'; ?>
+                            </div>
+                            <!-- Fixed buttons at bottom of process section -->
+                            <div class="account-control-buttons">
+                                <button type="button" class="btn-account-control" onclick="selectAllProcesses()">Select All</button>
+                                <button type="button" class="btn-clearall" onclick="clearAllProcesses()">Clear All</button>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Fixed Bottom Bar: Edit Mode Save/Cancel -->
+            <div class="edit-mode-bottom-bar" id="editModeBottomBar" style="display:none;">
+                <button type="submit" form="userForm" class="btn btn-save">Save</button>
+                <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
             </div>
         </div>
     </div>

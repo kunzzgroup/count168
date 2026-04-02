@@ -1,4 +1,4 @@
-// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
+﻿// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
     const basePath = pathname.replace(/[^/]*$/, '') || '/';
@@ -583,13 +583,13 @@ function openAddModal() {
         hiddenLoginId.remove();
     }
     
-     // 移除编辑模式的 class（确保添加模式使用默认样式）
-     const modalContent = document.querySelector('#userModal .modal-content');
-     if (modalContent) {
-         modalContent.classList.remove('edit-mode');
-     }
-     // 把 sidebar permissions 放回右侧面板
-     restoreSidebarPermissionsToRightPanel();
+     // 切换到添加模式 UI
+     const editModeRightPanel = document.getElementById('editModeRightPanel');
+     const editModeBottomBar = document.getElementById('editModeBottomBar');
+     const addModeActions = document.querySelector('.add-mode-actions');
+     if (editModeRightPanel) editModeRightPanel.style.display = 'none';
+     if (editModeBottomBar) editModeBottomBar.style.display = 'none';
+     if (addModeActions) addModeActions.style.display = 'flex';
     
     // 根据当前用户角色更新可选择的角色选项
     const availableRoles = getAvailableRolesForCreation();
@@ -741,27 +741,19 @@ function editUser(id, isOwnerShadow = false) {
         passwordGroup.style.display = 'block';
     }
     
-     // 添加编辑模式的 class（用于调整样式）
-     const modalContent = document.querySelector('#userModal .modal-content');
-     if (modalContent) {
-         modalContent.classList.add('edit-mode');
-     }
-     // 把 sidebar permissions 移到左侧 User Information 下面
-     moveSidebarPermissionsToUserInfo();
+     // 切换到编辑模式 UI
+     const editModeRightPanel = document.getElementById('editModeRightPanel');
+     const editModeBottomBar = document.getElementById('editModeBottomBar');
+     const addModeActions = document.querySelector('.add-mode-actions');
+     if (editModeRightPanel) editModeRightPanel.style.display = 'flex';
+     if (editModeBottomBar) editModeBottomBar.style.display = 'flex';
+     if (addModeActions) addModeActions.style.display = 'none';
      
      // 编辑模式下先恢复所有权限复选框为可用状态（加载权限后会根据当前用户权限再次限制）
      restoreAllPermissionsCheckboxes();
      
      // 根据当前用户角色控制 Company 字段的显示
      toggleCompanyFieldVisibility();
-    
-    // owner 影子也显示 permissions 面板（只读）
-    const permissionsPanel = document.querySelector('.permissions-panel');
-    if (isOwnerShadow) {
-        permissionsPanel.style.display = 'flex';
-    } else {
-        permissionsPanel.style.display = 'flex';
-    }
     
     // Get user data from user card
     const card = document.querySelector(`.user-card[data-id="${id}"]`);
@@ -872,7 +864,7 @@ function editUser(id, isOwnerShadow = false) {
     document.getElementById('status').value = items[5].querySelector('.role-badge').textContent.trim().toLowerCase();
     
     // 显示 Account 和 Process 权限区域（只在编辑模式显示）
-    document.getElementById('accountProcessPermissionsSection').style.display = 'block';
+    document.getElementById('accountProcessPermissionsSection').style.display = 'flex';
     
     // 获取用户权限数据（只有非owner影子才获取）
     if (!isOwnerShadow) {
@@ -1084,7 +1076,8 @@ function editUser(id, isOwnerShadow = false) {
         // owner 影子不显示 company 按钮
         selectedCompanyIds = [];
         // owner 影子：Account / Process 默认全选
-        document.getElementById('accountProcessPermissionsSection').style.display = 'block';
+        const accProcSectionEdit = document.getElementById('accountProcessPermissionsSection');
+     if (accProcSectionEdit) accProcSectionEdit.style.display = 'flex';
         loadAccountPermissions(null);
         loadProcessPermissions(null);
     }
@@ -1103,19 +1096,13 @@ function closeModal() {
         hiddenLoginId.remove();
     }
     
-     // 移除编辑模式的 class
-     const modalContent = document.querySelector('#userModal .modal-content');
-     if (modalContent) {
-         modalContent.classList.remove('edit-mode');
-     }
-     // 把 sidebar permissions 放回右侧面板
-     restoreSidebarPermissionsToRightPanel();
-    
-    // 恢复permissions面板显示
-    const permissionsPanel = document.querySelector('.permissions-panel');
-    if (permissionsPanel) {
-        permissionsPanel.style.display = 'flex';
-    }
+     // 重置到添加模式 UI
+     const closeRightPanel = document.getElementById('editModeRightPanel');
+     const closeBottomBar = document.getElementById('editModeBottomBar');
+     const closeAddActions = document.querySelector('.add-mode-actions');
+     if (closeRightPanel) closeRightPanel.style.display = 'none';
+     if (closeBottomBar) closeBottomBar.style.display = 'none';
+     if (closeAddActions) closeAddActions.style.display = 'flex';
     
     // 恢复role字段和选项
     const roleSelect = document.getElementById('role');
