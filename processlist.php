@@ -289,6 +289,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         $showInactiveChecked = !$showAllChecked && isset($_GET['showInactive']);
                         $showOfficialChecked = !$showAllChecked && isset($_GET['showOfficial']);
                         $showEInvoiceChecked = !$showAllChecked && isset($_GET['showEInvoice']);
+                        $showBlockChecked = !$showAllChecked && isset($_GET['showBlock']);
                         ?>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
@@ -297,7 +298,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <?php renderBankProcessFilterControls($showOfficialChecked, $showEInvoiceChecked); ?>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllChecked ? 'checked' : ''; ?>>
-                            <label for="showAll">Show All</label>
+                            <label for="showAll">Show Active</label>
                         </div>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
