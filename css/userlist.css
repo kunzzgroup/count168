@@ -830,6 +830,22 @@ h1 {
     background-color: transparent;
 }
 
+/* 左侧面板内的 permissions-container-wrapper 不需要高度限制 */
+.modal-content.edit-mode .edit-mode-permissions-container .permissions-container-wrapper {
+    height: auto;
+    flex: none;
+}
+
+/* 左侧面板内的 permissions-container 不使用 flex:1，让内容自然流动 */
+.modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
+    flex: none;
+}
+
+/* 左侧面板内的 permissions-actions 不使用 margin-top:auto */
+.modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
+    margin-top: clamp(6px, 0.52vw, 10px);
+}
+
  /* 编辑模式下左侧容器（包含 permissions-container 和 permissions-actions）- 与 user-info-panel 同宽 */
  .modal-content.edit-mode .permissions-container-wrapper {
      flex: 0 0 clamp(300px, 20vw, 450px);
