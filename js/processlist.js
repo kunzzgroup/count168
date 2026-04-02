@@ -1376,10 +1376,7 @@ async function openBankEditModal(id) {
 async function editProcess(id) {
     try {
         if (selectedPermission === 'Bank') {
-            const bankModule = getBankProcessModule();
-            if (bankModule && typeof bankModule.openBankEditModal === 'function') {
-                await bankModule.openBankEditModal(id);
-            }
+            await openBankEditModal(id);
             return;
         }
         await loadEditProcessData();
