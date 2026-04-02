@@ -80,7 +80,7 @@ function redirectToProcessListPage(targetPage, permission) {
 function isBankInactiveLike(status, issueFlag) {
     const normalizedStatus = String(status || '').trim().toLowerCase();
     const normalizedIssueFlag = normalizeBankIssueFlag(issueFlag);
-    return normalizedStatus === 'inactive' || normalizedIssueFlag === 'official' || normalizedIssueFlag === 'e_invoice';
+    return normalizedStatus === 'inactive' || normalizedIssueFlag === 'official' || normalizedIssueFlag === 'e_invoice' || normalizedIssueFlag === 'block';
 }
 
 function isBankProcessInactiveLike(process) {
@@ -194,10 +194,12 @@ function syncBankFilterCheckboxes() {
     const showInactiveCheckbox = document.getElementById('showInactive');
     const showOfficialCheckbox = document.getElementById('showOfficial');
     const showEInvoiceCheckbox = document.getElementById('showEInvoice');
+    const showBlockCheckbox = document.getElementById('showBlock');
     const showAllCheckbox = document.getElementById('showAll');
     if (showInactiveCheckbox) showInactiveCheckbox.checked = !!showInactive;
     if (showOfficialCheckbox) showOfficialCheckbox.checked = !!showOfficial;
     if (showEInvoiceCheckbox) showEInvoiceCheckbox.checked = !!showEInvoice;
+    if (showBlockCheckbox) showBlockCheckbox.checked = !!showBlock;
     if (showAllCheckbox) showAllCheckbox.checked = !!showAll;
 }
 
@@ -206,6 +208,7 @@ function normalizeBankFilterState() {
         showInactive = false;
         showOfficial = false;
         showEInvoice = false;
+        showBlock = false;
     }
     syncBankFilterCheckboxes();
 }
@@ -215,7 +218,7 @@ function normalizeBankIssueFlag(value) {
         .trim()
         .toLowerCase()
         .replace(/[\s-]+/g, '_');
-    if (normalized === 'official' || normalized === 'e_invoice') {
+    if (normalized === 'official' || normalized === 'e_invoice' || normalized === 'block') {
         return normalized;
     }
     return '';
@@ -258,7 +261,7 @@ function applyBankStatusSelectAppearance(dropdownEl, rawValue) {
     if (buttonEl) {
         buttonEl.textContent = currentOption.label;
         buttonEl.setAttribute('data-value', normalized);
-        buttonEl.classList.remove('is-active', 'is-inactive', 'is-official', 'is-e-invoice');
+        buttonEl.classList.remove('is-active', 'is-inactive', 'is-official', 'is-e-invoice', 'is-block');
     }
     if (normalized === 'inactive') {
         if (buttonEl) buttonEl.classList.add('is-inactive');
@@ -266,6 +269,8 @@ function applyBankStatusSelectAppearance(dropdownEl, rawValue) {
         if (buttonEl) buttonEl.classList.add('is-official');
     } else if (normalized === 'e_invoice') {
         if (buttonEl) buttonEl.classList.add('is-e-invoice');
+    } else if (normalized === 'block') {
+        if (buttonEl) buttonEl.classList.add('is-block');
     } else {
         if (buttonEl) buttonEl.classList.add('is-active');
     }
@@ -411,8 +416,9 @@ function matchesCurrentBankFilters(process) {
     if (showInactive) matches.push(status === 'inactive');
     if (showOfficial) matches.push(issueFlag === 'official');
     if (showEInvoice) matches.push(issueFlag === 'e_invoice');
+    if (showBlock) matches.push(issueFlag === 'block');
     if (matches.length === 0) {
-        return status === 'active' && issueFlag !== 'official' && issueFlag !== 'e_invoice';
+        return status === 'active' && issueFlag !== 'official' && issueFlag !== 'e_invoice' && issueFlag !== 'block';
     }
     return matches.some(Boolean);
 }
@@ -502,7 +508,7 @@ async function handleBankStatusSelectChange(dropdownEl, processId, forcedValue) 
         return;
     }
 
-    if (selectedValue === 'official' || selectedValue === 'e_invoice') {
+    if (selectedValue === 'official' || selectedValue === 'e_invoice' || selectedValue === 'block') {
         await updateBankIssueFlag(processId, selectedValue, { dropdownEl: dropdownEl });
         return;
     }
@@ -547,7 +553,7 @@ function renderBankTable() {
         if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
         if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
         if (label === 'Action') {
-            const showActionCheckbox = showInactive || showOfficial || showEInvoice;
+            const showActionCheckbox = showInactive || showOfficial || showEInvoice || showBlock;
             return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
         }
         return '<th>' + escapeHtml(label) + '</th>';

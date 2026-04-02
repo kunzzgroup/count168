@@ -22,7 +22,7 @@ if (!function_exists('renderBankProcessToolbarAction')) {
 }
 
 if (!function_exists('renderBankProcessFilterControls')) {
-    function renderBankProcessFilterControls($showOfficialChecked, $showEInvoiceChecked)
+    function renderBankProcessFilterControls($showOfficialChecked, $showEInvoiceChecked, $showBlockChecked)
     {
         ?>
         <div id="process-list-bank-only-filters" class="process-list-bank-only-filters"
@@ -34,6 +34,10 @@ if (!function_exists('renderBankProcessFilterControls')) {
             <div class="checkbox-section">
                 <input type="checkbox" id="showEInvoice" name="showEInvoice" <?php echo $showEInvoiceChecked ? 'checked' : ''; ?>>
                 <label for="showEInvoice">Show E-Invoice</label>
+            </div>
+            <div class="checkbox-section">
+                <input type="checkbox" id="showBlock" name="showBlock" <?php echo $showBlockChecked ? 'checked' : ''; ?>>
+                <label for="showBlock">Show Block</label>
             </div>
         </div>
         <?php

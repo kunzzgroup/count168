@@ -65,7 +65,7 @@ try {
         api_error('Missing process ID');
     }
 
-    if (!in_array($issueFlag, ['', 'official', 'e_invoice'], true)) {
+    if (!in_array($issueFlag, ['', 'official', 'e_invoice', 'block'], true)) {
         api_error('Invalid issue flag value');
     }
 
