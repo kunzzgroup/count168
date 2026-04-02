@@ -368,10 +368,19 @@ try {
             }
         }
 
+        // partial_first_month：交易与 process_accounting_posted 锚在 day_start。
+        // monthly / manual_inactive：必须用本次入账日；若仍用 day_start，每条 monthly 的 posted_date 相同，
+        // 唯一键 (company_id, process_id, posted_date, period_type) 会令 INSERT IGNORE 静默失败，
+        // 后续月份无法在 Accounting Due 与「当天已入账」逻辑中正确对应。
+        $ledgerDate = $effectiveDate;
+        if ($periodType === 'monthly' || $periodType === 'manual_inactive') {
+            $ledgerDate = $fallbackDate;
+        }
+
         $baseTxn = [
             'company_id' => $companyId,
             'transaction_type' => 'WIN',
-            'transaction_date' => $effectiveDate,
+            'transaction_date' => $ledgerDate,
             'created_by' => $created_by_user,
             'created_by_owner' => $ownerId,
         ];
@@ -460,7 +469,7 @@ try {
             $createdCount++;
         }
 
-        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $effectiveDate, $periodType, $has_period_type);
+        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $ledgerDate, $periodType, $has_period_type);
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {
