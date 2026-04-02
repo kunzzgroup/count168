@@ -1,4 +1,4 @@
-body {
+﻿body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -516,13 +516,21 @@ h1 {
     border-top: 1px solid #e2e8f0;
 }
 
-/* ── Right Panel: display:contents flattens wrapper into modal-body flex ── */
+/* ── Right Panel: Account + Process ────────────────────────── */
 .permissions-panel {
-    display: contents;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 #accountProcessPermissionsSection {
-    display: contents;
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
 }
 
 /* Each of Account / Process columns */
