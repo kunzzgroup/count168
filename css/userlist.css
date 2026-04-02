@@ -516,21 +516,13 @@ h1 {
     border-top: 1px solid #e2e8f0;
 }
 
-/* ── Right Panel: Account + Process ────────────────────────── */
+/* ── Right Panel: display:contents flattens wrapper into modal-body flex ── */
 .permissions-panel {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    display: contents;
 }
 
 #accountProcessPermissionsSection {
-    display: flex;
-    flex-direction: row;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
+    display: contents;
 }
 
 /* Each of Account / Process columns */

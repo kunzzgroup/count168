@@ -1,4 +1,4 @@
-﻿// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
+// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
     const basePath = pathname.replace(/[^/]*$/, '') || '/';
@@ -745,7 +745,7 @@ function editUser(id, isOwnerShadow = false) {
      const editModeRightPanel = document.getElementById('editModeRightPanel');
      const editModeBottomBar = document.getElementById('editModeBottomBar');
      const addModeActions = document.querySelector('.add-mode-actions');
-     if (editModeRightPanel) editModeRightPanel.style.display = 'flex';
+     if (editModeRightPanel) editModeRightPanel.style.display = 'contents';
      if (editModeBottomBar) editModeBottomBar.style.display = 'flex';
      if (addModeActions) addModeActions.style.display = 'none';
      
