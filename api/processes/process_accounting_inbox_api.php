@@ -11,6 +11,7 @@ session_start();
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/billing_schedule.php';
 
 /** 统一 JSON 响应 */
 function jsonResponse(bool $success, string $message = '', $data = null): void
@@ -80,7 +81,7 @@ function normalizedBankIssueFlagSql(string $columnRef): string
 function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.contract" .
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.day_end, bp.contract" .
         ($hasFrequency ? ", bp.day_start_frequency" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
@@ -261,6 +262,9 @@ try {
             if ($today < $startDate) {
                 continue;
             }
+            if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null)) {
+                continue;
+            }
             $processId = (int) $r['id'];
             if (isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
                 continue;
@@ -329,7 +333,7 @@ try {
             }
         }
 
-        if ($need) {
+        if ($need && isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null)) {
             $needToday[] = [
                 'id' => (int) $r['id'],
                 'name' => $r['name'] ?? '',
