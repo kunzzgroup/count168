@@ -79,7 +79,8 @@ function isWithinRecurringBillingWindow(
     }
     if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
         $end = date('Y-m-d', strtotime($dayEndYmd));
-        if ($todayYmd > $end) {
+        // Treat day_end as exclusive end (end day itself should not show)
+        if ($todayYmd >= $end) {
             return false;
         }
     }

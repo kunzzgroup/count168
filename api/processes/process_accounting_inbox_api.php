@@ -117,7 +117,8 @@ function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, 
     }
     if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
         $end = date('Y-m-d', strtotime($dayEndYmd));
-        if ($todayYmd > $end) {
+        // Treat day_end as exclusive end (end day itself should not show)
+        if ($todayYmd >= $end) {
             return false;
         }
     }
@@ -127,6 +128,25 @@ function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, 
     }
     $exclusiveEnd = billingContractExclusiveEndYmd($start, $term);
     return $exclusiveEnd === null || $todayYmd < $exclusiveEnd;
+}
+
+/** Billing should not backfill before process creation date. */
+function createdYmdOrFallbackToday(array $processRow, string $todayYmd): string
+{
+    $raw = $processRow['dts_created'] ?? null;
+    if ($raw === null || trim((string) $raw) === '') {
+        return $todayYmd;
+    }
+    $ts = strtotime((string) $raw);
+    if ($ts === false) {
+        return $todayYmd;
+    }
+    return date('Y-m-d', $ts);
+}
+
+function maxYmd(string $a, string $b): string
+{
+    return ($a >= $b) ? $a : $b;
 }
 
 /** 该自然月是否已有 monthly / monthly_skipped（用于判断本期是否已处理） */
@@ -149,7 +169,7 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
 function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.day_end, bp.contract" .
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.day_end, bp.contract, bp.dts_created" .
         ($hasFrequency ? ", bp.day_start_frequency" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
@@ -322,8 +342,6 @@ try {
     $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency);
     $needToday = [];
 
-    $monthlyEverPostedIds = $hasPeriodType ? getMonthlyEverPostedIds($pdo, $company_id) : [];
-
     // 1) Partial first month
     if ($hasFrequency && $hasPeriodType) {
         foreach ($rows as $r) {
@@ -340,6 +358,10 @@ try {
             }
             $startDate = date('Y-m-d', strtotime($dayStart));
             if ($today < $startDate) {
+                continue;
+            }
+            $createdYmd = createdYmdOrFallbackToday($r, $today);
+            if ($today < maxYmd($startDate, $createdYmd)) {
                 continue;
             }
             if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null)) {
@@ -376,6 +398,7 @@ try {
         $dayStart = $r['day_start'] ?? null;
         $need = false;
         $monthlyBillingMonth = null;
+        $createdYmd = createdYmdOrFallbackToday($r, $today);
         $startTs = (!empty($dayStart)) ? strtotime($dayStart) : false;
         $startDate = $startTs !== false ? date('Y-m-d', $startTs) : '';
         $contract = $r['contract'] ?? null;
@@ -389,7 +412,8 @@ try {
                     $y = (int) $cur->format('Y');
                     $mo = (int) $cur->format('n');
                     $firstOf = $cur->format('Y-m-d');
-                    if ($today >= $firstOf
+                    $effectiveDue = maxYmd($firstOf, $createdYmd);
+                    if ($today >= $effectiveDue
                         && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
                         $need = true;
                         $monthlyBillingMonth = $cur->format('Y-n');
@@ -421,7 +445,8 @@ try {
                             if ($exclusiveEnd !== null && $firstOfThis >= $exclusiveEnd) {
                                 break;
                             }
-                            if ($today >= $firstOfThis
+                            $effectiveDue = maxYmd($firstOfThis, $createdYmd);
+                            if ($today >= $effectiveDue
                                 && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
                                 $need = true;
                                 $monthlyBillingMonth = $iter->format('Y-n');
@@ -435,7 +460,7 @@ try {
                 }
             }
         } else {
-            // Monthly：第一笔从未入账过则 day_start 起出现；之后每月 (day_start-1) 日，逾期仍显示至该月结清
+            // Monthly（prepaid）：每月 day_start 当天应付；逾期仍显示至该月结清
             if (empty($dayStart)) {
                 continue;
             }
@@ -446,69 +471,35 @@ try {
                 continue;
             }
             $processId = (int) $r['id'];
-            $neverPostedMonthly = !in_array($processId, $monthlyEverPostedIds, true);
             $startDayOfMonth = (int) date('j', $startTs);
-            $accountingDay = max(1, $startDayOfMonth - 1);
-
-            if ($neverPostedMonthly) {
-                if ($startDate !== '' && $today >= $startDate) {
-                    try {
-                        $iter = new DateTimeImmutable($startDate);
-                        $iter = $iter->modify('first day of this month');
-                        $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
-                        $startYm = (new DateTimeImmutable($startDate))->format('Y-m');
-                        $term = getBillingTermMonthsFromContract($contract);
-                        $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
-                        while ($iter <= $endCap) {
-                            $y = (int) $iter->format('Y');
-                            $mo = (int) $iter->format('n');
-                            $firstOf = $iter->format('Y-m-01');
-                            $due = ($iter->format('Y-m') === $startYm) ? $startDate : $firstOf;
-                            if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
-                                break;
-                            }
-                            if ($today >= $due
-                                && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
-                                $need = true;
-                                $monthlyBillingMonth = $iter->format('Y-n');
-                                break;
-                            }
-                            $iter = $iter->modify('+1 month');
+            if ($startDate !== '' && $today >= maxYmd($startDate, $createdYmd)) {
+                try {
+                    $iter = new DateTimeImmutable($startDate);
+                    $iter = $iter->modify('first day of this month');
+                    $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+                    $startYm = (new DateTimeImmutable($startDate))->format('Y-m');
+                    $term = getBillingTermMonthsFromContract($contract);
+                    $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
+                    while ($iter <= $endCap) {
+                        $y = (int) $iter->format('Y');
+                        $mo = (int) $iter->format('n');
+                        $due = ($iter->format('Y-m') === $startYm)
+                            ? $startDate
+                            : calendarMonthDueYmd($y, $mo, $startDayOfMonth);
+                        if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
+                            break;
                         }
-                    } catch (Throwable $e) {
-                        $need = false;
+                        $effectiveDue = maxYmd($due, $createdYmd);
+                        if ($today >= $effectiveDue
+                            && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
+                            $need = true;
+                            $monthlyBillingMonth = $iter->format('Y-n');
+                            break;
+                        }
+                        $iter = $iter->modify('+1 month');
                     }
-                }
-            } else {
-                $firstPeriodEndTs = strtotime('-1 day', strtotime('+1 month', $startTs));
-                $firstPeriodEndDate = $firstPeriodEndTs !== false ? date('Y-m-d', $firstPeriodEndTs) : '';
-                if ($firstPeriodEndDate === '' || $today < $firstPeriodEndDate) {
+                } catch (Throwable $e) {
                     $need = false;
-                } else {
-                    try {
-                        $iter = new DateTimeImmutable($firstPeriodEndDate);
-                        $iter = $iter->modify('first day of this month');
-                        $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
-                        $term = getBillingTermMonthsFromContract($contract);
-                        $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
-                        while ($iter <= $endCap) {
-                            $y = (int) $iter->format('Y');
-                            $mo = (int) $iter->format('n');
-                            $due = calendarMonthDueYmd($y, $mo, $accountingDay);
-                            if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
-                                break;
-                            }
-                            if ($today >= $due
-                                && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
-                                $need = true;
-                                $monthlyBillingMonth = $iter->format('Y-n');
-                                break;
-                            }
-                            $iter = $iter->modify('+1 month');
-                        }
-                    } catch (Throwable $e) {
-                        $need = false;
-                    }
                 }
             }
         }
