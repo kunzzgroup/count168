@@ -1052,8 +1052,9 @@ async function fetchCardPointByDate(dateStr) {
         throw new Error(result.message || 'Daily point payload invalid');
     }
 
-    const rawProfit = parseFloat(result.data.profit) || 0;
-    const rawExpenses = parseFloat(result.data.expenses) || 0;
+    // 单日点位必须使用「当日发生额」口径（period_total），避免把 B/F(initial_balance) 或累计余额带进趋势图
+    const rawProfit = parseFloat(result.data?.period_total?.profit ?? result.data.profit) || 0
+    const rawExpenses = parseFloat(result.data?.period_total?.expenses ?? result.data.expenses) || 0
     const point = {
         profit: rawProfit,
         expenses: rawExpenses > 0 ? -rawExpenses : rawExpenses
@@ -1186,14 +1187,11 @@ async function updateChart(data) {
                 }
             }
 
-            currentProfit += monthProfit;
-            currentExpenses += monthExpenses;
-            currentCapital += monthCapital;
-
             dates.push(monthKey);
-            capitalData.push(currentCapital);
-            expensesData.push(currentExpenses);
-            profitData.push(currentProfit);
+            // 月聚合视图也按「发生额」显示（当月净发生），不做累计
+            capitalData.push(monthCapital);
+            expensesData.push(monthExpenses);
+            profitData.push(monthProfit);
         });
     } else {
         // 非年份范围：按天显示
