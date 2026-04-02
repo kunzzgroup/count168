@@ -15,50 +15,16 @@ if (!defined('PROCESSLIST_HIDE_PERMISSION_FILTER')) {
     define('PROCESSLIST_HIDE_PERMISSION_FILTER', false);
 }
 
-if (!defined('PROCESSLIST_SCRIPT_FILE')) {
-    define('PROCESSLIST_SCRIPT_FILE', 'js/processlist.js');
-}
-
-if (!function_exists('renderBankProcessToolbarAction')) {
-    function renderBankProcessToolbarAction()
-    {
-    }
-}
-
-if (!function_exists('renderBankProcessFilterControls')) {
-    function renderBankProcessFilterControls($showOfficialChecked, $showEInvoiceChecked)
-    {
-    }
-}
-
-if (!function_exists('renderBankProcessTableHeaders')) {
-    function renderBankProcessTableHeaders()
-    {
-    }
-}
-
-if (!function_exists('renderBankProcessTableWrapper')) {
-    function renderBankProcessTableWrapper()
-    {
-    }
-}
-
-if (!function_exists('renderBankProcessModals')) {
-    function renderBankProcessModals()
-    {
-    }
-}
-
 $processListPageFile = PROCESSLIST_PAGE_FILE;
 $processListPageTitle = PROCESSLIST_PAGE_TITLE;
 $processListForcedPermission = PROCESSLIST_FORCED_PERMISSION;
 $processListHidePermissionFilter = PROCESSLIST_HIDE_PERMISSION_FILTER;
-$processListScriptFile = PROCESSLIST_SCRIPT_FILE;
 
-// 使用统一的session检查
+// Σ╜┐τö¿τ╗ƒΣ╕ÇτÜäsessionµúÇµƒÑ
 require_once 'session_check.php';
+require_once __DIR__ . '/bank_process_list.php';
 
-// 处理删除请求（只允许删除inactive状态的进程）
+// σñäτÉåσêáΘÖñΦ»╖µ▒é∩╝êσÅ¬σàüΦ«╕σêáΘÖñinactiveτè╢µÇüτÜäΦ┐¢τ¿ï∩╝ë
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
     try {
         $ids = is_array($_POST['ids']) ? $_POST['ids'] : (isset($_POST['ids']) ? [$_POST['ids']] : []);
@@ -72,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
 
-            // Bank 类别：若有勾选到已设置 day_start 的记录则不允许删除，返回错误
+            // Bank τ▒╗σê½∩╝ÜΦïÑµ£ëσï╛ΘÇëσê░σ╖▓Φ«╛τ╜« day_start τÜäΦ«░σ╜òσêÖΣ╕ìσàüΦ«╕σêáΘÖñ∩╝îΦ┐öσ¢₧ΘöÖΦ»»
             if ($permission === 'Bank') {
                 $placeholders = str_repeat('?,', count($ids) - 1) . '?';
                 $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive'");
@@ -90,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                     header('Location: ' . $processListPageFile . '?error=bank_has_day_start');
                     exit;
                 }
-                // Bank：若该流程在 transactions 中仍有记录（或无 source_bank_process_id 时看 process_accounting_posted），则不允许删除
+                // Bank∩╝ÜΦïÑΦ»Ñµ╡üτ¿ïσ£¿ transactions Σ╕¡Σ╗ìµ£ëΦ«░σ╜ò∩╝êµêûµùá source_bank_process_id µù╢τ£ï process_accounting_posted∩╝ë∩╝îσêÖΣ╕ìσàüΦ«╕σêáΘÖñ
                 $hasSourceBankProcessId = false;
                 try {
                     $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
@@ -121,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
 
-            // Games：原有 process 表删除逻辑
+            // Games∩╝ÜσÄƒµ£ë process Φí¿σêáΘÖñΘÇ╗Φ╛æ
             $placeholders = str_repeat('?,', count($ids) - 1) . '?';
             $stmt = $pdo->prepare("SELECT id, process_id, company_id FROM process WHERE id IN ($placeholders) AND status = 'inactive'");
             $stmt->execute($ids);
@@ -158,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
 
-            // Games：若该流程在 transactions 表中有记录，则不允许删除
+            // Games∩╝ÜΦïÑΦ»Ñµ╡üτ¿ïσ£¿ transactions Φí¿Σ╕¡µ£ëΦ«░σ╜ò∩╝îσêÖΣ╕ìσàüΦ«╕σêáΘÖñ
             $hasProcessIdCol = false;
             try {
                 $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
@@ -188,27 +154,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
     }
 }
 
-// 获取初始参数（用于设置页面状态）
+// ΦÄ╖σÅûσê¥σºïσÅéµò░∩╝êτö¿Σ║ÄΦ«╛τ╜«Θí╡Θ¥óτè╢µÇü∩╝ë
 $searchTerm = isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '';
 $showInactive = isset($_GET['showInactive']) ? true : false;
 $showAll = isset($_GET['showAll']) ? true : false;
 
-// 获取当前用户信息
+// ΦÄ╖σÅûσ╜ôσëìτö¿µê╖Σ┐íµü»
 $current_user_id = $_SESSION['user_id'] ?? null;
 $current_user_role = $_SESSION['role'] ?? '';
 
-// 获取当前用户关联的所有 company（用于显示 company 按钮）
+// ΦÄ╖σÅûσ╜ôσëìτö¿µê╖σà│ΦüöτÜäµëÇµ£ë company∩╝êτö¿Σ║Äµÿ╛τñ║ company µîëΘÆ«∩╝ë
 $user_companies = [];
 try {
     if ($current_user_id) {
-        // 如果是 owner，获取所有拥有的 company
+        // σªéµ₧£µÿ» owner∩╝îΦÄ╖σÅûµëÇµ£ëµïÑµ£ëτÜä company
         if ($current_user_role === 'owner') {
             $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
             $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
             $stmt->execute([$owner_id]);
             $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
-            // 普通用户，获取通过 user_company_map 关联的 company
+            // µÖ«ΘÇÜτö¿µê╖∩╝îΦÄ╖σÅûΘÇÜΦ┐ç user_company_map σà│ΦüöτÜä company
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.id, c.company_id 
                 FROM company c
@@ -224,10 +190,10 @@ try {
     error_log("Failed to get user company list: " . $e->getMessage());
 }
 
-// 如果 URL 中有 company_id 参数，使用它（用于切换 company）
+// σªéµ₧£ URL Σ╕¡µ£ë company_id σÅéµò░∩╝îΣ╜┐τö¿σ«â∩╝êτö¿Σ║Äσêçµìó company∩╝ë
 $company_id = isset($_GET['company_id']) ? (int) $_GET['company_id'] : ($_SESSION['company_id'] ?? null);
 
-// 验证 company_id 是否属于当前用户
+// Θ¬îΦ»ü company_id µÿ»σÉªσ▒₧Σ║Äσ╜ôσëìτö¿µê╖
 if ($current_user_id && count($user_companies) > 0) {
     $valid_company = false;
     if ($company_id) {
@@ -239,19 +205,19 @@ if ($current_user_id && count($user_companies) > 0) {
         }
     }
     if (!$valid_company) {
-        // 如果 company_id 无效或不存在，使用第一个 company
+        // σªéµ₧£ company_id µùáµòêµêûΣ╕ìσ¡ÿσ£¿∩╝îΣ╜┐τö¿τ¼¼Σ╕ÇΣ╕¬ company
         $company_id = $user_companies[0]['id'];
-        // 更新 session（确保登录后默认使用第一个 company）
+        // µ¢┤µû░ session∩╝êτí«Σ┐¥τÖ╗σ╜òσÉÄΘ╗ÿΦ«ñΣ╜┐τö¿τ¼¼Σ╕ÇΣ╕¬ company∩╝ë
         $_SESSION['company_id'] = $company_id;
     } elseif (isset($_GET['company_id']) && $company_id == (int) $_GET['company_id']) {
-        // 如果 URL 中有 company_id 参数且验证通过，更新 session（实现跨页面同步）
+        // σªéµ₧£ URL Σ╕¡µ£ë company_id σÅéµò░Σ╕öΘ¬îΦ»üΘÇÜΦ┐ç∩╝îµ¢┤µû░ session∩╝êσ«₧τÄ░Φ╖¿Θí╡Θ¥óσÉîµ¡Ñ∩╝ë
         $_SESSION['company_id'] = $company_id;
     } elseif (!isset($_GET['company_id']) && $company_id == $_SESSION['company_id']) {
-        // 如果使用 session 中的 company_id 且有效，确保 session 已设置（登录时设置的）
+        // σªéµ₧£Σ╜┐τö¿ session Σ╕¡τÜä company_id Σ╕öµ£ëµòê∩╝îτí«Σ┐¥ session σ╖▓Φ«╛τ╜«∩╝êτÖ╗σ╜òµù╢Φ«╛τ╜«τÜä∩╝ë
         $_SESSION['company_id'] = $company_id;
     }
 } else {
-    // 如果没有关联的 company，使用 session 中的 company_id
+    // σªéµ₧£µ▓íµ£ëσà│ΦüöτÜä company∩╝îΣ╜┐τö¿ session Σ╕¡τÜä company_id
     $company_id = $_SESSION['company_id'] ?? null;
 }
 ?>
@@ -356,7 +322,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <?php endif; ?>
             </div>
 
-            <!-- 包装器保证 th 与数据区同宽，列对齐 -->
+            <!-- σîàΦúàσÖ¿Σ┐¥Φ»ü th Σ╕Äµò░µì«σî║σÉîσ«╜∩╝îσêùσ»╣Θ╜É -->
             <div class="process-table-wrapper" id="processTableWrapper">
                 <!-- Table Header -->
                 <div class="table-header" id="tableHeader">
@@ -384,11 +350,11 @@ if ($current_user_id && count($user_companies) > 0) {
 
             <?php renderBankProcessTableWrapper(); ?>
 
-            <!-- 分页控件 - 浮动在右下角 -->
+            <!-- σêåΘí╡µÄºΣ╗╢ - µ╡«σè¿σ£¿σÅ│Σ╕ïΦºÆ -->
             <div class="pagination-container" id="paginationContainer">
-                <button class="pagination-btn" id="prevBtn" onclick="prevPage()">◀</button>
+                <button class="pagination-btn" id="prevBtn" onclick="prevPage()">ΓùÇ</button>
                 <span class="pagination-info" id="paginationInfo">1 of 1</span>
-                <button class="pagination-btn" id="nextBtn" onclick="nextPage()">▶</button>
+                <button class="pagination-btn" id="nextBtn" onclick="nextPage()">Γû╢</button>
             </div>
         </div>
     </div>
@@ -804,7 +770,8 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="calendar-days" id="calendar-days"></div>
     </div>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
-    <script src="<?php echo htmlspecialchars($processListScriptFile); ?>?v=<?php echo time(); ?>"></script>
+    <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
+    <script src="js/bank_process_list.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
