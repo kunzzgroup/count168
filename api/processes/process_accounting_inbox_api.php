@@ -509,7 +509,9 @@ try {
             }
             $processId = (int) $r['id'];
             $startDayOfMonth = (int) date('j', $startTs);
-            if ($startDate !== '' && $today >= maxYmd($startDate, $createdYmd)) {
+            // Old data not taken for Monthly(prepaid): do NOT backfill a missed due-date.
+            // If a due-date already passed before process creation, skip that period entirely and wait for the next due-date.
+            if ($startDate !== '' && $today >= $createdYmd) {
                 try {
                     $iter = new DateTimeImmutable($startDate);
                     $iter = $iter->modify('first day of this month');
@@ -526,8 +528,12 @@ try {
                         if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                             break;
                         }
-                        $effectiveDue = maxYmd($due, $createdYmd);
-                        if ($today >= $effectiveDue
+                        // Skip any period whose due-date is before creation (no backfill).
+                        if ($due < $createdYmd) {
+                            $iter = $iter->modify('+1 month');
+                            continue;
+                        }
+                        if ($today >= $due
                             && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
                             $need = true;
                             $monthlyBillingMonth = $iter->format('Y-n');
