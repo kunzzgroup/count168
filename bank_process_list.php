@@ -2,7 +2,7 @@
 define('PROCESSLIST_PAGE_FILE', 'bank_process_list.php');
 define('PROCESSLIST_PAGE_TITLE', 'Bank Process List');
 define('PROCESSLIST_FORCED_PERMISSION', 'Bank');
-define('PROCESSLIST_HIDE_PERMISSION_FILTER', true);
+define('PROCESSLIST_HIDE_PERMISSION_FILTER', false);
 define('PROCESSLIST_SCRIPT_FILE', 'js/bank_process_list.js');
 
 if (!function_exists('renderBankProcessToolbarAction')) {

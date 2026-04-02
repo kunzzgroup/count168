@@ -8,11 +8,11 @@ if (!defined('PROCESSLIST_PAGE_TITLE')) {
 }
 
 if (!defined('PROCESSLIST_FORCED_PERMISSION')) {
-    define('PROCESSLIST_FORCED_PERMISSION', 'Games');
+    define('PROCESSLIST_FORCED_PERMISSION', '');
 }
 
 if (!defined('PROCESSLIST_HIDE_PERMISSION_FILTER')) {
-    define('PROCESSLIST_HIDE_PERMISSION_FILTER', true);
+    define('PROCESSLIST_HIDE_PERMISSION_FILTER', false);
 }
 
 if (!defined('PROCESSLIST_SCRIPT_FILE')) {

@@ -5809,13 +5809,6 @@ async function loadPermissionButtons() {
     const permissionFilterEl = document.getElementById('process-list-permission-filter');
     const permissionContainer = document.getElementById('process-list-permission-buttons');
 
-    if (forcedPermission) {
-        if (permissionFilterEl) permissionFilterEl.style.display = 'none';
-        if (permissionContainer) permissionContainer.innerHTML = '';
-        switchPermission(forcedPermission);
-        return;
-    }
-
     if (!currentCompanyCode) {
         if (permissionFilterEl) permissionFilterEl.style.display = 'none';
         return;
