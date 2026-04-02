@@ -3399,6 +3399,10 @@ function handleReverseAccounts(event) {
         updateSelectedOption(button1, value2);
         updateSelectedOption(button2, value1);
 
+        // 同步下拉中的“清空/取消选择”占位文案（loadAccounts 时生成，reverse 后可能与按钮 placeholder 不一致）
+        syncClearOptionPlaceholder(button1);
+        syncClearOptionPlaceholder(button2);
+
         // 触发 change：让依赖 Account change 的逻辑同步刷新（如 CONTRA 的币别同步等）
         try {
             button1.dispatchEvent(new Event('change', { bubbles: true }));
@@ -3406,6 +3410,14 @@ function handleReverseAccounts(event) {
         } catch (e) {
             // ignore
         }
+    }
+
+    function syncClearOptionPlaceholder(button) {
+        if (!button) return;
+        const dropdown = document.getElementById(button.id + '_dropdown');
+        const clearOpt = dropdown?.querySelector('.custom-select-options .custom-select-option[data-clear="1"]');
+        if (!clearOpt) return;
+        clearOpt.textContent = button.getAttribute('data-placeholder') || '--Select Account--';
     }
     
     // 更新下拉选单中的选中状态
