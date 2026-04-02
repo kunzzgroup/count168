@@ -350,8 +350,6 @@ h1 {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: clamp(14px, 1.04vw, 20px) clamp(16px, 1.25vw, 24px);
-    gap: clamp(14px, 1.25vw, 24px);
 }
 
 /* ── Left Panel: User Info + Permissions ───────────────────── */
@@ -529,7 +527,6 @@ h1 {
 #accountProcessPermissionsSection {
     display: flex;
     flex-direction: row;
-    gap: clamp(12px, 1.04vw, 20px);
     flex: 1;
     min-height: 0;
     height: 100%;
