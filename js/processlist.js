@@ -948,6 +948,16 @@ function showNotification(message, type = 'success') {
     }, 1500);
 }
 
+function updateProcessListPageTitle(permission) {
+    const normalizedPermission = String(permission || '').trim().toLowerCase();
+    const pageTitle = normalizedPermission === 'bank' ? 'Bank Process List' : 'Process List';
+    const headingEl = document.querySelector('.page-title');
+    if (headingEl) {
+        headingEl.textContent = pageTitle;
+    }
+    document.title = pageTitle;
+}
+
 // 其他必要的函数
 function addProcess() {
     // 如果权限还没加载出来，先加载权限，再根据结果打开对应的 Add 弹窗
@@ -5912,6 +5922,7 @@ function switchPermission(permission) {
     }
 
     selectedPermission = permission;
+    updateProcessListPageTitle(permission);
 
     // 保存到 localStorage
     const currentCompanyCode = (typeof window.PROCESSLIST_COMPANY_CODE !== 'undefined' ? window.PROCESSLIST_COMPANY_CODE : '');
