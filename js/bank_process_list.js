@@ -296,6 +296,16 @@ function closeAllBankStatusDropdowns() {
         if (buttonEl) buttonEl.classList.remove('open');
         restoreBankStatusMenu(dropdownEl);
     });
+
+    // Cleanup orphan floating menus (dropdown rows may be re-rendered/removed)
+    document.body.querySelectorAll('.bank-status-menu-floating').forEach(function (menuEl) {
+        const owner = menuEl.__ownerDropdown || null;
+        if (!owner || !document.body.contains(owner)) {
+            menuEl.classList.remove('bank-status-menu-floating');
+            menuEl.style.display = 'none';
+            try { menuEl.remove(); } catch (e) { /* ignore */ }
+        }
+    });
 }
 
 function moveBankStatusMenuToBody(dropdownEl) {
@@ -533,6 +543,9 @@ async function handleBankStatusSelectChange(dropdownEl, processId, forcedValue) 
     showConfirmInactiveModal(processId, selectedValue);
 }
 function renderBankTable() {
+    // When re-rendering table (e.g. filter/pagination), ensure floating status menus are closed & cleaned up
+    closeAllBankStatusDropdowns();
+
     const headRow = document.getElementById('bankTableHeadRow');
     const tbody = document.getElementById('bankTableBody');
     if (!headRow || !tbody) return;
