@@ -45,6 +45,9 @@
         document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
             title.classList.remove('current-page');
         });
+        document.querySelectorAll('.submenu-item').forEach(function(item) {
+            item.classList.remove('current-page');
+        });
         var maintenancePages = ['capture_maintenance.php', 'transaction_maintenance.php', 'payment_maintenance.php', 'formula_maintenance.php'];
         if (maintenancePages.indexOf(currentPage) !== -1) {
             var maintenanceTitle = document.querySelector('.informationmenu-section-title[data-section="maintenance"]');
@@ -55,9 +58,18 @@
             var reportTitle = document.querySelector('.informationmenu-section-title[data-section="report"]');
             if (reportTitle) reportTitle.classList.add('current-page');
         }
+        var processPages = ['games_process_list.php', 'bank_process_list.php', 'processlist.php'];
+        if (processPages.indexOf(currentPage) !== -1) {
+            var processTitle = document.querySelector('.informationmenu-section-title[data-section="process"]');
+            if (processTitle) processTitle.classList.add('current-page');
+        }
         document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
             var pageName = title.getAttribute('data-page');
             if (pageName === currentPage) title.classList.add('current-page');
+        });
+        document.querySelectorAll('.submenu-item').forEach(function(item) {
+            var pageName = item.getAttribute('data-page');
+            if (pageName === currentPage) item.classList.add('current-page');
         });
     }
 
@@ -376,7 +388,7 @@
                 }
                 var targetId = this.getAttribute('data-target');
                 var section = this.getAttribute('data-section');
-                if (section === 'report' || section === 'maintenance') return;
+                if (section === 'report' || section === 'maintenance' || section === 'process') return;
                 var targetDropdown = document.getElementById(targetId);
                 document.querySelectorAll('.dropdown-menu-items').forEach(function(dropdown) {
                     if (dropdown.id !== targetId) dropdown.classList.remove('show');

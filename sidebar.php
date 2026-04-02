@@ -390,19 +390,24 @@ if ($companyId) {
             <!-- Process Section -->
             <?php if ((empty($permissions) || in_array('process', $permissions)) && !$isCurrentCompanyC168): ?>
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title" data-page="processlist.php" onclick="window.location.href='processlist.php'">
-                    <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                    Process
-                </div>
-            </div>
-            <div class="informationmenu-section">
-                <div class="informationmenu-section-title" data-page="bank_process_list.php" onclick="window.location.href='bank_process_list.php'">
-                    <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18 7 3.11V11c0 4.37-2.95 8.47-7 9.74C7.95 19.47 5 15.37 5 11V6.29l7-3.11z"/>
-                    </svg>
-                    Bank Process
+                <div class="menu-item-wrapper">
+                    <div class="informationmenu-section-title" data-section="process">
+                        <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                        Process
+                        <span class="section-arrow">▶</span>
+                    </div>
+                    <div class="submenu" id="process-submenu">
+                        <div class="submenu-content">
+                            <a href="games_process_list.php" class="submenu-item" data-page="games_process_list.php">
+                                <span>Games</span>
+                            </a>
+                            <a href="bank_process_list.php" class="submenu-item" data-page="bank_process_list.php">
+                                <span>Bank</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
             <?php endif; ?>

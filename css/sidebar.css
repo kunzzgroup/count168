@@ -649,6 +649,11 @@
     color: white;
 }
 
+.submenu-item.current-page {
+    background: rgba(14, 147, 243, 0.9);
+    color: white;
+}
+
 .submenu-item::after {
     content: '›';
     margin-left: auto;
