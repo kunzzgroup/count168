@@ -390,24 +390,11 @@ if ($companyId) {
             <!-- Process Section -->
             <?php if ((empty($permissions) || in_array('process', $permissions)) && !$isCurrentCompanyC168): ?>
             <div class="informationmenu-section">
-                <div class="menu-item-wrapper">
-                    <div class="informationmenu-section-title" data-section="process">
-                        <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                        </svg>
-                        Process
-                        <span class="section-arrow">▶</span>
-                    </div>
-                    <div class="submenu" id="process-submenu">
-                        <div class="submenu-content">
-                            <a href="games_process_list.php" class="submenu-item" data-page="games_process_list.php">
-                                <span>Games</span>
-                            </a>
-                            <a href="bank_process_list.php" class="submenu-item" data-page="bank_process_list.php">
-                                <span>Bank</span>
-                            </a>
-                        </div>
-                    </div>
+                <div class="informationmenu-section-title" data-page="processlist.php" onclick="window.location.href='processlist.php'">
+                    <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                    Process
                 </div>
             </div>
             <?php endif; ?>

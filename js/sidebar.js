@@ -60,7 +60,7 @@
         }
         var processPages = ['games_process_list.php', 'bank_process_list.php', 'processlist.php'];
         if (processPages.indexOf(currentPage) !== -1) {
-            var processTitle = document.querySelector('.informationmenu-section-title[data-section="process"]');
+            var processTitle = document.querySelector('.informationmenu-section-title[data-page="processlist.php"]');
             if (processTitle) processTitle.classList.add('current-page');
         }
         document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
@@ -388,7 +388,7 @@
                 }
                 var targetId = this.getAttribute('data-target');
                 var section = this.getAttribute('data-section');
-                if (section === 'report' || section === 'maintenance' || section === 'process') return;
+                if (section === 'report' || section === 'maintenance') return;
                 var targetDropdown = document.getElementById(targetId);
                 document.querySelectorAll('.dropdown-menu-items').forEach(function(dropdown) {
                     if (dropdown.id !== targetId) dropdown.classList.remove('show');
