@@ -2930,8 +2930,12 @@ if (showInactiveCheckbox) {
         if (showInactive) showAll = false;
         normalizeBankFilterState();
         currentPage = 1;
-        renderTable();
-        renderPagination();
+        if (selectedPermission === 'Bank') {
+            renderTable();
+            renderPagination();
+        } else {
+            fetchProcesses();
+        }
     });
 }
 
@@ -2978,8 +2982,12 @@ if (showAllCheckbox) {
         showAll = this.checked;
         normalizeBankFilterState();
         currentPage = 1;
-        renderTable();
-        renderPagination();
+        if (selectedPermission === 'Bank') {
+            renderTable();
+            renderPagination();
+        } else {
+            fetchProcesses();
+        }
     });
 }
 
