@@ -3398,33 +3398,11 @@ function handleReverseAccounts(event) {
         // 更新下拉选单中的选中状态
         updateSelectedOption(button1, value2);
         updateSelectedOption(button2, value1);
-
-        // 同步下拉中的“清空/取消选择”占位文案（loadAccounts 时生成，reverse 后可能与按钮 placeholder 不一致）
-        syncClearOptionPlaceholder(button1);
-        syncClearOptionPlaceholder(button2);
-
-        // 触发 change：让依赖 Account change 的逻辑同步刷新（如 CONTRA 的币别同步等）
-        try {
-            button1.dispatchEvent(new Event('change', { bubbles: true }));
-            button2.dispatchEvent(new Event('change', { bubbles: true }));
-        } catch (e) {
-            // ignore
-        }
-    }
-
-    function syncClearOptionPlaceholder(button) {
-        if (!button) return;
-        const dropdown = document.getElementById(button.id + '_dropdown');
-        const clearOpt = dropdown?.querySelector('.custom-select-options .custom-select-option[data-clear="1"]');
-        if (!clearOpt) return;
-        const currentText = (button.textContent || '').trim();
-        // Reverse 后按钮 textContent 会互换，但 data-placeholder 不会变；清空项应跟随当前按钮显示
-        clearOpt.textContent = currentText || button.getAttribute('data-placeholder') || '--Select Account--';
     }
     
     // 更新下拉选单中的选中状态
     function updateSelectedOption(button, accountId) {
-        if (!button) return;
+        if (!button || !accountId) return;
         const dropdown = document.getElementById(button.id + '_dropdown');
         if (!dropdown) return;
         const optionsContainer = dropdown.querySelector('.custom-select-options');
@@ -3435,7 +3413,6 @@ function handleReverseAccounts(event) {
             opt.classList.remove('selected');
         });
         
-        if (!accountId) return;
         // 设置新的选中状态
         const option = optionsContainer.querySelector(`.custom-select-option[data-value="${accountId}"]`);
         if (option) {
