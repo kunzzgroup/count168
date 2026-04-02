@@ -50,7 +50,7 @@ function normalizeBankIssueFlagValue($value): ?string
 {
     $normalized = strtolower(trim((string)$value));
     $normalized = str_replace([' ', '-'], '_', $normalized);
-    if (in_array($normalized, ['official', 'e_invoice'], true)) {
+    if (in_array($normalized, ['official', 'e_invoice', 'block'], true)) {
         return $normalized;
     }
     return null;
@@ -633,6 +633,9 @@ function getBankProcesses() {
         $searchTerm = $_GET['search'] ?? '';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
+        $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
+        $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
+        $showBlock = isset($_GET['showBlock']) && $_GET['showBlock'] == '1';
 
         $hasSourceBankProcessId = false;
         try {
@@ -651,7 +654,7 @@ function getBankProcesses() {
             ? "LOWER(REPLACE(REPLACE(TRIM(COALESCE($issueFlagSql, '')), '-', '_'), ' ', '_'))"
             : "''";
         $defaultVisibleClause = $hasAnyIssueFlagColumn
-            ? "(bp.status = 'active' AND (" . $normalizedIssueFlagSql . " = '' OR " . $normalizedIssueFlagSql . " NOT IN ('official', 'e_invoice')))"
+            ? "(bp.status = 'active' AND (" . $normalizedIssueFlagSql . " = '' OR " . $normalizedIssueFlagSql . " NOT IN ('official', 'e_invoice', 'block')))"
             : "bp.status = 'active'";
 
         $sql = "SELECT 
@@ -708,7 +711,7 @@ function getBankProcesses() {
             $params[] = $term;
             $params[] = $term;
         }
-        $hasSpecificFilter = $showInactive || $showOfficial || $showEInvoice;
+        $hasSpecificFilter = $showInactive || $showOfficial || $showEInvoice || $showBlock;
         if ($showAll) {
             // no additional filter
         } elseif (!$hasSpecificFilter) {
@@ -723,6 +726,9 @@ function getBankProcesses() {
             }
             if ($showEInvoice && $hasAnyIssueFlagColumn) {
                 $filterClauses[] = $normalizedIssueFlagSql . " = 'e_invoice'";
+            }
+            if ($showBlock && $hasAnyIssueFlagColumn) {
+                $filterClauses[] = $normalizedIssueFlagSql . " = 'block'";
             }
 
             if (empty($filterClauses)) {

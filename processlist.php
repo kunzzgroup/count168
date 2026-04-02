@@ -292,14 +292,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         $showBlockChecked = !$showAllChecked && isset($_GET['showBlock']);
                         ?>
                         <div class="checkbox-section">
-                            <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
-                            <label for="showInactive">Show Inactive</label>
-                        </div>
-                        <?php renderBankProcessFilterControls($showOfficialChecked, $showEInvoiceChecked); ?>
-                        <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllChecked ? 'checked' : ''; ?>>
                             <label for="showAll">Show Active</label>
                         </div>
+                        <div class="checkbox-section">
+                            <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
+                            <label for="showInactive">Show Inactive</label>
+                        </div>
+                        <?php renderBankProcessFilterControls($showOfficialChecked, $showEInvoiceChecked, $showBlockChecked); ?>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
                         title="Only inactive processes can be deleted" disabled>Delete</button>
@@ -724,6 +724,7 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_SHOW_INACTIVE = <?php echo $showInactiveChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_OFFICIAL = <?php echo $showOfficialChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_E_INVOICE = <?php echo $showEInvoiceChecked ? 'true' : 'false'; ?>;
+        window.PROCESSLIST_SHOW_BLOCK = <?php echo $showBlockChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_ALL = <?php echo $showAllChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
