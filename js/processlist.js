@@ -8,6 +8,7 @@ let waiting = false;
 let currentPage = 1;
 const pageSize = 20;
 let selectedPermission = null;
+const currentProcessListPage = (typeof window.PROCESSLIST_PAGE_FILE === 'string' ? window.PROCESSLIST_PAGE_FILE.trim() : '');
 const forcedPermission = (typeof window.PROCESSLIST_FORCED_PERMISSION === 'string' ? window.PROCESSLIST_FORCED_PERMISSION.trim() : '');
 const hidePermissionFilter = !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
 /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
@@ -62,6 +63,28 @@ function buildBankRemarkActionButton(processId) {
         '<path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
         '</svg>' +
         '</button>';
+}
+
+function getProcessListPageByPermission(permission) {
+    const normalizedPermission = String(permission || '').trim().toLowerCase();
+    if (normalizedPermission === 'bank') return 'bank_process_list.php';
+    if (normalizedPermission === 'games' || normalizedPermission === 'gambling') return 'processlist.php';
+    return '';
+}
+
+function redirectToProcessListPage(targetPage, permission) {
+    if (!targetPage || targetPage === currentProcessListPage) return false;
+    const url = new URL(window.location.href);
+    url.pathname = url.pathname.replace(/[^/]*$/, targetPage);
+    const normalizedPermission = String(permission || '').trim();
+    if (normalizedPermission) {
+        const currentCompanyCode = (typeof window.PROCESSLIST_COMPANY_CODE !== 'undefined' ? window.PROCESSLIST_COMPANY_CODE : '');
+        if (currentCompanyCode) {
+            localStorage.setItem(`selectedPermission_${currentCompanyCode}`, normalizedPermission);
+        }
+    }
+    window.location.href = url.toString();
+    return true;
 }
 
 function isBankInactiveLike(status, issueFlag) {
@@ -5786,23 +5809,6 @@ async function loadPermissionButtons() {
     const permissionFilterEl = document.getElementById('process-list-permission-filter');
     const permissionContainer = document.getElementById('process-list-permission-buttons');
 
-    if (forcedPermission) {
-        if (permissionContainer) {
-            permissionContainer.innerHTML = '';
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'process-company-btn active';
-            btn.textContent = forcedPermission;
-            btn.dataset.permission = forcedPermission;
-            permissionContainer.appendChild(btn);
-        }
-        if (permissionFilterEl) {
-            permissionFilterEl.style.display = hidePermissionFilter ? 'none' : 'flex';
-        }
-        switchPermission(forcedPermission);
-        return;
-    }
-
     if (!currentCompanyCode) {
         if (permissionFilterEl) permissionFilterEl.style.display = 'none';
         return;
@@ -5845,7 +5851,9 @@ async function loadPermissionButtons() {
             // 尝试从 localStorage 恢复之前选择的权限（兼容旧值 Gambling）
             let savedPermission = localStorage.getItem(`selectedPermission_${currentCompanyCode}`);
             if (savedPermission === 'Gambling') savedPermission = 'Games';
-            if (savedPermission && permissions.includes(savedPermission)) {
+            if (forcedPermission && permissions.includes(forcedPermission)) {
+                switchPermission(forcedPermission);
+            } else if (savedPermission && permissions.includes(savedPermission)) {
                 switchPermission(savedPermission);
             } else if (permissions.length > 0 && !selectedPermission) {
                 // 如果没有保存的权限，默认选择第一个
@@ -5862,9 +5870,11 @@ async function loadPermissionButtons() {
 
 // 切换权限
 function switchPermission(permission) {
-    if (forcedPermission && permission !== forcedPermission) {
-        permission = forcedPermission;
+    const targetPage = getProcessListPageByPermission(permission);
+    if (redirectToProcessListPage(targetPage, permission)) {
+        return;
     }
+
     selectedPermission = permission;
 
     // 保存到 localStorage

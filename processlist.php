@@ -1476,6 +1476,7 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
             return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
+        window.PROCESSLIST_PAGE_FILE = <?php echo json_encode($processListPageFile); ?>;
         window.PROCESSLIST_FORCED_PERMISSION = <?php echo json_encode($processListForcedPermission); ?>;
         window.PROCESSLIST_HIDE_PERMISSION_FILTER = <?php echo $processListHidePermissionFilter ? 'true' : 'false'; ?>;
     </script>
