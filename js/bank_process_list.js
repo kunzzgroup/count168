@@ -543,6 +543,9 @@ async function handleBankStatusSelectChange(dropdownEl, processId, forcedValue) 
     showConfirmInactiveModal(processId, selectedValue);
 }
 function renderBankTable() {
+    // When re-rendering table (e.g. filter/pagination), ensure floating status menus are closed & cleaned up
+    closeAllBankStatusDropdowns();
+
     const headRow = document.getElementById('bankTableHeadRow');
     const tbody = document.getElementById('bankTableBody');
     if (!headRow || !tbody) return;

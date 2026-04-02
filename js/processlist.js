@@ -741,6 +741,9 @@ function renderTable() {
 
 /** Bank 用真实 table 渲染，th/td 列由浏览器对齐 */
 function renderBankTable() {
+    // When re-rendering table (e.g. filter/pagination), ensure floating status menus are closed & cleaned up
+    closeAllBankStatusDropdowns();
+
     const headRow = document.getElementById('bankTableHeadRow');
     const tbody = document.getElementById('bankTableBody');
     if (!headRow || !tbody) return;
