@@ -39,6 +39,23 @@ function toSkippedPeriodType(string $periodType): string
     return 'monthly_skipped';
 }
 
+/** 与 process_post_to_transaction_api 一致：monthly 跳过记录须落在账单所属自然月。 */
+function postedDateForMonthlyBillingMonth(?string $billingMonthYn, string $fallbackYmd): string
+{
+    if ($billingMonthYn === null || trim($billingMonthYn) === '') {
+        return $fallbackYmd;
+    }
+    if (!preg_match('/^(\d{4})-(\d{1,2})$/', trim($billingMonthYn), $m)) {
+        return $fallbackYmd;
+    }
+    $y = (int) $m[1];
+    $mo = (int) $m[2];
+    if ($y < 1970 || $mo < 1 || $mo > 12) {
+        return $fallbackYmd;
+    }
+    return sprintf('%04d-%02d-01', $y, $mo);
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
@@ -61,13 +78,18 @@ try {
         exit;
     }
 
+    $billingMonths = isset($_POST['billing_months']) && is_array($_POST['billing_months']) ? $_POST['billing_months'] : [];
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
         if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive') {
             $pt = 'monthly';
         }
-        $pairs[] = ['id' => (int) $id, 'period_type' => $pt];
+        $pairs[] = [
+            'id' => (int) $id,
+            'period_type' => $pt,
+            'billing_month' => isset($billingMonths[$i]) ? trim((string) $billingMonths[$i]) : '',
+        ];
     }
     $seen = [];
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
@@ -103,8 +125,12 @@ try {
             continue;
         }
         $skippedType = toSkippedPeriodType($periodType);
+        $postDate = $today;
+        if ($periodType === 'monthly' && ($p['billing_month'] ?? '') !== '') {
+            $postDate = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
+        }
         $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
-        $ins->execute([$companyId, $processId, $today, $skippedType]);
+        $ins->execute([$companyId, $processId, $postDate, $skippedType]);
         if ($ins->rowCount() > 0) {
             $inserted++;
         }

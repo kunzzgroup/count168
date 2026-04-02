@@ -188,6 +188,26 @@ function getOrCreateCurrencyId(PDO $pdo, string $code, int $companyId): ?int
     return (int) $pdo->lastInsertId();
 }
 
+/**
+ * Accounting Due 中 monthly 行带 monthly_billing_month（如 2026-2 = 该笔应付所属自然月）。
+ * hasMonthlyPostedOrSkippedInCalendarMonth 按 posted_date 的年月判断；若入账记录用「今天」而账单月是上月/更早，列表会一直不消失。
+ */
+function postedDateForMonthlyBillingMonth(?string $billingMonthYn, string $fallbackYmd): string
+{
+    if ($billingMonthYn === null || trim($billingMonthYn) === '') {
+        return $fallbackYmd;
+    }
+    if (!preg_match('/^(\d{4})-(\d{1,2})$/', trim($billingMonthYn), $m)) {
+        return $fallbackYmd;
+    }
+    $y = (int) $m[1];
+    $mo = (int) $m[2];
+    if ($y < 1970 || $mo < 1 || $mo > 12) {
+        return $fallbackYmd;
+    }
+    return sprintf('%04d-%02d-01', $y, $mo);
+}
+
 /** 记录 process 已入账到 process_accounting_posted */
 function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId, string $date, string $periodType, bool $hasPeriodType): void
 {
@@ -262,6 +282,7 @@ try {
         exit;
     }
 
+    $billingMonths = isset($_POST['billing_months']) && is_array($_POST['billing_months']) ? $_POST['billing_months'] : [];
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
@@ -271,6 +292,7 @@ try {
         $pairs[] = [
             'id' => (int) $id,
             'period_type' => $pt,
+            'billing_month' => isset($billingMonths[$i]) ? trim((string) $billingMonths[$i]) : '',
         ];
     }
     // Accounting Due 每行只入账一次：按 (process_id, period_type) 去重，避免重复提交导致同一笔数额乘多倍
@@ -469,7 +491,11 @@ try {
             $createdCount++;
         }
 
-        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $ledgerDate, $periodType, $has_period_type);
+        $postedDateForInbox = $ledgerDate;
+        if ($periodType === 'monthly' && ($pair['billing_month'] ?? '') !== '') {
+            $postedDateForInbox = postedDateForMonthlyBillingMonth($pair['billing_month'], $ledgerDate);
+        }
+        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {
