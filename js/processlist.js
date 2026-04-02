@@ -11,6 +11,9 @@ let selectedPermission = null;
 const currentProcessListPage = (typeof window.PROCESSLIST_PAGE_FILE === 'string' ? window.PROCESSLIST_PAGE_FILE.trim() : '');
 const forcedPermission = (typeof window.PROCESSLIST_FORCED_PERMISSION === 'string' ? window.PROCESSLIST_FORCED_PERMISSION.trim() : '');
 const hidePermissionFilter = !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
+function getBankProcessModule() {
+    return (typeof window !== 'undefined' && window.BankProcessList) ? window.BankProcessList : null;
+}
 /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
 const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
 const BANK_STATUS_SELECT_OPTIONS = [
@@ -48,13 +51,10 @@ function updateBankSupplierSortIndicator() {
 }
 
 function toggleBankSupplierSort() {
-    if (selectedPermission !== 'Bank') return;
-    bankSupplierSortDirection = bankSupplierSortDirection === 'asc' ? 'desc' : 'asc';
-    sortBankProcessesBySupplier();
-    currentPage = 1;
-    renderBankTable();
-    renderPagination();
-    updateBankSupplierSortIndicator();
+    const bankModule = getBankProcessModule();
+    if (bankModule && typeof bankModule.toggleBankSupplierSort === 'function') {
+        bankModule.toggleBankSupplierSort();
+    }
 }
 
 function buildBankRemarkActionButton(processId) {
@@ -603,8 +603,12 @@ async function fetchProcesses() {
             processes = result.data;
             // 根据类别进行不同的排序
             if (selectedPermission === 'Bank') {
-                // Bank 类别：按 Supplier（显示在表中第二列的 card_lower / supplier）排序
-                sortBankProcessesBySupplier();
+                const bankModule = getBankProcessModule();
+                if (bankModule && typeof bankModule.refreshAfterFetch === 'function') {
+                    bankModule.refreshAfterFetch();
+                } else {
+                    sortBankProcessesBySupplier();
+                }
             } else {
                 // Games 类别的排序逻辑（原有逻辑）
                 processes.sort((a, b) => {
@@ -623,8 +627,12 @@ async function fetchProcesses() {
             if (currentPage > totalPages) currentPage = totalPages;
             renderTable();
             renderPagination();
-            // Bank 类别下刷新列表后同步更新 Accounting Due 徽章
-            if (selectedPermission === 'Bank') loadAccountingInbox();
+            if (selectedPermission === 'Bank') {
+                const bankModule = getBankProcessModule();
+                if (bankModule && typeof bankModule.loadAccountingInbox === 'function') {
+                    bankModule.loadAccountingInbox();
+                }
+            }
         } else {
             console.error('API error:', result.error);
             showNotification('Failed to get data: ' + result.error, 'danger');
@@ -639,7 +647,12 @@ async function fetchProcesses() {
 
 function renderTable() {
     if (selectedPermission === 'Bank') {
-        renderBankTable();
+        const bankModule = getBankProcessModule();
+        if (bankModule && typeof bankModule.renderBankTable === 'function') {
+            bankModule.renderBankTable();
+        } else {
+            renderBankTable();
+        }
         return;
     }
     const container = document.getElementById('processTableBody');
@@ -951,27 +964,10 @@ function addProcess() {
 
 function openAddProcessForSelectedPermission() {
     if (selectedPermission === 'Bank') {
-        window.selectedProfitSharingEntries = [];
-        document.getElementById('addBankModal').style.display = 'block';
-        setBankModalLoadingState(true, 'Add Process');
-        ensureAddBankProcessDataLoaded().then(async () => {
-            const countryEl = document.getElementById('bank_country');
-            if (countryEl) countryEl.value = '';
-            applySelectedBanksToDropdown('');
-            renderSelectedProfitSharing();
-            if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
-            // Initial frequency sync for Add Process
-            if (typeof updateBankFrequencyOptions === 'function') {
-                const dayEndEl = document.getElementById('bank_day_end');
-                if (dayEndEl) dayEndEl.value = '';
-                updateBankFrequencyOptions();
-            }
-            setBankModalLoadingState(false, 'Add Process');
-            updateBankSubmitButtonState();
-        }).catch(() => {
-            setBankModalLoadingState(false, 'Add Process');
-            closeAddBankModal();
-        });
+        const bankModule = getBankProcessModule();
+        if (bankModule && typeof bankModule.openAddProcess === 'function') {
+            bankModule.openAddProcess();
+        }
     } else {
         loadAddProcessData();
         document.getElementById('addModal').style.display = 'block';
@@ -1364,7 +1360,10 @@ async function openBankEditModal(id) {
 async function editProcess(id) {
     try {
         if (selectedPermission === 'Bank') {
-            await openBankEditModal(id);
+            const bankModule = getBankProcessModule();
+            if (bankModule && typeof bankModule.openBankEditModal === 'function') {
+                await bankModule.openBankEditModal(id);
+            }
             return;
         }
         await loadEditProcessData();
@@ -1645,6 +1644,13 @@ function updateDeleteButton() {
 }
 
 function updatePostToTransactionButton() {
+    if (selectedPermission === 'Bank') {
+        const bankModule = getBankProcessModule();
+        if (bankModule && typeof bankModule.updatePostToTransactionButton === 'function') {
+            bankModule.updatePostToTransactionButton();
+            return;
+        }
+    }
     const postBtn = document.getElementById('processPostToTransactionBtn');
     if (!postBtn) return;
     postBtn.style.display = selectedPermission === 'Bank' ? 'inline-block' : 'none';
@@ -1781,6 +1787,11 @@ function closeAccountingInbox() {
     closeAccountingDueModal();
 }
 function updateAccountingInboxVisibility() {
+    const bankModule = getBankProcessModule();
+    if (bankModule && typeof bankModule.updateAccountingInboxVisibility === 'function') {
+        bankModule.updateAccountingInboxVisibility();
+        return;
+    }
     const wrap = document.getElementById('processAccountingInboxWrap');
     if (!wrap) return;
     if (selectedPermission === 'Bank') {
@@ -1891,6 +1902,10 @@ async function confirmAccountingDueDelete() {
 }
 
 async function postToTransactionSelected() {
+    const bankModule = getBankProcessModule();
+    if (bankModule && typeof bankModule.postToTransactionSelected === 'function') {
+        return bankModule.postToTransactionSelected();
+    }
     const selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
     const activeSelectedIds = Array.from(selectedCheckboxes).filter(cb => {
         const row = cb.closest('tr');
@@ -2039,10 +2054,10 @@ async function performToggleStatus(processId) {
 async function toggleProcessStatus(processId, currentStatus) {
     try {
         if (selectedPermission === 'Bank') {
-            const statusLower = (currentStatus || '').toLowerCase();
-            const targetStatus = statusLower === 'active' ? 'inactive' : 'active';
-            // Bank：无论 active→inactive 还是 inactive→active，都使用同一个自定义确认弹窗
-            showConfirmInactiveModal(processId, targetStatus);
+            const bankModule = getBankProcessModule();
+            if (bankModule && typeof bankModule.toggleProcessStatus === 'function') {
+                await bankModule.toggleProcessStatus(processId, currentStatus);
+            }
             return;
         }
         await performToggleStatus(processId);
@@ -5349,6 +5364,10 @@ function removeProfitSharingEntry(index) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    const bankModule = getBankProcessModule();
+    if (bankModule && typeof bankModule.init === 'function') {
+        bankModule.init();
+    }
     restoreSelectedCountriesFromStorage();
     // Add Account modal: payment alert toggle
     document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
@@ -5799,7 +5818,14 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 window.addEventListener('resize', function () {
-    if (selectedPermission === 'Bank') syncBankTableColumnWidth();
+    if (selectedPermission === 'Bank') {
+        const bankModule = getBankProcessModule();
+        if (bankModule && typeof bankModule.syncBankTableColumnWidth === 'function') {
+            bankModule.syncBankTableColumnWidth();
+        } else {
+            syncBankTableColumnWidth();
+        }
+    }
 });
 
 // 加载权限按钮
