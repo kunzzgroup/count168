@@ -3080,7 +3080,8 @@ function bindBankFieldErrorClear() {
 
 // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
 const addBankProcessForm = document.getElementById('addBankProcessForm');
-if (addBankProcessForm) {
+if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
+    window.__bankAddProcessSubmitBound = true;
     bindBankFieldErrorClear();
     addBankProcessForm.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -5380,10 +5381,6 @@ function removeProfitSharingEntry(index) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    const bankModule = getBankProcessModule();
-    if (bankModule && typeof bankModule.init === 'function') {
-        bankModule.init();
-    }
     restoreSelectedCountriesFromStorage();
     // Add Account modal: payment alert toggle
     document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
