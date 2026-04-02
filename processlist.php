@@ -8,11 +8,15 @@ if (!defined('PROCESSLIST_PAGE_TITLE')) {
 }
 
 if (!defined('PROCESSLIST_FORCED_PERMISSION')) {
-    define('PROCESSLIST_FORCED_PERMISSION', '');
+    define('PROCESSLIST_FORCED_PERMISSION', 'Games');
 }
 
 if (!defined('PROCESSLIST_HIDE_PERMISSION_FILTER')) {
-    define('PROCESSLIST_HIDE_PERMISSION_FILTER', false);
+    define('PROCESSLIST_HIDE_PERMISSION_FILTER', true);
+}
+
+if (!defined('PROCESSLIST_SCRIPT_FILE')) {
+    define('PROCESSLIST_SCRIPT_FILE', 'js/processlist.js');
 }
 
 if (!function_exists('renderBankProcessToolbarAction')) {
@@ -49,6 +53,7 @@ $processListPageFile = PROCESSLIST_PAGE_FILE;
 $processListPageTitle = PROCESSLIST_PAGE_TITLE;
 $processListForcedPermission = PROCESSLIST_FORCED_PERMISSION;
 $processListHidePermissionFilter = PROCESSLIST_HIDE_PERMISSION_FILTER;
+$processListScriptFile = PROCESSLIST_SCRIPT_FILE;
 
 // 使用统一的session检查
 require_once 'session_check.php';
@@ -799,7 +804,7 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="calendar-days" id="calendar-days"></div>
     </div>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
-    <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
+    <script src="<?php echo htmlspecialchars($processListScriptFile); ?>?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
