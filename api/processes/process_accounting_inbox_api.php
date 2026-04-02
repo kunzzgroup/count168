@@ -51,6 +51,28 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     ];
 }
 
+/** Pro-rated amounts from $startYmd (inclusive) to end of that month (inclusive). */
+function prorateToMonthEndFromStart(string $startYmd, float $cost, float $price, float $profit): array
+{
+    $ts = strtotime($startYmd);
+    if ($ts === false) {
+        return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
+    }
+    $daysInMonth = (int) date('t', $ts);
+    $dayOfMonth = (int) date('j', $ts);
+    if ($daysInMonth <= 0) {
+        return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
+    }
+    $daysRemaining = $daysInMonth - $dayOfMonth + 1;
+    $daysRemaining = max(0, $daysRemaining);
+    $ratio = $daysRemaining / $daysInMonth;
+    return [
+        'cost' => round($cost * $ratio, 2),
+        'price' => round($price * $ratio, 2),
+        'profit' => round($profit * $ratio, 2),
+    ];
+}
+
 /** 检查 bank_process 表是否有 day_start_frequency 列 */
 function hasBankProcessFrequencyColumn(PDO $pdo): bool
 {
@@ -356,7 +378,8 @@ try {
             if (strtotime($dayStart) === false) {
                 continue;
             }
-            $startDate = date('Y-m-d', strtotime($dayStart));
+            $startTs = strtotime($dayStart);
+            $startDate = date('Y-m-d', $startTs);
             if ($today < $startDate) {
                 continue;
             }
@@ -367,6 +390,16 @@ try {
             if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null)) {
                 continue;
             }
+            // If day_start is the 1st, there's no "partial first month" period at all.
+            $startDayOfMonth = (int) date('j', $startTs);
+            if ($startDayOfMonth === 1) {
+                continue;
+            }
+            // Old data not taken: if created is after the first-month end, skip this partial period.
+            $firstMonthEnd = date('Y-m-t', $startTs);
+            if ($createdYmd > $firstMonthEnd) {
+                continue;
+            }
             $processId = (int) $r['id'];
             if (isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
                 continue;
@@ -374,7 +407,11 @@ try {
             $cost = (float) ($r['cost'] ?? 0);
             $price = (float) ($r['price'] ?? 0);
             $profit = (float) ($r['profit'] ?? 0);
-            $partial = partialFirstMonthAmounts($dayStart, $cost, $price, $profit);
+            $partialStart = maxYmd($startDate, $createdYmd);
+            if ($partialStart > $firstMonthEnd) {
+                continue;
+            }
+            $partial = prorateToMonthEndFromStart($partialStart, $cost, $price, $profit);
             $needToday[] = [
                 'id' => $processId,
                 'name' => ($r['name'] ?? '') ?: ($r['bank'] ?? ''),
@@ -505,6 +542,42 @@ try {
         }
 
         if ($need) {
+            // If this monthly bill is being created after due date in the same calendar month as process creation,
+            // only charge from created date to month end (old data not taken).
+            $cost = (float) ($r['cost'] ?? 0);
+            $price = (float) ($r['price'] ?? 0);
+            $profit = (float) ($r['profit'] ?? 0);
+            try {
+                $createdDt = new DateTimeImmutable($createdYmd);
+                if ($monthlyBillingMonth && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $monthlyBillingMonth, $m)) {
+                    $billY = (int) $m[1];
+                    $billMo = (int) $m[2];
+                    $createdYm = $createdDt->format('Y-n');
+                    $billYm = sprintf('%04d-%d', $billY, $billMo);
+                    if ($createdYm === $billYm) {
+                        $dueYmd = null;
+                        if ($frequency === '1st_of_every_month') {
+                            $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
+                        } else {
+                            // Monthly(prepaid): due day is day_start day-of-month for that billing month
+                            if ($startTs !== false) {
+                                $dueYmd = calendarMonthDueYmd($billY, $billMo, (int) date('j', $startTs));
+                                if ($startDate !== '' && (new DateTimeImmutable($startDate))->format('Y-n') === $billYm) {
+                                    $dueYmd = $startDate;
+                                }
+                            }
+                        }
+                        if ($dueYmd !== null && $createdYmd > $dueYmd) {
+                            $pr = prorateToMonthEndFromStart($createdYmd, $cost, $price, $profit);
+                            $cost = $pr['cost'];
+                            $price = $pr['price'];
+                            $profit = $pr['profit'];
+                        }
+                    }
+                }
+            } catch (Throwable $e) {
+                // ignore proration failure
+            }
             $needToday[] = [
                 'id' => (int) $r['id'],
                 'name' => $r['name'] ?? '',
@@ -512,9 +585,9 @@ try {
                 'country' => $r['country'] ?? '',
                 'day_start' => $r['day_start'] ?? null,
                 'contract' => $r['contract'] ?? '',
-                'cost' => $r['cost'] ?? 0,
-                'price' => $r['price'] ?? 0,
-                'profit' => $r['profit'] ?? 0,
+                'cost' => $cost,
+                'price' => $price,
+                'profit' => $profit,
                 'already_posted_today' => false,
                 'is_partial_first_month' => false,
                 'is_manual_inactive' => false,

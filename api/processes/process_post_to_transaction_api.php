@@ -76,6 +76,53 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     ];
 }
 
+/** Pro-rated amounts from $startYmd (inclusive) to end of that month (inclusive). */
+function prorateToMonthEndFromStart(string $startYmd, float $cost, float $price, float $profit): array
+{
+    $ts = strtotime($startYmd);
+    if ($ts === false) {
+        return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
+    }
+    $daysInMonth = (int) date('t', $ts);
+    $dayOfMonth = (int) date('j', $ts);
+    if ($daysInMonth <= 0) {
+        return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
+    }
+    $daysRemaining = max(0, $daysInMonth - $dayOfMonth + 1);
+    $ratio = $daysRemaining / $daysInMonth;
+    return [
+        'cost' => round($cost * $ratio, 2),
+        'price' => round($price * $ratio, 2),
+        'profit' => round($profit * $ratio, 2),
+    ];
+}
+
+function ymdFromNullableDateTime($raw, string $fallbackYmd): string
+{
+    if ($raw === null) {
+        return $fallbackYmd;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return $fallbackYmd;
+    }
+    $ts = strtotime($s);
+    return $ts === false ? $fallbackYmd : date('Y-m-d', $ts);
+}
+
+function maxYmd(string $a, string $b): string
+{
+    return ($a >= $b) ? $a : $b;
+}
+
+/** 某月第 N 日（不超过该月最后一天） */
+function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
+{
+    $last = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+    $d = min(max(1, $dueDay), $last);
+    return sprintf('%04d-%02d-%02d', $year, $month, $d);
+}
+
 /** 根据 id 列表获取 Bank Process（含 company/owner），支持 active、inactive，以及 OFFICIAL / E-INVOICE 这类 inactive-like 记录（Accounting Due 中 manual_inactive 可入账） */
 function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
 {
@@ -83,10 +130,12 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $hasFrequency = tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
     $hasFlagColumn = tableHasColumn($pdo, 'bank_process', 'flag');
     $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
+            bp.dts_created" . ($hasFrequency ? ", bp.day_start_frequency" : "") . ",
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
@@ -342,11 +391,73 @@ try {
         $cost = (float) ($p['cost'] ?? 0);
         $price = (float) ($p['price'] ?? 0);
         $profit = (float) ($p['profit'] ?? 0);
-        if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
-            $partial = partialFirstMonthAmounts($p['day_start'], $cost, $price, $profit);
+
+        $createdYmd = ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate);
+        $dayStartYmd = null;
+        if (!empty($p['day_start'])) {
+            $dateStr = str_replace('/', '-', trim((string) $p['day_start']));
+            if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+                $dateStr .= '-' . date('Y');
+            }
+            $ts = strtotime($dateStr);
+            if ($ts !== false) {
+                $dayStartYmd = date('Y-m-d', $ts);
+            }
+        }
+        $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
+
+        if ($periodType === 'partial_first_month' && $dayStartYmd) {
+            $startTs = strtotime($dayStartYmd);
+            if ($startTs === false) {
+                continue;
+            }
+            // day_start is the 1st → no partial-first-month period; don't create this row.
+            if ((int) date('j', $startTs) === 1) {
+                continue;
+            }
+            $firstMonthEnd = date('Y-m-t', $startTs);
+            $partialStart = maxYmd($dayStartYmd, $createdYmd);
+            if ($partialStart > $firstMonthEnd) {
+                // Old data not taken: this partial period ended before the process existed.
+                continue;
+            }
+            $partial = prorateToMonthEndFromStart($partialStart, $cost, $price, $profit);
             $cost = $partial['cost'];
             $price = $partial['price'];
             $profit = $partial['profit'];
+        }
+
+        // monthly: if billing month matches created month and created is after due date, prorate from created to month end.
+        if ($periodType === 'monthly' && ($pair['billing_month'] ?? '') !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $pair['billing_month'], $m)) {
+            $billY = (int) $m[1];
+            $billMo = (int) $m[2];
+            $billYm = sprintf('%04d-%d', $billY, $billMo);
+            try {
+                $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                if ($createdYm === $billYm) {
+                    $dueYmd = null;
+                    if ($frequency === '1st_of_every_month') {
+                        $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
+                    } else {
+                        if ($dayStartYmd) {
+                            $startDay = (int) date('j', strtotime($dayStartYmd));
+                            $dueYmd = calendarMonthDueYmd($billY, $billMo, $startDay);
+                            // first month uses exact day_start date
+                            if ((new DateTimeImmutable($dayStartYmd))->format('Y-n') === $billYm) {
+                                $dueYmd = $dayStartYmd;
+                            }
+                        }
+                    }
+                    if ($dueYmd !== null && $createdYmd > $dueYmd) {
+                        $pr = prorateToMonthEndFromStart($createdYmd, $cost, $price, $profit);
+                        $cost = $pr['cost'];
+                        $price = $pr['price'];
+                        $profit = $pr['profit'];
+                    }
+                }
+            } catch (Throwable $e) {
+                // ignore
+            }
         }
         // manual_inactive：1+2 时 Buy Price / Sell Price / Profit 乘 2，1+3 时乘 3，再入账
         if ($periodType === 'manual_inactive') {
@@ -378,23 +489,17 @@ try {
             continue;
         }
 
-        $effectiveDate = $fallbackDate;
-        if (!empty($p['day_start'])) {
-            $dateStr = str_replace('/', '-', trim($p['day_start']));
-            if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
-                $dateStr .= '-' . date('Y');
-            }
-            $ts = strtotime($dateStr);
-            if ($ts !== false) {
-                $effectiveDate = date('Y-m-d', $ts);
-            }
-        }
+        $effectiveDate = $dayStartYmd ?: $fallbackDate;
 
         // partial_first_month：交易与 process_accounting_posted 锚在 day_start。
         // monthly / manual_inactive：必须用本次入账日；若仍用 day_start，每条 monthly 的 posted_date 相同，
         // 唯一键 (company_id, process_id, posted_date, period_type) 会令 INSERT IGNORE 静默失败，
         // 后续月份无法在 Accounting Due 与「当天已入账」逻辑中正确对应。
         $ledgerDate = $effectiveDate;
+        if ($periodType === 'partial_first_month' && $dayStartYmd) {
+            // Old data not taken: anchor partial to max(day_start, created)
+            $ledgerDate = maxYmd($dayStartYmd, $createdYmd);
+        }
         if ($periodType === 'monthly' || $periodType === 'manual_inactive') {
             $ledgerDate = $fallbackDate;
         }
@@ -448,8 +553,8 @@ try {
         // Profit：先扣 Profit Sharing 再入 Company；Profit Sharing 每笔入对应 account（均记 Win/Loss）
         // 1st of every month 首月按比例时，Profit Sharing 金额也按「剩余天数/当月天数」折算，再分给各 account
         $psRatio = 1.0;
-        if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
-            $ts = strtotime($p['day_start']);
+        if ($periodType === 'partial_first_month') {
+            $ts = strtotime($ledgerDate);
             if ($ts !== false) {
                 $daysInMonth = (int) date('t', $ts);
                 $dayOfMonth = (int) date('j', $ts);
