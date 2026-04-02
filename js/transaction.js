@@ -3417,7 +3417,9 @@ function handleReverseAccounts(event) {
         const dropdown = document.getElementById(button.id + '_dropdown');
         const clearOpt = dropdown?.querySelector('.custom-select-options .custom-select-option[data-clear="1"]');
         if (!clearOpt) return;
-        clearOpt.textContent = button.getAttribute('data-placeholder') || '--Select Account--';
+        const currentText = (button.textContent || '').trim();
+        // Reverse 后按钮 textContent 会互换，但 data-placeholder 不会变；清空项应跟随当前按钮显示
+        clearOpt.textContent = currentText || button.getAttribute('data-placeholder') || '--Select Account--';
     }
     
     // 更新下拉选单中的选中状态
