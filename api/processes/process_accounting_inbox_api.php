@@ -5,6 +5,7 @@
  * 规则：
  * - 1st of Every Month = 每月1号算账；若设置了 Day start（如 2月20），则先出现一笔「首月按比例」：sell price/当月天数*（20号到月底天数），客户先还这笔，1号起再还全额。
  * - Monthly = 每月(day_start 日 - 1)号，如 2月8日开始则每月7号算账
+ * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  */
 
 session_start();
@@ -76,11 +77,79 @@ function normalizedBankIssueFlagSql(string $columnRef): string
     return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
 }
 
+/** 合同总月数：1+2→3 个月；未知则 null（不截断） */
+function getBillingTermMonthsFromContract(?string $contract): ?int
+{
+    if ($contract === null || trim($contract) === '') {
+        return null;
+    }
+    $c = trim($contract);
+    if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
+        return 1 + (int) $m[1];
+    }
+    if (preg_match('/^(\d+)\s*MONTHS?$/i', $c, $m)) {
+        return max(1, (int) $m[1]);
+    }
+    return null;
+}
+
+function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?string
+{
+    if ($termMonths < 1) {
+        return null;
+    }
+    try {
+        return (new DateTimeImmutable($dayStartYmd))->modify("+{$termMonths} months")->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** 合同期内 + day_end（若有） */
+function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, ?string $contract, ?string $dayEndYmd): bool
+{
+    if ($dayStartYmd === null || $dayStartYmd === '' || strtotime($dayStartYmd) === false) {
+        return true;
+    }
+    $start = date('Y-m-d', strtotime($dayStartYmd));
+    if ($todayYmd < $start) {
+        return false;
+    }
+    if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
+        $end = date('Y-m-d', strtotime($dayEndYmd));
+        if ($todayYmd > $end) {
+            return false;
+        }
+    }
+    $term = getBillingTermMonthsFromContract($contract);
+    if ($term === null || $term < 1) {
+        return true;
+    }
+    $exclusiveEnd = billingContractExclusiveEndYmd($start, $term);
+    return $exclusiveEnd === null || $todayYmd < $exclusiveEnd;
+}
+
+/** 该自然月是否已有 monthly / monthly_skipped（用于判断本期是否已处理） */
+function hasMonthlyPostedOrSkippedInCalendarMonth(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
+{
+    $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1");
+    $stmt->execute([$companyId, $processId, $year, $month]);
+    return (bool) $stmt->fetch();
+}
+
+/** 某月第 N 日（不超过该月最后一天） */
+function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
+{
+    $last = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+    $d = min(max(1, $dueDay), $last);
+    return sprintf('%04d-%02d-%02d', $year, $month, $d);
+}
+
 /** 获取当前公司下可用于 Accounting Inbox 的 active Bank Process 列表 */
 function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.contract" .
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.day_end, bp.contract" .
         ($hasFrequency ? ", bp.day_start_frequency" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
@@ -191,9 +260,22 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     $item['already_posted_today'] = false;
                     continue;
                 }
-                $item['already_posted_today'] = !empty($item['is_partial_first_month'])
-                    ? in_array((int) $item['id'], $partialPostedIds, true)
-                    : in_array((int) $item['id'], $monthlyPostedIds, true);
+                if (!empty($item['is_partial_first_month'])) {
+                    $item['already_posted_today'] = in_array((int) $item['id'], $partialPostedIds, true);
+                    continue;
+                }
+                // 按「账单所属自然月」判断是否已入账（与逾期未显示逻辑一致）
+                if (!empty($item['monthly_billing_month']) && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $item['monthly_billing_month'], $m)) {
+                    $item['already_posted_today'] = hasMonthlyPostedOrSkippedInCalendarMonth(
+                        $pdo,
+                        $companyId,
+                        (int) $item['id'],
+                        (int) $m[1],
+                        (int) $m[2]
+                    );
+                    continue;
+                }
+                $item['already_posted_today'] = in_array((int) $item['id'], $monthlyPostedIds, true);
             }
         } else {
             $ids = array_column($needToday, 'id');
@@ -226,7 +308,6 @@ try {
     }
 
     $today = date('Y-m-d');
-    $dayOfMonth = (int) date('j');
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -261,6 +342,9 @@ try {
             if ($today < $startDate) {
                 continue;
             }
+            if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null)) {
+                continue;
+            }
             $processId = (int) $r['id'];
             if (isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
                 continue;
@@ -286,45 +370,145 @@ try {
         }
     }
 
-    // 2) Regular: 每月1号 或 Monthly(day_start-1) 的当天
+    // 2) Regular: 每月1号 或 Monthly(day_start-1)；应付日过后整月内仍显示直到该月入账
     foreach ($rows as $r) {
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
         $need = false;
+        $monthlyBillingMonth = null;
         $startTs = (!empty($dayStart)) ? strtotime($dayStart) : false;
         $startDate = $startTs !== false ? date('Y-m-d', $startTs) : '';
+        $contract = $r['contract'] ?? null;
+        $dayEnd = $r['day_end'] ?? null;
 
         if ($frequency === '1st_of_every_month') {
-            if ($dayOfMonth !== 1) {
-                $need = false;
-            } elseif (empty($dayStart)) {
-                $need = true;
-            } else {
-                $firstAccountingTs = $startTs !== false ? strtotime('first day of next month', $startTs) : false;
-                $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
-                $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
-            }
-        } else {
-            // Monthly：第一笔从未入账过则马上出现在 Accounting Due；之后按每月 (day_start-1) 日出现
             if (empty($dayStart)) {
-                continue;
-            }
-            $processId = (int) $r['id'];
-            $neverPostedMonthly = !in_array($processId, $monthlyEverPostedIds, true);
-            if ($neverPostedMonthly) {
-                $need = ($startDate !== '' && $today >= $startDate);
+                try {
+                    $cur = new DateTimeImmutable($today);
+                    $cur = $cur->modify('first day of this month');
+                    $y = (int) $cur->format('Y');
+                    $mo = (int) $cur->format('n');
+                    $firstOf = $cur->format('Y-m-d');
+                    if ($today >= $firstOf
+                        && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
+                        $need = true;
+                        $monthlyBillingMonth = $cur->format('Y-n');
+                    }
+                } catch (Throwable $e) {
+                    $need = false;
+                }
             } else {
                 if ($startTs === false) {
                     continue;
                 }
-                $startDayOfMonth = (int) date('j', $startTs);
-                $accountingDay = max(1, $startDayOfMonth - 1);
-                if ($dayOfMonth !== $accountingDay) {
+                $firstAccountingTs = strtotime('first day of next month', $startTs);
+                $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
+                if ($firstAccountingDate === '' || $today < $firstAccountingDate) {
+                    $need = false;
+                } elseif (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd)) {
                     $need = false;
                 } else {
-                    $firstPeriodEndTs = strtotime('-1 day', strtotime('+1 month', $startTs));
-                    $firstPeriodEndDate = $firstPeriodEndTs !== false ? date('Y-m-d', $firstPeriodEndTs) : '';
-                    $need = ($firstPeriodEndDate !== '' && $today >= $firstPeriodEndDate);
+                    try {
+                        $iter = new DateTimeImmutable($firstAccountingDate);
+                        $iter = $iter->modify('first day of this month');
+                        $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+                        $term = getBillingTermMonthsFromContract($contract);
+                        $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
+                        while ($iter <= $endCap) {
+                            $y = (int) $iter->format('Y');
+                            $mo = (int) $iter->format('n');
+                            $firstOfThis = $iter->format('Y-m-d');
+                            if ($exclusiveEnd !== null && $firstOfThis >= $exclusiveEnd) {
+                                break;
+                            }
+                            if ($today >= $firstOfThis
+                                && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
+                                $need = true;
+                                $monthlyBillingMonth = $iter->format('Y-n');
+                                break;
+                            }
+                            $iter = $iter->modify('+1 month');
+                        }
+                    } catch (Throwable $e) {
+                        $need = false;
+                    }
+                }
+            }
+        } else {
+            // Monthly：第一笔从未入账过则 day_start 起出现；之后每月 (day_start-1) 日，逾期仍显示至该月结清
+            if (empty($dayStart)) {
+                continue;
+            }
+            if ($startTs === false) {
+                continue;
+            }
+            if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd)) {
+                continue;
+            }
+            $processId = (int) $r['id'];
+            $neverPostedMonthly = !in_array($processId, $monthlyEverPostedIds, true);
+            $startDayOfMonth = (int) date('j', $startTs);
+            $accountingDay = max(1, $startDayOfMonth - 1);
+
+            if ($neverPostedMonthly) {
+                if ($startDate !== '' && $today >= $startDate) {
+                    try {
+                        $iter = new DateTimeImmutable($startDate);
+                        $iter = $iter->modify('first day of this month');
+                        $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+                        $startYm = (new DateTimeImmutable($startDate))->format('Y-m');
+                        $term = getBillingTermMonthsFromContract($contract);
+                        $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
+                        while ($iter <= $endCap) {
+                            $y = (int) $iter->format('Y');
+                            $mo = (int) $iter->format('n');
+                            $firstOf = $iter->format('Y-m-01');
+                            $due = ($iter->format('Y-m') === $startYm) ? $startDate : $firstOf;
+                            if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
+                                break;
+                            }
+                            if ($today >= $due
+                                && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
+                                $need = true;
+                                $monthlyBillingMonth = $iter->format('Y-n');
+                                break;
+                            }
+                            $iter = $iter->modify('+1 month');
+                        }
+                    } catch (Throwable $e) {
+                        $need = false;
+                    }
+                }
+            } else {
+                $firstPeriodEndTs = strtotime('-1 day', strtotime('+1 month', $startTs));
+                $firstPeriodEndDate = $firstPeriodEndTs !== false ? date('Y-m-d', $firstPeriodEndTs) : '';
+                if ($firstPeriodEndDate === '' || $today < $firstPeriodEndDate) {
+                    $need = false;
+                } else {
+                    try {
+                        $iter = new DateTimeImmutable($firstPeriodEndDate);
+                        $iter = $iter->modify('first day of this month');
+                        $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+                        $term = getBillingTermMonthsFromContract($contract);
+                        $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
+                        while ($iter <= $endCap) {
+                            $y = (int) $iter->format('Y');
+                            $mo = (int) $iter->format('n');
+                            $due = calendarMonthDueYmd($y, $mo, $accountingDay);
+                            if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
+                                break;
+                            }
+                            if ($today >= $due
+                                && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
+                                $need = true;
+                                $monthlyBillingMonth = $iter->format('Y-n');
+                                break;
+                            }
+                            $iter = $iter->modify('+1 month');
+                        }
+                    } catch (Throwable $e) {
+                        $need = false;
+                    }
                 }
             }
         }
@@ -343,6 +527,7 @@ try {
                 'already_posted_today' => false,
                 'is_partial_first_month' => false,
                 'is_manual_inactive' => false,
+                'monthly_billing_month' => $monthlyBillingMonth,
             ];
         }
     }
