@@ -810,27 +810,24 @@ h1 {
     font-weight: 600;
 }
 
-/* 左侧下方的 sidebar permissions 列表高度稍微矮一点，避免和下方按钮挤在一起 */
+/* 左侧下方的 sidebar permissions 列表 - 全页模式有足够空间，不限制高度 */
 .modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
-    max-height: clamp(220px, 28vh, 450px);
-}
-
-/* 编辑模式下调整左侧 sidebar permission 选项的上下间距（调宽） */
-.modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
-    row-gap: clamp(6px, 0.52vw, 10px);
+    max-height: none;
+    overflow-y: visible;
+    row-gap: clamp(2px, 0.31vw, 6px);
 }
 
 .modal-content.edit-mode .edit-mode-permissions-container .permission-item {
-    margin-bottom: clamp(2px, 0.31vw, 6px);
-    padding: clamp(4px, 0.42vw, 8px) 0px;
+    margin-bottom: 0;
+    padding: clamp(2px, 0.26vw, 5px) 0px;
 }
 
-/* 左侧 Permissions 下方的 Select All/Clear All（原内联 style 移入此处，便于 1024px 覆盖） */
+/* 左侧 Permissions 下方的 Select All/Clear All */
 .modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
-    margin-top: 10px;
-    padding-top: clamp(12px, 1.04vw, 20px);
-    border-top: 1px solid #eee;
-    background-color: #fff;
+    margin-top: clamp(6px, 0.52vw, 10px);
+    padding-top: 0;
+    border-top: none;
+    background-color: transparent;
 }
 
  /* 编辑模式下左侧容器（包含 permissions-container 和 permissions-actions）- 与 user-info-panel 同宽 */
@@ -990,12 +987,12 @@ h1 {
 }
 
 .permissions-actions {
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid #e2e8f0;
+    margin-top: clamp(8px, 0.73vw, 14px);
+    padding-top: 0;
+    border-top: none;
     display: flex;
-     gap: 12px;
-     justify-content: center; /* 让 Select All / Clear All 居中 */
+    gap: 12px;
+    justify-content: center;
 }
 
 /* 编辑模式下 permissions-actions 保持在 permissions-container 底部 */
