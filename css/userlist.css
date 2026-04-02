@@ -274,6 +274,19 @@ h1 {
     backdrop-filter: blur(4px);
 }
 
+/* User modal - full page style */
+#userModal {
+    background-color: #eef3fb;
+    background-image:
+        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+    backdrop-filter: none;
+    overflow: hidden;
+}
+
 .modal-content {
     background-color: #ffffff;
     margin: 5% auto;
@@ -286,14 +299,28 @@ h1 {
     overflow: hidden;
 }
 
-/* 编辑模式下的 modal 更大 - 几乎填满整个页面（整体再往上贴一点） */
+/* User modal content - full page style */
+#userModal .modal-content {
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    background-color: transparent;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 编辑模式下的 modal 更大 - full page */
 .modal-content.edit-mode {
     position: relative;
-    width: min(1920px, calc(100vw - clamp(20px, 2.08vw, 40px)));
-    max-width: min(1920px, calc(100vw, calc(100vw - clamp(20px, 2.08vw, 40px))));
-    margin: 10px auto;
-    max-height: min(1080px, calc(100vh - clamp(20px, 1.85vw, 40px)));
-    height: auto;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    max-height: 100vh;
+    height: 100vh;
 }
 
 /* 编辑模式下缩小标题区域 */
@@ -302,13 +329,18 @@ h1 {
 }
 
 .modal-content h2 {
-    background-color: #f8fafc;
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     margin: 0;
-    padding: clamp(6px, 0.73vw, 14px) clamp(16px, 1.67vw, 32px);
-    font-size: clamp(14px, 1.25vw, 24px);
+    padding: clamp(10px, 0.83vw, 16px) clamp(16px, 1.67vw, 32px);
+    padding-left: clamp(60px, 5vw, 90px);
+    font-size: clamp(18px, 1.46vw, 28px);
     font-weight: bold;
-    color: #1e293b;
-    border-bottom: 1px solid #e2e8f0;
+    color: #ffffff;
+    border-bottom: none;
+    font-family: 'Amaranth', sans-serif;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+    position: relative;
 }
 
 .modal-body {
@@ -316,18 +348,21 @@ h1 {
     display: flex;
     gap: clamp(16px, 1.67vw, 32px);
     align-items: stretch;
-    min-height: clamp(300px, 20.83vw, 400px); /* 添加这行 */
+    min-height: clamp(300px, 20.83vw, 400px);
+    flex: 1;
+    overflow: hidden;
 }
 
  /* 编辑模式下的 modal-body 布局 */
  .modal-content.edit-mode .modal-body {
      gap: clamp(12px, 1.25vw, 24px);
-     min-height: calc(98vh - clamp(80px, 6.25vw, 120px));
-     max-height: calc(98vh - clamp(80px, 6.25vw, 120px));
+     min-height: 0;
+     max-height: none;
+     flex: 1;
      overflow-y: auto;
-     align-items: stretch; /* 确保所有子元素高度一致 */
-     padding-top: clamp(6px, 0.52vw, 10px); /* 减少顶部间距，让内容更靠上 */
-     padding-bottom: clamp(60px, 4.17vw, 80px); /* 增加底部间距，让内容和按钮距离更远 */
+     align-items: stretch;
+     padding-top: clamp(6px, 0.52vw, 10px);
+     padding-bottom: clamp(70px, 5vw, 100px); /* space for fixed footer buttons */
  }
 
   /* 左侧 User Information 表单布局 - 始终单列纵向排版 */
@@ -391,7 +426,7 @@ h1 {
     gap: clamp(12px, 1.25vw, 24px);
     min-width: 0;
     overflow-y: auto;
-    max-height: calc(98vh - clamp(120px, 12.5vw, 200px));
+    max-height: none;
     min-height: clamp(400px, 36.46vw, 700px);
     box-sizing: border-box;
 }
@@ -418,7 +453,7 @@ h1 {
 }
 
 .user-info-panel .form-actions {
-    margin-top: 2px; /* 将按钮推到底部 */
+    margin-top: auto;
 }
 
  .permissions-panel .permissions-container {
@@ -437,25 +472,46 @@ h1 {
 
 .close {
     position: absolute;
-    right: 20px;
-    top: 20px;
-    color: #64748b;
-    font-size: 24px;
-    font-weight: 300;
+    left: clamp(10px, 0.83vw, 16px);
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ffffff;
+    font-size: 0;
+    font-weight: 600;
     cursor: pointer;
-    width: 32px;
-    height: 32px;
+    width: auto;
+    height: auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    gap: 6px;
+    border-radius: 8px;
     transition: all 0.2s;
+    padding: clamp(4px, 0.42vw, 8px) clamp(10px, 0.83vw, 16px);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+}
+
+.close::before {
+    content: '←';
+    font-size: clamp(14px, 1.04vw, 20px);
+    font-weight: bold;
+    line-height: 1;
+}
+
+.close::after {
+    content: 'Back';
+    font-size: clamp(12px, 0.83vw, 16px);
+    font-weight: 600;
+    font-family: 'Amaranth', sans-serif;
+    letter-spacing: 0.03em;
 }
 
 .close:hover,
 .close:focus {
-    background-color: #f1f5f9;
-    color: #334155;
+    background: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
 }
 
 .form-group {
@@ -560,27 +616,35 @@ h1 {
 
 .form-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: clamp(10px, 1.46vw, 28px);
-    padding-top: clamp(12px, 1.04vw, 20px);
-    border-top: 1px solid #e2e8f0;
+    justify-content: center;
+    gap: clamp(12px, 1.04vw, 20px);
+    margin-top: auto;
+    padding: clamp(12px, 1.04vw, 20px) 0;
+    border-top: none;
+    flex-shrink: 0;
 }
 
  /* 编辑模式下：Save / Cancel 移到整个弹窗底部居中 */
  .modal-content.edit-mode .user-info-panel .form-actions {
-     position: absolute;
-     left: 50%;
-     bottom: clamp(16px, 1.25vw, 24px);
-     transform: translateX(-50%);
+     position: fixed;
+     left: 0;
+     bottom: 0;
+     transform: none;
      margin-top: 0;
-     padding-top: clamp(6px, 0.52vw, 10px);
-     border-top: 2px solid #e2e8f0;
+     padding: clamp(10px, 0.83vw, 16px) 0;
+     border-top: none;
      justify-content: center;
-     gap: clamp(8px, 0.83vw, 16px);
-     width: calc(100vw - clamp(40px, 4.17vw, 80px));
-     max-width: calc(1920px - clamp(40px, 4.17vw, 80px));
+     gap: clamp(12px, 1.04vw, 20px);
+     width: 100%;
+     max-width: 100%;
      box-sizing: border-box;
+     background: linear-gradient(0deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 70%, rgba(255,255,255,0) 100%);
+     z-index: 10;
+     pointer-events: none;
+ }
+
+ .modal-content.edit-mode .user-info-panel .form-actions .btn {
+     pointer-events: auto;
  }
 
 .btn-save {
@@ -1451,8 +1515,9 @@ h1 {
 
     /* 1024px：左侧 Permissions + Select All/Clear All 稳定在底线上方 */
     .modal-content.edit-mode .modal-body {
-        max-height: min(calc(100vh - 130px), 86vh);
-        padding-bottom: clamp(52px, 5vw, 72px);
+        max-height: none;
+        flex: 1;
+        padding-bottom: clamp(70px, 5vw, 100px);
     }
     .modal-content.edit-mode .user-info-panel {
         min-height: 0;

@@ -403,9 +403,8 @@ try {
 
     <!-- User Modal -->
     <div id="userModal" class="modal">
-        <div class="modal-content" style="max-width: 1920px;">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">Add User</h2>
+        <div class="modal-content">
+            <h2 id="modalTitle"><span class="close" onclick="closeModal()"></span>Add User</h2>
             <div class="modal-body" style="display: flex; gap: clamp(20px, 1.5630px;">
                 <!-- Left Panel - User Info -->
                  <div class="user-info-panel" style="flex: 1;">
