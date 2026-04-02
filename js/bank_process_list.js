@@ -1216,11 +1216,13 @@ function showConfirmAccountingDueDeleteModal(pairs) {
             ? 'This row will be removed from Accounting Due. Process data will not change.'
             : 'These ' + pairs.length + ' rows will be removed from Accounting Due. Process data will not change.';
     }
-    document.getElementById('confirmAccountingDueDeleteModal').style.display = 'block';
+    const accModal = document.getElementById('confirmAccountingDueDeleteModal');
+    if (accModal) accModal.style.display = 'block';
 }
 
 function closeConfirmAccountingDueDeleteModal() {
-    document.getElementById('confirmAccountingDueDeleteModal').style.display = 'none';
+    const accModal = document.getElementById('confirmAccountingDueDeleteModal');
+    if (accModal) accModal.style.display = 'none';
     pendingDismissPairs = [];
 }
 
