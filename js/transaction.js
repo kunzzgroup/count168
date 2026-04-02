@@ -1107,13 +1107,15 @@ function syncContraCurrencyFromButton(buttonEl) {
     if (!buttonEl) return;
     const type = document.getElementById('transaction_type')?.value || '';
     if (type !== 'CONTRA') return;
+    // 只允许“系统自动填充账号（例如点击表格行）”触发一次性币种同步；
+    // 手动在下拉里更换账号时，不应自动改 Currency（对齐你的截图诉求）
+    const autoSync = buttonEl.getAttribute('data-auto-currency-sync') === '1';
+    if (!autoSync) return;
+    buttonEl.removeAttribute('data-auto-currency-sync');
     const currency = (buttonEl.getAttribute('data-currency') || '').trim().toUpperCase();
     if (!currency) return;
     const currencySelect = document.getElementById('transaction_currency');
     if (!currencySelect) return;
-    // CONTRA：手动更换 Account 时不应覆盖已选择的货币（仅当当前未选择货币时才自动同步）
-    const current = (currencySelect.value || '').trim();
-    if (current) return;
     const opt = currencySelect.querySelector(`option[value="${currency}"]`);
     if (!opt) return;
     currencySelect.value = currency;
@@ -2405,6 +2407,10 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             } else {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
+            // CONTRA：点击表格行属于“系统自动填充”，允许一次性把 Currency 跟随该账户
+            if (!isRateView && currentType === 'CONTRA') {
+                positiveAccountSelect.setAttribute('data-auto-currency-sync', '1');
+            }
             accountSet = true;
             // RATE：点左表 -> 第4行填右边 Select From（rate_transfer_to_account）
             const rateTransferTargetBtn = isRateView ? document.getElementById('rate_transfer_to_account') : null;
@@ -2429,6 +2435,10 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.setAttribute('data-currency', syncCurrency);
             } else {
                 negativeAccountSelect.removeAttribute('data-currency');
+            }
+            // CONTRA：点击表格行属于“系统自动填充”，允许一次性把 Currency 跟随该账户
+            if (!isRateView && currentType === 'CONTRA') {
+                negativeAccountSelect.setAttribute('data-auto-currency-sync', '1');
             }
             accountSet = true;
             // RATE：点右表 -> 第4行填左边 Select To（rate_transfer_from_account）

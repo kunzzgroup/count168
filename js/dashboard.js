@@ -1740,14 +1740,19 @@ function loadCurrencies() {
                 const savedOrderKey = 'dashboard_currency_order_' + (window.companyId || 0);
                 let orderedData = [...data.data];
                 try {
-                    const saved = localStorage.getItem(savedOrderKey);
+                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem('dashboard_currency_order_global') || localStorage.getItem('transaction_currency_order_global');
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
+                            const normalized = [];
+                            order.forEach(code => {
+                                const upper = String(code || '').trim().toUpperCase();
+                                if (!upper) return;
+                                if (!normalized.includes(upper)) normalized.push(upper);
+                            });
                             const byCode = new Map(orderedData.map(c => [(c.code || '').toUpperCase(), c]));
                             const ordered = [];
-                            order.forEach(code => {
-                                const upper = (code || '').toUpperCase();
+                            normalized.forEach(upper => {
                                 if (byCode.has(upper)) {
                                     ordered.push(byCode.get(upper));
                                     byCode.delete(upper);
@@ -1832,10 +1837,14 @@ function initDashboardCurrencyDragDrop() {
         } else {
             container.insertBefore(moved, allButtons[toIndex].nextSibling);
         }
-        const newOrder = [...container.querySelectorAll('.transaction-company-btn[data-currency]')].map(b => b.getAttribute('data-currency'));
+        const newOrder = [...container.querySelectorAll('.transaction-company-btn[data-currency]')]
+            .map(b => String(b.getAttribute('data-currency') || '').trim().toUpperCase())
+            .filter(Boolean)
+            .filter((code, idx, arr) => arr.indexOf(code) === idx);
         try {
             const key = 'dashboard_currency_order_' + (window.companyId || 0);
             localStorage.setItem(key, JSON.stringify(newOrder));
+            localStorage.setItem('dashboard_currency_order_global', JSON.stringify(newOrder));
         } catch (err) { /* ignore */ }
     });
 }
