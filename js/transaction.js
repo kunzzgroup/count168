@@ -2414,10 +2414,9 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            // RATE：第二行仅在为空时才自动带入，避免覆盖用户手动选择
             // RATE：点左表 -> 第4行填右边 Select From（rate_transfer_to_account）
             const rateTransferTargetBtn = isRateView ? document.getElementById('rate_transfer_to_account') : null;
-            if (isRateView && rateTransferTargetBtn && !getAccountId(rateTransferTargetBtn)) {
+            if (isRateView && rateTransferTargetBtn) {
                 rateTransferTargetBtn.textContent = accountDisplayText;
                 rateTransferTargetBtn.setAttribute('data-value', accountId);
                 rateTransferTargetBtn.setAttribute('data-account-code', foundAccountCode);
@@ -2440,10 +2439,9 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            // RATE：第二行仅在为空时才自动带入，避免覆盖用户手动选择
             // RATE：点右表 -> 第4行填左边 Select To（rate_transfer_from_account）
             const rateTransferTargetBtn = isRateView ? document.getElementById('rate_transfer_from_account') : null;
-            if (isRateView && rateTransferTargetBtn && !getAccountId(rateTransferTargetBtn)) {
+            if (isRateView && rateTransferTargetBtn) {
                 rateTransferTargetBtn.textContent = accountDisplayText;
                 rateTransferTargetBtn.setAttribute('data-value', accountId);
                 rateTransferTargetBtn.setAttribute('data-account-code', foundAccountCode);
