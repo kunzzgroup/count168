@@ -1075,9 +1075,11 @@ function renderAccountingInbox(items) {
         const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
         const contractDisplay = ({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw;
+        const bm = (row.monthly_billing_month != null && row.monthly_billing_month !== '') ? String(row.monthly_billing_month).trim() : '';
+        const bmAttr = bm ? ' data-billing-month="' + escapeHtml(bm) + '"' : '';
         const deleteCbClass = 'process-accounting-inbox-delete-cb';
         const deleteCbHtml = '<input type="checkbox" class="' + deleteCbClass + '" data-id="' + row.id + '" onchange="updateAccountingInboxDeleteButton()">';
-        return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contractDisplay) + '</td><td>' + deleteCbHtml + '</td></tr>';
+        return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"' + bmAttr + '><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contractDisplay) + '</td><td>' + deleteCbHtml + '</td></tr>';
     }).join('');
     const deleteSelectAllEl = document.getElementById('processAccountingInboxDeleteSelectAll');
     if (deleteSelectAllEl) { deleteSelectAllEl.checked = false; deleteSelectAllEl.disabled = false; }
@@ -1165,7 +1167,8 @@ async function postAccountingInboxToTransaction() {
         const tr = cb.closest('tr');
         const id = parseInt(cb.dataset.id, 10);
         const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
-        return { id, periodType };
+        const billingMonth = (tr && tr.getAttribute('data-billing-month')) || '';
+        return { id, periodType, billingMonth };
     }).filter(p => p.id);
     if (pairs.length === 0) {
         showNotification('Please select at least one process to post.', 'warning');
@@ -1173,7 +1176,11 @@ async function postAccountingInboxToTransaction() {
     }
     try {
         const formData = new FormData();
-        pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
+        pairs.forEach(p => {
+            formData.append('ids[]', p.id);
+            formData.append('period_types[]', p.periodType);
+            formData.append('billing_months[]', p.billingMonth || '');
+        });
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
@@ -1197,12 +1204,13 @@ function deleteAccountingInboxSelected() {
     const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
     const pairs = Array.from(checked).map(cb => {
         const tr = cb.closest('tr');
-        const id = parseInt(cb.dataset.id, 10);
+        const id = parseInt((tr && tr.getAttribute('data-id')) || cb.dataset.id || '', 10);
         const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
-        return { id, periodType };
+        const billingMonth = (tr && tr.getAttribute('data-billing-month')) || '';
+        return { id, periodType, billingMonth };
     }).filter(p => !isNaN(p.id));
     if (pairs.length === 0) {
-        showNotification('Please select at least one row to remove from Accounting Due', 'warning');
+        showNotification('请在右侧 Delete 列勾选要从 Accounting Due 移除的行', 'warning');
         return;
     }
     showConfirmAccountingDueDeleteModal(pairs);
@@ -1239,7 +1247,11 @@ async function confirmAccountingDueDelete() {
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Removing...'; }
     try {
         const formData = new FormData();
-        pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
+        pairs.forEach(p => {
+            formData.append('ids[]', p.id);
+            formData.append('period_types[]', p.periodType);
+            formData.append('billing_months[]', p.billingMonth || '');
+        });
         const response = await fetch(buildApiUrl('api/processes/dismiss_accounting_due_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
