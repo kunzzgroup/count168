@@ -964,10 +964,26 @@ function addProcess() {
 
 function openAddProcessForSelectedPermission() {
     if (selectedPermission === 'Bank') {
-        const bankModule = getBankProcessModule();
-        if (bankModule && typeof bankModule.openAddProcess === 'function') {
-            bankModule.openAddProcess();
-        }
+        window.selectedProfitSharingEntries = [];
+        document.getElementById('addBankModal').style.display = 'block';
+        setBankModalLoadingState(true, 'Add Process');
+        ensureAddBankProcessDataLoaded().then(async () => {
+            const countryEl = document.getElementById('bank_country');
+            if (countryEl) countryEl.value = '';
+            applySelectedBanksToDropdown('');
+            renderSelectedProfitSharing();
+            if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
+            if (typeof updateBankFrequencyOptions === 'function') {
+                const dayEndEl = document.getElementById('bank_day_end');
+                if (dayEndEl) dayEndEl.value = '';
+                updateBankFrequencyOptions();
+            }
+            setBankModalLoadingState(false, 'Add Process');
+            updateBankSubmitButtonState();
+        }).catch(() => {
+            setBankModalLoadingState(false, 'Add Process');
+            closeAddBankModal();
+        });
     } else {
         loadAddProcessData();
         document.getElementById('addModal').style.display = 'block';

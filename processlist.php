@@ -352,9 +352,9 @@ if ($current_user_id && count($user_companies) > 0) {
 
             <!-- σêåΘí╡µÄºΣ╗╢ - µ╡«σè¿σ£¿σÅ│Σ╕ïΦºÆ -->
             <div class="pagination-container" id="paginationContainer">
-                <button class="pagination-btn" id="prevBtn" onclick="prevPage()">ΓùÇ</button>
+                <button class="pagination-btn" id="prevBtn" onclick="prevPage()">◀</button>
                 <span class="pagination-info" id="paginationInfo">1 of 1</span>
-                <button class="pagination-btn" id="nextBtn" onclick="nextPage()">Γû╢</button>
+                <button class="pagination-btn" id="nextBtn" onclick="nextPage()">▶</button>
             </div>
         </div>
     </div>
