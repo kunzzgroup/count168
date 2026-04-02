@@ -524,6 +524,7 @@ async function handleBankStatusSelectChange(dropdownEl, processId, forcedValue) 
     };
     applyBankStatusSelectAppearance(dropdownEl, previousDisplayValue);
     closeAllBankStatusDropdowns();
+    showConfirmInactiveModal(processId, selectedValue);
 }
 function renderBankTable() {
     const headRow = document.getElementById('bankTableHeadRow');
