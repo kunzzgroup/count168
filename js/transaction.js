@@ -3370,8 +3370,10 @@ function handleReverseAccounts(event) {
         const value1 = button1.getAttribute('data-value') || '';
         const value2 = button2.getAttribute('data-value') || '';
         
-        // 只在两边都有账号时才对调，避免把 placeholder 文案互换
-        if (!value1 || !value2) return;
+        // 规则：
+        // - 两边都有账号：互换
+        // - 只有一边有账号：把该账号“搬移”到另一边，placeholder 文案不对换
+        if (!value1 && !value2) return;
         
         // 保存 button1 的值
         const text1 = button1.textContent || '';
@@ -3382,6 +3384,34 @@ function handleReverseAccounts(event) {
         const text2 = button2.textContent || '';
         const accountCode2 = button2.getAttribute('data-account-code') || '';
         const currency2 = button2.getAttribute('data-currency') || '';
+        
+        // 只有一边有值：做“搬移”
+        if (!value1 || !value2) {
+            const srcBtn = value1 ? button1 : button2;
+            const dstBtn = value1 ? button2 : button1;
+            const srcValue = value1 ? value1 : value2;
+            const srcText = value1 ? text1 : text2;
+            const srcCode = value1 ? accountCode1 : accountCode2;
+            const srcCurrency = value1 ? currency1 : currency2;
+            
+            // 目标设置为源账号
+            dstBtn.textContent = srcText || dstBtn.getAttribute('data-placeholder') || '--Select Account--';
+            dstBtn.setAttribute('data-value', srcValue);
+            if (srcCode) dstBtn.setAttribute('data-account-code', srcCode);
+            else dstBtn.removeAttribute('data-account-code');
+            if (srcCurrency) dstBtn.setAttribute('data-currency', srcCurrency);
+            else dstBtn.removeAttribute('data-currency');
+            
+            // 源清空回 placeholder
+            srcBtn.textContent = srcBtn.getAttribute('data-placeholder') || '--Select Account--';
+            srcBtn.removeAttribute('data-value');
+            srcBtn.removeAttribute('data-account-code');
+            srcBtn.removeAttribute('data-currency');
+            
+            updateSelectedOption(srcBtn, '');
+            updateSelectedOption(dstBtn, srcValue);
+            return;
+        }
         
         // 交换 button1 和 button2 的值
         button1.textContent = text2 || button1.getAttribute('data-placeholder') || '--Select Account--';
@@ -3425,7 +3455,7 @@ function handleReverseAccounts(event) {
     
     // 更新下拉选单中的选中状态
     function updateSelectedOption(button, accountId) {
-        if (!button || !accountId) return;
+        if (!button) return;
         const dropdown = document.getElementById(button.id + '_dropdown');
         if (!dropdown) return;
         const optionsContainer = dropdown.querySelector('.custom-select-options');
@@ -3435,6 +3465,8 @@ function handleReverseAccounts(event) {
         optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
             opt.classList.remove('selected');
         });
+        
+        if (!accountId) return;
         
         // 设置新的选中状态
         const option = optionsContainer.querySelector(`.custom-select-option[data-value="${accountId}"]`);
