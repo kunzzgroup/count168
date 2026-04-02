@@ -1645,18 +1645,7 @@ function updateCurrencyButtonsState() {
         }
     });
 
-    // RATE：左侧 Currency 跟随当前选中的货币（仅单选时自动同步）
-    if (typeof isRateTypeSelected === 'function' && isRateTypeSelected()) {
-        const singleSelected = (!showAllCurrencies && selectedCurrencies.length === 1)
-            ? String(selectedCurrencies[0] || '').trim().toUpperCase()
-            : ''
-        if (singleSelected) {
-            const rateFromCurrency = document.getElementById('rate_currency_from')
-            if (rateFromCurrency && rateFromCurrency.querySelector(`option[value="${singleSelected}"]`)) {
-                rateFromCurrency.value = singleSelected
-            }
-        }
-    }
+    // RATE：不要让左侧 Currency 按钮影响右侧表单币种（币种应由点击表格行的账户决定，行为对齐 CLAIM）
 }
 
 // ==================== 搜索功能 ====================
@@ -2480,14 +2469,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     // 设置 currency：余额列数字以表格行币种为准（与筛选/展示一致），无行币种再用账户主币种
     let currencySet = false;
     let currencyToSet = null;
-    // RATE：红框的 rate_currency_to 固定 MYR，不做自动同步
-    if (currencySelect && !(isRateView && currencySelect.id === 'rate_currency_to')) {
-        currencyToSet = syncCurrency || (accountCurrency ? String(accountCurrency).trim().toUpperCase() : null);
-        if (currencyToSet) {
-            const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === currencyToSet);
-            if (currencyOption && currencySelect.value !== currencyToSet) {
-                currencySelect.value = currencyToSet;
-                currencySet = true;
+    currencyToSet = syncCurrency || (accountCurrency ? String(accountCurrency).trim().toUpperCase() : null);
+    if (currencyToSet) {
+        // RATE：币种跟随点击的账户（对齐 CLAIM），只同步 rate_currency_from；rate_currency_to 仍由系统默认（例如 MYR）
+        const currencySelectForSync = isRateView ? document.getElementById('rate_currency_from') : currencySelect
+        if (currencySelectForSync) {
+            const currencyOption = Array.from(currencySelectForSync.options).find(opt => opt.value === currencyToSet)
+            if (currencyOption && currencySelectForSync.value !== currencyToSet) {
+                currencySelectForSync.value = currencyToSet
+                currencySet = true
             }
         }
     }
