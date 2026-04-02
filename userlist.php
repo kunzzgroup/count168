@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // 使用统一的session检查
 require_once 'session_check.php';
 
@@ -500,8 +500,8 @@ try {
                             </div>
                             <!-- Fixed buttons at bottom of permissions section -->
                             <div class="permissions-actions">
-                                <button type="button" class="btn btn-secondary" onclick="selectAllPermissions()">Select All</button>
-                                <button type="button" class="btn btn-clearall" onclick="clearAllPermissions()">Clear All</button>
+                                <button type="button" class="btn-secondary" onclick="selectAllPermissions()">Select All</button>
+                                <button type="button" class="btn-clearall" onclick="clearAllPermissions()">Clear All</button>
                             </div>
                         </div>
 
