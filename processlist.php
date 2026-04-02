@@ -1,4 +1,25 @@
 <?php
+if (!defined('PROCESSLIST_PAGE_FILE')) {
+    define('PROCESSLIST_PAGE_FILE', basename($_SERVER['PHP_SELF'] ?? 'processlist.php'));
+}
+
+if (!defined('PROCESSLIST_PAGE_TITLE')) {
+    define('PROCESSLIST_PAGE_TITLE', 'Process List');
+}
+
+if (!defined('PROCESSLIST_FORCED_PERMISSION')) {
+    define('PROCESSLIST_FORCED_PERMISSION', '');
+}
+
+if (!defined('PROCESSLIST_HIDE_PERMISSION_FILTER')) {
+    define('PROCESSLIST_HIDE_PERMISSION_FILTER', false);
+}
+
+$processListPageFile = PROCESSLIST_PAGE_FILE;
+$processListPageTitle = PROCESSLIST_PAGE_TITLE;
+$processListForcedPermission = PROCESSLIST_FORCED_PERMISSION;
+$processListHidePermissionFilter = PROCESSLIST_HIDE_PERMISSION_FILTER;
+
 // 使用统一的session检查
 require_once 'session_check.php';
 
@@ -12,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
         if (!empty($ids)) {
             $company_id_session = $_SESSION['company_id'] ?? null;
             if (!$company_id_session) {
-                header('Location: processlist.php?error=delete_failed');
+                header('Location: ' . $processListPageFile . '?error=delete_failed');
                 exit;
             }
 
@@ -24,14 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 $stmt->execute($params);
                 $inactiveIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
                 if (empty($inactiveIds)) {
-                    header('Location: processlist.php?error=no_inactive_processes');
+                    header('Location: ' . $processListPageFile . '?error=no_inactive_processes');
                     exit;
                 }
                 $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive' AND day_start IS NOT NULL");
                 $stmt->execute($params);
                 $withDayStart = $stmt->fetchAll(PDO::FETCH_COLUMN);
                 if (!empty($withDayStart)) {
-                    header('Location: processlist.php?error=bank_has_day_start');
+                    header('Location: ' . $processListPageFile . '?error=bank_has_day_start');
                     exit;
                 }
                 // Bank：若该流程在 transactions 中仍有记录（或无 source_bank_process_id 时看 process_accounting_posted），则不允许删除
@@ -46,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                     $stmt = $pdo->prepare("SELECT source_bank_process_id FROM transactions WHERE company_id = ? AND source_bank_process_id IN ($papPlaceholders) LIMIT 1");
                     $stmt->execute(array_merge([$company_id_session], $inactiveIds));
                     if ($stmt->fetch()) {
-                        header('Location: processlist.php?error=process_has_transactions');
+                        header('Location: ' . $processListPageFile . '?error=process_has_transactions');
                         exit;
                     }
                 } else {
@@ -54,14 +75,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                     $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND process_id IN ($papPlaceholders) LIMIT 1");
                     $stmt->execute(array_merge([$company_id_session], $inactiveIds));
                     if ($stmt->fetch()) {
-                        header('Location: processlist.php?error=process_has_transactions');
+                        header('Location: ' . $processListPageFile . '?error=process_has_transactions');
                         exit;
                     }
                 }
                 $delPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
                 $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive'");
                 $stmt->execute(array_merge($inactiveIds, [$company_id_session]));
-                header('Location: processlist.php?success=deleted');
+                header('Location: ' . $processListPageFile . '?success=deleted');
                 exit;
             }
 
@@ -72,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             $processesToDelete = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (empty($processesToDelete)) {
-                header('Location: processlist.php?error=no_inactive_processes');
+                header('Location: ' . $processListPageFile . '?error=no_inactive_processes');
                 exit;
             }
 
@@ -98,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             }
 
             if ($formulaCount > 0) {
-                header('Location: processlist.php?error=process_linked_to_formula');
+                header('Location: ' . $processListPageFile . '?error=process_linked_to_formula');
                 exit;
             }
 
@@ -114,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 $stmt = $pdo->prepare("SELECT process_id FROM transactions WHERE process_id IN ($txnPlaceholders) LIMIT 1");
                 $stmt->execute($processIds);
                 if ($stmt->fetch()) {
-                    header('Location: processlist.php?error=process_has_transactions');
+                    header('Location: ' . $processListPageFile . '?error=process_has_transactions');
                     exit;
                 }
             }
@@ -122,12 +143,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             $deletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
             $stmt = $pdo->prepare("DELETE FROM process WHERE id IN ($deletePlaceholders) AND status = 'inactive'");
             $stmt->execute($processIds);
-            header('Location: processlist.php?success=deleted');
+            header('Location: ' . $processListPageFile . '?success=deleted');
             exit;
         }
     } catch (PDOException $e) {
         error_log("Delete process error: " . $e->getMessage());
-        header('Location: processlist.php?error=delete_failed');
+        header('Location: ' . $processListPageFile . '?error=delete_failed');
         exit;
     }
 }
@@ -208,7 +229,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <title>Process List</title>
+    <title><?php echo htmlspecialchars($processListPageTitle); ?></title>
     <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
@@ -224,7 +245,7 @@ if ($current_user_id && count($user_companies) > 0) {
             <div
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <h1 class="page-title" style="margin: 0;">Process List</h1>
+                    <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars($processListPageTitle); ?></h1>
                     <!-- Accounting Due (Bank only): opens large modal like Add Process -->
                     <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap" style="display: none;">
                         <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main"
@@ -1455,6 +1476,8 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
             return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
+        window.PROCESSLIST_FORCED_PERMISSION = <?php echo json_encode($processListForcedPermission); ?>;
+        window.PROCESSLIST_HIDE_PERMISSION_FILTER = <?php echo $processListHidePermissionFilter ? 'true' : 'false'; ?>;
     </script>
     <div class="calendar-popup" id="calendar-popup" style="display: none;">
         <div class="calendar-header">

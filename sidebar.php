@@ -397,6 +397,14 @@ if ($companyId) {
                     Process
                 </div>
             </div>
+            <div class="informationmenu-section">
+                <div class="informationmenu-section-title" data-page="bank_process_list.php" onclick="window.location.href='bank_process_list.php'">
+                    <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18 7 3.11V11c0 4.37-2.95 8.47-7 9.74C7.95 19.47 5 15.37 5 11V6.29l7-3.11z"/>
+                    </svg>
+                    Bank Process
+                </div>
+            </div>
             <?php endif; ?>
 
             <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新） -->

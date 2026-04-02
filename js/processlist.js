@@ -8,6 +8,8 @@ let waiting = false;
 let currentPage = 1;
 const pageSize = 20;
 let selectedPermission = null;
+const forcedPermission = (typeof window.PROCESSLIST_FORCED_PERMISSION === 'string' ? window.PROCESSLIST_FORCED_PERMISSION.trim() : '');
+const hidePermissionFilter = !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
 /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
 const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
 const BANK_STATUS_SELECT_OPTIONS = [
@@ -5781,9 +5783,28 @@ window.addEventListener('resize', function () {
 async function loadPermissionButtons() {
     const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
     const currentCompanyCode = (typeof window.PROCESSLIST_COMPANY_CODE !== 'undefined' ? window.PROCESSLIST_COMPANY_CODE : '');
+    const permissionFilterEl = document.getElementById('process-list-permission-filter');
+    const permissionContainer = document.getElementById('process-list-permission-buttons');
+
+    if (forcedPermission) {
+        if (permissionContainer) {
+            permissionContainer.innerHTML = '';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'process-company-btn active';
+            btn.textContent = forcedPermission;
+            btn.dataset.permission = forcedPermission;
+            permissionContainer.appendChild(btn);
+        }
+        if (permissionFilterEl) {
+            permissionFilterEl.style.display = hidePermissionFilter ? 'none' : 'flex';
+        }
+        switchPermission(forcedPermission);
+        return;
+    }
 
     if (!currentCompanyCode) {
-        document.getElementById('process-list-permission-filter').style.display = 'none';
+        if (permissionFilterEl) permissionFilterEl.style.display = 'none';
         return;
     }
 
@@ -5804,11 +5825,12 @@ async function loadPermissionButtons() {
         // 兼容旧数据：数据库可能仍是 "Gambling"，统一为 "Games" 显示与逻辑
         permissions = [...new Set(permissions.map(p => p === 'Gambling' ? 'Games' : p))];
 
-        const permissionContainer = document.getElementById('process-list-permission-buttons');
         permissionContainer.innerHTML = '';
 
         if (permissions.length > 0) {
-            document.getElementById('process-list-permission-filter').style.display = 'flex';
+            if (permissionFilterEl) {
+                permissionFilterEl.style.display = hidePermissionFilter ? 'none' : 'flex';
+            }
 
             permissions.forEach(permission => {
                 const btn = document.createElement('button');
@@ -5830,16 +5852,19 @@ async function loadPermissionButtons() {
                 switchPermission(permissions[0]);
             }
         } else {
-            document.getElementById('process-list-permission-filter').style.display = 'none';
+            if (permissionFilterEl) permissionFilterEl.style.display = 'none';
         }
     } catch (error) {
         console.error('Error loading permissions:', error);
-        document.getElementById('process-list-permission-filter').style.display = 'none';
+        if (permissionFilterEl) permissionFilterEl.style.display = 'none';
     }
 }
 
 // 切换权限
 function switchPermission(permission) {
+    if (forcedPermission && permission !== forcedPermission) {
+        permission = forcedPermission;
+    }
     selectedPermission = permission;
 
     // 保存到 localStorage
