@@ -350,18 +350,19 @@ h1 {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    background: #ffffff;
 }
 
 /* ── Left Panel: User Info + Permissions ───────────────────── */
 .user-info-panel {
     flex: 0 0 clamp(290px, 22vw, 420px);
     max-width: clamp(290px, 22vw, 420px);
-    background: #ffffff;
+    background: transparent;
     padding: clamp(14px, 1.04vw, 20px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    border-right: 1px solid #e2e8f0;
 }
 
 .user-info-panel h3 {
@@ -536,12 +537,16 @@ h1 {
 .account-process-col {
     flex: 1;
     min-width: 0;
-    background: #ffffff;
+    background: transparent;
     padding: clamp(12px, 0.94vw, 18px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    border-right: 1px solid #e2e8f0;
+}
+
+.account-process-col:last-child {
+    border-right: none;
 }
 
 .acc-proc-label {
