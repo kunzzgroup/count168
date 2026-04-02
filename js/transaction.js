@@ -1111,6 +1111,9 @@ function syncContraCurrencyFromButton(buttonEl) {
     if (!currency) return;
     const currencySelect = document.getElementById('transaction_currency');
     if (!currencySelect) return;
+    // CONTRA：手动更换 Account 时不应覆盖已选择的货币（仅当当前未选择货币时才自动同步）
+    const current = (currencySelect.value || '').trim();
+    if (current) return;
     const opt = currencySelect.querySelector(`option[value="${currency}"]`);
     if (!opt) return;
     currencySelect.value = currency;
