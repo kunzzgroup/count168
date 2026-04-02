@@ -462,6 +462,49 @@ try {
                 if ($startTs === false) {
                     continue;
                 }
+                // Special case: day_start is on the 1st and the process is created after day_start within the same month.
+                // Old data not taken: skip earlier months, but for the created month we should charge from created date to month end.
+                // Example: created 2026-04-02, day_start 2026-04-01 → show April bill today (prorated 4/2–4/30).
+                try {
+                    $startDayOfMonth = (int) date('j', $startTs);
+                    $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
+                    $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                    $todayYm = (new DateTimeImmutable($today))->format('Y-n');
+                    if ($startDayOfMonth === 1
+                        && $createdYm === $startYm
+                        && $todayYm === $startYm
+                        && $createdYmd > $startDate
+                        && $today >= $createdYmd
+                        && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], (int) date('Y', $startTs), (int) date('n', $startTs))) {
+                        $need = true;
+                        $monthlyBillingMonth = $startYm;
+                    }
+                } catch (Throwable $e) {
+                    // ignore
+                }
+                if ($need) {
+                    // for this special case, apply proration from created date to month end
+                    $cost = (float) ($r['cost'] ?? 0);
+                    $price = (float) ($r['price'] ?? 0);
+                    $profit = (float) ($r['profit'] ?? 0);
+                    $pr = prorateToMonthEndFromStart($createdYmd, $cost, $price, $profit);
+                    $needToday[] = [
+                        'id' => (int) $r['id'],
+                        'name' => $r['name'] ?? '',
+                        'bank' => $r['bank'] ?? '',
+                        'country' => $r['country'] ?? '',
+                        'day_start' => $r['day_start'] ?? null,
+                        'contract' => $r['contract'] ?? '',
+                        'cost' => $pr['cost'],
+                        'price' => $pr['price'],
+                        'profit' => $pr['profit'],
+                        'already_posted_today' => false,
+                        'is_partial_first_month' => false,
+                        'is_manual_inactive' => false,
+                        'monthly_billing_month' => $monthlyBillingMonth,
+                    ];
+                    continue;
+                }
                 $firstAccountingTs = strtotime('first day of next month', $startTs);
                 $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
                 if ($firstAccountingDate === '' || $today < $firstAccountingDate) {
