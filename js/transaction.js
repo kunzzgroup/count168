@@ -1312,16 +1312,24 @@ function loadCompanyCurrencies() {
                 const savedGlobalOrderKey = 'transaction_currency_order_global';
                 let orderedData = [...data.data];
                 try {
-                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem(savedGlobalOrderKey);
+                    const saved = localStorage.getItem(savedOrderKey)
+                        || localStorage.getItem(savedGlobalOrderKey)
+                        || localStorage.getItem('dashboard_currency_order_global');
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
-                            const byCode = new Map(orderedData.map(c => [c.code, c]));
-                            const ordered = [];
+                            const normalized = [];
                             order.forEach(code => {
-                                if (byCode.has(code)) {
-                                    ordered.push(byCode.get(code));
-                                    byCode.delete(code);
+                                const upper = String(code || '').trim().toUpperCase();
+                                if (!upper || upper === 'ALL') return;
+                                if (!normalized.includes(upper)) normalized.push(upper);
+                            });
+                            const byCode = new Map(orderedData.map(c => [String(c.code || '').trim().toUpperCase(), c]));
+                            const ordered = [];
+                            normalized.forEach(upper => {
+                                if (byCode.has(upper)) {
+                                    ordered.push(byCode.get(upper));
+                                    byCode.delete(upper);
                                 }
                             });
                             byCode.forEach(c => ordered.push(c));
@@ -1552,8 +1560,10 @@ function initCurrencyDragDrop() {
             container.insertBefore(moved, allButtons[toIndex].nextSibling);
         }
         const newOrder = [...container.querySelectorAll('.transaction-company-btn[data-currency-code]')]
-            .map(b => b.getAttribute('data-currency-code'))
-            .filter(code => code && code !== 'ALL');
+            .map(b => String(b.getAttribute('data-currency-code') || '').trim().toUpperCase())
+            .filter(Boolean)
+            .filter(code => code !== 'ALL')
+            .filter((code, idx, arr) => arr.indexOf(code) === idx);
         try {
             const key = 'transaction_currency_order_' + (currentCompanyId || 0);
             localStorage.setItem(key, JSON.stringify(newOrder));
