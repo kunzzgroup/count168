@@ -3347,16 +3347,19 @@ function handleReverseAccounts(event) {
     // 交换两个自定义下拉选单按钮的值（包括 textContent、data-value、data-account-code、data-currency）
     function swapAccountButtons(button1, button2) {
         if (!button1 || !button2) return;
+        const value1 = button1.getAttribute('data-value') || '';
+        const value2 = button2.getAttribute('data-value') || '';
+        
+        // 只在两边都有账号时才对调，避免把 placeholder 文案互换
+        if (!value1 || !value2) return;
         
         // 保存 button1 的值
         const text1 = button1.textContent || '';
-        const value1 = button1.getAttribute('data-value') || '';
         const accountCode1 = button1.getAttribute('data-account-code') || '';
         const currency1 = button1.getAttribute('data-currency') || '';
         
         // 保存 button2 的值
         const text2 = button2.textContent || '';
-        const value2 = button2.getAttribute('data-value') || '';
         const accountCode2 = button2.getAttribute('data-account-code') || '';
         const currency2 = button2.getAttribute('data-currency') || '';
         
