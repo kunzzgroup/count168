@@ -3398,11 +3398,19 @@ function handleReverseAccounts(event) {
         // 更新下拉选单中的选中状态
         updateSelectedOption(button1, value2);
         updateSelectedOption(button2, value1);
+
+        // 触发 change：让依赖 Account change 的逻辑同步刷新（如 CONTRA 的币别同步等）
+        try {
+            button1.dispatchEvent(new Event('change', { bubbles: true }));
+            button2.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (e) {
+            // ignore
+        }
     }
     
     // 更新下拉选单中的选中状态
     function updateSelectedOption(button, accountId) {
-        if (!button || !accountId) return;
+        if (!button) return;
         const dropdown = document.getElementById(button.id + '_dropdown');
         if (!dropdown) return;
         const optionsContainer = dropdown.querySelector('.custom-select-options');
@@ -3413,6 +3421,7 @@ function handleReverseAccounts(event) {
             opt.classList.remove('selected');
         });
         
+        if (!accountId) return;
         // 设置新的选中状态
         const option = optionsContainer.querySelector(`.custom-select-option[data-value="${accountId}"]`);
         if (option) {
