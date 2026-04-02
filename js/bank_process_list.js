@@ -6,7 +6,8 @@ const BANK_STATUS_SELECT_OPTIONS = [
     { value: 'active', label: 'ACTIVE' },
     { value: 'inactive', label: 'INACTIVE' },
     { value: 'official', label: 'OFFICIAL' },
-    { value: 'e_invoice', label: 'E-INVOICE' }
+    { value: 'e_invoice', label: 'E-INVOICE' },
+    { value: 'block', label: 'BLOCK' }
 ];
 
 // Bank Supplier 列的排序状态（A→Z / Z→A）
@@ -404,7 +405,6 @@ if (!window.__bankStatusDropdownBound) {
 function matchesCurrentBankFilters(process) {
     if (!process) return false;
     if (!processMatchesSelectedDate(process)) return false;
-    if (showAll) return true;
     const status = String(process.status || '').toLowerCase();
     const issueFlag = normalizeBankIssueFlag(process.issue_flag);
     const matches = [];
@@ -547,7 +547,7 @@ function renderBankTable() {
         if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
         if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
         if (label === 'Action') {
-            const showActionCheckbox = showInactive || showOfficial || showEInvoice || showAll;
+            const showActionCheckbox = showInactive || showOfficial || showEInvoice;
             return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
         }
         return '<th>' + escapeHtml(label) + '</th>';
