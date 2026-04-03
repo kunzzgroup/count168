@@ -1919,11 +1919,21 @@ async function loadGroupCurrencies() {
 
     if (currencyLists.length === 0) return;
 
+    // 只取有 currency 的公司做交集（没设置 currency 的公司不参与过滤）
+    const nonEmptyLists = currencyLists.filter(list => list.length > 0);
+    if (nonEmptyLists.length === 0) {
+        // 所有公司都没有 currency
+        const wrapper = document.getElementById('currency-buttons-wrapper');
+        if (wrapper) wrapper.style.display = 'none';
+        window.dashboardCurrency = '';
+        return;
+    }
+
     // 计算交集：以第一个数组为基准，与其余所有数组取交集
-    const intersection = currencyLists.slice(1).reduce((acc, list) => {
+    const intersection = nonEmptyLists.slice(1).reduce((acc, list) => {
         const set = new Set(list);
         return acc.filter(code => set.has(code));
-    }, currencyLists[0]);
+    }, nonEmptyLists[0]);
 
     // 渲染 Currency 按钮（交集）
     const wrapper = document.getElementById('currency-buttons-wrapper');
