@@ -55,6 +55,7 @@ body.dashboard-page {
     white-space: nowrap;
     min-width: clamp(60px, 5vw, 80px);
     display: inline-block;
+    text-align: right;
 }
 .transaction-company-buttons {
     display: inline-flex;
