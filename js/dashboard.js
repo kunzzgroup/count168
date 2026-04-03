@@ -812,7 +812,6 @@ async function executeLoadData() {
     // Group 模式：需要有 group 选中；非 Group 模式：需要有 companyId
     const groupCompanyIds = getGroupCompanyIds();
     if (!selectedDashboardGroup && !window.companyId) return;
-    if (selectedDashboardGroup && groupCompanyIds.length === 0) return;
 
     // 检查参数是否仍然有效（含 group 信息）
     const checkParams = buildCacheKey();
@@ -830,23 +829,28 @@ async function executeLoadData() {
     setLoadingState(true);
 
     try {
-        if (selectedDashboardGroup && groupCompanyIds.length > 0) {
-            // ========== Group 模式：并行请求所有公司并聚合 ==========
-            const results = await Promise.allSettled(
-                groupCompanyIds.map(cid => fetchDashboardForCompany(cid))
-            );
+        if (selectedDashboardGroup) {
+            if (groupCompanyIds.length > 0) {
+                // ========== Group 模式：并行请求所有公司并聚合 ==========
+                const results = await Promise.allSettled(
+                    groupCompanyIds.map(cid => fetchDashboardForCompany(cid))
+                );
 
-            const successResults = results
-                .filter(r => r.status === 'fulfilled' && r.value)
-                .map(r => r.value);
+                const successResults = results
+                    .filter(r => r.status === 'fulfilled' && r.value)
+                    .map(r => r.value);
 
-            if (successResults.length === 0) {
-                throw new Error('All group company requests failed');
+                if (successResults.length === 0) {
+                    throw new Error('All group company requests failed');
+                }
+
+                const mergedData = mergeGroupData(successResults);
+                console.log(`[Group ${selectedDashboardGroup}] 合并 ${successResults.length}/${groupCompanyIds.length} 家公司数据`);
+                updateDashboard(mergedData);
+            } else {
+                // 用户取消了所有公司勾选，显示为0
+                updateDashboard(mergeGroupData([]));
             }
-
-            const mergedData = mergeGroupData(successResults);
-            console.log(`[Group ${selectedDashboardGroup}] 合并 ${successResults.length}/${groupCompanyIds.length} 家公司数据`);
-            updateDashboard(mergedData);
         } else {
             // ========== 单公司模式（原有逻辑） ==========
             const data = await fetchDashboardForCompany(window.companyId);
@@ -1885,7 +1889,6 @@ function renderCompanyButtons(companies) {
                 // Group 模式：多选切换（至少保留一个勾选）
                 const strId = company.id.toString();
                 if (activeGroupCompanyIds.includes(strId)) {
-                    if (activeGroupCompanyIds.length === 1) return; // 至少保留一个
                     activeGroupCompanyIds = activeGroupCompanyIds.filter(id => id !== strId);
                     btn.classList.remove('active');
                 } else {
