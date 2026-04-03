@@ -695,6 +695,7 @@ function openAddProcessForSelectedPermission() {
                 if (dayEndEl) {
                     dayEndEl.value = '';
                     dayEndEl.removeAttribute('min');
+                    delete dayEndEl.dataset.bankContractEndHint;
                 }
                 updateBankFrequencyOptions();
             }
@@ -780,7 +781,10 @@ function closeAddBankModal() {
     if (bankSopEl) bankSopEl.value = '';
     if (bankRemarkEl) bankRemarkEl.value = '';
     const dayEndClear = document.getElementById('bank_day_end');
-    if (dayEndClear) dayEndClear.removeAttribute('min');
+    if (dayEndClear) {
+        dayEndClear.removeAttribute('min');
+        delete dayEndClear.dataset.bankContractEndHint;
+    }
 }
 
 function openProcessNoteModal(target) {
@@ -1760,8 +1764,9 @@ function addCalendarMonthsToYmd(ymd, months) {
 }
 
 /**
- * 不自动填写 Day end。当 Day start + Contract 可算出合约结束日时，为 Day end 设置 min；
- * 若用户已填 Day end 且早于该下限（或早于 Day start），则纠正为下限。
+ * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
+ * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
+ * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
  */
 function autoCalculateBankDayEnd() {
     const dayStartEl = document.getElementById('bank_day_start');
@@ -1772,8 +1777,10 @@ function autoCalculateBankDayEnd() {
     }
     const start = (dayStartEl && dayStartEl.value || '').trim();
     const contract = (contractEl && contractEl.value || '').trim();
+    const prevContractEnd = (dayEndEl.dataset.bankContractEndHint || '').trim();
     if (!start) {
         dayEndEl.removeAttribute('min');
+        delete dayEndEl.dataset.bankContractEndHint;
         updateBankFrequencyOptions();
         return;
     }
@@ -1781,6 +1788,7 @@ function autoCalculateBankDayEnd() {
     const calculated = term ? addCalendarMonthsToYmd(start, term) : null;
     if (!calculated) {
         dayEndEl.min = start;
+        delete dayEndEl.dataset.bankContractEndHint;
         if (dayEndEl.value && dayEndEl.value < start) {
             dayEndEl.value = start;
         }
@@ -1788,9 +1796,13 @@ function autoCalculateBankDayEnd() {
         return;
     }
     dayEndEl.min = calculated;
-    if (dayEndEl.value && dayEndEl.value < calculated) {
+    const cur = (dayEndEl.value || '').trim();
+    if (cur && cur < calculated) {
+        dayEndEl.value = calculated;
+    } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
         dayEndEl.value = calculated;
     }
+    dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
 }
 
