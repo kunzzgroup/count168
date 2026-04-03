@@ -2793,7 +2793,7 @@ function handlePaymentOnlyFilter() {
     renderTables(filteredLeft, filteredRight, lastSearchData.totals);
 }
 
-// 提交成功后清空右侧表单（含 Remark：#action_sms；任一步失败不阻断后续字段）
+// 提交成功后清空右侧表单（保留 Remark，便于连续多笔填同一备注）
 function clearTransactionFormAfterSuccessfulSubmit() {
     const byId = (id) => document.getElementById(id);
     const setVal = (node, v) => {
@@ -2801,8 +2801,6 @@ function clearTransactionFormAfterSuccessfulSubmit() {
     };
     setVal(byId('action_amount'), '');
     setVal(byId('action_description'), '');
-    const remarkInput = byId('action_sms') || document.querySelector('#remark_form_group input[type="text"]');
-    setVal(remarkInput, '');
     const confirmCk = byId('confirm_submit');
     if (confirmCk) confirmCk.checked = false;
 }
@@ -3166,13 +3164,8 @@ function submitAction() {
             // 如果是待审批的 CONTRA，或当前用户是 Manager+，刷新信箱
             loadContraInbox();
             
-            // 清空表单（Remark 用独立选择器 + 下一帧再清一次，避免异常中断或浏览器回填抢写）
+            // 清空表单（不清空 Remark）
             clearTransactionFormAfterSuccessfulSubmit();
-            requestAnimationFrame(() => {
-                const remarkInput = document.getElementById('action_sms')
-                    || document.querySelector('#remark_form_group input[type="text"]');
-                if (remarkInput) remarkInput.value = '';
-            });
             isSubmittingTx = false;
             syncSubmitButtonState();
             if (isRateTypeSelected()) {
