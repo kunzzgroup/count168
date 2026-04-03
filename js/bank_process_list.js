@@ -698,7 +698,7 @@ function openAddProcessForSelectedPermission() {
                 }
                 updateBankFrequencyOptions();
             }
-            if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd(false);
+            if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
             setBankModalLoadingState(false, 'Add Process');
             updateBankSubmitButtonState();
         }).catch(() => {
@@ -1014,7 +1014,7 @@ async function openBankEditModal(id) {
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
-        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd(false);
+        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
         closeAddBankModal();
@@ -1561,17 +1561,17 @@ function bindBankFieldErrorClear() {
     const contractEl = document.getElementById('bank_contract');
     const dayEndEl = document.getElementById('bank_day_end');
 
-    function recalcBankDayEndFromStartOrContract() {
-        autoCalculateBankDayEnd(true);
+    function syncBankDayEndContractMin() {
+        autoCalculateBankDayEnd();
     }
     if (dayStartEl && !dayStartEl._freqBound) {
         dayStartEl._freqBound = true;
-        dayStartEl.addEventListener('change', recalcBankDayEndFromStartOrContract);
-        dayStartEl.addEventListener('input', recalcBankDayEndFromStartOrContract);
+        dayStartEl.addEventListener('change', syncBankDayEndContractMin);
+        dayStartEl.addEventListener('input', syncBankDayEndContractMin);
     }
     if (contractEl && !contractEl._freqBound) {
         contractEl._freqBound = true;
-        contractEl.addEventListener('change', recalcBankDayEndFromStartOrContract);
+        contractEl.addEventListener('change', syncBankDayEndContractMin);
     }
     if (dayEndEl && !dayEndEl._freqBound) {
         dayEndEl._freqBound = true;
@@ -1587,6 +1587,7 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
     bindBankFieldErrorClear();
     addBankProcessForm.addEventListener('submit', async function (e) {
         e.preventDefault();
+        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
         if (bankProcessSubmitInFlight) {
             return;
         }
@@ -1759,10 +1760,10 @@ function addCalendarMonthsToYmd(ymd, months) {
 }
 
 /**
- * @param {boolean} [forceResetEndToContract] 为 true 时（用户改 Day start / Contract）始终将 Day end 设为合同结束日，便于 2 个月改 1 个月时回推日期。
- * 为 false 时（打开编辑/新增弹窗载入）仅在空或早于下限时填入，保留已保存的延后结束日。
+ * 不自动填写 Day end。当 Day start + Contract 可算出合约结束日时，为 Day end 设置 min；
+ * 若用户已填 Day end 且早于该下限（或早于 Day start），则纠正为下限。
  */
-function autoCalculateBankDayEnd(forceResetEndToContract) {
+function autoCalculateBankDayEnd() {
     const dayStartEl = document.getElementById('bank_day_start');
     const dayEndEl = document.getElementById('bank_day_end');
     const contractEl = document.getElementById('bank_contract');
@@ -1787,10 +1788,7 @@ function autoCalculateBankDayEnd(forceResetEndToContract) {
         return;
     }
     dayEndEl.min = calculated;
-    const cur = (dayEndEl.value || '').trim();
-    if (forceResetEndToContract === true) {
-        dayEndEl.value = calculated;
-    } else if (!cur || cur < calculated) {
+    if (dayEndEl.value && dayEndEl.value < calculated) {
         dayEndEl.value = calculated;
     }
     updateBankFrequencyOptions();
