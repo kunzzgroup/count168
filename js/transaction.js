@@ -2646,6 +2646,21 @@ function toggleShowName() {
     console.log('✅ Show Name 已切换:', showName);
 }
 
+// 未勾选 Show 0 balance 时：默认隐藏 balance≈0 的行；但若该行 B/F、Win/Loss、Cr/Dr 仍有数则保留，避免后端 Total 有汇总而明细被全部滤掉
+function rowPassesHideZeroBalanceFilter(showZero, row) {
+    if (showZero) return true;
+    const eps = 0.00001;
+    const num = parseFloat(row.balance);
+    if (isNaN(num)) return true;
+    if (Math.abs(num) > eps) return true;
+    const absVal = (v) => {
+        const n = parseFloat(v);
+        if (isNaN(n)) return 0;
+        return Math.abs(n);
+    };
+    return absVal(row.bf) > eps || absVal(row.win_loss) > eps || absVal(row.cr_dr) > eps;
+}
+
 // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================
 function applyZeroBalanceFilterAndRender() {
     if (!lastSearchData) {
@@ -2682,13 +2697,7 @@ function applyZeroBalanceFilterAndRender() {
     }
     
     // 再应用 Show 0 balance 过滤
-    const filterFn = (row) => {
-        if (showZero) return true; // 显示所有（包括 0 balance）
-
-        const num = parseFloat(row.balance);
-        if (isNaN(num)) return true;
-        return Math.abs(num) > 0.00001; // 未勾选 Show 0 balance：严格隐藏 balance=0 的行
-    };
+    const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZero, row);
     
     filteredLeft = filteredLeft.filter(filterFn);
     filteredRight = filteredRight.filter(filterFn);
@@ -2770,11 +2779,7 @@ function handlePaymentOnlyFilter() {
     // 再应用 show_zero_balance 过滤（如果启用）
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
     if (!showZero) {
-        const filterFn = (row) => {
-            const num = parseFloat(row.balance);
-            if (isNaN(num)) return true;
-            return Math.abs(num) > 0.00001; // 未勾选 Show 0 balance：严格隐藏 balance=0 的行
-        };
+        const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZero, row);
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
     }
