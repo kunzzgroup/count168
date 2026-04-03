@@ -1919,11 +1919,11 @@ async function loadGroupCurrencies() {
 
     if (currencyLists.length === 0) return;
 
-    // 计算交集
-    const intersection = currencyLists.reduce((acc, list) => {
+    // 计算交集：以第一个数组为基准，与其余所有数组取交集
+    const intersection = currencyLists.slice(1).reduce((acc, list) => {
         const set = new Set(list);
         return acc.filter(code => set.has(code));
-    });
+    }, currencyLists[0]);
 
     // 渲染 Currency 按钮（交集）
     const wrapper = document.getElementById('currency-buttons-wrapper');
