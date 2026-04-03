@@ -8,9 +8,14 @@ let rowsPerPage = 10;
 let filteredRows = [];
 let allRows = [];
 
-// Companies管理变量 - 现在存储对象数组 {company_id, expiration_date}
+// Companies管理变量 - 现在存储对象数组 {company_id, expiration_date, group_id}
 let selectedCompanies = [];
 let tempCompanies = [];
+
+// Group管理变量
+let tempGroups = [];        // 当前 owner 的所有 group_id 列表 (string[])
+let selectedGroupId = null; // 当前选中的 group pill（null = 显示未归组公司）
+let isMultipleChoiceMode = false; // "Multiple Choice" 模式：勾选公司分配到选中的 group
 
 // 计算到期日期
 // startDate: 可选的起始日期（YYYY-MM-DD格式），如果提供则从该日期开始计算，否则从今天开始
@@ -308,7 +313,108 @@ function initTempCompanies() {
         company.startDate = company.expiration_date ? null : new Date().toISOString().split('T')[0];
         company.isExtending = company.expiration_date ? true : false;
     });
+    // 提取 unique group_ids
+    tempGroups = [...new Set(tempCompanies.filter(c => c.group_id).map(c => c.group_id))];
+    selectedGroupId = null;
+    isMultipleChoiceMode = false;
+    updateGroupPills();
     updateCompanyDisplay();
+}
+
+// ============ Group 管理 ============
+function addGroupToList() {
+    const input = document.getElementById('groupInput');
+    const groupId = input.value.trim().toUpperCase();
+    if (!groupId) {
+        showAlert('Please enter a Group ID', 'danger');
+        return;
+    }
+    if (tempGroups.includes(groupId)) {
+        showAlert('Group ID already exists', 'danger');
+        return;
+    }
+    tempGroups.push(groupId);
+    updateGroupPills();
+    input.value = '';
+    showAlert(`Group "${groupId}" added!`);
+}
+
+function removeGroup(groupId) {
+    // 把该 group 下的公司变回独立
+    tempCompanies.forEach(c => {
+        if (c.group_id === groupId) {
+            c.group_id = null;
+        }
+    });
+    tempGroups = tempGroups.filter(g => g !== groupId);
+    if (selectedGroupId === groupId) {
+        selectedGroupId = null;
+        isMultipleChoiceMode = false;
+    }
+    updateGroupPills();
+    updateCompanyDisplay();
+    syncCompaniesHiddenField();
+}
+
+function selectGroup(groupId) {
+    if (selectedGroupId === groupId) {
+        // 再次点击同一个 pill → 取消选择，回到显示独立公司
+        selectedGroupId = null;
+    } else {
+        selectedGroupId = groupId;
+    }
+    isMultipleChoiceMode = false;
+    updateGroupPills();
+    updateCompanyDisplay();
+}
+
+function updateGroupPills() {
+    const container = document.getElementById('groupPillsContainer');
+    if (!container) return;
+    if (tempGroups.length === 0) {
+        container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No groups created</span>';
+        return;
+    }
+    container.innerHTML = tempGroups.map(gid => {
+        const isActive = selectedGroupId === gid;
+        const count = tempCompanies.filter(c => c.group_id === gid).length;
+        return `
+            <span class="group-pill ${isActive ? 'active' : ''}" onclick="selectGroup('${gid}')">
+                ${gid} (${count})
+                <span class="remove-x" onclick="event.stopPropagation(); removeGroup('${gid}')">&times;</span>
+            </span>
+        `;
+    }).join('');
+}
+
+// ============ Multiple Choice 模式 ============
+function toggleMultipleChoice() {
+    if (!selectedGroupId) {
+        showAlert('Please select a Group first', 'danger');
+        return;
+    }
+    isMultipleChoiceMode = !isMultipleChoiceMode;
+    const btn = document.getElementById('multipleChoiceBtn');
+    if (btn) {
+        btn.classList.toggle('active', isMultipleChoiceMode);
+    }
+    updateCompanyDisplay();
+}
+
+function toggleCompanyGroup(companyId) {
+    if (!selectedGroupId) return;
+    const company = tempCompanies.find(c => c.company_id === companyId);
+    if (!company) return;
+    if (company.group_id === selectedGroupId) {
+        // 已在该 group → 移出
+        company.group_id = null;
+    } else {
+        // 加入该 group
+        company.group_id = selectedGroupId;
+    }
+    updateGroupPills();
+    updateCompanyDisplay();
+    syncCompaniesHiddenField();
 }
 
 // openCompanyModal / closeCompanyModal are no longer used;
@@ -336,9 +442,10 @@ function addCompanyToList() {
     tempCompanies.push({
         company_id: companyId,
         expiration_date: newExpirationDate,
-        originalExpirationDate: newExpirationDate, // 新添加的公司，原始到期日期就是第一次设置的日期
-        startDate: today, // 新添加的公司，开始日期为今天
-        isExtending: false // 新添加，不是续上时间
+        originalExpirationDate: newExpirationDate,
+        startDate: today,
+        isExtending: false,
+        group_id: null // 新添加的公司默认是独立的
     });
     updateCompanyDisplay();
     input.value = '';
@@ -753,18 +860,65 @@ function updateCompanyDisplay() {
     if (tempCompanies.length === 0) {
         container.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies added yet</span>';
     } else {
+        // 根据 selectedGroupId 筛选
+        let filteredCompanies;
+        if (selectedGroupId) {
+            // 选中了某个 group → 只显示该 group 的公司
+            filteredCompanies = tempCompanies.filter(c => c.group_id === selectedGroupId);
+        } else if (tempGroups.length > 0) {
+            // 有 group 但没有选中 → 只显示独立公司（group_id = null）
+            filteredCompanies = tempCompanies.filter(c => !c.group_id);
+        } else {
+            // 没有任何 group → 显示所有公司
+            filteredCompanies = [...tempCompanies];
+        }
+
+        // Multiple Choice 模式：显示 checkbox 列表让用户勾选
+        if (isMultipleChoiceMode && selectedGroupId) {
+            // 显示所有未归组的公司(group_id=null) + 已在该 group 的公司
+            const assignableCandidates = tempCompanies.filter(c => {
+                return c.company_id.toUpperCase() !== 'C168' && (!c.group_id || c.group_id === selectedGroupId);
+            });
+            
+            const sortedCandidates = [...assignableCandidates].sort((a, b) => {
+                return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
+            });
+
+            container.innerHTML = sortedCandidates.map(company => {
+                const isInGroup = company.group_id === selectedGroupId;
+                return `
+                    <div class="company-assign-item" onclick="toggleCompanyGroup('${company.company_id}')">
+                        <input type="checkbox" ${isInGroup ? 'checked' : ''} onclick="event.stopPropagation(); toggleCompanyGroup('${company.company_id}')">
+                        <label>${company.company_id}</label>
+                    </div>
+                `;
+            }).join('');
+
+            if (sortedCandidates.length === 0) {
+                container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No ungrouped companies available</span>';
+            }
+            
+            syncCompaniesHiddenField();
+            return;
+        }
+
         // 排序：C168放在第一个，其他按字母顺序
-        const sortedCompanies = [...tempCompanies].sort((a, b) => {
+        const sortedCompanies = [...filteredCompanies].sort((a, b) => {
             const aId = a.company_id.toUpperCase();
             const bId = b.company_id.toUpperCase();
-            
-            // C168始终排在第一位
             if (aId === 'C168') return -1;
             if (bId === 'C168') return 1;
-            
-            // 其他按字母顺序排序
             return aId.localeCompare(bId);
         });
+
+        if (sortedCompanies.length === 0) {
+            const msg = selectedGroupId 
+                ? `No companies in group "${selectedGroupId}". Click "Multiple Choice" to assign.`
+                : 'No ungrouped companies';
+            container.innerHTML = `<span style="color: #94a3b8; font-size: 12px;">${msg}</span>`;
+            syncCompaniesHiddenField();
+            return;
+        }
         
         container.innerHTML = sortedCompanies.map(company => {
             const isC168 = company.company_id.toUpperCase() === 'C168';
@@ -811,7 +965,8 @@ function syncCompaniesFromTemp() {
     selectedCompanies = sortedCompanies.map(c => ({
         company_id: c.company_id,
         expiration_date: c.expiration_date,
-        permissions: Array.isArray(c.permissions) ? c.permissions : []
+        permissions: Array.isArray(c.permissions) ? c.permissions : [],
+        group_id: c.group_id || null
     }));
     document.getElementById('companies').value = JSON.stringify(selectedCompanies);
 }
@@ -828,7 +983,8 @@ function syncCompaniesHiddenField() {
     const cleaned = sortedCompanies.map(c => ({
         company_id: c.company_id,
         expiration_date: c.expiration_date,
-        permissions: Array.isArray(c.permissions) ? c.permissions : []
+        permissions: Array.isArray(c.permissions) ? c.permissions : [],
+        group_id: c.group_id || null
     }));
     document.getElementById('companies').value = JSON.stringify(cleaned);
 }
@@ -838,7 +994,7 @@ function updateSelectedCompaniesDisplay() {
     // No-op: companies are now displayed inline in the main modal via updateCompanyDisplay()
 }
 
-// 允许Enter键添加company和格式化输入
+// 允许Enter键添加company/group和格式化输入
 document.addEventListener('DOMContentLoaded', function() {
     const companyInput = document.getElementById('companyInput');
     if (companyInput) {
@@ -857,6 +1013,23 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 粘贴时强制大写
         companyInput.addEventListener('paste', function() {
+            setTimeout(() => forceUppercase(this), 0);
+        });
+    }
+
+    // Group ID input handlers
+    const groupInput = document.getElementById('groupInput');
+    if (groupInput) {
+        groupInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addGroupToList();
+            }
+        });
+        groupInput.addEventListener('input', function() {
+            forceUppercase(this);
+        });
+        groupInput.addEventListener('paste', function() {
             setTimeout(() => forceUppercase(this), 0);
         });
     }
@@ -924,12 +1097,21 @@ function openAddModal() {
     // 重置companies
     selectedCompanies = [];
     tempCompanies = [];
+    tempGroups = [];
+    selectedGroupId = null;
+    isMultipleChoiceMode = false;
     document.getElementById('companies').value = '';
+    updateGroupPills();
     updateCompanyDisplay();
     
-    // 清空 company input
+    // 清空 inputs
     const companyInput = document.getElementById('companyInput');
     if (companyInput) companyInput.value = '';
+    const groupInput = document.getElementById('groupInput');
+    if (groupInput) groupInput.value = '';
+    // 重置 multiple choice 按钮
+    const mcBtn = document.getElementById('multipleChoiceBtn');
+    if (mcBtn) mcBtn.classList.remove('active');
     
     document.getElementById('domainModal').style.display = 'block';
     // 设置输入格式化
@@ -987,7 +1169,8 @@ function editDomain(id) {
                 selectedCompanies = data.data.companies.map(c => ({
                     company_id: c.company_id,
                     expiration_date: c.expiration_date || null,
-                    permissions: Array.isArray(c.permissions) ? c.permissions : []
+                    permissions: Array.isArray(c.permissions) ? c.permissions : [],
+                    group_id: c.group_id || null
                 }));
             } else {
                 selectedCompanies = [];
@@ -1010,12 +1193,18 @@ function closeModal() {
     document.getElementById('domainModal').style.display = 'none';
     selectedCompanies = [];
     tempCompanies = [];
+    tempGroups = [];
+    selectedGroupId = null;
+    isMultipleChoiceMode = false;
     // 重置二级密码输入框
     const secondaryPasswordInput = document.getElementById('secondary_password');
     if (secondaryPasswordInput) {
         secondaryPasswordInput.value = '';
         secondaryPasswordInput.required = true;
     }
+    // 重置 multiple choice 按钮
+    const mcBtn = document.getElementById('multipleChoiceBtn');
+    if (mcBtn) mcBtn.classList.remove('active');
 }
 
 // 切换删除模式

@@ -327,18 +327,37 @@ try {
 
                         <!-- Right Column: Company Management (inline) -->
                         <div class="column-right">
-                            <div class="form-group">
-                                <label for="companyInput">Company ID</label>
-                                <div class="input-with-btn">
-                                    <input type="text" id="companyInput" placeholder="ENTER COMPANY ID" style="text-transform: uppercase;">
-                                    <button type="button" class="btn-inline-add" onclick="addCompanyToList()">Add</button>
+                            <!-- Side-by-side: Group ID + Company ID inputs -->
+                            <div class="inputs-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="groupInput">Group ID</label>
+                                    <div class="input-with-btn">
+                                        <input type="text" id="groupInput" placeholder="GROUP ID" style="text-transform: uppercase;">
+                                        <button type="button" class="btn-inline-add" onclick="addGroupToList()">Add</button>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="companyInput">Company ID</label>
+                                    <div class="input-with-btn">
+                                        <input type="text" id="companyInput" placeholder="COMPANY ID" style="text-transform: uppercase;">
+                                        <button type="button" class="btn-inline-add" onclick="addCompanyToList()">Add</button>
+                                    </div>
                                 </div>
                             </div>
 
+                            <!-- Group Pills -->
+                            <div class="form-group" id="groupPillsSection">
+                                <label>Group :</label>
+                                <div class="group-pills" id="groupPillsContainer">
+                                    <span style="color: #94a3b8; font-size: 12px;">No groups created</span>
+                                </div>
+                            </div>
+
+                            <!-- Selected Companies -->
                             <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
                                 <div class="selected-companies-header">
                                     <label>Selected Companies :</label>
-                                    <span class="badge-multi">Multiple Choice</span>
+                                    <button type="button" class="badge-multi" id="multipleChoiceBtn" onclick="toggleMultipleChoice()" style="border: none; cursor: pointer;" title="Assign ungrouped companies to selected group">Multiple Choice</button>
                                 </div>
                                 <div class="companies-list-box" id="companyItems">
                                     <span style="color: #94a3b8; font-size: 12px;">No companies added yet</span>

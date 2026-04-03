@@ -1174,6 +1174,111 @@ h1 {
     flex-direction: column;
 }
 
+/* Side-by-side inputs row */
+.inputs-row {
+    display: flex;
+    gap: 14px;
+}
+
+.inputs-row .form-group {
+    min-width: 0;
+}
+
+/* Group Pills */
+.group-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 0;
+    min-height: 32px;
+    align-items: center;
+}
+
+.group-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e5e7eb;
+    color: #374151;
+    border: 2px solid transparent;
+    border-radius: 16px;
+    padding: 5px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.group-pill:hover {
+    background: #d1d5db;
+}
+
+.group-pill.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    border-color: transparent;
+}
+
+.group-pill .remove-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    background: rgba(0,0,0,0.15);
+    color: inherit;
+    transition: background 0.2s;
+    margin-left: 2px;
+}
+
+.group-pill .remove-x:hover {
+    background: rgba(220, 38, 38, 0.8);
+    color: white;
+}
+
+/* Multiple Choice button active state */
+.badge-multi.active {
+    background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%) !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
+}
+
+/* Checkbox item in multiple choice mode */
+.company-assign-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.company-assign-item:hover {
+    background-color: #f0f9ff;
+}
+
+.company-assign-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #3b82f6;
+    cursor: pointer;
+}
+
+.company-assign-item label {
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin: 0;
+}
+
 /* Input with inline button */
 .input-with-btn {
     display: flex;
