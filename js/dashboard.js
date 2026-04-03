@@ -876,9 +876,7 @@ async function executeLoadData() {
 // 获取当前 Group 内所有 company 的 numeric IDs
 function getGroupCompanyIds() {
     if (!selectedDashboardGroup) return [];
-    return allOwnerCompanies
-        .filter(c => c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup)
-        .map(c => c.id);
+    return activeGroupCompanyIds.map(id => parseInt(id));
 }
 
 // 构建缓存 key（含 group 信息）
@@ -888,7 +886,8 @@ function buildCacheKey() {
         date_to: dateRange.endDate,
         company_id: window.companyId,
         currency: window.dashboardCurrency || '',
-        group: selectedDashboardGroup || ''
+        group: selectedDashboardGroup || '',
+        group_companies: selectedDashboardGroup ? [...activeGroupCompanyIds].sort().join(',') : ''
     });
 }
 
@@ -1767,6 +1766,7 @@ function createChart(canvas, chartData) {
 // 存储所有公司数据（含 group_id）以便 group 筛选
 let allOwnerCompanies = [];
 let selectedDashboardGroup = null; // null = 显示所有
+let activeGroupCompanyIds = []; // Group 模式下当前选中的公司 IDs
 
 function loadOwnerCompanies() {
     return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php'))
@@ -1818,10 +1818,15 @@ function renderGroupButtons(groups) {
             if (selectedDashboardGroup === groupId) {
                 // 再次点击 → 取消选择，显示所有公司
                 selectedDashboardGroup = null;
+                activeGroupCompanyIds = [];
                 btn.classList.remove('active');
             } else {
                 // 选择该 group
                 selectedDashboardGroup = groupId;
+                // 默认全选该 group 旗下的所有公司
+                activeGroupCompanyIds = allOwnerCompanies
+                    .filter(c => c.group_id && c.group_id.toUpperCase() === groupId)
+                    .map(c => c.id.toString());
                 // 更新 group 按钮状态
                 container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -1864,23 +1869,31 @@ function renderCompanyButtons(companies) {
         btn.className = 'transaction-company-btn';
         btn.textContent = company.company_id;
         btn.dataset.companyId = company.id;
-        if (parseInt(company.id) === parseInt(window.companyId)) {
-            btn.classList.add('active');
+        if (selectedDashboardGroup) {
+            // Group 模式：判断是否在被勾选的列表中
+            if (activeGroupCompanyIds.includes(company.id.toString())) {
+                btn.classList.add('active');
+            }
+        } else {
+            if (parseInt(company.id) === parseInt(window.companyId)) {
+                btn.classList.add('active');
+            }
         }
+
         btn.addEventListener('click', async function () {
             if (selectedDashboardGroup) {
-                // Group 模式：不要刷新整页，只切换 companyId 并重新加载数据
-                if (parseInt(company.id) === parseInt(window.companyId)) return; // 已选中，不重复操作
-                // 静默更新 session
-                try {
-                    await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${company.id}`));
-                } catch (e) { /* ignore — 不影响展示 */ }
-                window.companyId = company.id;
-                // 更新按钮高亮（只改 company 行，保留 group pill 高亮）
-                container.querySelectorAll('.transaction-company-btn').forEach(b => {
-                    b.classList.toggle('active', parseInt(b.dataset.companyId) === parseInt(company.id));
-                });
+                // Group 模式：多选切换（至少保留一个勾选）
+                const strId = company.id.toString();
+                if (activeGroupCompanyIds.includes(strId)) {
+                    if (activeGroupCompanyIds.length === 1) return; // 至少保留一个
+                    activeGroupCompanyIds = activeGroupCompanyIds.filter(id => id !== strId);
+                    btn.classList.remove('active');
+                } else {
+                    activeGroupCompanyIds.push(strId);
+                    btn.classList.add('active');
+                }
                 lastRequestParams = null;
+                await loadGroupCurrencies();
                 await loadData(true);
             } else {
                 // 非 Group 模式：原有逻辑，刷新整页
