@@ -371,6 +371,12 @@ function selectGroup(groupId) {
         selectedGroupId = groupId;
     }
     isMultipleChoiceMode = false;
+    // 重置 Multiple Choice 按钮
+    const mcBtn = document.getElementById('multipleChoiceBtn');
+    if (mcBtn) {
+        mcBtn.classList.remove('active');
+        mcBtn.textContent = 'Multiple Choice';
+    }
     updateGroupPills();
     updateCompanyDisplay();
 }
@@ -404,8 +410,12 @@ function toggleMultipleChoice() {
     const btn = document.getElementById('multipleChoiceBtn');
     if (btn) {
         btn.classList.toggle('active', isMultipleChoiceMode);
+        btn.textContent = isMultipleChoiceMode ? 'Done ✓' : 'Multiple Choice';
     }
     updateCompanyDisplay();
+    if (!isMultipleChoiceMode) {
+        updateGroupPills(); // 退出时刷新 pill 上的数量
+    }
 }
 
 function toggleCompanyGroup(companyId) {
@@ -1118,7 +1128,7 @@ function openAddModal() {
     if (groupInput) groupInput.value = '';
     // 重置 multiple choice 按钮
     const mcBtn = document.getElementById('multipleChoiceBtn');
-    if (mcBtn) mcBtn.classList.remove('active');
+    if (mcBtn) { mcBtn.classList.remove('active'); mcBtn.textContent = 'Multiple Choice'; }
     
     document.getElementById('domainModal').style.display = 'block';
     // 设置输入格式化
@@ -1211,7 +1221,7 @@ function closeModal() {
     }
     // 重置 multiple choice 按钮
     const mcBtn = document.getElementById('multipleChoiceBtn');
-    if (mcBtn) mcBtn.classList.remove('active');
+    if (mcBtn) { mcBtn.classList.remove('active'); mcBtn.textContent = 'Multiple Choice'; }
 }
 
 // 切换删除模式
