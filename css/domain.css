@@ -3,7 +3,8 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    height: 100vh; /* 添加这行 */
+    height: 100vh;
+    /* 添加这行 */
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -14,7 +15,8 @@ body {
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: hidden; /* 添加这行，禁止垂直滚动 */
+    overflow-y: hidden;
+    /* 添加这行，禁止垂直滚动 */
 }
 
 .container {
@@ -22,9 +24,11 @@ body {
     margin: 0;
     padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    height: 100vh; /* 添加这行 */
+    height: 100vh;
+    /* 添加这行 */
     box-sizing: border-box;
-    overflow: hidden; /* 添加这行 */
+    overflow: hidden;
+    /* 添加这行 */
 }
 
 h1 {
@@ -66,12 +70,13 @@ h1 {
     margin-top: 20px;
     border: none;
     border-radius: 0;
-    max-height: calc(100vh - 200px); /* 添加这行，限制最大高度 */
+    max-height: calc(100vh - 200px);
+    /* 添加这行，限制最大高度 */
 }
 
 .btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn:active {
@@ -203,7 +208,7 @@ h1 {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
 }
 
@@ -217,7 +222,8 @@ h1 {
     max-width: 900px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     overflow: hidden;
-    position: relative; /* 确保关闭按钮正确定位 */
+    position: relative;
+    /* 确保关闭按钮正确定位 */
 }
 
 .modal-content h2 {
@@ -235,7 +241,8 @@ h1 {
     display: flex;
     gap: 32px;
     align-items: stretch;
-    min-height: 300px; /* 添加这行 */
+    min-height: 300px;
+    /* 添加这行 */
 }
 
 /* 确保信息面板高度一致 */
@@ -243,18 +250,21 @@ h1 {
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 100%; /* 修改这行，从 500px 改为 100% */
+    min-height: 100%;
+    /* 修改这行，从 500px 改为 100% */
 }
 
 .domain-info-panel form {
     flex: 1;
     display: flex;
     flex-direction: column;
-    height: 100%; /* 添加这行 */
+    height: 100%;
+    /* 添加这行 */
 }
 
 .domain-info-panel .form-actions {
-    margin-top: clamp(10px, 1.3vw, 25px); /* 将按钮推到底部 */
+    margin-top: clamp(10px, 1.3vw, 25px);
+    /* 将按钮推到底部 */
 }
 
 .close {
@@ -399,6 +409,7 @@ h1 {
     pointer-events: none;
     isolation: isolate;
 }
+
 .notification-container .notification {
     pointer-events: auto;
 }
@@ -446,7 +457,9 @@ h1 {
 }
 
 /* Input formatting */
-#owner_code, #name, #companyInput {
+#owner_code,
+#name,
+#companyInput {
     text-transform: uppercase;
 }
 
@@ -624,6 +637,7 @@ h1 {
     margin-top: 6px;
     align-items: center;
 }
+
 .permission-toggle-btn {
     display: inline-flex;
     align-items: center;
@@ -639,8 +653,9 @@ h1 {
     font-weight: 600;
     font-family: inherit;
     line-height: 1.2;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
+
 .permission-toggle-btn .permission-checkbox {
     position: absolute;
     width: 0;
@@ -648,19 +663,23 @@ h1 {
     opacity: 0;
     pointer-events: none;
 }
+
 .permission-toggle-btn:hover {
     background: #e5e7eb;
     border-color: #9ca3af;
 }
+
 .permission-toggle-btn:has(.permission-checkbox:checked) {
     background: linear-gradient(180deg, #7eb8ff 0%, #2563eb 100%);
     border-color: #2563eb;
     color: #fff;
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
 }
+
 .permission-toggle-btn:has(.permission-checkbox:checked) span {
     color: #fff;
 }
+
 .permission-toggle-btn:has(.permission-checkbox:checked):hover {
     background: linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%);
     box-shadow: 0 3px 10px rgba(37, 99, 235, 0.4);
@@ -805,16 +824,20 @@ h1 {
     font-weight: bold;
     color: #374151;
     font-size: clamp(10px, 0.74vw, 14px);
-    min-width: 0; /* 允许内容收缩 */
+    min-width: 0;
+    /* 允许内容收缩 */
 }
 
 .domain-cards {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: calc(100vh - 250px); /* 添加这行 */
-    overflow-y: auto; /* 添加这行 */
-    overflow-x: visible; /* 允许 tooltip 显示 */
+    max-height: calc(100vh - 250px);
+    /* 添加这行 */
+    overflow-y: auto;
+    /* 添加这行 */
+    overflow-x: visible;
+    /* 允许 tooltip 显示 */
 }
 
 .domain-card {
@@ -828,11 +851,13 @@ h1 {
     align-items: center;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    min-width: 0; /* 允许内容收缩 */
+    min-width: 0;
+    /* 允许内容收缩 */
 }
 
 .domain-card.show-card {
-    display: grid;  /* 添加新class来显示 */
+    display: grid;
+    /* 添加新class来显示 */
 }
 
 .domain-card:hover {
@@ -847,14 +872,19 @@ h1 {
     color: #374151;
     display: flex;
     align-items: center;
-    min-width: 0; /* 允许内容收缩 */
-    overflow: visible; /* 允许 tooltip 显示 */
-    text-overflow: ellipsis; /* 长文本显示省略号 */
-    white-space: nowrap; /* 防止文本换行 */
+    min-width: 0;
+    /* 允许内容收缩 */
+    overflow: visible;
+    /* 允许 tooltip 显示 */
+    text-overflow: ellipsis;
+    /* 长文本显示省略号 */
+    white-space: nowrap;
+    /* 防止文本换行 */
 }
 
 .card-item.companies-column {
-    overflow: visible; /* 确保 tooltip 可以显示 */
+    overflow: visible;
+    /* 确保 tooltip 可以显示 */
 }
 
 /* Force uppercase for specific columns */
@@ -938,6 +968,7 @@ h1 {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -962,6 +993,7 @@ h1 {
         transform: translateY(-80px) scale(0.95);
         opacity: 0;
     }
+
     to {
         transform: translateY(0) scale(1);
         opacity: 1;
@@ -987,10 +1019,13 @@ h1 {
 }
 
 @keyframes iconPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
     }
+
     50% {
         transform: scale(1.05);
         box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
@@ -1049,11 +1084,11 @@ h1 {
 }
 
 @media (max-width: 1024px) {
-    .form-group label{
+    .form-group label {
         font-size: clamp(8px, 0.73vw, 14px);
     }
 
-    .company-item{
+    .company-item {
         font-size: clamp(8px, 0.73vw, 14px);
     }
 }
@@ -1230,7 +1265,7 @@ h1 {
     font-size: 11px;
     line-height: 1;
     cursor: pointer;
-    background: rgba(0,0,0,0.15);
+    background: rgba(0, 0, 0, 0.15);
     color: inherit;
     transition: background 0.2s;
     margin-left: 2px;
@@ -1326,7 +1361,7 @@ h1 {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-size: 11px;
-    padding: 3px 12px;
+    padding: 6px 12px;
     border-radius: 10px;
     font-weight: 600;
 }
@@ -1465,4 +1500,4 @@ h1 {
         grid-template-columns: 1fr;
         gap: 4px;
     }
-}
+}
