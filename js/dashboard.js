@@ -805,17 +805,17 @@ let dailyCardPointCache = new Map(); // key: company|currency|date
 
 // 实际执行数据加载的函数
 async function executeLoadData() {
-    if (!dateRange.startDate || !dateRange.endDate || !window.companyId) {
+    if (!dateRange.startDate || !dateRange.endDate) {
         return;
     }
 
-    // 检查参数是否仍然有效
-    const checkParams = JSON.stringify({
-        date_from: dateRange.startDate,
-        date_to: dateRange.endDate,
-        company_id: window.companyId,
-        currency: window.dashboardCurrency || ''
-    });
+    // Group 模式：需要有 group 选中；非 Group 模式：需要有 companyId
+    const groupCompanyIds = getGroupCompanyIds();
+    if (!selectedDashboardGroup && !window.companyId) return;
+    if (selectedDashboardGroup && groupCompanyIds.length === 0) return;
+
+    // 检查参数是否仍然有效（含 group 信息）
+    const checkParams = buildCacheKey();
     if (lastRequestParams === checkParams) {
         return;
     }
@@ -830,44 +830,33 @@ async function executeLoadData() {
     setLoadingState(true);
 
     try {
-        const queryParams = new URLSearchParams({
-            date_from: dateRange.startDate,
-            date_to: dateRange.endDate,
-            company_id: window.companyId
-        });
-        if (window.dashboardCurrency) {
-            queryParams.append('currency', window.dashboardCurrency);
-        }
+        if (selectedDashboardGroup && groupCompanyIds.length > 0) {
+            // ========== Group 模式：并行请求所有公司并聚合 ==========
+            const results = await Promise.allSettled(
+                groupCompanyIds.map(cid => fetchDashboardForCompany(cid))
+            );
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+            const successResults = results
+                .filter(r => r.status === 'fulfilled' && r.value)
+                .map(r => r.value);
 
-        const response = await fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`), {
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        console.log('API响应:', result);
-
-        if (result.success && result.data) {
-            // 验证数据格式
-            if (validateData(result.data)) {
-                console.log('数据验证通过，更新仪表盘');
-                updateDashboard(result.data);
-            } else {
-                console.error('数据格式验证失败:', result.data);
-                throw new Error('Invalid data format');
+            if (successResults.length === 0) {
+                throw new Error('All group company requests failed');
             }
+
+            const mergedData = mergeGroupData(successResults);
+            console.log(`[Group ${selectedDashboardGroup}] 合并 ${successResults.length}/${groupCompanyIds.length} 家公司数据`);
+            updateDashboard(mergedData);
         } else {
-            console.error('API返回失败:', result);
-            throw new Error(result.message || 'Failed to load data');
+            // ========== 单公司模式（原有逻辑） ==========
+            const data = await fetchDashboardForCompany(window.companyId);
+            if (data) {
+                if (validateData(data)) {
+                    updateDashboard(data);
+                } else {
+                    throw new Error('Invalid data format');
+                }
+            }
         }
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -877,12 +866,111 @@ async function executeLoadData() {
             console.error('API调用失败:', error);
             showError('Failed to load data: ' + (error.message || 'Unknown error'));
         }
-        // 发生错误时，恢复上次请求参数，允许重试
         lastRequestParams = null;
     } finally {
         isLoading = false;
         setLoadingState(false);
     }
+}
+
+// 获取当前 Group 内所有 company 的 numeric IDs
+function getGroupCompanyIds() {
+    if (!selectedDashboardGroup) return [];
+    return allOwnerCompanies
+        .filter(c => c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup)
+        .map(c => c.id);
+}
+
+// 构建缓存 key（含 group 信息）
+function buildCacheKey() {
+    return JSON.stringify({
+        date_from: dateRange.startDate,
+        date_to: dateRange.endDate,
+        company_id: window.companyId,
+        currency: window.dashboardCurrency || '',
+        group: selectedDashboardGroup || ''
+    });
+}
+
+// 对单个 company 发起 Dashboard API 请求
+async function fetchDashboardForCompany(companyId) {
+    const queryParams = new URLSearchParams({
+        date_from: dateRange.startDate,
+        date_to: dateRange.endDate,
+        company_id: companyId
+    });
+    if (window.dashboardCurrency) {
+        queryParams.append('currency', window.dashboardCurrency);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`), {
+        signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+    }
+    const result = await response.json();
+    if (result.success && result.data) {
+        return result.data;
+    }
+    throw new Error(result.message || 'Failed to load data');
+}
+
+// 合并多个公司的 Dashboard 数据
+function mergeGroupData(dataList) {
+    let capital = 0, expenses = 0, profit = 0;
+    let periodCapital = 0, periodExpenses = 0, periodProfit = 0;
+    let bfCapital = 0, bfExpenses = 0, bfProfit = 0;
+    const dailyCapital = {}, dailyExpenses = {}, dailyProfit = {}, dailyProfitFlow = {};
+
+    dataList.forEach(d => {
+        capital += parseFloat(d.capital || 0);
+        expenses += parseFloat(d.expenses || 0);
+        profit += parseFloat(d.profit || 0);
+
+        if (d.period_total) {
+            periodCapital += parseFloat(d.period_total.capital || 0);
+            periodExpenses += parseFloat(d.period_total.expenses || 0);
+            periodProfit += parseFloat(d.period_total.profit || 0);
+        }
+        if (d.initial_balance) {
+            bfCapital += parseFloat(d.initial_balance.capital || 0);
+            bfExpenses += parseFloat(d.initial_balance.expenses || 0);
+            bfProfit += parseFloat(d.initial_balance.profit || 0);
+        }
+        if (d.daily_data) {
+            mergeDailyMap(dailyCapital, d.daily_data.capital);
+            mergeDailyMap(dailyExpenses, d.daily_data.expenses);
+            mergeDailyMap(dailyProfit, d.daily_data.profit);
+            mergeDailyMap(dailyProfitFlow, d.daily_data.profit_payment_flow_daily);
+        }
+    });
+
+    return {
+        capital, expenses, profit,
+        period_total: { capital: periodCapital, expenses: periodExpenses, profit: periodProfit },
+        initial_balance: { capital: bfCapital, expenses: bfExpenses, profit: bfProfit },
+        daily_data: {
+            capital: dailyCapital,
+            expenses: dailyExpenses,
+            profit: dailyProfit,
+            profit_payment_flow_daily: dailyProfitFlow
+        },
+        date_range: dataList[0]?.date_range || { from: dateRange.startDate, to: dateRange.endDate }
+    };
+}
+
+// 按日期累加 daily_data 的辅助函数
+function mergeDailyMap(target, source) {
+    if (!source || typeof source !== 'object') return;
+    Object.keys(source).forEach(date => {
+        target[date] = (target[date] || 0) + parseFloat(source[date] || 0);
+    });
 }
 
 async function loadData(immediate = false) {
@@ -897,13 +985,8 @@ async function loadData(immediate = false) {
         return Promise.resolve();
     }
 
-    // 检查是否与上次请求参数相同
-    const currentParams = JSON.stringify({
-        date_from: dateRange.startDate,
-        date_to: dateRange.endDate,
-        company_id: window.companyId,
-        currency: window.dashboardCurrency || ''
-    });
+    // 检查是否与上次请求参数相同（含 group）
+    const currentParams = buildCacheKey();
     if (lastRequestParams === currentParams) {
         return Promise.resolve();
     }
@@ -1389,8 +1472,9 @@ async function updateChart(data) {
 
     // 创建新图表
     createChart(chartCanvas, chartData);
-    // 非按月聚合范围：先渲染，再异步用“按日卡片口径”覆盖，避免首屏空白
-    if (!shouldAggregateByMonth() && dates.length > 0) {
+    // 非按月聚合范围：先渲染，再异步用"按日卡片口径"覆盖，避免首屏空白
+    // Group 模式下跳过此步骤（数据已是多公司聚合，单公司 card point 会破坏数据）
+    if (!shouldAggregateByMonth() && dates.length > 0 && !selectedDashboardGroup) {
         const requestKeyAtStart = JSON.stringify({
             date_from: dateRange.startDate,
             date_to: dateRange.endDate,
@@ -1680,34 +1764,33 @@ function createChart(canvas, chartData) {
 }
 
 // ==================== 加载 Owner Companies ====================
+// 存储所有公司数据（含 group_id）以便 group 筛选
+let allOwnerCompanies = [];
+let selectedDashboardGroup = null; // null = 显示所有
+
 function loadOwnerCompanies() {
     return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php'))
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
-                // 如果有多个 company，显示按钮
+                allOwnerCompanies = data.data;
+
+                // 提取 unique group_ids
+                const groups = [...new Set(
+                    data.data
+                        .filter(c => c.group_id)
+                        .map(c => c.group_id.toUpperCase())
+                )].sort();
+
+                // 渲染 Group pills（只在有 group 时才显示）
+                if (groups.length > 0) {
+                    renderGroupButtons(groups);
+                }
+
+                // 渲染 Company buttons
                 if (data.data.length > 1) {
-                    const wrapper = document.getElementById('company-buttons-wrapper');
-                    const container = document.getElementById('company-buttons-container');
-                    container.innerHTML = '';
-
-                    data.data.forEach(company => {
-                        const btn = document.createElement('button');
-                        btn.className = 'transaction-company-btn';
-                        btn.textContent = company.company_id;
-                        btn.dataset.companyId = company.id;
-                        if (parseInt(company.id) === parseInt(window.companyId)) {
-                            btn.classList.add('active');
-                        }
-                        btn.addEventListener('click', function () {
-                            switchCompany(company.id, company.company_id);
-                        });
-                        container.appendChild(btn);
-                    });
-
-                    wrapper.style.display = 'flex';
+                    renderCompanyButtons(data.data);
                 } else if (data.data.length === 1) {
-                    // 只有一个 company，直接设置
                     window.companyId = data.data[0].id;
                 }
             }
@@ -1717,6 +1800,137 @@ function loadOwnerCompanies() {
             console.error('加载 Company 列表失败:', error);
             return { success: true, data: [] };
         });
+}
+
+function renderGroupButtons(groups) {
+    const wrapper = document.getElementById('group-buttons-wrapper');
+    const container = document.getElementById('group-buttons-container');
+    if (!wrapper || !container) return;
+    container.innerHTML = '';
+
+    groups.forEach(groupId => {
+        const btn = document.createElement('button');
+        btn.className = 'transaction-company-btn';
+        btn.textContent = groupId;
+        btn.dataset.groupId = groupId;
+
+        btn.addEventListener('click', async function () {
+            if (selectedDashboardGroup === groupId) {
+                // 再次点击 → 取消选择，显示所有公司
+                selectedDashboardGroup = null;
+                btn.classList.remove('active');
+            } else {
+                // 选择该 group
+                selectedDashboardGroup = groupId;
+                // 更新 group 按钮状态
+                container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            // 重新渲染 company 按钮（筛选）
+            renderCompanyButtons(allOwnerCompanies);
+            // 重新加载 Currency（交集）和数据（聚合）
+            lastRequestParams = null;
+            await loadGroupCurrencies();
+            await loadData(true);
+        });
+
+        container.appendChild(btn);
+    });
+
+    wrapper.style.display = 'flex';
+}
+
+function renderCompanyButtons(companies) {
+    const wrapper = document.getElementById('company-buttons-wrapper');
+    const container = document.getElementById('company-buttons-container');
+    if (!wrapper || !container) return;
+    container.innerHTML = '';
+
+    // 根据选中的 group 筛选
+    let filtered = companies;
+    if (selectedDashboardGroup) {
+        filtered = companies.filter(c =>
+            c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup
+        );
+    }
+
+    if (filtered.length === 0) {
+        wrapper.style.display = 'none';
+        return;
+    }
+
+    filtered.forEach(company => {
+        const btn = document.createElement('button');
+        btn.className = 'transaction-company-btn';
+        btn.textContent = company.company_id;
+        btn.dataset.companyId = company.id;
+        if (parseInt(company.id) === parseInt(window.companyId)) {
+            btn.classList.add('active');
+        }
+        btn.addEventListener('click', function () {
+            switchCompany(company.id, company.company_id);
+        });
+        container.appendChild(btn);
+    });
+
+    wrapper.style.display = filtered.length > 1 ? 'flex' : 'none';
+}
+
+// ==================== Group 模式下的 Currency 交集 ====================
+async function loadGroupCurrencies() {
+    if (!selectedDashboardGroup) {
+        // 非 Group 模式 → 正常加载
+        return loadCurrencies();
+    }
+
+    const groupIds = getGroupCompanyIds();
+    if (groupIds.length === 0) return loadCurrencies();
+
+    // 对所有 group 内公司并行请求 currency 列表
+    const results = await Promise.allSettled(
+        groupIds.map(cid =>
+            fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`))
+                .then(r => r.json())
+                .then(d => (d.success && Array.isArray(d.data)) ? d.data.map(c => (c.code || '').toUpperCase()) : [])
+                .catch(() => [])
+        )
+    );
+
+    const currencyLists = results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value);
+
+    if (currencyLists.length === 0) return;
+
+    // 计算交集
+    const intersection = currencyLists.reduce((acc, list) => {
+        const set = new Set(list);
+        return acc.filter(code => set.has(code));
+    });
+
+    // 渲染 Currency 按钮（交集）
+    const wrapper = document.getElementById('currency-buttons-wrapper');
+    const container = document.getElementById('currency-buttons-container');
+    if (!wrapper || !container) return;
+    container.innerHTML = '';
+
+    if (intersection.length === 0) {
+        wrapper.style.display = 'none';
+        window.dashboardCurrency = '';
+        return;
+    }
+
+    // 默认选第一个
+    window.dashboardCurrency = intersection[0];
+    intersection.forEach(code => {
+        const btn = document.createElement('button');
+        btn.className = 'transaction-company-btn' + (window.dashboardCurrency === code ? ' active' : '');
+        btn.textContent = code;
+        btn.dataset.currency = code;
+        btn.addEventListener('click', function () { switchCurrency(code); });
+        container.appendChild(btn);
+    });
+    wrapper.style.display = 'flex';
 }
 
 // ==================== Currency 选择（Company 下方）：可拖动、默认第一个（与 Transaction List / Member Win/Loss 一致） ====================

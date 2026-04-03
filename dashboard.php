@@ -210,6 +210,13 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                         </div>
                     </div>
                     
+                    <!-- Group Buttons (above Company) -->
+                    <div id="group-buttons-wrapper" class="transaction-company-filter" style="display: none;">
+                        <span class="transaction-company-label">Group:</span>
+                        <div id="group-buttons-container" class="transaction-company-buttons">
+                            <!-- Group buttons will be dynamically added here -->
+                        </div>
+                    </div>
                     <!-- Company Buttons -->
                     <div id="company-buttons-wrapper" class="transaction-company-filter">
                         <span class="transaction-company-label">Company:</span>
