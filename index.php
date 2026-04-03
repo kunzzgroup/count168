@@ -101,7 +101,7 @@ if (isset($_COOKIE['remember_token'])) {
                 <form class="login-form" id="loginForm" method="POST">
                     <div class="input-group">
                         <i class="fas fa-building input-icon"></i>
-                        <input type="text" placeholder="Company Id" id="company-id" name="company_id" required />
+                        <input type="text" placeholder="Company / Group ID" id="company-id" name="company_id" required />
                     </div>
                     
                     <div class="input-group">
