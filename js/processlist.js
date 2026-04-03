@@ -3157,6 +3157,11 @@ function bindBankFieldErrorClear() {
         dayEndEl.addEventListener('input', updateBankFrequencyOptions);
         dayEndEl.addEventListener('change', updateBankFrequencyOptions);
     }
+    const freqSelectEl = document.getElementById('bank_day_start_frequency');
+    if (freqSelectEl && !freqSelectEl._bankDayEndMinBound) {
+        freqSelectEl._bankDayEndMinBound = true;
+        freqSelectEl.addEventListener('change', syncBankDayEndContractMin);
+    }
 }
 
 // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
@@ -3338,6 +3343,43 @@ function addCalendarMonthsToYmd(ymd, months) {
     return y + '-' + mo + '-' + day;
 }
 
+/** 与 api/processes/billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（每月1号结算锚点） */
+function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
+    if (!startYmd || termMonths < 1) {
+        return null;
+    }
+    const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!p) {
+        return null;
+    }
+    const y = parseInt(p[1], 10);
+    const mo = parseInt(p[2], 10);
+    const day = parseInt(p[3], 10);
+    const start = new Date(y, mo - 1, day);
+    if (isNaN(start.getTime())) {
+        return null;
+    }
+    if (day === 1) {
+        start.setMonth(start.getMonth() + termMonths);
+    } else {
+        const firstAnchor = new Date(y, mo, 1);
+        firstAnchor.setMonth(firstAnchor.getMonth() + (termMonths - 1));
+        return firstAnchor.getFullYear() + '-' + String(firstAnchor.getMonth() + 1).padStart(2, '0') + '-' + String(firstAnchor.getDate()).padStart(2, '0');
+    }
+    return start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0');
+}
+
+/** 与 contractExclusiveEndYmdForFrequency：monthly = 起始日+N月；否则 = 1st 锚点规则 */
+function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
+    if (!startYmd || termMonths == null || termMonths < 1) {
+        return null;
+    }
+    if (frequency === 'monthly') {
+        return addCalendarMonthsToYmd(startYmd, termMonths);
+    }
+    return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+}
+
 /**
  * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
  * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
@@ -3353,6 +3395,8 @@ function autoCalculateBankDayEnd() {
     const start = (dayStartEl && dayStartEl.value || '').trim();
     const contract = (contractEl && contractEl.value || '').trim();
     const prevContractEnd = (dayEndEl.dataset.bankContractEndHint || '').trim();
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    const frequency = (freqEl && freqEl.value === 'monthly') ? 'monthly' : '1st_of_every_month';
     if (!start) {
         dayEndEl.removeAttribute('min');
         delete dayEndEl.dataset.bankContractEndHint;
@@ -3360,7 +3404,7 @@ function autoCalculateBankDayEnd() {
         return;
     }
     const term = parseBankContractTermMonths(contract);
-    const calculated = term ? addCalendarMonthsToYmd(start, term) : null;
+    const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
     if (!calculated) {
         dayEndEl.min = start;
         delete dayEndEl.dataset.bankContractEndHint;
