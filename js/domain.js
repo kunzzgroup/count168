@@ -865,11 +865,8 @@ function updateCompanyDisplay() {
         if (selectedGroupId) {
             // 选中了某个 group → 只显示该 group 的公司
             filteredCompanies = tempCompanies.filter(c => c.group_id === selectedGroupId);
-        } else if (tempGroups.length > 0) {
-            // 有 group 但没有选中 → 只显示独立公司（group_id = null）
-            filteredCompanies = tempCompanies.filter(c => !c.group_id);
         } else {
-            // 没有任何 group → 显示所有公司
+            // 没有选中任何 group → 显示所有公司
             filteredCompanies = [...tempCompanies];
         }
 
@@ -1678,6 +1675,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isEditMode && !data.secondary_password) {
                 delete data.secondary_password;
             }
+
+            // DEBUG: 检查发送的 companies 数据中的 group_id
+            console.log('[Domain Save] companies data:', data.companies);
 
             fetch('api/domain/domain_api.php', {
                 method: 'POST',
