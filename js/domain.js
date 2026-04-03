@@ -340,6 +340,12 @@ function addGroupToList() {
 }
 
 function removeGroup(groupId) {
+    const count = tempCompanies.filter(c => c.group_id === groupId).length;
+    const msg = count > 0
+        ? `Are you sure you want to delete group "${groupId}"?\n\n${count} company(ies) in this group will become ungrouped.`
+        : `Are you sure you want to delete group "${groupId}"?`;
+    if (!confirm(msg)) return;
+
     // 把该 group 下的公司变回独立
     tempCompanies.forEach(c => {
         if (c.group_id === groupId) {
@@ -354,6 +360,7 @@ function removeGroup(groupId) {
     updateGroupPills();
     updateCompanyDisplay();
     syncCompaniesHiddenField();
+    showAlert(`Group "${groupId}" removed`);
 }
 
 function selectGroup(groupId) {
@@ -865,8 +872,11 @@ function updateCompanyDisplay() {
         if (selectedGroupId) {
             // 选中了某个 group → 只显示该 group 的公司
             filteredCompanies = tempCompanies.filter(c => c.group_id === selectedGroupId);
+        } else if (tempGroups.length > 0) {
+            // 有 group 但没有选中 → 只显示独立公司（group_id = null）
+            filteredCompanies = tempCompanies.filter(c => !c.group_id);
         } else {
-            // 没有选中任何 group → 显示所有公司
+            // 没有任何 group → 显示所有公司
             filteredCompanies = [...tempCompanies];
         }
 

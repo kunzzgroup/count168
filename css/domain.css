@@ -1261,34 +1261,30 @@ h1 {
 }
 
 .group-pill .remove-x {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 700;
     line-height: 1;
     cursor: pointer;
-    background: rgba(0, 0, 0, 0.1);
-    color: inherit;
-    transition: all 0.2s;
-    margin-left: 0;
+    color: #dc2626;
+    transition: color 0.15s, transform 0.15s;
+    margin-left: 2px;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
 }
 
 .group-pill .remove-x:hover {
-    background: rgba(220, 38, 38, 0.85);
-    color: white;
+    color: #991b1b;
+    transform: scale(1.2);
 }
 
 .group-pill.active .remove-x {
-    background: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .group-pill.active .remove-x:hover {
-    background: rgba(220, 38, 38, 0.85);
-    color: white;
+    color: #fca5a5;
+    transform: scale(1.2);
 }
 
 /* Multiple Choice button active state */
