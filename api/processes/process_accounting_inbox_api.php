@@ -565,25 +565,11 @@ try {
 
         if ($frequency === '1st_of_every_month') {
             if (empty($dayStart)) {
-                try {
-                    $cur = new DateTimeImmutable($today);
-                    $cur = $cur->modify('first day of this month');
-                    $y = (int) $cur->format('Y');
-                    $mo = (int) $cur->format('n');
-                    $firstOf = $cur->format('Y-m-d');
-                    $effectiveDue = maxYmd($firstOf, $createdYmd);
-                    if ($today >= $effectiveDue
-                        && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
-                        $need = true;
-                        $monthlyBillingMonth = $cur->format('Y-n');
-                    }
-                } catch (Throwable $e) {
-                    $need = false;
-                }
-            } else {
-                if ($startTs === false) {
-                    continue;
-                }
+                continue;
+            }
+            if ($startTs === false) {
+                continue;
+            }
                 // Special case: day_start is on the 1st and the process is created after day_start within the same month.
                 // Old data not taken: skip earlier months, but for the created month we should charge from created date to month end.
                 // Example: created 2026-04-02, day_start 2026-04-01 → show April bill today (prorated 4/2–4/30).
@@ -660,7 +646,6 @@ try {
                         $need = false;
                     }
                 }
-            }
         } else {
             // Monthly（prepaid）：每月 day_start 当天应付；逾期仍显示至该月结清
             if (empty($dayStart)) {
@@ -843,6 +828,10 @@ try {
     // 3) 用户从 active 改为 inactive 的流程：进入 Accounting Due；做完 Transaction 后该行从列表消失，status 保持 inactive
     $inactivePending = fetchInactiveBankProcessesPendingTransaction($pdo, $company_id, $hasPeriodType, $hasIssueFlagColumn, $hasFlagColumn);
     foreach ($inactivePending as $r) {
+        $miDayStart = $r['day_start'] ?? null;
+        if (empty($miDayStart) || strtotime((string) $miDayStart) === false) {
+            continue;
+        }
         $needToday[] = [
             'id' => (int) $r['id'],
             'name' => $r['name'] ?? '',
