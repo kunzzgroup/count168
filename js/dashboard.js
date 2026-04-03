@@ -1867,8 +1867,25 @@ function renderCompanyButtons(companies) {
         if (parseInt(company.id) === parseInt(window.companyId)) {
             btn.classList.add('active');
         }
-        btn.addEventListener('click', function () {
-            switchCompany(company.id, company.company_id);
+        btn.addEventListener('click', async function () {
+            if (selectedDashboardGroup) {
+                // Group 模式：不要刷新整页，只切换 companyId 并重新加载数据
+                if (parseInt(company.id) === parseInt(window.companyId)) return; // 已选中，不重复操作
+                // 静默更新 session
+                try {
+                    await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${company.id}`));
+                } catch (e) { /* ignore — 不影响展示 */ }
+                window.companyId = company.id;
+                // 更新按钮高亮（只改 company 行，保留 group pill 高亮）
+                container.querySelectorAll('.transaction-company-btn').forEach(b => {
+                    b.classList.toggle('active', parseInt(b.dataset.companyId) === parseInt(company.id));
+                });
+                lastRequestParams = null;
+                await loadData(true);
+            } else {
+                // 非 Group 模式：原有逻辑，刷新整页
+                switchCompany(company.id, company.company_id);
+            }
         });
         container.appendChild(btn);
     });
