@@ -40,6 +40,36 @@ function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?
     }
 }
 
+/** 1st-of-month frequency + day_start 非1号：锚点为次月1号起 N 个整月，截止日为 (次月1号)+(N-1)月。 */
+function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $termMonths): ?string
+{
+    if ($termMonths < 1) {
+        return null;
+    }
+    try {
+        $start = new DateTimeImmutable($dayStartYmd);
+        if ((int) $start->format('j') === 1) {
+            return $start->modify("+{$termMonths} months")->format('Y-m-d');
+        }
+        $firstAnchor = $start->modify('first day of next month');
+        return $firstAnchor->modify('+' . ($termMonths - 1) . ' months')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract, ?string $frequency): ?string
+{
+    $term = getBillingTermMonthsFromContract($contract);
+    if ($term === null || $term < 1) {
+        return null;
+    }
+    if ($frequency === 'monthly') {
+        return billingContractExclusiveEndYmd($startYmd, $term);
+    }
+    return billingContractExclusiveEndYmdFirstOfMonth($startYmd, $term);
+}
+
 /**
  * @return string[] Y-m-d, length = $termMonths (same day-of-month as start, +0 … +(term-1) months)
  */
@@ -62,13 +92,14 @@ function generateMonthlyBillingDueDates(string $dayStartYmd, int $termMonths): a
 
 /**
  * Whether $todayYmd may still show Accounting Due for this process (contract + optional day_end).
- * When term is null, only day_start and day_end apply.
+ * day_end 为最后一天计入（可与 process_accounting_inbox_api 一致）；$frequency monthly 用 day_start+N 月，否则用 1st 锚点规则。
  */
 function isWithinRecurringBillingWindow(
     string $todayYmd,
     ?string $dayStartYmd,
     ?string $contract,
-    ?string $dayEndYmd
+    ?string $dayEndYmd,
+    ?string $frequency = null
 ): bool {
     if ($dayStartYmd === null || $dayStartYmd === '' || strtotime($dayStartYmd) === false) {
         return true;
@@ -77,20 +108,34 @@ function isWithinRecurringBillingWindow(
     if ($todayYmd < $start) {
         return false;
     }
-    if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
-        $end = date('Y-m-d', strtotime($dayEndYmd));
-        // Treat day_end as exclusive end (end day itself should not show)
-        if ($todayYmd >= $end) {
-            return false;
+    $freq = ($frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
+    $exclusiveFirstDayAfter = contractExclusiveEndYmdForFrequency($start, $contract, $freq);
+
+    $contractLastInclusive = null;
+    if ($exclusiveFirstDayAfter !== null) {
+        try {
+            $contractLastInclusive = (new DateTimeImmutable($exclusiveFirstDayAfter))->modify('-1 day')->format('Y-m-d');
+        } catch (Throwable $e) {
+            $contractLastInclusive = null;
         }
     }
-    $term = getBillingTermMonthsFromContract($contract);
-    if ($term === null || $term < 1) {
+
+    $dayEndInc = null;
+    if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
+        $dayEndInc = date('Y-m-d', strtotime($dayEndYmd));
+    }
+
+    if ($contractLastInclusive === null && $dayEndInc === null) {
         return true;
     }
-    $exclusiveEnd = billingContractExclusiveEndYmd($start, $term);
-    if ($exclusiveEnd === null) {
-        return true;
+    if ($contractLastInclusive !== null && $dayEndInc === null) {
+        return $todayYmd <= $contractLastInclusive;
     }
-    return $todayYmd < $exclusiveEnd;
+    if ($contractLastInclusive === null) {
+        return $todayYmd <= $dayEndInc;
+    }
+    if ($dayEndInc > $contractLastInclusive) {
+        return $todayYmd <= $dayEndInc;
+    }
+    return $todayYmd <= min($contractLastInclusive, $dayEndInc);
 }
