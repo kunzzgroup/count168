@@ -471,7 +471,7 @@ try {
         exit;
     }
 
-    $today = '2026-06-01';
+    $today = date('Y-m-d');
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -781,6 +781,9 @@ try {
             }
             $startTs = strtotime($dayStart);
             $startDayOfMonth = $startTs !== false ? (int) date('j', $startTs) : 1;
+            if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType)) {
+                continue;
+            }
             if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType)) {
                 continue;
             }
