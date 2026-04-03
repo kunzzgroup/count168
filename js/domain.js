@@ -317,8 +317,25 @@ function initTempCompanies() {
     tempGroups = [...new Set(tempCompanies.filter(c => c.group_id).map(c => c.group_id))];
     selectedGroupId = null;
     isMultipleChoiceMode = false;
+    resetMultipleChoiceBtn();
     updateGroupPills();
     updateCompanyDisplay();
+}
+
+// 重置 Multiple Choice 按钮状态 + 根据是否有 group 来显示/隐藏
+function resetMultipleChoiceBtn() {
+    const btn = document.getElementById('multipleChoiceBtn');
+    if (!btn) return;
+    btn.classList.remove('active');
+    btn.textContent = 'Multiple Choice';
+    updateMultipleChoiceBtnVisibility();
+}
+
+// 只有选中了某个 group 时才显示 Multiple Choice 按钮
+function updateMultipleChoiceBtnVisibility() {
+    const btn = document.getElementById('multipleChoiceBtn');
+    if (!btn) return;
+    btn.style.display = selectedGroupId ? 'inline-block' : 'none';
 }
 
 // ============ Group 管理 ============
@@ -357,6 +374,7 @@ function removeGroup(groupId) {
         selectedGroupId = null;
         isMultipleChoiceMode = false;
     }
+    resetMultipleChoiceBtn();
     updateGroupPills();
     updateCompanyDisplay();
     syncCompaniesHiddenField();
@@ -365,18 +383,12 @@ function removeGroup(groupId) {
 
 function selectGroup(groupId) {
     if (selectedGroupId === groupId) {
-        // 再次点击同一个 pill → 取消选择，回到显示独立公司
         selectedGroupId = null;
     } else {
         selectedGroupId = groupId;
     }
     isMultipleChoiceMode = false;
-    // 重置 Multiple Choice 按钮
-    const mcBtn = document.getElementById('multipleChoiceBtn');
-    if (mcBtn) {
-        mcBtn.classList.remove('active');
-        mcBtn.textContent = 'Multiple Choice';
-    }
+    resetMultipleChoiceBtn();
     updateGroupPills();
     updateCompanyDisplay();
 }
@@ -1127,8 +1139,7 @@ function openAddModal() {
     const groupInput = document.getElementById('groupInput');
     if (groupInput) groupInput.value = '';
     // 重置 multiple choice 按钮
-    const mcBtn = document.getElementById('multipleChoiceBtn');
-    if (mcBtn) { mcBtn.classList.remove('active'); mcBtn.textContent = 'Multiple Choice'; }
+    resetMultipleChoiceBtn();
     
     document.getElementById('domainModal').style.display = 'block';
     // 设置输入格式化
@@ -1220,8 +1231,7 @@ function closeModal() {
         secondaryPasswordInput.required = true;
     }
     // 重置 multiple choice 按钮
-    const mcBtn = document.getElementById('multipleChoiceBtn');
-    if (mcBtn) { mcBtn.classList.remove('active'); mcBtn.textContent = 'Multiple Choice'; }
+    resetMultipleChoiceBtn();
 }
 
 // 切换删除模式
