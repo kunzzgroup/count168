@@ -49,6 +49,7 @@ try {
             o.email,
             o.created_by,
             o.created_at,
+            GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
             GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
         FROM owner o
         LEFT JOIN company c ON o.id = c.owner_id
@@ -120,6 +121,7 @@ try {
                 <div class="header-item">Owner Code:</div>
                 <div class="header-item">Name:</div>
                 <div class="header-item">Email:</div>
+                <div class="header-item">GroupID:</div>
                 <div class="header-item">Companies:</div>
                 <div class="header-item">Created By:</div>
                 <div class="header-item">Action:</div>
@@ -133,6 +135,7 @@ try {
                     <div class="card-item uppercase-text"><?php echo htmlspecialchars($domain['owner_code']); ?></div>
                     <div class="card-item"><?php echo htmlspecialchars($domain['name']); ?></div>
                     <div class="card-item"><?php echo htmlspecialchars($domain['email']); ?></div>
+                    <div class="card-item"><?php echo htmlspecialchars($domain['group_ids'] ?: '-'); ?></div>
                     <div class="card-item companies-column" data-companies='<?php echo json_encode($domain['companies_full'] ?? []); ?>'>
                         <?php 
                         if (!empty($domain['companies'])) {

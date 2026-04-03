@@ -815,7 +815,7 @@ h1 {
 
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 2fr 3fr 3fr 4fr 2fr 2fr;
+    grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
     padding: clamp(0px, 0.78vw, 15px) 20px 15px;
     background-color: transparent;
@@ -842,7 +842,7 @@ h1 {
 
 .domain-card {
     display: none;
-    grid-template-columns: 1fr 2fr 3fr 3fr 4fr 2fr 2fr;
+    grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
     padding: clamp(4px, 0.52vw, 10px) 22px;
     background: white;
