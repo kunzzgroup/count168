@@ -36,6 +36,9 @@ function toSkippedPeriodType(string $periodType): string
     if ($t === 'partial_first_month') {
         return 'partial_first_month_skipped';
     }
+    if ($t === 'day_end_tail') {
+        return 'day_end_tail_skipped';
+    }
     return 'monthly_skipped';
 }
 
@@ -82,7 +85,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -126,7 +129,7 @@ try {
         }
         $skippedType = toSkippedPeriodType($periodType);
         $postDate = $today;
-        if ($periodType === 'monthly' && ($p['billing_month'] ?? '') !== '') {
+        if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($p['billing_month'] ?? '') !== '') {
             $postDate = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
         }
         $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");

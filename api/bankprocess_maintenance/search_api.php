@@ -204,6 +204,8 @@ function rowToItem(array $row) {
         $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
         if ($periodType === 'partial_first_month') {
             $description = 'Remaining days bill';
+        } elseif ($periodType === 'day_end_tail') {
+            $description = 'Day end tail bill';
         } elseif ($periodType === 'manual_inactive') {
             $description = 'Inactive bill';
         } elseif ($periodType === 'monthly' || $periodType === '') {
