@@ -1015,6 +1015,7 @@ function openAddProcessForSelectedPermission() {
                 if (dayEndEl) {
                     dayEndEl.value = '';
                     dayEndEl.removeAttribute('min');
+                    delete dayEndEl.dataset.bankContractEndHint;
                 }
                 updateBankFrequencyOptions();
             }
@@ -1100,7 +1101,10 @@ function closeAddBankModal() {
     if (bankSopEl) bankSopEl.value = '';
     if (bankRemarkEl) bankRemarkEl.value = '';
     const dayEndClear = document.getElementById('bank_day_end');
-    if (dayEndClear) dayEndClear.removeAttribute('min');
+    if (dayEndClear) {
+        dayEndClear.removeAttribute('min');
+        delete dayEndClear.dataset.bankContractEndHint;
+    }
 }
 
 function openProcessNoteModal(target) {
@@ -3136,19 +3140,27 @@ function bindBankFieldErrorClear() {
     const contractEl = document.getElementById('bank_contract');
     const dayEndEl = document.getElementById('bank_day_end');
 
+    function syncBankDayEndContractMin() {
+        autoCalculateBankDayEnd();
+    }
     if (dayStartEl && !dayStartEl._freqBound) {
         dayStartEl._freqBound = true;
-        dayStartEl.addEventListener('change', autoCalculateBankDayEnd);
-        dayStartEl.addEventListener('input', autoCalculateBankDayEnd);
+        dayStartEl.addEventListener('change', syncBankDayEndContractMin);
+        dayStartEl.addEventListener('input', syncBankDayEndContractMin);
     }
     if (contractEl && !contractEl._freqBound) {
         contractEl._freqBound = true;
-        contractEl.addEventListener('change', autoCalculateBankDayEnd);
+        contractEl.addEventListener('change', syncBankDayEndContractMin);
     }
     if (dayEndEl && !dayEndEl._freqBound) {
         dayEndEl._freqBound = true;
         dayEndEl.addEventListener('input', updateBankFrequencyOptions);
         dayEndEl.addEventListener('change', updateBankFrequencyOptions);
+    }
+    const freqSelectEl = document.getElementById('bank_day_start_frequency');
+    if (freqSelectEl && !freqSelectEl._bankDayEndMinBound) {
+        freqSelectEl._bankDayEndMinBound = true;
+        freqSelectEl.addEventListener('change', syncBankDayEndContractMin);
     }
 }
 
@@ -3159,6 +3171,7 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
     bindBankFieldErrorClear();
     addBankProcessForm.addEventListener('submit', async function (e) {
         e.preventDefault();
+        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
         if (bankProcessSubmitInFlight) {
             return;
         }
@@ -3330,7 +3343,48 @@ function addCalendarMonthsToYmd(ymd, months) {
     return y + '-' + mo + '-' + day;
 }
 
-// Auto calculate Day End based on Day Start and Contract; Day end min = contract end (same calendar rule as +N months)
+/** 与 api/processes/billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（每月1号结算锚点） */
+function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
+    if (!startYmd || termMonths < 1) {
+        return null;
+    }
+    const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!p) {
+        return null;
+    }
+    const y = parseInt(p[1], 10);
+    const mo = parseInt(p[2], 10);
+    const day = parseInt(p[3], 10);
+    const start = new Date(y, mo - 1, day);
+    if (isNaN(start.getTime())) {
+        return null;
+    }
+    if (day === 1) {
+        start.setMonth(start.getMonth() + termMonths);
+    } else {
+        const firstAnchor = new Date(y, mo, 1);
+        firstAnchor.setMonth(firstAnchor.getMonth() + (termMonths - 1));
+        return firstAnchor.getFullYear() + '-' + String(firstAnchor.getMonth() + 1).padStart(2, '0') + '-' + String(firstAnchor.getDate()).padStart(2, '0');
+    }
+    return start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0');
+}
+
+/** 与 contractExclusiveEndYmdForFrequency：monthly = 起始日+N月；否则 = 1st 锚点规则 */
+function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
+    if (!startYmd || termMonths == null || termMonths < 1) {
+        return null;
+    }
+    if (frequency === 'monthly') {
+        return addCalendarMonthsToYmd(startYmd, termMonths);
+    }
+    return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+}
+
+/**
+ * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
+ * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
+ * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
+ */
 function autoCalculateBankDayEnd() {
     const dayStartEl = document.getElementById('bank_day_start');
     const dayEndEl = document.getElementById('bank_day_end');
@@ -3340,15 +3394,20 @@ function autoCalculateBankDayEnd() {
     }
     const start = (dayStartEl && dayStartEl.value || '').trim();
     const contract = (contractEl && contractEl.value || '').trim();
+    const prevContractEnd = (dayEndEl.dataset.bankContractEndHint || '').trim();
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    const frequency = (freqEl && freqEl.value === 'monthly') ? 'monthly' : '1st_of_every_month';
     if (!start) {
         dayEndEl.removeAttribute('min');
+        delete dayEndEl.dataset.bankContractEndHint;
         updateBankFrequencyOptions();
         return;
     }
     const term = parseBankContractTermMonths(contract);
-    const calculated = term ? addCalendarMonthsToYmd(start, term) : null;
+    const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
     if (!calculated) {
         dayEndEl.min = start;
+        delete dayEndEl.dataset.bankContractEndHint;
         if (dayEndEl.value && dayEndEl.value < start) {
             dayEndEl.value = start;
         }
@@ -3357,9 +3416,12 @@ function autoCalculateBankDayEnd() {
     }
     dayEndEl.min = calculated;
     const cur = (dayEndEl.value || '').trim();
-    if (!cur || cur < calculated) {
+    if (cur && cur < calculated) {
+        dayEndEl.value = calculated;
+    } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
         dayEndEl.value = calculated;
     }
+    dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
 }
 
