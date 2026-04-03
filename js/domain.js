@@ -913,7 +913,7 @@ function updateCompanyDisplay() {
                 return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
             });
 
-            container.innerHTML = sortedCandidates.map(company => {
+            const itemsHtml = sortedCandidates.map(company => {
                 const isInGroup = company.group_id === selectedGroupId;
                 return `
                     <div class="company-assign-item" onclick="toggleCompanyGroup('${company.company_id}')">
@@ -922,6 +922,8 @@ function updateCompanyDisplay() {
                     </div>
                 `;
             }).join('');
+
+            container.innerHTML = `<div class="assign-grid">${itemsHtml}</div>`;
 
             if (sortedCandidates.length === 0) {
                 container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No ungrouped companies available</span>';

@@ -1293,6 +1293,13 @@ h1 {
     box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
 }
 
+/* 2-column grid for multiple choice mode */
+.assign-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
 /* Checkbox item in multiple choice mode */
 .company-assign-item {
     display: flex;
@@ -1302,7 +1309,6 @@ h1 {
     border: 1px solid #e5e7eb;
     border-radius: 4px;
     padding: 6px 10px;
-    margin-bottom: 4px;
     cursor: pointer;
     transition: background 0.15s;
 }
