@@ -299,10 +299,9 @@ function setupInputFormatting() {
 }
 
 // Company管理相关函数
-function openCompanyModal() {
-    // 复制当前选中的companies到临时列表（深拷贝）
+// 初始化 tempCompanies（在打开 Domain Modal 时调用）
+function initTempCompanies() {
     tempCompanies = selectedCompanies.map(c => ({ ...c }));
-    // 保留已有到期日的 selectedPeriod（用于再次打开 Set 时下拉框显示正确），无到期日则 null
     tempCompanies.forEach(company => {
         company.originalExpirationDate = company.expiration_date || null;
         company.selectedPeriod = company.expiration_date ? getPeriodFromDate(company.expiration_date) : null;
@@ -310,14 +309,10 @@ function openCompanyModal() {
         company.isExtending = company.expiration_date ? true : false;
     });
     updateCompanyDisplay();
-    document.getElementById('companyModal').style.display = 'block';
-    document.getElementById('companyInput').value = '';
 }
 
-function closeCompanyModal() {
-    document.getElementById('companyModal').style.display = 'none';
-    document.getElementById('companyInput').value = '';
-}
+// openCompanyModal / closeCompanyModal are no longer used;
+// companies are managed inline in the domain modal.
 
 function addCompanyToList() {
     const input = document.getElementById('companyInput');
@@ -798,66 +793,49 @@ function updateCompanyDisplay() {
                 </div>
             `;
         }).join('');
+        
+        // 同步 hidden 字段，确保表单提交时数据正确
+        syncCompaniesHiddenField();
     }
 }
 
-function confirmCompanies() {
-    // 排序后再保存：C168放在第一个，其他按字母顺序
+// 同步 selectedCompanies 和 hidden field（表单提交前调用）
+function syncCompaniesFromTemp() {
     const sortedCompanies = [...tempCompanies].sort((a, b) => {
         const aId = a.company_id.toUpperCase();
         const bId = b.company_id.toUpperCase();
-        
-        // C168始终排在第一位
         if (aId === 'C168') return -1;
         if (bId === 'C168') return 1;
-        
-        // 其他按字母顺序排序
         return aId.localeCompare(bId);
     });
-    
-    // 只保存需要的字段，不保存临时字段（originalExpirationDate, selectedPeriod）；包含 permissions 供后端写入
     selectedCompanies = sortedCompanies.map(c => ({
         company_id: c.company_id,
         expiration_date: c.expiration_date,
         permissions: Array.isArray(c.permissions) ? c.permissions : []
     }));
-    updateSelectedCompaniesDisplay();
-    // 将 companies 数据序列化为 JSON 字符串
     document.getElementById('companies').value = JSON.stringify(selectedCompanies);
-    closeCompanyModal();
-    showAlert('Companies updated successfully!');
 }
 
+// 实时同步 hidden 字段
+function syncCompaniesHiddenField() {
+    const sortedCompanies = [...tempCompanies].sort((a, b) => {
+        const aId = a.company_id.toUpperCase();
+        const bId = b.company_id.toUpperCase();
+        if (aId === 'C168') return -1;
+        if (bId === 'C168') return 1;
+        return aId.localeCompare(bId);
+    });
+    const cleaned = sortedCompanies.map(c => ({
+        company_id: c.company_id,
+        expiration_date: c.expiration_date,
+        permissions: Array.isArray(c.permissions) ? c.permissions : []
+    }));
+    document.getElementById('companies').value = JSON.stringify(cleaned);
+}
+
+// updateSelectedCompaniesDisplay 现在不再单独使用（inline显示由 updateCompanyDisplay 处理）
 function updateSelectedCompaniesDisplay() {
-    const display = document.getElementById('selectedCompaniesDisplay');
-    
-    if (selectedCompanies.length === 0) {
-        display.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies selected</span>';
-    } else {
-        // 排序：C168放在第一个，其他按字母顺序
-        const sortedCompanies = [...selectedCompanies].sort((a, b) => {
-            const aId = (typeof a === 'string' ? a : a.company_id).toUpperCase();
-            const bId = (typeof b === 'string' ? b : b.company_id).toUpperCase();
-            
-            // C168始终排在第一位
-            if (aId === 'C168') return -1;
-            if (bId === 'C168') return 1;
-            
-            // 其他按字母顺序排序
-            return aId.localeCompare(bId);
-        });
-        
-        display.innerHTML = sortedCompanies.map(company => {
-            const companyId = typeof company === 'string' ? company : company.company_id;
-            const expDate = typeof company === 'object' && company.expiration_date ? company.expiration_date : null;
-            
-            return `
-                <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; margin: 3px; font-size: clamp(8px, 0.57vw, 11px); font-weight: bold;">
-                    ${companyId}${expDate ? ` - ${formatDate(expDate)}` : ''}
-                </span>
-            `;
-        }).join('');
-    }
+    // No-op: companies are now displayed inline in the main modal via updateCompanyDisplay()
 }
 
 // 允许Enter键添加company和格式化输入
@@ -930,7 +908,7 @@ function showAlert(message, type = 'success') {
 
 function openAddModal() {
     isEditMode = false;
-    document.getElementById('modalTitle').textContent = 'Add Domain';
+    document.getElementById('modalTitle').textContent = 'ADD DOMAIN';
     document.getElementById('domainForm').reset();
     document.getElementById('domainId').value = '';
     document.getElementById('password').required = true;
@@ -945,8 +923,13 @@ function openAddModal() {
     
     // 重置companies
     selectedCompanies = [];
+    tempCompanies = [];
     document.getElementById('companies').value = '';
-    updateSelectedCompaniesDisplay();
+    updateCompanyDisplay();
+    
+    // 清空 company input
+    const companyInput = document.getElementById('companyInput');
+    if (companyInput) companyInput.value = '';
     
     document.getElementById('domainModal').style.display = 'block';
     // 设置输入格式化
@@ -955,20 +938,18 @@ function openAddModal() {
 
 function editDomain(id) {
     isEditMode = true;
-    document.getElementById('modalTitle').textContent = 'Edit Domain';
+    document.getElementById('modalTitle').textContent = 'EDIT DOMAIN';
     document.getElementById('password').required = false;
     document.getElementById('passwordGroup').style.display = 'block';
     
     // 编辑模式：只有C168的owner/admin可以修改二级密码
     const secondaryPasswordInput = document.getElementById('secondary_password');
     if (hasC168Context && isOwnerOrAdmin) {
-        // C168的owner/admin可以修改二级密码（可选）
         secondaryPasswordInput.required = false;
         secondaryPasswordInput.disabled = false;
         secondaryPasswordInput.placeholder = 'Leave empty to keep current password';
         document.getElementById('secondaryPasswordGroup').style.display = 'block';
     } else {
-        // 非C168用户不能修改二级密码
         secondaryPasswordInput.required = false;
         secondaryPasswordInput.disabled = true;
         secondaryPasswordInput.value = '';
@@ -984,6 +965,10 @@ function editDomain(id) {
     document.getElementById('owner_code').disabled = true;
     document.getElementById('name').value = items[2].textContent;
     document.getElementById('email').value = items[3].textContent;
+    
+    // 清空 company input
+    const companyInput = document.getElementById('companyInput');
+    if (companyInput) companyInput.value = '';
     
     // 从 API 获取完整的公司信息（包括到期日期）
     fetch(`api/domain/domain_api.php`, {
@@ -1004,19 +989,16 @@ function editDomain(id) {
                     expiration_date: c.expiration_date || null,
                     permissions: Array.isArray(c.permissions) ? c.permissions : []
                 }));
-                updateSelectedCompaniesDisplay();
-                document.getElementById('companies').value = JSON.stringify(selectedCompanies);
             } else {
                 selectedCompanies = [];
-                updateSelectedCompaniesDisplay();
-                document.getElementById('companies').value = JSON.stringify(selectedCompanies);
             }
+            // 初始化 tempCompanies 并渲染 inline 列表
+            initTempCompanies();
         })
         .catch(error => {
             console.error('Error loading companies:', error);
             selectedCompanies = [];
-            updateSelectedCompaniesDisplay();
-            document.getElementById('companies').value = JSON.stringify(selectedCompanies);
+            initTempCompanies();
         });
     
     document.getElementById('domainModal').style.display = 'block';
@@ -1027,6 +1009,7 @@ function editDomain(id) {
 function closeModal() {
     document.getElementById('domainModal').style.display = 'none';
     selectedCompanies = [];
+    tempCompanies = [];
     // 重置二级密码输入框
     const secondaryPasswordInput = document.getElementById('secondary_password');
     if (secondaryPasswordInput) {
@@ -1489,6 +1472,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (domainForm) {
         domainForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            // 先同步 tempCompanies 到 selectedCompanies 和 hidden field
+            syncCompaniesFromTemp();
 
             const formData = new FormData(this);
             const data = Object.fromEntries(formData.entries());

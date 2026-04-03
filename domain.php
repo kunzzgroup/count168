@@ -197,33 +197,6 @@ try {
         </div>
     </div>
 
-    <!-- Company Selection Modal -->
-    <div id="companyModal" class="modal" style="z-index: 10001;">
-        <div class="modal-content" style="max-width: 600px;">
-            <span class="close" onclick="closeCompanyModal()">&times;</span>
-            <h2>Add Companies</h2>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
-                <div class="form-group">
-                    <label for="companyInput">Company ID</label>
-                    <input type="text" id="companyInput" placeholder="Enter Company ID" style="text-transform: uppercase;">
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-add" onclick="addCompanyToList()" style="width: 100%;">Add to List</button>
-                </div>
-                <div class="form-group">
-                    <label>Selected Companies:</label>
-                    <div id="companyListDisplay" style="min-height: 100px; max-height: 300px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; background: #f9fafb;">
-                        <div id="companyItems"></div>
-                    </div>
-                </div>
-                <div class="form-actions">
-                <button type="button" class="btn btn-save" onclick="confirmCompanies()">Confirm</button>
-                    <button type="button" class="btn btn-cancel" onclick="closeCompanyModal()">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Company Expiration Modal -->
     <div id="companyExpirationModal" class="modal" style="z-index: 10002;">
         <div class="modal-content" style="max-width: 600px;">
@@ -305,59 +278,83 @@ try {
         </div>
     </div>
 
-    <!-- Domain Modal -->
+    <!-- Domain Modal (Redesigned: wide two-column layout) -->
     <div id="domainModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">Add Domain</h2>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);">
-                <!-- Domain Info -->
-                <div class="domain-info-panel" style="flex: 1;">
-                    <h3>Domain Information</h3>
-                    <form id="domainForm">
-                    <input type="hidden" id="domainId" name="id">
-                    
-                    <div class="form-group">
-                        <label for="owner_code">Owner Code *</label>
-                        <input type="text" id="owner_code" name="owner_code" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="name">Name *</label>
-                        <input type="text" id="name" name="name" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="email">Email *</label>
-                        <input type="email" id="email" name="email" required>
-                    </div>
-                    
-                    <div class="form-group" id="passwordGroup">
-                        <label for="password">Password *</label>
-                        <input type="password" id="password" name="password">
-                    </div>
-                    
-                    <div class="form-group" id="secondaryPasswordGroup">
-                        <label for="secondary_password">Secondary Password *</label>
-                        <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits only" required>
-                        <small style="color: #64748b; font-size: clamp(7px, 0.52vw, 10px); margin-top: 4px; display: block;">Must be exactly 6 digits (0-9)</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Companies</label>
-                        <button type="button" class="btn btn-add" onclick="openCompanyModal()" style="width: 100%;">Manage Companies</button>
-                        <div id="selectedCompaniesDisplay" style="margin-top: 10px; padding: clamp(4px, 0.52vw, 10px); border: 1px solid #e5e7eb; border-radius: 8px; min-height: 40px; background: #f9fafb;">
-                            <span style="color: #94a3b8; font-size: 12px;">No companies selected</span>
-                        </div>
-                        <input type="hidden" id="companies" name="companies">
-                    </div>
-                    
-                    <div class="form-actions">
-                    <button type="submit" class="btn btn-save">Save</button>
-                        <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                    </div>
-                </form>
+        <div class="modal-container-wide">
+            <!-- Header -->
+            <div class="modal-header-wide">
+                <h2 id="modalTitle">EDIT DOMAIN</h2>
+                <button class="modal-close-btn" onclick="closeModal()">&times;</button>
             </div>
+
+            <!-- Body -->
+            <form id="domainForm">
+                <input type="hidden" id="domainId" name="id">
+                <div class="modal-body-wide">
+                    <!-- Section Titles -->
+                    <div class="section-titles-row">
+                        <div class="section-title">DOMAIN INFORMATION</div>
+                        <div class="section-title">COMPANY INFORMATION</div>
+                    </div>
+                    <div class="section-divider"></div>
+
+                    <!-- Two Columns -->
+                    <div class="two-columns">
+                        <!-- Left Column: Domain Info -->
+                        <div class="column-left">
+                            <div class="form-group">
+                                <label for="owner_code">Owner Code *</label>
+                                <input type="text" id="owner_code" name="owner_code" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="name">Name *</label>
+                                <input type="text" id="name" name="name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email *</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
+                            <div class="form-group" id="passwordGroup">
+                                <label for="password">Password *</label>
+                                <input type="password" id="password" name="password">
+                            </div>
+                            <div class="form-group" id="secondaryPasswordGroup">
+                                <label for="secondary_password">Secondary Password *</label>
+                                <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits only" required>
+                                <small class="form-hint">Must be exactly 6 digits (0-9)</small>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Company Management (inline) -->
+                        <div class="column-right">
+                            <div class="form-group">
+                                <label for="companyInput">Company ID</label>
+                                <div class="input-with-btn">
+                                    <input type="text" id="companyInput" placeholder="ENTER COMPANY ID" style="text-transform: uppercase;">
+                                    <button type="button" class="btn-inline-add" onclick="addCompanyToList()">Add</button>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
+                                <div class="selected-companies-header">
+                                    <label>Selected Companies :</label>
+                                    <span class="badge-multi">Multiple Choice</span>
+                                </div>
+                                <div class="companies-list-box" id="companyItems">
+                                    <span style="color: #94a3b8; font-size: 12px;">No companies added yet</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="companies" name="companies">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer-wide">
+                    <button type="submit" class="btn-wide btn-wide-confirm">Confirm</button>
+                    <button type="button" class="btn-wide btn-wide-cancel" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 
