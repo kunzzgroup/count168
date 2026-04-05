@@ -1753,9 +1753,19 @@ function searchTransactions(isInitialLoad) {
         }
         if (summarySection) summarySection.style.display = 'flex';
 
-        // 使用最新搜索结果，根据「Show 0 balance」状态在前端过滤并渲染
+        // 使用最新搜索结果，根据「Show 0 balance」等状态在前端过滤并渲染
         applyZeroBalanceFilterAndRender();
-        showNotification(`Search completed, found ${totalAccounts} record(s)`, 'success');
+        const displayedCount =
+            (currentDisplayData.left_table?.length || 0) +
+            (currentDisplayData.right_table?.length || 0);
+        if (displayedCount === 0 && totalAccounts > 0) {
+            showNotification(
+                `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
+                'info'
+            );
+        } else {
+            showNotification(`Search completed, found ${displayedCount} record(s)`, 'success');
+        }
     };
 
     const singleSelectedCurrency = (!showAllCurrencies && selectedCurrencies.length === 1)
