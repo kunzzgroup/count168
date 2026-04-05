@@ -3129,8 +3129,8 @@ async function loadFormData() {
 
                     // Add account options
                     result.accounts.forEach(account => {
-                        // Only for upline, agent, member: display "Account [name]"; other roles show account_id only
-                        const rolesToShowName = ['supplier', 'agent', 'member'];
+                        // Only for upline (Supplier in UI), agent, member: display "Account [name]"; other roles show account_id only
+                        const rolesToShowName = ['upline', 'supplier', 'agent', 'member'];
                         let displayText;
                         if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
                             displayText = account.account_id + ' [' + account.name + ']';
@@ -19851,8 +19851,8 @@ async function submitSummaryData() {
     }
 }
 
-// Only upline, member, agent show "Account [name]"; other roles show account_id only.
-const ROLES_TO_SHOW_ACCOUNT_NAME = ['supplier', 'agent', 'member'];
+// Only upline (Supplier in UI), member, agent show "Account [name]"; other roles show account_id only.
+const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member'];
 
 // Format account display by role: strip [name] for roles not in ROLES_TO_SHOW_ACCOUNT_NAME.
 // accountList: optional array with { id, account_id, name, role }; uses window.__accountListWithRoles or __summaryAccountListCache if not provided.
