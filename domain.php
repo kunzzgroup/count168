@@ -49,6 +49,7 @@ try {
             o.email,
             o.created_by,
             o.created_at,
+            GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
             GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
         FROM owner o
         LEFT JOIN company c ON o.id = c.owner_id
@@ -120,6 +121,7 @@ try {
                 <div class="header-item">Owner Code:</div>
                 <div class="header-item">Name:</div>
                 <div class="header-item">Email:</div>
+                <div class="header-item">GroupID:</div>
                 <div class="header-item">Companies:</div>
                 <div class="header-item">Created By:</div>
                 <div class="header-item">Action:</div>
@@ -133,6 +135,7 @@ try {
                     <div class="card-item uppercase-text"><?php echo htmlspecialchars($domain['owner_code']); ?></div>
                     <div class="card-item"><?php echo htmlspecialchars($domain['name']); ?></div>
                     <div class="card-item"><?php echo htmlspecialchars($domain['email']); ?></div>
+                    <div class="card-item"><?php echo htmlspecialchars($domain['group_ids'] ?: '-'); ?></div>
                     <div class="card-item companies-column" data-companies='<?php echo json_encode($domain['companies_full'] ?? []); ?>'>
                         <?php 
                         if (!empty($domain['companies'])) {
@@ -193,33 +196,6 @@ try {
             <div class="confirm-actions">
                 <button type="button" class="btn btn-cancel confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
                 <button type="button" class="btn btn-delete confirm-delete" id="confirmDeleteBtn">Delete</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Company Selection Modal -->
-    <div id="companyModal" class="modal" style="z-index: 10001;">
-        <div class="modal-content" style="max-width: 600px;">
-            <span class="close" onclick="closeCompanyModal()">&times;</span>
-            <h2>Add Companies</h2>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
-                <div class="form-group">
-                    <label for="companyInput">Company ID</label>
-                    <input type="text" id="companyInput" placeholder="Enter Company ID" style="text-transform: uppercase;">
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-add" onclick="addCompanyToList()" style="width: 100%;">Add to List</button>
-                </div>
-                <div class="form-group">
-                    <label>Selected Companies:</label>
-                    <div id="companyListDisplay" style="min-height: 100px; max-height: 300px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; background: #f9fafb;">
-                        <div id="companyItems"></div>
-                    </div>
-                </div>
-                <div class="form-actions">
-                <button type="button" class="btn btn-save" onclick="confirmCompanies()">Confirm</button>
-                    <button type="button" class="btn btn-cancel" onclick="closeCompanyModal()">Cancel</button>
-                </div>
             </div>
         </div>
     </div>
@@ -305,59 +281,102 @@ try {
         </div>
     </div>
 
-    <!-- Domain Modal -->
+    <!-- Domain Modal (Redesigned: wide two-column layout) -->
     <div id="domainModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">Add Domain</h2>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);">
-                <!-- Domain Info -->
-                <div class="domain-info-panel" style="flex: 1;">
-                    <h3>Domain Information</h3>
-                    <form id="domainForm">
-                    <input type="hidden" id="domainId" name="id">
-                    
-                    <div class="form-group">
-                        <label for="owner_code">Owner Code *</label>
-                        <input type="text" id="owner_code" name="owner_code" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="name">Name *</label>
-                        <input type="text" id="name" name="name" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="email">Email *</label>
-                        <input type="email" id="email" name="email" required>
-                    </div>
-                    
-                    <div class="form-group" id="passwordGroup">
-                        <label for="password">Password *</label>
-                        <input type="password" id="password" name="password">
-                    </div>
-                    
-                    <div class="form-group" id="secondaryPasswordGroup">
-                        <label for="secondary_password">Secondary Password *</label>
-                        <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits only" required>
-                        <small style="color: #64748b; font-size: clamp(7px, 0.52vw, 10px); margin-top: 4px; display: block;">Must be exactly 6 digits (0-9)</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Companies</label>
-                        <button type="button" class="btn btn-add" onclick="openCompanyModal()" style="width: 100%;">Manage Companies</button>
-                        <div id="selectedCompaniesDisplay" style="margin-top: 10px; padding: clamp(4px, 0.52vw, 10px); border: 1px solid #e5e7eb; border-radius: 8px; min-height: 40px; background: #f9fafb;">
-                            <span style="color: #94a3b8; font-size: 12px;">No companies selected</span>
-                        </div>
-                        <input type="hidden" id="companies" name="companies">
-                    </div>
-                    
-                    <div class="form-actions">
-                    <button type="submit" class="btn btn-save">Save</button>
-                        <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                    </div>
-                </form>
+        <div class="modal-container-wide">
+            <!-- Header -->
+            <div class="modal-header-wide">
+                <h2 id="modalTitle">EDIT DOMAIN</h2>
+                <button class="modal-close-btn" onclick="closeModal()">&times;</button>
             </div>
+
+            <!-- Body -->
+            <form id="domainForm">
+                <input type="hidden" id="domainId" name="id">
+                <div class="modal-body-wide">
+                    <!-- Section Titles -->
+                    <div class="section-titles-row">
+                        <div class="section-title">DOMAIN INFORMATION</div>
+                        <div class="section-title">COMPANY INFORMATION</div>
+                    </div>
+                    <div class="section-divider"></div>
+
+                    <!-- Two Columns -->
+                    <div class="two-columns">
+                        <!-- Left Column: Domain Info -->
+                        <div class="column-left">
+                            <div class="form-group">
+                                <label for="owner_code">Owner Code *</label>
+                                <input type="text" id="owner_code" name="owner_code" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="name">Name *</label>
+                                <input type="text" id="name" name="name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email *</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
+                            <div class="form-group" id="passwordGroup">
+                                <label for="password">Password *</label>
+                                <input type="password" id="password" name="password">
+                            </div>
+                            <div class="form-group" id="secondaryPasswordGroup">
+                                <label for="secondary_password">Secondary Password *</label>
+                                <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits only" required>
+                                <small class="form-hint">Must be exactly 6 digits (0-9)</small>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Company Management (inline) -->
+                        <div class="column-right">
+                            <!-- Side-by-side: Group ID + Company ID inputs -->
+                            <div class="inputs-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="groupInput">Group ID</label>
+                                    <div class="input-with-btn">
+                                        <input type="text" id="groupInput" placeholder="GROUP ID" style="text-transform: uppercase;">
+                                        <button type="button" class="btn-inline-add" onclick="addGroupToList()">Add</button>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="companyInput">Company ID</label>
+                                    <div class="input-with-btn">
+                                        <input type="text" id="companyInput" placeholder="COMPANY ID" style="text-transform: uppercase;">
+                                        <button type="button" class="btn-inline-add" onclick="addCompanyToList()">Add</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Group Pills -->
+                            <div class="form-group" id="groupPillsSection">
+                                <label>Group :</label>
+                                <div class="group-pills" id="groupPillsContainer">
+                                    <span style="color: #94a3b8; font-size: 12px;">No groups created</span>
+                                </div>
+                            </div>
+
+                            <!-- Selected Companies -->
+                            <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
+                                <div class="selected-companies-header">
+                                    <label>Selected Companies :</label>
+                                    <button type="button" class="badge-multi" id="multipleChoiceBtn" onclick="toggleMultipleChoice()" style="border: none; cursor: pointer;" title="Assign ungrouped companies to selected group">Multiple Choice</button>
+                                </div>
+                                <div class="companies-list-box" id="companyItems">
+                                    <span style="color: #94a3b8; font-size: 12px;">No companies added yet</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="companies" name="companies">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer-wide">
+                    <button type="submit" class="btn-wide btn-wide-confirm">Confirm</button>
+                    <button type="button" class="btn-wide btn-wide-cancel" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 

@@ -12,12 +12,12 @@ define('SESSION_TIMEOUT', 3600); // 1小时
 // 检查remember me cookie自动登录
 if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
     $remember_token = $_COOKIE['remember_token'];
-    
+
     // 验证remember token
     $stmt = $pdo->prepare("SELECT * FROM user WHERE remember_token = ? AND remember_token_expires > NOW() AND company_id = 'c168' AND status = 'active'");
     $stmt->execute([$remember_token]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($user) {
         // 重新建立session
         $_SESSION['user_id'] = $user['id'];
@@ -25,7 +25,7 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
         $_SESSION['name'] = $user['name'];
         $_SESSION['role'] = $user['role'];
         $_SESSION['last_activity'] = time();
-        
+
         // 更新最后登录时间
         $stmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
         $stmt->execute([$user['id']]);
@@ -43,12 +43,12 @@ if (isset($_SESSION['user_id'])) {
         // 清除 session
         session_unset();
         session_destroy();
-        
+
         // 重定向到登录页
         header("Location: index.php");
         exit();
     }
-    
+
     // 检查owner是否已通过二级密码验证
     if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner') {
         if (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true) {
@@ -64,7 +64,8 @@ if (isset($_SESSION['user_id'])) {
             try {
                 $stmt = $pdo->prepare("UPDATE user SET remember_token = NULL, remember_token_expires = NULL WHERE id = ?");
                 $stmt->execute([$_SESSION['user_id']]);
-            } catch (PDOException $e) { /* user 表可能无此字段，member 从 account 登录 */ }
+            } catch (PDOException $e) { /* user 表可能无此字段，member 从 account 登录 */
+            }
         }
         session_unset();
         session_destroy();
@@ -80,10 +81,10 @@ if (isset($_SESSION['user_id'])) {
         header("Location: member.php");
         exit();
     }
-    
+
     // 更新活动时间戳
     $_SESSION['last_activity'] = time();
-    
+
 } else {
     // 未登录，重定向到登录页
     header("Location: index.php");
@@ -119,6 +120,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -138,17 +140,18 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
     <script>
         // 用户数据供JavaScript使用（外部 js/dashboard.js 依赖此变量）
         window.userData = <?php echo json_encode($userData); ?>;
-        window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
+        window.companyId = <?php echo isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : 'null'; ?>;
     </script>
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <script src="js/dashboard.js?v=<?php echo $assetVer('js/dashboard.js'); ?>"></script>
 </head>
+
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
-    
+
     <div class="dashboard-container">
         <h1 class="dashboard-title">Transaction Dashboard</h1>
-        
+
         <div id="app" class="dashboard-content">
             <!-- Date Controls -->
             <div class="dashboard-card">
@@ -180,7 +183,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                                     <span id="month-month-display">--</span>
                                 </div>
                                 <span class="date-separator">Month</span>
-            
+
                                 <div class="date-dropdown" id="month-dropdown"></div>
                             </div>
                         </div>
@@ -198,27 +201,41 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                                 </button>
                                 <div class="dropdown-menu" id="quick-select-dropdown">
                                     <button class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                                    <button class="dropdown-item"
+                                        onclick="selectQuickRange('yesterday')">Yesterday</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisWeek')">This
+                                        Week</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last
+                                        Week</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisMonth')">This
+                                        Month</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last
+                                        Month</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisYear')">This
+                                        Year</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastYear')">Last
+                                        Year</button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
+                    <!-- Group Buttons (above Company) -->
+                    <div id="group-buttons-wrapper" class="transaction-company-filter" style="display: none;">
+                        <span class="transaction-company-label">GroupID:</span>
+                        <div id="group-buttons-container" class="transaction-company-buttons">
+                            <!-- Group buttons will be dynamically added here -->
+                        </div>
+                    </div>
                     <!-- Company Buttons -->
-                    <div id="company-buttons-wrapper" class="transaction-company-filter">
+                    <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
                         <span class="transaction-company-label">Company:</span>
                         <div id="company-buttons-container" class="transaction-company-buttons">
                             <!-- Company buttons will be dynamically added here -->
                         </div>
                     </div>
                     <!-- Currency Buttons (below Company) -->
-                    <div id="currency-buttons-wrapper" class="transaction-company-filter">
+                    <div id="currency-buttons-wrapper" class="transaction-company-filter" style="display: none;">
                         <span class="transaction-company-label">Currency:</span>
                         <div id="currency-buttons-container" class="transaction-company-buttons">
                             <!-- Currency buttons will be dynamically added here -->
@@ -226,51 +243,53 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                     </div>
                 </div>
             </div>
-            
+
             <!-- KPI卡片区域 -->
-                <div class="dashboard-kpi-grid">
-                    <!-- Capital (显示为 Profit) -->
+            <div class="dashboard-kpi-grid">
+                <!-- Capital (显示为 Profit) -->
                 <div class="dashboard-kpi-card">
-                                <div class="icon text-blue">
-                                    <i class="fas fa-wallet"></i>
-                                </div>
+                    <div class="icon text-blue">
+                        <i class="fas fa-wallet"></i>
+                    </div>
                     <div class="kpi-label">Profit</div>
                     <div class="kpi-value" id="capital-value">0</div>
-                    </div>
-                    
-                    <!-- Expenses -->
+                </div>
+
+                <!-- Expenses -->
                 <div class="dashboard-kpi-card">
-                                <div class="icon text-red">
-                                    <i class="fas fa-arrow-down"></i>
-                                </div>
+                    <div class="icon text-red">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
                     <div class="kpi-label">Expenses</div>
                     <div class="kpi-value" id="expenses-value">0</div>
-                    </div>
-                    
-                    <!-- Profit (显示为 NET PROFIT)：数值 = 所有 Role 为 PROFIT 的账户余额总和 -->
+                </div>
+
+                <!-- Profit (显示为 NET PROFIT)：数值 = 所有 Role 为 PROFIT 的账户余额总和 -->
                 <div class="dashboard-kpi-card">
-                                <div class="icon text-green">
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
+                    <div class="icon text-green">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
                     <div class="kpi-label">NET PROFIT</div>
                     <div class="kpi-value" id="profit-value">0</div>
-                                </div>
-                            </div>
-            
+                </div>
+            </div>
+
             <!-- 图表区域 -->
             <div class="dashboard-chart-section">
                 <div class="dashboard-chart-header">
                     <div>
                         <div class="dashboard-chart-title">Trend Chart</div>
-                        <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">Loading data...</div>
+                        <div class="dashboard-date-info" id="chart-date-range"
+                            style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">
+                            Loading data...</div>
                     </div>
                 </div>
                 <div class="dashboard-chart-container">
                     <canvas id="trend-chart"></canvas>
                 </div>
             </div>
-            </div>
         </div>
+    </div>
     </div>
 
     <!-- 日历弹窗 -->
@@ -317,4 +336,5 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
     </div>
 
 </body>
+
 </html>

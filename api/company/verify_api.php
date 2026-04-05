@@ -20,8 +20,8 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 }
 
 function getCompanyByCode(PDO $pdo, $company_id) {
-    $stmt = $pdo->prepare("SELECT id, company_name FROM company WHERE UPPER(company_id) = UPPER(?)");
-    $stmt->execute([$company_id]);
+    $stmt = $pdo->prepare("SELECT id, company_name FROM company WHERE UPPER(company_id) = UPPER(?) OR UPPER(group_id) = UPPER(?) LIMIT 1");
+    $stmt->execute([$company_id, $company_id]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 

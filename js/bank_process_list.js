@@ -676,6 +676,8 @@ function syncBankTableColumnWidth() {
             processTableBody.style.setProperty('--table-header-width', rect.width + 'px');
         });
     });
+}
+
 function openAddProcessForSelectedPermission() {
     if (selectedPermission === 'Bank') {
         window.selectedProfitSharingEntries = [];
@@ -690,9 +692,14 @@ function openAddProcessForSelectedPermission() {
             // Initial frequency sync for Add Process
             if (typeof updateBankFrequencyOptions === 'function') {
                 const dayEndEl = document.getElementById('bank_day_end');
-                if (dayEndEl) dayEndEl.value = '';
+                if (dayEndEl) {
+                    dayEndEl.value = '';
+                    dayEndEl.removeAttribute('min');
+                    delete dayEndEl.dataset.bankContractEndHint;
+                }
                 updateBankFrequencyOptions();
             }
+            if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
             setBankModalLoadingState(false, 'Add Process');
             updateBankSubmitButtonState();
         }).catch(() => {
@@ -773,6 +780,11 @@ function closeAddBankModal() {
     const bankRemarkEl = document.getElementById('bank_remark');
     if (bankSopEl) bankSopEl.value = '';
     if (bankRemarkEl) bankRemarkEl.value = '';
+    const dayEndClear = document.getElementById('bank_day_end');
+    if (dayEndClear) {
+        dayEndClear.removeAttribute('min');
+        delete dayEndClear.dataset.bankContractEndHint;
+    }
 }
 
 function openProcessNoteModal(target) {
@@ -1006,6 +1018,7 @@ async function openBankEditModal(id) {
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
+        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
         closeAddBankModal();
@@ -1089,7 +1102,7 @@ function renderAccountingInbox(items) {
         const cbDisabled = row.already_posted_today ? ' disabled' : '';
         const cbChecked = row.already_posted_today ? '' : ' checked';
         const cbClass = 'process-accounting-inbox-row-cb';
-        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : 'monthly');
+        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'));
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
         const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
@@ -1552,18 +1565,27 @@ function bindBankFieldErrorClear() {
     const contractEl = document.getElementById('bank_contract');
     const dayEndEl = document.getElementById('bank_day_end');
 
+    function syncBankDayEndContractMin() {
+        autoCalculateBankDayEnd();
+    }
     if (dayStartEl && !dayStartEl._freqBound) {
         dayStartEl._freqBound = true;
-        dayStartEl.addEventListener('change', autoCalculateBankDayEnd);
+        dayStartEl.addEventListener('change', syncBankDayEndContractMin);
+        dayStartEl.addEventListener('input', syncBankDayEndContractMin);
     }
     if (contractEl && !contractEl._freqBound) {
         contractEl._freqBound = true;
-        contractEl.addEventListener('change', autoCalculateBankDayEnd);
+        contractEl.addEventListener('change', syncBankDayEndContractMin);
     }
     if (dayEndEl && !dayEndEl._freqBound) {
         dayEndEl._freqBound = true;
         dayEndEl.addEventListener('input', updateBankFrequencyOptions);
         dayEndEl.addEventListener('change', updateBankFrequencyOptions);
+    }
+    const freqSelectEl = document.getElementById('bank_day_start_frequency');
+    if (freqSelectEl && !freqSelectEl._bankDayEndMinBound) {
+        freqSelectEl._bankDayEndMinBound = true;
+        freqSelectEl.addEventListener('change', syncBankDayEndContractMin);
     }
 }
 
@@ -1574,6 +1596,7 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
     bindBankFieldErrorClear();
     addBankProcessForm.addEventListener('submit', async function (e) {
         e.preventDefault();
+        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
         if (bankProcessSubmitInFlight) {
             return;
         }
@@ -1688,6 +1711,10 @@ function updateBankFrequencyOptions() {
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
 
+    if (dayEndEl.min && dayEndEl.value && dayEndEl.value < dayEndEl.min) {
+        dayEndEl.value = dayEndEl.min;
+    }
+
     const hasDayEnd = !!dayEndEl.value;
     const monthlyOption = freqEl.querySelector('option[value="monthly"]');
 
@@ -1705,12 +1732,121 @@ function updateBankFrequencyOptions() {
     }
 }
 
-// Auto calculate Day End based on Day Start and Contract
+/** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致 */
+function parseBankContractTermMonths(contract) {
+    if (contract == null || String(contract).trim() === '') {
+        return null;
+    }
+    const c = String(contract).trim();
+    let m = c.match(/^1\+(\d+)$/i);
+    if (m) {
+        return 1 + parseInt(m[1], 10);
+    }
+    m = c.match(/^(\d+)\s*MONTHS?$/i);
+    if (m) {
+        return Math.max(1, parseInt(m[1], 10));
+    }
+    return null;
+}
+
+function addCalendarMonthsToYmd(ymd, months) {
+    if (!ymd || months == null || months < 1) {
+        return null;
+    }
+    const p = String(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!p) {
+        return null;
+    }
+    const d = new Date(parseInt(p[1], 10), parseInt(p[2], 10) - 1, parseInt(p[3], 10));
+    if (isNaN(d.getTime())) {
+        return null;
+    }
+    d.setMonth(d.getMonth() + months);
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + mo + '-' + day;
+}
+
+/** 与 api/processes/billing_schedule.php billingContractExclusiveEndYmdFirstOfMonth 一致（每月1号结算锚点） */
+function billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths) {
+    if (!startYmd || termMonths < 1) {
+        return null;
+    }
+    const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!p) {
+        return null;
+    }
+    const y = parseInt(p[1], 10);
+    const mo = parseInt(p[2], 10);
+    const day = parseInt(p[3], 10);
+    const start = new Date(y, mo - 1, day);
+    if (isNaN(start.getTime())) {
+        return null;
+    }
+    if (day === 1) {
+        start.setMonth(start.getMonth() + termMonths);
+    } else {
+        const firstAnchor = new Date(y, mo, 1);
+        firstAnchor.setMonth(firstAnchor.getMonth() + (termMonths - 1));
+        return firstAnchor.getFullYear() + '-' + String(firstAnchor.getMonth() + 1).padStart(2, '0') + '-' + String(firstAnchor.getDate()).padStart(2, '0');
+    }
+    return start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0');
+}
+
+/** 与 contractExclusiveEndYmdForFrequency：monthly = 起始日+N月；否则 = 1st 锚点规则 */
+function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
+    if (!startYmd || termMonths == null || termMonths < 1) {
+        return null;
+    }
+    if (frequency === 'monthly') {
+        return addCalendarMonthsToYmd(startYmd, termMonths);
+    }
+    return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+}
+
+/**
+ * 不自动填写空的 Day end。设置合约对应的 min；早于 min 则上调。
+ * 合同月数缩短（或起始日变化导致合约结束提前）时：若当前 Day end 仍落在「旧合约结束日及之前」且晚于新结束日，则随新合同收到新结束日。
+ * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
+ */
 function autoCalculateBankDayEnd() {
-    // We no longer auto-calculate Day End. It must be entered manually.
-    
-    // After any change to Day Start or Contract, we still sync the frequency options 
-    // in case the user has manually entered a Day End.
+    const dayStartEl = document.getElementById('bank_day_start');
+    const dayEndEl = document.getElementById('bank_day_end');
+    const contractEl = document.getElementById('bank_contract');
+    if (!dayEndEl) {
+        return;
+    }
+    const start = (dayStartEl && dayStartEl.value || '').trim();
+    const contract = (contractEl && contractEl.value || '').trim();
+    const prevContractEnd = (dayEndEl.dataset.bankContractEndHint || '').trim();
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    const frequency = (freqEl && freqEl.value === 'monthly') ? 'monthly' : '1st_of_every_month';
+    if (!start) {
+        dayEndEl.removeAttribute('min');
+        delete dayEndEl.dataset.bankContractEndHint;
+        updateBankFrequencyOptions();
+        return;
+    }
+    const term = parseBankContractTermMonths(contract);
+    const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
+    if (!calculated) {
+        dayEndEl.min = start;
+        delete dayEndEl.dataset.bankContractEndHint;
+        if (dayEndEl.value && dayEndEl.value < start) {
+            dayEndEl.value = start;
+        }
+        updateBankFrequencyOptions();
+        return;
+    }
+    dayEndEl.min = calculated;
+    const cur = (dayEndEl.value || '').trim();
+    if (cur && cur < calculated) {
+        dayEndEl.value = calculated;
+    } else if (prevContractEnd && cur && calculated < prevContractEnd && cur <= prevContractEnd && cur > calculated) {
+        dayEndEl.value = calculated;
+    }
+    dayEndEl.dataset.bankContractEndHint = calculated;
     updateBankFrequencyOptions();
 }
 
@@ -3924,7 +4060,6 @@ function initBankProcessModule() {
     if (accountingInboxRefresh) accountingInboxRefresh.addEventListener('click', function () { loadAccountingInbox(); });
     const accountingInboxPost = document.getElementById('processAccountingInboxPostBtn');
     if (accountingInboxPost) accountingInboxPost.addEventListener('click', function () { postAccountingInboxToTransaction(); });
-}
 }
 return {
     init: initBankProcessModule,

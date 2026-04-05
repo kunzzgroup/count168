@@ -8,9 +8,14 @@ let rowsPerPage = 10;
 let filteredRows = [];
 let allRows = [];
 
-// Companies管理变量 - 现在存储对象数组 {company_id, expiration_date}
+// Companies管理变量 - 现在存储对象数组 {company_id, expiration_date, group_id}
 let selectedCompanies = [];
 let tempCompanies = [];
+
+// Group管理变量
+let tempGroups = [];        // 当前 owner 的所有 group_id 列表 (string[])
+let selectedGroupId = null; // 当前选中的 group pill（null = 显示未归组公司）
+let isMultipleChoiceMode = false; // "Multiple Choice" 模式：勾选公司分配到选中的 group
 
 // 计算到期日期
 // startDate: 可选的起始日期（YYYY-MM-DD格式），如果提供则从该日期开始计算，否则从今天开始
@@ -299,25 +304,150 @@ function setupInputFormatting() {
 }
 
 // Company管理相关函数
-function openCompanyModal() {
-    // 复制当前选中的companies到临时列表（深拷贝）
+// 初始化 tempCompanies（在打开 Domain Modal 时调用）
+function initTempCompanies() {
     tempCompanies = selectedCompanies.map(c => ({ ...c }));
-    // 保留已有到期日的 selectedPeriod（用于再次打开 Set 时下拉框显示正确），无到期日则 null
     tempCompanies.forEach(company => {
         company.originalExpirationDate = company.expiration_date || null;
         company.selectedPeriod = company.expiration_date ? getPeriodFromDate(company.expiration_date) : null;
         company.startDate = company.expiration_date ? null : new Date().toISOString().split('T')[0];
         company.isExtending = company.expiration_date ? true : false;
     });
+    // 提取 unique group_ids
+    tempGroups = [...new Set(tempCompanies.filter(c => c.group_id).map(c => c.group_id))];
+    selectedGroupId = null;
+    isMultipleChoiceMode = false;
+    resetMultipleChoiceBtn();
+    updateGroupPills();
     updateCompanyDisplay();
-    document.getElementById('companyModal').style.display = 'block';
-    document.getElementById('companyInput').value = '';
 }
 
-function closeCompanyModal() {
-    document.getElementById('companyModal').style.display = 'none';
-    document.getElementById('companyInput').value = '';
+// 重置 Multiple Choice 按钮状态 + 根据是否有 group 来显示/隐藏
+function resetMultipleChoiceBtn() {
+    const btn = document.getElementById('multipleChoiceBtn');
+    if (!btn) return;
+    btn.classList.remove('active');
+    btn.textContent = 'Multiple Choice';
+    updateMultipleChoiceBtnVisibility();
 }
+
+// 只有选中了某个 group 时才显示 Multiple Choice 按钮
+function updateMultipleChoiceBtnVisibility() {
+    const btn = document.getElementById('multipleChoiceBtn');
+    if (!btn) return;
+    btn.style.display = selectedGroupId ? 'inline-block' : 'none';
+}
+
+// ============ Group 管理 ============
+function addGroupToList() {
+    const input = document.getElementById('groupInput');
+    const groupId = input.value.trim().toUpperCase();
+    if (!groupId) {
+        showAlert('Please enter a Group ID', 'danger');
+        return;
+    }
+    if (tempGroups.includes(groupId)) {
+        showAlert('Group ID already exists', 'danger');
+        return;
+    }
+    tempGroups.push(groupId);
+    updateGroupPills();
+    input.value = '';
+    showAlert(`Group "${groupId}" added!`);
+}
+
+function removeGroup(groupId) {
+    const count = tempCompanies.filter(c => c.group_id === groupId).length;
+    const msg = count > 0
+        ? `Are you sure you want to delete group "${groupId}"?\n\n${count} company(ies) in this group will become ungrouped.`
+        : `Are you sure you want to delete group "${groupId}"?`;
+    if (!confirm(msg)) return;
+
+    // 把该 group 下的公司变回独立
+    tempCompanies.forEach(c => {
+        if (c.group_id === groupId) {
+            c.group_id = null;
+        }
+    });
+    tempGroups = tempGroups.filter(g => g !== groupId);
+    if (selectedGroupId === groupId) {
+        selectedGroupId = null;
+        isMultipleChoiceMode = false;
+    }
+    resetMultipleChoiceBtn();
+    updateGroupPills();
+    updateCompanyDisplay();
+    syncCompaniesHiddenField();
+    showAlert(`Group "${groupId}" removed`);
+}
+
+function selectGroup(groupId) {
+    if (selectedGroupId === groupId) {
+        selectedGroupId = null;
+    } else {
+        selectedGroupId = groupId;
+    }
+    isMultipleChoiceMode = false;
+    resetMultipleChoiceBtn();
+    updateGroupPills();
+    updateCompanyDisplay();
+}
+
+function updateGroupPills() {
+    const container = document.getElementById('groupPillsContainer');
+    if (!container) return;
+    if (tempGroups.length === 0) {
+        container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No groups created</span>';
+        return;
+    }
+    container.innerHTML = tempGroups.map(gid => {
+        const isActive = selectedGroupId === gid;
+        const count = tempCompanies.filter(c => c.group_id === gid).length;
+        return `
+            <span class="group-pill ${isActive ? 'active' : ''}" onclick="selectGroup('${gid}')">
+                ${gid} (${count})
+                <span class="remove-x" onclick="event.stopPropagation(); removeGroup('${gid}')">&times;</span>
+            </span>
+        `;
+    }).join('');
+}
+
+// ============ Multiple Choice 模式 ============
+function toggleMultipleChoice() {
+    if (!selectedGroupId) {
+        showAlert('Please select a Group first', 'danger');
+        return;
+    }
+    isMultipleChoiceMode = !isMultipleChoiceMode;
+    const btn = document.getElementById('multipleChoiceBtn');
+    if (btn) {
+        btn.classList.toggle('active', isMultipleChoiceMode);
+        btn.textContent = isMultipleChoiceMode ? 'Done ✓' : 'Multiple Choice';
+    }
+    updateCompanyDisplay();
+    if (!isMultipleChoiceMode) {
+        updateGroupPills(); // 退出时刷新 pill 上的数量
+    }
+}
+
+function toggleCompanyGroup(companyId) {
+    if (!selectedGroupId) return;
+    const company = tempCompanies.find(c => c.company_id === companyId);
+    if (!company) return;
+    if (company.group_id === selectedGroupId) {
+        // 已在该 group → 移出
+        company.group_id = null;
+    } else {
+        // 加入该 group
+        company.group_id = selectedGroupId;
+    }
+    updateGroupPills();
+    updateCompanyDisplay();
+    syncCompaniesHiddenField();
+}
+
+// openCompanyModal / closeCompanyModal are no longer used;
+// companies are managed inline in the domain modal.
 
 function addCompanyToList() {
     const input = document.getElementById('companyInput');
@@ -341,9 +471,10 @@ function addCompanyToList() {
     tempCompanies.push({
         company_id: companyId,
         expiration_date: newExpirationDate,
-        originalExpirationDate: newExpirationDate, // 新添加的公司，原始到期日期就是第一次设置的日期
-        startDate: today, // 新添加的公司，开始日期为今天
-        isExtending: false // 新添加，不是续上时间
+        originalExpirationDate: newExpirationDate,
+        startDate: today,
+        isExtending: false,
+        group_id: null // 新添加的公司默认是独立的
     });
     updateCompanyDisplay();
     input.value = '';
@@ -758,18 +889,67 @@ function updateCompanyDisplay() {
     if (tempCompanies.length === 0) {
         container.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies added yet</span>';
     } else {
+        // 根据 selectedGroupId 筛选
+        let filteredCompanies;
+        if (selectedGroupId) {
+            // 选中了某个 group → 只显示该 group 的公司
+            filteredCompanies = tempCompanies.filter(c => c.group_id === selectedGroupId);
+        } else if (tempGroups.length > 0) {
+            // 有 group 但没有选中 → 只显示独立公司（group_id = null）
+            filteredCompanies = tempCompanies.filter(c => !c.group_id);
+        } else {
+            // 没有任何 group → 显示所有公司
+            filteredCompanies = [...tempCompanies];
+        }
+
+        // Multiple Choice 模式：显示 checkbox 列表让用户勾选
+        if (isMultipleChoiceMode && selectedGroupId) {
+            // 显示所有未归组的公司(group_id=null) + 已在该 group 的公司
+            const assignableCandidates = tempCompanies.filter(c => {
+                return c.company_id.toUpperCase() !== 'C168' && (!c.group_id || c.group_id === selectedGroupId);
+            });
+            
+            const sortedCandidates = [...assignableCandidates].sort((a, b) => {
+                return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
+            });
+
+            const itemsHtml = sortedCandidates.map(company => {
+                const isInGroup = company.group_id === selectedGroupId;
+                return `
+                    <div class="company-assign-item" onclick="toggleCompanyGroup('${company.company_id}')">
+                        <input type="checkbox" ${isInGroup ? 'checked' : ''} onclick="event.stopPropagation(); toggleCompanyGroup('${company.company_id}')">
+                        <label>${company.company_id}</label>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `<div class="assign-grid">${itemsHtml}</div>`;
+
+            if (sortedCandidates.length === 0) {
+                container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No ungrouped companies available</span>';
+            }
+            
+            syncCompaniesHiddenField();
+            return;
+        }
+
         // 排序：C168放在第一个，其他按字母顺序
-        const sortedCompanies = [...tempCompanies].sort((a, b) => {
+        const sortedCompanies = [...filteredCompanies].sort((a, b) => {
             const aId = a.company_id.toUpperCase();
             const bId = b.company_id.toUpperCase();
-            
-            // C168始终排在第一位
             if (aId === 'C168') return -1;
             if (bId === 'C168') return 1;
-            
-            // 其他按字母顺序排序
             return aId.localeCompare(bId);
         });
+
+        if (sortedCompanies.length === 0) {
+            const msg = selectedGroupId 
+                ? `No companies in group "${selectedGroupId}". Click "Multiple Choice" to assign.`
+                : 'No ungrouped companies';
+            container.innerHTML = `<span style="color: #94a3b8; font-size: 12px;">${msg}</span>`;
+            syncCompaniesHiddenField();
+            return;
+        }
         
         container.innerHTML = sortedCompanies.map(company => {
             const isC168 = company.company_id.toUpperCase() === 'C168';
@@ -798,69 +978,54 @@ function updateCompanyDisplay() {
                 </div>
             `;
         }).join('');
+        
+        // 同步 hidden 字段，确保表单提交时数据正确
+        syncCompaniesHiddenField();
     }
 }
 
-function confirmCompanies() {
-    // 排序后再保存：C168放在第一个，其他按字母顺序
+// 同步 selectedCompanies 和 hidden field（表单提交前调用）
+function syncCompaniesFromTemp() {
     const sortedCompanies = [...tempCompanies].sort((a, b) => {
         const aId = a.company_id.toUpperCase();
         const bId = b.company_id.toUpperCase();
-        
-        // C168始终排在第一位
         if (aId === 'C168') return -1;
         if (bId === 'C168') return 1;
-        
-        // 其他按字母顺序排序
         return aId.localeCompare(bId);
     });
-    
-    // 只保存需要的字段，不保存临时字段（originalExpirationDate, selectedPeriod）；包含 permissions 供后端写入
     selectedCompanies = sortedCompanies.map(c => ({
         company_id: c.company_id,
         expiration_date: c.expiration_date,
-        permissions: Array.isArray(c.permissions) ? c.permissions : []
+        permissions: Array.isArray(c.permissions) ? c.permissions : [],
+        group_id: c.group_id || null
     }));
-    updateSelectedCompaniesDisplay();
-    // 将 companies 数据序列化为 JSON 字符串
     document.getElementById('companies').value = JSON.stringify(selectedCompanies);
-    closeCompanyModal();
-    showAlert('Companies updated successfully!');
 }
 
+// 实时同步 hidden 字段
+function syncCompaniesHiddenField() {
+    const sortedCompanies = [...tempCompanies].sort((a, b) => {
+        const aId = a.company_id.toUpperCase();
+        const bId = b.company_id.toUpperCase();
+        if (aId === 'C168') return -1;
+        if (bId === 'C168') return 1;
+        return aId.localeCompare(bId);
+    });
+    const cleaned = sortedCompanies.map(c => ({
+        company_id: c.company_id,
+        expiration_date: c.expiration_date,
+        permissions: Array.isArray(c.permissions) ? c.permissions : [],
+        group_id: c.group_id || null
+    }));
+    document.getElementById('companies').value = JSON.stringify(cleaned);
+}
+
+// updateSelectedCompaniesDisplay 现在不再单独使用（inline显示由 updateCompanyDisplay 处理）
 function updateSelectedCompaniesDisplay() {
-    const display = document.getElementById('selectedCompaniesDisplay');
-    
-    if (selectedCompanies.length === 0) {
-        display.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies selected</span>';
-    } else {
-        // 排序：C168放在第一个，其他按字母顺序
-        const sortedCompanies = [...selectedCompanies].sort((a, b) => {
-            const aId = (typeof a === 'string' ? a : a.company_id).toUpperCase();
-            const bId = (typeof b === 'string' ? b : b.company_id).toUpperCase();
-            
-            // C168始终排在第一位
-            if (aId === 'C168') return -1;
-            if (bId === 'C168') return 1;
-            
-            // 其他按字母顺序排序
-            return aId.localeCompare(bId);
-        });
-        
-        display.innerHTML = sortedCompanies.map(company => {
-            const companyId = typeof company === 'string' ? company : company.company_id;
-            const expDate = typeof company === 'object' && company.expiration_date ? company.expiration_date : null;
-            
-            return `
-                <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; margin: 3px; font-size: clamp(8px, 0.57vw, 11px); font-weight: bold;">
-                    ${companyId}${expDate ? ` - ${formatDate(expDate)}` : ''}
-                </span>
-            `;
-        }).join('');
-    }
+    // No-op: companies are now displayed inline in the main modal via updateCompanyDisplay()
 }
 
-// 允许Enter键添加company和格式化输入
+// 允许Enter键添加company/group和格式化输入
 document.addEventListener('DOMContentLoaded', function() {
     const companyInput = document.getElementById('companyInput');
     if (companyInput) {
@@ -879,6 +1044,23 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 粘贴时强制大写
         companyInput.addEventListener('paste', function() {
+            setTimeout(() => forceUppercase(this), 0);
+        });
+    }
+
+    // Group ID input handlers
+    const groupInput = document.getElementById('groupInput');
+    if (groupInput) {
+        groupInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addGroupToList();
+            }
+        });
+        groupInput.addEventListener('input', function() {
+            forceUppercase(this);
+        });
+        groupInput.addEventListener('paste', function() {
             setTimeout(() => forceUppercase(this), 0);
         });
     }
@@ -930,7 +1112,7 @@ function showAlert(message, type = 'success') {
 
 function openAddModal() {
     isEditMode = false;
-    document.getElementById('modalTitle').textContent = 'Add Domain';
+    document.getElementById('modalTitle').textContent = 'ADD DOMAIN';
     document.getElementById('domainForm').reset();
     document.getElementById('domainId').value = '';
     document.getElementById('password').required = true;
@@ -945,8 +1127,21 @@ function openAddModal() {
     
     // 重置companies
     selectedCompanies = [];
+    tempCompanies = [];
+    tempGroups = [];
+    selectedGroupId = null;
+    isMultipleChoiceMode = false;
     document.getElementById('companies').value = '';
-    updateSelectedCompaniesDisplay();
+    updateGroupPills();
+    updateCompanyDisplay();
+    
+    // 清空 inputs
+    const companyInput = document.getElementById('companyInput');
+    if (companyInput) companyInput.value = '';
+    const groupInput = document.getElementById('groupInput');
+    if (groupInput) groupInput.value = '';
+    // 重置 multiple choice 按钮
+    resetMultipleChoiceBtn();
     
     document.getElementById('domainModal').style.display = 'block';
     // 设置输入格式化
@@ -955,20 +1150,18 @@ function openAddModal() {
 
 function editDomain(id) {
     isEditMode = true;
-    document.getElementById('modalTitle').textContent = 'Edit Domain';
+    document.getElementById('modalTitle').textContent = 'EDIT DOMAIN';
     document.getElementById('password').required = false;
     document.getElementById('passwordGroup').style.display = 'block';
     
     // 编辑模式：只有C168的owner/admin可以修改二级密码
     const secondaryPasswordInput = document.getElementById('secondary_password');
     if (hasC168Context && isOwnerOrAdmin) {
-        // C168的owner/admin可以修改二级密码（可选）
         secondaryPasswordInput.required = false;
         secondaryPasswordInput.disabled = false;
         secondaryPasswordInput.placeholder = 'Leave empty to keep current password';
         document.getElementById('secondaryPasswordGroup').style.display = 'block';
     } else {
-        // 非C168用户不能修改二级密码
         secondaryPasswordInput.required = false;
         secondaryPasswordInput.disabled = true;
         secondaryPasswordInput.value = '';
@@ -984,6 +1177,10 @@ function editDomain(id) {
     document.getElementById('owner_code').disabled = true;
     document.getElementById('name').value = items[2].textContent;
     document.getElementById('email').value = items[3].textContent;
+    
+    // 清空 company input
+    const companyInput = document.getElementById('companyInput');
+    if (companyInput) companyInput.value = '';
     
     // 从 API 获取完整的公司信息（包括到期日期）
     fetch(`api/domain/domain_api.php`, {
@@ -1002,21 +1199,19 @@ function editDomain(id) {
                 selectedCompanies = data.data.companies.map(c => ({
                     company_id: c.company_id,
                     expiration_date: c.expiration_date || null,
-                    permissions: Array.isArray(c.permissions) ? c.permissions : []
+                    permissions: Array.isArray(c.permissions) ? c.permissions : [],
+                    group_id: c.group_id || null
                 }));
-                updateSelectedCompaniesDisplay();
-                document.getElementById('companies').value = JSON.stringify(selectedCompanies);
             } else {
                 selectedCompanies = [];
-                updateSelectedCompaniesDisplay();
-                document.getElementById('companies').value = JSON.stringify(selectedCompanies);
             }
+            // 初始化 tempCompanies 并渲染 inline 列表
+            initTempCompanies();
         })
         .catch(error => {
             console.error('Error loading companies:', error);
             selectedCompanies = [];
-            updateSelectedCompaniesDisplay();
-            document.getElementById('companies').value = JSON.stringify(selectedCompanies);
+            initTempCompanies();
         });
     
     document.getElementById('domainModal').style.display = 'block';
@@ -1027,12 +1222,18 @@ function editDomain(id) {
 function closeModal() {
     document.getElementById('domainModal').style.display = 'none';
     selectedCompanies = [];
+    tempCompanies = [];
+    tempGroups = [];
+    selectedGroupId = null;
+    isMultipleChoiceMode = false;
     // 重置二级密码输入框
     const secondaryPasswordInput = document.getElementById('secondary_password');
     if (secondaryPasswordInput) {
         secondaryPasswordInput.value = '';
         secondaryPasswordInput.required = true;
     }
+    // 重置 multiple choice 按钮
+    resetMultipleChoiceBtn();
 }
 
 // 切换删除模式
@@ -1490,6 +1691,9 @@ document.addEventListener('DOMContentLoaded', function() {
         domainForm.addEventListener('submit', function(e) {
             e.preventDefault();
 
+            // 先同步 tempCompanies 到 selectedCompanies 和 hidden field
+            syncCompaniesFromTemp();
+
             const formData = new FormData(this);
             const data = Object.fromEntries(formData.entries());
             data.action = isEditMode ? 'update' : 'create';
@@ -1503,6 +1707,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isEditMode && !data.secondary_password) {
                 delete data.secondary_password;
             }
+
+            // DEBUG: 检查发送的 companies 数据中的 group_id
+            console.log('[Domain Save] companies data:', data.companies);
 
             fetch('api/domain/domain_api.php', {
                 method: 'POST',

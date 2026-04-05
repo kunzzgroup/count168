@@ -13,7 +13,7 @@ header('Content-Type: application/json');
 
 function getCompaniesByUser(PDO $pdo, int $userId): array {
     $stmt = $pdo->prepare("
-        SELECT DISTINCT c.id, c.company_id 
+        SELECT DISTINCT c.id, c.company_id, c.group_id 
         FROM company c
         INNER JOIN user_company_map ucm ON c.id = ucm.company_id
         WHERE ucm.user_id = ?
@@ -24,7 +24,7 @@ function getCompaniesByUser(PDO $pdo, int $userId): array {
 }
 
 function getCompaniesByOwner(PDO $pdo, int $ownerId): array {
-    $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
+    $stmt = $pdo->prepare("SELECT id, company_id, group_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
     $stmt->execute([$ownerId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

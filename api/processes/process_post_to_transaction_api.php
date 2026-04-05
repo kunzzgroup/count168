@@ -2,7 +2,7 @@
 /**
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
- * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 全额。
+ * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 全额，day_end_tail = day_end 超出合同自然结束日的尾段按比例。
  * 仅处理 status = 'active' 的 process。
  */
 
@@ -113,6 +113,98 @@ function ymdFromNullableDateTime($raw, string $fallbackYmd): string
 function maxYmd(string $a, string $b): string
 {
     return ($a >= $b) ? $a : $b;
+}
+
+function getBillingTermMonthsFromContract(?string $contract): ?int
+{
+    if ($contract === null || trim($contract) === '') {
+        return null;
+    }
+    $c = trim($contract);
+    if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
+        return 1 + (int) $m[1];
+    }
+    if (preg_match('/^(\d+)\s*MONTHS?$/i', $c, $m)) {
+        return max(1, (int) $m[1]);
+    }
+    return null;
+}
+
+function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?string
+{
+    if ($termMonths < 1) {
+        return null;
+    }
+    try {
+        return (new DateTimeImmutable($dayStartYmd))->modify("+{$termMonths} months")->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $termMonths): ?string
+{
+    if ($termMonths < 1) {
+        return null;
+    }
+    try {
+        $start = new DateTimeImmutable($dayStartYmd);
+        if ((int) $start->format('j') === 1) {
+            return $start->modify("+{$termMonths} months")->format('Y-m-d');
+        }
+        $firstAnchor = $start->modify('first day of next month');
+        return $firstAnchor->modify('+' . ($termMonths - 1) . ' months')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract, string $frequency): ?string
+{
+    $term = getBillingTermMonthsFromContract($contract);
+    if ($term === null || $term < 1) {
+        return null;
+    }
+    if ($frequency === 'monthly') {
+        return billingContractExclusiveEndYmd($startYmd, $term);
+    }
+    return billingContractExclusiveEndYmdFirstOfMonth($startYmd, $term);
+}
+
+function prorateInclusiveDateRange(string $fromYmd, string $toYmd, float $cost, float $price, float $profit): array
+{
+    if ($fromYmd > $toYmd) {
+        return ['cost' => 0.0, 'price' => 0.0, 'profit' => 0.0];
+    }
+    try {
+        $cur = new DateTimeImmutable($fromYmd);
+        $end = new DateTimeImmutable($toYmd);
+    } catch (Throwable $e) {
+        return ['cost' => 0.0, 'price' => 0.0, 'profit' => 0.0];
+    }
+    $tc = 0.0;
+    $tp = 0.0;
+    $tf = 0.0;
+    while ($cur <= $end) {
+        $dim = (int) $cur->format('t');
+        $monthEnd = $cur->modify('last day of this month');
+        $chunkEnd = $monthEnd <= $end ? $monthEnd : $end;
+        $d0 = (int) $cur->format('j');
+        $d1 = (int) $chunkEnd->format('j');
+        $chunkDays = $d1 - $d0 + 1;
+        if ($dim > 0 && $chunkDays > 0) {
+            $ratio = $chunkDays / $dim;
+            $tc += $cost * $ratio;
+            $tp += $price * $ratio;
+            $tf += $profit * $ratio;
+        }
+        $cur = $chunkEnd->modify('+1 day');
+    }
+    return [
+        'cost' => round($tc, 2),
+        'price' => round($tp, 2),
+        'profit' => round($tf, 2),
+    ];
 }
 
 /** 某月第 N 日（不超过该月最后一天） */
@@ -335,7 +427,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -427,6 +519,26 @@ try {
             $profit = $partial['profit'];
         }
 
+        if ($periodType === 'day_end_tail' && $dayStartYmd) {
+            $dayEndRaw = $p['day_end'] ?? null;
+            if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {
+                continue;
+            }
+            $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
+            if ($term === null || $term < 1) {
+                continue;
+            }
+            $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
+            $dayEndInc = date('Y-m-d', strtotime((string) $dayEndRaw));
+            if ($exclusiveEnd === null || $dayEndInc < $exclusiveEnd) {
+                continue;
+            }
+            $tail = prorateInclusiveDateRange($exclusiveEnd, $dayEndInc, $cost, $price, $profit);
+            $cost = $tail['cost'];
+            $price = $tail['price'];
+            $profit = $tail['profit'];
+        }
+
         // monthly: if billing month matches created month and created is after due date, prorate from created to month end.
         if ($periodType === 'monthly' && ($pair['billing_month'] ?? '') !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $pair['billing_month'], $m)) {
             $billY = (int) $m[1];
@@ -500,7 +612,7 @@ try {
             // Old data not taken: anchor partial to max(day_start, created)
             $ledgerDate = maxYmd($dayStartYmd, $createdYmd);
         }
-        if ($periodType === 'monthly' || $periodType === 'manual_inactive') {
+        if ($periodType === 'monthly' || $periodType === 'manual_inactive' || $periodType === 'day_end_tail') {
             $ledgerDate = $fallbackDate;
         }
 
@@ -530,7 +642,7 @@ try {
             }
         }
 
-        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : '';
+        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : '');
         // Cost → Supplier(card_merchant)，Price → Customer，Profit → Company；首月按比例时三笔均用折算后的 cost/price/profit
         if (!empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
@@ -563,6 +675,9 @@ try {
                     $psRatio = $daysRemaining / $daysInMonth;
                 }
             }
+        } elseif ($periodType === 'day_end_tail') {
+            $fp = (float) ($p['profit'] ?? 0);
+            $psRatio = ($fp > 0) ? ($profit / $fp) : 0.0;
         }
         $profitSharingEntries = parseProfitSharingString($p['profit_sharing'] ?? '');
         $profitSharingResolved = [];
@@ -597,7 +712,7 @@ try {
         }
 
         $postedDateForInbox = $ledgerDate;
-        if ($periodType === 'monthly' && ($pair['billing_month'] ?? '') !== '') {
+        if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($pair['billing_month'] ?? '') !== '') {
             $postedDateForInbox = postedDateForMonthlyBillingMonth($pair['billing_month'], $ledgerDate);
         }
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);

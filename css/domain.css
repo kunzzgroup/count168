@@ -3,7 +3,8 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    height: 100vh; /* 添加这行 */
+    height: 100vh;
+    /* 添加这行 */
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -14,7 +15,8 @@ body {
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: hidden; /* 添加这行，禁止垂直滚动 */
+    overflow-y: hidden;
+    /* 添加这行，禁止垂直滚动 */
 }
 
 .container {
@@ -22,9 +24,11 @@ body {
     margin: 0;
     padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    height: 100vh; /* 添加这行 */
+    height: 100vh;
+    /* 添加这行 */
     box-sizing: border-box;
-    overflow: hidden; /* 添加这行 */
+    overflow: hidden;
+    /* 添加这行 */
 }
 
 h1 {
@@ -66,12 +70,13 @@ h1 {
     margin-top: 20px;
     border: none;
     border-radius: 0;
-    max-height: calc(100vh - 200px); /* 添加这行，限制最大高度 */
+    max-height: calc(100vh - 200px);
+    /* 添加这行，限制最大高度 */
 }
 
 .btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn:active {
@@ -203,7 +208,7 @@ h1 {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
 }
 
@@ -217,7 +222,8 @@ h1 {
     max-width: 900px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     overflow: hidden;
-    position: relative; /* 确保关闭按钮正确定位 */
+    position: relative;
+    /* 确保关闭按钮正确定位 */
 }
 
 .modal-content h2 {
@@ -235,7 +241,8 @@ h1 {
     display: flex;
     gap: 32px;
     align-items: stretch;
-    min-height: 300px; /* 添加这行 */
+    min-height: 300px;
+    /* 添加这行 */
 }
 
 /* 确保信息面板高度一致 */
@@ -243,18 +250,21 @@ h1 {
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 100%; /* 修改这行，从 500px 改为 100% */
+    min-height: 100%;
+    /* 修改这行，从 500px 改为 100% */
 }
 
 .domain-info-panel form {
     flex: 1;
     display: flex;
     flex-direction: column;
-    height: 100%; /* 添加这行 */
+    height: 100%;
+    /* 添加这行 */
 }
 
 .domain-info-panel .form-actions {
-    margin-top: clamp(10px, 1.3vw, 25px); /* 将按钮推到底部 */
+    margin-top: clamp(10px, 1.3vw, 25px);
+    /* 将按钮推到底部 */
 }
 
 .close {
@@ -399,6 +409,7 @@ h1 {
     pointer-events: none;
     isolation: isolate;
 }
+
 .notification-container .notification {
     pointer-events: auto;
 }
@@ -446,7 +457,9 @@ h1 {
 }
 
 /* Input formatting */
-#owner_code, #name, #companyInput {
+#owner_code,
+#name,
+#companyInput {
     text-transform: uppercase;
 }
 
@@ -624,6 +637,7 @@ h1 {
     margin-top: 6px;
     align-items: center;
 }
+
 .permission-toggle-btn {
     display: inline-flex;
     align-items: center;
@@ -639,8 +653,9 @@ h1 {
     font-weight: 600;
     font-family: inherit;
     line-height: 1.2;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
+
 .permission-toggle-btn .permission-checkbox {
     position: absolute;
     width: 0;
@@ -648,19 +663,23 @@ h1 {
     opacity: 0;
     pointer-events: none;
 }
+
 .permission-toggle-btn:hover {
     background: #e5e7eb;
     border-color: #9ca3af;
 }
+
 .permission-toggle-btn:has(.permission-checkbox:checked) {
     background: linear-gradient(180deg, #7eb8ff 0%, #2563eb 100%);
     border-color: #2563eb;
     color: #fff;
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
 }
+
 .permission-toggle-btn:has(.permission-checkbox:checked) span {
     color: #fff;
 }
+
 .permission-toggle-btn:has(.permission-checkbox:checked):hover {
     background: linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%);
     box-shadow: 0 3px 10px rgba(37, 99, 235, 0.4);
@@ -796,7 +815,7 @@ h1 {
 
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 2fr 3fr 3fr 4fr 2fr 2fr;
+    grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
     padding: clamp(0px, 0.78vw, 15px) 20px 15px;
     background-color: transparent;
@@ -805,21 +824,25 @@ h1 {
     font-weight: bold;
     color: #374151;
     font-size: clamp(10px, 0.74vw, 14px);
-    min-width: 0; /* 允许内容收缩 */
+    min-width: 0;
+    /* 允许内容收缩 */
 }
 
 .domain-cards {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: calc(100vh - 250px); /* 添加这行 */
-    overflow-y: auto; /* 添加这行 */
-    overflow-x: visible; /* 允许 tooltip 显示 */
+    max-height: calc(100vh - 250px);
+    /* 添加这行 */
+    overflow-y: auto;
+    /* 添加这行 */
+    overflow-x: visible;
+    /* 允许 tooltip 显示 */
 }
 
 .domain-card {
     display: none;
-    grid-template-columns: 1fr 2fr 3fr 3fr 4fr 2fr 2fr;
+    grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
     padding: clamp(4px, 0.52vw, 10px) 22px;
     background: white;
@@ -828,11 +851,13 @@ h1 {
     align-items: center;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    min-width: 0; /* 允许内容收缩 */
+    min-width: 0;
+    /* 允许内容收缩 */
 }
 
 .domain-card.show-card {
-    display: grid;  /* 添加新class来显示 */
+    display: grid;
+    /* 添加新class来显示 */
 }
 
 .domain-card:hover {
@@ -847,14 +872,19 @@ h1 {
     color: #374151;
     display: flex;
     align-items: center;
-    min-width: 0; /* 允许内容收缩 */
-    overflow: visible; /* 允许 tooltip 显示 */
-    text-overflow: ellipsis; /* 长文本显示省略号 */
-    white-space: nowrap; /* 防止文本换行 */
+    min-width: 0;
+    /* 允许内容收缩 */
+    overflow: visible;
+    /* 允许 tooltip 显示 */
+    text-overflow: ellipsis;
+    /* 长文本显示省略号 */
+    white-space: nowrap;
+    /* 防止文本换行 */
 }
 
 .card-item.companies-column {
-    overflow: visible; /* 确保 tooltip 可以显示 */
+    overflow: visible;
+    /* 确保 tooltip 可以显示 */
 }
 
 /* Force uppercase for specific columns */
@@ -938,6 +968,7 @@ h1 {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -962,6 +993,7 @@ h1 {
         transform: translateY(-80px) scale(0.95);
         opacity: 0;
     }
+
     to {
         transform: translateY(0) scale(1);
         opacity: 1;
@@ -987,10 +1019,13 @@ h1 {
 }
 
 @keyframes iconPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
     }
+
     50% {
         transform: scale(1.05);
         box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
@@ -1049,11 +1084,438 @@ h1 {
 }
 
 @media (max-width: 1024px) {
-    .form-group label{
+    .form-group label {
         font-size: clamp(8px, 0.73vw, 14px);
     }
 
-    .company-item{
+    .company-item {
         font-size: clamp(8px, 0.73vw, 14px);
+    }
+}
+
+/* =========================================================
+   Wide Two-Column Domain Modal (Redesigned – Large / Senior-friendly)
+   ========================================================= */
+.modal-container-wide {
+    background-color: #ffffff;
+    width: 96%;
+    max-width: 1100px;
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin: 1.5% auto;
+    position: relative;
+    animation: slideDown 0.3s ease-out;
+}
+
+/* Header */
+.modal-header-wide {
+    background-color: #f4f5f7;
+    padding: 18px 36px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #d1d5db;
+}
+
+.modal-header-wide h2 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #000;
+    margin: 0;
+    background: transparent;
+    padding: 0;
+    border: none;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    color: #000;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.modal-close-btn:hover {
+    background-color: #e5e7eb;
+}
+
+/* Body */
+.modal-body-wide {
+    padding: 24px 36px;
+}
+
+/* Override form-group inside wide modal for bigger sizing */
+.modal-container-wide .form-group {
+    margin-bottom: 14px;
+}
+
+.modal-container-wide .form-group label {
+    font-size: 14px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.modal-container-wide .form-group input,
+.modal-container-wide .form-group select {
+    font-size: 15px;
+    padding: 10px 14px;
+    min-height: 42px;
+    border-radius: 8px;
+}
+
+/* Section Titles */
+.section-titles-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    margin-bottom: 10px;
+}
+
+.section-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: #111827;
+    letter-spacing: 0.5px;
+}
+
+.section-divider {
+    height: 2.5px;
+    background-color: #1e3a8a;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+/* Two Columns */
+.two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+}
+
+.column-right {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Side-by-side inputs row */
+.inputs-row {
+    display: flex;
+    gap: 14px;
+}
+
+.inputs-row .form-group {
+    min-width: 0;
+}
+
+/* Group Pills */
+.group-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 0;
+    min-height: 34px;
+    align-items: center;
+}
+
+.group-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f5f9;
+    color: #1f2937;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    min-width: 56px;
+    justify-content: center;
+    height: 32px;
+}
+
+.group-pill:hover {
+    background: #e2e8f0;
+    border-color: #a5b4fc;
+}
+
+.group-pill.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+}
+
+.group-pill .remove-x {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    color: #dc2626;
+    transition: color 0.15s, transform 0.15s;
+    margin-left: 2px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+.group-pill .remove-x:hover {
+    color: #991b1b;
+    transform: scale(1.2);
+}
+
+.group-pill.active .remove-x {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.group-pill.active .remove-x:hover {
+    color: #fca5a5;
+    transform: scale(1.2);
+}
+
+/* Multiple Choice button active state */
+.badge-multi.active {
+    background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%) !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
+}
+
+/* 2-column grid for multiple choice mode */
+.assign-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+/* Checkbox item in multiple choice mode */
+.company-assign-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.company-assign-item:hover {
+    background-color: #f0f9ff;
+}
+
+.company-assign-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #3b82f6;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.company-assign-item label {
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Input with inline button */
+.input-with-btn {
+    display: flex;
+    gap: 0;
+}
+
+.input-with-btn input {
+    flex: 1;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-right: none !important;
+}
+
+.btn-inline-add {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    border: none;
+    padding: 0 22px;
+    font-size: 15px;
+    font-weight: 600;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.btn-inline-add:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+}
+
+/* Selected Companies Header */
+.selected-companies-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.selected-companies-header label {
+    font-size: 14px !important;
+}
+
+.badge-multi {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* Companies List Box */
+.companies-list-box {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #fafafa;
+    padding: 10px;
+    flex: 1;
+}
+
+.companies-list-box::-webkit-scrollbar {
+    width: 7px;
+}
+
+.companies-list-box::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.companies-list-box::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+}
+
+.companies-list-box::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+/* Company Item in the new list */
+.companies-list-box .company-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+}
+
+.companies-list-box .company-item span {
+    font-size: 14px;
+}
+
+.companies-list-box .company-item .exp-date-display {
+    font-size: 13px;
+}
+
+.companies-list-box .company-item .company-reset-btn {
+    font-size: 12px;
+    padding: 4px 14px;
+    height: auto;
+    min-height: 28px;
+    border-radius: 5px;
+}
+
+.companies-list-box .company-item .company-remove-btn {
+    font-size: 12px;
+    padding: 4px 12px;
+    height: auto;
+    min-height: 28px;
+    border-radius: 5px;
+}
+
+/* Footer */
+.modal-footer-wide {
+    padding: 18px 36px;
+    border-top: 2.5px solid #1e3a8a;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    background-color: white;
+}
+
+.btn-wide {
+    padding: 12px 36px;
+    border-radius: 22px;
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    border: none;
+    cursor: pointer;
+    min-width: 130px;
+    transition: all 0.2s;
+}
+
+.btn-wide:hover {
+    transform: translateY(-1px);
+}
+
+.btn-wide-confirm {
+    background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.btn-wide-confirm:hover {
+    background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.btn-wide-cancel {
+    background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+.btn-wide-cancel:hover {
+    background: linear-gradient(180deg, #6b7280 0%, #9ca3af 100%);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+}
+
+/* Form hint text */
+.form-hint {
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+}
+
+/* Responsive: collapse to single column on small screens */
+@media (max-width: 768px) {
+    .modal-container-wide {
+        max-width: 95%;
+    }
+
+    .two-columns {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .section-titles-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
     }
 }
