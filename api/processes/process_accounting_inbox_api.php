@@ -292,9 +292,21 @@ function maxYmd(string $a, string $b): string
 /** 该自然月是否已有 monthly / monthly_skipped（用于判断本期是否已处理） */
 function hasMonthlyPostedOrSkippedInCalendarMonth(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
-    $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1");
-    $stmt->execute([$companyId, $processId, $year, $month]);
-    return (bool) $stmt->fetch();
+    $sqlWithPeriod = "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1";
+    $sqlAny = "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? LIMIT 1";
+    try {
+        $stmt = $pdo->prepare($sqlWithPeriod);
+        $stmt->execute([$companyId, $processId, $year, $month]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        try {
+            $stmt = $pdo->prepare($sqlAny);
+            $stmt->execute([$companyId, $processId, $year, $month]);
+            return (bool) $stmt->fetch();
+        } catch (Throwable $e2) {
+            return false;
+        }
+    }
 }
 
 /** 某月第 N 日（不超过该月最后一天） */
@@ -449,6 +461,25 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     $item['already_posted_today'] = false;
                     continue;
                 }
+                if (!empty($item['is_partial_first_month'])) {
+                    $item['already_posted_today'] = in_array((int) $item['id'], $postedIds, true);
+                    continue;
+                }
+                if (!empty($item['is_day_end_tail'])) {
+                    $item['already_posted_today'] = in_array((int) $item['id'], $postedIds, true);
+                    continue;
+                }
+                // 无 period_type 列时 posted_date 为应付业务日，不能仅用「今天」匹配；按月与入账 API 推断一致
+                if (!empty($item['monthly_billing_month']) && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $item['monthly_billing_month'], $m)) {
+                    $item['already_posted_today'] = hasMonthlyPostedOrSkippedInCalendarMonth(
+                        $pdo,
+                        $companyId,
+                        (int) $item['id'],
+                        (int) $m[1],
+                        (int) $m[2]
+                    );
+                    continue;
+                }
                 $item['already_posted_today'] = in_array((int) $item['id'], $postedIds, true);
             }
         }
@@ -471,8 +502,7 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-05-05';
+    $today = date('Y-m-d');
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');

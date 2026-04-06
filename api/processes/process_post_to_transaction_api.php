@@ -277,12 +277,20 @@ function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYm
 /** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / monthly_skipped */
 function hasMonthlyPostedOrSkippedInCalendarMonthForTxn(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
+    $sqlWithPeriod = "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1";
+    $sqlAny = "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? LIMIT 1";
     try {
-        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1");
+        $stmt = $pdo->prepare($sqlWithPeriod);
         $stmt->execute([$companyId, $processId, $year, $month]);
         return (bool) $stmt->fetch();
     } catch (Throwable $e) {
-        return false;
+        try {
+            $stmt = $pdo->prepare($sqlAny);
+            $stmt->execute([$companyId, $processId, $year, $month]);
+            return (bool) $stmt->fetch();
+        } catch (Throwable $e2) {
+            return false;
+        }
     }
 }
 
