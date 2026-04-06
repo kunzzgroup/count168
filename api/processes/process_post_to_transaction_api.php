@@ -705,6 +705,7 @@ try {
         if (!$p) {
             continue;
         }
+        $skipCurrentPair = false;
         $monthlyProrationPsRatio = null;
         $periodType = $pair['period_type'];
         $cost = (float) ($p['cost'] ?? 0);
@@ -890,12 +891,20 @@ try {
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
+                    // 防止未来账单被提前提交：未到应付日（今天之前）不生成交易。
+                    if ($dueTx > $fallbackDate) {
+                        $skipCurrentPair = true;
+                    }
                     $postedDateForInbox = $dueTx;
                 }
             }
             if ($dayStartYmd) {
                 $transactionDate = maxYmd($dayStartYmd, $createdYmd);
             }
+        }
+
+        if ($skipCurrentPair) {
+            continue;
         }
 
         $ledgerDate = $transactionDate;
