@@ -314,7 +314,7 @@ h1 {
     border-bottom: none;
 }
 
-/* 10 columns: No., Dts Created, Account, From, Currency, Amount, Description, Remark, Submitted By, Checkbox */
+/* 9 columns: No., Dts Created, Account, From, Amount (currency + value), Description, Remark, Submitted By, Checkbox */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
     width: 3%;
@@ -337,31 +337,26 @@ h1 {
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 5%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 8%;
+    width: 22%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 22%;
+    width: 8%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 8%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 11%;
-}
-
-.maintenance-table th:nth-child(10),
-.maintenance-table td:nth-child(10) {
     width: 2%;
 }
 
@@ -376,16 +371,13 @@ h1 {
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
 
-.maintenance-cell-amount {
-    text-align: right;
-}
-
 .maintenance-header-amount {
     text-align: right !important;
 }
 
-.maintenance-cell-currency {
-    text-align: center;
+.maintenance-cell-currency-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .maintenance-cell-checkbox {
