@@ -226,16 +226,11 @@ function createRowElement(companyId, idx, rowData) {
     const isExternal = String(rowData.account_id).startsWith('O_');
     const isGroupOn = rowData.include_group !== 0;
     const includeGroupHtml = isExternal ? `
-        <button class="own-btn-square" 
-                style="width: 72px; padding: 0; font-size: 13px; font-weight: 700; transition: all 0.2s; 
-                       background-color: ${isGroupOn ? 'var(--own-primary-blue)' : 'white'};
-                       color: ${isGroupOn ? 'white' : '#94a3b8'};
-                       border-color: ${isGroupOn ? 'var(--own-primary-blue)' : 'var(--own-gray-border)'};"
-                title="Toggle sharing original Group ID with partner"
-                onclick="updateRowData(${companyId}, ${idx}, 'include_group', ${isGroupOn ? 0 : 1})">
-            Grp ${isGroupOn ? 'ON' : 'OFF'}
-        </button>
-    ` : `<div style="width: 72px; height: 38px;"></div>`;
+        <label style="display:flex; align-items:center; font-size:13px; font-weight:600; color:#555; cursor:pointer; width:65px; justify-content:flex-end;" title="Share original Group ID with partner">
+            <input type="checkbox" onchange="updateRowData(${companyId}, ${idx}, 'include_group', this.checked ? 1 : 0)" ${rowData.include_group !== 0 ? 'checked' : ''} style="margin-right:6px; width:15px; height:15px; cursor:pointer;">
+            Grp
+        </label>
+    ` : `<div style="width: 65px;"></div>`;
 
     div.innerHTML = `
         <div class="own-drag-handle">⋮⋮</div>
@@ -261,10 +256,10 @@ function createRowElement(companyId, idx, rowData) {
         <div class="own-row-actions" style="align-items: center;">
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, 1)">+</button>
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, -1)">-</button>
-            ${includeGroupHtml}
             <button class="own-btn-square own-btn-delete" title="Remove" onclick="removeRow(${companyId}, ${idx})">
                 <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
             </button>
+            ${includeGroupHtml}
         </div>
     `;
 
