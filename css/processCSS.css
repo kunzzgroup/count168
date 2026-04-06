@@ -1057,8 +1057,8 @@ body.process-page {
     padding: 0;
     border: none;
     border-radius: 1rem;
-    width: 92%;
-    max-width: 75rem; /* ~1200px */
+    width: 88%;
+    max-width: 68rem; /* slightly narrower to center better */
     box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
     overflow: auto;
     max-height: 98vh; /* expand to screen size to prevent scrolling */
@@ -1190,8 +1190,8 @@ body.process-page {
 
 /* Force Add Modal sizing and spacing (higher specificity) */
 .process-page #addModal .modal-content {
-    width: 92% !important;
-    max-width: 75rem !important;
+    width: 86% !important;
+    max-width: 66rem !important;
     margin-left: auto !important;
     margin-right: auto !important;
 }
@@ -1230,8 +1230,8 @@ body.process-page {
 
 /* Edit Modal - 与Add Modal保持一致的响应式设置 */
 .process-page #editModal .modal-content {
-    width: 92% !important;
-    max-width: 75rem !important;
+    width: 86% !important;
+    max-width: 66rem !important;
     margin-left: auto !important;
     margin-right: auto !important;
 }

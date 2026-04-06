@@ -1137,7 +1137,7 @@ body {
     padding: 0;
     border: none;
     border-radius: 1rem;
-    width: clamp(700px, 92vw, 1150px);
+    width: clamp(700px, 85vw, 950px);
     max-width: none;
     max-height: 98vh;
     box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
