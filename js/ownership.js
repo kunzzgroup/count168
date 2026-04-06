@@ -78,7 +78,14 @@ function renderCompanyCards() {
                         
                         <div id="rows-container-${comp.id}"></div>
                         
-                        <button class="own-btn-add-account" onclick="addAccountRow(${comp.id})">+ Add Account</button>
+                        <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px;">
+                            <button class="own-btn-add-account" onclick="addAccountRow(${comp.id})" style="margin:0;">+ Add Account</button>
+                            <div style="display: flex; gap: 8px; align-items: center; border-left: 1px solid var(--own-gray-border); padding-left: 15px;">
+                                <input type="text" id="partner-login-${comp.id}" placeholder="Partner Login ID" 
+                                       style="padding: 6px 10px; border: 1px solid var(--own-gray-border); border-radius: 4px; font-size: 14px; width: 160px; outline: none; background: white; color: var(--own-primary-text);">
+                                <button class="own-btn-outline" style="margin:0; padding: 6px 12px;" onclick="linkExternalPartner(${comp.id}, event)">Link Partner</button>
+                            </div>
+                        </div>
                         
                         <div class="own-card-footer">
                             <div class="own-footer-left">
@@ -468,4 +475,47 @@ function showToast(message, type = 'success') {
     toastTimeout = setTimeout(() => {
         toast.className = 'own-toast';
     }, 3000);
+}
+
+// ---------------------------------------------
+// External Partner Linking
+// ---------------------------------------------
+
+function linkExternalPartner(companyId, event) {
+    const loginIdInput = document.getElementById(`partner-login-${companyId}`);
+    const loginId = loginIdInput.value.trim();
+    if (!loginId) {
+        showToast('Please enter a Partner Login ID', 'error');
+        return;
+    }
+
+    const btn = event.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'Linking...';
+
+    fetch(`api/ownership/add_external_partner_api.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: companyId, login_id: loginId })
+    })
+    .then(res => res.json())
+    .then(res => {
+        btn.disabled = false;
+        btn.textContent = 'Link Partner';
+        if (res.status === 'success') {
+            showToast(res.message, 'success');
+            loginIdInput.value = '';
+            // Close and reopen the card to refresh the data
+            cancelEdit(companyId, true);
+            setTimeout(() => toggleCard(companyId, null), 300);
+        } else {
+            showToast(res.message, 'error');
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.textContent = 'Link Partner';
+        console.error(err);
+        showToast('Server error', 'error');
+    });
 }

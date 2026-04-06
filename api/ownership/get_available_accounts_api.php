@@ -25,15 +25,16 @@ try {
         $stmtAcc->execute([$company_id]);
         $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
 
-        // Fetch users (Owner)
+        // Fetch native owner and any linked external partners
         $stmtOwner = $pdo->prepare("
-            SELECT CONCAT('O_', o.id) as id, o.owner_code as account_name, o.name, 'OWNER' as role, 'owner' as type
+            SELECT DISTINCT CONCAT('O_', o.id) as id, o.owner_code as account_name, o.name, 'OWNER' as role, 'owner' as type
             FROM owner o
-            INNER JOIN company c ON o.id = c.owner_id
-            WHERE c.id = ? 
+            LEFT JOIN company c ON o.id = c.owner_id AND c.id = :comp_id1
+            LEFT JOIN company_ownership co ON o.id = co.account_id AND co.owner_type = 'owner' AND co.company_id = :comp_id2
+            WHERE (c.id IS NOT NULL OR co.company_id IS NOT NULL)
               AND LOWER(o.status) = 'active'
         ");
-        $stmtOwner->execute([$company_id]);
+        $stmtOwner->execute(['comp_id1' => $company_id, 'comp_id2' => $company_id]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
         // Combine
@@ -63,9 +64,10 @@ try {
         $stmtOwner = $pdo->prepare("
             SELECT CONCAT('O_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type
             FROM owner
-            WHERE LOWER(status) = 'active' 
+            WHERE LOWER(status) = 'active'
+              AND id = ?
         ");
-        $stmtOwner->execute();
+        $stmtOwner->execute([$_SESSION['user_id']]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
         $combined = array_merge($accounts, $users);

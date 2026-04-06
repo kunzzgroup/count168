@@ -1859,6 +1859,13 @@ function renderCompanyButtons(companies) {
         const btn = document.createElement('button');
         btn.className = 'transaction-company-btn';
         btn.textContent = company.company_id;
+        
+        // Add [Partner] badge if it's an externally shared company
+        if (company.is_external == 1) {
+            btn.innerHTML += ` <span style="font-size: 0.7em; background: #eab308; color: white; padding: 1px 4px; border-radius: 4px; margin-left: 4px; vertical-align: top;">Partner</span>`;
+            btn.dataset.isExternal = "1";
+        }
+
         btn.dataset.companyId = company.id;
         
         if (parseInt(company.id) === parseInt(window.companyId)) {

@@ -607,3 +607,40 @@ if ($companyId) {
         }
     })();
 </script>
+<script>
+    // B2B Cross-Account Sharing: Partner Read-Only Mode
+    window.isExternalView = <?php echo isset($_SESSION['is_external_view']) && $_SESSION['is_external_view'] ? 'true' : 'false'; ?>;
+    
+    if (window.isExternalView) {
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("External Partner Mode Active: Read-Only");
+
+            // Hide non-view categories
+            const hideCategories = ['Admin', 'Account', 'Process', 'Data Capture', 'Transaction Payment', 'Maintenance'];
+            
+            document.querySelectorAll('.informationmenu-menu a.informationmenu-btn, .informationmenu-menu div.informationmenu-btn').forEach(btn => {
+                const textSpan = btn.querySelector('.btn-text');
+                if (textSpan) {
+                    const text = textSpan.textContent.trim();
+                    if (hideCategories.includes(text)) {
+                        btn.style.display = 'none';
+                    }
+                }
+            });
+
+            // Visually disable action buttons
+            const observeDOM = new MutationObserver(() => {
+                document.querySelectorAll('button:not(.fc-button):not([data-readonly-processed]), input[type="submit"]:not([data-readonly-processed]), input[type="button"]:not([data-readonly-processed])').forEach(b => {
+                    const t = b.textContent.toLowerCase() + (b.value || '').toLowerCase();
+                    if (t.includes('add') || t.includes('save') || t.includes('delete') || t.includes('update') || t.includes('confirm') || t.includes('upload') || b.querySelector('svg:not(.view-icon)')) {
+                        b.style.pointerEvents = 'none';
+                        b.style.opacity = '0.4';
+                        b.title = 'Read-Only Partner Mode';
+                        b.setAttribute('data-readonly-processed', 'true');
+                    }
+                });
+            });
+            observeDOM.observe(document.body, { childList: true, subtree: true });
+        });
+    }
+</script>

@@ -57,8 +57,14 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
     }
     if (strtolower($user_role) === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $user_id;
-        $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-        $stmt->execute([$owner_id]);
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT c.id, c.company_id, IF(c.owner_id = ?, 0, 1) as is_external
+            FROM company c
+            LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner'
+            WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
+            ORDER BY c.company_id ASC
+        ");
+        $stmt->execute([$owner_id, $owner_id, $owner_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     $stmt = $pdo->prepare("
@@ -102,9 +108,13 @@ try {
     }
 
     $valid = false;
+    $is_external_view = false;
     foreach ($user_companies as $comp) {
         if ((int) $comp['id'] === $requested_company_id) {
             $valid = true;
+            if (isset($comp['is_external']) && $comp['is_external'] == 1) {
+                $is_external_view = true;
+            }
             break;
         }
     }
@@ -113,8 +123,9 @@ try {
         exit;
     }
 
-    // 更新当前会话的公司 ID
+    // 更新当前会话的公司 ID 和外部视图状态
     $_SESSION['company_id'] = $requested_company_id;
+    $_SESSION['is_external_view'] = $is_external_view;
 
     // 返回当前公司是否有 Games 权限，供侧边栏即时显示/隐藏 Data Capture
     // 同时更新 session 中的 company_code，避免使用 C168 登录后切到其他公司时仍被视为 C168
