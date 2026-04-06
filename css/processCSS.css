@@ -763,60 +763,53 @@ body.process-page {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
+/* Inline with .edit-btn / .remark-action-btn — same footprint, no filled chip */
 .process-page .bank-resend-btn,
 .process-page .bank-resent-btn {
     box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: clamp(28px, 2.35vw, 34px);
-    height: clamp(28px, 2.35vw, 34px);
-    padding: 0;
+    padding: clamp(2px, 0.31vw, 6px) 0;
     margin: 0;
-    border: 1px solid rgba(5, 150, 105, 0.45);
-    border-radius: 9px;
-    background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
-    color: #047857;
+    border: none;
+    background-color: transparent;
+    color: black;
     cursor: pointer;
     vertical-align: middle;
     flex-shrink: 0;
-    box-shadow: 0 1px 2px rgba(5, 46, 22, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .process-page .bank-resend-btn:hover:not(:disabled),
 .process-page .bank-resent-btn:hover:not(:disabled) {
-    border-color: rgba(4, 120, 87, 0.65);
-    background: linear-gradient(180deg, #f0fdf4 0%, #bbf7d0 100%);
-    color: #065f46;
-    box-shadow: 0 2px 8px rgba(5, 46, 22, 0.12);
-    transform: translateY(-1px);
+    background-color: transparent;
+    box-shadow: none;
 }
 
 .process-page .bank-resend-btn:focus-visible,
 .process-page .bank-resent-btn:focus-visible {
-    outline: 2px solid #10b981;
+    outline: 2px solid rgba(0, 0, 0, 0.35);
     outline-offset: 2px;
 }
 
 .process-page .bank-resend-btn:active:not(:disabled),
 .process-page .bank-resent-btn:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(5, 46, 22, 0.1);
+    box-shadow: none;
 }
 
 .process-page .bank-resend-btn:disabled,
 .process-page .bank-resent-btn:disabled {
     opacity: 0.55;
     cursor: wait;
-    transform: none;
 }
 
 .process-page .bank-resend-btn svg,
 .process-page .bank-resent-btn svg {
-    width: clamp(14px, 1.15vw, 18px);
-    height: clamp(14px, 1.15vw, 18px);
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(10px, 0.83vw, 16px);
     display: block;
+    color: currentColor;
+    filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
 .process-page .bank-resend-btn.is-loading svg,
