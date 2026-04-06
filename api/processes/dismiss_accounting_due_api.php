@@ -9,6 +9,7 @@ session_start();
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 
 function jsonResponse(bool $success, string $message = '', $data = null): void
 {
@@ -119,6 +120,14 @@ try {
 
     $today = date('Y-m-d');
     $inserted = 0;
+    bmp_ensureMaintenanceResendPendingTable($pdo);
+    $insPap = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
+    $selPap = $pdo->prepare("SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = ? LIMIT 1");
+    $insRp = $pdo->prepare(
+        "INSERT IGNORE INTO bank_process_maintenance_resend_pending
+         (company_id, bank_process_id, process_accounting_posted_id, period_type, transaction_date)
+         VALUES (?, ?, ?, ?, ?)"
+    );
     foreach ($pairs as $p) {
         $processId = $p['id'];
         $periodType = $p['period_type'];
@@ -132,10 +141,19 @@ try {
         if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($p['billing_month'] ?? '') !== '') {
             $postDate = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
         }
-        $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
-        $ins->execute([$companyId, $processId, $postDate, $skippedType]);
-        if ($ins->rowCount() > 0) {
+        $insPap->execute([$companyId, $processId, $postDate, $skippedType]);
+        $papId = 0;
+        if ($insPap->rowCount() > 0) {
             $inserted++;
+            $papId = (int) $pdo->lastInsertId();
+        } else {
+            $selPap->execute([$companyId, $processId, $postDate, $skippedType]);
+            $fid = $selPap->fetchColumn();
+            $papId = $fid ? (int) $fid : 0;
+        }
+        if ($papId > 0) {
+            $ptNorm = bmp_normalizePeriodType($periodType);
+            $insRp->execute([$companyId, $processId, $papId, $ptNorm, $postDate]);
         }
     }
 

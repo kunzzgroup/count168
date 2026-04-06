@@ -59,7 +59,7 @@ function buildBankRemarkActionButton(processId) {
 function buildBankResendActionButton(processId) {
     return '<button type="button" class="bank-resend-btn" data-bank-resend-for="' + processId + '" onclick="resendBankProcessAccountingDue(' + processId + ')" ' +
         'aria-label="Resend to Accounting Due" ' +
-        'title="Resend to Accounting Due — use after deleting this process’s bank posting in Maintenance (Bank or Payment). Posting rules stay the same.">' +
+        'title="Resend to Accounting Due — use after deleting this process’s bank posting in Maintenance (Bank or Payment), or after removing a row from Accounting Due. Posting rules stay the same.">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
         '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' +
         '<path d="M3 3v5h5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' +
@@ -1363,6 +1363,9 @@ async function confirmAccountingDueDelete() {
         if (result.success) {
             showNotification(result.message || 'Removed from Accounting Due', 'success');
             loadAccountingInbox();
+            if (typeof fetchProcesses === 'function') {
+                fetchProcesses();
+            }
         } else {
             showNotification(result.message || result.error || 'Remove failed', 'danger');
         }

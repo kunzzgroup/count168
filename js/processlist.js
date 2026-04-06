@@ -1948,7 +1948,7 @@ function showConfirmBankResendModal(processId) {
     if (msgEl) {
         msgEl.textContent =
             'Resend "' + label + '" to Accounting Due?\n\n' +
-            'Posting rules stay the same. This only clears the "already posted" mark after the bank posting was removed in Maintenance (Bank or Payment).';
+            'Posting rules stay the same. This clears the "already posted" / skipped mark after the bank posting was removed in Maintenance (Bank or Payment), or after you removed the row from Accounting Due.';
     }
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     if (confirmBtn) {
@@ -2024,6 +2024,9 @@ async function confirmAccountingDueDelete() {
         if (result.success) {
             showNotification(result.message || 'Removed from Accounting Due', 'success');
             loadAccountingInbox();
+            if (typeof fetchProcesses === 'function') {
+                fetchProcesses();
+            }
         } else {
             showNotification(result.message || result.error || 'Remove failed', 'danger');
         }

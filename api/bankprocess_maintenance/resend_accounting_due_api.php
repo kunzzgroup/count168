@@ -57,7 +57,7 @@ try {
     $stmt->execute([$company_id, $bankProcessId]);
     $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if (empty($pending)) {
-        throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易。');
+        throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
     }
 
     $pdo->beginTransaction();
