@@ -1,19 +1,10 @@
-/* Base Styles — Process List：锁 html/body 视口；Games 列表仍在面板内滚动；Bank 表在 .content 内随内容增高（见 .bank-table-wrapper） */
-html.process-page-html {
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-}
-
+/* Base Styles */
 body.process-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 0;
+    min-height: 100vh;
+    height: 100vh;
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -31,37 +22,11 @@ body.process-page {
 .process-page .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 8px clamp(180px, 14.06vw, 270px);
+    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    flex: 1 1 0;
-    min-height: 0;
-    max-height: 100%;
+    height: 100vh;
     box-sizing: border-box;
-    overflow-x: hidden;
-    overflow-y: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-/* 主内容占满 sidebar 右侧剩余高度；Bank 表按内容增高时在此区域滚动，避免表格外壳内再套一层纵向滚动条 */
-.process-page .content {
-    flex: 1 1 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    width: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-}
-
-.process-page .process-list-page-top,
-.process-page .separator-line,
-.process-page .action-buttons-container {
-    flex-shrink: 0;
-}
-
-.process-page #processTableWrapper {
-    flex-shrink: 0;
+    overflow: hidden;
 }
 
 .process-page .page-header {
@@ -77,30 +42,6 @@ body.process-page {
     font-weight: 500;
     letter-spacing: -0.025em;
     font-family: 'Amaranth', sans-serif;
-}
-
-.process-list-page-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: clamp(6px, 0.6vw, 12px);
-    margin-bottom: clamp(8px, 0.85vw, 14px);
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.process-list-page-top-left {
-    display: flex;
-    align-items: center;
-    gap: clamp(10px, 1vw, 14px);
-    flex-wrap: wrap;
-    min-width: 0;
-}
-
-.process-list-page-top .page-title {
-    margin-top: 0;
-    margin-bottom: 0;
-    font-size: clamp(22px, 1.75vw, 34px);
 }
 
 /* Search Section */
@@ -192,18 +133,18 @@ body.process-page {
 
 /* Controls Section - copied from accountCSS.css */
 .process-page .action-buttons-container {
-    margin-top: 12px;
+    margin-top: 20px;
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .process-page .action-buttons {
-    padding: 8px 16px;
+    padding: 10px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .process-page .process-company-filter {
@@ -220,7 +161,7 @@ body.process-page {
 
 /* Filter container in action buttons area (with padding) */
 .process-page .action-buttons-container .process-company-filter {
-    padding: 0 16px 6px 16px;
+    padding: 0 20px 10px 20px;
 }
 
 .process-page .process-company-label {
@@ -384,7 +325,7 @@ body.process-page {
     width: 100vw;
     height: 2px;
     background-color: #939393;
-    margin: 4px 0 8px 0;
+    margin: 5px 0 -10px 0;
     position: relative;
     left: 50%;
     right: 50%;
@@ -402,38 +343,26 @@ body.process-page {
     overflow-y: auto;
 }
 
-/* 包装器：表头与数据区同宽；Games 模式下整块参与 flex，内部再滚动 */
+/* 包装器：表头与数据区同宽，Bank 数据区可横向滚动 */
 .process-page .process-table-wrapper {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
     width: 100%;
-    flex: 1 1 0;
-    min-height: 0;
-    align-content: stretch;
-    overflow: hidden;
 }
 .process-page .process-table-wrapper .process-cards.bank-mode {
     overflow-x: auto;
     overflow-y: auto;
 }
 
-/* Bank 真实 table：高度随行数展开（如一页 20 行可一次看完）；纵向滚动在 .content，不在此外壳内 */
+/* Bank 真实 table：与 Gambling 同设计、同宽高 */
 .process-page .bank-table-wrapper {
-    flex: 0 0 auto;
-    margin-top: 8px;
+    margin-top: 20px;
     width: 100%;
-    padding: 8px 10px 10px;
-    min-height: 0;
-    max-height: none;
+    padding: 0px;
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
     overflow-x: auto;
-    overflow-y: visible;
     box-sizing: border-box;
-    -webkit-overflow-scrolling: touch;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 249, 255, 0.96) 55%, rgba(236, 245, 255, 0.94) 100%);
-    border-radius: 10px;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    box-shadow: 0 3px 16px rgba(15, 23, 42, 0.07);
 }
 .process-page .bank-data-table {
     width: 100%;
@@ -448,18 +377,16 @@ body.process-page {
 .process-page .bank-data-table thead {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
-    font-size: clamp(10px, 0.85vw, 15px);
+    font-size: clamp(10px, 0.89vw, 17px);
     position: sticky;
     top: 0;
     z-index: 1;
 }
 .process-page .bank-data-table th {
-    padding: 4px 5px;
-    line-height: 1.3;
+    padding: 2px 4px;
     text-align: left;
     white-space: nowrap;
     border: none;
-    vertical-align: middle;
 }
 .process-page .bank-data-table th:first-child {
     border-radius: 8px 0 0 0;
@@ -468,11 +395,9 @@ body.process-page {
     border-radius: 0 8px 0 0;
 }
 .process-page .bank-data-table td {
-    padding: 4px 5px;
-    line-height: 1.35;
+    padding: 2px 4px;
     text-align: left;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-    vertical-align: middle;
 }
 .process-page .bank-data-table tbody tr:nth-child(even) {
     background: #cceeff99;
@@ -481,9 +406,8 @@ body.process-page {
     background: #ffffff;
 }
 .process-page .bank-data-table tbody tr:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     background: #e8f4fc;
-    transform: none;
 }
 /* No、Action 列窄；No 列左间距与 Gambling 表头一致（20px+4px=24px） */
 .process-page .bank-data-table th.bank-th-no,
@@ -496,31 +420,31 @@ body.process-page {
 .process-page .bank-data-table .bank-th-country,
 .process-page .bank-data-table .bank-td-country {
     width: 5%;
-    min-width: 44px;
+    min-width: 50px;
     max-width: 85px;
 }
 .process-page .bank-data-table .bank-th-types,
 .process-page .bank-data-table .bank-td-types {
     width: 6%;
-    min-width: 44px;
+    min-width: 50px;
     max-width: 95px;
 }
 .process-page .bank-data-table .bank-th-card-owner,
 .process-page .bank-data-table .bank-td-card-owner {
     width: 12%;
-    min-width: 86px;
+    min-width: 100px;
 }
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
     width: 5%;
-    min-width: 78px;
+    min-width: 92px;
     max-width: 120px;
     white-space: nowrap;
 }
 .process-page .bank-data-table .bank-th-status,
 .process-page .bank-data-table .bank-td-status {
     width: 8%;
-    min-width: 86px;
+    min-width: 98px;
     max-width: 132px;
 }
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
@@ -533,8 +457,8 @@ body.process-page {
 }
 .process-page .bank-status-button {
     width: 72%;
-    min-height: 26px;
-    padding: 3px 9px;
+    min-height: 28px;
+    padding: 5px 10px 5px 10px;
     border-radius: 999px;
     border: 1px solid #cbd5e1;
     font-size: clamp(7px, 0.63vw, 12px);
@@ -667,18 +591,6 @@ body.process-page {
     padding: 20px 20px 20px 40px;
 }
 
-.process-page .bank-data-table .edit-btn img,
-.process-page .bank-data-table .remark-action-btn svg {
-    width: clamp(11px, 0.78vw, 16px);
-    height: clamp(11px, 0.78vw, 16px);
-}
-
-.process-page .bank-data-table .contract-badge {
-    padding: 1px clamp(4px, 0.4vw, 8px);
-    font-size: clamp(7px, 0.6vw, 12px);
-    border-radius: 999px;
-}
-
 /* Bank Contract 列：椭圆徽章围着字（与 Status ACTIVE 一致） */
 .contract-badge {
     display: inline-flex;
@@ -746,11 +658,8 @@ body.process-page {
 .process-page .process-cards {
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    max-height: none;
-    overflow-x: hidden;
+    max-height: calc(100vh - 280px);
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
 }
 
 .process-page .process-card {
@@ -1060,26 +969,21 @@ body.process-page {
     pointer-events: none;
 }
 
-/* Pagination: below table; margin-top:auto pins to bottom of .content when list is short (no fixed overlay) */
+/* Pagination Button Styles */
 .process-page .pagination-container {
-    position: static;
-    flex-shrink: 0;
-    width: 100%;
+    position: fixed;
+    bottom: clamp(15px, 1.56vw, 30px);
+    right: 40px;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 0;
-    margin-top: auto;
-    padding-top: 10px;
-    margin-bottom: clamp(16px, 2vw, 28px);
-    padding: 4px 0;
-    box-sizing: border-box;
     background: rgba(255, 255, 255, 0.95);
+    padding: 0px;
     border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: auto;
+    z-index: 100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -2547,7 +2451,7 @@ body.process-page {
     }
 
     .process-page .process-cards {
-        min-height: 0;
+        min-height: calc(100vh - 250px);
     }
 
     /* Edit Process 弹窗在 1024px：与红框同尺寸，仅占侧栏右侧整块 */
