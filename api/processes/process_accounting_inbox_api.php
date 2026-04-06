@@ -784,6 +784,9 @@ try {
             if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType)) {
                 continue;
             }
+            if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType)) {
+                continue;
+            }
             if ($today < $exclusiveEnd) {
                 continue;
             }

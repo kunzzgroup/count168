@@ -145,7 +145,7 @@ if ($companyId) {
     }
 }
 
-// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture 与 Maintenance > Process 等可见性
+// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 凡有 Bank 即输出 DOM；含 Games 时仅 Category=Bank（localStorage）显示，由 js/sidebar.js 控制；Bank 视图下 Data Capture/Transaction/Formula 亦由 js 隐藏
 $companyHasGambling = false;
 $companyCategories = [];
 if ($companyId) {
@@ -477,7 +477,7 @@ if ($companyId) {
                             </a>
                             <?php endif; ?>
                             <?php if (!$isCurrentCompanyC168): ?>
-                            <a href="transaction_maintenance.php" class="submenu-item">
+                            <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
                                 <span>Transaction</span>
                             </a>
                             <?php endif; ?>
@@ -494,7 +494,7 @@ if ($companyId) {
                             </a>
                             <?php endif; ?>
                             <?php if (!$isCurrentCompanyC168 && $hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
-                            <a href="bankprocess_maintenance.php" class="submenu-item">
+                            <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link">
                                 <span>Process</span>
                             </a>
                             <?php endif; ?>
@@ -551,6 +551,7 @@ if ($companyId) {
 window.SIDEBAR_IS_MEMBER = <?php echo $isMember ? 'true' : 'false'; ?>;
 window.SIDEBAR_EXPIRATION_DATE = '<?php echo $company_expiration_date ? addslashes($company_expiration_date) : ''; ?>';
 window.SIDEBAR_COMPANY_HAS_GAMBLING = <?php echo $companyHasGambling ? 'true' : 'false'; ?>;
+window.SIDEBAR_COMPANY_CODE = <?php echo json_encode($currentCompanyCode); ?>;
 (function() {
     if (typeof updateExpirationCountdown === 'function') {
         if (window.SIDEBAR_EXPIRATION_DATE) {

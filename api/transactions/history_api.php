@@ -1383,9 +1383,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $has_transaction_currency = $stmt->rowCount() > 0;
     }
     
-    // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
-    // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
+    // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
+    // 与 search_api.calculateWinLossByCurrency 一致：SUM(ROUND(processed_amount,2))
+    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -1402,10 +1402,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
@@ -1430,10 +1430,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -1449,10 +1449,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
-                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
@@ -1469,10 +1469,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -1499,9 +1499,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
+                        WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -1517,9 +1517,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
+                        WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -1546,10 +1546,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
     $rateStmt = $pdo->prepare("
         SELECT COALESCE(SUM(CASE
-          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
-          WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
-          ELSE e.amount
+          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+          WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
+          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2)
+          ELSE ROUND(e.amount, 2)
         END), 0) AS total
         FROM transaction_entry e
         JOIN transactions h ON e.header_id = h.id

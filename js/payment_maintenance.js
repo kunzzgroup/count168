@@ -182,6 +182,9 @@
                     btn.classList.remove('active');
                 }
             });
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
+                window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
+            }
         }
 
         function activateCompanyButton(companyId) {
@@ -203,6 +206,9 @@
             currentCompanyId = newCompanyId;
             const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === newCompanyId);
             currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
+            if (typeof window !== 'undefined') {
+                window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+            }
             activateCompanyButton(currentCompanyId);
             loadPermissionButtons();
             clearTableAndShowLoading();
