@@ -110,6 +110,42 @@ function ymdFromNullableDateTime($raw, string $fallbackYmd): string
     return $ts === false ? $fallbackYmd : date('Y-m-d', $ts);
 }
 
+/**
+ * bank_process.day_start 等：优先解析 d/m/Y、d-m-Y，避免 "06-04-2026" 被 strtotime 当成美式 m-d-Y。
+ */
+function bankProcessDateFieldToYmd($raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    $dateStr = str_replace('/', '-', $s);
+    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+        $dateStr .= '-' . date('Y');
+    }
+    $ts = strtotime($dateStr);
+    return $ts !== false ? date('Y-m-d', $ts) : null;
+}
+
 function maxYmd(string $a, string $b): string
 {
     return ($a >= $b) ? $a : $b;
@@ -216,8 +252,8 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
 }
 
 /**
- * Accounting Due 的 monthly 行：账单所属自然月的应付日（与 inbox 规则一致），用于 transaction_date；
- * process_accounting_posted 仍可按该日期的年/月判断「该月已入账」。
+ * Accounting Due 的 monthly 行：账单所属自然月的应付日（与 inbox 规则一致），用于 process_accounting_posted.posted_date；
+ * Payment History 的 transaction_date 另用 day_start 锚定（见主循环 monthly 分支）。
  */
 function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYmd, string $frequency): ?string
 {
@@ -306,7 +342,7 @@ function isWithinRecurringBillingWindowForTxn(string $todayYmd, ?string $dayStar
 
 /**
  * 未传 billing_month 时，按 Accounting Inbox 的 regular monthly 规则推断第一个未结清账单所属自然月（Y-n），
- * 使 Payment / Transaction 的 transaction_date 始终为应付业务日（day_start / 每月1号 等），而非提交当日。
+ * 使入账时的 billing_month 与 posted_date（应付日）一致；transaction_date 在 post API 中对 monthly 固定为 day_start。
  */
 function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, string $today): ?string
 {
@@ -669,6 +705,7 @@ try {
         if (!$p) {
             continue;
         }
+        $skipCurrentPair = false;
         $monthlyProrationPsRatio = null;
         $periodType = $pair['period_type'];
         $cost = (float) ($p['cost'] ?? 0);
@@ -676,17 +713,7 @@ try {
         $profit = (float) ($p['profit'] ?? 0);
 
         $createdYmd = ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate);
-        $dayStartYmd = null;
-        if (!empty($p['day_start'])) {
-            $dateStr = str_replace('/', '-', trim((string) $p['day_start']));
-            if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
-                $dateStr .= '-' . date('Y');
-            }
-            $ts = strtotime($dateStr);
-            if ($ts !== false) {
-                $dayStartYmd = date('Y-m-d', $ts);
-            }
-        }
+        $dayStartYmd = !empty($p['day_start']) ? bankProcessDateFieldToYmd($p['day_start']) : null;
         $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致
@@ -837,7 +864,7 @@ try {
             continue;
         }
 
-        // transaction_date：按账单/合同经济日（day_start、应付月、尾段起始日），便于 Payment History 按业务日筛选。
+        // transaction_date：partial/tail 等按账单/合同经济日；monthly 单独用 day_start 锚定（posted_date 仍用应付日）。
         // manual_inactive 的 process_accounting_posted.posted_date 仍用「今天」，否则 posted_date < dts_modified 时
         // fetchInactiveBankProcessesPendingTransaction 的 NOT EXISTS 无法识别本轮已入账（见 process_accounting_inbox_api）。
         $transactionDate = $fallbackDate;
@@ -859,13 +886,25 @@ try {
                 }
             }
         } elseif ($periodType === 'monthly') {
+            // posted_date：仍用账单应付日（如 1st → 当月 1 号），供 Inbox / process_accounting_posted 按自然月去重。
+            // transaction_date：统一用流程 day_start（不早于创建日），Payment History 与首笔一致，避免第二笔落在应付日或「未解析 billing_month」时误用提交当日。
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
-                    $transactionDate = $dueTx;
+                    // 防止未来账单被提前提交：未到应付日（今天之前）不生成交易。
+                    if ($dueTx > $fallbackDate) {
+                        $skipCurrentPair = true;
+                    }
                     $postedDateForInbox = $dueTx;
                 }
             }
+            if ($dayStartYmd) {
+                $transactionDate = maxYmd($dayStartYmd, $createdYmd);
+            }
+        }
+
+        if ($skipCurrentPair) {
+            continue;
         }
 
         $ledgerDate = $transactionDate;

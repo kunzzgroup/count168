@@ -33,6 +33,57 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
     return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
 }
 
+/** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
+function historyParseBankProcessDayStartToYmd($raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    $dateStr = str_replace('/', '-', $s);
+    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+        $dateStr .= '-' . date('Y');
+    }
+    $ts = strtotime($dateStr);
+    return $ts !== false ? date('Y-m-d', $ts) : null;
+}
+
+/** monthly 入账：Payment History 日期与流程 Day start 对齐（不早于创建日），与 1st of every month 应付日无关 */
+function historyMonthlyBankProcessDisplayYmd(?string $bpDayStart, $bpDtsCreated, string $txnDateYmd): ?string
+{
+    $dayYmd = historyParseBankProcessDayStartToYmd($bpDayStart);
+    if ($dayYmd === null) {
+        return null;
+    }
+    $createdYmd = $txnDateYmd;
+    if ($bpDtsCreated !== null && trim((string) $bpDtsCreated) !== '') {
+        $ts = strtotime((string) $bpDtsCreated);
+        if ($ts !== false) {
+            $createdYmd = date('Y-m-d', $ts);
+        }
+    }
+    return ($dayYmd >= $createdYmd) ? $dayYmd : $createdYmd;
+}
+
 /**
  * 将 entry_type 映射为友好的 Product 显示名称
  */
@@ -471,7 +522,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.dts_created AS bp_dts_created";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -495,12 +546,46 @@ try {
         $sql .= " LEFT JOIN bank_process bp_t ON t.source_bank_process_id = bp_t.id LEFT JOIN account a_cm_t ON bp_t.card_merchant_id = a_cm_t.id";
     }
     
+    // monthly + bank_process：过滤/排序也要和展示日期一致（按 day_start 锚定），
+    // 否则会出现「显示 06/04，但只能在 01/05 日期范围查到」的错位。
+    $effectiveTxnDateExpr = "DATE(t.transaction_date)";
+    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        $effectiveTxnDateExpr = "(
+            CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND t.source_bank_process_period_type = 'monthly'
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN GREATEST(
+                    COALESCE(
+                        CASE
+                            WHEN bp_t.day_start REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$' THEN DATE(bp_t.day_start)
+                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d/%m/%Y')
+                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d-%m-%Y')
+                            ELSE NULL
+                        END,
+                        DATE(t.transaction_date)
+                    ),
+                    COALESCE(DATE(bp_t.dts_created), DATE(t.transaction_date))
+                )
+                ELSE DATE(t.transaction_date)
+            END
+        )";
+    }
+
     $ph = implode(',', array_fill(0, count($account_ids), '?'));
     // 这里只查询非 RATE 的交易（RATE 在后续通过 transaction_entry 单独处理）
     $sql .= " WHERE t.company_id = ?
               AND t.transaction_type <> 'RATE'
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
-              AND t.transaction_date BETWEEN ? AND ?";
+              AND $effectiveTxnDateExpr BETWEEN ? AND ?";
+    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        // monthly（bank process）必须到应付日当天/之后才展示，避免未来账单提前出现在 4/6。
+        $sql .= " AND (
+            t.source_bank_process_id IS NULL
+            OR t.source_bank_process_period_type <> 'monthly'
+            OR DATE(t.transaction_date) <= CURDATE()
+        )";
+    }
     
     $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
     
@@ -532,7 +617,7 @@ try {
         }
     }
     
-    $sql .= " ORDER BY t.transaction_date ASC, t.created_at ASC";
+    $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($transactionParams);
@@ -925,9 +1010,23 @@ try {
             $description = '[PENDING APPROVAL] ' . $description;
         }
         
-        $transactionTimestamp = strtotime($t['transaction_date'] . ' ' . ($t['created_at'] ?? '00:00:00'));
+        $displayDateYmd = $t['transaction_date'];
+        if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
+            $ptForDisplay = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
+            if ($ptForDisplay === 'monthly') {
+                $anchorYmd = historyMonthlyBankProcessDisplayYmd(
+                    isset($t['bp_day_start']) ? (string) $t['bp_day_start'] : null,
+                    $t['bp_dts_created'] ?? null,
+                    (string) $t['transaction_date']
+                );
+                if ($anchorYmd !== null) {
+                    $displayDateYmd = $anchorYmd;
+                }
+            }
+        }
+        $transactionTimestamp = strtotime($displayDateYmd . ' ' . ($t['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($t['transaction_date']);
+            $transactionTimestamp = strtotime($displayDateYmd);
         }
         
         // 确定交易的 currency：
@@ -955,7 +1054,7 @@ try {
                 ORDER BY dc.capture_date DESC, c.code ASC
                 LIMIT 1
             ");
-            $stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$t['transaction_date']]));
+            $stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$displayDateYmd]));
             $transactionCurrency = $stmt->fetchColumn();
             
             // 如果找不到，使用 B/F 的 currency
@@ -989,7 +1088,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $win_loss,
             'cr_dr' => $cr_dr,
-            'date' => date('d/m/Y', strtotime($t['transaction_date'])),
+            'date' => date('d/m/Y', strtotime($displayDateYmd)),
             'source' => $t['transaction_type'],
             'product' => $productLabel,
             'card_owner' => $cardOwner,

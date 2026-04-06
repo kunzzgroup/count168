@@ -78,12 +78,21 @@ function renderCompanyCards() {
                         
                         <div id="rows-container-${comp.id}"></div>
                         
-                        <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px;">
-                            <button class="own-btn-add-account" onclick="addAccountRow(${comp.id})" style="margin:0;">+ Add Account</button>
-                            <div style="display: flex; gap: 8px; align-items: center; border-left: 1px solid var(--own-gray-border); padding-left: 15px;">
-                                <input type="text" id="partner-login-${comp.id}" placeholder="Partner Login ID" 
-                                       style="padding: 6px 10px; border: 1px solid var(--own-gray-border); border-radius: 4px; font-size: 14px; width: 160px; outline: none; background: white; color: var(--own-primary-text);">
-                                <button class="own-btn-outline" style="margin:0; padding: 6px 12px;" onclick="linkExternalPartner(${comp.id}, event)">Link Partner</button>
+                        <button class="own-btn-add-account" onclick="addAccountRow(${comp.id})" style="margin-bottom: 16px;">+ Add Account</button>
+                        
+                        <div style="margin: 0 32px 24px 32px; padding: 16px; border: 1px dashed var(--own-gray-border); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-size: 14px; font-weight: 600; color: var(--own-dark-text);">External Partner</span>
+                                <span style="font-size: 12px; color: var(--own-gray-text); margin-top: 2px;">Share this company's read-only dashboard visibility with another independent owner.</span>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="partner-login-${comp.id}" placeholder="Partner Login ID" autocomplete="off"
+                                       style="padding: 10px 14px; border: 1px solid var(--own-gray-border); border-radius: 8px; font-size: 14px; width: 170px; outline: none; background: white; color: var(--own-primary-text);"
+                                       onfocus="this.style.borderColor='var(--own-primary-blue)'; this.style.boxShadow='0 0 0 3px rgba(59,142,246,0.1)';"
+                                       onblur="this.style.borderColor='var(--own-gray-border)'; this.style.boxShadow='none';">
+                                <button class="own-btn-outline" style="margin:0; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--own-primary-blue); color: var(--own-primary-blue); font-weight: 600; cursor: pointer; background: white; transition: background-color 0.2s;" 
+                                        onmouseover="this.style.backgroundColor='#eff6ff'" onmouseout="this.style.backgroundColor='white'"
+                                        onclick="linkExternalPartner(${comp.id}, event)">Link Partner</button>
                             </div>
                         </div>
                         
@@ -214,6 +223,15 @@ function createRowElement(companyId, idx, rowData) {
         selectOptions += `<option value="${acc.id}" ${selected}>${acc.account_name} (${acc.name})</option>`;
     });
 
+    const isExternal = String(rowData.account_id).startsWith('O_');
+    const isGroupOn = rowData.include_group !== 0;
+    const includeGroupHtml = isExternal ? `
+        <label style="display:flex; align-items:center; font-size:13px; font-weight:600; color:#555; cursor:pointer; width:65px; justify-content:flex-end;" title="Share original Group ID with partner">
+            <input type="checkbox" onchange="updateRowData(${companyId}, ${idx}, 'include_group', this.checked ? 1 : 0)" ${rowData.include_group !== 0 ? 'checked' : ''} style="margin-right:6px; width:15px; height:15px; cursor:pointer;">
+            Grp
+        </label>
+    ` : `<div style="width: 65px;"></div>`;
+
     div.innerHTML = `
         <div class="own-drag-handle">⋮⋮</div>
         <select class="own-account-select" onchange="updateRowData(${companyId}, ${idx}, 'account_id', this.value)">
@@ -235,12 +253,13 @@ function createRowElement(companyId, idx, rowData) {
             </div>
         </div>
 
-        <div class="own-row-actions">
+        <div class="own-row-actions" style="align-items: center;">
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, 1)">+</button>
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, -1)">-</button>
             <button class="own-btn-square own-btn-delete" title="Remove" onclick="removeRow(${companyId}, ${idx})">
                 <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
             </button>
+            ${includeGroupHtml}
         </div>
     `;
 
@@ -253,7 +272,7 @@ function createRowElement(companyId, idx, rowData) {
 }
 
 function addAccountRow(companyId) {
-    companyStates[companyId].rows.push({ account_id: '', percentage: 0 });
+    companyStates[companyId].rows.push({ account_id: '', percentage: 0, include_group: 1 });
     renderCardBodyRows(companyId);
 }
 
@@ -266,6 +285,9 @@ function updateRowData(companyId, idx, field, value) {
     companyStates[companyId].rows[idx][field] = value;
     if (field === 'percentage') {
         updateCalculations(companyId);
+    }
+    if (field === 'account_id' || field === 'include_group') {
+        renderCardBodyRows(companyId); // Re-render to show/hide group checkbox
     }
 }
 
@@ -414,7 +436,11 @@ function confirmEdit(companyId) {
 
     const payload = {
         company_id: companyId,
-        owners: rows.map(r => ({ account_id: r.account_id, percentage: parseFloat(r.percentage) }))
+        owners: rows.map(r => ({ 
+            account_id: r.account_id, 
+            percentage: parseFloat(r.percentage),
+            include_group: r.include_group !== undefined ? parseInt(r.include_group) : 1
+        }))
     };
 
     const confirmBtn = document.getElementById(`confirm-btn-${companyId}`);
