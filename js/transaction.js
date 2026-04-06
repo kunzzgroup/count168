@@ -1282,6 +1282,38 @@ async function switchCompany(companyId, companyCode) {
     });
 }
 
+const TRANSACTION_CURRENCY_FILTER_KEY_PREFIX = 'transaction_currency_filter_v1_';
+
+function readTransactionCurrencyFilterState(companyId) {
+    if (!companyId) return null;
+    try {
+        const raw = localStorage.getItem(TRANSACTION_CURRENCY_FILTER_KEY_PREFIX + companyId);
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        if (!o || typeof o !== 'object') return null;
+        const showAll = !!o.showAll;
+        const currencies = Array.isArray(o.currencies)
+            ? o.currencies.map(c => String(c || '').trim()).filter(Boolean)
+            : [];
+        return { showAll, currencies };
+    } catch (e) {
+        return null;
+    }
+}
+
+function persistTransactionCurrencyFilterState() {
+    if (!currentCompanyId) return;
+    try {
+        localStorage.setItem(
+            TRANSACTION_CURRENCY_FILTER_KEY_PREFIX + currentCompanyId,
+            JSON.stringify({
+                showAll: showAllCurrencies,
+                currencies: [...selectedCurrencies]
+            })
+        );
+    } catch (e) { /* ignore */ }
+}
+
 // ==================== 加载 Company Currencies ====================
 function loadCompanyCurrencies() {
     // 构建 URL，如果指定了 company_id 则添加参数
@@ -1373,28 +1405,49 @@ function loadCompanyCurrencies() {
                 });
                 container.appendChild(allBtn);
                 
-                // 先确定要选中的 currency：默认第一个货币（与 Member Win/Loss 一致）
+                // 先确定要选中的 currency：每家公司独立本地记忆；无则与原先一致（拖动默认 / 列表第一个）
                 let currenciesToSelect = [];
                 let preferredDefault = null;
                 try {
                     const defaultKey = 'transaction_default_currency_' + (currentCompanyId || 0);
                     preferredDefault = String(localStorage.getItem(defaultKey) || '').trim().toUpperCase() || null;
                 } catch (e) { /* ignore */ }
+                let appliedSavedFilter = false;
                 if (previousSelected.length === 0 && !previousShowAll) {
-                    const firstCurrency = preferredDefault
-                        ? orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault)
-                        : orderedData[0];
-                    if (firstCurrency) currenciesToSelect = [firstCurrency.code];
-                    showAllCurrencies = false;
-                } else {
-                    currenciesToSelect = previousSelected.filter(code =>
-                        orderedData.some(c => c.code === code)
-                    );
-                    if (currenciesToSelect.length === 0 && !previousShowAll) {
+                    const saved = readTransactionCurrencyFilterState(currentCompanyId);
+                    if (saved) {
+                        if (saved.showAll) {
+                            showAllCurrencies = true;
+                            currenciesToSelect = [];
+                            appliedSavedFilter = true;
+                        } else {
+                            const valid = saved.currencies.filter(code =>
+                                orderedData.some(c => String(c.code) === String(code)));
+                            if (valid.length > 0) {
+                                showAllCurrencies = false;
+                                currenciesToSelect = valid;
+                                appliedSavedFilter = true;
+                            }
+                        }
+                    }
+                }
+                if (!appliedSavedFilter) {
+                    if (previousSelected.length === 0 && !previousShowAll) {
                         const firstCurrency = preferredDefault
                             ? orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault)
                             : orderedData[0];
                         if (firstCurrency) currenciesToSelect = [firstCurrency.code];
+                        showAllCurrencies = false;
+                    } else {
+                        currenciesToSelect = previousSelected.filter(code =>
+                            orderedData.some(c => c.code === code)
+                        );
+                        if (currenciesToSelect.length === 0 && !previousShowAll) {
+                            const firstCurrency = preferredDefault
+                                ? orderedData.find(c => String(c.code || '').toUpperCase() === preferredDefault)
+                                : orderedData[0];
+                            if (firstCurrency) currenciesToSelect = [firstCurrency.code];
+                        }
                     }
                 }
                 selectedCurrencies = currenciesToSelect;
@@ -1600,6 +1653,7 @@ function toggleAllCurrencies() {
     if (dateFrom && dateTo) {
         searchTransactions();
     }
+    persistTransactionCurrencyFilterState();
 }
 
 // ==================== 切换 Currency (Toggle) ====================
@@ -1636,6 +1690,7 @@ function toggleCurrency(currencyCode) {
     if (dateFrom && dateTo) {
         searchTransactions();
     }
+    persistTransactionCurrencyFilterState();
 }
 
 // ==================== 更新 Currency 按钮状态 ====================
