@@ -1060,7 +1060,7 @@ body.process-page {
     pointer-events: none;
 }
 
-/* Pagination: in document flow below table — avoids covering last rows (Bank Action column) */
+/* Pagination: below table; margin-top:auto pins to bottom of .content when list is short (no fixed overlay) */
 .process-page .pagination-container {
     position: static;
     flex-shrink: 0;
@@ -1069,7 +1069,8 @@ body.process-page {
     align-items: center;
     justify-content: flex-end;
     gap: 0;
-    margin-top: 10px;
+    margin-top: auto;
+    padding-top: 10px;
     margin-bottom: clamp(16px, 2vw, 28px);
     padding: 4px 0;
     box-sizing: border-box;
