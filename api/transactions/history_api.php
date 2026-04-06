@@ -554,7 +554,6 @@ try {
             CASE
                 WHEN t.source_bank_process_id IS NOT NULL
                      AND t.source_bank_process_period_type = 'monthly'
-                     AND DATE(t.transaction_date) <= CURDATE()
                 THEN GREATEST(
                     COALESCE(
                         CASE
@@ -578,14 +577,6 @@ try {
               AND t.transaction_type <> 'RATE'
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
               AND $effectiveTxnDateExpr BETWEEN ? AND ?";
-    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
-        // monthly（bank process）必须到应付日当天/之后才展示，避免未来账单提前出现在 4/6。
-        $sql .= " AND (
-            t.source_bank_process_id IS NULL
-            OR t.source_bank_process_period_type <> 'monthly'
-            OR DATE(t.transaction_date) <= CURDATE()
-        )";
-    }
     
     $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
     
