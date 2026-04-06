@@ -1901,7 +1901,8 @@ function loadCurrencies() {
                 const savedOrderKey = 'dashboard_currency_order_' + (window.companyId || 0);
                 let orderedData = [...data.data];
                 try {
-                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem('dashboard_currency_order_global') || localStorage.getItem('transaction_currency_order_global');
+                    // 不用 transaction_currency_order_global：Transaction 页拖动会写该 key，会盖掉 Dashboard 专属顺序
+                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem('dashboard_currency_order_global');
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
@@ -2013,9 +2014,14 @@ function initDashboardCurrencyDragDrop() {
             .filter(Boolean)
             .filter((code, idx, arr) => arr.indexOf(code) === idx);
         try {
-            const key = 'dashboard_currency_order_' + (window.companyId || 0);
-            localStorage.setItem(key, JSON.stringify(newOrder));
-            localStorage.setItem('dashboard_currency_order_global', JSON.stringify(newOrder));
+            const cid = window.companyId || 0;
+            const key = 'dashboard_currency_order_' + cid;
+            const serialized = JSON.stringify(newOrder);
+            localStorage.setItem(key, serialized);
+            localStorage.setItem('dashboard_currency_order_global', serialized);
+            // 与 Transaction 列表共用同公司顺序，避免另一页拖动后全局 key 与 Dashboard 预期不一致
+            localStorage.setItem('transaction_currency_order_' + cid, serialized);
+            localStorage.setItem('transaction_currency_order_global', serialized);
         } catch (err) { /* ignore */ }
     });
 }
