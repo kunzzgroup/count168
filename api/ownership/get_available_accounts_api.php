@@ -11,51 +11,74 @@ if (!isset($_SESSION['user_id'])) {
 
 $company_id = $_GET['company_id'] ?? null;
 
-if (!$company_id) {
-    echo json_encode(['status' => 'error', 'message' => 'Missing company_id']);
-    exit();
-}
-
 try {
-    // Only fetch accounts linked to this company
-    $stmt = $pdo->prepare("
-        SELECT a.id, a.account_id as account_name, a.name, a.role
-        FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? 
-          AND a.status = 'active'
-          AND LOWER(a.role) IN ('company', 'partner', 'agent')
-        ORDER BY a.account_id ASC
-    ");
-    
-    // If account_company doesn't exist, this will throw an exception,
-    // so let's check if the table exists first. If it doesn't, we just 
-    // fetch all active accounts.
-    $acTableExists = false;
-    try {
-        $checkStmt = $pdo->query("SHOW TABLES LIKE 'account_company'");
-        $acTableExists = $checkStmt->rowCount() > 0;
-    } catch (PDOException $e) {}
+    if ($company_id) {
+        // Fetch accounts linked to the company
+        $stmtAcc = $pdo->prepare("
+            SELECT CONCAT('A_', a.id) as id, a.account_id as account_name, a.name, a.role
+            FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ? 
+              AND a.status = 'active'
+              AND LOWER(a.role) IN ('company', 'partner', 'agent')
+        ");
+        $stmtAcc->execute([$company_id]);
+        $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
 
-    if ($acTableExists) {
-        $stmt->execute([$company_id]);
+        // Fetch users (Owner)
+        $stmtUser = $pdo->prepare("
+            SELECT CONCAT('U_', id) as id, login_id as account_name, name, role
+            FROM user
+            WHERE status = 'active' 
+              AND LOWER(role) = 'owner'
+        ");
+        $stmtUser->execute();
+        $users = $stmtUser->fetchAll(PDO::FETCH_ASSOC);
+
+        // Combine
+        $combined = array_merge($accounts, $users);
+        
+        // Sort alphabetically by account_name
+        usort($combined, function($a, $b) {
+            return strcmp($a['account_name'], $b['account_name']);
+        });
+
+        echo json_encode([
+            'status' => 'success',
+            'data' => $combined
+        ]);
+
     } else {
-        $stmt = $pdo->prepare("
-            SELECT id, account_id as account_name, name, role
+        // Fallback or global mode, return generally available
+        $stmtAcc = $pdo->prepare("
+            SELECT CONCAT('A_', id) as id, account_id as account_name, name, role
             FROM account
             WHERE status = 'active'
               AND LOWER(role) IN ('company', 'partner', 'agent')
-            ORDER BY account_id ASC
         ");
-        $stmt->execute();
-    }
-    
-    $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmtAcc->execute();
+        $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode([
-        'status' => 'success',
-        'data' => $accounts
-    ]);
+        $stmtUser = $pdo->prepare("
+            SELECT CONCAT('U_', id) as id, login_id as account_name, name, role
+            FROM user
+            WHERE status = 'active' 
+              AND LOWER(role) = 'owner'
+        ");
+        $stmtUser->execute();
+        $users = $stmtUser->fetchAll(PDO::FETCH_ASSOC);
+
+        $combined = array_merge($accounts, $users);
+        usort($combined, function($a, $b) {
+            return strcmp($a['account_name'], $b['account_name']);
+        });
+
+        echo json_encode([
+            'status' => 'success',
+            'data' => $combined
+        ]);
+    }
+
 } catch (PDOException $e) {
     echo json_encode([
         'status' => 'error',

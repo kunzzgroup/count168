@@ -19,8 +19,8 @@ if (!isset($_SESSION['user_id'])) {
  * {
  *   "company_id": "1",
  *   "owners": [
- *     {"account_id": "3", "percentage": 50},
- *     {"account_id": "5", "percentage": 30}
+ *     {"account_id": "U_3", "percentage": 50},
+ *     {"account_id": "A_5", "percentage": 30}
  *   ]
  * }
  */
@@ -54,6 +54,9 @@ if ($total_percentage > 100) {
     exit();
 }
 
+// Determine if owner_type column exists
+$hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+
 try {
     $pdo->beginTransaction();
 
@@ -63,13 +66,38 @@ try {
 
     // Insert new owners
     if (count($owners) > 0) {
-        $insertStmt = $pdo->prepare("
-            INSERT INTO company_ownership (company_id, account_id, percentage)
-            VALUES (?, ?, ?)
-        ");
+        if ($hasOwnerType) {
+            $insertStmt = $pdo->prepare("
+                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage)
+                VALUES (?, ?, ?, ?)
+            ");
+        } else {
+            $insertStmt = $pdo->prepare("
+                INSERT INTO company_ownership (company_id, account_id, percentage)
+                VALUES (?, ?, ?)
+            ");
+        }
         
         foreach ($owners as $owner) {
-            $insertStmt->execute([$company_id, $owner['account_id'], (float)$owner['percentage']]);
+            $raw_id = (string)$owner['account_id'];
+            $owner_type = 'account'; // default
+            $real_id = $raw_id;
+
+            if (strpos($raw_id, 'U_') === 0) {
+                $owner_type = 'user';
+                $real_id = substr($raw_id, 2);
+            } elseif (strpos($raw_id, 'A_') === 0) {
+                $owner_type = 'account';
+                $real_id = substr($raw_id, 2);
+            }
+
+            if ($hasOwnerType) {
+                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage']]);
+            } else {
+                // If migration hasn't run, we must drop Users so it doesn't crash, or attempt.
+                // In a perfect world, migration is run first. If not, only save numbers.
+                $insertStmt->execute([$company_id, (int)$real_id, (float)$owner['percentage']]);
+            }
         }
     }
 

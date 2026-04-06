@@ -24,15 +24,40 @@ try {
         echo json_encode(['status' => 'success', 'data' => []]);
         exit();
     }
-    
-    // Get owners
-    $stmt = $pdo->prepare("
-        SELECT co.id as ownership_id, co.percentage, a.id as account_id, a.account_id as account_name, a.name, a.role
-        FROM company_ownership co
-        JOIN account a ON co.account_id = a.id
-        WHERE co.company_id = ?
-        ORDER BY co.percentage DESC, a.account_id ASC
-    ");
+
+    // Determine if owner_type column exists
+    $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+
+    if ($hasOwnerType) {
+        // Polymorphic query
+        $stmt = $pdo->prepare("
+            SELECT co.id as ownership_id, co.percentage, co.owner_type, 
+                   CONCAT(
+                       IF(co.owner_type = 'user', 'U_', 'A_'), 
+                       co.account_id
+                   ) as account_id,
+                   COALESCE(a.account_id, u.login_id) as account_name,
+                   COALESCE(a.name, u.name) as name,
+                   COALESCE(a.role, u.role) as role
+            FROM company_ownership co
+            LEFT JOIN account a ON co.account_id = a.id AND co.owner_type = 'account'
+            LEFT JOIN user u ON co.account_id = u.id AND co.owner_type = 'user'
+            WHERE co.company_id = ?
+            ORDER BY co.percentage DESC
+        ");
+    } else {
+        // Fallback for before migration
+        $stmt = $pdo->prepare("
+            SELECT co.id as ownership_id, co.percentage, 'account' as owner_type,
+                   CONCAT('A_', co.account_id) as account_id,
+                   a.account_id as account_name, a.name, a.role
+            FROM company_ownership co
+            JOIN account a ON co.account_id = a.id
+            WHERE co.company_id = ?
+            ORDER BY co.percentage DESC, a.account_id ASC
+        ");
+    }
+
     $stmt->execute([$company_id]);
     $owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
