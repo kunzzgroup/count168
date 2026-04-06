@@ -249,6 +249,38 @@ function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYm
     return $dueYmd;
 }
 
+/**
+ * 合同「2 MONTHS」+ 每月1号 + day_start 为当月1号：第二笔 monthly 的应付日（posted_date）仍为次月1号，
+ * 但 transaction_date 与首月同日（day_start），Payment History 可同月同日显示两笔账单；inbox 仍按 posted_date 认月。
+ */
+function secondMonthTwoMonthContractFirstOfMonthDisplayYmd(
+    string $resolvedMonthlyBm,
+    string $dayStartYmd,
+    string $frequency,
+    ?string $contract
+): ?string {
+    if ($frequency !== '1st_of_every_month') {
+        return null;
+    }
+    $termMonths = getBillingTermMonthsFromContract($contract);
+    if ($termMonths !== 2) {
+        return null;
+    }
+    try {
+        $start = new DateTimeImmutable($dayStartYmd);
+    } catch (Throwable $e) {
+        return null;
+    }
+    if ((int) $start->format('j') !== 1) {
+        return null;
+    }
+    $secondYm = $start->modify('+1 month')->format('Y-n');
+    if ($resolvedMonthlyBm !== $secondYm) {
+        return null;
+    }
+    return $start->format('Y-m-d');
+}
+
 /** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / monthly_skipped */
 function hasMonthlyPostedOrSkippedInCalendarMonthForTxn(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
@@ -862,8 +894,17 @@ try {
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
-                    $transactionDate = $dueTx;
                     $postedDateForInbox = $dueTx;
+                    $transactionDate = $dueTx;
+                    $alignYmd = secondMonthTwoMonthContractFirstOfMonthDisplayYmd(
+                        $resolvedMonthlyBm,
+                        $dayStartYmd,
+                        $frequency,
+                        $p['contract'] ?? null
+                    );
+                    if ($alignYmd !== null) {
+                        $transactionDate = $alignYmd;
+                    }
                 }
             }
         }
