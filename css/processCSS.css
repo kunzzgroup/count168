@@ -1,4 +1,4 @@
-/* Base Styles — Process List：锁视口高度，避免整页 scroll；列表区在面板内滚动（html 见 processlist.php class） */
+/* Base Styles — Process List：锁 html/body 视口；Games 列表仍在面板内滚动；Bank 表在 .content 内随内容增高（见 .bank-table-wrapper） */
 html.process-page-html {
     height: 100dvh;
     max-height: 100dvh;
@@ -43,14 +43,15 @@ body.process-page {
     flex-direction: column;
 }
 
-/* 主内容占满 sidebar 右侧剩余高度；子项 min-height:0 才能正确出现内部滚动 */
+/* 主内容占满 sidebar 右侧剩余高度；Bank 表按内容增高时在此区域滚动，避免表格外壳内再套一层纵向滚动条 */
 .process-page .content {
     flex: 1 1 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
     width: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .process-page .process-list-page-top,
@@ -417,16 +418,16 @@ body.process-page {
     overflow-y: auto;
 }
 
-/* Bank 真实 table：占满 .content 剩余高度；仅在此面板内纵向滚动，避免整页下拉 */
+/* Bank 真实 table：高度随行数展开（如一页 20 行可一次看完）；纵向滚动在 .content，不在此外壳内 */
 .process-page .bank-table-wrapper {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     margin-top: 8px;
     width: 100%;
     padding: 8px 10px 10px;
     min-height: 0;
-    max-height: 100%;
+    max-height: none;
     overflow-x: auto;
-    overflow-y: auto;
+    overflow-y: visible;
     box-sizing: border-box;
     -webkit-overflow-scrolling: touch;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 249, 255, 0.96) 55%, rgba(236, 245, 255, 0.94) 100%);
