@@ -7754,6 +7754,23 @@ function saveFormula() {
     const isEditMode = !!window.currentEditRow;
     const currentButton = window.currentAddAccountButton;
     const row = currentButton ? currentButton.closest('tr') : null;
+    // 与 Edit 弹窗 Display 一致：用当前编辑行上的 id / refs / row_index 解析 $n，避免重复 id_product 时落到首行（如 MARI 2800 vs GXS 3200）
+    const editingRowForSave = window.currentEditRow || row;
+    const processValueForCalc = (editingRowForSave && typeof getProcessValueFromRow === 'function')
+        ? (String(getProcessValueFromRow(editingRowForSave) || '').trim() || String(processValue || '').trim())
+        : String(processValue || '').trim();
+    const clickedForCalc = (clickedCellRefsForPayload && clickedCellRefsForPayload.trim() !== '')
+        ? clickedCellRefsForPayload.trim()
+        : (editingRowForSave && typeof getSummaryRowFormulaRefContext === 'function'
+            ? getSummaryRowFormulaRefContext(editingRowForSave).clickedCellRefs
+            : '');
+    const rowIdxForCalc = (() => {
+        if (!editingRowForSave) return null;
+        const a = editingRowForSave.getAttribute('data-row-index');
+        if (a === null || a === '' || a === '999999') return null;
+        const n = Number(a);
+        return !Number.isNaN(n) && n >= 0 ? n : null;
+    })();
     const idProductCell = row ? row.querySelector('td:first-child') : null;
     const productValues = getProductValuesFromCell(idProductCell);
     // 优先用 data-product-type 判断：点击 sub 行的 + 时新行必须插在该 sub 底下；否则用单元格 main 是否为空
@@ -7776,8 +7793,8 @@ function saveFormula() {
         isSubIdProduct: isSubIdProduct
     });
 
-    // Evaluate the formula expression directly
-    const formulaResult = evaluateFormulaExpression(formulaValue);
+    // Evaluate the formula expression directly（与下方 calculateFormulaResultFromExpression 同一套上下文）
+    const formulaResult = evaluateFormulaExpression(formulaValue, processValueForCalc, clickedForCalc, rowIdxForCalc);
 
     // Get Columns display from clicked columns (preferred) or extract from formula
     const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
@@ -7856,12 +7873,15 @@ function saveFormula() {
                     const refRowLabel = matchedRef.rowLabel;
                     // 当前编辑行保存时一律用 processValue，保证 source_columns/columns_display 为当前账号（如 ALLBET95MS(KM)MYR）
                     const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
-                    if (processValue && normalizeSpaces(refIdProduct) === normalizeSpaces(processValue)) {
-                        refIdProduct = processValue;
+                    if (processValueForCalc && normalizeSpaces(refIdProduct) === normalizeSpaces(processValueForCalc)) {
+                        refIdProduct = processValueForCalc;
                     }
                     let rowLabel = refRowLabel;
                     if (!rowLabel) {
-                        rowLabel = getRowLabelFromProcessValue(refIdProduct);
+                        const idxForRef = (processValueForCalc && normalizeSpaces(refIdProduct) === normalizeSpaces(processValueForCalc))
+                            ? rowIdxForCalc
+                            : null;
+                        rowLabel = getRowLabelFromProcessValue(refIdProduct, idxForRef);
                     }
                     if (rowLabel) {
                         const columnRef = `${refIdProduct}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
@@ -7879,10 +7899,10 @@ function saveFormula() {
 
                 // 如果没有找到匹配的引用，使用当前编辑的 id_product 作为回退
                 if (!matched) {
-                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    const rowLabel = getRowLabelFromProcessValue(processValueForCalc, rowIdxForCalc);
                     if (rowLabel) {
                         // IMPORTANT: 保存 dataColumnIndex 而不是 displayColumnIndex
-                        const columnRef = `${processValue}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
+                        const columnRef = `${processValueForCalc}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
                         if (!columnRefs.includes(columnRef)) {
                             columnRefs.push(columnRef);
                         }
@@ -7899,7 +7919,7 @@ function saveFormula() {
         // 如果没有 data-clicked-cell-refs，从 formulaValue 中提取所有 $数字，转换为列引用格式
         // 这种情况下，使用当前编辑的 id_product（processValue）
         if (!sourceColumns) {
-            const rowLabel = getRowLabelFromProcessValue(processValue);
+            const rowLabel = getRowLabelFromProcessValue(processValueForCalc, rowIdxForCalc);
             if (rowLabel) {
                 const dollarPattern = /\$(\d+)(?!\d)/g;
                 let match;
@@ -7912,7 +7932,7 @@ function saveFormula() {
                         // 格式：id_product:row_label:dataColumnIndex
                         // IMPORTANT: columnNumber 是 displayColumnIndex，需要转换为 dataColumnIndex
                         const dataColumnIndex = columnNumber - 1;
-                        const columnRef = `${processValue}:${rowLabel}:${dataColumnIndex}`;
+                        const columnRef = `${processValueForCalc}:${rowLabel}:${dataColumnIndex}`;
                         if (!columnRefs.includes(columnRef)) {
                             columnRefs.push(columnRef);
                         }
@@ -7930,14 +7950,14 @@ function saveFormula() {
             if (!sourceColumns && formulaInput && hasDollarSign) {
                 const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
                 if (clickedColumns && clickedColumns.trim() !== '') {
-                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    const rowLabel = getRowLabelFromProcessValue(processValueForCalc, rowIdxForCalc);
                     if (rowLabel) {
                         const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
                         if (columnsArray.length > 0) {
                             // IMPORTANT: colNum 是 displayColumnIndex，需要转换为 dataColumnIndex
                             const columnRefs = columnsArray.map(colNum => {
                                 const dataColumnIndex = colNum - 1;
-                                return `${processValue}:${rowLabel}:${dataColumnIndex}`;
+                                return `${processValueForCalc}:${rowLabel}:${dataColumnIndex}`;
                             });
                             sourceColumns = columnRefs.join(' ');
                             console.log('saveFormula - Built sourceColumns from data-clicked-columns:', sourceColumns);
@@ -7982,15 +8002,29 @@ function saveFormula() {
         // 因此：保存前先用 formulaValue 同步 formulaDisplay，再读取，避免显示被截断
         const trimmedFormula = formulaValue.trim();
         const hasRefs = /\[\s*[^,\]]+\s*,\s*\d+\s*\]|\$\d+/.test(trimmedFormula);
-        const processValueForDisplay = processValue;
+        const processValueForDisplay = processValueForCalc || processValue;
         updateFormulaDisplay(trimmedFormula, processValueForDisplay);
 
         const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
         if (convertedFormula && convertedFormula !== '') {
-            formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+            formulaDisplay = createFormulaDisplayFromExpression(
+                convertedFormula,
+                sourcePercentValue,
+                sourcePercentEnableValue,
+                processValueForCalc,
+                clickedForCalc,
+                rowIdxForCalc
+            );
             console.log('saveFormula - Using formulaDisplay (synced from formula):', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
         } else {
-            formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+            formulaDisplay = createFormulaDisplayFromExpression(
+                trimmedFormula,
+                sourcePercentValue,
+                sourcePercentEnableValue,
+                processValueForCalc,
+                clickedForCalc,
+                rowIdxForCalc
+            );
             console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
         }
     }
@@ -8007,7 +8041,16 @@ function saveFormula() {
         // 不再根据公式中是否包含 *0.1 之类来决定是否应用 Source Percent，
         // 一律走统一的计算函数，由 enableSourcePercent 和 sourcePercentValue 控制是否乘以百分比
         // 计算原始值后按「第三位小数≥5则进位」舍入再保存，与页面显示一致
-        const rawAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
+        const rawAmount = calculateFormulaResultFromExpression(
+            formulaValue,
+            sourcePercentValue,
+            inputMethodValue,
+            enableValue,
+            sourcePercentEnableValue,
+            processValueForCalc,
+            clickedForCalc,
+            rowIdxForCalc
+        );
         processedAmount = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(rawAmount) : rawAmount;
         console.log('saveFormula - Calculated processedAmount:', {
             formulaValue: formulaValue,
