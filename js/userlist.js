@@ -1,4 +1,4 @@
-﻿// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
+// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
     const basePath = pathname.replace(/[^/]*$/, '') || '/';
@@ -42,7 +42,8 @@ const roleHierarchy = {
     'supervisor': 3,
     'accountant': 4,
     'audit': 5,
-    'customer service': 6
+    'customer service': 6,
+    'partnership': 7
 };
 
 // 所有可用角色列表
@@ -53,6 +54,7 @@ const allRoles = [
     { value: 'accountant', label: 'Accountant' },
     { value: 'audit', label: 'Audit' },
     { value: 'customer service', label: 'Customer Service' },
+    { value: 'partnership', label: 'Partnership' },
 ];
 
 // 根据当前用户角色获取可创建的角色列表
@@ -190,7 +192,8 @@ function applySorting() {
             'SUPERVISOR': 3,
             'ACCOUNTANT': 4,
             'AUDIT': 5,
-            'CUSTOMER SERVICE': 6
+            'CUSTOMER SERVICE': 6,
+            'PARTNERSHIP': 7
         };
 
         usersData.sort((a, b) => {
@@ -1335,7 +1338,7 @@ function getCurrentUserRolePermissions() {
         'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
         'accountant': ['payment', 'report', 'maintenance'],
         'audit': ['payment', 'report', 'maintenance'],
-        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report'], 'partnership': []
     };
 
     return rolePermissions[currentUserRole] || [];
@@ -1424,7 +1427,7 @@ function setDefaultPermissionsByRole(role, options = {}) {
         'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
         'accountant': ['payment', 'report', 'maintenance'],
         'audit': ['payment', 'report', 'maintenance'],
-        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report'], 'partnership': []
     };
 
     const permissions = rolePermissions[role.toLowerCase()] || [];
@@ -1464,7 +1467,7 @@ function getFinalPermissionsForCreation(selectedRole) {
         'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
         'accountant': ['payment', 'report', 'maintenance'],
         'audit': ['payment', 'report', 'maintenance'],
-        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report'], 'partnership': []
     };
     const defaultPermissions = rolePermissions[selectedRole.toLowerCase()] || [];
 
@@ -1553,7 +1556,7 @@ function deleteSelected() {
     }
 
     // 检查权限限制
-    const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service'];
+    const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service', 'partnership'];
     const isLowPrivilegeUser = lowPrivilegeRoles.includes(currentUserRole);
 
     // 检查低权限角色不能删除admin和owner（注意：同等级检查已在上面处理）
@@ -1760,7 +1763,7 @@ function getUserDeletePermissionFromCard(card) {
     const isSelf = currentUserId && targetUserId === parseInt(currentUserId, 10);
     const isSameLevel = currentLevel === targetLevel && !isSelf;
     const isHigherLevel = targetLevel < currentLevel; // 数字越小，层级越高
-    const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service'];
+    const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service', 'partnership'];
     const isLowPrivilegeUser = lowPrivilegeRoles.includes(currentUserRole);
     const isAdminUser = targetRole === 'admin';
     const isOwnerUser = targetRole === 'owner';
@@ -1825,7 +1828,7 @@ function syncUserDeleteCheckbox(card) {
 // 切换用户状态
 async function toggleUserStatus(userId, currentStatus, isOwnerShadow = false) {
     // 检查权限限制
-    const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service'];
+    const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service', 'partnership'];
     const isLowPrivilegeUser = lowPrivilegeRoles.includes(currentUserRole);
 
     if (!isOwnerShadow) {
