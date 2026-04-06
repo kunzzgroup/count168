@@ -753,6 +753,7 @@ body.process-page {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
+.process-page .bank-resend-btn,
 .process-page .bank-resent-btn {
     margin-left: 6px;
     padding: 2px 6px;
@@ -767,6 +768,7 @@ body.process-page {
     white-space: nowrap;
 }
 
+.process-page .bank-resend-btn:hover,
 .process-page .bank-resent-btn:hover {
     background: #d0e8f8;
 }

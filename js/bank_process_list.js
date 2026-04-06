@@ -178,9 +178,13 @@ function initProcessListDateFilter() {
     }
 }
 
-function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) {
+function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending) {
+    const showResend = !!maintenanceResendPending;
+    const resendBtn = showResend
+        ? '<button type="button" class="bank-resend-btn" onclick="resendBankProcessAccountingDue(' + processId + ')" title="Put this process back in Accounting Due (after deleting its Bank process transactions in Maintenance)">Resend</button>'
+        : '';
     const actionButtons = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-        buildBankRemarkActionButton(processId);
+        buildBankRemarkActionButton(processId) + resendBtn;
     const showDeleteCheckbox = isRealBankInactive(status);
     if (!showDeleteCheckbox) {
         return actionButtons;
@@ -189,6 +193,57 @@ function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) 
     const titleText = hasTransactions ? 'Cannot delete: process has transactions' : 'Select for deletion';
     return actionButtons + '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + titleText + '"' + disabledAttr + ' onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
 }
+
+async function resendBankProcessAccountingDue(processId) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
+    if (!confirm('Resend this process to Accounting Due?\n\nPosting rules are unchanged; only the “already posted” mark from the deleted maintenance transaction will be cleared.')) {
+        return;
+    }
+    try {
+        const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bank_process_id: id })
+        });
+        const result = await response.json();
+        if (result.success) {
+            const proc = processes.find(function (p) { return p.id === id; });
+            if (proc) {
+                proc.maintenance_resend_pending = false;
+            }
+            showNotification(result.message || 'You can post from Accounting Due again', 'success');
+            if (typeof loadAccountingInbox === 'function') {
+                await loadAccountingInbox();
+            }
+            if (typeof fetchProcesses === 'function') {
+                fetchProcesses();
+            } else {
+                const row = document.querySelector('#bankTableBody tr[data-id="' + id + '"]');
+                if (row) {
+                    row.setAttribute('data-maintenance-resend-pending', '0');
+                    const actionCell = row.querySelector('.bank-td-action');
+                    if (actionCell) {
+                        const p = processes.find(function (x) { return x.id === id; });
+                        actionCell.innerHTML = buildBankActionCellHtml(
+                            id,
+                            row.getAttribute('data-status') || '',
+                            row.getAttribute('data-has-transactions') === '1',
+                            normalizeBankIssueFlag(p ? p.issue_flag : row.getAttribute('data-issue-flag')),
+                            false
+                        );
+                    }
+                }
+            }
+        } else {
+            showNotification(result.message || 'Resend failed', 'danger');
+        }
+    } catch (err) {
+        console.error('resendBankProcessAccountingDue:', err);
+        showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
+    }
+}
+window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
 
 function syncBankFilterCheckboxes() {
     const showInactiveCheckbox = document.getElementById('showInactive');
@@ -473,7 +528,7 @@ async function updateBankIssueFlag(processId, newValue, options) {
             row.setAttribute('data-issue-flag', normalizedNewValue);
             const actionCell = row.querySelector('.bank-td-action');
             if (actionCell) {
-                actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue);
+                actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue, !!(process && process.maintenance_resend_pending));
             }
         }
 
@@ -630,12 +685,13 @@ function renderBankTable() {
         const price = dashIfEmpty(process.price);
         const profit = dashIfEmpty(process.profit);
         const statusSelect = renderBankStatusSelect(process.id, process);
-        const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag);
+        const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag, !!process.maintenance_resend_pending);
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', process.id);
         tr.setAttribute('data-status', process.status || '');
         tr.setAttribute('data-issue-flag', normalizeBankIssueFlag(process.issue_flag));
         tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
+        tr.setAttribute('data-maintenance-resend-pending', process.maintenance_resend_pending ? '1' : '0');
         tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
             '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
             '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
@@ -1370,7 +1426,7 @@ async function performToggleStatus(processId) {
             if (selectedPermission === 'Bank') {
                 const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                 const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '');
+                const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '', !!(process && process.maintenance_resend_pending));
                 if (row) {
                     row.setAttribute('data-status', newStatus || '');
                     row.setAttribute('data-issue-flag', normalizeBankIssueFlag(process ? process.issue_flag : ''));
