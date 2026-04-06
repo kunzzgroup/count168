@@ -809,11 +809,9 @@ async function executeLoadData() {
         return;
     }
 
-    // Group 模式：需要有 group 选中；非 Group 模式：需要有 companyId
-    const groupCompanyIds = getGroupCompanyIds();
-    if (!selectedDashboardGroup && !window.companyId) return;
+    if (!window.companyId) return;
 
-    // 检查参数是否仍然有效（含 group 信息）
+    // 检查参数是否仍然有效
     const checkParams = buildCacheKey();
     if (lastRequestParams === checkParams) {
         return;
@@ -829,37 +827,12 @@ async function executeLoadData() {
     setLoadingState(true);
 
     try {
-        if (selectedDashboardGroup) {
-            if (groupCompanyIds.length > 0) {
-                // ========== Group 模式：并行请求所有公司并聚合 ==========
-                const results = await Promise.allSettled(
-                    groupCompanyIds.map(cid => fetchDashboardForCompany(cid))
-                );
-
-                const successResults = results
-                    .filter(r => r.status === 'fulfilled' && r.value)
-                    .map(r => r.value);
-
-                if (successResults.length === 0) {
-                    throw new Error('All group company requests failed');
-                }
-
-                const mergedData = mergeGroupData(successResults);
-                console.log(`[Group ${selectedDashboardGroup}] 合并 ${successResults.length}/${groupCompanyIds.length} 家公司数据`);
-                updateDashboard(mergedData);
+        const data = await fetchDashboardForCompany(window.companyId);
+        if (data) {
+            if (validateData(data)) {
+                updateDashboard(data);
             } else {
-                // 用户取消了所有公司勾选，显示为0
-                updateDashboard(mergeGroupData([]));
-            }
-        } else {
-            // ========== 单公司模式（原有逻辑） ==========
-            const data = await fetchDashboardForCompany(window.companyId);
-            if (data) {
-                if (validateData(data)) {
-                    updateDashboard(data);
-                } else {
-                    throw new Error('Invalid data format');
-                }
+                throw new Error('Invalid data format');
             }
         }
     } catch (error) {
@@ -877,21 +850,13 @@ async function executeLoadData() {
     }
 }
 
-// 获取当前 Group 内所有 company 的 numeric IDs
-function getGroupCompanyIds() {
-    if (!selectedDashboardGroup) return [];
-    return activeGroupCompanyIds.map(id => parseInt(id));
-}
-
-// 构建缓存 key（含 group 信息）
+// 构建缓存 key
 function buildCacheKey() {
     return JSON.stringify({
         date_from: dateRange.startDate,
         date_to: dateRange.endDate,
         company_id: window.companyId,
-        currency: window.dashboardCurrency || '',
-        group: selectedDashboardGroup || '',
-        group_companies: selectedDashboardGroup ? [...activeGroupCompanyIds].sort().join(',') : ''
+        currency: window.dashboardCurrency || ''
     });
 }
 
@@ -1770,7 +1735,6 @@ function createChart(canvas, chartData) {
 // 存储所有公司数据（含 group_id）以便 group 筛选
 let allOwnerCompanies = [];
 let selectedDashboardGroup = null; // null = 显示所有
-let activeGroupCompanyIds = []; // Group 模式下当前选中的公司 IDs
 
 function loadOwnerCompanies() {
     return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php'))
@@ -1785,6 +1749,19 @@ function loadOwnerCompanies() {
                         .filter(c => c.group_id)
                         .map(c => c.group_id.toUpperCase())
                 )].sort();
+
+                // 从 sessionStorage 恢复 Group
+                const savedGroup = sessionStorage.getItem('dashboard_group_filter');
+                if (savedGroup && groups.includes(savedGroup)) {
+                    // 确认当前公司确实属于这个 group
+                    const currentCompany = data.data.find(c => c.id == window.companyId);
+                    if (currentCompany && currentCompany.group_id && currentCompany.group_id.toUpperCase() === savedGroup) {
+                        selectedDashboardGroup = savedGroup;
+                    } else {
+                        sessionStorage.removeItem('dashboard_group_filter');
+                        selectedDashboardGroup = null;
+                    }
+                }
 
                 // 渲染 Group pills（只在有 group 时才显示）
                 if (groups.length > 0) {
@@ -1818,29 +1795,39 @@ function renderGroupButtons(groups) {
         btn.textContent = groupId;
         btn.dataset.groupId = groupId;
 
+        if (selectedDashboardGroup === groupId) {
+            btn.classList.add('active');
+        }
+
         btn.addEventListener('click', async function () {
             if (selectedDashboardGroup === groupId) {
                 // 再次点击 → 取消选择，显示所有公司
                 selectedDashboardGroup = null;
-                activeGroupCompanyIds = [];
+                sessionStorage.removeItem('dashboard_group_filter');
                 btn.classList.remove('active');
+                renderCompanyButtons(allOwnerCompanies);
             } else {
                 // 选择该 group
                 selectedDashboardGroup = groupId;
-                // 默认全选该 group 旗下的所有公司
-                activeGroupCompanyIds = allOwnerCompanies
-                    .filter(c => c.group_id && c.group_id.toUpperCase() === groupId)
-                    .map(c => c.id.toString());
+                sessionStorage.setItem('dashboard_group_filter', groupId);
+                
                 // 更新 group 按钮状态
                 container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+
+                // 默认选择该 group 旗下的第一家公司并同步 session
+                const groupCompanies = allOwnerCompanies.filter(c => c.group_id && c.group_id.toUpperCase() === groupId);
+                if (groupCompanies.length > 0) {
+                    const firstCompany = groupCompanies[0];
+                    if (parseInt(firstCompany.id) !== parseInt(window.companyId)) {
+                        switchCompany(firstCompany.id, firstCompany.company_id);
+                    } else {
+                        renderCompanyButtons(allOwnerCompanies);
+                    }
+                } else {
+                    renderCompanyButtons(allOwnerCompanies);
+                }
             }
-            // 重新渲染 company 按钮（筛选）
-            renderCompanyButtons(allOwnerCompanies);
-            // 重新加载 Currency（交集）和数据（聚合）
-            lastRequestParams = null;
-            await loadGroupCurrencies();
-            await loadData(true);
         });
 
         container.appendChild(btn);
@@ -1873,35 +1860,14 @@ function renderCompanyButtons(companies) {
         btn.className = 'transaction-company-btn';
         btn.textContent = company.company_id;
         btn.dataset.companyId = company.id;
-        if (selectedDashboardGroup) {
-            // Group 模式：判断是否在被勾选的列表中
-            if (activeGroupCompanyIds.includes(company.id.toString())) {
-                btn.classList.add('active');
-            }
-        } else {
-            if (parseInt(company.id) === parseInt(window.companyId)) {
-                btn.classList.add('active');
-            }
+        
+        if (parseInt(company.id) === parseInt(window.companyId)) {
+            btn.classList.add('active');
         }
 
         btn.addEventListener('click', async function () {
-            if (selectedDashboardGroup) {
-                // Group 模式：多选切换（至少保留一个勾选）
-                const strId = company.id.toString();
-                if (activeGroupCompanyIds.includes(strId)) {
-                    activeGroupCompanyIds = activeGroupCompanyIds.filter(id => id !== strId);
-                    btn.classList.remove('active');
-                } else {
-                    activeGroupCompanyIds.push(strId);
-                    btn.classList.add('active');
-                }
-                lastRequestParams = null;
-                await loadGroupCurrencies();
-                await loadData(true);
-            } else {
-                // 非 Group 模式：原有逻辑，刷新整页
-                switchCompany(company.id, company.company_id);
-            }
+            // 单公司模式：原有逻辑，刷新整页并同步 session
+            switchCompany(company.id, company.company_id);
         });
         container.appendChild(btn);
     });
@@ -1911,69 +1877,7 @@ function renderCompanyButtons(companies) {
 
 // ==================== Group 模式下的 Currency 交集 ====================
 async function loadGroupCurrencies() {
-    if (!selectedDashboardGroup) {
-        // 非 Group 模式 → 正常加载
-        return loadCurrencies();
-    }
-
-    const groupIds = getGroupCompanyIds();
-    if (groupIds.length === 0) return loadCurrencies();
-
-    // 对所有 group 内公司并行请求 currency 列表
-    const results = await Promise.allSettled(
-        groupIds.map(cid =>
-            fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`))
-                .then(r => r.json())
-                .then(d => (d.success && Array.isArray(d.data)) ? d.data.map(c => (c.code || '').toUpperCase()) : [])
-                .catch(() => [])
-        )
-    );
-
-    const currencyLists = results
-        .filter(r => r.status === 'fulfilled')
-        .map(r => r.value);
-
-    if (currencyLists.length === 0) return;
-
-    // 只取有 currency 的公司做交集（没设置 currency 的公司不参与过滤）
-    const nonEmptyLists = currencyLists.filter(list => list.length > 0);
-    if (nonEmptyLists.length === 0) {
-        // 所有公司都没有 currency
-        const wrapper = document.getElementById('currency-buttons-wrapper');
-        if (wrapper) wrapper.style.display = 'none';
-        window.dashboardCurrency = '';
-        return;
-    }
-
-    // 计算交集：以第一个数组为基准，与其余所有数组取交集
-    const intersection = nonEmptyLists.slice(1).reduce((acc, list) => {
-        const set = new Set(list);
-        return acc.filter(code => set.has(code));
-    }, nonEmptyLists[0]);
-
-    // 渲染 Currency 按钮（交集）
-    const wrapper = document.getElementById('currency-buttons-wrapper');
-    const container = document.getElementById('currency-buttons-container');
-    if (!wrapper || !container) return;
-    container.innerHTML = '';
-
-    if (intersection.length === 0) {
-        wrapper.style.display = 'none';
-        window.dashboardCurrency = '';
-        return;
-    }
-
-    // 默认选第一个
-    window.dashboardCurrency = intersection[0];
-    intersection.forEach(code => {
-        const btn = document.createElement('button');
-        btn.className = 'transaction-company-btn' + (window.dashboardCurrency === code ? ' active' : '');
-        btn.textContent = code;
-        btn.dataset.currency = code;
-        btn.addEventListener('click', function () { switchCurrency(code); });
-        container.appendChild(btn);
-    });
-    wrapper.style.display = 'flex';
+    return loadCurrencies(); // 不再需要交集，因为公司被强制单选
 }
 
 // ==================== Currency 选择（Company 下方）：可拖动、默认第一个（与 Transaction List / Member Win/Loss 一致） ====================
