@@ -223,7 +223,7 @@ if ($current_user_id && count($user_companies) > 0) {
 ?>
 
 <!DOCTYPE html>
-<html lang="en" class="process-page-html">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -243,8 +243,9 @@ if ($current_user_id && count($user_companies) > 0) {
 <body class="process-page">
     <div class="container">
         <div class="content">
-            <div class="process-list-page-top">
-                <div class="process-list-page-top-left">
+            <div
+                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
+                <div style="display: flex; align-items: center; gap: 16px;">
                     <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars($processListPageTitle); ?></h1>
                     <?php renderBankProcessToolbarAction(); ?>
                 </div>
