@@ -10686,10 +10686,9 @@ function formatDecimalValue(value) {
     if (isNaN(num) || !Number.isFinite(num)) {
         return value;
     }
-    // Convert to string and remove trailing zeros
-    // Use toFixed with enough precision, then remove trailing zeros
-    const fixed = num.toFixed(15); // Use 15 decimal places to avoid precision issues
-    // Remove trailing zeros and optional decimal point
+    // 先按固定小数位圆整再 strip，消除 9.2 -> 9.199999999999999 / 9.200000000000001 等二进制浮点展示噪声
+    const rounded = parseFloat(num.toFixed(12));
+    const fixed = rounded.toFixed(12);
     return fixed.replace(/\.?0+$/, '');
 }
 
@@ -12958,7 +12957,7 @@ function enableFormulaInlineEdit(element, row) {
                 try {
                     const sanitized = removeThousandsSeparators(newSourcePercent);
                     const evaluated = evaluateExpression(sanitized);
-                    currentSourcePercentDecimal = evaluated.toString();
+                    currentSourcePercentDecimal = formatDecimalValue(evaluated);
 
                     // Update Source % cell display
                     if (sourcePercentCell) {
