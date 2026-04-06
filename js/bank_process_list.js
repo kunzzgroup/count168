@@ -191,7 +191,8 @@ function initProcessListDateFilter() {
 }
 
 function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending) {
-    const showResend = !!maintenanceResendPending;
+    const isBankStatusActive = String(status || '').trim().toLowerCase() === 'active';
+    const showResend = !!maintenanceResendPending && isBankStatusActive;
     const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
     const actionButtons =
         '<span class="bank-action-tools">' +
