@@ -51,27 +51,11 @@ function getCompanyIdForRequest(PDO $pdo) {
 }
 
 /**
- * 解析前端传来的日期为 Y-m-d（支持 d/m/Y 或 Y-m-d）
- */
-function parseDateForFilter($input) {
-    $input = trim((string) $input);
-    if ($input === '') return null;
-    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $input, $m)) {
-        return $input;
-    }
-    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $input, $m)) {
-        return $m[3] . '-' . str_pad($m[2], 2, '0', STR_PAD_LEFT) . '-' . str_pad($m[1], 2, '0', STR_PAD_LEFT);
-    }
-    return null;
-}
-
-/**
- * 获取公式列表（含搜索、process 筛选、日期筛选），返回原始行
- * 日期筛选按 created_at 在 date_from～date_to 之间（含首尾）
+ * 获取公式列表（含搜索、process 筛选），返回原始行
  * 直接 JOIN process 表，避免 GROUP BY 导致同一 process 代码下多条 process 行时只匹配 MIN(id)、
  * 其余模板在 Maintenance 不显示却在 Data Capture Summary 仍显示的问题。
  */
-function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter, $dateFrom, $dateTo) {
+function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter) {
     $sql = "SELECT 
                 dct.id,
                 dct.process_id,
@@ -123,11 +107,6 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
             OR p.process_id LIKE ?
         )";
         $params = array_merge($params, [$like, $like, $like, $like, $like, $like, $like, $like, $like]);
-    }
-    if ($dateFrom !== null && $dateTo !== null) {
-        $sql .= " AND DATE(dct.created_at) BETWEEN ? AND ?";
-        $params[] = $dateFrom;
-        $params[] = $dateTo;
     }
     $sql .= " ORDER BY p.process_id ASC, dct.id ASC";
     $stmt = $pdo->prepare($sql);
@@ -233,10 +212,7 @@ try {
     if ($processFilter === '' && isset($_POST['process'])) {
         $processFilter = trim((string)$_POST['process']);
     }
-    $dateFrom = parseDateForFilter(isset($_GET['date_from']) ? $_GET['date_from'] : '');
-    $dateTo = parseDateForFilter(isset($_GET['date_to']) ? $_GET['date_to'] : '');
-
-    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processFilter, $dateFrom, $dateTo);
+    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processFilter);
     $list = mapRowsToDisplay($rows);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {
