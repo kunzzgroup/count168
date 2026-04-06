@@ -216,8 +216,8 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
 }
 
 /**
- * Accounting Due 的 monthly 行：账单所属自然月的应付日（与 inbox 规则一致），用于 transaction_date；
- * process_accounting_posted 仍可按该日期的年/月判断「该月已入账」。
+ * Accounting Due 的 monthly 行：账单所属自然月的应付日（与 inbox 规则一致），用于 process_accounting_posted.posted_date；
+ * Payment History 的 transaction_date 另用 day_start 锚定（见主循环 monthly 分支）。
  */
 function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYmd, string $frequency): ?string
 {
@@ -306,7 +306,7 @@ function isWithinRecurringBillingWindowForTxn(string $todayYmd, ?string $dayStar
 
 /**
  * 未传 billing_month 时，按 Accounting Inbox 的 regular monthly 规则推断第一个未结清账单所属自然月（Y-n），
- * 使 Payment / Transaction 的 transaction_date 始终为应付业务日（day_start / 每月1号 等），而非提交当日。
+ * 使入账时的 billing_month 与 posted_date（应付日）一致；transaction_date 在 post API 中对 monthly 固定为 day_start。
  */
 function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, string $today): ?string
 {
@@ -837,7 +837,7 @@ try {
             continue;
         }
 
-        // transaction_date：按账单/合同经济日（day_start、应付月、尾段起始日），便于 Payment History 按业务日筛选。
+        // transaction_date：partial/tail 等按账单/合同经济日；monthly 单独用 day_start 锚定（posted_date 仍用应付日）。
         // manual_inactive 的 process_accounting_posted.posted_date 仍用「今天」，否则 posted_date < dts_modified 时
         // fetchInactiveBankProcessesPendingTransaction 的 NOT EXISTS 无法识别本轮已入账（见 process_accounting_inbox_api）。
         $transactionDate = $fallbackDate;
@@ -859,12 +859,16 @@ try {
                 }
             }
         } elseif ($periodType === 'monthly') {
+            // posted_date：仍用账单应付日（如 1st → 当月 1 号），供 Inbox / process_accounting_posted 按自然月去重。
+            // transaction_date：统一用流程 day_start（不早于创建日），Payment History 与首笔一致，避免第二笔落在应付日或「未解析 billing_month」时误用提交当日。
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
-                    $transactionDate = $dueTx;
                     $postedDateForInbox = $dueTx;
                 }
+            }
+            if ($dayStartYmd) {
+                $transactionDate = maxYmd($dayStartYmd, $createdYmd);
             }
         }
 
