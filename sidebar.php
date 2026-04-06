@@ -145,7 +145,7 @@ if ($companyId) {
     }
 }
 
-// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 仅在 Bank 且无 Games/Gambling 时显示；Bank 视图（localStorage）下 Data Capture/Transaction 由 js/sidebar.js 隐藏
+// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 仅在 Bank 且无 Games/Gambling 时显示；Bank 视图（localStorage）下 Data Capture/Transaction/Formula 由 js/sidebar.js 隐藏
 $companyHasGambling = false;
 $companyCategories = [];
 if ($companyId) {
