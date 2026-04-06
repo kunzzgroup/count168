@@ -1148,8 +1148,8 @@ body.process-page {
 .process-page .process-form .form-group textarea {
     border-color: #dbe1ea;
     border-radius: 0.5rem;
-    padding: 0.4rem 0.75rem; /* ~6.5px 12px */
-    font-size: 0.8125rem; /* 13px */
+    padding: 0.625rem 0.875rem; /* 10px 14px */
+    font-size: 0.875rem; /* 14px */
 }
 
 .process-page .process-form .form-group input:focus,
@@ -1203,7 +1203,7 @@ body.process-page {
 }
 
 .process-page #addModal .modal-body {
-    padding: 1.25rem 1.5rem 1.25rem 1.5rem !important;
+    padding: 1.5rem 2rem 1.5rem 2rem !important;
 }
 
 .process-page #addModal .process-form.add-grid {
@@ -1211,18 +1211,18 @@ body.process-page {
 }
 
 .process-page #addModal .process-form.add-grid .add-col {
-    padding: 0.75rem 1rem !important;
+    padding: 1rem 1.25rem !important;
 }
 
 .process-page #addModal .process-form .form-group label {
     font-weight: 700 !important;
-    font-size: 0.8125rem !important; /* 13px */
-    margin-bottom: 0.25rem !important;
+    font-size: 0.875rem !important;
+    margin-bottom: 0.5rem !important;
 }
 
 .process-page #addModal .process-form .form-row {
-    gap: 0.875rem !important;
-    margin-bottom: 0.625rem !important;
+    gap: 1.125rem !important;
+    margin-bottom: 0.875rem !important;
 }
 
 /* Day Use: one single row filled */
@@ -1244,7 +1244,7 @@ body.process-page {
 }
 
 .process-page #editModal .modal-body {
-    padding: 1.25rem 1.5rem 1.25rem 1.5rem !important;
+    padding: 1.5rem 2rem 1.5rem 2rem !important;
 }
 
 .process-page #editModal .process-form.add-grid {
@@ -1252,18 +1252,18 @@ body.process-page {
 }
 
 .process-page #editModal .process-form.add-grid .add-col {
-    padding: 0.75rem 0.9rem !important;
+    padding: 1rem 1.25rem !important;
 }
 
 .process-page #editModal .process-form .form-group label {
     font-weight: 700 !important;
-    font-size: 0.8125rem !important; /* 13px */
-    margin-bottom: 0.25rem !important;
+    font-size: 0.875rem !important;
+    margin-bottom: 0.5rem !important;
 }
 
 .process-page #editModal .process-form .form-row {
-    gap: 0.875rem !important;
-    margin-bottom: 0.625rem !important;
+    gap: 1.125rem !important;
+    margin-bottom: 0.875rem !important;
 }
 
 /* Apply same one-row day layout to edit modal explicitly */
@@ -2554,3 +2554,37 @@ body.process-page {
 }
     
     
+/* ========================================================
+   Compact Mode for Small Screens (Laptops, Tablets, etc.)
+   ======================================================== */
+@media (max-height: 800px), (max-width: 1200px) {
+    .process-page .process-form .form-group input,
+    .process-page .process-form .form-group select,
+    .process-page .process-form .form-group textarea {
+        padding: 0.4rem 0.75rem !important;
+        font-size: 0.8125rem !important;
+    }
+    .process-page #addModal .process-form .form-group label,
+    .process-page #editModal .process-form .form-group label {
+        font-size: 0.8125rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    .process-page #addModal .process-form .form-row,
+    .process-page #editModal .process-form .form-row {
+        margin-bottom: 0.625rem !important;
+        gap: 0.875rem !important;
+    }
+    .process-page #addModal .modal-body,
+    .process-page #editModal .modal-body {
+        padding: 1rem 1.25rem 1rem 1.25rem !important;
+    }
+    .process-page #addModal .process-form.add-grid .add-col,
+    .process-page #editModal .process-form.add-grid .add-col {
+        padding: 0.75rem 0.9rem !important;
+    }
+    .process-page .process-form.add-grid .add-actions {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+    }
+}
+

@@ -531,7 +531,7 @@ body {
 /* 两列布局中的表单组 */
 .account-form-column .account-form-group {
     min-width: 100%;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 /* form-row 中的 form-group 可以并排显示 */
@@ -541,8 +541,8 @@ body {
 }
 
 .account-form-column .account-form-row {
-    gap: 0.875rem;
-    margin-bottom: 0.75rem;
+    gap: 1.125rem;
+    margin-bottom: 1rem;
 }
 
 /* 隐藏的 alert 字段不占空间 */
@@ -558,27 +558,27 @@ body {
 
 .account-form-group label {
     display: block;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
     font-weight: 600;
     color: #374151;
-    font-size: 0.8125rem; /* 13px */
+    font-size: 0.875rem;
     letter-spacing: 0.025em;
     font-family: 'Amaranth', sans-serif;
 }
 
 /* Payment Alert label 更紧凑 */
 .account-form-column .account-form-group:has(.account-radio-group) label {
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
 }
 
 .account-form-group input,
 .account-form-group select,
 .account-form-group textarea {
     width: 100%;
-    padding: 0.4rem 0.75rem; /* ~6.5px 12px */
+    padding: 0.625rem 0.875rem;
     border: 0.125rem solid #e5e7eb;
     border-radius: 0.5rem;
-    font-size: 0.8125rem; /* 13px */
+    font-size: 0.875rem;
     background: #ffffff;
     color: #374151;
     box-sizing: border-box;
@@ -1606,3 +1606,32 @@ body {
         min-height: calc(100vh - 250px);
     }
 }
+/* ========================================================
+   Compact Mode for Small Screens (Laptops, Tablets, etc.)
+   ======================================================== */
+@media (max-height: 800px), (max-width: 1200px) {
+    .account-form-group input,
+    .account-form-group select,
+    .account-form-group textarea {
+        padding: 0.4rem 0.75rem !important;
+        font-size: 0.8125rem !important;
+    }
+    .account-form-group label {
+        font-size: 0.8125rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    .account-form-column .account-form-group:has(.account-radio-group) label {
+        margin-bottom: 0.25rem !important;
+    }
+    .account-form-column .account-form-row {
+        margin-bottom: 0.75rem !important;
+        gap: 0.875rem !important;
+    }
+    .account-form-column .account-form-group {
+        margin-bottom: 0.75rem !important;
+    }
+    .account-form-row .account-form-group {
+        margin-bottom: 0 !important;
+    }
+}
+
