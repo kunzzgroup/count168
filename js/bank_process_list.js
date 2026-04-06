@@ -605,7 +605,7 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll && selectedPermission !== 'Bank') {
+    if (showAll) {
         pageItems = listToShow;
         startIndex = 0;
     } else {
@@ -2538,7 +2538,42 @@ if (editAccountFormEl) {
     });
 }
 
-// profitSharingForm / profitSharingAddRowBtn: listeners live in processlist.js (global) to avoid duplicate submit handlers.
+const profitSharingFormEl = document.getElementById('profitSharingForm');
+if (profitSharingFormEl) {
+    profitSharingFormEl.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const rows = document.querySelectorAll('#profitSharingRowsContainer .profit-sharing-row');
+        if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
+        let added = 0;
+        rows.forEach(function (row) {
+            const accountHidden = row.querySelector('.profit-sharing-account-id');
+            const accountBtn = row.querySelector('.profit-sharing-account-btn');
+            const amountInput = row.querySelector('.profit-sharing-amount');
+            if (!amountInput) return;
+            const accountId = (accountHidden && accountHidden.value) ? (accountHidden.value || '').trim() : '';
+            const rawAmount = (amountInput.value || '').trim();
+            if (!accountId || rawAmount === '') return;
+            const accountText = (accountBtn && accountBtn.textContent) ? accountBtn.textContent.trim() : '';
+            const num = parseFloat(rawAmount);
+            const amount = (isNaN(num) ? rawAmount : num.toFixed(2));
+            window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
+            added++;
+        });
+        if (added === 0) {
+            showNotification('Please select at least one Account and enter Amount.', 'warning');
+            return;
+        }
+        renderSelectedProfitSharing();
+        closeProfitSharingModal();
+    });
+}
+
+const profitSharingAddRowBtn = document.getElementById('profitSharingAddRowBtn');
+if (profitSharingAddRowBtn) {
+    profitSharingAddRowBtn.addEventListener('click', function () {
+        addProfitSharingRow();
+    });
+}
 
 // 页面加载完成后执行
 // Profit calculation flag to prevent duplicate listeners
