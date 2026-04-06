@@ -13,24 +13,28 @@
     --own-dark-text: #0f172a;
 }
 
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 .own-container {
     width: 100%;
-    /* Remove max-width constraint to make it span fully like other pages */
     margin: 0;
-    padding: clamp(20px, 3vw, 40px) clamp(20px, 4vw, 60px);
+    /* Top, Right, Bottom, Left. The large left padding clears the fixed sidebar! */
+    padding: clamp(20px, 3vw, 40px) clamp(20px, 4vw, 60px) 40px clamp(230px, 16vw, 300px);
     color: var(--own-dark-text);
 }
 
 .own-page-title {
     font-size: 26px; /* Slightly larger */
+    font-family: 'Amaranth', sans-serif;
     font-weight: 700;
-    color: #004080;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 30px; /* More breathing room */
+    color: #002C49;
+    letter-spacing: 1px;
+    margin-bottom: 30px; 
     text-decoration: underline;
     text-underline-offset: 6px;
-    text-decoration-thickness: 2.5px; /* Thicker underline for bolder look */
+    text-decoration-thickness: 2.5px; 
 }
 
 /* Card Container */
