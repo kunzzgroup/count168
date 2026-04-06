@@ -214,6 +214,14 @@ function createRowElement(companyId, idx, rowData) {
         selectOptions += `<option value="${acc.id}" ${selected}>${acc.account_name} (${acc.name})</option>`;
     });
 
+    const isExternal = String(rowData.account_id).startsWith('O_');
+    const includeGroupHtml = isExternal ? `
+        <label style="display:flex; align-items:center; font-size:12px; margin-left:8px; margin-right:4px; color:#555; cursor:pointer; line-height: 1;" title="Share original Group ID with Partner">
+            <input type="checkbox" onchange="updateRowData(${companyId}, ${idx}, 'include_group', this.checked ? 1 : 0)" ${rowData.include_group !== 0 ? 'checked' : ''} style="margin-right:2px; vertical-align: middle;">
+            Grp
+        </label>
+    ` : '';
+
     div.innerHTML = `
         <div class="own-drag-handle">⋮⋮</div>
         <select class="own-account-select" onchange="updateRowData(${companyId}, ${idx}, 'account_id', this.value)">
@@ -241,6 +249,7 @@ function createRowElement(companyId, idx, rowData) {
             <button class="own-btn-square own-btn-delete" title="Remove" onclick="removeRow(${companyId}, ${idx})">
                 <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
             </button>
+            ${includeGroupHtml}
         </div>
     `;
 
@@ -253,7 +262,7 @@ function createRowElement(companyId, idx, rowData) {
 }
 
 function addAccountRow(companyId) {
-    companyStates[companyId].rows.push({ account_id: '', percentage: 0 });
+    companyStates[companyId].rows.push({ account_id: '', percentage: 0, include_group: 1 });
     renderCardBodyRows(companyId);
 }
 
@@ -266,6 +275,9 @@ function updateRowData(companyId, idx, field, value) {
     companyStates[companyId].rows[idx][field] = value;
     if (field === 'percentage') {
         updateCalculations(companyId);
+    }
+    if (field === 'account_id') {
+        renderCardBodyRows(companyId); // Re-render to show/hide group checkbox
     }
 }
 
@@ -414,7 +426,11 @@ function confirmEdit(companyId) {
 
     const payload = {
         company_id: companyId,
-        owners: rows.map(r => ({ account_id: r.account_id, percentage: parseFloat(r.percentage) }))
+        owners: rows.map(r => ({ 
+            account_id: r.account_id, 
+            percentage: parseFloat(r.percentage),
+            include_group: r.include_group !== undefined ? parseInt(r.include_group) : 1
+        }))
     };
 
     const confirmBtn = document.getElementById(`confirm-btn-${companyId}`);

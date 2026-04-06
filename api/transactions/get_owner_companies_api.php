@@ -25,14 +25,15 @@ function getCompaniesByUser(PDO $pdo, int $userId): array {
 
 function getCompaniesByOwner(PDO $pdo, int $ownerId): array {
     $stmt = $pdo->prepare("
-        SELECT DISTINCT c.id, c.company_id, c.group_id, 
+        SELECT DISTINCT c.id, c.company_id, 
+               IF(c.owner_id = ?, c.group_id, IF(co.include_group = 0, NULL, c.group_id)) as group_id, 
                IF(c.owner_id = ?, 0, 1) as is_external
         FROM company c
-        LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner'
+        LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
         WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
         ORDER BY is_external ASC, c.company_id ASC
     ");
-    $stmt->execute([$ownerId, $ownerId, $ownerId]);
+    $stmt->execute([$ownerId, $ownerId, $ownerId, $ownerId, $ownerId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
