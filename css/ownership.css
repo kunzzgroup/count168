@@ -15,41 +15,48 @@
 
 .own-container {
     width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
+    /* Remove max-width constraint to make it span fully like other pages */
+    margin: 0;
+    padding: clamp(20px, 3vw, 40px) clamp(20px, 4vw, 60px);
     color: var(--own-dark-text);
 }
 
 .own-page-title {
-    font-size: 20px;
+    font-size: 26px; /* Slightly larger */
     font-weight: 700;
     color: #004080;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 24px;
+    margin-bottom: 30px; /* More breathing room */
     text-decoration: underline;
     text-underline-offset: 6px;
-    text-decoration-thickness: 2px;
+    text-decoration-thickness: 2.5px; /* Thicker underline for bolder look */
 }
 
 /* Card Container */
 .own-card {
     border: 1px solid var(--own-gray-border);
-    border-radius: 12px;
-    margin-bottom: 16px;
+    border-radius: 16px; /* Softer, larger radius */
+    margin-bottom: 24px; /* More spacing between cards */
     background-color: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02); /* More premium shadow */
     overflow: hidden;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.own-card:hover {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06), 0 4px 10px rgba(0, 0, 0, 0.03);
+    border-color: #cbd5e1;
 }
 
 /* Card Header */    
 .own-card-header {
-    padding: 20px 24px;
+    padding: 24px 32px; /* Bigger padding */
     display: flex;
     align-items: center;
     justify-content: space-between;
     background-color: #fff;
+    min-height: 90px;
 }
 
 .own-card-header-left {
@@ -57,95 +64,107 @@
 }
 
 .own-company-name {
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 4px;
+    font-size: 24px; /* Larger company names */
+    font-weight: 800; /* Bolder */
+    margin-bottom: 6px;
     color: var(--own-dark-text);
+    letter-spacing: 0.2px;
 }
 
 .own-company-date {
-    font-size: 13px;
+    font-size: 14px; /* Slightly more readable */
     color: var(--own-gray-text);
 }
 
 .own-card-header-middle {
     flex: 2;
-    padding: 0 40px;
+    padding: 0 50px; /* More side breathing room */
 }
 
 .own-allocation-info {
     display: flex;
     align-items: baseline;
-    margin-bottom: 8px;
+    margin-bottom: 12px; /* Increased margin */
 }
 
 .own-allocation-label {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--own-dark-text);
-    margin-right: 12px;
+    margin-right: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .own-allocation-percentage {
-    font-size: 24px;
-    font-weight: 700;
+    font-size: 28px; /* Bigger dominant percent */
+    font-weight: 800;
     color: var(--own-primary-blue);
-    margin-right: 12px;
+    margin-right: 16px;
 }
 
 .own-allocation-remaining {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--own-gray-text);
+    font-weight: 500;
 }
 
 /* Progress Bar */
 .own-progress-bar-container {
     width: 100%;
-    height: 8px;
-    background-color: var(--own-gray-border);
-    border-radius: 4px;
+    height: 10px; /* Thicker progress bar */
+    background-color: var(--own-gray-light); /* Softer empty bg */
+    border-radius: 5px;
     overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .own-progress-bar-fill {
     height: 100%;
     background-color: var(--own-primary-blue);
-    border-radius: 4px;
-    transition: width 0.3s ease;
+    border-radius: 5px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 5px rgba(59, 142, 246, 0.4);
 }
 
 .own-card-header-right {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 20px;
 }
 
 .own-btn-outline {
-    padding: 6px 16px;
+    padding: 8px 20px; /* Larger button padding */
     border: 1px solid var(--own-primary-blue);
     color: var(--own-primary-blue);
     background: transparent;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .own-btn-outline:hover {
     background-color: var(--own-primary-light);
+    transform: translateY(-1px);
 }
 
 .own-icon-btn {
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--own-dark-text);
+    color: var(--own-gray-text); /* Softer icon color initial */
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
-    transition: transform 0.2s ease;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+.own-icon-btn:hover {
+    background-color: var(--own-gray-light);
+    color: var(--own-dark-text);
 }
 
 .own-card.expanded .own-icon-btn {
@@ -169,46 +188,63 @@
 
 .own-table-headers {
     display: grid;
-    grid-template-columns: 320px 1fr;
-    padding: 12px 24px;
-    font-size: 12px;
+    grid-template-columns: 360px 1fr; /* Wider first column */
+    padding: 16px 32px;
+    font-size: 13px;
     color: var(--own-gray-text);
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .own-account-row {
     display: flex;
     align-items: center;
-    padding: 12px 24px;
+    padding: 16px 24px; /* Bigger padding */
     border: 1px solid var(--own-gray-border);
-    border-radius: 8px;
-    margin: 0 24px 12px 24px;
+    border-radius: 12px; /* Bigger radius */
+    margin: 0 32px 16px 32px; /* More side margin */
     background-color: white;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+.own-account-row:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .own-drag-handle {
     color: #cbd5e1;
-    margin-right: 12px;
+    margin-right: 16px;
     cursor: grab;
-    font-size: 18px;
+    font-size: 20px;
     line-height: 1;
     user-select: none;
+    transition: color 0.2s;
+}
+.own-account-row:hover .own-drag-handle {
+    color: #94a3b8;
 }
 
 .own-account-select {
-    flex: 0 0 260px;
-    padding: 8px 12px;
+    flex: 0 0 300px; /* Wider select */
+    padding: 12px 16px; /* Bigger padding */
     border: 1px solid var(--own-gray-border);
-    border-radius: 6px;
-    font-size: 14px;
+    border-radius: 8px;
+    font-size: 15px; /* Larger font */
     font-weight: 600;
     color: var(--own-dark-text);
     outline: none;
     appearance: none;
-    background: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%2364748b" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>') no-repeat right 12px center;
-    background-size: 14px;
+    background: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%2364748b" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>') no-repeat right 16px center;
+    background-size: 16px;
+    background-color: var(--own-gray-bg);
+    margin-right: 32px;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+.own-account-select:focus {
+    border-color: var(--own-primary-blue);
     background-color: white;
-    margin-right: 24px;
+    box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.1);
 }
 
 .own-ownership-input-group {
@@ -218,15 +254,22 @@
 }
 
 .own-percent-input {
-    width: 65px;
-    padding: 8px;
+    width: 75px; /* Wider input */
+    padding: 10px 12px;
     border: 1px solid var(--own-gray-border);
-    border-radius: 6px;
+    border-radius: 8px;
     text-align: right;
-    font-size: 14px;
-    margin-right: 20px;
+    font-size: 16px;
+    font-weight: 700;
+    margin-right: 24px;
     outline: none;
     color: var(--own-dark-text);
+    background-color: var(--own-gray-bg);
+    transition: border-color 0.2s, background-color 0.2s;
+}
+.own-percent-input:focus {
+    border-color: var(--own-primary-blue);
+    background-color: white;
 }
 
 /* Custom Slider */
@@ -235,99 +278,115 @@
     position: relative;
     display: flex;
     align-items: center;
-    margin-right: 24px;
+    margin-right: 32px;
 }
 
 .own-slider {
     -webkit-appearance: none;
+    appearance: none;
     width: 100%;
-    height: 4px;
+    height: 6px; /* Thicker slider line */
     background: var(--own-gray-border);
-    border-radius: 2px;
+    border-radius: 3px;
     outline: none;
 }
 
 .own-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 20px; /* Bigger thumb */
+    height: 20px; /* Bigger thumb */
     border-radius: 50%;
     background: white;
-    border: 2px solid var(--own-primary-blue);
+    border: 3px solid var(--own-primary-blue);
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: transform 0.1s;
+}
+.own-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
 }
 
 .own-slider-labels {
     position: absolute;
-    top: 12px;
+    top: 16px;
     width: 100%;
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 11px;
+    font-weight: 500;
     color: var(--own-gray-text);
 }
 
 /* Action Buttons Row */
 .own-row-actions {
     display: flex;
-    gap: 8px;
+    gap: 12px; /* Nicer gap */
     margin-left: auto;
 }
 
 .own-btn-square {
-    width: 32px;
-    height: 32px;
+    width: 38px; /* Bigger buttons */
+    height: 38px;
     border: 1px solid var(--own-gray-border);
-    border-radius: 6px;
+    border-radius: 8px;
     background-color: white;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 500;
     color: var(--own-dark-text);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
-.own-btn-square:hover { background-color: var(--own-gray-light); }
+.own-btn-square:hover { 
+    background-color: var(--own-gray-light); 
+    border-color: #cbd5e1;
+}
 
 .own-btn-delete {
     color: var(--own-danger-red);
     border-color: transparent;
 }
-.own-btn-delete:hover { background-color: #fef2f2; }
+.own-btn-delete:hover { 
+    background-color: #fee2e2;
+    color: #dc2626;
+}
 
 /* Add Account Button */
 .own-btn-add-account {
     display: block;
-    width: calc(100% - 48px);
-    margin: 0 24px 24px 24px;
-    padding: 12px;
+    width: calc(100% - 64px);
+    margin: 0 32px 32px 32px; /* Bigger margins */
+    padding: 14px;
     background-color: var(--own-primary-light);
     color: var(--own-primary-blue);
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    border: 2px dashed #bfdbfe; /* Cool dashed border */
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
-.own-btn-add-account:hover { background-color: #dbeafe; }
+.own-btn-add-account:hover { 
+    background-color: #dbeafe; 
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
 
 /* Card Footer (Actions & Warnings) */
 .own-card-footer {
-    padding: 16px 24px;
+    padding: 20px 32px;
     background-color: var(--own-gray-bg);
     border-top: 1px solid var(--own-gray-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
 }
 
 .own-footer-left {
@@ -340,38 +399,39 @@
     background-color: var(--own-warning-bg);
     border: 1px solid var(--own-warning-border);
     color: var(--own-warning-text);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .own-unallocated-text {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--own-gray-text);
 }
 
 .own-footer-right {
     display: flex;
-    gap: 12px;
+    gap: 16px; /* wider gap */
 }
 
 .own-footer-btn {
-    padding: 8px 24px;
-    border-radius: 20px;
-    font-size: 14px;
+    padding: 10px 28px; /* Bigger buttons */
+    border-radius: 24px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
     border: none;
     color: white;
-    transition: opacity 0.2s;
+    transition: all 0.2s;
 }
 .own-footer-btn:hover {
-    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
 }
 
 .own-btn-cancel {
