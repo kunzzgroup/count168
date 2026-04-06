@@ -8827,7 +8827,7 @@ function getColumnValueFromCellReference(cellReference, processValue, rowIndexOv
 // Parse reference format formula and replace with actual values
 // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
 // Also supports cell references: "A4 + A3" -> "17 + 42"
-function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = null, rowIndexOverride = null) {
+function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return '';
@@ -8904,10 +8904,13 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 重要：优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         const formulaInput = document.getElementById('formula');
-        const clickedCellRefs = (
-            (clickedCellRefsOverride != null ? String(clickedCellRefsOverride) : '') ||
-            (formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '')
-        );
+        // undefined：沿用 #formula（编辑弹窗/预览）；传入字符串（含 ''）则只用该值，避免 Summary 重算吃到弹窗里其他行的 refs
+        let clickedCellRefs = '';
+        if (clickedCellRefsOverride === undefined) {
+            clickedCellRefs = (formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '').trim();
+        } else {
+            clickedCellRefs = String(clickedCellRefsOverride || '').trim();
+        }
 
         if (processValue) {
             // Match $ followed by digits (e.g., $2, $10, $123)
@@ -9146,7 +9149,7 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
 }
 
 // Evaluate formula expression directly
-function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = null, rowIndexOverride = null) {
+function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return 0;
@@ -9467,6 +9470,8 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         ? String(options.processValue).trim()
         : (typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null)
 
+    const refCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null }
+
     let baseProcessedAmount = 0;
     if (formulaText && formulaText !== 'Formula') {
         baseProcessedAmount = calculateFormulaResultFromExpression(
@@ -9475,7 +9480,9 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
-            processValueForRefs
+            processValueForRefs,
+            refCtx.clickedCellRefs,
+            refCtx.rowIndexOverride
         );
     }
 
@@ -9540,7 +9547,8 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
         let processedAmount = 0
         try {
             const processValue = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null
-            processedAmount = evaluateFormulaExpression(formulaText, processValue)
+            const refCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null }
+            processedAmount = evaluateFormulaExpression(formulaText, processValue, refCtx.clickedCellRefs, refCtx.rowIndexOverride)
 
             const inputMethod = String(row.getAttribute('data-input-method') || '').trim()
             const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true'
@@ -9712,14 +9720,14 @@ function getFormulaEditButtonHtml(formulaText) {
 }
 
 // Calculate formula result from expression
-function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null) {
+function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula) {
             return 0;
         }
 
         // Evaluate the formula expression（Summary 页常无 #process，必须显式传入当前行 id_product 才能解析 $数字）
-        const formulaResult = evaluateFormulaExpression(formula, processValueForRefs);
+        const formulaResult = evaluateFormulaExpression(formula, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If source percent is disabled, return formula result directly (without applying source percent)
         if (!enableSourcePercent) {
@@ -12621,6 +12629,24 @@ function getProcessValueFromRow(row) {
     }
 
     return '';
+}
+
+// Summary 行重算 Processed Amount 时用：禁止沿用 #formula 上别的行的 data-clicked-cell-refs
+function getSummaryRowFormulaRefContext(row) {
+    if (!row) {
+        return { clickedCellRefs: '', rowIndexOverride: null };
+    }
+    const refsAttr = row.getAttribute('data-clicked-cell-refs');
+    const clickedCellRefs = refsAttr !== null ? refsAttr : '';
+    const rowIdxStr = row.getAttribute('data-row-index');
+    let rowIndexOverride = null;
+    if (rowIdxStr !== null && rowIdxStr !== '' && rowIdxStr !== '999999') {
+        const n = Number(rowIdxStr);
+        if (!Number.isNaN(n) && n >= 0) {
+            rowIndexOverride = n;
+        }
+    }
+    return { clickedCellRefs, rowIndexOverride };
 }
 
 // Helper function to extract description from process value
@@ -16397,10 +16423,16 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
                 // 回退到使用当前行的 id_product（如果没有在 sourceColumns 中找到）
                 if (columnValue === null) {
-                    const rowLabel = getRowLabelFromProcessValue(idProduct);
+                    const rowIdxAttr = targetRow.getAttribute('data-row-index');
+                    let rowIdxForLbl = null;
+                    if (rowIdxAttr !== null && rowIdxAttr !== '' && rowIdxAttr !== '999999') {
+                        const n = Number(rowIdxAttr);
+                        if (!Number.isNaN(n) && n >= 0) rowIdxForLbl = n;
+                    }
+                    const rowLabel = getRowLabelFromProcessValue(idProduct, rowIdxForLbl);
                     if (rowLabel) {
                         const columnReference = rowLabel + match.columnNumber;
-                        columnValue = getColumnValueFromCellReference(columnReference, idProduct);
+                        columnValue = getColumnValueFromCellReference(columnReference, idProduct, rowIdxForLbl);
                         console.log('applyMainTemplateToRow: Fallback to current row id_product:', idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                     }
                 }
@@ -16420,7 +16452,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             // Always proceed using the resolved (possibly 0-filled) displayFormula
             {
                 // 如果还有列引用（如 A5），也转换为实际值
-                const parsedFormula = parseReferenceFormula(displayFormula);
+                const tplRefCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(targetRow) : { clickedCellRefs: '', rowIndexOverride: null };
+                const parsedFormula = parseReferenceFormula(displayFormula, idProduct, tplRefCtx.clickedCellRefs, tplRefCtx.rowIndexOverride);
                 const baseFormula = parsedFormula || displayFormula;
 
                 // 应用 source percent
@@ -16433,7 +16466,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
             console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
         } else if (!hasDollarSigns && hasBracketReferenceFormula) {
-            const parsedOperatorFormula = parseReferenceFormula(formulaOperatorsValue);
+            const tplRefCtx2 = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(targetRow) : { clickedCellRefs: '', rowIndexOverride: null };
+            const parsedOperatorFormula = parseReferenceFormula(formulaOperatorsValue, idProduct, tplRefCtx2.clickedCellRefs, tplRefCtx2.rowIndexOverride);
             if (parsedOperatorFormula && parsedOperatorFormula.trim() !== '') {
                 formulaDisplay = createFormulaDisplayFromExpression(parsedOperatorFormula, percentValue, enableSourcePercent);
                 console.log('applyMainTemplateToRow: formula_operators contains bracket references, recalculated from current table data:', formulaDisplay);
@@ -16654,10 +16688,15 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
         // Always recalculate processed amount from current formula
         let processedAmount = 0;
+        const processValFromTargetRow = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(targetRow) : null;
+        const procValForTpl = (processValFromTargetRow && String(processValFromTargetRow).trim() !== '')
+            ? String(processValFromTargetRow).trim()
+            : idProduct;
+        const refCtxTplMain = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(targetRow) : { clickedCellRefs: '', rowIndexOverride: null };
         if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
             try {
                 console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
-                const formulaResult = evaluateFormulaExpression(formulaDisplay, idProduct);
+                const formulaResult = evaluateFormulaExpression(formulaDisplay, procValForTpl, refCtxTplMain.clickedCellRefs, refCtxTplMain.rowIndexOverride);
 
                 if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
                     processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
@@ -16675,7 +16714,10 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                         percentValue,
                         mainTemplate.input_method || '',
                         mainTemplate.enable_input_method == 1,
-                        enableSourcePercent
+                        enableSourcePercent,
+                        procValForTpl,
+                        refCtxTplMain.clickedCellRefs,
+                        refCtxTplMain.rowIndexOverride
                     );
                 } else {
                     processedAmount = 0;
@@ -16777,10 +16819,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
     }
 }
 
-// After all templates are applied, reorder rows globally by row_index (if present)
-// IMPORTANT: This function should maintain the exact order of Data Capture Table
-// Rows are sorted by row_index directly, preserving the original order from Data Capture Table
-// Same id_product rows are NOT grouped together - they maintain their individual positions
+// After all templates are applied, reorder Summary 全表：以 Data Capture 行序为主键，
+// 同一完整 Id Product（去空格，含 MARI/GXS 等后缀）内 Main 在上、Sub 在下，避免「按 DOM 顺序切块」把 Sub 挂到别的 Main 组。
 function reorderSummaryRowsByRowIndex() {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -16792,146 +16832,6 @@ function reorderSummaryRowsByRowIndex() {
         if (rows.length === 0) {
             return;
         }
-        const originalOrderMap = new Map();
-        rows.forEach((row, idx) => originalOrderMap.set(row, idx));
-
-        const normalizeGroupKey = (value) => (value || '')
-            .toString()
-            .replace(/[\u200B-\u200D\uFEFF]/g, '')
-            .trim()
-            .replace(/\s+/g, ' ')
-            .toUpperCase();
-        const getRowGroupKey = (row, fallbackMainText) => {
-            if (!row) return normalizeGroupKey(fallbackMainText || '');
-            const productType = (row.getAttribute('data-product-type') || 'main').trim();
-            const parentAttr = row.getAttribute('data-parent-id-product');
-            const idCell = row.querySelector('td:first-child');
-            const mainAttr = idCell ? (idCell.getAttribute('data-main-product') || '') : '';
-            const cellText = idCell && idCell.textContent ? idCell.textContent : '';
-            // sub 行优先用 parent 分组，main 行优先用 data-main-product，再退回可见文本
-            const raw = (productType === 'sub' && parentAttr && parentAttr.trim() !== '')
-                ? parentAttr
-                : (mainAttr || cellText || fallbackMainText || '');
-            return normalizeGroupKey(raw);
-        };
-
-        // NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
-        // 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
-        // 这样 Summary 里所有 main 的顺序会和 console 打印的 row_index 完全一致，
-        // 而 group 内部（main/sub 的相对顺序）保持不变。
-        const groups = [];
-        let currentGroup = null;
-
-        rows.forEach((row) => {
-            const idProductCell = row.querySelector('td:first-child');
-            const productValues = getProductValuesFromCell(idProductCell);
-            const mainTextRaw = (productValues.main || '').trim();
-            const productTypeAttr = row.getAttribute('data-product-type') || 'main';
-            const parentIdAttr = (row.getAttribute('data-parent-id-product') || '').trim();
-            // 与下方 getEffectiveProductType 一致：标成 main 但带 parent 的实为 sub，不可单独成组以免按各自 row_index 打散
-            const isSub =
-                productTypeAttr === 'sub' ||
-                (productTypeAttr === 'main' && parentIdAttr !== '') ||
-                (!mainTextRaw && productTypeAttr !== 'main');
-
-            if (!isSub && mainTextRaw) {
-                // 新的 main 行，开启一个新 group
-                currentGroup = {
-                    rows: [],
-                    mainRow: row,
-                    groupKey: getRowGroupKey(row, mainTextRaw),
-                    originalGroupIndex: groups.length
-                };
-                groups.push(currentGroup);
-            }
-
-            if (!currentGroup) {
-                // 理论上不应该出现：在第一个 main 之前的行，单独当成一个 group
-                currentGroup = {
-                    rows: [],
-                    mainRow: row,
-                    groupKey: getRowGroupKey(row, mainTextRaw),
-                    originalGroupIndex: groups.length
-                };
-                groups.push(currentGroup);
-            }
-
-            currentGroup.rows.push(row);
-        });
-
-        // 为每个 group 计算排序用的 row_index：优先 preserved，其次 data-row-index
-        groups.forEach(group => {
-            const mainRow = group.mainRow || group.rows[0];
-            let sortIndex = 999999;
-            if (mainRow) {
-                const preservedAttr = mainRow.getAttribute('data-preserved-row-index');
-                const rowIndexAttr = mainRow.getAttribute('data-row-index');
-                const preserved = (preservedAttr !== null && preservedAttr !== '' && !Number.isNaN(Number(preservedAttr)))
-                    ? Number(preservedAttr)
-                    : null;
-                const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
-                    ? Number(rowIndexAttr)
-                    : null;
-                const effective = preserved !== null ? preserved : rowIndex;
-                if (effective !== null && effective >= 0 && !Number.isNaN(effective)) {
-                    sortIndex = effective;
-                }
-            }
-            group.sortIndex = sortIndex;
-        });
-
-        // 按 sortIndex 升序排序；相同 sortIndex 时按照原本的 group 顺序
-        groups.sort((a, b) => {
-            if (a.sortIndex !== b.sortIndex) {
-                return a.sortIndex - b.sortIndex;
-            }
-            return a.originalGroupIndex - b.originalGroupIndex;
-        });
-
-        const getEffectiveProductType = (row) => {
-            const type = (row.getAttribute('data-product-type') || 'main').trim();
-            if (type === 'main') {
-                const parent = (row.getAttribute('data-parent-id-product') || '').trim();
-                if (parent !== '') return 'sub';
-            }
-            return type === 'sub' ? 'sub' : 'main';
-        };
-        const getSubOrderValue = (row) => {
-            const raw = row.getAttribute('data-sub-order');
-            if (raw == null || String(raw).trim() === '') return Number.POSITIVE_INFINITY;
-            const num = Number(raw);
-            return Number.isFinite(num) ? num : Number.POSITIVE_INFINITY;
-        };
-
-        // 组内强制排序：main 在前，sub 严格按 sub_order 升序。
-        groups.forEach(group => {
-            group.rows.sort((a, b) => {
-                const typeA = getEffectiveProductType(a);
-                const typeB = getEffectiveProductType(b);
-                if (typeA !== typeB) {
-                    return typeA === 'main' ? -1 : 1;
-                }
-                if (typeA === 'sub' && typeB === 'sub') {
-                    const subA = getSubOrderValue(a);
-                    const subB = getSubOrderValue(b);
-                    if (subA !== subB) {
-                        return subA - subB;
-                    }
-                }
-                return (originalOrderMap.get(a) ?? 0) - (originalOrderMap.get(b) ?? 0);
-            });
-        });
-
-        groups.forEach(group => {
-            group.rows.forEach(row => summaryTableBody.appendChild(row));
-        });
-
-        console.log(
-            'Reordered rows by preserved row_index groups (main + subs).',
-            'Total groups:', groups.length,
-            'Total rows:', rows.length
-        );
-        return;
 
         // 用「去空格」完整 id 做顺序与分组，ALLBET95MS(SV)/(KM)/(SEXY)MYR 各为独立 main，Sub 只跟自己的 Main
         const normalizeSpacesForReorder = (s) => (s || '').trim().replace(/\s+/g, '');
@@ -17037,6 +16937,14 @@ function reorderSummaryRowsByRowIndex() {
                     normalizedMain = normalizeSpacesForReorder(parentIdProduct);
                 } else if (mainTextRaw) {
                     normalizedMain = normalizeSpacesForReorder(mainTextRaw);
+                } else if (idProductCell) {
+                    let cellTxt = (idProductCell.textContent || '').trim();
+                    if (cellTxt.indexOf(' / ') >= 0) {
+                        cellTxt = cellTxt.split(' / ')[0].trim();
+                    }
+                    if (cellTxt) {
+                        normalizedMain = normalizeSpacesForReorder(cellTxt);
+                    }
                 }
             } else {
                 normalizedMain = normalizeSpacesForReorder(mainTextRaw);
@@ -19278,7 +19186,8 @@ async function submitSummaryData() {
                 const displayedFormula = formula && formula.trim() !== '' && formula !== 'Formula' ? formula.trim() : '';
                 if (displayedFormula) {
                     const processValueForFormula = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null;
-                    let recalculatedBaseAmount = evaluateFormulaExpression(displayedFormula, processValueForFormula);
+                    const refCtxSubmit = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null };
+                    let recalculatedBaseAmount = evaluateFormulaExpression(displayedFormula, processValueForFormula, refCtxSubmit.clickedCellRefs, refCtxSubmit.rowIndexOverride);
                     if (!Number.isNaN(Number(recalculatedBaseAmount)) && Number.isFinite(Number(recalculatedBaseAmount))) {
                         recalculatedBaseAmount = Number(recalculatedBaseAmount);
                         if (enableInputMethodAttr && inputMethodAttr && typeof applyInputMethodTransformation === 'function') {
@@ -19315,12 +19224,17 @@ async function submitSummaryData() {
                 const enableInputMethod = enableInputMethodAttr;
                 if (sourceData && sourceData !== 'Source') {
                     try {
+                        const pvFallback = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null;
+                        const refCtxFb = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null };
                         const recalc = calculateFormulaResultFromExpression(
                             sourceData,
                             sourcePercent,
                             inputMethod,
                             enableInputMethod,
-                            enableSourcePercentAttr
+                            enableSourcePercentAttr,
+                            pvFallback,
+                            refCtxFb.clickedCellRefs,
+                            refCtxFb.rowIndexOverride
                         );
                         if (recalc != null && !isNaN(parseFloat(String(recalc)))) {
                             processedAmountValue = String(recalc);
