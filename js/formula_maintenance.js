@@ -343,6 +343,26 @@ let selectedPermission = null;
 let hasSearched = false;
 let searchInputDebounce = null;
 const SEARCH_INPUT_DEBOUNCE_MS = 300;
+const FORMULA_EMPTY_STATE_INITIAL = 'Use search or filters to view data.'
+const FORMULA_EMPTY_STATE_NO_RESULTS =
+    'No data found. Please adjust your search criteria and try again.'
+
+function setFormulaEmptyStateMessage(text) {
+    const emptyState = document.getElementById('emptyState')
+    const emptyP = emptyState && emptyState.querySelector('p')
+    if (emptyP) emptyP.textContent = text
+}
+
+function showFormulaInitialEmptyState() {
+    hasSearched = false
+    const tbody = document.getElementById('dataCaptureTableBody')
+    if (tbody) tbody.innerHTML = ''
+    const container = document.getElementById('dataCaptureTableContainer')
+    if (container) container.style.display = 'none'
+    setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_INITIAL)
+    const emptyState = document.getElementById('emptyState')
+    if (emptyState) emptyState.style.display = 'block'
+}
 
 function loadOwnerCompanies() {
     return fetch('/api/transactions/get_owner_companies_api.php')
@@ -438,9 +458,9 @@ async function loadPermissionButtons() {
             });
             const savedPermission = localStorage.getItem(`selectedPermission_${code}`);
             if (savedPermission && permissions.includes(savedPermission)) {
-                switchPermission(savedPermission);
+                switchPermission(savedPermission, true);
             } else if (permissions.length > 0) {
-                switchPermission(permissions[0]);
+                switchPermission(permissions[0], true);
             }
         } else {
             filterEl.style.display = 'none';
@@ -451,7 +471,7 @@ async function loadPermissionButtons() {
     }
 }
 
-function switchPermission(permission) {
+function switchPermission(permission, skipLoad) {
     selectedPermission = permission;
     if (currentCompanyCode) {
         localStorage.setItem(`selectedPermission_${currentCompanyCode}`, permission);
@@ -467,7 +487,9 @@ function switchPermission(permission) {
     if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
         window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
     }
-    loadDataCaptureList();
+    if (!skipLoad) {
+        searchData();
+    }
 }
 
 async function switchCompany(companyId) {
@@ -499,9 +521,7 @@ async function switchCompany(companyId) {
     updateCompanyButtonsState();
     loadPermissionButtons();
     loadProcesses();
-    if (hasSearched) {
-        searchData();
-    }
+    searchData();
 }
 
 function updateCompanyButtonsState() {
@@ -664,6 +684,7 @@ function loadDataCaptureList() {
                 }
                 
                 if (filteredData.length === 0) {
+                    setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_NO_RESULTS);
                     document.getElementById('emptyState').style.display = 'block';
                     if (container) {
                         container.style.display = 'none';
@@ -676,6 +697,7 @@ function loadDataCaptureList() {
             } else {
                 console.error('❌ 加载数据捕获列表失败:', data.message || data.error);
                 showNotification(data.message || data.error || 'Search failed', 'error');
+                setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_NO_RESULTS);
                 document.getElementById('emptyState').style.display = 'block';
                 if (container) {
                     container.style.display = 'none';
@@ -685,6 +707,7 @@ function loadDataCaptureList() {
         .catch(error => {
             console.error('❌ 加载数据捕获列表失败:', error);
             showNotification('Search failed: ' + error.message, 'error');
+            setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_NO_RESULTS);
             document.getElementById('emptyState').style.display = 'block';
             if (container) {
                 container.style.display = 'none';
@@ -1259,7 +1282,7 @@ function confirmDelete() {
 // Date range picker + Quick Select (same as other maintenance pages; formula list API does not filter by date yet)
 function initDateRangePicker() {
     if (typeof window.MaintenanceDateRangePicker !== 'undefined') {
-        window.MaintenanceDateRangePicker.init({ onChange: loadDataCaptureList });
+        window.MaintenanceDateRangePicker.init({ onChange: searchData });
     }
 }
 
@@ -1275,7 +1298,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(() => loadProcesses().catch(() => {}))
         .then(() => {
             initProcessSelect();
-            searchData();
+            showFormulaInitialEmptyState();
         });
     
     
