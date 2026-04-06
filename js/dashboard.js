@@ -1908,7 +1908,8 @@ function loadCurrencies() {
                 const savedOrderKey = 'dashboard_currency_order_' + (window.companyId || 0);
                 let orderedData = [...data.data];
                 try {
-                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem('dashboard_currency_order_global') || localStorage.getItem('transaction_currency_order_global');
+                    // 不用 transaction_currency_order_global：Transaction 页拖动会写该 key，会盖掉 Dashboard 专属顺序
+                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem('dashboard_currency_order_global');
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
@@ -1931,23 +1932,13 @@ function loadCurrencies() {
                         }
                     }
                 } catch (e) { /* ignore */ }
-                // 当前公司独立默认/记忆货币；无记录或无效时再用列表第一个
+                // 默认始终选中当前顺序下的第一个货币（与按钮从左到右第一位一致）
                 const firstCode = (orderedData[0] && orderedData[0].code) ? (orderedData[0].code || '').toUpperCase() : '';
-                let selectedCode = firstCode;
-                if (firstCode) {
-                    try {
-                        const sk = 'dashboard_selected_currency_' + (window.companyId || 0);
-                        const saved = String(localStorage.getItem(sk) || '').trim().toUpperCase();
-                        if (saved && orderedData.some(c => (c.code || '').toUpperCase() === saved)) {
-                            selectedCode = saved;
-                        }
-                    } catch (e) { /* ignore */ }
-                }
-                window.dashboardCurrency = selectedCode || '';
+                window.dashboardCurrency = firstCode || '';
                 orderedData.forEach(c => {
                     const code = (c.code || '').toUpperCase();
                     const btn = document.createElement('button');
-                    btn.className = 'transaction-company-btn' + (window.dashboardCurrency === code ? ' active' : '');
+                    btn.className = 'transaction-company-btn' + (firstCode === code ? ' active' : '');
                     btn.textContent = code;
                     btn.dataset.currency = code;
                     btn.addEventListener('click', function () { switchCurrency(code); });
@@ -2020,21 +2011,28 @@ function initDashboardCurrencyDragDrop() {
             .filter(Boolean)
             .filter((code, idx, arr) => arr.indexOf(code) === idx);
         try {
-            const key = 'dashboard_currency_order_' + (window.companyId || 0);
-            localStorage.setItem(key, JSON.stringify(newOrder));
-            localStorage.setItem('dashboard_currency_order_global', JSON.stringify(newOrder));
+            const cid = window.companyId || 0;
+            const key = 'dashboard_currency_order_' + cid;
+            const serialized = JSON.stringify(newOrder);
+            localStorage.setItem(key, serialized);
+            localStorage.setItem('dashboard_currency_order_global', serialized);
+            // 与 Transaction 列表共用同公司顺序，避免另一页拖动后全局 key 与 Dashboard 预期不一致
+            localStorage.setItem('transaction_currency_order_' + cid, serialized);
+            localStorage.setItem('transaction_currency_order_global', serialized);
         } catch (err) { /* ignore */ }
+        const first = newOrder[0];
+        if (first) {
+            switchCurrency(first);
+        }
     });
 }
 
 async function switchCurrency(currencyCode) {
-    window.dashboardCurrency = currencyCode || '';
-    try {
-        const sk = 'dashboard_selected_currency_' + (window.companyId || 0);
-        if (window.companyId && currencyCode) {
-            localStorage.setItem(sk, String(currencyCode).trim().toUpperCase());
-        }
-    } catch (e) { /* ignore */ }
+    const next = String(currencyCode || '').trim().toUpperCase();
+    if (next && next === String(window.dashboardCurrency || '').trim().toUpperCase()) {
+        return;
+    }
+    window.dashboardCurrency = next || '';
     const buttons = document.querySelectorAll('#currency-buttons-container .transaction-company-btn');
     buttons.forEach(btn => {
         const code = (btn.dataset.currency || '').toUpperCase();
