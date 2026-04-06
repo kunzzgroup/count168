@@ -7718,6 +7718,8 @@ function saveFormula() {
     const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
     // 用于让 Summary 表的 Formula 与 Edit Formula 的 Display Formula 一致（解析 $n / [id,n] 必需）
     const clickedCellRefsForPayload = formulaInput ? String(formulaInput.getAttribute('data-clicked-cell-refs') || '').trim() : '';
+    // $n-only 公式（无 [id,n] 跨行引用）标识：若 refs 全部指向其他 id_product，视为历史脏数据，应丢弃
+    const formulaOnlyCurrentRowRefs = !!(formulaValue && formulaValue.includes('$') && !formulaValue.includes('[') && /^[\s\$0-9+\-*/().]+$/.test(formulaValue.trim()));
 
     if (!accountValue) {
         showNotification('Error', 'Please select an account', 'error');
@@ -7759,7 +7761,7 @@ function saveFormula() {
     const processValueForCalc = (editingRowForSave && typeof getProcessValueFromRow === 'function')
         ? (String(getProcessValueFromRow(editingRowForSave) || '').trim() || String(processValue || '').trim())
         : String(processValue || '').trim();
-    const clickedForCalc = (clickedCellRefsForPayload && clickedCellRefsForPayload.trim() !== '')
+    let clickedForCalc = (clickedCellRefsForPayload && clickedCellRefsForPayload.trim() !== '')
         ? clickedCellRefsForPayload.trim()
         : (editingRowForSave && typeof getSummaryRowFormulaRefContext === 'function'
             ? getSummaryRowFormulaRefContext(editingRowForSave).clickedCellRefs
@@ -7771,6 +7773,22 @@ function saveFormula() {
         const n = Number(a);
         return !Number.isNaN(n) && n >= 0 ? n : null;
     })();
+    // $n-only 公式：若 clickedForCalc 里的 refs 全部指向非当前行的 id_product（历史脏数据），丢弃
+    // 防止 $2 被错误解析为 MARI 行的值(2800)而非当前 GXS 行的值(3200)
+    if (clickedForCalc && formulaOnlyCurrentRowRefs && processValueForCalc) {
+        const _norm = s => (s || '').trim().replace(/\s+/g, '');
+        const _allOther = clickedForCalc.split(/\s+/).filter(r => r.trim()).every(ref => {
+            const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+            if (!parsed) return false;
+            const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
+                ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct;
+            return _norm(fullId) !== _norm(processValueForCalc);
+        });
+        if (_allOther) {
+            console.log('saveFormula: stale cross-row refs discarded for $n-only formula:', clickedForCalc, '=> processValueForCalc:', processValueForCalc);
+            clickedForCalc = '';
+        }
+    }
     const idProductCell = row ? row.querySelector('td:first-child') : null;
     const productValues = getProductValuesFromCell(idProductCell);
     // 优先用 data-product-type 判断：点击 sub 行的 + 时新行必须插在该 sub 底下；否则用单元格 main 是否为空
@@ -7812,7 +7830,24 @@ function saveFormula() {
     if (formulaInput && formulaValue && formulaValue.trim() !== '' && hasDollarSign) {
         // 优先从 data-clicked-cell-refs 读取引用（格式：id_product:row_label:column_index 或 id_product:column_index）
         // 这包含了用户从其他 id product 选择的数据的正确引用
-        const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+        const _rawClickedRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+        // $n-only 公式：若 refs 全部指向非当前行（历史脏数据），丢弃，让后续用 processValueForCalc 构建正确 sourceColumns
+        const clickedCellRefs = (() => {
+            if (!_rawClickedRefs || !formulaOnlyCurrentRowRefs || !processValueForCalc) return _rawClickedRefs;
+            const _norm = s => (s || '').trim().replace(/\s+/g, '');
+            const _allOther = _rawClickedRefs.split(/\s+/).filter(r => r.trim()).every(ref => {
+                const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                if (!parsed) return false;
+                const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
+                    ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct;
+                return _norm(fullId) !== _norm(processValueForCalc);
+            });
+            if (_allOther) {
+                console.log('saveFormula sourceColumns: stale refs discarded:', _rawClickedRefs, '=> use processValueForCalc:', processValueForCalc);
+                return '';
+            }
+            return _rawClickedRefs;
+        })();
         if (clickedCellRefs && clickedCellRefs.trim() !== '') {
             // 直接使用 data-clicked-cell-refs 中的引用，它们已经包含了正确的 id_product
             // 但是需要转换为保存格式：id_product:row_label:column_index（如果引用中没有 row_label，需要添加）
@@ -8103,7 +8138,11 @@ function saveFormula() {
             currency: currencyName || 'Currency',
             currencyDbId: currencyValue,
             columns: columnsDisplay,
-            clickedColumns: clickedCellRefsForPayload,
+            // $n-only 公式若检测到脏 refs 已丢弃（clickedForCalc=''），用正确构建的 sourceColumns 覆盖，
+            // 以便同步更新行的 data-clicked-cell-refs，避免下次重算时仍读到 MARI 等历史错误引用
+            clickedColumns: (formulaOnlyCurrentRowRefs && clickedForCalc === '' && clickedCellRefsForPayload && sourceColumns)
+                ? sourceColumns
+                : clickedCellRefsForPayload,
             // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
             // 如果formula为空，清空sourceColumns以防止页面刷新时重新生成formula
             sourceColumns: sourceColumns || finalSourceColumns,
