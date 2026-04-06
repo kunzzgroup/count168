@@ -359,7 +359,8 @@ body.process-page {
     margin-top: 20px;
     width: 100%;
     padding: 0px;
-    max-height: calc(100vh - 280px);
+    /* Slightly taller viewport so 20 bank rows + sticky header fit without inner scroll on typical screens */
+    max-height: calc(100vh - 248px);
     overflow-y: auto;
     overflow-x: auto;
     box-sizing: border-box;
@@ -383,7 +384,7 @@ body.process-page {
     z-index: 1;
 }
 .process-page .bank-data-table th {
-    padding: 2px 4px;
+    padding: 1px 4px;
     text-align: left;
     white-space: nowrap;
     border: none;
@@ -395,7 +396,8 @@ body.process-page {
     border-radius: 0 8px 0 0;
 }
 .process-page .bank-data-table td {
-    padding: 2px 4px;
+    padding: 1px 4px;
+    line-height: 1.25;
     text-align: left;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
@@ -457,8 +459,8 @@ body.process-page {
 }
 .process-page .bank-status-button {
     width: 72%;
-    min-height: 28px;
-    padding: 5px 10px 5px 10px;
+    min-height: 24px;
+    padding: 4px 10px 4px 10px;
     border-radius: 999px;
     border: 1px solid #cbd5e1;
     font-size: clamp(7px, 0.63vw, 12px);
