@@ -594,7 +594,8 @@ function renderBankTable() {
     if (waiting) {
         listToShow = listToShow.filter(function (p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
     }
-    window.__bankFilteredLength = waiting ? listToShow.length : null;
+    // Pagination must use the same row count as the table (filters + date + Waiting), not raw processes.length.
+    window.__bankFilteredLength = listToShow.length;
 
     if (listToShow.length === 0) {
         tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
@@ -2537,42 +2538,7 @@ if (editAccountFormEl) {
     });
 }
 
-const profitSharingFormEl = document.getElementById('profitSharingForm');
-if (profitSharingFormEl) {
-    profitSharingFormEl.addEventListener('submit', function (e) {
-        e.preventDefault();
-        const rows = document.querySelectorAll('#profitSharingRowsContainer .profit-sharing-row');
-        if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
-        let added = 0;
-        rows.forEach(function (row) {
-            const accountHidden = row.querySelector('.profit-sharing-account-id');
-            const accountBtn = row.querySelector('.profit-sharing-account-btn');
-            const amountInput = row.querySelector('.profit-sharing-amount');
-            if (!amountInput) return;
-            const accountId = (accountHidden && accountHidden.value) ? (accountHidden.value || '').trim() : '';
-            const rawAmount = (amountInput.value || '').trim();
-            if (!accountId || rawAmount === '') return;
-            const accountText = (accountBtn && accountBtn.textContent) ? accountBtn.textContent.trim() : '';
-            const num = parseFloat(rawAmount);
-            const amount = (isNaN(num) ? rawAmount : num.toFixed(2));
-            window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
-            added++;
-        });
-        if (added === 0) {
-            showNotification('Please select at least one Account and enter Amount.', 'warning');
-            return;
-        }
-        renderSelectedProfitSharing();
-        closeProfitSharingModal();
-    });
-}
-
-const profitSharingAddRowBtn = document.getElementById('profitSharingAddRowBtn');
-if (profitSharingAddRowBtn) {
-    profitSharingAddRowBtn.addEventListener('click', function () {
-        addProfitSharingRow();
-    });
-}
+// profitSharingForm / profitSharingAddRowBtn: listeners live in processlist.js (global) to avoid duplicate submit handlers.
 
 // 页面加载完成后执行
 // Profit calculation flag to prevent duplicate listeners

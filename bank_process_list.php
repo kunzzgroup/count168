@@ -147,7 +147,50 @@ if (!function_exists('renderBankProcessModals')) {
         <div id="sopModal" class="modal bank-modal sop-modal" style="display: none;"><div class="modal-content sop-modal-content"><div class="modal-header"><h2 id="processNoteModalTitle">Process Notes</h2><span class="close" onclick="closeSopModal()">&times;</span></div><div class="modal-body sop-modal-body"><textarea id="sop_content" placeholder="Enter notes for this process..." class="bank-input sop-modal-textarea"></textarea><div class="form-actions bank-actions sop-modal-actions"><button type="button" class="btn btn-save" onclick="saveProcessNoteAndClose()">Save</button><button type="button" class="btn btn-cancel" onclick="closeSopModal()">Cancel</button></div></div></div></div>
         <div id="addAccountModal" class="account-modal" style="display: none;"></div>
         <div id="editAccountModal" class="account-modal" style="display: none;"></div>
-        <div id="profitSharingModal" class="modal" style="display: none;"></div>
+        <div id="profitSharingModal" class="modal bank-modal" style="display: none;">
+            <div class="modal-content bank-modal-content">
+                <div class="modal-header">
+                    <h2>Add Profit Sharing</h2>
+                    <span class="close" onclick="closeProfitSharingModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="profitSharingForm" class="process-form bank-form">
+                        <div id="profitSharingRowsContainer">
+                            <div class="form-row bank-row-two-cols profit-sharing-row">
+                                <div class="form-group">
+                                    <label for="profit_sharing_account_btn">Account</label>
+                                    <input type="hidden" id="profit_sharing_account_id" class="profit-sharing-account-id" name="account_id" value="">
+                                    <div class="account-select-with-buttons">
+                                        <div class="custom-select-wrapper">
+                                            <button type="button" class="custom-select-button profit-sharing-account-btn" id="profit_sharing_account_btn" data-placeholder="Select Account">Select Account</button>
+                                            <div class="custom-select-dropdown" id="profit_sharing_account_dropdown">
+                                                <div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div>
+                                                <div class="custom-select-options"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')" title="Add New Account">+</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="profit_sharing_amount">Amount</label>
+                                    <input type="number" id="profit_sharing_amount" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0">
+                                </div>
+                                <div class="form-group profit-sharing-delete-cell profit-sharing-first-row-spacer">
+                                    <label class="profit-sharing-delete-label">&nbsp;</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 8px;">
+                            <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn" title="Add another row">+</button>
+                        </div>
+                        <div class="form-actions bank-actions">
+                            <button type="submit" class="btn btn-save">Add to list</button>
+                            <button type="button" class="btn btn-cancel" onclick="closeProfitSharingModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
         <div id="countrySelectionModal" class="modal" style="display: none;"></div>
         <div id="bankSelectionModal" class="modal" style="display: none;"></div>
         <div id="confirmInactiveModal" class="process-modal" style="display: none;">

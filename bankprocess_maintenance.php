@@ -127,7 +127,6 @@ $error = isset($_GET['error']) ? true : false;
                         <th>Dts Created</th>
                         <th>Account</th>
                         <th>From</th>
-                        <th>Currency</th>
                         <th class="maintenance-header-amount">Amount</th>
                         <th>Description</th>
                         <th>Remark</th>
