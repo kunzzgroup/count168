@@ -110,6 +110,42 @@ function ymdFromNullableDateTime($raw, string $fallbackYmd): string
     return $ts === false ? $fallbackYmd : date('Y-m-d', $ts);
 }
 
+/**
+ * bank_process.day_start 等：优先解析 d/m/Y、d-m-Y，避免 "06-04-2026" 被 strtotime 当成美式 m-d-Y。
+ */
+function bankProcessDateFieldToYmd($raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    $dateStr = str_replace('/', '-', $s);
+    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+        $dateStr .= '-' . date('Y');
+    }
+    $ts = strtotime($dateStr);
+    return $ts !== false ? date('Y-m-d', $ts) : null;
+}
+
 function maxYmd(string $a, string $b): string
 {
     return ($a >= $b) ? $a : $b;
@@ -676,17 +712,7 @@ try {
         $profit = (float) ($p['profit'] ?? 0);
 
         $createdYmd = ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate);
-        $dayStartYmd = null;
-        if (!empty($p['day_start'])) {
-            $dateStr = str_replace('/', '-', trim((string) $p['day_start']));
-            if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
-                $dateStr .= '-' . date('Y');
-            }
-            $ts = strtotime($dateStr);
-            if ($ts !== false) {
-                $dayStartYmd = date('Y-m-d', $ts);
-            }
-        }
+        $dayStartYmd = !empty($p['day_start']) ? bankProcessDateFieldToYmd($p['day_start']) : null;
         $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致

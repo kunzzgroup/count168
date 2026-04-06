@@ -33,6 +33,57 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
     return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
 }
 
+/** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
+function historyParseBankProcessDayStartToYmd($raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    $dateStr = str_replace('/', '-', $s);
+    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+        $dateStr .= '-' . date('Y');
+    }
+    $ts = strtotime($dateStr);
+    return $ts !== false ? date('Y-m-d', $ts) : null;
+}
+
+/** monthly 入账：Payment History 日期与流程 Day start 对齐（不早于创建日），与 1st of every month 应付日无关 */
+function historyMonthlyBankProcessDisplayYmd(?string $bpDayStart, $bpDtsCreated, string $txnDateYmd): ?string
+{
+    $dayYmd = historyParseBankProcessDayStartToYmd($bpDayStart);
+    if ($dayYmd === null) {
+        return null;
+    }
+    $createdYmd = $txnDateYmd;
+    if ($bpDtsCreated !== null && trim((string) $bpDtsCreated) !== '') {
+        $ts = strtotime((string) $bpDtsCreated);
+        if ($ts !== false) {
+            $createdYmd = date('Y-m-d', $ts);
+        }
+    }
+    return ($dayYmd >= $createdYmd) ? $dayYmd : $createdYmd;
+}
+
 /**
  * 将 entry_type 映射为友好的 Product 显示名称
  */
@@ -471,7 +522,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.dts_created AS bp_dts_created";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -925,9 +976,23 @@ try {
             $description = '[PENDING APPROVAL] ' . $description;
         }
         
-        $transactionTimestamp = strtotime($t['transaction_date'] . ' ' . ($t['created_at'] ?? '00:00:00'));
+        $displayDateYmd = $t['transaction_date'];
+        if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
+            $ptForDisplay = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
+            if ($ptForDisplay === 'monthly') {
+                $anchorYmd = historyMonthlyBankProcessDisplayYmd(
+                    isset($t['bp_day_start']) ? (string) $t['bp_day_start'] : null,
+                    $t['bp_dts_created'] ?? null,
+                    (string) $t['transaction_date']
+                );
+                if ($anchorYmd !== null) {
+                    $displayDateYmd = $anchorYmd;
+                }
+            }
+        }
+        $transactionTimestamp = strtotime($displayDateYmd . ' ' . ($t['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($t['transaction_date']);
+            $transactionTimestamp = strtotime($displayDateYmd);
         }
         
         // 确定交易的 currency：
@@ -955,7 +1020,7 @@ try {
                 ORDER BY dc.capture_date DESC, c.code ASC
                 LIMIT 1
             ");
-            $stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$t['transaction_date']]));
+            $stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$displayDateYmd]));
             $transactionCurrency = $stmt->fetchColumn();
             
             // 如果找不到，使用 B/F 的 currency
@@ -989,7 +1054,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $win_loss,
             'cr_dr' => $cr_dr,
-            'date' => date('d/m/Y', strtotime($t['transaction_date'])),
+            'date' => date('d/m/Y', strtotime($displayDateYmd)),
             'source' => $t['transaction_type'],
             'product' => $productLabel,
             'card_owner' => $cardOwner,
