@@ -879,27 +879,34 @@ function syncBankTableColumnWidth() {
 }
 
 function renderPagination() {
-    // 如果 showAll 为 true，隐藏分页控件
-    if (showAll) {
-        const paginationContainer = document.getElementById('paginationContainer');
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (!paginationContainer) return;
+
+    const showAllCheckbox = document.getElementById('showAll');
+    // 「Show Active」对应 #showAll：勾选后展示全部匹配行，不显示分页
+    const hidePagination = !!(showAll || (showAllCheckbox && showAllCheckbox.checked));
+    if (hidePagination) {
         paginationContainer.style.display = 'none';
+        paginationContainer.setAttribute('hidden', '');
         return;
     }
+
+    paginationContainer.removeAttribute('hidden');
+
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-    // 更新分页控件信息
-    document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
+    const infoEl = document.getElementById('paginationInfo');
+    if (infoEl) infoEl.textContent = `${currentPage} of ${totalPages}`;
 
-    // 更新按钮状态
     const isPrevDisabled = currentPage <= 1;
     const isNextDisabled = currentPage >= totalPages;
 
-    document.getElementById('prevBtn').disabled = isPrevDisabled;
-    document.getElementById('nextBtn').disabled = isNextDisabled;
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    if (prevBtn) prevBtn.disabled = isPrevDisabled;
+    if (nextBtn) nextBtn.disabled = isNextDisabled;
 
-    // 始终显示分页控件
-    const paginationContainer = document.getElementById('paginationContainer');
     paginationContainer.style.display = 'flex';
 }
 
