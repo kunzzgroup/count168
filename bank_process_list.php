@@ -764,6 +764,27 @@ if (!function_exists('renderBankProcessModals')) {
                 </div>
             </div>
         </div>
+
+        <!-- Confirm Resend to Accounting Due (replaces browser confirm) -->
+        <div id="confirmBankResendModal" class="process-modal" style="display: none;">
+            <div class="process-confirm-modal-content">
+                <div class="process-confirm-icon-container">
+                    <svg class="process-confirm-icon process-confirm-icon--resend" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v5h5" />
+                    </svg>
+                </div>
+                <h2 class="process-confirm-title">Resend to Accounting Due</h2>
+                <p id="confirmBankResendMessage" class="process-confirm-message"></p>
+                <div class="process-confirm-actions">
+                    <button type="button" class="process-btn process-btn-cancel confirm-cancel confirm-bank-resend-cancel"
+                        onclick="closeConfirmBankResendModal()">Cancel</button>
+                    <button type="button" class="process-btn process-btn-resend confirm-bank-resend-confirm" id="confirmBankResendBtn"
+                        onclick="confirmBankResendFromModal()">Resend</button>
+                </div>
+            </div>
+        </div>
         <?php
     }
 }

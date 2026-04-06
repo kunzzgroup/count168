@@ -1,7 +1,7 @@
 window.BankProcessList = (function () {
     'use strict';
 /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
-const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
+const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.36fr';
 const BANK_STATUS_SELECT_OPTIONS = [
     { value: 'active', label: 'ACTIVE' },
     { value: 'inactive', label: 'INACTIVE' },
@@ -51,6 +51,18 @@ function buildBankRemarkActionButton(processId) {
     return '<button class="edit-btn remark-action-btn" onclick="openQuickRemarkModal(' + processId + ')" aria-label="Remark" title="Remark">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
         '<path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>' +
+        '</button>';
+}
+
+/** Icon control aligned with Edit / Remark; restores row to Accounting Due after Maintenance deleted the posting. */
+function buildBankResendActionButton(processId) {
+    return '<button type="button" class="bank-resend-btn" data-bank-resend-for="' + processId + '" onclick="resendBankProcessAccountingDue(' + processId + ')" ' +
+        'aria-label="Resend to Accounting Due" ' +
+        'title="Resend to Accounting Due — use after deleting this process’s bank posting in Maintenance (Bank or Payment). Posting rules stay the same.">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+        '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="M3 3v5h5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' +
         '</svg>' +
         '</button>';
 }
@@ -180,11 +192,13 @@ function initProcessListDateFilter() {
 
 function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending) {
     const showResend = !!maintenanceResendPending;
-    const resendBtn = showResend
-        ? '<button type="button" class="bank-resend-btn" onclick="resendBankProcessAccountingDue(' + processId + ')" title="Put this process back in Accounting Due (after deleting its Bank process transactions in Maintenance)">Resend</button>'
-        : '';
-    const actionButtons = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-        buildBankRemarkActionButton(processId) + resendBtn;
+    const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
+    const actionButtons =
+        '<span class="bank-action-tools">' +
+        '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+        buildBankRemarkActionButton(processId) +
+        resendBtn +
+        '</span>';
     const showDeleteCheckbox = isRealBankInactive(status);
     if (!showDeleteCheckbox) {
         return actionButtons;
@@ -194,12 +208,21 @@ function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, 
     return actionButtons + '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + titleText + '"' + disabledAttr + ' onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
 }
 
-async function resendBankProcessAccountingDue(processId) {
-    const id = parseInt(processId, 10);
-    if (!id) return;
-    if (!confirm('Resend this process to Accounting Due?\n\nPosting rules are unchanged; only the “already posted” mark from the deleted maintenance transaction will be cleared.')) {
+function resendBankProcessAccountingDue(processId) {
+    if (typeof window.showConfirmBankResendModal === 'function') {
+        window.showConfirmBankResendModal(processId);
         return;
     }
+    const id = parseInt(processId, 10);
+    if (id) {
+        void executeAccountingDueResend(id);
+    }
+}
+window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
+
+async function executeAccountingDueResend(processId) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
     try {
         const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
             method: 'POST',
@@ -217,19 +240,19 @@ async function resendBankProcessAccountingDue(processId) {
                 await loadAccountingInbox();
             }
             if (typeof fetchProcesses === 'function') {
-                fetchProcesses();
+                await fetchProcesses();
             } else {
-                const row = document.querySelector('#bankTableBody tr[data-id="' + id + '"]');
-                if (row) {
-                    row.setAttribute('data-maintenance-resend-pending', '0');
-                    const actionCell = row.querySelector('.bank-td-action');
+                const rowB = document.querySelector('#bankTableBody tr[data-id="' + id + '"]');
+                if (rowB) {
+                    rowB.setAttribute('data-maintenance-resend-pending', '0');
+                    const actionCell = rowB.querySelector('.bank-td-action');
                     if (actionCell) {
                         const p = processes.find(function (x) { return x.id === id; });
                         actionCell.innerHTML = buildBankActionCellHtml(
                             id,
-                            row.getAttribute('data-status') || '',
-                            row.getAttribute('data-has-transactions') === '1',
-                            normalizeBankIssueFlag(p ? p.issue_flag : row.getAttribute('data-issue-flag')),
+                            rowB.getAttribute('data-status') || '',
+                            rowB.getAttribute('data-has-transactions') === '1',
+                            normalizeBankIssueFlag(p ? p.issue_flag : rowB.getAttribute('data-issue-flag')),
                             false
                         );
                     }
@@ -239,11 +262,10 @@ async function resendBankProcessAccountingDue(processId) {
             showNotification(result.message || 'Resend failed', 'danger');
         }
     } catch (err) {
-        console.error('resendBankProcessAccountingDue:', err);
+        console.error('executeAccountingDueResend:', err);
         showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
     }
 }
-window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
 
 function syncBankFilterCheckboxes() {
     const showInactiveCheckbox = document.getElementById('showInactive');
@@ -4135,6 +4157,7 @@ return {
     toggleProcessStatus: toggleProcessStatus,
     refreshAfterFetch: function () { sortBankProcessesBySupplier(); },
     renderAfterStatusChange: function () { renderBankTable(); renderPagination(); },
-    isRealBankInactive: isRealBankInactive
+    isRealBankInactive: isRealBankInactive,
+    executeAccountingDueResend: executeAccountingDueResend
 };
 })();
