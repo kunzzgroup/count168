@@ -22,7 +22,7 @@ body.process-page {
 .process-page .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    padding: 0px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
     height: 100vh;
     box-sizing: border-box;
@@ -751,6 +751,24 @@ body.process-page {
     display: block;
     color: currentColor;
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
+}
+
+.process-page .bank-resent-btn {
+    margin-left: 6px;
+    padding: 2px 6px;
+    font-size: clamp(10px, 0.72vw, 12px);
+    line-height: 1.2;
+    border: 1px solid #1a5f9e;
+    border-radius: 4px;
+    background: #e8f4fc;
+    color: #0d3d66;
+    cursor: pointer;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.process-page .bank-resent-btn:hover {
+    background: #d0e8f8;
 }
 
 .process-page .row-checkbox {
