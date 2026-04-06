@@ -648,14 +648,6 @@ function getBankProcesses() {
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
-        $hasResendPendingTable = false;
-        try {
-            $rt = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'");
-            $hasResendPendingTable = $rt && $rt->rowCount() > 0;
-        } catch (PDOException $e) { /* ignore */ }
-        $resendPendingSelect = $hasResendPendingTable
-            ? "(EXISTS (SELECT 1 FROM bank_process_maintenance_resend_pending rp WHERE rp.company_id = bp.company_id AND rp.bank_process_id = bp.id)) AS maintenance_resend_pending"
-            : "0 AS maintenance_resend_pending";
         $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
         $issueFlagSelect = $hasAnyIssueFlagColumn ? $issueFlagSql . " AS issue_flag" : "NULL AS issue_flag";
         $normalizedIssueFlagSql = $hasAnyIssueFlagColumn
@@ -689,8 +681,7 @@ function getBankProcesses() {
                     a_cm.name as card_merchant_name,
                     a_cm.account_id as card_merchant_account_id,
                     a_cust.account_id as customer_account,
-                    $hasTxnSubquery AS has_transactions,
-                    $resendPendingSelect
+                    $hasTxnSubquery AS has_transactions
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                 LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
@@ -778,7 +769,6 @@ function getBankProcesses() {
                 'day_start_frequency' => $r['day_start_frequency'] ?? '1st_of_every_month',
                 'day_end' => $r['day_end'] ?? null,
                 'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
-                'maintenance_resend_pending' => ((int) ($r['maintenance_resend_pending'] ?? 0)) === 1,
             ];
         }
         jsonResponse(true, '', $formattedProcesses);

@@ -8,7 +8,6 @@
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/maintenance_accounting_resend_lib.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -175,7 +174,6 @@ try {
     ensureTransactionsDeletedTable($pdo);
     $pdo->beginTransaction();
 
-    bmp_recordResendPendingForTransactionIds($pdo, $company_id, $allowedIds);
     backupTransactionsToDeleted($pdo, $allowedIds, $company_id, $deletedByUserId, $deletedByOwnerId);
     deleteTransactionEntries($pdo, $allowedIds);
     $deleted = deleteTransactions($pdo, $allowedIds, $company_id);
