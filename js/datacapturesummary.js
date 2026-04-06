@@ -7773,22 +7773,9 @@ function saveFormula() {
         const n = Number(a);
         return !Number.isNaN(n) && n >= 0 ? n : null;
     })();
-    // $n-only 公式：若 clickedForCalc 里的 refs 全部指向非当前行的 id_product（历史脏数据），丢弃
-    // 防止 $2 被错误解析为 MARI 行的值(2800)而非当前 GXS 行的值(3200)
-    if (clickedForCalc && formulaOnlyCurrentRowRefs && processValueForCalc) {
-        const _norm = s => (s || '').trim().replace(/\s+/g, '');
-        const _allOther = clickedForCalc.split(/\s+/).filter(r => r.trim()).every(ref => {
-            const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
-            if (!parsed) return false;
-            const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
-                ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct;
-            return _norm(fullId) !== _norm(processValueForCalc);
-        });
-        if (_allOther) {
-            console.log('saveFormula: stale cross-row refs discarded for $n-only formula:', clickedForCalc, '=> processValueForCalc:', processValueForCalc);
-            clickedForCalc = '';
-        }
-    }
+    clickedForCalc = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
+        ? getEffectiveClickedRefsForDollarOnlyFormula(formulaValue, processValueForCalc, clickedForCalc)
+        : clickedForCalc
     const idProductCell = row ? row.querySelector('td:first-child') : null;
     const productValues = getProductValuesFromCell(idProductCell);
     // 优先用 data-product-type 判断：点击 sub 行的 + 时新行必须插在该 sub 底下；否则用单元格 main 是否为空
@@ -7831,23 +7818,9 @@ function saveFormula() {
         // 优先从 data-clicked-cell-refs 读取引用（格式：id_product:row_label:column_index 或 id_product:column_index）
         // 这包含了用户从其他 id product 选择的数据的正确引用
         const _rawClickedRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
-        // $n-only 公式：若 refs 全部指向非当前行（历史脏数据），丢弃，让后续用 processValueForCalc 构建正确 sourceColumns
-        const clickedCellRefs = (() => {
-            if (!_rawClickedRefs || !formulaOnlyCurrentRowRefs || !processValueForCalc) return _rawClickedRefs;
-            const _norm = s => (s || '').trim().replace(/\s+/g, '');
-            const _allOther = _rawClickedRefs.split(/\s+/).filter(r => r.trim()).every(ref => {
-                const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
-                if (!parsed) return false;
-                const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
-                    ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct;
-                return _norm(fullId) !== _norm(processValueForCalc);
-            });
-            if (_allOther) {
-                console.log('saveFormula sourceColumns: stale refs discarded:', _rawClickedRefs, '=> use processValueForCalc:', processValueForCalc);
-                return '';
-            }
-            return _rawClickedRefs;
-        })();
+        const clickedCellRefs = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
+            ? getEffectiveClickedRefsForDollarOnlyFormula(formulaValue, processValueForCalc, _rawClickedRefs)
+            : _rawClickedRefs
         if (clickedCellRefs && clickedCellRefs.trim() !== '') {
             // 直接使用 data-clicked-cell-refs 中的引用，它们已经包含了正确的 id_product
             // 但是需要转换为保存格式：id_product:row_label:column_index（如果引用中没有 row_label，需要添加）
@@ -9553,6 +9526,9 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         : (typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null)
 
     const refCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null }
+    const effectiveClickedForCalc = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
+        ? getEffectiveClickedRefsForDollarOnlyFormula(formulaText, processValueForRefs, refCtx.clickedCellRefs)
+        : refCtx.clickedCellRefs
 
     let baseProcessedAmount = 0;
     if (formulaText && formulaText !== 'Formula') {
@@ -9563,7 +9539,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
             enableInputMethod,
             enableSourcePercent,
             processValueForRefs,
-            refCtx.clickedCellRefs,
+            effectiveClickedForCalc,
             refCtx.rowIndexOverride
         );
     }
@@ -12128,12 +12104,16 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // Replace from back to front to preserve indices
                             allMatches.sort((a, b) => b.index - a.index);
 
+                            // 无 [id,n] 括号引用时，$n 表示「当前 Summary 行」对应 Data Capture 列，与 Edit Formula 一致。
+                            // 若仍用 data-source-columns 里历史错误的 id（如 MARI）会显示 2800 而实际 GXS 为 3200。
+                            const formulaHasBracketRefs = formulaOperators.includes('[');
+
                             for (let i = 0; i < allMatches.length; i++) {
                                 const match = allMatches[i];
                                 let columnValue = null;
 
-                                // Try to get from columnRefMap first (uses correct id_product from sourceColumns)
-                                if (columnRefMap.has(match.columnNumber)) {
+                                // 仅当公式含 [id,n] 跨行引用时，才用 sourceColumns 里存的 id 解析 $n；否则只用当前行 + row_index
+                                if (formulaHasBracketRefs && columnRefMap.has(match.columnNumber)) {
                                     const ref = columnRefMap.get(match.columnNumber);
                                     columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel, ref.captureRowIndex);
                                     console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
@@ -12717,6 +12697,31 @@ function getProcessValueFromRow(row) {
     }
 
     return '';
+}
+
+// $n-only 且无 [id,n] 时，若 data-clicked-cell-refs 全部指向非当前行 id_product，视为历史脏数据，返回 ''，按当前行 + row_index 解析（与 Edit Formula 一致）
+function getEffectiveClickedRefsForDollarOnlyFormula(formulaOperators, processValue, clickedCellRefs) {
+    const ft = (formulaOperators || '').trim()
+    const refs = String(clickedCellRefs || '').trim()
+    if (!ft || !processValue) return String(clickedCellRefs || '')
+    const formulaOnlyCurrentRowRefs = !!(ft.includes('$') && !ft.includes('[') && /^[\s\$0-9+\-*/().]+$/.test(ft))
+    if (!formulaOnlyCurrentRowRefs) return refs
+    if (!refs) return ''
+    const norm = s => (s || '').trim().replace(/\s+/g, '')
+    const parts = refs.split(/\s+/).filter(r => r.trim())
+    if (parts.length === 0) return ''
+    const allOther = parts.every(ref => {
+        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null
+        if (!parsed) return false
+        const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
+            ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct
+        return norm(fullId) !== norm(processValue)
+    })
+    if (allOther) {
+        console.log('getEffectiveClickedRefsForDollarOnlyFormula: stale refs discarded:', refs, '=> processValue:', processValue)
+        return ''
+    }
+    return refs
 }
 
 // Summary 行重算 Processed Amount 时用：禁止沿用 #formula 上别的行的 data-clicked-cell-refs
