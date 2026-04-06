@@ -83,8 +83,11 @@ try {
             $owner_type = 'account'; // default
             $real_id = $raw_id;
 
-            if (strpos($raw_id, 'U_') === 0) {
+            if (strpos($raw_id, 'O_') === 0) {
                 $owner_type = 'owner';
+                $real_id = substr($raw_id, 2);
+            } elseif (strpos($raw_id, 'U_') === 0) {
+                $owner_type = 'user';
                 $real_id = substr($raw_id, 2);
             } elseif (strpos($raw_id, 'A_') === 0) {
                 $owner_type = 'account';

@@ -258,7 +258,7 @@ try {
                     $is_owner_user = $user_role === 'owner';
                     
                     // 定义低权限角色（不能编辑/删除 admin 和 owner）
-                    $low_privilege_roles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service'];
+                    $low_privilege_roles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service', 'partnership'];
                     $is_low_privilege_user = in_array(strtolower($current_user_role), $low_privilege_roles);
                     
                     // 判断是否可以编辑/删除：
@@ -277,7 +277,8 @@ try {
                         'supervisor' => 3,
                         'accountant' => 4,
                         'audit' => 5,
-                        'customer service' => 6
+                        'customer service' => 6,
+                        'partnership' => 7
                     ];
                     $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
                     $target_user_level = $role_hierarchy[strtolower($user_role)] ?? 999;
@@ -471,6 +472,7 @@ try {
                                     <option value="accountant">Accountant</option>
                                     <option value="audit">Audit</option>
                                     <option value="customer service">Customer Service</option>
+                                    <option value="partnership">Partnership</option>
                                 </select>
                             </div>
                             <div class="form-group user-info-field">
