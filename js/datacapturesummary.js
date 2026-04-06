@@ -16827,7 +16827,12 @@ function reorderSummaryRowsByRowIndex() {
             const productValues = getProductValuesFromCell(idProductCell);
             const mainTextRaw = (productValues.main || '').trim();
             const productTypeAttr = row.getAttribute('data-product-type') || 'main';
-            const isSub = productTypeAttr === 'sub' || (!mainTextRaw && productTypeAttr !== 'main');
+            const parentIdAttr = (row.getAttribute('data-parent-id-product') || '').trim();
+            // 与下方 getEffectiveProductType 一致：标成 main 但带 parent 的实为 sub，不可单独成组以免按各自 row_index 打散
+            const isSub =
+                productTypeAttr === 'sub' ||
+                (productTypeAttr === 'main' && parentIdAttr !== '') ||
+                (!mainTextRaw && productTypeAttr !== 'main');
 
             if (!isSub && mainTextRaw) {
                 // 新的 main 行，开启一个新 group
