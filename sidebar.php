@@ -437,8 +437,8 @@ if ($companyId) {
                 </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新） -->
-            <?php if ((empty($permissions) || in_array('datacapture', $permissions)) && !$isCurrentCompanyC168): ?>
+            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
+            <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
                 <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="informationmenu-section-title" data-page="datacapture.php"
                         onclick="window.location.href='datacapture.php'">
