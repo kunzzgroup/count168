@@ -1872,7 +1872,7 @@ function renderCompanyButtons(companies) {
         container.appendChild(btn);
     });
 
-    wrapper.style.display = filtered.length > 1 ? 'flex' : 'none';
+    wrapper.style.display = filtered.length > 0 ? 'flex' : 'none';
 }
 
 // ==================== Group 模式下的 Currency 交集 ====================
