@@ -138,16 +138,6 @@ function getProcessListDateRange() {
     };
 }
 
-function shouldShowBankResendButton(maintenanceResendPending, maintenanceResendDate) {
-    if (!maintenanceResendPending) return false;
-    const range = getProcessListDateRange();
-    if (!range.from || !range.to) return true;
-    const dueDate = parseIsoDate(maintenanceResendDate);
-    if (!dueDate) return false;
-    const time = dueDate.getTime();
-    return time >= range.from.getTime() && time <= range.to.getTime();
-}
-
 function updateProcessListDateClearButton() {
     const clearBtn = document.getElementById('processListDateClearBtn');
     if (!clearBtn) return;
@@ -200,8 +190,8 @@ function initProcessListDateFilter() {
     }
 }
 
-function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending, maintenanceResendDate) {
-    const showResend = shouldShowBankResendButton(!!maintenanceResendPending, maintenanceResendDate);
+function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending) {
+    const showResend = !!maintenanceResendPending;
     const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
     const actionButtons =
         '<span class="bank-action-tools">' +
@@ -560,14 +550,7 @@ async function updateBankIssueFlag(processId, newValue, options) {
             row.setAttribute('data-issue-flag', normalizedNewValue);
             const actionCell = row.querySelector('.bank-td-action');
             if (actionCell) {
-                actionCell.innerHTML = buildBankActionCellHtml(
-                    processId,
-                    process ? process.status : '',
-                    row.getAttribute('data-has-transactions') === '1',
-                    normalizedNewValue,
-                    !!(process && process.maintenance_resend_pending),
-                    process ? process.maintenance_resend_date : null
-                );
+                actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue, !!(process && process.maintenance_resend_pending));
             }
         }
 
@@ -724,14 +707,7 @@ function renderBankTable() {
         const price = dashIfEmpty(process.price);
         const profit = dashIfEmpty(process.profit);
         const statusSelect = renderBankStatusSelect(process.id, process);
-        const actionCell = buildBankActionCellHtml(
-            process.id,
-            process.status,
-            process.has_transactions,
-            process.issue_flag,
-            !!process.maintenance_resend_pending,
-            process.maintenance_resend_date || null
-        );
+        const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag, !!process.maintenance_resend_pending);
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', process.id);
         tr.setAttribute('data-status', process.status || '');
@@ -1475,14 +1451,7 @@ async function performToggleStatus(processId) {
             if (selectedPermission === 'Bank') {
                 const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                 const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                const bankActionCellHtml = buildBankActionCellHtml(
-                    processId,
-                    newStatus,
-                    hasTx,
-                    process ? process.issue_flag : '',
-                    !!(process && process.maintenance_resend_pending),
-                    process ? process.maintenance_resend_date : null
-                );
+                const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '', !!(process && process.maintenance_resend_pending));
                 if (row) {
                     row.setAttribute('data-status', newStatus || '');
                     row.setAttribute('data-issue-flag', normalizeBankIssueFlag(process ? process.issue_flag : ''));
