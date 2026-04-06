@@ -227,7 +227,7 @@ function createRowElement(companyId, idx, rowData) {
     const isGroupOn = rowData.include_group !== 0;
     const includeGroupHtml = isExternal ? `
         <button class="own-btn-square" 
-                style="width: auto; padding: 0 12px; font-size: 12px; font-weight: 700; transition: all 0.2s; 
+                style="width: 72px; padding: 0; font-size: 13px; font-weight: 700; transition: all 0.2s; 
                        background-color: ${isGroupOn ? 'var(--own-primary-blue)' : 'white'};
                        color: ${isGroupOn ? 'white' : '#94a3b8'};
                        border-color: ${isGroupOn ? 'var(--own-primary-blue)' : 'var(--own-gray-border)'};"
@@ -235,7 +235,7 @@ function createRowElement(companyId, idx, rowData) {
                 onclick="updateRowData(${companyId}, ${idx}, 'include_group', ${isGroupOn ? 0 : 1})">
             Grp ${isGroupOn ? 'ON' : 'OFF'}
         </button>
-    ` : '';
+    ` : `<div style="width: 72px; height: 38px;"></div>`;
 
     div.innerHTML = `
         <div class="own-drag-handle">⋮⋮</div>
@@ -258,7 +258,7 @@ function createRowElement(companyId, idx, rowData) {
             </div>
         </div>
 
-        <div class="own-row-actions" style="align-items: center; flex: 0 0 230px; justify-content: flex-end;">
+        <div class="own-row-actions" style="align-items: center;">
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, 1)">+</button>
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, -1)">-</button>
             ${includeGroupHtml}
