@@ -9421,36 +9421,11 @@ function formatFormulaDisplayTo2Decimals(formulaStr) {
     })
 }
 
-// 公式是否含抓格引用（$2、[id:3] 等），需用当前抓表重算而非死数字
-function formulaStringHasCellRefs(s) {
-    if (!s || typeof s !== 'string') return false
-    const t = s.trim()
-    if (!t || t === 'Formula') return false
-    return /\$(\d+)(?!\d)/.test(t) || /\[[^\]]+\s*:\s*\d+\]/.test(t) || /\[([^,\]]+),(\d+)\]/.test(t)
-}
-
-// 是否仅为展示用数字串（与「仍含 $ 引用」的 template 冲突时用 template 算）
-function isLikelyPureNumericFormulaDisplay(s) {
-    const t = String(s || '').trim().replace(/,/g, '')
-    if (!t) return true
-    const u = t.replace(/^=/, '').trim()
-    const parenNum = u.match(/^\((-?\d+\.?\d*)\)$/)
-    const core = parenNum ? parenNum[1] : u
-    return /^-?\d+\.?\d*$/.test(core)
-}
-
-// 取用于计算的公式：优先 data-formula-raw；若 raw 只是数字但 template 含 $ 引用，必须用 template（避免 MARI/GXS 串行后 raw 留在旧数字）
+// 取用于计算的公式：优先 data-formula-raw（未做 2 位小数格式化），保证 0.1224 等精度
 function getFormulaForCalculation(row) {
     if (!row) return ''
-    const raw = (row.getAttribute('data-formula-raw') || '').trim()
-    const tpl = (row.getAttribute('data-template-formula-operators') || '').trim()
-    const ops = (row.getAttribute('data-formula-operators') || '').trim()
-    if (tpl && formulaStringHasCellRefs(tpl) && isLikelyPureNumericFormulaDisplay(raw)) {
-        return tpl
-    }
-    if (raw) return raw
-    if (tpl) return tpl
-    if (ops) return ops
+    const raw = row.getAttribute('data-formula-raw')
+    if (raw !== null && raw !== undefined && String(raw).trim() !== '') return String(raw).trim()
     const cells = row.querySelectorAll('td')
     const formulaCell = cells[4]
     if (!formulaCell) return ''
@@ -9488,7 +9463,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
     } else if (options.formula !== undefined && options.formula !== null && String(options.formula).trim() !== '') {
         formulaText = String(options.formula).trim();
     } else {
-        formulaText = typeof getFormulaForCalculation === 'function' ? getFormulaForCalculation(row) : '';
+        formulaText = String(row.getAttribute('data-formula-operators') || '').trim() || getFormulaForCalculation(row);
     }
 
     const processValueForRefs = options.processValue != null && String(options.processValue).trim() !== ''
@@ -9540,22 +9515,6 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         cells[8].style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000');
     }
 
-    // 按 $ 引用算出的金额与格子里纯数字展示不一致时，把公式列数字更新为当前抓表结果（与 Edit Formula 灰框一致）
-    if (cells[4] && formulaText && formulaStringHasCellRefs(formulaText)) {
-        const span = cells[4].querySelector('.formula-text')
-        const prev = span ? String(span.textContent || '').trim().replace(/,/g, '') : ''
-        if (span && isLikelyPureNumericFormulaDisplay(prev)) {
-            const disp = typeof formatFormulaDisplayTo2Decimals === 'function'
-                ? formatFormulaDisplayTo2Decimals(String(baseProcessedAmount))
-                : String(baseProcessedAmount)
-            const formatted = typeof formatNegativeNumbersInFormula === 'function'
-                ? formatNegativeNumbersInFormula(disp)
-                : disp
-            span.textContent = formatted
-            row.setAttribute('data-formula-display', formatted)
-        }
-    }
-
     if (options.updateTotal !== false && typeof updateProcessedAmountTotal === 'function') {
         updateProcessedAmountTotal();
     }
@@ -9577,9 +9536,7 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
         const processedAmountCell = cells[8]
         if (!formulaCell || !processedAmountCell) return
 
-        const formulaText = typeof getFormulaForCalculation === 'function'
-            ? getFormulaForCalculation(row)
-            : (formulaCell.querySelector('.formula-text')?.textContent || formulaCell.textContent || '').trim()
+        const formulaText = (formulaCell.querySelector('.formula-text')?.textContent || formulaCell.textContent || '').trim()
         if (!formulaText || formulaText === 'Formula') {
             row.setAttribute('data-base-processed-amount', '0')
             processedAmountCell.textContent = '0.00'
@@ -9587,7 +9544,35 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
             return
         }
 
-        recalculateAndRenderProcessedAmount(row, { updateTotal: false })
+        let processedAmount = 0
+        try {
+            const processValue = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null
+            const refCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null }
+            processedAmount = evaluateFormulaExpression(formulaText, processValue, refCtx.clickedCellRefs, refCtx.rowIndexOverride)
+
+            const inputMethod = String(row.getAttribute('data-input-method') || '').trim()
+            const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true'
+            if (enableInputMethod && inputMethod && typeof applyInputMethodTransformation === 'function') {
+                processedAmount = applyInputMethodTransformation(processedAmount, inputMethod)
+            }
+        } catch (error) {
+            console.error('Failed to recalculate processed amount from displayed formula:', error, formulaText)
+            processedAmount = 0
+        }
+
+        if (!Number.isFinite(Number(processedAmount))) {
+            processedAmount = 0
+        } else {
+            processedAmount = Number(processedAmount)
+        }
+
+        row.setAttribute('data-base-processed-amount', String(processedAmount))
+        const finalProcessedAmount = typeof applyRateToProcessedAmount === 'function'
+            ? applyRateToProcessedAmount(row, processedAmount)
+            : processedAmount
+
+        processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
+        processedAmountCell.style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000')
     })
 
     updateProcessedAmountTotal()
@@ -14042,44 +14027,26 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
 
     // Formula column (index 4)
     if (cells[4]) {
-        // Prefer saved formula_display；若存的是旧数字、formula_operators 仍为 $ 引用，则用抓表重算展示并把 data-formula-raw 存成运算符串
+        // Prefer saved formula_display so this row matches Edit Formula exactly.
         const preferredFormulaDisplay = getPreferredFormulaDisplay(data, row);
-        const displaySource = preferredFormulaDisplay || ((data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '');
-        const opsCandidate = (data.formulaOperators !== undefined && data.formulaOperators !== null)
-            ? String(data.formulaOperators).trim()
-            : '';
-        let rawForAttr = displaySource;
-        if (opsCandidate && formulaStringHasCellRefs(opsCandidate) && isLikelyPureNumericFormulaDisplay(displaySource)) {
-            rawForAttr = opsCandidate;
-        }
-        let formulaText = displaySource ? formatNegativeNumbersInFormula(displaySource) : '';
+        const rawFormula = preferredFormulaDisplay || ((data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '');
+        let formulaText = rawFormula ? formatNegativeNumbersInFormula(rawFormula) : '';
 
-        const shouldEvalFromOperators = !!(opsCandidate && opsCandidate !== 'Formula' && formulaStringHasCellRefs(opsCandidate) && typeof evaluateFormulaExpression === 'function');
-        const needsEvalForDisplay = shouldEvalFromOperators && (
-            !formulaText || formulaText.trim() === '' || formulaText.trim() === '0' || formulaText.trim() === '(0)' ||
-            isLikelyPureNumericFormulaDisplay(displaySource)
-        );
-        if (needsEvalForDisplay) {
-            const processValueForRefs = getProcessValueFromRow(row) || null;
-            let rowIdxOv = null;
-            const ra = row.getAttribute('data-row-index');
-            if (ra !== null && ra !== '' && ra !== '999999') {
-                const n = Number(ra);
-                if (!Number.isNaN(n) && n >= 0) rowIdxOv = n;
-            }
-            if (rowIdxOv === null && data.rowIndex != null && data.rowIndex !== '' && !Number.isNaN(Number(data.rowIndex))) {
-                const n2 = Number(data.rowIndex);
-                if (!Number.isNaN(n2) && n2 >= 0) rowIdxOv = n2;
-            }
-            const clickedRefsForDisplay = (row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || '').trim();
-            const refThird = clickedRefsForDisplay !== '' ? clickedRefsForDisplay : '';
-            const evaluated = evaluateFormulaExpression(opsCandidate, processValueForRefs, refThird, rowIdxOv);
+        // 如果外部表格拿不到已保存的 formula_display（常见为空或被回落成 "0"），
+        // 但 formulaOperators 仍存在（例如 "$11"），则用现有求值器算出结果并展示，
+        // 以保持与 Edit Formula 弹窗的 Display Formula 一致。
+        const shouldFallbackToEvaluatedOperators = (!formulaText || formulaText.trim() === '' || formulaText.trim() === '0' || formulaText.trim() === '(0)') &&
+            data && data.formulaOperators && String(data.formulaOperators).trim() !== '' && String(data.formulaOperators).trim() !== 'Formula'
+        if (shouldFallbackToEvaluatedOperators && typeof evaluateFormulaExpression === 'function') {
+            const processValueForRefs = getProcessValueFromRow(row) || null
+            const clickedRefsForDisplay = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
+            const evaluated = evaluateFormulaExpression(String(data.formulaOperators).trim(), processValueForRefs, clickedRefsForDisplay)
             if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated)) && Math.abs(Number(evaluated)) > 0) {
-                const display = formatFormulaDisplayTo2Decimals(String(evaluated));
-                formulaText = formatNegativeNumbersInFormula(display);
+                const display = formatFormulaDisplayTo2Decimals(String(evaluated))
+                formulaText = formatNegativeNumbersInFormula(display)
             }
         }
-        row.setAttribute('data-formula-raw', rawForAttr || '');
+        row.setAttribute('data-formula-raw', rawFormula || '');
         if (formulaText) row.setAttribute('data-formula-display', formulaText);
         else row.removeAttribute('data-formula-display');
         // Get input method from row or data for tooltip
