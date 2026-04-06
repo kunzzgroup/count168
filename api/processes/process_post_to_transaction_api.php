@@ -110,31 +110,6 @@ function ymdFromNullableDateTime($raw, string $fallbackYmd): string
     return $ts === false ? $fallbackYmd : date('Y-m-d', $ts);
 }
 
-/** 与主入账循环一致：将 bank_process.day_start 规范为 Y-m-d，避免 infer 与列表入账解析结果不一致导致 transaction_date 退回当日 */
-function normalizeBankProcessDayStartToYmd(?string $raw): ?string
-{
-    if ($raw === null) {
-        return null;
-    }
-    $dateStr = str_replace('/', '-', trim((string) $raw));
-    if ($dateStr === '') {
-        return null;
-    }
-    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
-        $dateStr .= '-' . date('Y');
-    }
-    $ts = strtotime($dateStr);
-    if ($ts === false) {
-        return null;
-    }
-    return date('Y-m-d', $ts);
-}
-
-function normalizeDayStartFrequencyValue($raw): string
-{
-    return (trim((string) ($raw ?? '')) === 'monthly') ? 'monthly' : '1st_of_every_month';
-}
-
 function maxYmd(string $a, string $b): string
 {
     return ($a >= $b) ? $a : $b;
@@ -277,20 +252,12 @@ function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYm
 /** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / monthly_skipped */
 function hasMonthlyPostedOrSkippedInCalendarMonthForTxn(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
-    $sqlWithPeriod = "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1";
-    $sqlAny = "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? LIMIT 1";
     try {
-        $stmt = $pdo->prepare($sqlWithPeriod);
+        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1");
         $stmt->execute([$companyId, $processId, $year, $month]);
         return (bool) $stmt->fetch();
     } catch (Throwable $e) {
-        try {
-            $stmt = $pdo->prepare($sqlAny);
-            $stmt->execute([$companyId, $processId, $year, $month]);
-            return (bool) $stmt->fetch();
-        } catch (Throwable $e2) {
-            return false;
-        }
+        return false;
     }
 }
 
@@ -352,16 +319,13 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
         return null;
     }
 
-    $frequency = normalizeDayStartFrequencyValue($r['day_start_frequency'] ?? null);
-    $startDate = normalizeBankProcessDayStartToYmd($r['day_start'] ?? null);
-    if ($startDate === null) {
+    $frequency = $r['day_start_frequency'] ?? '1st_of_every_month';
+    $dayStart = $r['day_start'] ?? null;
+    if (empty($dayStart) || strtotime((string) $dayStart) === false) {
         return null;
     }
-    $startTs = strtotime($startDate);
-    if ($startTs === false) {
-        return null;
-    }
-    $dayStart = $startDate;
+    $startTs = strtotime($dayStart);
+    $startDate = date('Y-m-d', $startTs);
     $contract = $r['contract'] ?? null;
     $dayEnd = $r['day_end'] ?? null;
     $processId = (int) ($r['id'] ?? 0);
@@ -443,17 +407,6 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     break;
                 }
                 if ($due < $createdYmd) {
-                    try {
-                        $dueYm = (new DateTimeImmutable($due))->format('Y-n');
-                        $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
-                        if ($dueYm === $createdYm
-                            && $today >= $createdYmd
-                            && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
-                            return $iter->format('Y-n');
-                        }
-                    } catch (Throwable $e) {
-                        // advance
-                    }
                     $iter = $iter->modify('+1 month');
                     continue;
                 }
@@ -720,8 +673,18 @@ try {
         $profit = (float) ($p['profit'] ?? 0);
 
         $createdYmd = ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate);
-        $dayStartYmd = normalizeBankProcessDayStartToYmd($p['day_start'] ?? null);
-        $frequency = normalizeDayStartFrequencyValue($p['day_start_frequency'] ?? null);
+        $dayStartYmd = null;
+        if (!empty($p['day_start'])) {
+            $dateStr = str_replace('/', '-', trim((string) $p['day_start']));
+            if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+                $dateStr .= '-' . date('Y');
+            }
+            $ts = strtotime($dateStr);
+            if ($ts !== false) {
+                $dayStartYmd = date('Y-m-d', $ts);
+            }
+        }
+        $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致
         $resolvedMonthlyBm = '';
