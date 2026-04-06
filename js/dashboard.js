@@ -1764,7 +1764,7 @@ function loadOwnerCompanies() {
                 }
 
                 // 渲染 Group pills（只在有 group 时才显示）
-                if (groups.length > 1) {
+                if (groups.length > 0) {
                     renderGroupButtons(groups);
                 }
 

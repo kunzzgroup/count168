@@ -653,9 +653,23 @@ function getBankProcesses() {
             $rt = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'");
             $hasResendPendingTable = $rt && $rt->rowCount() > 0;
         } catch (PDOException $e) { /* ignore */ }
-        $resendPendingSelect = $hasResendPendingTable
-            ? "(EXISTS (SELECT 1 FROM bank_process_maintenance_resend_pending rp WHERE rp.company_id = bp.company_id AND rp.bank_process_id = bp.id)) AS maintenance_resend_pending"
-            : "0 AS maintenance_resend_pending";
+        $hasPapTable = false;
+        try {
+            $ptCh = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+            $hasPapTable = $ptCh && $ptCh->rowCount() > 0;
+        } catch (PDOException $e) { /* ignore */ }
+        $resendPendingFromQueue = $hasResendPendingTable
+            ? "EXISTS (SELECT 1 FROM bank_process_maintenance_resend_pending rp WHERE rp.company_id = bp.company_id AND rp.bank_process_id = bp.id)"
+            : "0";
+        // Bank Process Maintenance 无任何 source_bank_process 交易时无法从维护页产生 resend_pending；若仍留有 PAP，则显示 Resend 以便清标记
+        $resendPendingOrphan = "0";
+        if ($hasSourceBankProcessId && $hasPapTable) {
+            $resendPendingOrphan = "(
+                EXISTS (SELECT 1 FROM process_accounting_posted pap WHERE pap.company_id = bp.company_id AND pap.process_id = bp.id)
+                AND (SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id) = 0
+            )";
+        }
+        $resendPendingSelect = "(($resendPendingFromQueue) OR ($resendPendingOrphan)) AS maintenance_resend_pending";
         $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
         $issueFlagSelect = $hasAnyIssueFlagColumn ? $issueFlagSql . " AS issue_flag" : "NULL AS issue_flag";
         $normalizedIssueFlagSql = $hasAnyIssueFlagColumn

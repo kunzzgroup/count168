@@ -36,20 +36,8 @@ try {
         $stmtOwner->execute([$company_id]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        // Fetch Partnership Users
-        $stmtPartner = $pdo->prepare("
-            SELECT CONCAT('U_', u.id) as id, u.login_id as account_name, u.name, 'PARTNERSHIP' as role, 'user' as type
-            FROM user u
-            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-            WHERE ucm.company_id = ? 
-              AND LOWER(u.status) = 'active'
-              AND LOWER(u.role) = 'partnership'
-        ");
-        $stmtPartner->execute([$company_id]);
-        $partners = $stmtPartner->fetchAll(PDO::FETCH_ASSOC);
-
         // Combine
-        $combined = array_merge($accounts, $users, $partners);
+        $combined = array_merge($accounts, $users);
         
         // Sort alphabetically by account_name
         usort($combined, function($a, $b) {
@@ -80,16 +68,7 @@ try {
         $stmtOwner->execute();
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmtPartner = $pdo->prepare("
-            SELECT CONCAT('U_', id) as id, login_id as account_name, name, 'PARTNERSHIP' as role, 'user' as type
-            FROM user
-            WHERE LOWER(status) = 'active' 
-              AND LOWER(role) = 'partnership'
-        ");
-        $stmtPartner->execute();
-        $partners = $stmtPartner->fetchAll(PDO::FETCH_ASSOC);
-
-        $combined = array_merge($accounts, $users, $partners);
+        $combined = array_merge($accounts, $users);
         usort($combined, function($a, $b) {
             return strcmp($a['account_name'], $b['account_name']);
         });

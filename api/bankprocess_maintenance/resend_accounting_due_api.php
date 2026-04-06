@@ -56,29 +56,59 @@ try {
     );
     $stmt->execute([$company_id, $bankProcessId]);
     $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $orphanClearAllPap = false;
     if (empty($pending)) {
-        throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
+        $hasSourceCol = bmp_resend_tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
+        if (!$hasSourceCol) {
+            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
+        }
+        $cntStmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = ? AND t.company_id = ?'
+        );
+        $cntStmt->execute([$bankProcessId, $company_id]);
+        if ((int) $cntStmt->fetchColumn() > 0) {
+            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
+        }
+        $papCh = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$papCh || $papCh->rowCount() === 0) {
+            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
+        }
+        $papCntStmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM process_accounting_posted WHERE company_id = ? AND process_id = ?'
+        );
+        $papCntStmt->execute([$company_id, $bankProcessId]);
+        if ((int) $papCntStmt->fetchColumn() === 0) {
+            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
+        }
+        $orphanClearAllPap = true;
     }
 
     $pdo->beginTransaction();
     $removedPap = 0;
-    foreach ($pending as $row) {
-        $papId = isset($row['process_accounting_posted_id']) ? (int) $row['process_accounting_posted_id'] : 0;
-        if ($papId > 0) {
-            $del = $pdo->prepare('DELETE FROM process_accounting_posted WHERE id = ? AND company_id = ?');
-            $del->execute([$papId, $company_id]);
-            $removedPap += $del->rowCount();
-        } else {
-            $pt = bmp_normalizePeriodType($row['period_type'] ?? 'monthly');
-            $txd = $row['transaction_date'] ?? '1970-01-01';
-            $removedPap += bmp_deletePapFallback($pdo, $company_id, $bankProcessId, $pt, (string) $txd);
+    if ($orphanClearAllPap) {
+        $delAll = $pdo->prepare('DELETE FROM process_accounting_posted WHERE company_id = ? AND process_id = ?');
+        $delAll->execute([$company_id, $bankProcessId]);
+        $removedPap = $delAll->rowCount();
+    } else {
+        foreach ($pending as $row) {
+            $papId = isset($row['process_accounting_posted_id']) ? (int) $row['process_accounting_posted_id'] : 0;
+            if ($papId > 0) {
+                $del = $pdo->prepare('DELETE FROM process_accounting_posted WHERE id = ? AND company_id = ?');
+                $del->execute([$papId, $company_id]);
+                $removedPap += $del->rowCount();
+            } else {
+                $pt = bmp_normalizePeriodType($row['period_type'] ?? 'monthly');
+                $txd = $row['transaction_date'] ?? '1970-01-01';
+                $removedPap += bmp_deletePapFallback($pdo, $company_id, $bankProcessId, $pt, (string) $txd);
+            }
         }
-    }
 
-    $delPend = $pdo->prepare(
-        'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'
-    );
-    $delPend->execute([$company_id, $bankProcessId]);
+        $delPend = $pdo->prepare(
+            'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'
+        );
+        $delPend->execute([$company_id, $bankProcessId]);
+    }
 
     $pdo->commit();
     jsonResponse(true, '已处理：该 Process 可再次进入 Accounting Due', [
