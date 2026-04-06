@@ -147,44 +147,53 @@ if (!function_exists('renderBankProcessModals')) {
         <div id="sopModal" class="modal bank-modal sop-modal" style="display: none;"><div class="modal-content sop-modal-content"><div class="modal-header"><h2 id="processNoteModalTitle">Process Notes</h2><span class="close" onclick="closeSopModal()">&times;</span></div><div class="modal-body sop-modal-body"><textarea id="sop_content" placeholder="Enter notes for this process..." class="bank-input sop-modal-textarea"></textarea><div class="form-actions bank-actions sop-modal-actions"><button type="button" class="btn btn-save" onclick="saveProcessNoteAndClose()">Save</button><button type="button" class="btn btn-cancel" onclick="closeSopModal()">Cancel</button></div></div></div></div>
         <div id="addAccountModal" class="account-modal" style="display: none;"></div>
         <div id="editAccountModal" class="account-modal" style="display: none;"></div>
+        <!-- Profit Sharing Modal (account select + amount input) -->
         <div id="profitSharingModal" class="modal" style="display: none;">
-            <div class="modal-content">
+            <div class="modal-content" style="max-width: 628px;">
                 <div class="modal-header">
                     <h2>Add Profit Sharing</h2>
                     <span class="close" onclick="closeProfitSharingModal()">&times;</span>
                 </div>
                 <div class="modal-body">
-                    <form id="profitSharingForm" class="process-form bank-form">
+                    <form id="profitSharingForm" class="bank-form" style="display: block;">
                         <div id="profitSharingRowsContainer">
                             <div class="form-row bank-row-two-cols profit-sharing-row">
                                 <div class="form-group">
                                     <label for="profit_sharing_account_btn">Account</label>
-                                    <input type="hidden" id="profit_sharing_account_id" class="profit-sharing-account-id" name="account_id" value="">
+                                    <input type="hidden" id="profit_sharing_account_id" class="profit-sharing-account-id"
+                                        name="account_id" value="">
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button profit-sharing-account-btn" id="profit_sharing_account_btn" data-placeholder="Select Account">Select Account</button>
+                                            <button type="button" class="custom-select-button profit-sharing-account-btn"
+                                                id="profit_sharing_account_btn" data-placeholder="Select Account">Select
+                                                Account</button>
                                             <div class="custom-select-dropdown" id="profit_sharing_account_dropdown">
-                                                <div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div>
+                                                <div class="custom-select-search">
+                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                </div>
                                                 <div class="custom-select-options"></div>
                                             </div>
                                         </div>
-                                        <button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')" title="Add New Account">+</button>
+                                        <button type="button" class="bank-add-btn"
+                                            onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')"
+                                            title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="profit_sharing_amount">Amount</label>
-                                    <input type="number" id="profit_sharing_amount" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0">
+                                    <input type="number" id="profit_sharing_amount" name="amount"
+                                        class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
+                                        min="0">
                                 </div>
-                                <div class="form-group profit-sharing-delete-cell">
-                                    <label class="profit-sharing-delete-label">&nbsp;</label>
-                                    <div class="profit-sharing-first-row-spacer" aria-hidden="true"></div>
-                                </div>
+                                <div class="form-group profit-sharing-delete-cell profit-sharing-first-row-spacer"
+                                    aria-hidden="true"></div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <button type="button" id="profitSharingAddRowBtn" class="btn btn-save">Add row</button>
+                        <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
+                            <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn"
+                                title="Add another Account &amp; Amount">+</button>
                         </div>
-                        <div class="form-actions bank-actions">
+                        <div class="form-actions bank-actions" style="margin-top: 16px;">
                             <button type="submit" class="btn btn-save">Add</button>
                             <button type="button" class="btn btn-cancel" onclick="closeProfitSharingModal()">Cancel</button>
                         </div>
@@ -192,26 +201,113 @@ if (!function_exists('renderBankProcessModals')) {
                 </div>
             </div>
         </div>
-        <div id="countrySelectionModal" class="modal" style="display: none;"></div>
-        <div id="bankSelectionModal" class="modal" style="display: none;"></div>
+
+        <!-- Country Selection Modal (layout: left = Add/Available, right = Selected) -->
+        <div id="countrySelectionModal" class="modal" style="display: none;">
+            <div class="modal-content country-selection-modal">
+                <div class="modal-header">
+                    <h2>Select or Add Country</h2>
+                    <span class="close" onclick="closeCountrySelectionModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="country-selection-container">
+                        <div class="available-countries-section">
+                            <div class="add-country-bar">
+                                <h3>Add New Country</h3>
+                                <form id="addCountryForm" class="add-country-form">
+                                    <div class="add-country-input-group">
+                                        <input type="text" id="new_country_name" name="country_name"
+                                            placeholder="Enter new country name..."
+                                            oninput="this.value=this.value.toUpperCase()">
+                                        <button type="submit" class="btn btn-save">Add</button>
+                                    </div>
+                                </form>
+                            </div>
+                            <h3>Available Countries</h3>
+                            <div class="country-search">
+                                <input type="text" id="countrySearch" placeholder="Search countries..."
+                                    onkeyup="filterCountries()" oninput="this.value=this.value.toUpperCase()">
+                            </div>
+                            <div class="country-list" id="existingCountries"></div>
+                        </div>
+                        <div class="selected-countries-section">
+                            <h3>Selected Countries</h3>
+                            <div class="selected-countries-list" id="selectedCountriesInModal"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-save" id="confirmCountriesBtn"
+                            onclick="confirmCountries()">Confirm</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeCountrySelectionModal()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bank Selection Modal (layout: left = Add/Available, right = Selected) -->
+        <div id="bankSelectionModal" class="modal" style="display: none;">
+            <div class="modal-content bank-selection-modal">
+                <div class="modal-header">
+                    <h2>Select or Add Bank</h2>
+                    <span class="close" onclick="closeBankSelectionModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="bank-selection-container">
+                        <div class="available-banks-section">
+                            <div class="add-bank-bar">
+                                <h3>Add New Bank</h3>
+                                <form id="addBankForm" class="add-bank-form">
+                                    <div class="add-bank-input-group">
+                                        <input type="text" id="new_bank_name" name="bank_name"
+                                            placeholder="Enter new bank name..."
+                                            oninput="this.value=this.value.toUpperCase()">
+                                        <button type="submit" class="btn btn-save">Add</button>
+                                    </div>
+                                </form>
+                            </div>
+                            <h3>Available Banks</h3>
+                            <div class="bank-search">
+                                <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()"
+                                    oninput="this.value=this.value.toUpperCase()">
+                            </div>
+                            <div class="bank-list" id="existingBanks"></div>
+                        </div>
+                        <div class="selected-banks-section">
+                            <h3>Selected Banks</h3>
+                            <div class="selected-banks-list" id="selectedBanksInModal"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-save" id="confirmBanksBtn"
+                            onclick="confirmBanks()">Confirm</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeBankSelectionModal()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Switch to Inactive Modal (Bank Process) -->
         <div id="confirmInactiveModal" class="process-modal" style="display: none;">
             <div class="process-confirm-modal-content">
                 <div class="process-confirm-icon-container">
                     <svg class="process-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            d="M10 9v2m0 4h.01M14 9v2m0 4h.01M5 9h14a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4a1 1 0 011-1z" />
                     </svg>
                 </div>
-                <h2 class="process-confirm-title">Confirm</h2>
-                <p id="confirmInactiveMessage" class="process-confirm-message"></p>
+                <h2 class="process-confirm-title">Switch to Inactive</h2>
+                <p id="confirmInactiveMessage" class="process-confirm-message">Confirm switching this Bank Process to
+                    Inactive?</p>
                 <div class="process-confirm-actions">
                     <button type="button" class="process-btn process-btn-cancel confirm-cancel"
                         onclick="closeConfirmInactiveModal()">Cancel</button>
-                    <button type="button" id="confirmInactiveBtn" class="process-btn process-btn-inactive confirm-inactive"
-                        onclick="confirmInactive()">Confirm</button>
+                    <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn"
+                        onclick="confirmInactive()">Inactive</button>
                 </div>
             </div>
         </div>
+
+        <!-- Confirm Remove from Accounting Due Modal -->
         <div id="confirmAccountingDueDeleteModal" class="process-modal" style="display: none;">
             <div class="process-confirm-modal-content">
                 <div class="process-confirm-icon-container">
@@ -221,12 +317,13 @@ if (!function_exists('renderBankProcessModals')) {
                     </svg>
                 </div>
                 <h2 class="process-confirm-title">Remove from Accounting Due</h2>
-                <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message"></p>
+                <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message">Selected rows will be removed from
+                    Accounting Due. Process data will not change.</p>
                 <div class="process-confirm-actions">
                     <button type="button" class="process-btn process-btn-cancel confirm-cancel"
                         onclick="closeConfirmAccountingDueDeleteModal()">Cancel</button>
-                    <button type="button" id="confirmAccountingDueDeleteBtn" class="process-btn process-btn-delete confirm-delete"
-                        onclick="confirmAccountingDueDelete()">Delete</button>
+                    <button type="button" class="process-btn process-btn-delete confirm-delete"
+                        id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()">Delete</button>
                 </div>
             </div>
         </div>
