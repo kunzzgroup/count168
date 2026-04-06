@@ -1,0 +1,91 @@
+<?php
+require_once '../../session_check.php';
+require_once '../../config.php';
+
+header('Content-Type: application/json');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request method']);
+    exit();
+}
+
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+    exit();
+}
+
+/**
+ * Expected JSON payload:
+ * {
+ *   "company_id": "1",
+ *   "owners": [
+ *     {"account_id": "3", "percentage": 50},
+ *     {"account_id": "5", "percentage": 30}
+ *   ]
+ * }
+ */
+$inputData = json_decode(file_get_contents('php://input'), true);
+
+$company_id = $inputData['company_id'] ?? null;
+$owners = $inputData['owners'] ?? [];
+
+if (!$company_id) {
+    echo json_encode(['status' => 'error', 'message' => 'Missing company_id']);
+    exit();
+}
+
+// Validate total percentage
+$total_percentage = 0;
+foreach ($owners as $owner) {
+    if (!isset($owner['account_id']) || !isset($owner['percentage'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Invalid owner data format']);
+        exit();
+    }
+    $pct = (float)$owner['percentage'];
+    if ($pct <= 0 || $pct > 100) {
+        echo json_encode(['status' => 'error', 'message' => 'Percentage must be between 0 and 100']);
+        exit();
+    }
+    $total_percentage += $pct;
+}
+
+if ($total_percentage > 100) {
+    echo json_encode(['status' => 'error', 'message' => 'Total allocation exceeds 100%']);
+    exit();
+}
+
+try {
+    $pdo->beginTransaction();
+
+    // Remove all existing owners for this company
+    $stmt = $pdo->prepare("DELETE FROM company_ownership WHERE company_id = ?");
+    $stmt->execute([$company_id]);
+
+    // Insert new owners
+    if (count($owners) > 0) {
+        $insertStmt = $pdo->prepare("
+            INSERT INTO company_ownership (company_id, account_id, percentage)
+            VALUES (?, ?, ?)
+        ");
+        
+        foreach ($owners as $owner) {
+            $insertStmt->execute([$company_id, $owner['account_id'], (float)$owner['percentage']]);
+        }
+    }
+
+    $pdo->commit();
+
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Ownership saved successfully'
+    ]);
+} catch (PDOException $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Database error: ' . $e->getMessage()
+    ]);
+}
+?>
