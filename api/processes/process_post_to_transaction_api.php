@@ -407,6 +407,17 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     break;
                 }
                 if ($due < $createdYmd) {
+                    try {
+                        $dueYm = (new DateTimeImmutable($due))->format('Y-n');
+                        $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                        if ($dueYm === $createdYm
+                            && $today >= $createdYmd
+                            && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
+                            return $iter->format('Y-n');
+                        }
+                    } catch (Throwable $e) {
+                        // advance
+                    }
                     $iter = $iter->modify('+1 month');
                     continue;
                 }

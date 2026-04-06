@@ -660,8 +660,8 @@ try {
             }
             $processId = (int) $r['id'];
             $startDayOfMonth = (int) date('j', $startTs);
-            // Old data not taken for Monthly(prepaid): do NOT backfill a missed due-date.
-            // If a due-date already passed before process creation, skip that period entirely and wait for the next due-date.
+            // Monthly(prepaid): 不回溯录入日之前的月份。若名义应付日早于 dts_created 但与录入在同一自然月，
+            // 则从录入日当天起出账（金额按录入日→月底比例，与下方 proration 一致）；之后各期仍按 day_start 日。
             if ($startDate !== '' && $today >= $createdYmd) {
                 try {
                     $iter = new DateTimeImmutable($startDate);
@@ -679,8 +679,20 @@ try {
                         if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                             break;
                         }
-                        // Skip any period whose due-date is before creation (no backfill).
                         if ($due < $createdYmd) {
+                            try {
+                                $dueYm = (new DateTimeImmutable($due))->format('Y-n');
+                                $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                                if ($dueYm === $createdYm
+                                    && $today >= $createdYmd
+                                    && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
+                                    $need = true;
+                                    $monthlyBillingMonth = $iter->format('Y-n');
+                                    break;
+                                }
+                            } catch (Throwable $e) {
+                                // advance month
+                            }
                             $iter = $iter->modify('+1 month');
                             continue;
                         }
