@@ -360,8 +360,7 @@ body.process-page {
     width: 100%;
     padding: 0px;
     /* Slightly taller viewport so 20 bank rows + sticky header fit without inner scroll on typical screens */
-    /* Leave vertical room below for in-flow pagination (does not overlay last rows) */
-    max-height: calc(100vh - 296px);
+    max-height: calc(100vh - 248px);
     overflow-y: auto;
     overflow-x: auto;
     box-sizing: border-box;
@@ -661,7 +660,7 @@ body.process-page {
 .process-page .process-cards {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 328px);
+    max-height: calc(100vh - 280px);
     overflow-y: auto;
 }
 
@@ -972,25 +971,21 @@ body.process-page {
     pointer-events: none;
 }
 
-/* Pagination: below the list in normal flow so it never covers row 19–20 (Games/Bank share this bar) */
+/* Pagination Button Styles */
 .process-page .pagination-container {
-    position: relative;
+    position: fixed;
+    bottom: clamp(15px, 1.56vw, 30px);
+    right: 40px;
     display: flex;
     align-items: center;
     gap: 0;
-    width: max-content;
-    max-width: 100%;
-    margin-top: 8px;
-    margin-left: auto;
-    margin-right: 40px;
-    margin-bottom: clamp(10px, 1.56vw, 24px);
     background: rgba(255, 255, 255, 0.95);
     padding: 0px;
     border-radius: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: 1;
+    z-index: 100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
