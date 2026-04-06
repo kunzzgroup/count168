@@ -89,7 +89,7 @@ function validateUserData($data, $isUpdate = false) {
     }
     
     // Validate role
-    $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company', 'partnership'];
+    $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
     if (!in_array($data['role'], $validRoles)) {
         return "Invalid role";
     }
@@ -164,7 +164,7 @@ try {
             }
             
             // Validate role
-            $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company', 'partnership'];
+            $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
             if (!in_array($input['role'], $validRoles)) {
                 sendResponse(false, "Invalid role");
             }
@@ -748,7 +748,7 @@ try {
                 'accountant' => 4,
                 'audit' => 5,
                 'customer service' => 6,
-                'partnership' => 7
+
             ];
             $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
             $target_user_level = $role_hierarchy[strtolower($user['role'] ?? '')] ?? 999;
