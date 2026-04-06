@@ -605,15 +605,10 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll) {
-        pageItems = listToShow;
-        startIndex = 0;
-    } else {
-        const totalPages = Math.max(1, Math.ceil(listToShow.length / pageSize));
-        if (currentPage > totalPages) currentPage = totalPages;
-        startIndex = (currentPage - 1) * pageSize;
-        pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
-    }
+    const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
+    if (currentPage > totalPagesBank) currentPage = totalPagesBank;
+    startIndex = (currentPage - 1) * pageSize;
+    pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
 
     function dashIfEmpty(val) {
         if (val == null) return '-';
@@ -1360,7 +1355,7 @@ async function performToggleStatus(processId) {
 
         const shouldShow = selectedPermission === 'Bank'
             ? matchesCurrentBankFilters(process)
-            : (showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active'));
+            : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
 
         if (!shouldShow) {
             const processIndex = processes.findIndex(p => p.id === processId);

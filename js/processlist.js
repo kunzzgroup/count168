@@ -692,16 +692,11 @@ function renderTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll) {
-        pageItems = processes;
-        startIndex = 0;
-    } else {
-        const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
-        if (currentPage > totalPages) currentPage = totalPages;
-        startIndex = (currentPage - 1) * pageSize;
-        const endIndex = Math.min(startIndex + pageSize, processes.length);
-        pageItems = processes.slice(startIndex, endIndex);
-    }
+    const totalPagesGames = Math.max(1, Math.ceil(processes.length / pageSize));
+    if (currentPage > totalPagesGames) currentPage = totalPagesGames;
+    startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, processes.length);
+    pageItems = processes.slice(startIndex, endIndex);
 
     // Games 类别的表格
     {
@@ -804,15 +799,10 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll) {
-        pageItems = listToShow;
-        startIndex = 0;
-    } else {
-        const totalPages = Math.max(1, Math.ceil(listToShow.length / pageSize));
-        if (currentPage > totalPages) currentPage = totalPages;
-        startIndex = (currentPage - 1) * pageSize;
-        pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
-    }
+    const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
+    if (currentPage > totalPagesBank) currentPage = totalPagesBank;
+    startIndex = (currentPage - 1) * pageSize;
+    pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
 
     function dashIfEmpty(val) {
         if (val == null) return '-';
@@ -879,34 +869,22 @@ function syncBankTableColumnWidth() {
 }
 
 function renderPagination() {
-    const paginationContainer = document.getElementById('paginationContainer');
-    if (!paginationContainer) return;
-
-    const showAllCheckbox = document.getElementById('showAll');
-    // 「Show Active」对应 #showAll：勾选后展示全部匹配行，不显示分页
-    const hidePagination = !!(showAll || (showAllCheckbox && showAllCheckbox.checked));
-    if (hidePagination) {
-        paginationContainer.style.display = 'none';
-        paginationContainer.setAttribute('hidden', '');
-        return;
-    }
-
-    paginationContainer.removeAttribute('hidden');
-
+    // showAll =「Show Active」筛选状态，与是否分页无关；始终显示分页（含 1 of 1）
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-    const infoEl = document.getElementById('paginationInfo');
-    if (infoEl) infoEl.textContent = `${currentPage} of ${totalPages}`;
+    // 更新分页控件信息
+    document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
 
+    // 更新按钮状态
     const isPrevDisabled = currentPage <= 1;
     const isNextDisabled = currentPage >= totalPages;
 
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    if (prevBtn) prevBtn.disabled = isPrevDisabled;
-    if (nextBtn) nextBtn.disabled = isNextDisabled;
+    document.getElementById('prevBtn').disabled = isPrevDisabled;
+    document.getElementById('nextBtn').disabled = isNextDisabled;
 
+    // 始终显示分页控件
+    const paginationContainer = document.getElementById('paginationContainer');
     paginationContainer.style.display = 'flex';
 }
 
@@ -2045,7 +2023,7 @@ async function performToggleStatus(processId) {
 
         const shouldShow = selectedPermission === 'Bank'
             ? matchesCurrentBankFilters(process)
-            : (showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active'));
+            : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
 
         if (!shouldShow) {
             const processIndex = processes.findIndex(p => p.id === processId);
