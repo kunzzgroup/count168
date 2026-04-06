@@ -1924,9 +1924,19 @@ function loadCurrencies() {
                         }
                     }
                 } catch (e) { /* ignore */ }
-                // 默认第一个货币
+                // 当前公司独立默认/记忆货币；无记录或无效时再用列表第一个
                 const firstCode = (orderedData[0] && orderedData[0].code) ? (orderedData[0].code || '').toUpperCase() : '';
-                if (firstCode) window.dashboardCurrency = firstCode;
+                let selectedCode = firstCode;
+                if (firstCode) {
+                    try {
+                        const sk = 'dashboard_selected_currency_' + (window.companyId || 0);
+                        const saved = String(localStorage.getItem(sk) || '').trim().toUpperCase();
+                        if (saved && orderedData.some(c => (c.code || '').toUpperCase() === saved)) {
+                            selectedCode = saved;
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+                window.dashboardCurrency = selectedCode || '';
                 orderedData.forEach(c => {
                     const code = (c.code || '').toUpperCase();
                     const btn = document.createElement('button');
@@ -2012,6 +2022,12 @@ function initDashboardCurrencyDragDrop() {
 
 async function switchCurrency(currencyCode) {
     window.dashboardCurrency = currencyCode || '';
+    try {
+        const sk = 'dashboard_selected_currency_' + (window.companyId || 0);
+        if (window.companyId && currencyCode) {
+            localStorage.setItem(sk, String(currencyCode).trim().toUpperCase());
+        }
+    } catch (e) { /* ignore */ }
     const buttons = document.querySelectorAll('#currency-buttons-container .transaction-company-btn');
     buttons.forEach(btn => {
         const code = (btn.dataset.currency || '').toUpperCase();
