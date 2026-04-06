@@ -144,9 +144,237 @@ if (!function_exists('renderBankProcessModals')) {
                 </div>
             </div>
         </div>
-        <div id="sopModal" class="modal bank-modal sop-modal" style="display: none;"><div class="modal-content sop-modal-content"><div class="modal-header"><h2 id="processNoteModalTitle">Process Notes</h2><span class="close" onclick="closeSopModal()">&times;</span></div><div class="modal-body sop-modal-body"><textarea id="sop_content" placeholder="Enter notes for this process..." class="bank-input sop-modal-textarea"></textarea><div class="form-actions bank-actions sop-modal-actions"><button type="button" class="btn btn-save" onclick="saveProcessNoteAndClose()">Save</button><button type="button" class="btn btn-cancel" onclick="closeSopModal()">Cancel</button></div></div></div></div>
-        <div id="addAccountModal" class="account-modal" style="display: none;"></div>
-        <div id="editAccountModal" class="account-modal" style="display: none;"></div>
+        
+        <!-- SOP Modal：记录事项（与当前 Add/Edit Process 关联），固定尺寸与底部按钮 -->
+        <div id="sopModal" class="modal bank-modal sop-modal" style="display: none;">
+            <div class="modal-content sop-modal-content">
+                <div class="modal-header">
+                    <h2 id="processNoteModalTitle">Process Notes</h2>
+                    <span class="close" onclick="closeSopModal()">&times;</span>
+                </div>
+                <div class="modal-body sop-modal-body">
+                    <textarea id="sop_content" placeholder="Enter notes for this process..."
+                        class="bank-input sop-modal-textarea"></textarea>
+                    <div class="form-actions bank-actions sop-modal-actions">
+                        <button type="button" class="btn btn-save" onclick="saveProcessNoteAndClose()">Save</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeSopModal()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Add Account Modal (same structure as datacapturesummary - for Card Merchant/Customer + button) -->
+        <div id="addAccountModal" class="account-modal" style="display: none;">
+            <div class="account-modal-content">
+                <div class="account-modal-header">
+                    <h2>Add Account</h2>
+                    <span class="account-close" onclick="closeAddAccountModal()">&times;</span>
+                </div>
+                <div class="account-modal-body">
+                    <form id="addAccountForm" class="account-form">
+                        <div class="account-form-columns">
+                            <div class="account-form-column">
+                                <h3 class="account-section-header">Personal Information</h3>
+                                <div class="account-form-group">
+                                    <label for="add_account_id">Account ID *</label>
+                                    <input type="text" id="add_account_id" name="account_id" required>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="add_name">Name *</label>
+                                    <input type="text" id="add_name" name="name" required>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="add_role">Role *</label>
+                                    <select id="add_role" name="role" required>
+                                        <option value="">Select Role</option>
+                                    </select>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="add_password">Password *</label>
+                                    <input type="password" id="add_password" name="password" required>
+                                </div>
+                            </div>
+                            <div class="account-form-column">
+                                <h3 class="account-section-header">Payment</h3>
+                                <div class="account-form-group">
+                                    <label>Payment Alert</label>
+                                    <div class="account-radio-group">
+                                        <label class="account-radio-label">
+                                            <input type="radio" name="add_payment_alert" value="1">
+                                            Yes
+                                        </label>
+                                        <label class="account-radio-label">
+                                            <input type="radio" name="add_payment_alert" value="0" checked>
+                                            No
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="account-form-row" id="add_alert_fields" style="display: none;">
+                                    <div class="account-form-group">
+                                        <label for="add_alert_type">Alert Type</label>
+                                        <select id="add_alert_type" name="alert_type">
+                                            <option value="">Select Type</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                            <?php for ($i = 1; $i <= 31; $i++): ?>
+                                                <option value="<?php echo $i; ?>"><?php echo $i; ?> Days</option>
+                                            <?php endfor; ?>
+                                        </select>
+                                    </div>
+                                    <div class="account-form-group">
+                                        <label for="add_alert_start_date">Start Date</label>
+                                        <input type="date" id="add_alert_start_date" name="alert_start_date">
+                                    </div>
+                                </div>
+                                <div class="account-form-group" id="add_alert_amount_row" style="display: none;">
+                                    <label for="add_alert_amount">Alert (Amount)</label>
+                                    <input type="number" id="add_alert_amount" name="alert_amount" step="0.01"
+                                        placeholder="Enter amount (auto-converted to negative)">
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="add_remark">Remark</label>
+                                    <textarea id="add_remark" name="remark" rows="1"
+                                        style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="account-form-section">
+                            <div class="account-advance-section">
+                                <h3>Advanced Account</h3>
+                                <div class="account-other-currency">
+                                    <label>Other Currency:</label>
+                                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                        <input type="text" id="addCurrencyInput"
+                                            placeholder="Enter new currency code (e.g., USD)"
+                                            style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <button type="button" class="account-btn-add-currency"
+                                            onclick="addCurrencyFromInputBank('add'); return false;">Create
+                                            Currency</button>
+                                    </div>
+                                    <div class="account-currency-list" id="addCurrencyList"></div>
+                                </div>
+                                <div class="account-other-currency" style="margin-top: 20px;">
+                                    <label>Company:</label>
+                                    <div class="account-currency-list" id="addCompanyList"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="account-form-actions">
+                            <button type="submit" class="account-btn account-btn-save">Add Account</button>
+                            <button type="button" class="account-btn account-btn-cancel"
+                                onclick="closeAddAccountModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Account Modal (same as account-list.php - for + button when account selected) -->
+        <div id="editAccountModal" class="account-modal" style="display: none;">
+            <div class="account-modal-content">
+                <div class="account-modal-header">
+                    <h2>Edit Account</h2>
+                    <span class="account-close" onclick="closeEditAccountModalFromBank()">&times;</span>
+                </div>
+                <div class="account-modal-body">
+                    <form id="editAccountForm" class="account-form">
+                        <input type="hidden" id="edit_account_id" name="id">
+                        <div class="account-form-columns">
+                            <div class="account-form-column">
+                                <h3 class="account-section-header">Personal Information</h3>
+                                <div class="account-form-group">
+                                    <label for="edit_account_id_field">Account ID *</label>
+                                    <input type="text" id="edit_account_id_field" name="account_id" readonly>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="edit_name">Name *</label>
+                                    <input type="text" id="edit_name" name="name" required>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="edit_role">Role *</label>
+                                    <select id="edit_role" name="role" required>
+                                        <option value="">Select Role</option>
+                                    </select>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="edit_password">Password *</label>
+                                    <input type="password" id="edit_password" name="password" required>
+                                </div>
+                            </div>
+                            <div class="account-form-column">
+                                <h3 class="account-section-header">Payment</h3>
+                                <div class="account-form-group"></div>
+                                <div class="account-form-group">
+                                    <label>Payment Alert</label>
+                                    <div class="account-radio-group">
+                                        <label class="account-radio-label">
+                                            <input type="radio" name="payment_alert" value="1">
+                                            Yes
+                                        </label>
+                                        <label class="account-radio-label">
+                                            <input type="radio" name="payment_alert" value="0">
+                                            No
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="account-form-row" id="edit_alert_fields" style="display: none;">
+                                    <div class="account-form-group">
+                                        <label for="edit_alert_type">Alert Type</label>
+                                        <select id="edit_alert_type" name="alert_type">
+                                            <option value="">Select Type</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                            <?php for ($i = 1; $i <= 31; $i++): ?>
+                                                <option value="<?php echo $i; ?>"><?php echo $i; ?> Days</option>
+                                            <?php endfor; ?>
+                                        </select>
+                                    </div>
+                                    <div class="account-form-group">
+                                        <label for="edit_alert_start_date">Start Date</label>
+                                        <input type="date" id="edit_alert_start_date" name="alert_start_date">
+                                    </div>
+                                </div>
+                                <div class="account-form-group" id="edit_alert_amount_row" style="display: none;">
+                                    <label for="edit_alert_amount">Alert (Amount)</label>
+                                    <input type="number" id="edit_alert_amount" name="alert_amount" step="0.01"
+                                        placeholder="Enter amount (auto-converted to negative)">
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="edit_remark">Remark</label>
+                                    <textarea id="edit_remark" name="remark" rows="1"
+                                        style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="account-form-section">
+                            <div class="account-advance-section">
+                                <h3>Advanced Account</h3>
+                                <div class="account-other-currency">
+                                    <label>Other Currency:</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="text" id="editCurrencyInput"
+                                            placeholder="Enter new currency code (e.g., USD)"
+                                            style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <button type="button" class="account-btn-add-currency"
+                                            onclick="addCurrencyFromInputBank('edit'); return false;">Create
+                                            Currency</button>
+                                    </div>
+                                    <div class="account-currency-list" id="editCurrencyList"></div>
+                                </div>
+                                <div class="account-other-currency" style="margin-top: 20px;">
+                                    <label>Company:</label>
+                                    <div class="account-currency-list" id="editCompanyList"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="account-form-actions">
+                            <button type="submit" class="account-btn account-btn-save">Update Account</button>
+                            <button type="button" class="account-btn account-btn-cancel"
+                                onclick="closeEditAccountModalFromBank()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
         <!-- Profit Sharing Modal (account select + amount input) -->
         <div id="profitSharingModal" class="modal" style="display: none;">
             <div class="modal-content" style="max-width: 628px;">
