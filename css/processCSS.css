@@ -360,7 +360,7 @@ body.process-page {
     width: 100%;
     padding: 0px;
     /* Slightly taller viewport so 20 bank rows + sticky header fit without inner scroll on typical screens */
-    max-height: calc(100vh - 290px);
+    max-height: calc(100vh - 270px);
     overflow-y: auto;
     overflow-x: auto;
     box-sizing: border-box;
