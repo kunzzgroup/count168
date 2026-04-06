@@ -123,6 +123,7 @@ function isC168Company(PDO $pdo, $company_id): bool {
 function getOwnerWithCompanies(PDO $pdo, $owner_id) {
     $stmt = $pdo->prepare("
         SELECT o.id, o.owner_code, o.name, o.email, o.created_by,
+               GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
                GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
         FROM owner o
         LEFT JOIN company c ON o.id = c.owner_id

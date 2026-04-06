@@ -1465,6 +1465,7 @@ function addDomainCard(domainData) {
         <div class="card-item uppercase-text">${domainData.owner_code}</div>
         <div class="card-item">${domainData.name}</div>
         <div class="card-item">${domainData.email}</div>
+        <div class="card-item">${domainData.group_ids || '-'}</div>
         <div class="card-item companies-column" data-companies='${companiesDataAttr}'>${companiesHTML}</div>
         <div class="card-item uppercase-text">${(domainData.created_by || '-').toUpperCase()}</div>
         <div class="card-item">
@@ -1505,11 +1506,15 @@ function updateDomainCard(domainData) {
     items[1].textContent = domainData.owner_code;
     items[2].textContent = domainData.name;
     items[3].textContent = domainData.email;
-    items[4].innerHTML = companiesHTML;
-    items[4].classList.add('companies-column');
+    items[4].textContent = domainData.group_ids || '-';
+    items[4].classList.remove('companies-column');
+    
+    items[5].innerHTML = companiesHTML;
+    items[5].classList.add('companies-column');
     const companiesFull = domainData.companies_full || [];
-    items[4].setAttribute('data-companies', JSON.stringify(companiesFull));
-    items[5].textContent = (domainData.created_by || '-').toUpperCase();
+    items[5].setAttribute('data-companies', JSON.stringify(companiesFull));
+    
+    items[6].textContent = (domainData.created_by || '-').toUpperCase();
     
     // 重新初始化点击事件
     initializeCompanyClickHandlers();
