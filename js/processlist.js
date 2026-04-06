@@ -2054,8 +2054,39 @@ async function postToTransactionSelected() {
         return;
     }
     try {
+        const inboxById = new Map();
+        try {
+            const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
+            const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            const u = new URL(urlStr);
+            if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
+            const inboxRes = await fetch(u.toString(), { method: 'GET', cache: 'no-cache' });
+            const inboxJson = await inboxRes.json();
+            const list = (inboxJson && inboxJson.success && inboxJson.data) ? inboxJson.data : [];
+            if (Array.isArray(list)) {
+                list.forEach(function (row) {
+                    const pid = parseInt(row.id, 10);
+                    if (isNaN(pid) || inboxById.has(pid)) return;
+                    const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'));
+                    const bm = (row.monthly_billing_month != null && row.monthly_billing_month !== '') ? String(row.monthly_billing_month).trim() : '';
+                    inboxById.set(pid, { periodType: periodType, billingMonth: bm });
+                });
+            }
+        } catch (inboxErr) {
+            console.error('Inbox fetch for transaction post:', inboxErr);
+        }
         const formData = new FormData();
-        activeSelectedIds.forEach(id => formData.append('ids[]', id));
+        activeSelectedIds.forEach(function (id) {
+            formData.append('ids[]', id);
+            const meta = inboxById.get(parseInt(id, 10));
+            if (meta) {
+                formData.append('period_types[]', meta.periodType);
+                formData.append('billing_months[]', meta.billingMonth || '');
+            } else {
+                formData.append('period_types[]', 'monthly');
+                formData.append('billing_months[]', '');
+            }
+        });
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), {
             method: 'POST',
             body: formData

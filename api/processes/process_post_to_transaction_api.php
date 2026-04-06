@@ -110,6 +110,31 @@ function ymdFromNullableDateTime($raw, string $fallbackYmd): string
     return $ts === false ? $fallbackYmd : date('Y-m-d', $ts);
 }
 
+/** 与主入账循环一致：将 bank_process.day_start 规范为 Y-m-d，避免 infer 与列表入账解析结果不一致导致 transaction_date 退回当日 */
+function normalizeBankProcessDayStartToYmd(?string $raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $dateStr = str_replace('/', '-', trim((string) $raw));
+    if ($dateStr === '') {
+        return null;
+    }
+    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+        $dateStr .= '-' . date('Y');
+    }
+    $ts = strtotime($dateStr);
+    if ($ts === false) {
+        return null;
+    }
+    return date('Y-m-d', $ts);
+}
+
+function normalizeDayStartFrequencyValue($raw): string
+{
+    return (trim((string) ($raw ?? '')) === 'monthly') ? 'monthly' : '1st_of_every_month';
+}
+
 function maxYmd(string $a, string $b): string
 {
     return ($a >= $b) ? $a : $b;
@@ -319,13 +344,16 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
         return null;
     }
 
-    $frequency = $r['day_start_frequency'] ?? '1st_of_every_month';
-    $dayStart = $r['day_start'] ?? null;
-    if (empty($dayStart) || strtotime((string) $dayStart) === false) {
+    $frequency = normalizeDayStartFrequencyValue($r['day_start_frequency'] ?? null);
+    $startDate = normalizeBankProcessDayStartToYmd($r['day_start'] ?? null);
+    if ($startDate === null) {
         return null;
     }
-    $startTs = strtotime($dayStart);
-    $startDate = date('Y-m-d', $startTs);
+    $startTs = strtotime($startDate);
+    if ($startTs === false) {
+        return null;
+    }
+    $dayStart = $startDate;
     $contract = $r['contract'] ?? null;
     $dayEnd = $r['day_end'] ?? null;
     $processId = (int) ($r['id'] ?? 0);
@@ -684,18 +712,8 @@ try {
         $profit = (float) ($p['profit'] ?? 0);
 
         $createdYmd = ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate);
-        $dayStartYmd = null;
-        if (!empty($p['day_start'])) {
-            $dateStr = str_replace('/', '-', trim((string) $p['day_start']));
-            if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
-                $dateStr .= '-' . date('Y');
-            }
-            $ts = strtotime($dateStr);
-            if ($ts !== false) {
-                $dayStartYmd = date('Y-m-d', $ts);
-            }
-        }
-        $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
+        $dayStartYmd = normalizeBankProcessDayStartToYmd($p['day_start'] ?? null);
+        $frequency = normalizeDayStartFrequencyValue($p['day_start_frequency'] ?? null);
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致
         $resolvedMonthlyBm = '';
