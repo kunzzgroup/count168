@@ -605,7 +605,7 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll) {
+    if (showAll && selectedPermission !== 'Bank') {
         pageItems = listToShow;
         startIndex = 0;
     } else {

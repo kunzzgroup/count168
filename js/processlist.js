@@ -804,7 +804,7 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll) {
+    if (showAll && selectedPermission !== 'Bank') {
         pageItems = listToShow;
         startIndex = 0;
     } else {
@@ -879,8 +879,9 @@ function syncBankTableColumnWidth() {
 }
 
 function renderPagination() {
-    // 如果 showAll 为 true，隐藏分页控件
-    if (showAll) {
+    // Games：勾选「Show Active」(showAll) 时一次性展示全部 active，隐藏分页。
+    // Bank：API 始终拉全量再由前端筛选，showAll 只表示「默认 active 视图」筛选，仍需分页。
+    if (showAll && selectedPermission !== 'Bank') {
         const paginationContainer = document.getElementById('paginationContainer');
         paginationContainer.style.display = 'none';
         return;
