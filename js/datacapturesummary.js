@@ -11962,9 +11962,11 @@ function getPreferredFormulaDisplay(data, row) {
 // Update formula and processed amount when batch selection is checked
 function updateFormulaAndProcessedAmount(row, data) {
     const cells = row.querySelectorAll('td');
-    const clickedCellRefsForDisplay = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
-    const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-    const rowIndexOverrideForDisplay = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
+    const rowRefCtxDisplay = typeof getSummaryRowFormulaRefContext === 'function'
+        ? getSummaryRowFormulaRefContext(row)
+        : { clickedCellRefs: '', rowIndexOverride: null }
+    const clickedCellRefsForDisplay = rowRefCtxDisplay.clickedCellRefs
+    const rowIndexOverrideForDisplay = rowRefCtxDisplay.rowIndexOverride
 
     // Update Formula column (now index 4)
     if (cells[4]) {
@@ -12058,7 +12060,11 @@ function updateFormulaAndProcessedAmount(row, data) {
                                 // Fallback to current row id_product if not found in columnRefMap
                                 if (columnValue === null) {
                                     const columnReference = rowLabel + match.columnNumber;
-                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                    columnValue = getColumnValueFromCellReference(
+                                        columnReference,
+                                        processValue,
+                                        rowIndexOverrideForDisplay
+                                    );
                                     console.log('Fallback to current row id_product:', processValue, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
 
@@ -14497,6 +14503,16 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             }
         }
 
+        // 与 Edit Formula 一致：用当前行单元格解析出的 id_product + 行上 refs/row_index，禁止回落到 #process 或 data 里可能串行的 clickedColumns 字符串
+        const rowProcessValueForFormula = (() => {
+            const fromRow = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : ''
+            if (fromRow && String(fromRow).trim() !== '') return String(fromRow).trim()
+            return (processValue && String(processValue).trim() !== '') ? String(processValue).trim() : ''
+        })()
+        const rowRefCtxForFormula = typeof getSummaryRowFormulaRefContext === 'function'
+            ? getSummaryRowFormulaRefContext(row)
+            : { clickedCellRefs: '', rowIndexOverride: null }
+
         // Formula column (index 4)
         if (cells[4]) {
             // 需求：第二张 Summary 表里的公式，直接显示与 Edit Formula 底部一致的结果，不要再额外“变来变去”
@@ -14517,10 +14533,12 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 ? String(data.formulaOperators).trim()
                 : String(row.getAttribute('data-formula-operators') || '').trim()
             if (formulaOperatorsForForce && formulaOperatorsForForce !== 'Formula' && typeof evaluateFormulaExpression === 'function') {
-                const clickedRefs = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
-                const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-                const rowIndexOverrideForEval = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
-                const evaluated = evaluateFormulaExpression(formulaOperatorsForForce, processValue, clickedRefs, rowIndexOverrideForEval)
+                const evaluated = evaluateFormulaExpression(
+                    formulaOperatorsForForce,
+                    rowProcessValueForFormula,
+                    rowRefCtxForFormula.clickedCellRefs,
+                    rowRefCtxForFormula.rowIndexOverride
+                )
                 if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated))) {
                     rawFormula = formulaOperatorsForForce
                     const display = formatFormulaDisplayTo2Decimals(String(evaluated))
@@ -14543,10 +14561,12 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 (data.formulaOperators && String(data.formulaOperators).trim() !== '' && String(data.formulaOperators).trim() !== 'Formula') &&
                 typeof evaluateFormulaExpression === 'function'
             )) {
-                const clickedRefs = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
-                const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-                const rowIndexOverrideForEval = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
-                const evaluated = evaluateFormulaExpression(String(data.formulaOperators).trim(), processValue, clickedRefs, rowIndexOverrideForEval)
+                const evaluated = evaluateFormulaExpression(
+                    String(data.formulaOperators).trim(),
+                    rowProcessValueForFormula,
+                    rowRefCtxForFormula.clickedCellRefs,
+                    rowRefCtxForFormula.rowIndexOverride
+                )
                 if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated)) && Number(evaluated) !== 0) {
                     rawFormula = String(data.formulaOperators).trim()
                     const display = formatFormulaDisplayTo2Decimals(String(evaluated))
@@ -14561,15 +14581,13 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 const enableSourcePercent = data.enableSourcePercent !== undefined
                     ? data.enableSourcePercent
                     : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-                const rowIndexOverrideForDisplay = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
                 formulaText = createFormulaDisplayFromExpression(
                     data.formula,
                     sourcePercentText,
                     enableSourcePercent,
-                    processValue,
-                    row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || '',
-                    rowIndexOverrideForDisplay
+                    rowProcessValueForFormula,
+                    rowRefCtxForFormula.clickedCellRefs,
+                    rowRefCtxForFormula.rowIndexOverride
                 );
             }
 
@@ -14622,8 +14640,18 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                             const dataColumnIndex = refMatch.displayColumnIndex - 1;
 
                             // Get cell value using id_product and column index
-                            const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct);
-                            let columnValue = getCellValueByIdProductAndColumn(refMatch.idProduct, dataColumnIndex, rowLabel);
+                            const sameProductAsRow =
+                                (refMatch.idProduct || '').trim() === rowProcessValueForFormula ||
+                                (typeof normalizeIdProductText === 'function' &&
+                                    normalizeIdProductText(refMatch.idProduct) === normalizeIdProductText(rowProcessValueForFormula));
+                            const rowIdxForBracket = sameProductAsRow ? rowRefCtxForFormula.rowIndexOverride : null;
+                            const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct, rowIdxForBracket);
+                            let columnValue = getCellValueByIdProductAndColumn(
+                                refMatch.idProduct,
+                                dataColumnIndex,
+                                rowLabel,
+                                rowIdxForBracket
+                            );
 
                             // DEFAULT TO 0: satisfy user requirement to use 0 instead of old data for missing cells
                             if (columnValue === null || columnValue === '') {
@@ -14665,7 +14693,14 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                     const enableSourcePercent = data.enableSourcePercent !== undefined
                         ? data.enableSourcePercent
                         : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                    formulaText = createFormulaDisplayFromExpression(formulaOperatorsValue, sourcePercentText, enableSourcePercent);
+                    formulaText = createFormulaDisplayFromExpression(
+                        formulaOperatorsValue,
+                        sourcePercentText,
+                        enableSourcePercent,
+                        rowProcessValueForFormula,
+                        rowRefCtxForFormula.clickedCellRefs,
+                        rowRefCtxForFormula.rowIndexOverride
+                    );
                 }
             }
 
