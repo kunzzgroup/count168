@@ -692,16 +692,11 @@ function renderTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll) {
-        pageItems = processes;
-        startIndex = 0;
-    } else {
-        const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
-        if (currentPage > totalPages) currentPage = totalPages;
-        startIndex = (currentPage - 1) * pageSize;
-        const endIndex = Math.min(startIndex + pageSize, processes.length);
-        pageItems = processes.slice(startIndex, endIndex);
-    }
+    const totalPagesGames = Math.max(1, Math.ceil(processes.length / pageSize));
+    if (currentPage > totalPagesGames) currentPage = totalPagesGames;
+    startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, processes.length);
+    pageItems = processes.slice(startIndex, endIndex);
 
     // Games 类别的表格
     {
@@ -804,15 +799,10 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll) {
-        pageItems = listToShow;
-        startIndex = 0;
-    } else {
-        const totalPages = Math.max(1, Math.ceil(listToShow.length / pageSize));
-        if (currentPage > totalPages) currentPage = totalPages;
-        startIndex = (currentPage - 1) * pageSize;
-        pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
-    }
+    const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
+    if (currentPage > totalPagesBank) currentPage = totalPagesBank;
+    startIndex = (currentPage - 1) * pageSize;
+    pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
 
     function dashIfEmpty(val) {
         if (val == null) return '-';
@@ -879,12 +869,7 @@ function syncBankTableColumnWidth() {
 }
 
 function renderPagination() {
-    // 如果 showAll 为 true，隐藏分页控件
-    if (showAll) {
-        const paginationContainer = document.getElementById('paginationContainer');
-        paginationContainer.style.display = 'none';
-        return;
-    }
+    // showAll =「Show Active」筛选状态，与是否分页无关；始终显示分页（含 1 of 1）
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -2038,7 +2023,7 @@ async function performToggleStatus(processId) {
 
         const shouldShow = selectedPermission === 'Bank'
             ? matchesCurrentBankFilters(process)
-            : (showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active'));
+            : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
 
         if (!shouldShow) {
             const processIndex = processes.findIndex(p => p.id === processId);
