@@ -16,7 +16,7 @@ function getBankProcessModule() {
     return (typeof window !== 'undefined' && window.BankProcessList) ? window.BankProcessList : null;
 }
 /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
-const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
+const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.36fr';
 const BANK_STATUS_SELECT_OPTIONS = [
     { value: 'active', label: 'ACTIVE' },
     { value: 'inactive', label: 'INACTIVE' },

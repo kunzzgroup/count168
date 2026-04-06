@@ -439,8 +439,8 @@ body.process-page {
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
     width: 5%;
-    min-width: 92px;
-    max-width: 120px;
+    min-width: 104px;
+    max-width: 132px;
     white-space: nowrap;
 }
 .process-page .bank-data-table .bank-th-status,
@@ -742,6 +742,16 @@ body.process-page {
     object-fit: contain;
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
+.process-page .bank-action-tools {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    vertical-align: middle;
+}
+.process-page .bank-action-tools .remark-action-btn {
+    margin-left: 0;
+}
 .process-page .remark-action-btn {
     margin-left: 6px;
 }
@@ -755,22 +765,69 @@ body.process-page {
 
 .process-page .bank-resend-btn,
 .process-page .bank-resent-btn {
-    margin-left: 6px;
-    padding: 2px 6px;
-    font-size: clamp(10px, 0.72vw, 12px);
-    line-height: 1.2;
-    border: 1px solid #1a5f9e;
-    border-radius: 4px;
-    background: #e8f4fc;
-    color: #0d3d66;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(28px, 2.35vw, 34px);
+    height: clamp(28px, 2.35vw, 34px);
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(5, 150, 105, 0.45);
+    border-radius: 9px;
+    background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+    color: #047857;
     cursor: pointer;
     vertical-align: middle;
-    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(5, 46, 22, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.process-page .bank-resend-btn:hover,
-.process-page .bank-resent-btn:hover {
-    background: #d0e8f8;
+.process-page .bank-resend-btn:hover:not(:disabled),
+.process-page .bank-resent-btn:hover:not(:disabled) {
+    border-color: rgba(4, 120, 87, 0.65);
+    background: linear-gradient(180deg, #f0fdf4 0%, #bbf7d0 100%);
+    color: #065f46;
+    box-shadow: 0 2px 8px rgba(5, 46, 22, 0.12);
+    transform: translateY(-1px);
+}
+
+.process-page .bank-resend-btn:focus-visible,
+.process-page .bank-resent-btn:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 2px;
+}
+
+.process-page .bank-resend-btn:active:not(:disabled),
+.process-page .bank-resent-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(5, 46, 22, 0.1);
+}
+
+.process-page .bank-resend-btn:disabled,
+.process-page .bank-resent-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+    transform: none;
+}
+
+.process-page .bank-resend-btn svg,
+.process-page .bank-resent-btn svg {
+    width: clamp(14px, 1.15vw, 18px);
+    height: clamp(14px, 1.15vw, 18px);
+    display: block;
+}
+
+.process-page .bank-resend-btn.is-loading svg,
+.process-page .bank-resent-btn.is-loading svg {
+    animation: bank-resend-spin 0.65s linear infinite;
+}
+
+@keyframes bank-resend-spin {
+    to {
+        transform: rotate(-360deg);
+    }
 }
 
 .process-page .row-checkbox {
