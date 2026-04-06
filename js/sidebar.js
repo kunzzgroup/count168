@@ -280,6 +280,7 @@
     // - 侧边栏 Data Capture
     // - Maintenance 子菜单里 Games 才能用的项
     // - 侧边栏 Report 区块（仅 Games 可见）
+    // - Maintenance > Process：Games 公司不显示；切换公司时同步 display
     function updateSidebarDataCaptureVisibility(hasGambling) {
         var dcSection = document.getElementById('sidebar-datacapture-section');
         if (dcSection) dcSection.style.display = hasGambling ? '' : 'none';
@@ -289,6 +290,9 @@
 
         var maintFormula = document.getElementById('maintenance-formula-link');
         if (maintFormula) maintFormula.style.display = hasGambling ? '' : 'none';
+
+        var maintProcess = document.getElementById('maintenance-process-link');
+        if (maintProcess) maintProcess.style.display = hasGambling ? 'none' : '';
 
         var reportSection = document.getElementById('sidebar-report-section');
         if (reportSection) reportSection.style.display = hasGambling ? '' : 'none';

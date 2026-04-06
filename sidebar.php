@@ -145,7 +145,7 @@ if ($companyId) {
     }
 }
 
-// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture 与 Maintenance > Process 等可见性
+// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 仅在 Bank 且无 Games/Gambling 时显示
 $companyHasGambling = false;
 $companyCategories = [];
 if ($companyId) {
@@ -493,8 +493,8 @@ if ($companyId) {
                                 <span>Formula</span>
                             </a>
                             <?php endif; ?>
-                            <?php if (!$isCurrentCompanyC168 && $hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
-                            <a href="bankprocess_maintenance.php" class="submenu-item">
+                            <?php if (!$isCurrentCompanyC168 && $hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories) && !$companyHasGambling): ?>
+                            <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link">
                                 <span>Process</span>
                             </a>
                             <?php endif; ?>
