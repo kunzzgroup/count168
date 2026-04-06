@@ -215,6 +215,40 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
     return sprintf('%04d-%02d-%02d', $year, $month, $d);
 }
 
+/**
+ * Accounting Due 的 monthly 行：账单所属自然月的应付日（与 inbox 规则一致），用于 transaction_date；
+ * process_accounting_posted 仍可按该日期的年/月判断「该月已入账」。
+ */
+function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYmd, string $frequency): ?string
+{
+    if (!preg_match('/^(\d{4})-(\d{1,2})$/', trim($billingMonthYn), $m)) {
+        return null;
+    }
+    $billY = (int) $m[1];
+    $billMo = (int) $m[2];
+    if ($billY < 1970 || $billMo < 1 || $billMo > 12) {
+        return null;
+    }
+    $startTs = strtotime($dayStartYmd);
+    if ($startTs === false) {
+        return null;
+    }
+    $billYm = sprintf('%04d-%d', $billY, $billMo);
+    if ($frequency === '1st_of_every_month') {
+        return sprintf('%04d-%02d-01', $billY, $billMo);
+    }
+    $startDay = (int) date('j', $startTs);
+    $dueYmd = calendarMonthDueYmd($billY, $billMo, $startDay);
+    try {
+        if ((new DateTimeImmutable($dayStartYmd))->format('Y-n') === $billYm) {
+            $dueYmd = $dayStartYmd;
+        }
+    } catch (Throwable $e) {
+        // keep $dueYmd
+    }
+    return $dueYmd;
+}
+
 /** 根据 id 列表获取 Bank Process（含 company/owner），支持 active、inactive，以及 OFFICIAL / E-INVOICE 这类 inactive-like 记录（Accounting Due 中 manual_inactive 可入账） */
 function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
 {
@@ -327,26 +361,6 @@ function getOrCreateCurrencyId(PDO $pdo, string $code, int $companyId): ?int
     $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
     $stmt->execute([$code, $companyId]);
     return (int) $pdo->lastInsertId();
-}
-
-/**
- * Accounting Due 中 monthly 行带 monthly_billing_month（如 2026-2 = 该笔应付所属自然月）。
- * hasMonthlyPostedOrSkippedInCalendarMonth 按 posted_date 的年月判断；若入账记录用「今天」而账单月是上月/更早，列表会一直不消失。
- */
-function postedDateForMonthlyBillingMonth(?string $billingMonthYn, string $fallbackYmd): string
-{
-    if ($billingMonthYn === null || trim($billingMonthYn) === '') {
-        return $fallbackYmd;
-    }
-    if (!preg_match('/^(\d{4})-(\d{1,2})$/', trim($billingMonthYn), $m)) {
-        return $fallbackYmd;
-    }
-    $y = (int) $m[1];
-    $mo = (int) $m[2];
-    if ($y < 1970 || $mo < 1 || $mo > 12) {
-        return $fallbackYmd;
-    }
-    return sprintf('%04d-%02d-01', $y, $mo);
 }
 
 /** 记录 process 已入账到 process_accounting_posted */
@@ -601,25 +615,44 @@ try {
             continue;
         }
 
-        $effectiveDate = $dayStartYmd ?: $fallbackDate;
+        // transaction_date：按账单/合同经济日（day_start、应付月、尾段起始日），便于 Payment History 按业务日筛选。
+        // manual_inactive 的 process_accounting_posted.posted_date 仍用「今天」，否则 posted_date < dts_modified 时
+        // fetchInactiveBankProcessesPendingTransaction 的 NOT EXISTS 无法识别本轮已入账（见 process_accounting_inbox_api）。
+        $transactionDate = $fallbackDate;
+        $postedDateForInbox = $fallbackDate;
 
-        // partial_first_month：交易与 process_accounting_posted 锚在 day_start。
-        // monthly / manual_inactive：必须用本次入账日；若仍用 day_start，每条 monthly 的 posted_date 相同，
-        // 唯一键 (company_id, process_id, posted_date, period_type) 会令 INSERT IGNORE 静默失败，
-        // 后续月份无法在 Accounting Due 与「当天已入账」逻辑中正确对应。
-        $ledgerDate = $effectiveDate;
         if ($periodType === 'partial_first_month' && $dayStartYmd) {
-            // Old data not taken: anchor partial to max(day_start, created)
-            $ledgerDate = maxYmd($dayStartYmd, $createdYmd);
+            $transactionDate = maxYmd($dayStartYmd, $createdYmd);
+            $postedDateForInbox = $transactionDate;
+        } elseif ($periodType === 'manual_inactive') {
+            $transactionDate = $dayStartYmd ?: $fallbackDate;
+            $postedDateForInbox = $fallbackDate;
+        } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
+            $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
+            if ($term !== null && $term >= 1) {
+                $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
+                if ($exclusiveEnd !== null) {
+                    $transactionDate = $exclusiveEnd;
+                    $postedDateForInbox = $exclusiveEnd;
+                }
+            }
+        } elseif ($periodType === 'monthly') {
+            $bm = trim((string) ($pair['billing_month'] ?? ''));
+            if ($bm !== '' && $dayStartYmd) {
+                $dueTx = monthlyDueYmdForBillingMonth($bm, $dayStartYmd, $frequency);
+                if ($dueTx !== null) {
+                    $transactionDate = $dueTx;
+                    $postedDateForInbox = $dueTx;
+                }
+            }
         }
-        if ($periodType === 'monthly' || $periodType === 'manual_inactive' || $periodType === 'day_end_tail') {
-            $ledgerDate = $fallbackDate;
-        }
+
+        $ledgerDate = $transactionDate;
 
         $baseTxn = [
             'company_id' => $companyId,
             'transaction_type' => 'WIN',
-            'transaction_date' => $ledgerDate,
+            'transaction_date' => $transactionDate,
             'created_by' => $created_by_user,
             'created_by_owner' => $ownerId,
         ];
@@ -711,10 +744,6 @@ try {
             $createdCount++;
         }
 
-        $postedDateForInbox = $ledgerDate;
-        if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($pair['billing_month'] ?? '') !== '') {
-            $postedDateForInbox = postedDateForMonthlyBillingMonth($pair['billing_month'], $ledgerDate);
-        }
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
