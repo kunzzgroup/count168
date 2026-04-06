@@ -16777,10 +16777,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
     }
 }
 
-// After all templates are applied, reorder rows globally by row_index (if present)
-// IMPORTANT: This function should maintain the exact order of Data Capture Table
-// Rows are sorted by row_index directly, preserving the original order from Data Capture Table
-// Same id_product rows are NOT grouped together - they maintain their individual positions
+// After all templates are applied, reorder Summary 全表：以 Data Capture 行序为主键，
+// 同一完整 Id Product（去空格，含 MARI/GXS 等后缀）内 Main 在上、Sub 在下，避免「按 DOM 顺序切块」把 Sub 挂到别的 Main 组。
 function reorderSummaryRowsByRowIndex() {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -16792,146 +16790,6 @@ function reorderSummaryRowsByRowIndex() {
         if (rows.length === 0) {
             return;
         }
-        const originalOrderMap = new Map();
-        rows.forEach((row, idx) => originalOrderMap.set(row, idx));
-
-        const normalizeGroupKey = (value) => (value || '')
-            .toString()
-            .replace(/[\u200B-\u200D\uFEFF]/g, '')
-            .trim()
-            .replace(/\s+/g, ' ')
-            .toUpperCase();
-        const getRowGroupKey = (row, fallbackMainText) => {
-            if (!row) return normalizeGroupKey(fallbackMainText || '');
-            const productType = (row.getAttribute('data-product-type') || 'main').trim();
-            const parentAttr = row.getAttribute('data-parent-id-product');
-            const idCell = row.querySelector('td:first-child');
-            const mainAttr = idCell ? (idCell.getAttribute('data-main-product') || '') : '';
-            const cellText = idCell && idCell.textContent ? idCell.textContent : '';
-            // sub 行优先用 parent 分组，main 行优先用 data-main-product，再退回可见文本
-            const raw = (productType === 'sub' && parentAttr && parentAttr.trim() !== '')
-                ? parentAttr
-                : (mainAttr || cellText || fallbackMainText || '');
-            return normalizeGroupKey(raw);
-        };
-
-        // NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
-        // 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
-        // 这样 Summary 里所有 main 的顺序会和 console 打印的 row_index 完全一致，
-        // 而 group 内部（main/sub 的相对顺序）保持不变。
-        const groups = [];
-        let currentGroup = null;
-
-        rows.forEach((row) => {
-            const idProductCell = row.querySelector('td:first-child');
-            const productValues = getProductValuesFromCell(idProductCell);
-            const mainTextRaw = (productValues.main || '').trim();
-            const productTypeAttr = row.getAttribute('data-product-type') || 'main';
-            const parentIdAttr = (row.getAttribute('data-parent-id-product') || '').trim();
-            // 与下方 getEffectiveProductType 一致：标成 main 但带 parent 的实为 sub，不可单独成组以免按各自 row_index 打散
-            const isSub =
-                productTypeAttr === 'sub' ||
-                (productTypeAttr === 'main' && parentIdAttr !== '') ||
-                (!mainTextRaw && productTypeAttr !== 'main');
-
-            if (!isSub && mainTextRaw) {
-                // 新的 main 行，开启一个新 group
-                currentGroup = {
-                    rows: [],
-                    mainRow: row,
-                    groupKey: getRowGroupKey(row, mainTextRaw),
-                    originalGroupIndex: groups.length
-                };
-                groups.push(currentGroup);
-            }
-
-            if (!currentGroup) {
-                // 理论上不应该出现：在第一个 main 之前的行，单独当成一个 group
-                currentGroup = {
-                    rows: [],
-                    mainRow: row,
-                    groupKey: getRowGroupKey(row, mainTextRaw),
-                    originalGroupIndex: groups.length
-                };
-                groups.push(currentGroup);
-            }
-
-            currentGroup.rows.push(row);
-        });
-
-        // 为每个 group 计算排序用的 row_index：优先 preserved，其次 data-row-index
-        groups.forEach(group => {
-            const mainRow = group.mainRow || group.rows[0];
-            let sortIndex = 999999;
-            if (mainRow) {
-                const preservedAttr = mainRow.getAttribute('data-preserved-row-index');
-                const rowIndexAttr = mainRow.getAttribute('data-row-index');
-                const preserved = (preservedAttr !== null && preservedAttr !== '' && !Number.isNaN(Number(preservedAttr)))
-                    ? Number(preservedAttr)
-                    : null;
-                const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
-                    ? Number(rowIndexAttr)
-                    : null;
-                const effective = preserved !== null ? preserved : rowIndex;
-                if (effective !== null && effective >= 0 && !Number.isNaN(effective)) {
-                    sortIndex = effective;
-                }
-            }
-            group.sortIndex = sortIndex;
-        });
-
-        // 按 sortIndex 升序排序；相同 sortIndex 时按照原本的 group 顺序
-        groups.sort((a, b) => {
-            if (a.sortIndex !== b.sortIndex) {
-                return a.sortIndex - b.sortIndex;
-            }
-            return a.originalGroupIndex - b.originalGroupIndex;
-        });
-
-        const getEffectiveProductType = (row) => {
-            const type = (row.getAttribute('data-product-type') || 'main').trim();
-            if (type === 'main') {
-                const parent = (row.getAttribute('data-parent-id-product') || '').trim();
-                if (parent !== '') return 'sub';
-            }
-            return type === 'sub' ? 'sub' : 'main';
-        };
-        const getSubOrderValue = (row) => {
-            const raw = row.getAttribute('data-sub-order');
-            if (raw == null || String(raw).trim() === '') return Number.POSITIVE_INFINITY;
-            const num = Number(raw);
-            return Number.isFinite(num) ? num : Number.POSITIVE_INFINITY;
-        };
-
-        // 组内强制排序：main 在前，sub 严格按 sub_order 升序。
-        groups.forEach(group => {
-            group.rows.sort((a, b) => {
-                const typeA = getEffectiveProductType(a);
-                const typeB = getEffectiveProductType(b);
-                if (typeA !== typeB) {
-                    return typeA === 'main' ? -1 : 1;
-                }
-                if (typeA === 'sub' && typeB === 'sub') {
-                    const subA = getSubOrderValue(a);
-                    const subB = getSubOrderValue(b);
-                    if (subA !== subB) {
-                        return subA - subB;
-                    }
-                }
-                return (originalOrderMap.get(a) ?? 0) - (originalOrderMap.get(b) ?? 0);
-            });
-        });
-
-        groups.forEach(group => {
-            group.rows.forEach(row => summaryTableBody.appendChild(row));
-        });
-
-        console.log(
-            'Reordered rows by preserved row_index groups (main + subs).',
-            'Total groups:', groups.length,
-            'Total rows:', rows.length
-        );
-        return;
 
         // 用「去空格」完整 id 做顺序与分组，ALLBET95MS(SV)/(KM)/(SEXY)MYR 各为独立 main，Sub 只跟自己的 Main
         const normalizeSpacesForReorder = (s) => (s || '').trim().replace(/\s+/g, '');
@@ -17037,6 +16895,14 @@ function reorderSummaryRowsByRowIndex() {
                     normalizedMain = normalizeSpacesForReorder(parentIdProduct);
                 } else if (mainTextRaw) {
                     normalizedMain = normalizeSpacesForReorder(mainTextRaw);
+                } else if (idProductCell) {
+                    let cellTxt = (idProductCell.textContent || '').trim();
+                    if (cellTxt.indexOf(' / ') >= 0) {
+                        cellTxt = cellTxt.split(' / ')[0].trim();
+                    }
+                    if (cellTxt) {
+                        normalizedMain = normalizeSpacesForReorder(cellTxt);
+                    }
                 }
             } else {
                 normalizedMain = normalizeSpacesForReorder(mainTextRaw);
