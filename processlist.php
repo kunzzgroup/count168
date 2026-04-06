@@ -223,7 +223,7 @@ if ($current_user_id && count($user_companies) > 0) {
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="process-page-html">
 
 <head>
     <meta charset="UTF-8">
