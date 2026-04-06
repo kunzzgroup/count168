@@ -991,17 +991,14 @@ body {
 .account-form-actions {
     text-align: right;
     margin-top: 0;
-    padding: clamp(1rem, 2vw, 1.5rem) clamp(1.5rem, 3vw, 2.5rem);
+    padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1.5rem, 3vw, 2.5rem);
     border-top: 0.0625rem solid #e2e8f0;
     display: flex;
     justify-content: flex-end;
     gap: clamp(0.625rem, 1.2vw, 0.875rem);
     flex-wrap: wrap;
-    position: sticky;
-    bottom: -1px; /* stick to bottom */
-    background-color: #ffffff; /* keep background opaque */
-    z-index: 20;
-    border-radius: 0 0 1rem 1rem; /* rounded corners at bottom */
+    background-color: #ffffff;
+    border-radius: 0 0 1rem 1rem;
 }
 
 /* Modal Styles (align with userlist) */
@@ -1142,11 +1139,9 @@ body {
     border-radius: 1rem;
     width: clamp(700px, 85vw, 950px);
     max-width: none;
-    max-height: clamp(75vh, 85vh, 90vh);
+    max-height: 98vh;
     box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
@@ -1159,23 +1154,14 @@ body {
 }
 
 .account-modal-header {
-    flex-shrink: 0;
-    position: relative;
     background-color: #ffffff;
-    z-index: 20;
     padding-bottom: 0.5rem;
     border-radius: 1rem 1rem 0 0;
 }
 
-.account-modal-body {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-}
-
 .account-modal-header h2 {
     margin: 0;
-    padding: clamp(0.75rem, 1.5vw, 1.25rem) 0 0 clamp(1rem, 2vw, 2.1875rem);
+    padding: 1.25rem 0 0 2.1875rem;
 }
 
 .account-close {
