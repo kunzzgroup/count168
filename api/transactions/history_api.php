@@ -546,12 +546,37 @@ try {
         $sql .= " LEFT JOIN bank_process bp_t ON t.source_bank_process_id = bp_t.id LEFT JOIN account a_cm_t ON bp_t.card_merchant_id = a_cm_t.id";
     }
     
+    // monthly + bank_process：过滤/排序也要和展示日期一致（按 day_start 锚定），
+    // 否则会出现「显示 06/04，但只能在 01/05 日期范围查到」的错位。
+    $effectiveTxnDateExpr = "DATE(t.transaction_date)";
+    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        $effectiveTxnDateExpr = "(
+            CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND t.source_bank_process_period_type = 'monthly'
+                THEN GREATEST(
+                    COALESCE(
+                        CASE
+                            WHEN bp_t.day_start REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$' THEN DATE(bp_t.day_start)
+                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d/%m/%Y')
+                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d-%m-%Y')
+                            ELSE NULL
+                        END,
+                        DATE(t.transaction_date)
+                    ),
+                    COALESCE(DATE(bp_t.dts_created), DATE(t.transaction_date))
+                )
+                ELSE DATE(t.transaction_date)
+            END
+        )";
+    }
+
     $ph = implode(',', array_fill(0, count($account_ids), '?'));
     // 这里只查询非 RATE 的交易（RATE 在后续通过 transaction_entry 单独处理）
     $sql .= " WHERE t.company_id = ?
               AND t.transaction_type <> 'RATE'
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
-              AND t.transaction_date BETWEEN ? AND ?";
+              AND $effectiveTxnDateExpr BETWEEN ? AND ?";
     
     $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
     
@@ -583,7 +608,7 @@ try {
         }
     }
     
-    $sql .= " ORDER BY t.transaction_date ASC, t.created_at ASC";
+    $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($transactionParams);
