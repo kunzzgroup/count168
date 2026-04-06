@@ -6182,6 +6182,10 @@ function switchPermission(permission) {
     // Accounting Due Inbox: show only on Bank
     updateAccountingInboxVisibility();
 
+    if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
+        window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
+    }
+
     // 重新加载数据
     currentPage = 1;
     fetchProcesses();

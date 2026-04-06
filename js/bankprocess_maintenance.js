@@ -132,13 +132,14 @@
         async function switchCompany(companyId) {
             const newCompanyId = parseInt(companyId, 10);
             if (currentCompanyId === newCompanyId) return;
+            let hasGamblingFromSession = undefined;
             try {
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${newCompanyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+                } else if (result.data && result.data.has_gambling !== undefined) {
+                    hasGamblingFromSession = result.data.has_gambling;
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
@@ -146,6 +147,15 @@
             currentCompanyId = newCompanyId;
             const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(newCompanyId, 10));
             currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
+            if (typeof window !== 'undefined') {
+                window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+            }
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
+                const hg = hasGamblingFromSession !== undefined
+                    ? hasGamblingFromSession
+                    : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
+                window.updateSidebarDataCaptureVisibility(hg);
+            }
             activateCompanyButton(currentCompanyId);
             loadPermissionButtons();
             loadCompanyCurrencies()
@@ -291,6 +301,9 @@
             const titleEl = document.getElementById('maintenance-page-title');
             if (titleEl) {
                 titleEl.textContent = 'Maintenance - ' + (permission || 'Process');
+            }
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
+                window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
             }
         }
 

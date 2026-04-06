@@ -145,7 +145,7 @@ if ($companyId) {
     }
 }
 
-// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 仅在 Bank 且无 Games/Gambling 时显示
+// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 仅在 Bank 且无 Games/Gambling 时显示；Bank 视图（localStorage）下 Data Capture/Transaction 由 js/sidebar.js 隐藏
 $companyHasGambling = false;
 $companyCategories = [];
 if ($companyId) {
@@ -477,7 +477,7 @@ if ($companyId) {
                             </a>
                             <?php endif; ?>
                             <?php if (!$isCurrentCompanyC168): ?>
-                            <a href="transaction_maintenance.php" class="submenu-item">
+                            <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
                                 <span>Transaction</span>
                             </a>
                             <?php endif; ?>
@@ -551,6 +551,7 @@ if ($companyId) {
 window.SIDEBAR_IS_MEMBER = <?php echo $isMember ? 'true' : 'false'; ?>;
 window.SIDEBAR_EXPIRATION_DATE = '<?php echo $company_expiration_date ? addslashes($company_expiration_date) : ''; ?>';
 window.SIDEBAR_COMPANY_HAS_GAMBLING = <?php echo $companyHasGambling ? 'true' : 'false'; ?>;
+window.SIDEBAR_COMPANY_CODE = <?php echo json_encode($currentCompanyCode); ?>;
 (function() {
     if (typeof updateExpirationCountdown === 'function') {
         if (window.SIDEBAR_EXPIRATION_DATE) {
