@@ -84,6 +84,18 @@ function historyMonthlyBankProcessDisplayYmd(?string $bpDayStart, $bpDtsCreated,
     return ($dayYmd >= $createdYmd) ? $dayYmd : $createdYmd;
 }
 
+/** 未来账单不提前显示：仅当交易日期已到（<= 今天）才按 day_start 映射展示 */
+function historyCanMapMonthlyToDayStart(string $txnDateYmd): bool
+{
+    $ts = strtotime($txnDateYmd);
+    if ($ts === false) {
+        return false;
+    }
+    $txnYmd = date('Y-m-d', $ts);
+    $todayYmd = date('Y-m-d');
+    return $txnYmd <= $todayYmd;
+}
+
 /**
  * 将 entry_type 映射为友好的 Product 显示名称
  */
@@ -554,6 +566,7 @@ try {
             CASE
                 WHEN t.source_bank_process_id IS NOT NULL
                      AND t.source_bank_process_period_type = 'monthly'
+                     AND DATE(t.transaction_date) <= CURDATE()
                 THEN GREATEST(
                     COALESCE(
                         CASE
@@ -1004,7 +1017,7 @@ try {
         $displayDateYmd = $t['transaction_date'];
         if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
             $ptForDisplay = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
-            if ($ptForDisplay === 'monthly') {
+            if ($ptForDisplay === 'monthly' && historyCanMapMonthlyToDayStart((string) $t['transaction_date'])) {
                 $anchorYmd = historyMonthlyBankProcessDisplayYmd(
                     isset($t['bp_day_start']) ? (string) $t['bp_day_start'] : null,
                     $t['bp_dts_created'] ?? null,
