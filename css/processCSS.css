@@ -2473,6 +2473,52 @@ body.process-page {
     color: #b45309;
 }
 
+/* Resend to Accounting Due — emerald accent */
+#confirmBankResendModal .process-confirm-icon--resend {
+    color: #047857;
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    animation: processIconPulseResend 2s ease-in-out infinite;
+}
+
+@keyframes processIconPulseResend {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.35);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(5, 150, 105, 0);
+    }
+}
+
+.process-btn-resend {
+    background: linear-gradient(180deg, #10b981 0%, #047857 100%);
+    color: white;
+    font-family: 'Amaranth', -apple-system, sans-serif;
+    width: clamp(5rem, 6.25vw, 7.5rem);
+    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+    font-size: clamp(0.625rem, 0.83vw, 1rem);
+    border: none;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(16, 185, 129, 0.35);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.process-btn-resend:hover:not(:disabled) {
+    background: linear-gradient(180deg, #059669 0%, #065f46 100%);
+    box-shadow: 0 0.25rem 0.5rem rgba(5, 150, 105, 0.45);
+    transform: translateY(-0.0625rem);
+}
+
+.process-btn-resend:disabled {
+    opacity: 0.75;
+    cursor: wait;
+    transform: none;
+}
+
 /* Scrollbar for long messages */
 .process-confirm-message::-webkit-scrollbar {
     width: 6px;

@@ -208,19 +208,21 @@ function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, 
     return actionButtons + '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + titleText + '"' + disabledAttr + ' onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
 }
 
-async function resendBankProcessAccountingDue(processId) {
-    const id = parseInt(processId, 10);
-    if (!id) return;
-    if (!confirm('Resend this process to Accounting Due?\n\nPosting rules stay the same. This only clears the “already posted” mark after the bank posting was removed in Maintenance.')) {
+function resendBankProcessAccountingDue(processId) {
+    if (typeof window.showConfirmBankResendModal === 'function') {
+        window.showConfirmBankResendModal(processId);
         return;
     }
-    const row = document.querySelector('#bankTableBody tr[data-id="' + id + '"]');
-    const btn = row ? row.querySelector('.bank-resend-btn') : null;
-    if (btn) {
-        btn.disabled = true;
-        btn.classList.add('is-loading');
-        btn.setAttribute('aria-busy', 'true');
+    const id = parseInt(processId, 10);
+    if (id) {
+        void executeAccountingDueResend(id);
     }
+}
+window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
+
+async function executeAccountingDueResend(processId) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
     try {
         const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
             method: 'POST',
@@ -260,17 +262,10 @@ async function resendBankProcessAccountingDue(processId) {
             showNotification(result.message || 'Resend failed', 'danger');
         }
     } catch (err) {
-        console.error('resendBankProcessAccountingDue:', err);
+        console.error('executeAccountingDueResend:', err);
         showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
-    } finally {
-        if (btn && btn.isConnected) {
-            btn.disabled = false;
-            btn.classList.remove('is-loading');
-            btn.removeAttribute('aria-busy');
-        }
     }
 }
-window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
 
 function syncBankFilterCheckboxes() {
     const showInactiveCheckbox = document.getElementById('showInactive');
@@ -4162,6 +4157,7 @@ return {
     toggleProcessStatus: toggleProcessStatus,
     refreshAfterFetch: function () { sortBankProcessesBySupplier(); },
     renderAfterStatusChange: function () { renderBankTable(); renderPagination(); },
-    isRealBankInactive: isRealBankInactive
+    isRealBankInactive: isRealBankInactive,
+    executeAccountingDueResend: executeAccountingDueResend
 };
 })();

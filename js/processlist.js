@@ -1559,6 +1559,7 @@ let pendingDeleteIds = [];
 let pendingToggleProcessId = null;
 let pendingToggleNewStatus = null;
 let pendingDismissPairs = [];
+let pendingBankResendProcessId = null;
 
 function deleteSelected() {
     const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked:not([disabled])');
@@ -1924,6 +1925,80 @@ function showConfirmAccountingDueDeleteModal(pairs) {
 function closeConfirmAccountingDueDeleteModal() {
     document.getElementById('confirmAccountingDueDeleteModal').style.display = 'none';
     pendingDismissPairs = [];
+}
+
+function showConfirmBankResendModal(processId) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
+    const modalEl = document.getElementById('confirmBankResendModal');
+    if (!modalEl) {
+        const bankModule = getBankProcessModule();
+        if (bankModule && typeof bankModule.executeAccountingDueResend === 'function' &&
+            window.confirm('Resend this process to Accounting Due?\n\nPosting rules stay the same.')) {
+            void bankModule.executeAccountingDueResend(id);
+        }
+        return;
+    }
+    pendingBankResendProcessId = id;
+    const msgEl = document.getElementById('confirmBankResendMessage');
+    const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
+    const label = proc
+        ? String(proc.supplier || proc.card_lower || ('#' + id)).trim() || ('#' + id)
+        : ('#' + id);
+    if (msgEl) {
+        msgEl.textContent =
+            'Resend "' + label + '" to Accounting Due?\n\n' +
+            'Posting rules stay the same. This only clears the "already posted" mark after the bank posting was removed in Maintenance (Bank or Payment).';
+    }
+    const confirmBtn = document.getElementById('confirmBankResendBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Resend';
+    }
+    if (modalEl) {
+        const cancelBtn = modalEl.querySelector('.confirm-bank-resend-cancel');
+        if (cancelBtn) cancelBtn.disabled = false;
+        modalEl.style.display = 'block';
+    }
+}
+
+function closeConfirmBankResendModal() {
+    const modal = document.getElementById('confirmBankResendModal');
+    if (modal) modal.style.display = 'none';
+    pendingBankResendProcessId = null;
+    const confirmBtn = document.getElementById('confirmBankResendBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Resend';
+    }
+    if (modal) {
+        const cancelBtn = modal.querySelector('.confirm-bank-resend-cancel');
+        if (cancelBtn) cancelBtn.disabled = false;
+    }
+}
+
+async function confirmBankResendFromModal() {
+    const id = pendingBankResendProcessId;
+    if (!id) {
+        closeConfirmBankResendModal();
+        return;
+    }
+    const modal = document.getElementById('confirmBankResendModal');
+    const confirmBtn = document.getElementById('confirmBankResendBtn');
+    const cancelBtn = modal ? modal.querySelector('.confirm-bank-resend-cancel') : null;
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Resending...';
+    }
+    if (cancelBtn) cancelBtn.disabled = true;
+    try {
+        const bankModule = getBankProcessModule();
+        if (bankModule && typeof bankModule.executeAccountingDueResend === 'function') {
+            await bankModule.executeAccountingDueResend(id);
+        }
+    } finally {
+        closeConfirmBankResendModal();
+    }
 }
 
 async function confirmAccountingDueDelete() {
