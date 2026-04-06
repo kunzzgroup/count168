@@ -41,10 +41,14 @@ try {
         throw new Exception('无效的 Process ID');
     }
 
-    $stmt = $pdo->prepare('SELECT id FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, status FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1');
     $stmt->execute([$bankProcessId, $company_id]);
-    if (!$stmt->fetchColumn()) {
+    $bpRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$bpRow) {
         throw new Exception('未找到该 Bank Process 或无权操作');
+    }
+    if (strtolower(trim((string) ($bpRow['status'] ?? ''))) !== 'active') {
+        throw new Exception('仅状态为 Active 的 Process 可使用 Resend');
     }
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
