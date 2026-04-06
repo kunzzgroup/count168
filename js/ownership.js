@@ -223,6 +223,7 @@ function createRowElement(companyId, idx, rowData) {
         selectOptions += `<option value="${acc.id}" ${selected}>${acc.account_name} (${acc.name})</option>`;
     });
 
+    const isExternal = String(rowData.account_id).startsWith('O_');
     const includeGroupHtml = isExternal ? `
         <label style="display:flex; align-items:center; font-size:12px; padding: 0 10px; height: 38px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color:#475569; font-weight: 600; cursor:pointer;" title="Share original Group ID with Partner">
             <input type="checkbox" onchange="updateRowData(${companyId}, ${idx}, 'include_group', this.checked ? 1 : 0)" ${rowData.include_group !== 0 ? 'checked' : ''} style="margin-right:6px; cursor:pointer;">
