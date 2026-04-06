@@ -26,14 +26,15 @@ try {
         $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch users (Owner)
-        $stmtUser = $pdo->prepare("
-            SELECT CONCAT('U_', id) as id, login_id as account_name, name, role
-            FROM user
-            WHERE status = 'active' 
-              AND LOWER(role) = 'owner'
+        $stmtOwner = $pdo->prepare("
+            SELECT CONCAT('U_', o.id) as id, o.owner_code as account_name, o.name, 'OWNER' as role, 'owner' as type
+            FROM owner o
+            INNER JOIN company c ON o.id = c.owner_id
+            WHERE c.id = ? 
+              AND LOWER(o.status) = 'active'
         ");
-        $stmtUser->execute();
-        $users = $stmtUser->fetchAll(PDO::FETCH_ASSOC);
+        $stmtOwner->execute([$company_id]);
+        $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
         // Combine
         $combined = array_merge($accounts, $users);
@@ -59,14 +60,13 @@ try {
         $stmtAcc->execute();
         $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmtUser = $pdo->prepare("
-            SELECT CONCAT('U_', id) as id, login_id as account_name, name, role
-            FROM user
-            WHERE status = 'active' 
-              AND LOWER(role) = 'owner'
+        $stmtOwner = $pdo->prepare("
+            SELECT CONCAT('U_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type
+            FROM owner
+            WHERE LOWER(status) = 'active' 
         ");
-        $stmtUser->execute();
-        $users = $stmtUser->fetchAll(PDO::FETCH_ASSOC);
+        $stmtOwner->execute();
+        $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
         $combined = array_merge($accounts, $users);
         usort($combined, function($a, $b) {
