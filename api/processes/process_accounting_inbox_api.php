@@ -3,7 +3,7 @@
  * Process Accounting Inbox API
  * 返回「当天需要算账」的 Bank Process 列表（用于 Process List 标题旁的“需要算账”Inbox）
  * 规则：
- * - 1st of Every Month = 每月1号算账；若设置了 Day start（如 2月20），则先出现一笔「首月按比例」：sell price/当月天数*（20号到月底天数），客户先还这笔，1号起再还全额。
+ * - 1st of Every Month = 每月1号算账；若 Day start 为当月1号，则「合同开始当月」在 max(day_start, 创建日) 起即可入账（含 Resend 清标记后）；若设置了 Day start（如 2月20），则先出现一笔「首月按比例」：sell price/当月天数*（20号到月底天数），客户先还这笔，1号起再还全额。
  * - Monthly = 每月(day_start 日 - 1)号，如 2月8日开始则每月7号算账
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  * - 填写 day_end 且长于合同自然结束：多一笔 day_end_tail（例 1st + 非1号 day_start：自然结束次日到 day_end 按当月天数比例）。
@@ -471,8 +471,8 @@ try {
         exit;
     }
 
-    $today = date('Y-m-d');
-    //$today = '2026-05-01';
+    //$today = date('Y-m-d');
+    $today = '2026-05-01';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -571,20 +571,22 @@ try {
             if ($startTs === false) {
                 continue;
             }
-                // Special case: day_start is on the 1st and the process is created after day_start within the same month.
-                // Old data not taken: skip earlier months, but for the created month we should charge from created date to month end.
-                // Example: created 2026-04-02, day_start 2026-04-01 → show April bill today (prorated 4/2–4/30).
+                // First calendar month when day_start is on the 1st (1st_of_every_month):
+                // Bill in the same month as day_start once today >= max(day_start, created), so e.g. 4/1 start + created 4/6
+                // shows in April (prorated from 4/6), not only from May 1. Resend clears PAP so this can show again.
+                // If created before day_start month, anchor at day_start (full month from 1st when created on 1st).
                 try {
                     $startDayOfMonth = (int) date('j', $startTs);
                     $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
-                    $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
                     $todayYm = (new DateTimeImmutable($today))->format('Y-n');
+                    $billYear = (int) date('Y', $startTs);
+                    $billMonth = (int) date('n', $startTs);
                     if ($startDayOfMonth === 1
-                        && $createdYm === $startYm
                         && $todayYm === $startYm
-                        && $createdYmd > $startDate
-                        && $today >= $createdYmd
-                        && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], (int) date('Y', $startTs), (int) date('n', $startTs))) {
+                        && $today >= $startDate
+                        && $today >= maxYmd($startDate, $createdYmd)
+                        && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $billYear, $billMonth)
+                        && isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month')) {
                         $need = true;
                         $monthlyBillingMonth = $startYm;
                     }
@@ -592,11 +594,15 @@ try {
                     // ignore
                 }
                 if ($need) {
-                    // for this special case, apply proration from created date to month end
                     $cost = (float) ($r['cost'] ?? 0);
                     $price = (float) ($r['price'] ?? 0);
                     $profit = (float) ($r['profit'] ?? 0);
-                    $pr = prorateToMonthEndFromStart($createdYmd, $cost, $price, $profit);
+                    $firstMonthProrateStart = maxYmd($startDate, $createdYmd);
+                    if (strtotime($createdYmd) !== false && strtotime($startDate) !== false
+                        && strtotime($createdYmd) < strtotime($startDate)) {
+                        $firstMonthProrateStart = $startDate;
+                    }
+                    $pr = prorateToMonthEndFromStart($firstMonthProrateStart, $cost, $price, $profit);
                     $needToday[] = [
                         'id' => (int) $r['id'],
                         'name' => $r['name'] ?? '',
