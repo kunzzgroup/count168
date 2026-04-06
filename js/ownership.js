@@ -224,11 +224,17 @@ function createRowElement(companyId, idx, rowData) {
     });
 
     const isExternal = String(rowData.account_id).startsWith('O_');
+    const isGroupOn = rowData.include_group !== 0;
     const includeGroupHtml = isExternal ? `
-        <label style="display:flex; align-items:center; font-size:12px; padding: 0 10px; height: 38px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color:#475569; font-weight: 600; cursor:pointer;" title="Share original Group ID with Partner">
-            <input type="checkbox" onchange="updateRowData(${companyId}, ${idx}, 'include_group', this.checked ? 1 : 0)" ${rowData.include_group !== 0 ? 'checked' : ''} style="margin-right:6px; cursor:pointer;">
-            Grp
-        </label>
+        <button class="own-btn-square" 
+                style="width: auto; padding: 0 12px; font-size: 12px; font-weight: 700; transition: all 0.2s; 
+                       background-color: ${isGroupOn ? 'var(--own-primary-blue)' : 'white'};
+                       color: ${isGroupOn ? 'white' : '#94a3b8'};
+                       border-color: ${isGroupOn ? 'var(--own-primary-blue)' : 'var(--own-gray-border)'};"
+                title="Toggle sharing original Group ID with partner"
+                onclick="updateRowData(${companyId}, ${idx}, 'include_group', ${isGroupOn ? 0 : 1})">
+            Grp ${isGroupOn ? 'ON' : 'OFF'}
+        </button>
     ` : '';
 
     div.innerHTML = `
@@ -285,7 +291,7 @@ function updateRowData(companyId, idx, field, value) {
     if (field === 'percentage') {
         updateCalculations(companyId);
     }
-    if (field === 'account_id') {
+    if (field === 'account_id' || field === 'include_group') {
         renderCardBodyRows(companyId); // Re-render to show/hide group checkbox
     }
 }
