@@ -60,6 +60,17 @@
             });
         }
 
+        /** One column: "MYR 1,200.00" */
+        function formatCurrencyAmountCell(currency, amount) {
+            const cur = currency ? String(currency).trim() : '';
+            const n = parseFloat(amount);
+            const hasAmount = !isNaN(n);
+            if (!cur && !hasAmount) return '-';
+            if (!cur) return formatNumber(amount);
+            if (!hasAmount) return escapeHtml(cur);
+            return escapeHtml(cur) + ' ' + formatNumber(amount);
+        }
+
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
         let currentCompanyCode = '';
         let ownerCompanies = [];
@@ -322,7 +333,7 @@
                 url += `&currency=${encodeURIComponent(selectedCurrency)}`;
             }
             const tbody = document.getElementById('dataTableBody');
-            tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>';
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('tableContainer').style.display = 'block';
             fetch(url)
@@ -363,7 +374,7 @@
                 const emptyRow = document.createElement('tr');
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
-                    <td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 16px;">
+                    <td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 16px;">
                         No data
                     </td>
                 `;
@@ -376,7 +387,7 @@
                 const dateDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';
-                const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
+                const currencyAmountDisplay = formatCurrencyAmountCell(row.currency, row.amount);
                 const descriptionDisplay = escapeHtml(toUpperDisplay(row.description));
                 const remarkDisplay = escapeHtml(toUpperDisplay(row.remark));
                 const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
@@ -386,8 +397,7 @@
                     <td class="maintenance-table-cell">${dateDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
-                    <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>
-                    <td class="maintenance-table-cell maintenance-cell-amount">${formatNumber(row.amount)}</td>
+                    <td class="maintenance-table-cell maintenance-cell-currency-amount">${currencyAmountDisplay}</td>
                     <td class="maintenance-table-cell text-uppercase">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell text-uppercase">${remarkDisplay}</td>
                     <td class="maintenance-table-cell">${createdByDisplay}</td>
