@@ -28,6 +28,27 @@ body.process-page {
     box-sizing: border-box;
     overflow-x: hidden;
     overflow-y: visible;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 主内容纵向铺满视口，列表区可伸展，减少底部大块留白 */
+.process-page .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+}
+
+.process-page .process-list-page-top,
+.process-page .separator-line,
+.process-page .action-buttons-container {
+    flex-shrink: 0;
+}
+
+.process-page #processTableWrapper {
+    flex-shrink: 0;
 }
 
 .process-page .page-header {
@@ -373,6 +394,9 @@ body.process-page {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
+    flex: 1 1 auto;
+    min-height: max(240px, calc(100vh - 320px));
+    align-content: start;
 }
 .process-page .process-table-wrapper .process-cards.bank-mode {
     overflow-x: auto;
@@ -380,20 +404,26 @@ body.process-page {
 }
 
 /* Bank 真实 table：与 Gambling 同设计、同宽高 */
-/* 不在此区域做纵向 max-height，避免一页 20 条时出现表内滚动条；宽表仍允许横向滚动 */
+/* 伸展高度 + 浅色底填满视口下方空白，表格仍顶对齐；宽表横向滚动 */
 .process-page .bank-table-wrapper {
+    flex: 1 1 auto;
     margin-top: 10px;
     width: 100%;
-    padding: 0px;
+    padding: 10px 12px 14px;
     max-height: none;
-    overflow-y: visible;
+    min-height: max(280px, calc(100vh - 300px));
     overflow-x: auto;
+    overflow-y: visible;
     box-sizing: border-box;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 249, 255, 0.96) 55%, rgba(236, 245, 255, 0.94) 100%);
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow: 0 3px 16px rgba(15, 23, 42, 0.07);
 }
 .process-page .bank-data-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: clamp(11px, 0.75vw, 14px);
+    font-size: clamp(12px, 0.82vw, 15px);
     table-layout: fixed;
     font-weight: bold;
     color: #374151;
@@ -403,14 +433,14 @@ body.process-page {
 .process-page .bank-data-table thead {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
-    font-size: clamp(9px, 0.78vw, 14px);
+    font-size: clamp(10px, 0.85vw, 15px);
     position: sticky;
     top: 0;
     z-index: 1;
 }
 .process-page .bank-data-table th {
-    padding: 1px 3px;
-    line-height: 1.2;
+    padding: 4px 5px;
+    line-height: 1.3;
     text-align: left;
     white-space: nowrap;
     border: none;
@@ -423,8 +453,8 @@ body.process-page {
     border-radius: 0 8px 0 0;
 }
 .process-page .bank-data-table td {
-    padding: 1px 3px;
-    line-height: 1.25;
+    padding: 4px 5px;
+    line-height: 1.35;
     text-align: left;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     vertical-align: middle;
@@ -451,31 +481,31 @@ body.process-page {
 .process-page .bank-data-table .bank-th-country,
 .process-page .bank-data-table .bank-td-country {
     width: 5%;
-    min-width: 50px;
+    min-width: 44px;
     max-width: 85px;
 }
 .process-page .bank-data-table .bank-th-types,
 .process-page .bank-data-table .bank-td-types {
     width: 6%;
-    min-width: 50px;
+    min-width: 44px;
     max-width: 95px;
 }
 .process-page .bank-data-table .bank-th-card-owner,
 .process-page .bank-data-table .bank-td-card-owner {
     width: 12%;
-    min-width: 100px;
+    min-width: 86px;
 }
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
     width: 5%;
-    min-width: 92px;
+    min-width: 78px;
     max-width: 120px;
     white-space: nowrap;
 }
 .process-page .bank-data-table .bank-th-status,
 .process-page .bank-data-table .bank-td-status {
     width: 8%;
-    min-width: 98px;
+    min-width: 86px;
     max-width: 132px;
 }
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
@@ -488,8 +518,8 @@ body.process-page {
 }
 .process-page .bank-status-button {
     width: 72%;
-    min-height: 22px;
-    padding: 2px 8px;
+    min-height: 26px;
+    padding: 3px 9px;
     border-radius: 999px;
     border: 1px solid #cbd5e1;
     font-size: clamp(7px, 0.63vw, 12px);
@@ -624,13 +654,13 @@ body.process-page {
 
 .process-page .bank-data-table .edit-btn img,
 .process-page .bank-data-table .remark-action-btn svg {
-    width: clamp(9px, 0.72vw, 14px);
-    height: clamp(9px, 0.72vw, 14px);
+    width: clamp(11px, 0.78vw, 16px);
+    height: clamp(11px, 0.78vw, 16px);
 }
 
 .process-page .bank-data-table .contract-badge {
-    padding: 0 clamp(3px, 0.35vw, 7px);
-    font-size: clamp(6px, 0.55vw, 11px);
+    padding: 1px clamp(4px, 0.4vw, 8px);
+    font-size: clamp(7px, 0.6vw, 12px);
     border-radius: 999px;
 }
 
@@ -1015,6 +1045,7 @@ body.process-page {
 /* Pagination: in document flow below table — avoids covering last rows (Bank Action column) */
 .process-page .pagination-container {
     position: static;
+    flex-shrink: 0;
     width: 100%;
     display: flex;
     align-items: center;
