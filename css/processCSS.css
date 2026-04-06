@@ -4,6 +4,7 @@ body.process-page {
     margin: 0;
     padding: 0;
     min-height: 100vh;
+    height: 100vh;
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -14,7 +15,7 @@ body.process-page {
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
     font-size: clamp(0.875rem, 2.5vw, 1rem);
 }
 
@@ -23,11 +24,9 @@ body.process-page {
     margin: 0;
     padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    min-height: 100vh;
-    height: auto;
+    height: 100vh;
     box-sizing: border-box;
-    overflow-x: hidden;
-    overflow-y: visible;
+    overflow: hidden;
 }
 
 .process-page .page-header {
@@ -356,13 +355,12 @@ body.process-page {
 }
 
 /* Bank 真实 table：与 Gambling 同设计、同宽高 */
-/* 不在此区域做纵向 max-height，避免一页 20 条时出现表内滚动条；宽表仍允许横向滚动 */
 .process-page .bank-table-wrapper {
     margin-top: 20px;
     width: 100%;
     padding: 0px;
-    max-height: none;
-    overflow-y: visible;
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
     overflow-x: auto;
     box-sizing: border-box;
 }

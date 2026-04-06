@@ -679,7 +679,6 @@ function renderTable() {
         }
         return;
     }
-    window.__bankFilteredLength = null;
     const container = document.getElementById('processTableBody');
     container.innerHTML = '';
 
@@ -793,8 +792,7 @@ function renderBankTable() {
     if (waiting) {
         listToShow = listToShow.filter(function (p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
     }
-    // Pagination must use the same row count as the table (filters + date + Waiting), not raw processes.length.
-    window.__bankFilteredLength = listToShow.length;
+    window.__bankFilteredLength = waiting ? listToShow.length : null;
 
     if (listToShow.length === 0) {
         tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
@@ -804,7 +802,7 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    if (showAll && selectedPermission !== 'Bank') {
+    if (showAll) {
         pageItems = listToShow;
         startIndex = 0;
     } else {
@@ -879,9 +877,8 @@ function syncBankTableColumnWidth() {
 }
 
 function renderPagination() {
-    // Games：勾选「Show Active」(showAll) 时一次性展示全部 active，隐藏分页。
-    // Bank：API 始终拉全量再由前端筛选，showAll 只表示「默认 active 视图」筛选，仍需分页。
-    if (showAll && selectedPermission !== 'Bank') {
+    // 如果 showAll 为 true，隐藏分页控件
+    if (showAll) {
         const paginationContainer = document.getElementById('paginationContainer');
         paginationContainer.style.display = 'none';
         return;
@@ -6184,10 +6181,6 @@ function switchPermission(permission) {
     updatePostToTransactionButton();
     // Accounting Due Inbox: show only on Bank
     updateAccountingInboxVisibility();
-
-    if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
-        window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
-    }
 
     // 重新加载数据
     currentPage = 1;

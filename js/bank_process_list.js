@@ -594,8 +594,7 @@ function renderBankTable() {
     if (waiting) {
         listToShow = listToShow.filter(function (p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
     }
-    // Pagination must use the same row count as the table (filters + date + Waiting), not raw processes.length.
-    window.__bankFilteredLength = listToShow.length;
+    window.__bankFilteredLength = waiting ? listToShow.length : null;
 
     if (listToShow.length === 0) {
         tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
