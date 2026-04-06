@@ -3614,8 +3614,8 @@ let bankAddAccountTriggerFieldId = null;
 let bankAddAccountTriggerHiddenInputId = null;
 
 let bankAccountRoles = [];
-/** Role 排序优先级（与 account-list 一致，Add Account 弹窗开放完整 Role 列表） */
-const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+/** 与 js/account-list.js 中 ROLE_PRIORITY 保持完全一致 */
+const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
 
 function getOrderedRolesBank(roles, includeStaff = true) {
     const normalizedMap = new Map();
@@ -3627,16 +3627,30 @@ function getOrderedRolesBank(roles, includeStaff = true) {
             normalizedMap.set(upper, trimmed);
         }
     });
+
     if (includeStaff) {
         normalizedMap.set('STAFF', 'STAFF');
     }
+
+    if (!normalizedMap.has('PARTNER')) {
+        normalizedMap.set('PARTNER', 'PARTNER');
+    }
+
+    if (!normalizedMap.has('DEBTOR')) {
+        normalizedMap.set('DEBTOR', 'DEBTOR');
+    }
+
     const orderedRoles = [];
     BANK_ROLE_PRIORITY.forEach(role => {
         if (normalizedMap.has(role)) {
             orderedRoles.push(normalizedMap.get(role));
             normalizedMap.delete(role);
+        } else if (role === 'SUPPLIER' && normalizedMap.has('UPLINE')) {
+            orderedRoles.push(normalizedMap.get('UPLINE'));
+            normalizedMap.delete('UPLINE');
         }
     });
+
     const remaining = Array.from(normalizedMap.values()).sort((a, b) => a.localeCompare(b));
     return orderedRoles.concat(remaining);
 }
@@ -3649,14 +3663,14 @@ function populateRoleSelectBank(selectElement, roles, selectedRole = '', include
     orderedRoles.forEach(role => {
         const opt = document.createElement('option');
         opt.value = role;
-        opt.textContent = role;
+        opt.textContent = (role.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : role;
         if (selectedUpper && role.toUpperCase() === selectedUpper) opt.selected = true;
         selectElement.appendChild(opt);
     });
     if (selectedUpper && !orderedRoles.some(r => r.toUpperCase() === selectedUpper)) {
         const fallback = document.createElement('option');
         fallback.value = selectedRole;
-        fallback.textContent = selectedRole;
+        fallback.textContent = (selectedRole.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : selectedRole;
         fallback.selected = true;
         selectElement.appendChild(fallback);
     }
@@ -3678,13 +3692,7 @@ async function loadEditDataBank() {
         console.error('loadEditDataBank', e);
         const addRoleSelect = document.getElementById('add_role');
         if (addRoleSelect) {
-            addRoleSelect.innerHTML = '<option value="">Select Role</option>';
-            (bankAccountRoles.length > 0 ? getOrderedRolesBank(bankAccountRoles) : BANK_ROLE_PRIORITY).forEach(code => {
-                const opt = document.createElement('option');
-                opt.value = code;
-                opt.textContent = code;
-                addRoleSelect.appendChild(opt);
-            });
+            populateRoleSelectBank(addRoleSelect, bankAccountRoles);
         }
     }
 }
