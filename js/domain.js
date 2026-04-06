@@ -474,8 +474,13 @@ function addCompanyToList() {
         originalExpirationDate: newExpirationDate,
         startDate: today,
         isExtending: false,
-        group_id: null // 新添加的公司默认是独立的
+        group_id: selectedGroupId || null // 新添加的公司默认是独立的，如果有选中group则归入该group
     });
+    
+    if (selectedGroupId) {
+        updateGroupPills();
+    }
+    
     updateCompanyDisplay();
     input.value = '';
 }
