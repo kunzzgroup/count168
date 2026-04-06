@@ -258,7 +258,7 @@ function createRowElement(companyId, idx, rowData) {
             </div>
         </div>
 
-        <div class="own-row-actions" style="align-items: center;">
+        <div class="own-row-actions" style="align-items: center; flex: 0 0 230px; justify-content: flex-end;">
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, 1)">+</button>
             <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, -1)">-</button>
             ${includeGroupHtml}
