@@ -22,7 +22,9 @@ try {
         SELECT a.id, a.account_id as account_name, a.name, a.role
         FROM account a
         INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND a.status = 'active'
+        WHERE ac.company_id = ? 
+          AND a.status = 'active'
+          AND LOWER(a.role) IN ('company', 'partner', 'agent')
         ORDER BY a.account_id ASC
     ");
     
@@ -42,6 +44,7 @@ try {
             SELECT id, account_id as account_name, name, role
             FROM account
             WHERE status = 'active'
+              AND LOWER(role) IN ('company', 'partner', 'agent')
             ORDER BY account_id ASC
         ");
         $stmt->execute();
