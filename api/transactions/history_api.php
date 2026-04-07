@@ -464,15 +464,12 @@ try {
                       AND dc.company_id = ?
                       AND (
                           TRIM(CAST(dcd.account_id AS CHAR)) = TRIM(CAST(? AS CHAR))
-                          OR (? <> '' AND (
-                              TRIM(COALESCE(dcd.account_id, '')) = TRIM(?)
-                              OR CAST(dcd.account_id AS CHAR) IN (SELECT CAST(a.id AS CHAR) FROM account a INNER JOIN account_company ac ON a.id = ac.account_id WHERE a.account_id = ? AND ac.company_id = ?)
-                          ))
+                          OR (? <> '' AND TRIM(COALESCE(dcd.account_id, '')) = TRIM(?))
                       )
                       AND dc.capture_date BETWEEN ? AND ?";
     
     // dcd.account_id 可能存请求的 id、其他公司的同代码 account.id、或账户代码；用「当前公司下同 account_id 的所有 id」子查询兜底
-    $captureParams = [$company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $account_code ?: '', $company_id, $date_from_db, $date_to_db];
+    $captureParams = [$company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $date_from_db, $date_to_db];
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
