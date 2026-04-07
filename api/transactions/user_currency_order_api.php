@@ -15,7 +15,13 @@ try {
         api_error('未登录', 401);
         exit;
     }
-    $accountId = (int) $_SESSION['user_id'];
+    
+    $userType = strtolower($_SESSION['user_type'] ?? '');
+    $baseId = (int) $_SESSION['user_id'];
+    
+    // 巧妙利用正负号：Member 使用正数 ID，非 Member（Admin/Owner 等）使用负数 ID，
+    // 这样不用修改 SQL 表结构也能完美区分两类用户，避免查表时发生覆盖。
+    $accountId = ($userType === 'member') ? $baseId : -$baseId;
 
     $method = $_SERVER['REQUEST_METHOD'] ?? '';
 
