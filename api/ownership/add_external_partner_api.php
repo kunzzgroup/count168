@@ -51,21 +51,17 @@ try {
     $matched_by_group = null;
 
     if ($partnerByLogin && $partnerByGroup) {
-        if ($partnerByLogin['id'] !== $partnerByGroup['id']) {
-            // Collision: ID is used by two different people
-            echo json_encode([
-                'status' => 'conflict', 
-                'message' => 'Multiple matches found.',
-                'data' => [
-                    'login_partner' => $partnerByLogin['name'] . ' (' . $partnerByLogin['owner_code'] . ')',
-                    'group_partner' => $partnerByGroup['name'] . ' (Group: ' . $partnerByGroup['group_id'] . ')'
-                ]
-            ]);
-            exit();
-        }
-        // Same person: Treat as Group ID match so the group gets assigned
-        $partner = $partnerByGroup;
-        $matched_by_group = strtoupper($login_or_group_id);
+        // Collision: Match found in both Login ID and Group ID. 
+        // We prompt the user so they can decide whether to just share (Login) or formally join the group.
+        echo json_encode([
+            'status' => 'conflict', 
+            'message' => 'Multiple matches found.',
+            'data' => [
+                'login_partner' => $partnerByLogin['name'] . ' (' . $partnerByLogin['owner_code'] . ')',
+                'group_partner' => $partnerByGroup['name'] . ' (Group: ' . $partnerByGroup['group_id'] . ')'
+            ]
+        ]);
+        exit();
     } elseif ($partnerByGroup) {
         $partner = $partnerByGroup;
         $matched_by_group = strtoupper($login_or_group_id);
