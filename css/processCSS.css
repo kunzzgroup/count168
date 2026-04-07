@@ -675,7 +675,7 @@ body.process-page {
     flex-direction: column;
     overflow: hidden;
     max-height: 100vh;
-    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
 }
 
 .process-page.process-page--bank .content {
@@ -687,13 +687,13 @@ body.process-page {
 }
 
 .process-page.process-page--bank .page-title {
-    font-size: clamp(22px, 1.85vw, 34px);
-    margin-top: 4px;
+    font-size: clamp(20px, 1.72vw, 32px);
+    margin-top: 2px;
     margin-bottom: 0;
 }
 
 .process-page.process-page--bank .separator-line {
-    margin-top: 2px;
+    margin-top: 1px;
     margin-bottom: 0px;
 }
 
@@ -701,7 +701,7 @@ body.process-page {
     flex: 1 1 auto;
     min-height: 0;
     align-self: stretch;
-    margin-top: 6px;
+    margin-top: 4px;
     max-height: none;
     overflow-x: auto;
     overflow-y: hidden;
@@ -711,15 +711,15 @@ body.process-page {
 .process-page.process-page--bank .bank-data-table {
     height: auto;
     width: 100%;
-    font-size: clamp(11px, 0.8vw, 14px);
+    font-size: clamp(12px, 0.84vw, 15px);
 }
 
 .process-page.process-page--bank .bank-data-table thead {
-    font-size: clamp(10px, 0.72vw, 15px);
+    font-size: clamp(11px, 0.76vw, 16px);
 }
 
 .process-page.process-page--bank .bank-data-table td {
-    line-height: 1.14;
+    line-height: 1.12;
     padding: 0 4px;
 }
 
@@ -728,80 +728,80 @@ body.process-page {
 }
 
 .process-page.process-page--bank .bank-status-button {
-    min-height: 20px;
+    min-height: 21px;
     padding: 2px 8px;
     line-height: 1.05;
-    font-size: clamp(8px, 0.66vw, 12px);
+    font-size: clamp(9px, 0.7vw, 13px);
     background-size: 13px 13px;
     background-position: right 6px center;
 }
 
 .process-page.process-page--bank .contract-badge {
     padding: 0 clamp(3px, 0.38vw, 7px);
-    font-size: clamp(7px, 0.58vw, 12px);
+    font-size: clamp(8px, 0.62vw, 12px);
 }
 
 .process-page.process-page--bank .content > div:first-child {
-    margin-top: 8px !important;
-    margin-bottom: 10px !important;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
 }
 
 .process-page.process-page--bank .action-buttons-container {
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .process-page.process-page--bank .action-buttons {
-    padding: 6px 14px;
+    padding: 5px 12px;
 }
 
 .process-page.process-page--bank .action-buttons-container .process-company-filter {
-    padding: 0 14px 6px 14px;
+    padding: 0 12px 4px 12px;
 }
 
 .process-page.process-page--bank .pagination-container {
     flex-shrink: 0;
-    margin-top: 4px;
-    margin-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+    margin-top: 3px;
+    margin-bottom: max(5px, env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-height: 820px) {
 
     .process-page.process-page--bank .bank-data-table {
-        font-size: clamp(10px, 0.76vw, 13px);
+        font-size: clamp(11px, 0.78vw, 14px);
     }
 
     .process-page.process-page--bank .bank-data-table thead {
-        font-size: clamp(9px, 0.68vw, 14px);
+        font-size: clamp(10px, 0.72vw, 15px);
     }
 
     .process-page.process-page--bank .bank-data-table td {
-        line-height: 1.1;
+        line-height: 1.08;
     }
 
     .process-page.process-page--bank .content > div:first-child {
-        margin-top: 6px !important;
+        margin-top: 4px !important;
         margin-bottom: 4px !important;
     }
 
     .process-page.process-page--bank .action-buttons {
-        padding: 5px 12px;
+        padding: 4px 10px;
     }
 
     .process-page.process-page--bank .page-title {
-        font-size: clamp(20px, 1.7vw, 30px);
+        font-size: clamp(18px, 1.6vw, 28px);
     }
 }
 
 @media (max-height: 720px) {
 
     .process-page.process-page--bank .bank-data-table {
-        font-size: clamp(9px, 0.7vw, 12px);
+        font-size: clamp(10px, 0.72vw, 13px);
     }
 
     .process-page.process-page--bank .bank-status-button {
-        min-height: 18px;
+        min-height: 19px;
         padding: 1px 7px;
-        font-size: clamp(7px, 0.62vw, 11px);
+        font-size: clamp(8px, 0.65vw, 12px);
     }
 }
 
