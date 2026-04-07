@@ -3,7 +3,9 @@
  * Process Accounting Inbox API
  * 返回「当天需要算账」的 Bank Process 列表（用于 Process List 标题旁的“需要算账”Inbox）
  * 规则：
- * - 1st of Every Month = 每月1号算账；若 Day start 为当月1号，则「合同开始当月」在 max(day_start, 创建日) 起即可入账（含 Resend 清标记后）；若设置了 Day start（如 2月20），则先出现一笔「首月按比例」：sell price/当月天数*（20号到月底天数），客户先还这笔，1号起再还全额。
+ * - 1st of Every Month：首笔整月账单起，「何时出现在待算账」取 max(当月1号, dts_created)，避免 day_start 早于创建日时提前出现（旧数据不拿）；金额仍按当期应付日（1号）起算整月或比例，不用创建日摊分。
+ * - Day start 为当月1号且与创建同月：仍自 day_start 当日起可入账（与上条后续整月不同）。
+ * - 非1号 day_start：首月按比例从 day_start 起算；若创建日晚于该自然月末则整段跳过（旧数据不拿）；出现日 max(day_start, 创建日)。
  * - Monthly = 每月(day_start 日 - 1)号，如 2月8日开始则每月7号算账
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  * - 填写 day_end 且长于合同自然结束：多一笔 day_end_tail（例 1st + 非1号 day_start：自然结束次日到 day_end 按当月天数比例）。
@@ -317,7 +319,7 @@ function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $proces
     }
 }
 
-/** Billing should not backfill before process creation date. */
+/** dts_created 的日历日（仅用于少数「与创建月」相关的展示判断；算账锚点一律为 day_start）。 */
 function createdYmdOrFallbackToday(array $processRow, string $todayYmd): string
 {
     $raw = $processRow['dts_created'] ?? null;
@@ -568,7 +570,6 @@ try {
             if ($startDayOfMonth === 1) {
                 continue;
             }
-            // Old data not taken: if created is after the first-month end, skip this partial period.
             $firstMonthEnd = date('Y-m-t', $startTs);
             if ($createdYmd > $firstMonthEnd) {
                 continue;
@@ -580,7 +581,7 @@ try {
             $cost = (float) ($r['cost'] ?? 0);
             $price = (float) ($r['price'] ?? 0);
             $profit = (float) ($r['profit'] ?? 0);
-            $partialStart = maxYmd($startDate, $createdYmd);
+            $partialStart = $startDate;
             if ($partialStart > $firstMonthEnd) {
                 continue;
             }
@@ -631,10 +632,7 @@ try {
             if ($startTs === false) {
                 continue;
             }
-                // First calendar month when day_start is on the 1st (1st_of_every_month):
-                // Bill in the same month as day_start once today >= max(day_start, created), so e.g. 4/1 start + created 4/6
-                // shows in April (prorated from 4/6), not only from May 1. Resend clears PAP so this can show again.
-                // If created before day_start month, anchor at day_start (full month from 1st when created on 1st).
+                // First calendar month when day_start is on the 1st (1st_of_every_month)：自 day_start 当月起可入账，金额按 day_start 起算（与创建/提交日无关）。
                 try {
                     $startDayOfMonth = (int) date('j', $startTs);
                     $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
@@ -644,7 +642,6 @@ try {
                     if ($startDayOfMonth === 1
                         && $todayYm === $startYm
                         && $today >= $startDate
-                        && $today >= maxYmd($startDate, $createdYmd)
                         && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $billYear, $billMonth)
                         && isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month')) {
                         $need = true;
@@ -657,11 +654,7 @@ try {
                     $cost = (float) ($r['cost'] ?? 0);
                     $price = (float) ($r['price'] ?? 0);
                     $profit = (float) ($r['profit'] ?? 0);
-                    $firstMonthProrateStart = maxYmd($startDate, $createdYmd);
-                    if (strtotime($createdYmd) !== false && strtotime($startDate) !== false
-                        && strtotime($createdYmd) < strtotime($startDate)) {
-                        $firstMonthProrateStart = $startDate;
-                    }
+                    $firstMonthProrateStart = $startDate;
                     $pr = prorateToMonthEndFromStart($firstMonthProrateStart, $cost, $price, $profit);
                     $needToday[] = [
                         'id' => (int) $r['id'],
@@ -700,6 +693,7 @@ try {
                             if ($exclusiveEnd !== null && $firstOfThis >= $exclusiveEnd) {
                                 break;
                             }
+                            // 创建日前不展示（例：day_start 3/1、创建 4/7 → 4/1 不出账，4/7 起出 4 月整月账单）
                             $effectiveDue = maxYmd($firstOfThis, $createdYmd);
                             if ($today >= $effectiveDue
                                 && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
@@ -745,8 +739,6 @@ try {
                         if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                             break;
                         }
-                        // Skip periods whose due-date is before creation (no backfill) — unless due 与创建日在同一自然月：
-                        // 例如 day_start=4/3、4/7 才创建：仍应在 4 月入账，金额由下方 createdYmd > dueYmd 摊至月底。
                         if ($due < $createdYmd) {
                             try {
                                 $billYm = $iter->format('Y-n');
@@ -775,8 +767,7 @@ try {
         }
 
         if ($need) {
-            // If this monthly bill is being created after due date in the same calendar month as process creation,
-            // only charge from created date to month end (old data not taken).
+            // 账单自然月与创建月相同时：若创建日晚于当期应付日，仍按应付日（与 day_start 一致）起算摊至月底，不用创建日。
             $cost = (float) ($r['cost'] ?? 0);
             $price = (float) ($r['price'] ?? 0);
             $profit = (float) ($r['profit'] ?? 0);
@@ -801,7 +792,7 @@ try {
                             }
                         }
                         if ($dueYmd !== null && $createdYmd > $dueYmd) {
-                            $pr = prorateToMonthEndFromStart($createdYmd, $cost, $price, $profit);
+                            $pr = prorateToMonthEndFromStart($dueYmd, $cost, $price, $profit);
                             $cost = $pr['cost'];
                             $price = $pr['price'];
                             $profit = $pr['profit'];
@@ -870,8 +861,8 @@ try {
             if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $r['day_end'] ?? null, $frequency)) {
                 continue;
             }
-            $createdYmd = createdYmdOrFallbackToday($r, $today);
-            if ($today < maxYmd($startDate, $createdYmd)) {
+            $createdYmdTail = createdYmdOrFallbackToday($r, $today);
+            if ($today < maxYmd($startDate, $createdYmdTail)) {
                 continue;
             }
             $cost = (float) ($r['cost'] ?? 0);

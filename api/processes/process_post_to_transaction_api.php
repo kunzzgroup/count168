@@ -357,11 +357,14 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
 
     $frequency = $r['day_start_frequency'] ?? '1st_of_every_month';
     $dayStart = $r['day_start'] ?? null;
-    if (empty($dayStart) || strtotime((string) $dayStart) === false) {
+    $startDate = !empty($dayStart) ? bankProcessDateFieldToYmd($dayStart) : null;
+    if ($startDate === null) {
         return null;
     }
-    $startTs = strtotime($dayStart);
-    $startDate = date('Y-m-d', $startTs);
+    $startTs = strtotime($startDate);
+    if ($startTs === false) {
+        return null;
+    }
     $contract = $r['contract'] ?? null;
     $dayEnd = $r['day_end'] ?? null;
     $processId = (int) ($r['id'] ?? 0);
@@ -371,7 +374,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
     $createdYmd = ymdFromNullableDateTime($r['dts_created'] ?? null, $today);
 
     if ($frequency === '1st_of_every_month') {
-        // 与 process_accounting_inbox_api：day_start 为当月 1 号时「合同开始当月」规则一致（Resend 清 PAP 后推断结果与 Inbox 相同）
+        // 与 process_accounting_inbox_api 一致：首月同月且 1 号起算仍只看 day_start；后续整月「可推断」日 max(1号, 创建日)
         try {
             $startDayOfMonth = (int) date('j', $startTs);
             $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
@@ -381,7 +384,6 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             if ($startDayOfMonth === 1
                 && $todayYm === $startYm
                 && $today >= $startDate
-                && $today >= maxYmd($startDate, $createdYmd)
                 && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $billYear, $billMonth)
                 && isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month')) {
                 return $startYm;
@@ -444,7 +446,6 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                     break;
                 }
-                // 与 process_accounting_inbox_api：同月内「应付早于创建」仍入账并比例摊分，勿整月跳过
                 if ($due < $createdYmd) {
                     try {
                         $billYm = $iter->format('Y-n');
@@ -749,9 +750,11 @@ try {
                 continue;
             }
             $firstMonthEnd = date('Y-m-t', $startTs);
-            $partialStart = maxYmd($dayStartYmd, $createdYmd);
+            if ($createdYmd > $firstMonthEnd) {
+                continue;
+            }
+            $partialStart = $dayStartYmd;
             if ($partialStart > $firstMonthEnd) {
-                // Old data not taken: this partial period ended before the process existed.
                 continue;
             }
             $partial = prorateToMonthEndFromStart($partialStart, $cost, $price, $profit);
@@ -774,13 +777,16 @@ try {
             if ($exclusiveEnd === null || $dayEndInc < $exclusiveEnd) {
                 continue;
             }
+            if ($fallbackDate < maxYmd($dayStartYmd, $createdYmd)) {
+                continue;
+            }
             $tail = prorateInclusiveDateRange($exclusiveEnd, $dayEndInc, $cost, $price, $profit);
             $cost = $tail['cost'];
             $price = $tail['price'];
             $profit = $tail['profit'];
         }
 
-        // monthly：与 process_accounting_inbox_api 一致。1st：账单月 = day_start 所在月且 day_start 为 1 号 → max(day_start, dts_created) 摊至月底；Monthly(先付)：创建月且创建日晚于应付日 → 从创建日摊至月底。Profit Sharing 比例与上述折算一致。
+        // monthly：与 Inbox 一致；出现/推断用创建日门槛，金额仍按当期 dueYmd（与 day_start 对齐），不用创建日摊分。
         if ($periodType === 'monthly' && $resolvedMonthlyBm !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', $resolvedMonthlyBm, $m)) {
             $billY = (int) $m[1];
             $billMo = (int) $m[2];
@@ -792,11 +798,7 @@ try {
                     $startYmForBill = (new DateTimeImmutable($dayStartYmd))->format('Y-n');
                     $sdTs = strtotime($dayStartYmd);
                     if ($startYmForBill === $billYm && $sdTs !== false && (int) date('j', $sdTs) === 1) {
-                        $prorateFrom = maxYmd($dayStartYmd, $createdYmd);
-                        if (strtotime($createdYmd) !== false && strtotime($dayStartYmd) !== false
-                            && strtotime($createdYmd) < strtotime($dayStartYmd)) {
-                            $prorateFrom = $dayStartYmd;
-                        }
+                        $prorateFrom = $dayStartYmd;
                         $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
                         $cost = $pr['cost'];
                         $price = $pr['price'];
@@ -826,14 +828,14 @@ try {
                         }
                     }
                     if ($dueYmd !== null && $createdYmd > $dueYmd) {
-                        $pr = prorateToMonthEndFromStart($createdYmd, $cost, $price, $profit);
+                        $pr = prorateToMonthEndFromStart($dueYmd, $cost, $price, $profit);
                         $cost = $pr['cost'];
                         $price = $pr['price'];
                         $profit = $pr['profit'];
-                        $tCr = strtotime($createdYmd);
-                        if ($tCr !== false) {
-                            $dim = (int) date('t', $tCr);
-                            $dj = (int) date('j', $tCr);
+                        $tDue = strtotime($dueYmd);
+                        if ($tDue !== false) {
+                            $dim = (int) date('t', $tDue);
+                            $dj = (int) date('j', $tDue);
                             if ($dim > 0) {
                                 $monthlyProrationPsRatio = ($dim - $dj + 1) / $dim;
                             }
