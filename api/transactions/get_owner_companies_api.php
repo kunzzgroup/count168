@@ -26,7 +26,7 @@ function getCompaniesByUser(PDO $pdo, int $userId): array {
 function getCompaniesByOwner(PDO $pdo, int $ownerId): array {
     $stmt = $pdo->prepare("
         SELECT DISTINCT c.id, c.company_id, 
-               c.group_id,
+               COALESCE(co.partner_group_id, c.group_id) as group_id,
                IF(c.owner_id = ?, 0, 1) as is_external
         FROM company c
         LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?

@@ -20,6 +20,10 @@ if (!$company_id || !$login_or_group_id) {
 }
 
 try {
+    $pdo->exec("ALTER TABLE company_ownership ADD COLUMN partner_group_id VARCHAR(50) DEFAULT NULL");
+} catch (Exception $e) {}
+
+try {
     // Fetch native owner first
     $stmtCheckNative = $pdo->prepare("SELECT owner_id FROM company WHERE id = ?");
     $stmtCheckNative->execute([$company_id]);
@@ -92,14 +96,10 @@ try {
     }
 
     // 3. Link by inserting a 0% entry into company_ownership
-    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage) VALUES (?, 'owner', ?, 0)");
-    $stmtInsert->execute([$company_id, $partnerId]);
-
-    // 4. If matched by Group ID, physically update the company's group_id so it completely joins the other person's group
-    if ($matched_by_group) {
-        $stmtUpdateGrp = $pdo->prepare("UPDATE company SET group_id = ? WHERE id = ?");
-        $stmtUpdateGrp->execute([$matched_by_group, $company_id]);
-    }
+    // If matched by Group ID, we set the partner_group_id so the partner sees it under this group,
+    // while the original owner's dashboard remains completely unaffected.
+    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id) VALUES (?, 'owner', ?, 0, ?)");
+    $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
 
     echo json_encode([
         'status' => 'success',
