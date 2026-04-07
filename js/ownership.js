@@ -3,14 +3,32 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let companiesData = [];
-// Store state for each company's inline expansion
-// Key: company_id, Value: { accounts: [...], owners: [...] }
 let companyStates = {};
 let currentlyExpandedId = null;
 
+// Template references (cached on first use)
+const tpl = {
+    card: () => document.getElementById('tpl-company-card'),
+    row: () => document.getElementById('tpl-account-row'),
+    grp: () => document.getElementById('tpl-grp-checkbox')
+};
+
+// Helper: query inside a cloned template fragment by data-bind
+function $(el, bind) {
+    return el.querySelector(`[data-bind="${bind}"]`);
+}
+
+// ---------------------------------------------
+// Data Fetching
+// ---------------------------------------------
+
 function fetchCompanies() {
     const container = document.getElementById('companyCardsContainer');
-    container.innerHTML = '<div class="own-loader-container"><div class="own-loader"></div></div>';
+    container.textContent = '';
+    const loaderWrap = document.createElement('div');
+    loaderWrap.className = 'own-loader-container';
+    loaderWrap.appendChild(document.createElement('div')).className = 'own-loader';
+    container.appendChild(loaderWrap);
 
     fetch('api/ownership/get_companies_api.php')
         .then(res => res.json())
@@ -28,117 +46,93 @@ function fetchCompanies() {
         });
 }
 
+// ---------------------------------------------
+// Card Rendering (template-based)
+// ---------------------------------------------
+
 function renderCompanyCards() {
     const container = document.getElementById('companyCardsContainer');
     container.innerHTML = '';
 
     if (companiesData.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--own-gray-text); padding: 40px;">No companies found.</div>';
+        const empty = document.createElement('div');
+        empty.className = 'own-empty-state';
+        empty.textContent = 'No companies found.';
+        container.appendChild(empty);
         return;
     }
 
     companiesData.forEach(comp => {
-        // Initial setup
         const alloc = parseFloat(comp.allocated_percentage) || 0;
         const remaining = Math.max(0, 100 - alloc);
+        const id = comp.id;
 
-        let headerRight = `<button class="own-btn-outline" onclick="toggleCard(${comp.id}, event)">Manage</button>
-                           <button class="own-icon-btn" onclick="toggleCard(${comp.id}, event)">
-                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                           </button>`;
+        // Clone card template
+        const frag = tpl.card().content.cloneNode(true);
+        const card = frag.querySelector('.own-card');
+        card.id = `card-${id}`;
 
-        const domStr = `
-            <div class="own-card" id="card-${comp.id}">
-                <div class="own-card-header" style="cursor: pointer;" onclick="toggleCard(${comp.id}, event)">
-                    <div class="own-card-header-left">
-                        <div class="own-company-name">${comp.name}</div>
-                    </div>
-                    <div class="own-card-header-middle">
-                        <div class="own-allocation-info">
-                            <span class="own-allocation-label">Total Allocation</span>
-                            <span class="own-allocation-percentage" id="header-percent-${comp.id}">${alloc}%</span>
-                            <span class="own-allocation-remaining" id="header-remain-${comp.id}">${remaining}% Remaining</span>
-                        </div>
-                        <div class="own-progress-bar-container">
-                            <div class="own-progress-bar-fill" id="header-bar-${comp.id}" style="width: ${Math.min(alloc, 100)}%;"></div>
-                        </div>
-                    </div>
-                    <div class="own-card-header-right">
-                        ${headerRight}
-                    </div>
-                </div>
-                
-                <div class="own-card-body" id="card-body-${comp.id}">
-                    <div class="own-loader-container" id="loader-${comp.id}"><div class="own-loader"></div></div>
-                    <div id="editor-${comp.id}" style="display:none;">
-                        <div class="own-table-headers">
-                            <div>Account</div>
-                            <div>Ownership%</div>
-                        </div>
-                        
-                        <div id="rows-container-${comp.id}"></div>
-                        
-                        <button class="own-btn-add-account" onclick="addAccountRow(${comp.id})" style="margin-bottom: 16px;">+ Add Account</button>
-                        
-                        <div style="margin: 0 32px 24px 32px; padding: 16px; border: 1px dashed var(--own-gray-border); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
-                            <div style="display: flex; flex-direction: column;">
-                                <span style="font-size: 14px; font-weight: 600; color: var(--own-dark-text);">External Partner</span>
-                                <span style="font-size: 12px; color: var(--own-gray-text); margin-top: 2px;">Share this company's read-only dashboard visibility with another independent owner.</span>
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="text" id="partner-login-${comp.id}" placeholder="Partner Login ID" autocomplete="off"
-                                       style="padding: 10px 14px; border: 1px solid var(--own-gray-border); border-radius: 8px; font-size: 14px; width: 170px; outline: none; background: white; color: var(--own-primary-text);"
-                                       onfocus="this.style.borderColor='var(--own-primary-blue)'; this.style.boxShadow='0 0 0 3px rgba(59,142,246,0.1)';"
-                                       onblur="this.style.borderColor='var(--own-gray-border)'; this.style.boxShadow='none';">
-                                <button class="own-btn-outline" style="margin:0; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--own-primary-blue); color: var(--own-primary-blue); font-weight: 600; cursor: pointer; background: white; transition: background-color 0.2s;" 
-                                        onmouseover="this.style.backgroundColor='#eff6ff'" onmouseout="this.style.backgroundColor='white'"
-                                        onclick="linkExternalPartner(${comp.id}, event)">Link Partner</button>
-                            </div>
-                        </div>
-                        
-                        <div class="own-card-footer">
-                            <div class="own-footer-left">
-                                <div class="own-warning-badge" id="warning-${comp.id}" style="display: none;">
-                                    <span>⚠️</span> <span id="warning-msg-${comp.id}">Total is less than 100%</span>
-                                </div>
-                                <span class="own-unallocated-text" id="footer-remain-${comp.id}">100% Unallocated</span>
-                            </div>
-                            <div class="own-footer-right">
-                                <button class="own-footer-btn own-btn-cancel" onclick="cancelEdit(${comp.id})">Cancel</button>
-                                <button class="own-footer-btn own-btn-confirm" id="confirm-btn-${comp.id}" onclick="confirmEdit(${comp.id})">Confirm</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        // Fill data bindings
+        $(card, 'name').textContent = comp.name;
 
-        container.insertAdjacentHTML('beforeend', domStr);
+        const pctEl = $(card, 'percent');
+        pctEl.textContent = `${alloc}%`;
+        pctEl.id = `header-percent-${id}`;
+
+        const remEl = $(card, 'remaining');
+        remEl.textContent = `${remaining}% Remaining`;
+        remEl.id = `header-remain-${id}`;
+
+        const barEl = $(card, 'bar');
+        barEl.style.width = `${Math.min(alloc, 100)}%`;
+        barEl.id = `header-bar-${id}`;
+
+        // Body IDs
+        $(card, 'body').id = `card-body-${id}`;
+        $(card, 'loader').id = `loader-${id}`;
+        $(card, 'editor').id = `editor-${id}`;
+        $(card, 'rows-container').id = `rows-container-${id}`;
+        $(card, 'partner-input').id = `partner-login-${id}`;
+        $(card, 'warning').id = `warning-${id}`;
+        $(card, 'warning-msg').id = `warning-msg-${id}`;
+        $(card, 'footer-remain').id = `footer-remain-${id}`;
+        $(card, 'confirm-btn').id = `confirm-btn-${id}`;
+
+        // Bind actions via event delegation
+        card.addEventListener('click', (e) => {
+            const action = e.target.closest('[data-action]')?.dataset.action;
+            if (!action) return;
+            e.stopPropagation();
+            switch (action) {
+                case 'toggle': toggleCard(id, e); break;
+                case 'add-row': addAccountRow(id); break;
+                case 'cancel': cancelEdit(id); break;
+                case 'confirm': confirmEdit(id); break;
+                case 'link-partner': linkExternalPartner(id, e); break;
+            }
+        });
+
+        container.appendChild(frag);
     });
 }
 
-function toggleCard(companyId, event) {
-    if (event) {
-        // Prevent click bubbling up and triggering multiple times if they clicked a button inside the header
-        event.stopPropagation();
-    }
+// ---------------------------------------------
+// Card Toggle & Data Loading
+// ---------------------------------------------
 
+function toggleCard(companyId, event) {
     const card = document.getElementById(`card-${companyId}`);
     const isExpanded = card.classList.contains('expanded');
 
-    // If opening a new one, consider collapsing others (accordion style)
     if (!isExpanded && currentlyExpandedId && currentlyExpandedId !== companyId) {
         cancelEdit(currentlyExpandedId, true);
     }
 
     if (isExpanded) {
-        // Close it
         cancelEdit(companyId, true);
     } else {
-        // Expand and Load Data
         card.classList.add('expanded');
         currentlyExpandedId = companyId;
-
         loadCompanyData(companyId);
     }
 }
@@ -147,34 +141,25 @@ function loadCompanyData(companyId) {
     const loader = document.getElementById(`loader-${companyId}`);
     const editor = document.getElementById(`editor-${companyId}`);
     loader.style.display = 'flex';
-    editor.style.display = 'none';
+    editor.classList.add('own-editor-hidden');
 
-    // Fetch accounts and existing owners in parallel
     Promise.all([
         fetch(`api/ownership/get_available_accounts_api.php?company_id=${companyId}`).then(r => r.json()),
         fetch(`api/ownership/get_owners_api.php?company_id=${companyId}`).then(r => r.json())
     ]).then(([accountsRes, ownersRes]) => {
         loader.style.display = 'none';
-        editor.style.display = 'block';
+        editor.classList.remove('own-editor-hidden');
 
-        let accounts = [];
-        if (accountsRes.status === 'success') {
-            accounts = accountsRes.data;
-        }
-        let owners = [];
-        if (ownersRes.status === 'success') {
-            owners = ownersRes.data;
-        }
-
-        // Initialize state
         companyStates[companyId] = {
-            accounts: accounts,
-            // deep copy rows state to manage in-memory before clicking confirm
-            rows: owners.map(o => ({ account_id: o.account_id, percentage: parseFloat(o.percentage), include_group: o.include_group !== undefined ? parseInt(o.include_group) : 1 }))
+            accounts: accountsRes.status === 'success' ? accountsRes.data : [],
+            rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
+                account_id: o.account_id,
+                percentage: parseFloat(o.percentage),
+                include_group: o.include_group !== undefined ? parseInt(o.include_group) : 1
+            }))
         };
 
         renderCardBodyRows(companyId);
-
     }).catch(err => {
         console.error(err);
         showToast('Error loading data', 'error');
@@ -183,21 +168,17 @@ function loadCompanyData(companyId) {
 }
 
 function cancelEdit(companyId, forceCollapse = false) {
-    const card = document.getElementById(`card-${companyId}`);
-    card.classList.remove('expanded');
-    if (currentlyExpandedId === companyId) {
-        currentlyExpandedId = null;
-    }
-    // Re-render header to reset bad state if they tweaked sliders
+    document.getElementById(`card-${companyId}`).classList.remove('expanded');
+    if (currentlyExpandedId === companyId) currentlyExpandedId = null;
+
     const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
     if (compIdx >= 0) {
-        const origAlloc = parseFloat(companiesData[compIdx].allocated_percentage) || 0;
-        updateCardHeaderDisplay(companyId, origAlloc);
+        updateCardHeaderDisplay(companyId, parseFloat(companiesData[compIdx].allocated_percentage) || 0);
     }
 }
 
 // ---------------------------------------------
-// Row Rendering & Interactivity
+// Row Rendering (template-based)
 // ---------------------------------------------
 
 function renderCardBodyRows(companyId) {
@@ -212,64 +193,74 @@ function renderCardBodyRows(companyId) {
 }
 
 function createRowElement(companyId, idx, rowData) {
-    const div = document.createElement('div');
-    div.className = 'own-account-row';
+    const frag = tpl.row().content.cloneNode(true);
+    const div = frag.querySelector('.own-account-row');
     div.dataset.index = idx;
 
-    // Select HTML
-    let selectOptions = `<option value="">-- SELECT ACCOUNT --</option>`;
+    // Populate account select
+    const select = $(div, 'account-select');
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '-- SELECT ACCOUNT --';
+    select.appendChild(defaultOpt);
+
     companyStates[companyId].accounts.forEach(acc => {
-        const selected = acc.id == rowData.account_id ? 'selected' : '';
-        selectOptions += `<option value="${acc.id}" ${selected}>${acc.account_name} (${acc.name})</option>`;
+        const opt = document.createElement('option');
+        opt.value = acc.id;
+        opt.textContent = `${acc.account_name} (${acc.name})`;
+        if (acc.id == rowData.account_id) opt.selected = true;
+        select.appendChild(opt);
+    });
+    select.addEventListener('change', () => updateRowData(companyId, idx, 'account_id', select.value));
+
+    // Percentage input
+    const input = $(div, 'percent-input');
+    input.value = `${rowData.percentage}%`;
+    input.id = `input-${companyId}-${idx}`;
+    input.addEventListener('change', () => updateSliderFromInput(companyId, idx, input.value));
+
+    // Slider
+    const slider = $(div, 'slider');
+    slider.value = rowData.percentage;
+    slider.id = `slider-${companyId}-${idx}`;
+    slider.addEventListener('input', () => updateInputFromSlider(companyId, idx, slider.value));
+
+    // Action buttons (via event delegation)
+    div.addEventListener('click', (e) => {
+        const action = e.target.closest('[data-action]')?.dataset.action;
+        if (!action) return;
+        switch (action) {
+            case 'tweak-up': tweakPercentage(companyId, idx, 1); break;
+            case 'tweak-down': tweakPercentage(companyId, idx, -1); break;
+            case 'delete': removeRow(companyId, idx); break;
+        }
     });
 
+    // Grp checkbox slot
+    const grpSlot = $(div, 'grp-slot');
     const isExternal = String(rowData.account_id).startsWith('O_');
-    const isGroupOn = rowData.include_group !== 0;
-    const includeGroupHtml = isExternal ? `
-        <label style="display:flex; align-items:center; font-size:13px; font-weight:600; color:#555; cursor:pointer; width:65px; justify-content:flex-end;" title="Share original Group ID with partner">
-            <input type="checkbox" onchange="updateRowData(${companyId}, ${idx}, 'include_group', this.checked ? 1 : 0)" ${rowData.include_group !== 0 ? 'checked' : ''} style="margin-right:6px; width:15px; height:15px; cursor:pointer;">
-            Group
-        </label>
-    ` : `<div style="width: 65px;"></div>`;
 
-    div.innerHTML = `
-        <div class="own-drag-handle">⋮⋮</div>
-        <select class="own-account-select" onchange="updateRowData(${companyId}, ${idx}, 'account_id', this.value)">
-            ${selectOptions}
-        </select>
-        
-        <div class="own-ownership-input-group">
-            <input type="text" class="own-percent-input" value="${rowData.percentage}%" id="input-${companyId}-${idx}" 
-                   onchange="updateSliderFromInput(${companyId}, ${idx}, this.value)">
-            
-            <div class="own-slider-container">
-                <input type="range" class="own-slider" id="slider-${companyId}-${idx}" min="0" max="100" step="1" value="${rowData.percentage}" 
-                       oninput="updateInputFromSlider(${companyId}, ${idx}, this.value)">
-                <div class="own-slider-labels">
-                    <span>0%</span>
-                    <span>50%</span>
-                    <span>100%</span>
-                </div>
-            </div>
-        </div>
+    if (isExternal) {
+        const grpFrag = tpl.grp().content.cloneNode(true);
+        const checkbox = grpFrag.querySelector('[data-bind="grp-check"]');
+        checkbox.checked = rowData.include_group !== 0;
+        checkbox.addEventListener('change', () => updateRowData(companyId, idx, 'include_group', checkbox.checked ? 1 : 0));
+        grpSlot.replaceWith(grpFrag);
+    } else {
+        const spacer = document.createElement('div');
+        spacer.className = 'own-grp-spacer';
+        grpSlot.replaceWith(spacer);
+    }
 
-        <div class="own-row-actions" style="align-items: center;">
-            <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, 1)">+</button>
-            <button class="own-btn-square" onclick="tweakPercentage(${companyId}, ${idx}, -1)">-</button>
-            <button class="own-btn-square own-btn-delete" title="Remove" onclick="removeRow(${companyId}, ${idx})">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-            </button>
-            ${includeGroupHtml}
-        </div>
-    `;
+    // Initialize slider gradient
+    requestAnimationFrame(() => applySliderBackground(slider));
 
-    // Initialize Slider CSS gradient
-    requestAnimationFrame(() => {
-        applySliderBackground(document.getElementById(`slider-${companyId}-${idx}`));
-    });
-
-    return div;
+    return frag;
 }
+
+// ---------------------------------------------
+// Row Data Operations
+// ---------------------------------------------
 
 function addAccountRow(companyId) {
     companyStates[companyId].rows.push({ account_id: '', percentage: 0, include_group: 1 });
@@ -283,20 +274,18 @@ function removeRow(companyId, idx) {
 
 function updateRowData(companyId, idx, field, value) {
     companyStates[companyId].rows[idx][field] = value;
-    if (field === 'percentage') {
-        updateCalculations(companyId);
-    }
-    if (field === 'account_id' || field === 'include_group') {
-        renderCardBodyRows(companyId); // Re-render to show/hide group checkbox
-    }
+    if (field === 'percentage') updateCalculations(companyId);
+    if (field === 'account_id' || field === 'include_group') renderCardBodyRows(companyId);
 }
+
+// ---------------------------------------------
+// Slider & Input Sync
+// ---------------------------------------------
 
 function updateInputFromSlider(companyId, idx, value) {
     const pct = parseFloat(value) || 0;
     document.getElementById(`input-${companyId}-${idx}`).value = `${pct}%`;
-    const slider = document.getElementById(`slider-${companyId}-${idx}`);
-    applySliderBackground(slider);
-
+    applySliderBackground(document.getElementById(`slider-${companyId}-${idx}`));
     companyStates[companyId].rows[idx].percentage = pct;
     updateCalculations(companyId);
 }
@@ -304,76 +293,57 @@ function updateInputFromSlider(companyId, idx, value) {
 function updateSliderFromInput(companyId, idx, value) {
     let pct = parseFloat(value.replace('%', ''));
     if (isNaN(pct)) pct = 0;
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
+    pct = Math.max(0, Math.min(100, pct));
 
     document.getElementById(`slider-${companyId}-${idx}`).value = pct;
     document.getElementById(`input-${companyId}-${idx}`).value = `${pct}%`;
     applySliderBackground(document.getElementById(`slider-${companyId}-${idx}`));
-
     companyStates[companyId].rows[idx].percentage = pct;
     updateCalculations(companyId);
 }
 
 function tweakPercentage(companyId, idx, delta) {
-    let currentPct = companyStates[companyId].rows[idx].percentage;
-    let newPct = currentPct + delta;
-    if (newPct < 0) newPct = 0;
-    if (newPct > 100) newPct = 100;
-
+    const newPct = Math.max(0, Math.min(100, companyStates[companyId].rows[idx].percentage + delta));
     document.getElementById(`slider-${companyId}-${idx}`).value = newPct;
     updateInputFromSlider(companyId, idx, newPct);
 }
 
 function applySliderBackground(slider) {
     if (!slider) return;
-    const value = (slider.value - slider.min) / (slider.max - slider.min) * 100;
-    slider.style.background = `linear-gradient(to right, var(--own-primary-blue) ${value}%, var(--own-gray-border) ${value}%)`;
+    const pct = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+    slider.style.background = `linear-gradient(to right, var(--own-primary-blue) ${pct}%, var(--own-gray-border) ${pct}%)`;
 }
 
 // ---------------------------------------------
-// Core Math & Validations
+// Calculations & Display Updates
 // ---------------------------------------------
 
 function updateCalculations(companyId) {
-    let total = 0;
-    companyStates[companyId].rows.forEach(r => total += (parseFloat(r.percentage) || 0));
-
-    // Update Header Display dynamically
+    const total = companyStates[companyId].rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
     updateCardHeaderDisplay(companyId, total);
 
-    // Update Footer Display
     const remaining = 100 - total;
     const footerRm = document.getElementById(`footer-remain-${companyId}`);
     const warningBadge = document.getElementById(`warning-${companyId}`);
-    const warningMsg = document.getElementById(`warning-msg-${companyId}`);
     const confirmBtn = document.getElementById(`confirm-btn-${companyId}`);
 
-    if (total < 100) {
+    if (total > 100) {
         warningBadge.style.display = 'flex';
-        warningBadge.className = 'own-warning-badge';
-        warningBadge.style.backgroundColor = 'var(--own-warning-bg)';
-        warningBadge.style.color = 'var(--own-warning-text)';
-        warningBadge.style.borderColor = 'var(--own-warning-border)';
-        warningBadge.innerHTML = `<span>⚠️</span> <span id="warning-msg-${companyId}">Total is less than 100%</span>`;
-        if (footerRm) footerRm.textContent = `${remaining.toFixed(2)}% Unallocated`;
-
-        confirmBtn.disabled = false;
-
-    } else if (total > 100) {
-        warningBadge.style.display = 'flex';
-        warningBadge.className = 'own-warning-badge';
-        warningBadge.style.backgroundColor = '#fef2f2';
-        warningBadge.style.color = '#ef4444';
-        warningBadge.style.borderColor = '#fecaca';
-        warningBadge.innerHTML = `<span>❌</span> <span id="warning-msg-${companyId}">Total exceeds 100%!</span>`;
+        warningBadge.className = 'own-warning-badge own-warning-error';
+        warningBadge.children[0].textContent = '❌';
+        warningBadge.children[1].textContent = 'Total exceeds 100%!';
         if (footerRm) footerRm.textContent = `${Math.abs(remaining).toFixed(2)}% Over Allocated`;
-
-        confirmBtn.disabled = true; // Block submission
-
+        confirmBtn.disabled = true;
+    } else if (total < 100) {
+        warningBadge.style.display = 'flex';
+        warningBadge.className = 'own-warning-badge';
+        warningBadge.children[0].textContent = '⚠️';
+        warningBadge.children[1].textContent = 'Total is less than 100%';
+        if (footerRm) footerRm.textContent = `${remaining.toFixed(2)}% Unallocated`;
+        confirmBtn.disabled = false;
     } else {
         warningBadge.style.display = 'none';
-        if (footerRm) footerRm.textContent = `Fully Allocated`;
+        if (footerRm) footerRm.textContent = 'Fully Allocated';
         confirmBtn.disabled = false;
     }
 }
@@ -387,22 +357,20 @@ function updateCardHeaderDisplay(companyId, total) {
 
     if (remainEl) {
         if (total > 100) {
-            remainEl.textContent = `Over limit!`;
-            remainEl.style.color = 'var(--own-danger-red)';
-            if (barEl) barEl.style.backgroundColor = 'var(--own-danger-red)';
+            remainEl.textContent = 'Over limit!';
+            remainEl.classList.add('own-over-limit');
+            if (barEl) barEl.classList.add('own-bar-danger');
         } else {
             remainEl.textContent = `${(100 - total).toFixed(2)}% Remaining`;
-            remainEl.style.color = 'var(--own-gray-text)';
-            if (barEl) barEl.style.backgroundColor = 'var(--own-primary-blue)';
+            remainEl.classList.remove('own-over-limit');
+            if (barEl) barEl.classList.remove('own-bar-danger');
         }
     }
-    if (barEl) {
-        barEl.style.width = `${Math.min(total, 100)}%`;
-    }
+    if (barEl) barEl.style.width = `${Math.min(total, 100)}%`;
 }
 
 // ---------------------------------------------
-// Submitting
+// Save / Confirm
 // ---------------------------------------------
 
 function confirmEdit(companyId) {
@@ -410,7 +378,6 @@ function confirmEdit(companyId) {
     let total = 0;
     let hasError = false;
 
-    // Validate Check
     rows.forEach(r => {
         if (!r.account_id) {
             hasError = true;
@@ -419,17 +386,11 @@ function confirmEdit(companyId) {
         total += parseFloat(r.percentage);
     });
 
-    if (total > 100) {
-        showToast('Total percentage exceeds 100%', 'error');
-        return;
-    }
-
+    if (total > 100) { showToast('Total percentage exceeds 100%', 'error'); return; }
     if (hasError) return;
 
-    // Detect Duplicates
     const accIds = rows.map(r => r.account_id);
-    const hasDupes = accIds.some((item, idx) => accIds.indexOf(item) !== idx);
-    if (hasDupes) {
+    if (accIds.some((item, idx) => accIds.indexOf(item) !== idx)) {
         showToast('Duplicate accounts detected. Please combine them.', 'error');
         return;
     }
@@ -449,58 +410,47 @@ function confirmEdit(companyId) {
 
     fetch('api/ownership/batch_save_owners_api.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-        .then(res => res.json())
-        .then(res => {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Confirm';
-            if (res.status === 'success') {
-                showToast(res.message, 'success');
-                // Update global data so closing/opening works gracefully
-                const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
-                if (compIdx >= 0) {
-                    companiesData[compIdx].allocated_percentage = total;
-                }
-                // Collapse
-                cancelEdit(companyId, true);
-            } else {
-                showToast(res.message, 'error');
-            }
-        })
-        .catch(err => {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Confirm';
-            console.error(err);
-            showToast('Server error', 'error');
-        });
+    .then(res => res.json())
+    .then(res => {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm';
+        if (res.status === 'success') {
+            showToast(res.message, 'success');
+            const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
+            if (compIdx >= 0) companiesData[compIdx].allocated_percentage = total;
+            cancelEdit(companyId, true);
+        } else {
+            showToast(res.message, 'error');
+        }
+    })
+    .catch(err => {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm';
+        console.error(err);
+        showToast('Server error', 'error');
+    });
 }
 
 // ---------------------------------------------
-// Toast UI
+// Toast
 // ---------------------------------------------
+
 let toastTimeout;
 function showToast(message, type = 'success') {
     const toast = document.getElementById('ownToast');
-    const msgEl = document.getElementById('ownToastMessage');
-    const iconEl = document.getElementById('ownToastIcon');
-
     toast.className = 'own-toast own-show ' + (type === 'success' ? 'own-success' : 'own-error');
-    msgEl.textContent = message;
+    document.getElementById('ownToastMessage').textContent = message;
 
-    if (type === 'success') {
-        iconEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>';
-    } else {
-        iconEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--own-danger-red)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-    }
+    const iconEl = document.getElementById('ownToastIcon');
+    iconEl.textContent = '';
+    const tplId = type === 'success' ? 'tpl-toast-success' : 'tpl-toast-error';
+    iconEl.appendChild(document.getElementById(tplId).content.cloneNode(true));
 
     clearTimeout(toastTimeout);
-    toastTimeout = setTimeout(() => {
-        toast.className = 'own-toast';
-    }, 3000);
+    toastTimeout = setTimeout(() => { toast.className = 'own-toast'; }, 3000);
 }
 
 // ---------------------------------------------
@@ -510,38 +460,34 @@ function showToast(message, type = 'success') {
 function linkExternalPartner(companyId, event) {
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);
     const loginId = loginIdInput.value.trim();
-    if (!loginId) {
-        showToast('Please enter a Partner Login ID', 'error');
-        return;
-    }
+    if (!loginId) { showToast('Please enter a Partner Login ID', 'error'); return; }
 
-    const btn = event.currentTarget;
+    const btn = event.target.closest('[data-action="link-partner"]');
     btn.disabled = true;
     btn.textContent = 'Linking...';
 
-    fetch(`api/ownership/add_external_partner_api.php`, {
+    fetch('api/ownership/add_external_partner_api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ company_id: companyId, login_id: loginId })
     })
-        .then(res => res.json())
-        .then(res => {
-            btn.disabled = false;
-            btn.textContent = 'Link Partner';
-            if (res.status === 'success') {
-                showToast(res.message, 'success');
-                loginIdInput.value = '';
-                // Close and reopen the card to refresh the data
-                cancelEdit(companyId, true);
-                setTimeout(() => toggleCard(companyId, null), 300);
-            } else {
-                showToast(res.message, 'error');
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.textContent = 'Link Partner';
-            console.error(err);
-            showToast('Server error', 'error');
-        });
+    .then(res => res.json())
+    .then(res => {
+        btn.disabled = false;
+        btn.textContent = 'Link Partner';
+        if (res.status === 'success') {
+            showToast(res.message, 'success');
+            loginIdInput.value = '';
+            cancelEdit(companyId, true);
+            setTimeout(() => toggleCard(companyId, null), 300);
+        } else {
+            showToast(res.message, 'error');
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.textContent = 'Link Partner';
+        console.error(err);
+        showToast('Server error', 'error');
+    });
 }

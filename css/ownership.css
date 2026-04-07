@@ -13,6 +13,10 @@
     --own-dark-text: #0f172a;
 }
 
+body {
+    background-color: #ffffff;
+}
+
 *, *::before, *::after {
     box-sizing: border-box;
 }
@@ -500,4 +504,129 @@
 
 .own-toast.own-error {
     border-left: 4px solid var(--own-danger-red);
+}
+
+/* Empty State */
+.own-empty-state {
+    text-align: center;
+    color: var(--own-gray-text);
+    padding: 40px;
+}
+
+/* Editor hidden */
+.own-editor-hidden {
+    display: none;
+}
+
+/* Card header clickable */
+.own-card-header {
+    cursor: pointer;
+}
+
+/* External Partner Section */
+.own-partner-section {
+    margin: 0 32px 24px 32px;
+    padding: 16px;
+    border: 1px dashed var(--own-gray-border);
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+}
+
+.own-partner-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.own-partner-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--own-dark-text);
+}
+
+.own-partner-desc {
+    font-size: 12px;
+    color: var(--own-gray-text);
+    margin-top: 2px;
+}
+
+.own-partner-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.own-partner-input {
+    padding: 10px 14px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 8px;
+    font-size: 14px;
+    width: 170px;
+    outline: none;
+    background: white;
+    color: var(--own-dark-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.own-partner-input:focus {
+    border-color: var(--own-primary-blue);
+    box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.1);
+}
+
+.own-partner-link-btn {
+    margin: 0;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--own-primary-blue);
+    color: var(--own-primary-blue);
+    font-weight: 600;
+    cursor: pointer;
+    background: white;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.own-partner-link-btn:hover {
+    background-color: #eff6ff;
+}
+
+/* Grp Checkbox */
+.own-grp-label {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    width: 65px;
+    justify-content: flex-end;
+}
+
+.own-grp-checkbox {
+    margin-right: 6px;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
+.own-grp-spacer {
+    width: 65px;
+}
+
+/* Warning Error State (over 100%) */
+.own-warning-badge.own-warning-error {
+    background-color: #fef2f2;
+    color: #ef4444;
+    border-color: #fecaca;
+}
+
+/* Over Limit Header State */
+.own-over-limit {
+    color: var(--own-danger-red) !important;
+}
+
+.own-bar-danger {
+    background-color: var(--own-danger-red) !important;
 }
