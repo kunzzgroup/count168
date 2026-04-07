@@ -103,7 +103,7 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     }
 
     if ($showAll) {
-        $sql .= " AND a.status = 'active'";
+        // Show All: include both active and inactive (no status constraint)
     } elseif ($showInactive) {
         $sql .= " AND a.status = 'inactive'";
     } else {
