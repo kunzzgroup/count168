@@ -412,16 +412,18 @@ if ($companyId) {
                     </div>
                 </div>
 
-                <!--
+
                 <div class="informationmenu-section">
-                    <div class="informationmenu-section-title account-direct" data-page="ownership.php" onclick="window.location.href='ownership.php'">
+                    <div class="informationmenu-section-title account-direct" data-page="ownership.php"
+                        onclick="window.location.href='ownership.php'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                            <path
+                                d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
                         </svg>
                         Ownership
                     </div>
                 </div>
-                -->
+
             <?php endif; ?>
 
             <!-- Process Section -->
@@ -610,14 +612,14 @@ if ($companyId) {
 <script>
     // B2B Cross-Account Sharing: Partner Read-Only Mode
     window.isExternalView = <?php echo isset($_SESSION['is_external_view']) && $_SESSION['is_external_view'] ? 'true' : 'false'; ?>;
-    
+
     if (window.isExternalView) {
         document.addEventListener('DOMContentLoaded', () => {
             console.log("External Partner Mode Active: Read-Only");
 
             // Hide non-view categories
             const hideCategories = ['Admin', 'Account', 'Process', 'Data Capture', 'Transaction Payment', 'Maintenance'];
-            
+
             document.querySelectorAll('.informationmenu-menu a.informationmenu-btn, .informationmenu-menu div.informationmenu-btn').forEach(btn => {
                 const textSpan = btn.querySelector('.btn-text');
                 if (textSpan) {
