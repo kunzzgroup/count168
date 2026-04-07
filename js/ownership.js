@@ -41,7 +41,7 @@ function renderCompanyCards() {
         // Initial setup
         const alloc = parseFloat(comp.allocated_percentage) || 0;
         const remaining = Math.max(0, 100 - alloc);
-        
+
         let headerRight = `<button class="own-btn-outline" onclick="toggleCard(${comp.id}, event)">Manage</button>
                            <button class="own-icon-btn" onclick="toggleCard(${comp.id}, event)">
                                 <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -112,7 +112,7 @@ function renderCompanyCards() {
                 </div>
             </div>
         `;
-        
+
         container.insertAdjacentHTML('beforeend', domStr);
     });
 }
@@ -125,10 +125,10 @@ function toggleCard(companyId, event) {
 
     const card = document.getElementById(`card-${companyId}`);
     const isExpanded = card.classList.contains('expanded');
-    
+
     // If opening a new one, consider collapsing others (accordion style)
     if (!isExpanded && currentlyExpandedId && currentlyExpandedId !== companyId) {
-        cancelEdit(currentlyExpandedId, true); 
+        cancelEdit(currentlyExpandedId, true);
     }
 
     if (isExpanded) {
@@ -138,7 +138,7 @@ function toggleCard(companyId, event) {
         // Expand and Load Data
         card.classList.add('expanded');
         currentlyExpandedId = companyId;
-        
+
         loadCompanyData(companyId);
     }
 }
@@ -203,7 +203,7 @@ function cancelEdit(companyId, forceCollapse = false) {
 function renderCardBodyRows(companyId) {
     const container = document.getElementById(`rows-container-${companyId}`);
     container.innerHTML = '';
-    
+
     companyStates[companyId].rows.forEach((row, idx) => {
         container.appendChild(createRowElement(companyId, idx, row));
     });
@@ -215,7 +215,7 @@ function createRowElement(companyId, idx, rowData) {
     const div = document.createElement('div');
     div.className = 'own-account-row';
     div.dataset.index = idx;
-    
+
     // Select HTML
     let selectOptions = `<option value="">-- SELECT ACCOUNT --</option>`;
     companyStates[companyId].accounts.forEach(acc => {
@@ -228,7 +228,7 @@ function createRowElement(companyId, idx, rowData) {
     const includeGroupHtml = isExternal ? `
         <label style="display:flex; align-items:center; font-size:13px; font-weight:600; color:#555; cursor:pointer; width:65px; justify-content:flex-end;" title="Share original Group ID with partner">
             <input type="checkbox" onchange="updateRowData(${companyId}, ${idx}, 'include_group', this.checked ? 1 : 0)" ${rowData.include_group !== 0 ? 'checked' : ''} style="margin-right:6px; width:15px; height:15px; cursor:pointer;">
-            Grp
+            Group
         </label>
     ` : `<div style="width: 65px;"></div>`;
 
@@ -296,7 +296,7 @@ function updateInputFromSlider(companyId, idx, value) {
     document.getElementById(`input-${companyId}-${idx}`).value = `${pct}%`;
     const slider = document.getElementById(`slider-${companyId}-${idx}`);
     applySliderBackground(slider);
-    
+
     companyStates[companyId].rows[idx].percentage = pct;
     updateCalculations(companyId);
 }
@@ -306,11 +306,11 @@ function updateSliderFromInput(companyId, idx, value) {
     if (isNaN(pct)) pct = 0;
     if (pct < 0) pct = 0;
     if (pct > 100) pct = 100;
-    
+
     document.getElementById(`slider-${companyId}-${idx}`).value = pct;
     document.getElementById(`input-${companyId}-${idx}`).value = `${pct}%`;
     applySliderBackground(document.getElementById(`slider-${companyId}-${idx}`));
-    
+
     companyStates[companyId].rows[idx].percentage = pct;
     updateCalculations(companyId);
 }
@@ -320,7 +320,7 @@ function tweakPercentage(companyId, idx, delta) {
     let newPct = currentPct + delta;
     if (newPct < 0) newPct = 0;
     if (newPct > 100) newPct = 100;
-    
+
     document.getElementById(`slider-${companyId}-${idx}`).value = newPct;
     updateInputFromSlider(companyId, idx, newPct);
 }
@@ -357,9 +357,9 @@ function updateCalculations(companyId) {
         warningBadge.style.borderColor = 'var(--own-warning-border)';
         warningBadge.innerHTML = `<span>⚠️</span> <span id="warning-msg-${companyId}">Total is less than 100%</span>`;
         if (footerRm) footerRm.textContent = `${remaining.toFixed(2)}% Unallocated`;
-        
+
         confirmBtn.disabled = false;
-        
+
     } else if (total > 100) {
         warningBadge.style.display = 'flex';
         warningBadge.className = 'own-warning-badge';
@@ -368,9 +368,9 @@ function updateCalculations(companyId) {
         warningBadge.style.borderColor = '#fecaca';
         warningBadge.innerHTML = `<span>❌</span> <span id="warning-msg-${companyId}">Total exceeds 100%!</span>`;
         if (footerRm) footerRm.textContent = `${Math.abs(remaining).toFixed(2)}% Over Allocated`;
-        
+
         confirmBtn.disabled = true; // Block submission
-        
+
     } else {
         warningBadge.style.display = 'none';
         if (footerRm) footerRm.textContent = `Fully Allocated`;
@@ -384,7 +384,7 @@ function updateCardHeaderDisplay(companyId, total) {
     const barEl = document.getElementById(`header-bar-${companyId}`);
 
     if (pctEl) pctEl.textContent = `${total}%`;
-    
+
     if (remainEl) {
         if (total > 100) {
             remainEl.textContent = `Over limit!`;
@@ -436,8 +436,8 @@ function confirmEdit(companyId) {
 
     const payload = {
         company_id: companyId,
-        owners: rows.map(r => ({ 
-            account_id: r.account_id, 
+        owners: rows.map(r => ({
+            account_id: r.account_id,
             percentage: parseFloat(r.percentage),
             include_group: r.include_group !== undefined ? parseInt(r.include_group) : 1
         }))
@@ -454,29 +454,29 @@ function confirmEdit(companyId) {
         },
         body: JSON.stringify(payload)
     })
-    .then(res => res.json())
-    .then(res => {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm';
-        if (res.status === 'success') {
-            showToast(res.message, 'success');
-            // Update global data so closing/opening works gracefully
-            const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
-            if (compIdx >= 0) {
-                companiesData[compIdx].allocated_percentage = total;
+        .then(res => res.json())
+        .then(res => {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirm';
+            if (res.status === 'success') {
+                showToast(res.message, 'success');
+                // Update global data so closing/opening works gracefully
+                const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
+                if (compIdx >= 0) {
+                    companiesData[compIdx].allocated_percentage = total;
+                }
+                // Collapse
+                cancelEdit(companyId, true);
+            } else {
+                showToast(res.message, 'error');
             }
-            // Collapse
-            cancelEdit(companyId, true);
-        } else {
-            showToast(res.message, 'error');
-        }
-    })
-    .catch(err => {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm';
-        console.error(err);
-        showToast('Server error', 'error');
-    });
+        })
+        .catch(err => {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirm';
+            console.error(err);
+            showToast('Server error', 'error');
+        });
 }
 
 // ---------------------------------------------
@@ -487,10 +487,10 @@ function showToast(message, type = 'success') {
     const toast = document.getElementById('ownToast');
     const msgEl = document.getElementById('ownToastMessage');
     const iconEl = document.getElementById('ownToastIcon');
-    
+
     toast.className = 'own-toast own-show ' + (type === 'success' ? 'own-success' : 'own-error');
     msgEl.textContent = message;
-    
+
     if (type === 'success') {
         iconEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>';
     } else {
@@ -524,24 +524,24 @@ function linkExternalPartner(companyId, event) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ company_id: companyId, login_id: loginId })
     })
-    .then(res => res.json())
-    .then(res => {
-        btn.disabled = false;
-        btn.textContent = 'Link Partner';
-        if (res.status === 'success') {
-            showToast(res.message, 'success');
-            loginIdInput.value = '';
-            // Close and reopen the card to refresh the data
-            cancelEdit(companyId, true);
-            setTimeout(() => toggleCard(companyId, null), 300);
-        } else {
-            showToast(res.message, 'error');
-        }
-    })
-    .catch(err => {
-        btn.disabled = false;
-        btn.textContent = 'Link Partner';
-        console.error(err);
-        showToast('Server error', 'error');
-    });
+        .then(res => res.json())
+        .then(res => {
+            btn.disabled = false;
+            btn.textContent = 'Link Partner';
+            if (res.status === 'success') {
+                showToast(res.message, 'success');
+                loginIdInput.value = '';
+                // Close and reopen the card to refresh the data
+                cancelEdit(companyId, true);
+                setTimeout(() => toggleCard(companyId, null), 300);
+            } else {
+                showToast(res.message, 'error');
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = 'Link Partner';
+            console.error(err);
+            showToast('Server error', 'error');
+        });
 }
