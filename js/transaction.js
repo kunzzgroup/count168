@@ -1148,13 +1148,16 @@ function loadOwnerCompanies() {
             if (data.success && data.data.length > 0) {
                 ownerCompanies = data.data;
                 
+                // 过滤掉只作为 group 占位符的面值为空的 company
+                const validCompanies = data.data.filter(c => c.company_id && c.company_id.trim() !== '');
+
                 // 如果有多个 company，显示按钮
-                if (data.data.length > 1) {
+                if (validCompanies.length > 1) {
                     const wrapper = document.getElementById('company-buttons-wrapper');
                     const container = document.getElementById('company-buttons-container');
                     container.innerHTML = '';
                     
-                    data.data.forEach(company => {
+                    validCompanies.forEach(company => {
                         const btn = document.createElement('button');
                         btn.className = 'transaction-company-btn';
                         btn.textContent = company.company_id;
@@ -1170,8 +1173,8 @@ function loadOwnerCompanies() {
                     // 如果 session 中有 company_id，优先使用它；否则使用第一个
                     if (!currentCompanyId) {
                         // 没有 session company_id，使用第一个
-                        if (data.data.length > 0) {
-                            const firstCompany = data.data[0];
+                        if (validCompanies.length > 0) {
+                            const firstCompany = validCompanies[0];
                             currentCompanyId = firstCompany.id;
                             // 设置第一个按钮为 active（使用 data-company-id 属性）
                             const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
@@ -1181,10 +1184,10 @@ function loadOwnerCompanies() {
                         }
                     } else {
                         // 验证 session 中的 company_id 是否在列表中
-                        const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
+                        const exists = validCompanies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
                         if (exists) {
                             // session 中的 company_id 在列表中，使用它
-                            const sessionCompany = data.data.find(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
+                            const sessionCompany = validCompanies.find(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
                             if (sessionCompany) {
                                 const sessionBtn = container.querySelector(`button[data-company-id="${sessionCompany.id}"]`);
                                 if (sessionBtn) {
@@ -1193,8 +1196,8 @@ function loadOwnerCompanies() {
                             }
                         } else {
                             // session 中的 company_id 不在列表中，使用第一个
-                            if (data.data.length > 0) {
-                                const firstCompany = data.data[0];
+                            if (validCompanies.length > 0) {
+                                const firstCompany = validCompanies[0];
                                 currentCompanyId = firstCompany.id;
                                 const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
                                 if (firstBtn) {
@@ -1204,11 +1207,11 @@ function loadOwnerCompanies() {
                         }
                     }
                     
-                    console.log('✅ Company 按钮加载成功:', data.data, '当前选中的 company_id:', currentCompanyId);
-                } else if (data.data.length === 1) {
+                    console.log('✅ Company 按钮加载成功:', validCompanies, '当前选中的 company_id:', currentCompanyId);
+                } else if (validCompanies.length === 1) {
                     // 只有一个 company，直接设置（不显示按钮）
-                    currentCompanyId = data.data[0].id;
-                    console.log('✅ 单个 Company 已设置:', data.data[0]);
+                    currentCompanyId = validCompanies[0].id;
+                    console.log('✅ 单个 Company 已设置:', validCompanies[0]);
                 }
             } else {
                 // 没有 company 数据，使用 session 中的 company_id

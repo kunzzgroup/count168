@@ -1849,6 +1849,9 @@ function renderCompanyButtons(companies) {
             c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup
         );
     }
+    
+    // 隐藏只作为 group 占位符而没有实质公司名称的记录
+    filtered = filtered.filter(c => c.company_id && c.company_id.trim() !== '');
 
     if (filtered.length === 0) {
         wrapper.style.display = 'none';
