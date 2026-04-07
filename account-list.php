@@ -14,11 +14,17 @@ $current_user_id = $_SESSION['user_id'] ?? null;
 $user_companies = [];
 try {
     if ($current_user_id) {
-        // 如果是 owner，获取所有拥有的 company
+        // 如果是 owner，获取所有拥有的 company（含通过 company_ownership 共享的）
         if ($current_user_role === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id]);
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT c.id, c.company_id
+                FROM company c
+                LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
+                WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
+                ORDER BY c.company_id ASC
+            ");
+            $stmt->execute([$owner_id, $owner_id, $owner_id]);
             $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             // 普通用户，获取通过 user_company_map 关联的 company
