@@ -88,6 +88,23 @@ try {
     $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $orphanClearAllPap = false;
+    // 当 transactions.transaction_date 被业务逻辑固定锚定为 day_start（例如 monthly 一律写 day_start）
+    // 而 PAP.posted_date 使用当期 due date（如每月 1 号）时，仅凭 (period_type, transaction_date) 可能无法反查到正确 PAP。
+    // 此时 pending 里会全是 fallback（process_accounting_posted_id 为 NULL），若继续逐条 fallback 删除会删不到真实的 PAP，
+    // 导致 Resend 后 Accounting Due 仍不出现。对于这种“无法定位具体 PAP”的情况，直接清除该 process 的 PAP 标记。
+    if (!empty($pending)) {
+        $hasAnyPapId = false;
+        foreach ($pending as $p) {
+            $papId = isset($p['process_accounting_posted_id']) ? (int) $p['process_accounting_posted_id'] : 0;
+            if ($papId > 0) {
+                $hasAnyPapId = true;
+                break;
+            }
+        }
+        if (!$hasAnyPapId) {
+            $orphanClearAllPap = true;
+        }
+    }
     if (empty($pending)) {
         $hasSourceCol = bmp_resend_tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
         if (!$hasSourceCol) {
