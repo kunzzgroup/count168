@@ -299,7 +299,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         ?>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllChecked ? 'checked' : ''; ?>>
-                            <label for="showAll">Show Active</label>
+                            <label for="showAll"><?php echo $processListPageFile === 'bank_process_list.php' ? 'Show All' : 'Show Active'; ?></label>
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
