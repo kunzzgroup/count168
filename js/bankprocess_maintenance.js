@@ -318,11 +318,14 @@
             }
         }
 
-        function searchData() {
+        function searchData(options = {}) {
+            const { silent = false } = options || {};
             const dateFrom = document.getElementById('date_from').value.trim();
             const dateTo = document.getElementById('date_to').value.trim();
             if (!dateFrom || !dateTo) {
-                showNotification('Please select date range', 'error');
+                if (!silent) {
+                    showNotification('Please select date range', 'error');
+                }
                 return;
             }
             let url = `api/bankprocess_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
@@ -349,19 +352,27 @@
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification('No bank process transactions found', 'info');
+                            if (!silent) {
+                                showNotification('No bank process transactions found', 'info');
+                            }
                         } else {
-                            showNotification(`Found ${data.data.length} record(s)`, 'success');
+                            if (!silent) {
+                                showNotification(`Found ${data.data.length} record(s)`, 'success');
+                            }
                         }
                     } else {
-                        showNotification(data.message || 'Search failed', 'error');
+                        if (!silent) {
+                            showNotification(data.message || 'Search failed', 'error');
+                        }
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
                 })
                 .catch(error => {
                     console.error('搜索失败:', error);
-                    showNotification('Search failed: ' + error.message, 'error');
+                    if (!silent) {
+                        showNotification('Search failed: ' + error.message, 'error');
+                    }
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('tableContainer').style.display = 'none';
                 });
@@ -470,7 +481,7 @@
                             }
                             updateDeleteButtonState();
                             setTimeout(() => {
-                                searchData();
+                                searchData({ silent: true });
                             }, 300);
                         } else {
                             showNotification(data.message || 'Delete failed', 'error');

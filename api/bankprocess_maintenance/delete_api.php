@@ -173,6 +173,9 @@ try {
     }
 
     ensureTransactionsDeletedTable($pdo);
+    // Ensure resend-pending table exists BEFORE starting a DB transaction
+    // (DDL inside transaction can cause implicit commit).
+    bmp_ensureMaintenanceResendPendingTable($pdo);
     $pdo->beginTransaction();
 
     bmp_recordResendPendingForTransactionIds($pdo, $company_id, $allowedIds);

@@ -162,7 +162,10 @@ if (!function_exists('bmp_recordResendPendingForTransactionIds')) {
         if (empty($transactionIds)) {
             return;
         }
-        bmp_ensureMaintenanceResendPendingTable($pdo);
+        // IMPORTANT:
+        // Do not run DDL (CREATE TABLE) inside a transaction, because MySQL may implicitly commit and
+        // break the caller's transaction boundary (leading to "There is no active transaction" on commit()).
+        // Call bmp_ensureMaintenanceResendPendingTable($pdo) BEFORE starting a DB transaction in the caller.
 
         $hasSource = bmp_resend_tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
         if (!$hasSource) {
