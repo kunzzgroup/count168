@@ -206,7 +206,7 @@ body.process-page {
 /* Buttons - mirror user list styles */
 .process-page .content .btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .process-page .content .btn:active {
@@ -349,6 +349,7 @@ body.process-page {
     grid-template-columns: 1fr;
     width: 100%;
 }
+
 .process-page .process-table-wrapper .process-cards.bank-mode {
     overflow-x: auto;
     overflow-y: auto;
@@ -365,6 +366,7 @@ body.process-page {
     overflow-x: auto;
     box-sizing: border-box;
 }
+
 .process-page .bank-data-table {
     width: 100%;
     border-collapse: collapse;
@@ -375,6 +377,7 @@ body.process-page {
     border-radius: 8px 8px 0 0;
     overflow: hidden;
 }
+
 .process-page .bank-data-table thead {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
@@ -383,34 +386,42 @@ body.process-page {
     top: 0;
     z-index: 1;
 }
+
 .process-page .bank-data-table th {
     padding: 1px 4px;
     text-align: left;
     white-space: nowrap;
     border: none;
 }
+
 .process-page .bank-data-table th:first-child {
     border-radius: 8px 0 0 0;
 }
+
 .process-page .bank-data-table th:last-child {
     border-radius: 0 8px 0 0;
 }
+
 .process-page .bank-data-table td {
     padding: 1px 4px;
     line-height: 1.25;
     text-align: left;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
+
 .process-page .bank-data-table tbody tr:nth-child(even) {
     background: #cceeff99;
 }
+
 .process-page .bank-data-table tbody tr:nth-child(odd) {
     background: #ffffff;
 }
+
 .process-page .bank-data-table tbody tr:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     background: #e8f4fc;
 }
+
 /* No、Action 列窄；No 列左间距与 Gambling 表头一致（20px+4px=24px） */
 .process-page .bank-data-table th.bank-th-no,
 .process-page .bank-data-table td.bank-td-no {
@@ -419,23 +430,27 @@ body.process-page {
     max-width: 48px;
     padding-left: 24px;
 }
+
 .process-page .bank-data-table .bank-th-country,
 .process-page .bank-data-table .bank-td-country {
     width: 5%;
     min-width: 50px;
     max-width: 85px;
 }
+
 .process-page .bank-data-table .bank-th-types,
 .process-page .bank-data-table .bank-td-types {
     width: 6%;
     min-width: 50px;
     max-width: 95px;
 }
+
 .process-page .bank-data-table .bank-th-card-owner,
 .process-page .bank-data-table .bank-td-card-owner {
     width: 12%;
     min-width: 100px;
 }
+
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
     width: 5%;
@@ -443,20 +458,24 @@ body.process-page {
     max-width: 132px;
     white-space: nowrap;
 }
+
 .process-page .bank-data-table .bank-th-status,
 .process-page .bank-data-table .bank-td-status {
     width: 8%;
     min-width: 98px;
     max-width: 132px;
 }
+
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
 .process-page .bank-data-table td:not(.bank-td-no):not(.bank-td-country):not(.bank-td-types):not(.bank-td-card-owner):not(.bank-td-status):not(.bank-td-action) {
     min-width: 0;
 }
+
 .process-page .bank-status-dropdown {
     position: relative;
     width: 100%;
 }
+
 .process-page .bank-status-button {
     width: 72%;
     min-height: 24px;
@@ -477,39 +496,47 @@ body.process-page {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
     transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
+
 .process-page .bank-status-button:hover:not(:disabled) {
     border-color: #94a3b8;
     box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
 }
+
 .process-page .bank-status-button.open,
 .process-page .bank-status-button:focus {
     border-color: #94a3b8;
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
 }
+
 .process-page .bank-status-button:disabled {
     cursor: wait;
     opacity: 0.8;
 }
+
 .process-page .bank-status-button.is-active {
     background: linear-gradient(180deg, #d9ffe5 0%, #beffd4 100%);
     color: #0f5132;
     border-color: #8ed7a6;
 }
+
 .process-page .bank-status-button.is-inactive {
     background: linear-gradient(180deg, #ffd9d9 0%, #ffc3c3 100%);
     color: #7f1d1d;
     border-color: #e7a4a4;
 }
+
 .process-page .bank-status-button.is-official {
     background: linear-gradient(180deg, #fff8dc 0%, #fef3c7 100%);
     color: #854d0e;
     border-color: #facc15;
 }
+
 .process-page .bank-status-button.is-e-invoice {
     background: linear-gradient(180deg, #fff3e3 0%, #ffedd5 100%);
     color: #c2410c;
     border-color: #fb923c;
 }
+
 .process-page .bank-status-button.is-block {
     background: linear-gradient(180deg, #f3f4f6 0%, #e5e7eb 100%);
     color: #111827;
@@ -517,6 +544,7 @@ body.process-page {
     /* BLOCK acts like a badge (no dropdown chevron) */
     background-image: none;
 }
+
 .process-page .bank-status-menu {
     position: absolute;
     top: calc(100% + 6px);
@@ -531,13 +559,16 @@ body.process-page {
     z-index: 30;
     box-sizing: border-box;
 }
+
 .process-page .bank-status-menu.bank-status-menu-floating {
     position: fixed;
     z-index: 10020;
 }
+
 .process-page .bank-status-dropdown.open .bank-status-menu {
     display: block;
 }
+
 .process-page .bank-status-option {
     width: 100%;
     border: none;
@@ -551,42 +582,53 @@ body.process-page {
     cursor: pointer;
     transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
-.process-page .bank-status-option + .bank-status-option {
+
+.process-page .bank-status-option+.bank-status-option {
     margin-top: 4px;
 }
+
 .process-page .bank-status-option:hover {
     background: rgba(59, 130, 246, 0.1);
     transform: translateY(-1px);
 }
+
 .process-page .bank-status-option.selected {
     box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
 }
+
 .process-page .bank-status-option[data-value="active"] {
     color: #0f5132;
 }
+
 .process-page .bank-status-option[data-value="inactive"] {
     color: #7f1d1d;
 }
+
 .process-page .bank-status-option[data-value="official"] {
     color: #a16207;
 }
+
 .process-page .bank-status-option[data-value="e_invoice"] {
     color: #c2410c;
 }
+
 .process-page .bank-status-option[data-value="block"] {
     color: #111827;
 }
+
 /* Action 列表头：文字与勾选格垂直居中 */
 .process-page .bank-data-table .bank-th-action {
     display: flex;
     align-items: center;
 }
+
 .process-page .bank-data-table .bank-th-action .header-action-checkbox {
     margin-left: 10px;
     cursor: pointer;
     vertical-align: middle;
     flex-shrink: 0;
 }
+
 /* Bank 空数据行：与 Gambling “No process data found” 同位置（左 40px = 20+20） */
 .process-page .bank-data-table .bank-empty-cell {
     text-align: left;
@@ -602,16 +644,19 @@ body.process-page {
     font-size: clamp(7px, 0.63vw, 12px);
     font-weight: bold;
 }
+
 .contract-badge.contract-active {
     background-color: #beffd4;
     color: #000;
     border: 0.0625rem solid #beffd4;
 }
+
 .contract-badge.contract-pending {
     background-color: #fff9c4;
     color: #000;
     border: 0.0625rem solid #fff9c4;
 }
+
 .contract-badge.contract-expired {
     background-color: #e8e8e8;
     color: #000000;
@@ -652,6 +697,7 @@ body.process-page {
     display: flex;
     align-items: center;
 }
+
 .process-page .table-header .bank-action-header .header-action-checkbox {
     flex-shrink: 0;
 }
@@ -742,6 +788,7 @@ body.process-page {
     object-fit: contain;
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
+
 .process-page .bank-action-tools {
     display: inline-flex;
     align-items: center;
@@ -749,12 +796,15 @@ body.process-page {
     gap: 5px;
     vertical-align: middle;
 }
+
 .process-page .bank-action-tools .remark-action-btn {
     margin-left: 0;
 }
+
 .process-page .remark-action-btn {
     margin-left: 6px;
 }
+
 .process-page .remark-action-btn svg {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
@@ -1043,7 +1093,7 @@ body.process-page {
 
 /* Pagination Button Styles */
 .process-page .pagination-container {
-    margin-top: 15px;
+    margin-top: 5px;
     margin-left: auto;
     width: max-content;
     display: flex;
@@ -1103,6 +1153,7 @@ body.process-page {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1118,9 +1169,10 @@ body.process-page {
     top: 0;
     width: 100%;
     height: 100%;
-    overflow-y: auto; /* allow modal backdrop to scroll if screen is too small */
+    overflow-y: auto;
+    /* allow modal backdrop to scroll if screen is too small */
     overflow-x: hidden;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(0.25rem);
 }
 
@@ -1131,10 +1183,12 @@ body.process-page {
     border: none;
     border-radius: 1rem;
     width: 88%;
-    max-width: 68rem; /* slightly narrower to center better */
+    max-width: 68rem;
+    /* slightly narrower to center better */
     box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
     overflow: auto;
-    max-height: 90vh; /* guarantee it fits inside safe viewport bounds */
+    max-height: 90vh;
+    /* guarantee it fits inside safe viewport bounds */
 }
 
 .process-page .modal-header h2 {
@@ -1166,9 +1220,11 @@ body.process-page {
 }
 
 .process-page .modal-body {
-    padding: 1.5rem 1.75rem 1.5rem 1.75rem; /* symmetric padding */
+    padding: 1.5rem 1.75rem 1.5rem 1.75rem;
+    /* symmetric padding */
     max-height: none;
-    overflow: visible; /* show all content without scroll */
+    overflow: visible;
+    /* show all content without scroll */
 }
 
 /* Form adjustments for modal */
@@ -1181,14 +1237,16 @@ body.process-page {
 .process-page .process-form.add-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    padding: 0 1.75rem 1.25rem 1.75rem; /* match header left */
+    padding: 0 1.75rem 1.25rem 1.75rem;
+    /* match header left */
 }
 
 .process-page .process-form.add-grid .add-col {
     display: flex;
     flex-direction: column;
     background: #ffffff;
-    padding: 1rem 1.25rem; /* normal panel padding */
+    padding: 1rem 1.25rem;
+    /* normal panel padding */
 }
 
 .process-page .process-form.add-grid .form-row {
@@ -1196,7 +1254,8 @@ body.process-page {
 }
 
 .process-page .process-form.add-grid .add-actions {
-    grid-column: 1 / -1; /* actions span both columns */
+    grid-column: 1 / -1;
+    /* actions span both columns */
     padding-left: 1.25rem;
     padding-right: 1.25rem;
 }
@@ -1218,8 +1277,10 @@ body.process-page {
 .process-page .process-form .form-group textarea {
     border-color: #dbe1ea;
     border-radius: 0.5rem;
-    padding: 0.625rem 0.875rem; /* 10px 14px */
-    font-size: 0.875rem; /* 14px */
+    padding: 0.625rem 0.875rem;
+    /* 10px 14px */
+    font-size: 0.875rem;
+    /* 14px */
 }
 
 .process-page .process-form .form-group input:focus,
@@ -1250,6 +1311,7 @@ body.process-page {
 .process-page .add-icon {
     background: linear-gradient(180deg, #22c55e 0%, #169c46 100%);
 }
+
 .process-page .add-icon:hover {
     background: linear-gradient(180deg, #169c46 0%, #22c55e 100%);
 }
@@ -1259,6 +1321,7 @@ body.process-page {
     .process-page .process-form.add-grid {
         grid-template-columns: 1fr;
     }
+
     .process-page .process-form.add-grid .add-actions {
         margin-top: -0.9rem;
     }
@@ -1302,7 +1365,8 @@ body.process-page {
     flex-wrap: nowrap !important;
     align-items: center !important;
     gap: 0.75rem !important;
-    overflow-x: auto; /* just in case of small screens */
+    overflow-x: auto;
+    /* just in case of small screens */
 }
 
 /* Edit Modal - 与Add Modal保持一致的响应式设置 */
@@ -1632,7 +1696,7 @@ body.process-page {
     margin-bottom: 0.5rem;
 }
 
-.process-page .day-use-header > label {
+.process-page .day-use-header>label {
     margin-bottom: 0;
 }
 
@@ -1702,8 +1766,10 @@ body.process-page {
 /* Account checkboxes for multi-use */
 .process-page .account-checkboxes {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* neat equal columns */
-    grid-auto-rows: minmax(34px, auto); /* consistent row height */
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    /* neat equal columns */
+    grid-auto-rows: minmax(34px, auto);
+    /* consistent row height */
     gap: 0.5rem 0.75rem;
     margin-top: 0.5rem;
     max-height: 12.5rem;
@@ -1716,7 +1782,8 @@ body.process-page {
 
 .process-page .account-checkboxes .checkbox-item {
     display: grid;
-    grid-template-columns: 18px 1fr; /* checkbox then text */
+    grid-template-columns: 18px 1fr;
+    /* checkbox then text */
     align-items: center;
     column-gap: 0.5rem;
     min-width: 0;
@@ -1736,7 +1803,8 @@ body.process-page {
     color: #0f172a;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* keep text tidy */
+    text-overflow: ellipsis;
+    /* keep text tidy */
 }
 
 /* Multi-use actions under checkbox grid */
@@ -1759,7 +1827,8 @@ body.process-page {
     border-radius: 0.5rem;
     padding: 0.625rem 0.75rem;
     background-color: #f8fafc;
-    justify-items: start; /* ensure items align left */
+    justify-items: start;
+    /* ensure items align left */
     text-align: left;
 }
 
@@ -1769,7 +1838,8 @@ body.process-page {
     align-items: center;
     column-gap: 0.5rem;
     min-width: 0;
-    justify-items: start; /* left align contents */
+    justify-items: start;
+    /* left align contents */
 }
 
 .process-page .process-checkboxes .checkbox-item input[type="checkbox"] {
@@ -2214,7 +2284,7 @@ body.process-page {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(0.25rem);
 }
 
@@ -2241,6 +2311,7 @@ body.process-page {
         transform: translateY(calc(-50% - 80px)) scale(0.95);
         opacity: 0;
     }
+
     to {
         transform: translateY(-50%) scale(1);
         opacity: 1;
@@ -2266,10 +2337,13 @@ body.process-page {
 }
 
 @keyframes processIconPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
     }
+
     50% {
         transform: scale(1.05);
         box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
@@ -2352,11 +2426,11 @@ body.process-page {
     left: -30%;
     right: -30%;
     background: linear-gradient(120deg,
-        rgba(255,255,255,0) 0%,
-        rgba(100, 116, 139, 0.24) 20%,
-        rgba(255,255,255,0.35) 50%,
-        rgba(100, 116, 139, 0.24) 80%,
-        rgba(255,255,255,0) 100%);
+            rgba(255, 255, 255, 0) 0%,
+            rgba(100, 116, 139, 0.24) 20%,
+            rgba(255, 255, 255, 0.35) 50%,
+            rgba(100, 116, 139, 0.24) 80%,
+            rgba(255, 255, 255, 0) 100%);
     transform: translateX(-120%);
     transition: transform 600ms ease;
     pointer-events: none;
@@ -2396,11 +2470,11 @@ body.process-page {
     left: -30%;
     right: -30%;
     background: linear-gradient(120deg,
-        rgba(255,255,255,0) 0%,
-        rgba(220, 53, 69, 0.24) 20%,
-        rgba(255,255,255,0.35) 50%,
-        rgba(220, 53, 69, 0.24) 80%,
-        rgba(255,255,255,0) 100%);
+            rgba(255, 255, 255, 0) 0%,
+            rgba(220, 53, 69, 0.24) 20%,
+            rgba(255, 255, 255, 0.35) 50%,
+            rgba(220, 53, 69, 0.24) 80%,
+            rgba(255, 255, 255, 0) 100%);
     transform: translateX(-120%);
     transition: transform 600ms ease;
     pointer-events: none;
@@ -2441,11 +2515,11 @@ body.process-page {
     left: -30%;
     right: -30%;
     background: linear-gradient(120deg,
-        rgba(255,255,255,0) 0%,
-        rgba(245, 158, 11, 0.24) 20%,
-        rgba(255,255,255,0.35) 50%,
-        rgba(245, 158, 11, 0.24) 80%,
-        rgba(255,255,255,0) 100%);
+            rgba(255, 255, 255, 0) 0%,
+            rgba(245, 158, 11, 0.24) 20%,
+            rgba(255, 255, 255, 0.35) 50%,
+            rgba(245, 158, 11, 0.24) 80%,
+            rgba(255, 255, 255, 0) 100%);
     transform: translateX(-120%);
     transition: transform 600ms ease;
     pointer-events: none;
@@ -2474,10 +2548,13 @@ body.process-page {
 }
 
 @keyframes processIconPulseResend {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.35);
     }
+
     50% {
         transform: scale(1.05);
         box-shadow: 0 0 0 10px rgba(5, 150, 105, 0);
@@ -2581,14 +2658,15 @@ body.process-page {
 
     /* Edit Process 弹窗在 1024px：与红框同尺寸，仅占侧栏右侧整块 */
     .process-page #editModal {
-        left: 180px !important; /* 遮罩从侧栏右侧开始 */
+        left: 180px !important;
+        /* 遮罩从侧栏右侧开始 */
         width: calc(100vw - 210px) !important;
         top: 80px;
         border-radius: 16px;
         height: 500px;
     }
 
-    .process-page .modal-content{
+    .process-page .modal-content {
         overflow-y: hidden;
     }
 
@@ -2603,24 +2681,29 @@ body.process-page {
         overflow-x: hidden !important;
         box-sizing: border-box !important;
     }
+
     .process-page #editModal .modal-body {
         padding: 0.75rem 1rem 1rem !important;
         overflow-x: hidden !important;
         min-height: 0 !important;
     }
+
     .process-page #editModal .process-form.add-grid {
         grid-template-columns: 1fr 1fr !important;
         padding: 0 0.5rem 0.5rem !important;
         gap: 0.6rem !important;
         min-width: 0 !important;
     }
+
     .process-page #editModal .process-form.add-grid .add-col {
         padding: 0.4rem 0.5rem !important;
         min-width: 0 !important;
     }
+
     .process-page #editModal .process-form .form-group label {
         font-size: clamp(10px, 0.85vw, 15px) !important;
     }
+
     .process-page #editModal .process-form .form-group input,
     .process-page #editModal .process-form .form-group select,
     .process-page #editModal .process-form .form-group textarea {
@@ -2629,20 +2712,24 @@ body.process-page {
         max-width: 100% !important;
         box-sizing: border-box !important;
     }
+
     .process-page #editModal .process-form .form-row {
         gap: 0.4rem !important;
         margin-bottom: 0.2rem !important;
     }
+
     .process-page #editModal .process-form .form-row small,
     .process-page #editModal .process-form .form-group .form-hint {
         font-size: 0.7rem !important;
         white-space: normal !important;
         word-break: break-word !important;
     }
+
     .process-page #editModal #edit_day_checkboxes.day-checkboxes {
         flex-wrap: wrap !important;
         gap: 0.5rem !important;
     }
+
     /* DTS Modified / DTS Created 在 1024px 下字体 */
     .process-page #editModal label[for="edit_dts_modified"],
     .process-page #editModal label[for="edit_dts_created"],
@@ -2653,54 +2740,60 @@ body.process-page {
         font-size: clamp(9px, 0.85vw, 14px) !important;
     }
 
-    .process-page .form-group input, 
-    .process-page .form-group select, 
+    .process-page .form-group input,
+    .process-page .form-group select,
     .process-page .form-group textarea {
         font-size: clamp(9px, 0.85vw, 14px);
     }
 
-    .process-page .form-group input, 
+    .process-page .form-group input,
     .process-page .form-group select {
         padding: 8px 16px;
     }
 
-    .process-page #addModal .day-checkboxes .checkbox-item label{
-        font-size: clamp(9px, 0.85vw, 14px)!important;
+    .process-page #addModal .day-checkboxes .checkbox-item label {
+        font-size: clamp(9px, 0.85vw, 14px) !important;
     }
 }
-    
-    
+
+
 /* ========================================================
    Compact Mode for Small Screens (Laptops, Tablets, etc.)
    ======================================================== */
-@media (max-height: 800px), (max-width: 1200px) {
+@media (max-height: 800px),
+(max-width: 1200px) {
+
     .process-page .process-form .form-group input,
     .process-page .process-form .form-group select,
     .process-page .process-form .form-group textarea {
         padding: 0.4rem 0.75rem !important;
         font-size: 0.8125rem !important;
     }
+
     .process-page #addModal .process-form .form-group label,
     .process-page #editModal .process-form .form-group label {
         font-size: 0.8125rem !important;
         margin-bottom: 0.25rem !important;
     }
+
     .process-page #addModal .process-form .form-row,
     .process-page #editModal .process-form .form-row {
         margin-bottom: 0.625rem !important;
         gap: 0.875rem !important;
     }
+
     .process-page #addModal .modal-body,
     .process-page #editModal .modal-body {
         padding: 1rem 1.25rem 1rem 1.25rem !important;
     }
+
     .process-page #addModal .process-form.add-grid .add-col,
     .process-page #editModal .process-form.add-grid .add-col {
         padding: 0.75rem 0.9rem !important;
     }
+
     .process-page .process-form.add-grid .add-actions {
         padding-top: 0.75rem !important;
         padding-bottom: 0.75rem !important;
     }
 }
-
