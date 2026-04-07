@@ -1272,15 +1272,20 @@ body.process-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* Keep pagination at bottom-right on Games (non-bank) list page */
+/* Games list: pagination fixed to viewport bottom-right (does not move with row count / list scroll) */
 .process-page:not(.process-page--bank) .pagination-container {
-    margin-top: auto !important;
-    margin-left: auto !important;
-    margin-right: 0 !important;
-    align-self: flex-end;
-    position: sticky;
-    bottom: max(5px, env(safe-area-inset-bottom, 0px));
+    position: fixed;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    margin: 0 !important;
+    left: auto;
+    top: auto;
     z-index: 120;
+}
+
+/* Reserve space inside the scrollable list so the last row is not hidden under fixed pagination */
+.process-page:not(.process-page--bank) #processTableBody.process-cards {
+    padding-bottom: 48px;
 }
 
 .process-page .pagination-btn {
@@ -2971,13 +2976,17 @@ body.process-page {
     }
 }
 
-/* Keep pagination at bottom-right on Bank list page */
+/* Bank list: same fixed pagination as Games (viewport bottom-right) */
 .process-page.process-page--bank .pagination-container {
-    margin-top: auto !important;
-    margin-left: auto !important;
-    margin-right: 0 !important;
-    align-self: flex-end;
-    position: sticky;
-    bottom: max(5px, env(safe-area-inset-bottom, 0px));
+    position: fixed;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    margin: 0 !important;
+    left: auto;
+    top: auto;
     z-index: 120;
+}
+
+.process-page.process-page--bank .bank-table-wrapper {
+    padding-bottom: 48px;
 }
