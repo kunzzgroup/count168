@@ -547,10 +547,11 @@ try {
     // monthly / partial_first_month + bank_process：过滤/排序与列表展示一致，按 day_start 锚定（不按提交日、dts_created）。
     $effectiveTxnDateExpr = "DATE(t.transaction_date)";
     if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        /* CAST 兼容 DATE/DATETIME 列；REGEXP 对 CHAR 上的 d/m/Y 与 Y-m-d 均可解析 */
         $bpDayStartSql = "CASE
-                            WHEN bp_t.day_start REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$' THEN DATE(bp_t.day_start)
-                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d/%m/%Y')
-                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d-%m-%Y')
+                            WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp_t.day_start)
+                            WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d/%m/%Y')
+                            WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d-%m-%Y')
                             ELSE NULL
                         END";
         $effectiveTxnDateExpr = "(
