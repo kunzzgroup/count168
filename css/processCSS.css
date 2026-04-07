@@ -1044,8 +1044,9 @@ body.process-page {
 /* Pagination Button Styles */
 .process-page .pagination-container {
     position: fixed;
-    bottom: clamp(15px, 1.56vw, 30px);
-    right: 40px;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
     gap: 0;
@@ -1057,6 +1058,12 @@ body.process-page {
     border: 1px solid rgba(148, 163, 184, 0.2);
     z-index: 100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+/* If sidebar exists, adjust center */
+@media (min-width: 769px) {
+    .process-page .pagination-container {
+        left: calc(50% + clamp(90px, 7vw, 135px));
+    }
 }
 
 .process-page .pagination-btn {
