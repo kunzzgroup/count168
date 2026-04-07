@@ -122,7 +122,7 @@ if (!empty($session_company_id)) {
                         <th>No.</th>
                         <th>Created At</th>
                         <th>Process</th>
-                        <th>ID_PRODUCT</th>
+                        <th>Id_Product</th>
                         <th>Account</th>
                         <th>Description</th>
                         <th>Remark</th>
