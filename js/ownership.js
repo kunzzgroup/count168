@@ -170,7 +170,7 @@ function loadCompanyData(companyId) {
         companyStates[companyId] = {
             accounts: accounts,
             // deep copy rows state to manage in-memory before clicking confirm
-            rows: owners.map(o => ({ account_id: o.account_id, percentage: parseFloat(o.percentage) }))
+            rows: owners.map(o => ({ account_id: o.account_id, percentage: parseFloat(o.percentage), include_group: o.include_group !== undefined ? parseInt(o.include_group) : 1 }))
         };
 
         renderCardBodyRows(companyId);
