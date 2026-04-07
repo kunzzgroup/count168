@@ -360,8 +360,8 @@ body.process-page {
     margin-top: 20px;
     width: 100%;
     padding: 0px;
-    /* Slightly taller viewport so 20 bank rows + sticky header fit without inner scroll on typical screens */
-    max-height: calc(100vh - 270px);
+    /* 预留约一整行高度，使每页 20 条 + sticky 表头在常见视口下不必在表格外壳内纵向滚动 */
+    max-height: calc(100vh - 222px);
     overflow-y: auto;
     overflow-x: auto;
     box-sizing: border-box;
