@@ -25,9 +25,7 @@ try {
         exit();
     }
 
-    try {
-        $pdo->exec("ALTER TABLE company_ownership ADD COLUMN include_group TINYINT(1) DEFAULT 1");
-    } catch (Exception $e) {}
+
 
     // Determine if owner_type column exists
     $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
@@ -35,7 +33,7 @@ try {
     if ($hasOwnerType) {
         // Polymorphic query
         $stmt = $pdo->prepare("
-            SELECT co.id as ownership_id, co.percentage, co.owner_type, co.include_group,
+            SELECT co.id as ownership_id, co.percentage, co.owner_type,
                    CONCAT(
                        CASE 
                            WHEN co.owner_type = 'owner' THEN 'O_'
@@ -57,7 +55,7 @@ try {
     } else {
         // Fallback for before migration
         $stmt = $pdo->prepare("
-            SELECT co.id as ownership_id, co.percentage, 'account' as owner_type, co.include_group,
+            SELECT co.id as ownership_id, co.percentage, 'account' as owner_type,
                    CONCAT('A_', co.account_id) as account_id,
                    a.account_id as account_name, a.name, a.role
             FROM company_ownership co

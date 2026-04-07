@@ -592,28 +592,7 @@ body {
     background-color: #eff6ff;
 }
 
-/* Grp Checkbox */
-.own-grp-label {
-    display: flex;
-    align-items: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: #555;
-    cursor: pointer;
-    width: 65px;
-    justify-content: flex-end;
-}
 
-.own-grp-checkbox {
-    margin-right: 6px;
-    width: 15px;
-    height: 15px;
-    cursor: pointer;
-}
-
-.own-grp-spacer {
-    width: 65px;
-}
 
 /* Warning Error State (over 100%) */
 .own-warning-badge.own-warning-error {

@@ -9,8 +9,7 @@ let currentlyExpandedId = null;
 // Template references (cached on first use)
 const tpl = {
     card: () => document.getElementById('tpl-company-card'),
-    row: () => document.getElementById('tpl-account-row'),
-    grp: () => document.getElementById('tpl-grp-checkbox')
+    row: () => document.getElementById('tpl-account-row')
 };
 
 // Helper: query inside a cloned template fragment by data-bind
@@ -154,8 +153,7 @@ function loadCompanyData(companyId) {
             accounts: accountsRes.status === 'success' ? accountsRes.data : [],
             rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
                 account_id: o.account_id,
-                percentage: parseFloat(o.percentage),
-                include_group: o.include_group !== undefined ? parseInt(o.include_group) : 1
+                percentage: parseFloat(o.percentage)
             }))
         };
 
@@ -236,20 +234,10 @@ function createRowElement(companyId, idx, rowData) {
         }
     });
 
-    // Grp checkbox slot
+    // Remove Grp checkbox slot reference
     const grpSlot = $(div, 'grp-slot');
-    const isExternal = String(rowData.account_id).startsWith('O_');
-
-    if (isExternal) {
-        const grpFrag = tpl.grp().content.cloneNode(true);
-        const checkbox = grpFrag.querySelector('[data-bind="grp-check"]');
-        checkbox.checked = rowData.include_group !== 0;
-        checkbox.addEventListener('change', () => updateRowData(companyId, idx, 'include_group', checkbox.checked ? 1 : 0));
-        grpSlot.replaceWith(grpFrag);
-    } else {
-        const spacer = document.createElement('div');
-        spacer.className = 'own-grp-spacer';
-        grpSlot.replaceWith(spacer);
+    if (grpSlot) {
+        grpSlot.remove();
     }
 
     // Initialize slider gradient
@@ -263,7 +251,7 @@ function createRowElement(companyId, idx, rowData) {
 // ---------------------------------------------
 
 function addAccountRow(companyId) {
-    companyStates[companyId].rows.push({ account_id: '', percentage: 0, include_group: 1 });
+    companyStates[companyId].rows.push({ account_id: '', percentage: 0 });
     renderCardBodyRows(companyId);
 }
 
@@ -275,7 +263,7 @@ function removeRow(companyId, idx) {
 function updateRowData(companyId, idx, field, value) {
     companyStates[companyId].rows[idx][field] = value;
     if (field === 'percentage') updateCalculations(companyId);
-    if (field === 'account_id' || field === 'include_group') renderCardBodyRows(companyId);
+    if (field === 'account_id') renderCardBodyRows(companyId);
 }
 
 // ---------------------------------------------
@@ -399,8 +387,7 @@ function confirmEdit(companyId) {
         company_id: companyId,
         owners: rows.map(r => ({
             account_id: r.account_id,
-            percentage: parseFloat(r.percentage),
-            include_group: r.include_group !== undefined ? parseInt(r.include_group) : 1
+            percentage: parseFloat(r.percentage)
         }))
     };
 

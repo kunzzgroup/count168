@@ -146,18 +146,12 @@ $assetVer = function ($file) {
                             clip-rule="evenodd"></path>
                     </svg>
                 </button>
-                <span data-bind="grp-slot"></span>
+
             </div>
         </div>
     </template>
 
-    <!-- Grp Checkbox (for external accounts) -->
-    <template id="tpl-grp-checkbox">
-        <label class="own-grp-label" title="Share original Group ID with partner">
-            <input type="checkbox" class="own-grp-checkbox" data-bind="grp-check">
-            Group
-        </label>
-    </template>
+
 
     <!-- Toast Notification -->
     <div id="ownToast" class="own-toast">

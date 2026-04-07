@@ -55,14 +55,6 @@ if ($total_percentage > 100) {
 }
 
 $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
-$hasIncludeGroup = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'include_group'")->rowCount() > 0;
-
-try {
-    if (!$hasIncludeGroup) {
-        $pdo->exec("ALTER TABLE company_ownership ADD COLUMN include_group TINYINT(1) DEFAULT 1");
-        $hasIncludeGroup = true;
-    }
-} catch (Exception $e) {}
 
 try {
     $pdo->beginTransaction();
@@ -73,12 +65,7 @@ try {
 
     // Insert new owners
     if (count($owners) > 0) {
-        if ($hasOwnerType && $hasIncludeGroup) {
-            $insertStmt = $pdo->prepare("
-                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, include_group)
-                VALUES (?, ?, ?, ?, ?)
-            ");
-        } elseif ($hasOwnerType) {
+        if ($hasOwnerType) {
             $insertStmt = $pdo->prepare("
                 INSERT INTO company_ownership (company_id, account_id, owner_type, percentage)
                 VALUES (?, ?, ?, ?)
@@ -106,11 +93,7 @@ try {
                 $real_id = substr($raw_id, 2);
             }
 
-            $incGrp = isset($owner['include_group']) ? (int)$owner['include_group'] : 1;
-
-            if ($hasOwnerType && $hasIncludeGroup) {
-                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $incGrp]);
-            } elseif ($hasOwnerType) {
+            if ($hasOwnerType) {
                 $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage']]);
             } else {
                 // If migration hasn't run, we must drop Users so it doesn't crash, or attempt.
