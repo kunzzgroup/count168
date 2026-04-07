@@ -888,11 +888,12 @@ try {
             $transactionDate = $dayStartYmd ?: $fallbackDate;
             $postedDateForInbox = $fallbackDate;
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
+            // 流水/ Payment History 与 monthly 一致锚定在 Day start；PAP.posted_date 仍用合同自然结束次日，避免与首期 monthly 同日期冲突
             $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
             if ($term !== null && $term >= 1) {
                 $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
                 if ($exclusiveEnd !== null) {
-                    $transactionDate = $exclusiveEnd;
+                    $transactionDate = $dayStartYmd;
                     $postedDateForInbox = $exclusiveEnd;
                 }
             }
