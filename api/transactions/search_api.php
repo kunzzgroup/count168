@@ -642,10 +642,10 @@ if (!empty($target_account_ids)) {
         $currency_code = $combo['currency_code'];
         
         // 1. 计算 B/F (起始日期之前的所有累计余额，按 currency 过滤)
-        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id);
+        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '');
         
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
-        $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+        $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '');
         
         // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
@@ -1061,7 +1061,7 @@ function calculateTotals($data) {
  * 按 Currency 计算 B/F (Balance Forward)
  * B/F = 起始日期之前的所有累计余额（按 currency 过滤）
  */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id) {
+function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = '') {
     $bf = 0;
     
     // 检查 transactions 表是否有 currency_id 字段（仅检查一次）
@@ -1078,12 +1078,15 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
-              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+              AND (
+                  CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                  OR (? <> '' AND TRIM(COALESCE(dcd.account_id, '')) = TRIM(?))
+              )
               AND dcd.currency_id = ?
               AND dc.capture_date < ?";
     
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
+    $stmt->execute([$company_id, $company_id, $account_id, (string)$account_code, (string)$account_code, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
     // 2. 起始日期之前：Win/Loss 来自 WIN/LOSE（含 PROFIT）+ Cr/Dr 来自 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM（作为 To Account）；RATE 单独用 transaction_entry 处理
@@ -1260,7 +1263,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
  *          + 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
  *          + RATE Middle-Man 手续费（RATE_MIDDLEMAN）
  */
-function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
+function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '') {
     $win_loss = 0;
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
@@ -1269,11 +1272,14 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
-              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+              AND (
+                  CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                  OR (? <> '' AND TRIM(COALESCE(dcd.account_id, '')) = TRIM(?))
+              )
               AND dcd.currency_id = ?
               AND dc.capture_date BETWEEN ? AND ?";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
+    $stmt->execute([$company_id, $company_id, $account_id, (string)$account_code, (string)$account_code, $currency_id, $date_from, $date_to]);
     $win_loss += $stmt->fetchColumn();
 
     // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
