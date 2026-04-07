@@ -192,7 +192,8 @@ function initProcessListDateFilter() {
 
 function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending) {
     const isBankStatusActive = String(status || '').trim().toLowerCase() === 'active';
-    const showResend = !!maintenanceResendPending && isBankStatusActive;
+    // Official / E-INVOICE / Block 仍为 status=active，须与列表「inactive-like」一致，否则 Resend 会误显
+    const showResend = !!maintenanceResendPending && isBankStatusActive && !isBankInactiveLike(status, issueFlag);
     const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
     const actionButtons =
         '<span class="bank-action-tools">' +
@@ -210,11 +211,21 @@ function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, 
 }
 
 function resendBankProcessAccountingDue(processId) {
+    const id = parseInt(processId, 10);
+    if (id) {
+        const proc = processes.find(function (p) { return p.id === id; });
+        if (proc) {
+            const st = String(proc.status || '').trim().toLowerCase();
+            if (st !== 'active' || isBankInactiveLike(proc.status, proc.issue_flag)) {
+                showNotification('Resend is only available for Active processes (not Inactive, Official, E-INVOICE, or Block).', 'warning');
+                return;
+            }
+        }
+    }
     if (typeof window.showConfirmBankResendModal === 'function') {
         window.showConfirmBankResendModal(processId);
         return;
     }
-    const id = parseInt(processId, 10);
     if (id) {
         void executeAccountingDueResend(id);
     }
@@ -224,6 +235,14 @@ window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
 async function executeAccountingDueResend(processId) {
     const id = parseInt(processId, 10);
     if (!id) return;
+    const procGuard = processes.find(function (p) { return p.id === id; });
+    if (procGuard) {
+        const st = String(procGuard.status || '').trim().toLowerCase();
+        if (st !== 'active' || isBankInactiveLike(procGuard.status, procGuard.issue_flag)) {
+            showNotification('Resend is only available for Active processes (not Inactive, Official, E-INVOICE, or Block).', 'warning');
+            return;
+        }
+    }
     try {
         const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
             method: 'POST',
