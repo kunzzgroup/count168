@@ -1497,7 +1497,7 @@ async function performToggleStatus(processId) {
 
         const shouldShow = selectedPermission === 'Bank'
             ? matchesCurrentBankFilters(process)
-            : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
+            : (showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active'));
 
         if (!shouldShow) {
             const processIndex = processes.findIndex(p => String(p.id) === String(processId));
