@@ -234,6 +234,7 @@ try {
             'capture_detail_id' => null,
             'process' => $row['process_id'] ?? '-',
             'process_id' => $row['process_id'] ?? null,
+            'id_product' => '-',
             'account' => $row['account_id'] ?? '-',
             'from_account' => $row['from_account'] ?? '-',
             'description' => $row['description'] ?? '-',
@@ -298,7 +299,8 @@ try {
                 NULL AS dts_deleted,
                 dcd.source_value,
                 dcd.source_percent,
-                dcd.rate
+                dcd.rate,
+                dcd.id_product
             FROM data_capture_details dcd
             INNER JOIN data_captures dc ON dcd.capture_id = dc.id
             INNER JOIN process p ON dc.process_id = p.id
@@ -331,6 +333,7 @@ try {
             }
             
             $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+            $idProductRaw = isset($row['id_product']) ? trim((string)$row['id_product']) : '';
             
             $formatted[] = [
                 'no' => $no++,
@@ -339,6 +342,7 @@ try {
                 'capture_detail_id' => $row['capture_detail_id'] ?? null,
                 'process' => $row['process_id'] ?? '-',
                 'process_id' => $row['process_id'] ?? null,
+                'id_product' => $idProductRaw !== '' ? $idProductRaw : '-',
                 'account' => $row['account_id'] ?? '-',
                 'from_account' => null,
                 'description' => $row['description'] ?? '-',
@@ -445,6 +449,7 @@ try {
                     'capture_detail_id' => null,
                     'process' => $row['process_id'] ?? ($process ?: '-'),
                     'process_id' => $row['process_id'] ?? null,
+                    'id_product' => '-',
                     'account' => $row['account_id'] ?? '-',
                     'from_account' => $row['from_account'] ?? '-',
                     'description' => $row['description'] ?? '-',
@@ -511,7 +516,8 @@ try {
                     DATE_FORMAT(dcd.deleted_at, '%d/%m/%Y %H:%i:%s') AS dts_deleted,
                     dcd.source_value,
                     dcd.source_percent,
-                    dcd.rate
+                    dcd.rate,
+                    dcd.id_product
                 FROM data_captures_deleted dcd
                 INNER JOIN process p ON dcd.process_id = p.id
                 INNER JOIN account a ON dcd.account_id = a.id
@@ -544,6 +550,7 @@ try {
                 }
                 
                 $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+                $idProductDelRaw = isset($row['id_product']) ? trim((string)$row['id_product']) : '';
                 
                 $formatted[] = [
                     'no' => $no++,
@@ -552,6 +559,7 @@ try {
                     'capture_detail_id' => $row['capture_detail_id'] ?? null,
                     'process' => $row['process_id'] ?? '-',
                     'process_id' => $row['process_id'] ?? null,
+                    'id_product' => $idProductDelRaw !== '' ? $idProductDelRaw : '-',
                     'account' => $row['account_id'] ?? '-',
                     'from_account' => null,
                     'description' => $row['description'] ?? '-',
