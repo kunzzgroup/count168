@@ -18,6 +18,7 @@ $assetVer = function ($file) {
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,9 +28,10 @@ $assetVer = function ($file) {
     <link rel="stylesheet" href="css/ownership.css?v=<?php echo $assetVer('css/ownership.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
 </head>
+
 <body>
     <?php include 'sidebar.php'; ?>
-    
+
     <div class="own-container">
         <h1 class="own-page-title">ACCOUNT OWNERSHIP</h1>
 
@@ -65,14 +67,17 @@ $assetVer = function ($file) {
                     <button class="own-btn-outline" data-action="toggle">Manage</button>
                     <button class="own-icon-btn" data-action="toggle">
                         <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
                         </svg>
                     </button>
                 </div>
             </div>
 
             <div class="own-card-body" data-bind="body">
-                <div class="own-loader-container" data-bind="loader"><div class="own-loader"></div></div>
+                <div class="own-loader-container" data-bind="loader">
+                    <div class="own-loader"></div>
+                </div>
                 <div class="own-editor-hidden" data-bind="editor">
                     <div class="own-table-headers">
                         <div>Account</div>
@@ -86,10 +91,12 @@ $assetVer = function ($file) {
                     <div class="own-partner-section">
                         <div class="own-partner-info">
                             <span class="own-partner-title">External Partner</span>
-                            <span class="own-partner-desc">Share this company's read-only dashboard visibility with another independent owner.</span>
+                            <span class="own-partner-desc">Share this company's read-only dashboard visibility with
+                                another independent owner.</span>
                         </div>
                         <div class="own-partner-actions">
-                            <input type="text" class="own-partner-input" data-bind="partner-input" placeholder="Partner Login ID" autocomplete="off">
+                            <input type="text" class="own-partner-input" data-bind="partner-input"
+                                placeholder="Partner Login ID" autocomplete="off">
                             <button class="own-partner-link-btn" data-action="link-partner">Link Partner</button>
                         </div>
                     </div>
@@ -104,7 +111,8 @@ $assetVer = function ($file) {
                         </div>
                         <div class="own-footer-right">
                             <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
-                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn" data-action="confirm">Confirm</button>
+                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
+                                data-action="confirm">Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -133,7 +141,9 @@ $assetVer = function ($file) {
                 <button class="own-btn-square" data-action="tweak-down">-</button>
                 <button class="own-btn-square own-btn-delete" title="Remove" data-action="delete">
                     <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        <path fill-rule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clip-rule="evenodd"></path>
                     </svg>
                 </button>
                 <span data-bind="grp-slot"></span>
@@ -145,7 +155,7 @@ $assetVer = function ($file) {
     <template id="tpl-grp-checkbox">
         <label class="own-grp-label" title="Share original Group ID with partner">
             <input type="checkbox" class="own-grp-checkbox" data-bind="grp-check">
-            Grp
+            Group
         </label>
     </template>
 
@@ -162,10 +172,12 @@ $assetVer = function ($file) {
     </template>
     <template id="tpl-toast-error">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--own-danger-red)" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+            </path>
         </svg>
     </template>
 
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
 </body>
+
 </html>
