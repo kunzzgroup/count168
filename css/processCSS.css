@@ -669,13 +669,13 @@ body.process-page {
     border: 0.0625rem solid #e0e0e0;
 }
 
-/* Bank Process List 专页：无整页/表内纵向滚动；flex 把剩余高度给表格，略压缩行高与留白，使 20 行 + 分页落在 100vh 内（Games 不受影响） */
+/* Bank Process List 专页：无整页/表内纵向滚动；flex 把剩余高度给表格；略收标题/工具区留白以换更大表格字号（Games 不受影响） */
 .process-page.process-page--bank .container {
     display: flex;
     flex-direction: column;
     overflow: hidden;
     max-height: 100vh;
-    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
 }
 
 .process-page.process-page--bank .content {
@@ -686,11 +686,22 @@ body.process-page {
     overflow: hidden;
 }
 
+.process-page.process-page--bank .page-title {
+    font-size: clamp(22px, 1.85vw, 34px);
+    margin-top: 4px;
+    margin-bottom: 0;
+}
+
+.process-page.process-page--bank .separator-line {
+    margin-top: 2px;
+    margin-bottom: -8px;
+}
+
 .process-page.process-page--bank .bank-table-wrapper {
     flex: 1 1 auto;
     min-height: 0;
     align-self: stretch;
-    margin-top: 10px;
+    margin-top: 6px;
     max-height: none;
     overflow-x: auto;
     overflow-y: hidden;
@@ -700,83 +711,97 @@ body.process-page {
     height: 100%;
     max-height: 100%;
     width: 100%;
-    font-size: clamp(10px, 0.72vw, 13px);
+    font-size: clamp(11px, 0.8vw, 14px);
 }
 
 .process-page.process-page--bank .bank-data-table thead {
-    font-size: clamp(9px, 0.62vw, 14px);
+    font-size: clamp(10px, 0.72vw, 15px);
 }
 
 .process-page.process-page--bank .bank-data-table td {
-    line-height: 1.12;
-    padding: 0 3px;
+    line-height: 1.14;
+    padding: 0 4px;
 }
 
 .process-page.process-page--bank .bank-data-table th {
-    padding: 0 3px;
+    padding: 0 4px;
 }
 
 .process-page.process-page--bank .bank-status-button {
-    min-height: 19px;
-    padding: 2px 7px;
-    line-height: 1;
-    background-size: 12px 12px;
+    min-height: 20px;
+    padding: 2px 8px;
+    line-height: 1.05;
+    font-size: clamp(8px, 0.66vw, 12px);
+    background-size: 13px 13px;
     background-position: right 6px center;
 }
 
 .process-page.process-page--bank .contract-badge {
-    padding: 0 clamp(3px, 0.35vw, 6px);
-    font-size: clamp(6px, 0.55vw, 11px);
+    padding: 0 clamp(3px, 0.38vw, 7px);
+    font-size: clamp(7px, 0.58vw, 12px);
 }
 
 .process-page.process-page--bank .content > div:first-child {
-    margin-top: 12px !important;
-    margin-bottom: 10px !important;
+    margin-top: 8px !important;
+    margin-bottom: 6px !important;
 }
 
 .process-page.process-page--bank .action-buttons-container {
-    margin-top: 12px;
+    margin-top: 8px;
 }
 
 .process-page.process-page--bank .action-buttons {
-    padding: 8px 16px;
+    padding: 6px 14px;
+}
+
+.process-page.process-page--bank .action-buttons-container .process-company-filter {
+    padding: 0 14px 6px 14px;
 }
 
 .process-page.process-page--bank .pagination-container {
     flex-shrink: 0;
-    margin-top: 6px;
-    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    margin-top: 4px;
+    margin-bottom: max(6px, env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-height: 820px) {
 
     .process-page.process-page--bank .bank-data-table {
-        font-size: clamp(9px, 0.68vw, 12px);
+        font-size: clamp(10px, 0.76vw, 13px);
+    }
+
+    .process-page.process-page--bank .bank-data-table thead {
+        font-size: clamp(9px, 0.68vw, 14px);
     }
 
     .process-page.process-page--bank .bank-data-table td {
-        line-height: 1.08;
+        line-height: 1.1;
     }
 
     .process-page.process-page--bank .content > div:first-child {
-        margin-top: 8px !important;
-        margin-bottom: 6px !important;
+        margin-top: 6px !important;
+        margin-bottom: 4px !important;
     }
 
     .process-page.process-page--bank .action-buttons {
-        padding: 6px 12px;
+        padding: 5px 12px;
+    }
+
+    .process-page.process-page--bank .page-title {
+        font-size: clamp(20px, 1.7vw, 30px);
     }
 }
 
 @media (max-height: 720px) {
 
     .process-page.process-page--bank .bank-data-table {
-        font-size: clamp(8px, 0.62vw, 11px);
+        font-size: clamp(9px, 0.7vw, 12px);
     }
 
     .process-page.process-page--bank .bank-status-button {
-        min-height: 17px;
-        padding: 1px 6px;
+        min-height: 18px;
+        padding: 1px 7px;
+        font-size: clamp(7px, 0.62vw, 11px);
     }
 }
 
