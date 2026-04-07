@@ -50,7 +50,8 @@ try {
         exit;
     }
 
-    $ownerId = (int)($_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    // Always use real_owner_id (the permanent, un-swapped ID) for company listing
+    $ownerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
     $companies = getCompaniesByOwner($pdo, $ownerId);
     api_success($companies);
 } catch (PDOException $e) {

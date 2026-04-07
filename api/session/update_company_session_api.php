@@ -56,7 +56,8 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     if (strtolower($user_role) === 'owner') {
-        $owner_id = $_SESSION['owner_id'] ?? $user_id;
+        // Always use the REAL owner_id (never the swapped one) for listing companies
+        $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $user_id;
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.id, c.company_id, IF(c.owner_id = ?, 0, 1) as is_external, c.owner_id as real_owner_id
             FROM company c
@@ -131,10 +132,14 @@ try {
     $_SESSION['company_id'] = $requested_company_id;
     $_SESSION['is_external_view'] = $is_external_view;
     if ($current_user_role === 'owner') {
+        // Preserve the REAL owner_id permanently (set once, never changes)
+        if (!isset($_SESSION['real_owner_id'])) {
+            $_SESSION['real_owner_id'] = $current_user_id;
+        }
         if ($is_external_view && $real_owner_id !== null) {
             $_SESSION['owner_id'] = $real_owner_id;
         } else {
-            $_SESSION['owner_id'] = $current_user_id;
+            $_SESSION['owner_id'] = $_SESSION['real_owner_id'];
         }
     }
 

@@ -207,6 +207,7 @@ try {
             $_SESSION['role'] = 'owner';
             $_SESSION['user_type'] = 'owner';
             $_SESSION['owner_id'] = $owner['id'];
+            $_SESSION['real_owner_id'] = $owner['id'];
             $_SESSION['owner_code'] = $owner['owner_code'];
             $_SESSION['company_id'] = $owner['company_numeric_id']; // 使用数字 ID
             $_SESSION['company_code'] = $owner['company_code']; // 保存字符串编码供显示用
