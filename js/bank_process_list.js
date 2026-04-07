@@ -1573,7 +1573,12 @@ async function performToggleStatus(processId) {
         updateSelectAllProcessesVisibility();
 
         if (selectedPermission === 'Bank' && newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
-            await loadAccountingInbox();
+            try {
+                await loadAccountingInbox();
+            } catch (inboxErr) {
+                // 状态切换已成功；inbox 刷新失败不应回滚为 toggle failed
+                console.warn('loadAccountingInbox failed after status toggle:', inboxErr);
+            }
         }
 
         const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
