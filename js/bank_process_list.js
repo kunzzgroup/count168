@@ -1488,7 +1488,7 @@ async function performToggleStatus(processId) {
 
         const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
         const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
-        const process = processes.find(p => p.id === processId);
+        const process = processes.find(p => String(p.id) === String(processId));
         if (process) {
             process.status = newStatus;
             if (newDayEnd) process.day_end = newDayEnd;
@@ -1499,13 +1499,13 @@ async function performToggleStatus(processId) {
             : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
 
         if (!shouldShow) {
-            const processIndex = processes.findIndex(p => p.id === processId);
+            const processIndex = processes.findIndex(p => String(p.id) === String(processId));
             if (processIndex > -1) processes.splice(processIndex, 1);
             renderTable();
         } else if (newDayEnd) {
             renderTable();
         } else {
-            const process = processes.find(p => p.id === processId);
+            const process = processes.find(p => String(p.id) === String(processId));
             const statusSelect = renderBankStatusSelect(processId, process);
 
             if (selectedPermission === 'Bank') {
@@ -1551,7 +1551,7 @@ async function performToggleStatus(processId) {
                                 if (existingCheckbox) existingCheckbox.remove();
                                 if (existingMuted) existingMuted.remove();
                             } else {
-                                const proc = processes.find(function (p) { return p.id === processId; });
+                                const proc = processes.find(function (p) { return String(p.id) === String(processId); });
                                 if (!existingCheckbox && !existingMuted && (!proc || !proc.has_transactions)) {
                                     const checkbox = document.createElement('input');
                                     checkbox.type = 'checkbox';
