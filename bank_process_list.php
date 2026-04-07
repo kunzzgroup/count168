@@ -136,6 +136,7 @@ if (!function_exists('renderBankProcessModals')) {
                 <div class="modal-body">
                     <form id="addBankProcessForm" class="process-form bank-form">
                         <input type="hidden" id="bank_edit_id" name="id" value="">
+                        <div class="bank-form-fields-scroll">
                         <div class="bank-form-row">
                             <div class="bank-form-cell bank-form-cell-left">
                                 <h3 class="bank-section-title">Bank Information</h3>
@@ -343,6 +344,7 @@ if (!function_exists('renderBankProcessModals')) {
                                 </div>
                             </div>
                         </div>
+                        </div><!-- /.bank-form-fields-scroll -->
 
                         <div class="form-actions bank-actions">
                             <button type="submit" class="btn btn-save" id="bankSubmitBtn" disabled>Add Process</button>
