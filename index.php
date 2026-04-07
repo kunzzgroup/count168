@@ -32,7 +32,7 @@ if (isset($_COOKIE['remember_token'])) {
                 SELECT c.id 
                 FROM company c
                 INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
+                WHERE ucm.user_id = ? AND c.company_id != ''
                 ORDER BY c.company_id ASC
                 LIMIT 1
             ");

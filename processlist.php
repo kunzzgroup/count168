@@ -174,7 +174,8 @@ try {
                 SELECT DISTINCT c.id, c.company_id
                 FROM company c
                 LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
-                WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
+                WHERE (c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0))
+                AND c.company_id != ''
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$owner_id, $owner_id, $owner_id]);
@@ -185,7 +186,7 @@ try {
                 SELECT DISTINCT c.id, c.company_id 
                 FROM company c
                 INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
+                WHERE ucm.user_id = ? AND c.company_id != ''
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$current_user_id]);

@@ -77,7 +77,7 @@ try {
                 SELECT DISTINCT c.id, c.company_id, c.company_id AS company_name
                 FROM company c
                 INNER JOIN account_company ac ON c.id = ac.company_id
-                WHERE ac.account_id = ?
+                WHERE ac.account_id = ? AND c.company_id != ''
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$currentUserId]);
@@ -89,7 +89,7 @@ try {
                 $directStmt = $pdo->prepare("
                     SELECT id, company_id, company_id AS company_name
                     FROM company
-                    WHERE id IN ($placeholders)
+                    WHERE id IN ($placeholders) AND company_id != ''
                     ORDER BY company_id ASC
                 ");
                 $directStmt->execute($storedCompanyIds);
@@ -113,7 +113,7 @@ try {
         $stmt = $pdo->prepare("
             SELECT id, company_id, company_id AS company_name
             FROM company
-            WHERE owner_id = ?
+            WHERE owner_id = ? AND company_id != ''
             ORDER BY company_id ASC
         ");
         $stmt->execute([$ownerId]);
@@ -125,7 +125,7 @@ try {
             SELECT DISTINCT c.id, c.company_id, c.company_id AS company_name
             FROM company c
             INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-            WHERE ucm.user_id = ?
+            WHERE ucm.user_id = ? AND c.company_id != ''
             ORDER BY c.company_id ASC
         ");
         $stmt->execute([$currentUserId]);
