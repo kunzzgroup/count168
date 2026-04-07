@@ -1,8 +1,8 @@
 <?php
 /**
- * Member 货币显示顺序 API（按账号永久化）
- * GET: 返回当前账号保存的货币顺序
- * POST: 保存当前账号的货币顺序
+ * User 货币显示顺序 API（按账号/用户永久化）
+ * GET: 返回当前用户保存的货币顺序
+ * POST: 保存当前用户的货币顺序
  */
 
 session_start();
@@ -13,11 +13,6 @@ require_once __DIR__ . '/../api_response.php';
 try {
     if (!isset($_SESSION['user_id'])) {
         api_error('未登录', 401);
-        exit;
-    }
-    $userType = strtolower($_SESSION['user_type'] ?? '');
-    if ($userType !== 'member') {
-        api_error('仅 Member 账号可使用', 403);
         exit;
     }
     $accountId = (int) $_SESSION['user_id'];
@@ -60,6 +55,6 @@ try {
 
     api_error('方法不允许', 405);
 } catch (Exception $e) {
-    error_log('member_currency_order_api: ' . $e->getMessage());
+    error_log('user_currency_order_api: ' . $e->getMessage());
     api_error($e->getMessage(), 500);
 }

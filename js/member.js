@@ -546,7 +546,7 @@ function getAvailableCurrencies() {
 }
 
 function loadMemberCurrencyOrder() {
-    return fetch('api/transactions/member_currency_order_api.php?_t=' + Date.now(), { cache: 'no-cache' })
+    return fetch('api/transactions/user_currency_order_api.php?_t=' + Date.now(), { cache: 'no-cache' })
         .then(res => res.text())
         .then(text => {
             try {
@@ -564,7 +564,7 @@ function loadMemberCurrencyOrder() {
 }
 
 function saveMemberCurrencyOrder(order) {
-    return fetch('api/transactions/member_currency_order_api.php', {
+    return fetch('api/transactions/user_currency_order_api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: order })

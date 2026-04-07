@@ -1324,14 +1324,16 @@ function loadCompanyCurrencies() {
     
     console.log('🔍 加载 Currency，URL:', url, 'currentCompanyId:', currentCompanyId);
     
-    return fetch(url)
-        .then(response => {
+    return Promise.all([
+        fetch(url).then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
-        })
-        .then(data => {
+        }),
+        fetch(`/api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
+    ])
+        .then(([data, orderData]) => {
             console.log('🔍 Currency API 返回:', {
                 success: data.success,
                 dataLength: data.data?.length || 0,
@@ -1344,9 +1346,14 @@ function loadCompanyCurrencies() {
                 const savedGlobalOrderKey = 'transaction_currency_order_global';
                 let orderedData = [...data.data];
                 try {
-                    const saved = localStorage.getItem(savedOrderKey)
-                        || localStorage.getItem(savedGlobalOrderKey)
-                        || localStorage.getItem('dashboard_currency_order_global');
+                    let saved = null;
+                    if (orderData && orderData.success && Array.isArray(orderData.data?.order) && orderData.data.order.length > 0) {
+                        saved = JSON.stringify(orderData.data.order);
+                    } else {
+                        saved = localStorage.getItem(savedOrderKey)
+                            || localStorage.getItem(savedGlobalOrderKey)
+                            || localStorage.getItem('dashboard_currency_order_global');
+                    }
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
@@ -1623,6 +1630,13 @@ function initCurrencyDragDrop() {
             localStorage.setItem('transaction_currency_order_global', JSON.stringify(newOrder));
             const defaultKey = 'transaction_default_currency_' + (currentCompanyId || 0);
             localStorage.setItem(defaultKey, String(newOrder[0] || '').trim().toUpperCase());
+            
+            // 同时永久保存到数据库
+            fetch('/api/transactions/user_currency_order_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: newOrder })
+            }).catch(err => console.error('Failed to save currency order to DB:', err));
         } catch (err) { /* ignore */ }
     });
 }

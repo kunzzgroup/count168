@@ -1895,20 +1895,26 @@ function loadCurrencies() {
         if (wrapper) wrapper.style.display = 'none';
         return Promise.resolve();
     }
-    return fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${window.companyId}`))
-        .then(response => response.json())
-        .then(data => {
+    return Promise.all([
+        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${window.companyId}`)).then(res => res.json()),
+        fetch(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
+    ])
+        .then(([data, orderData]) => {
             const wrapper = document.getElementById('currency-buttons-wrapper');
             const container = document.getElementById('currency-buttons-container');
             if (!wrapper || !container) return;
             container.innerHTML = '';
-            if (data.success && data.data && data.data.length > 0) {
-                // 应用保存的拖动顺序（与 Transaction List 一致）
+            if (data && data.success && data.data && data.data.length > 0) {
+                // 应用保存的拖动顺序（数据库优先，如果没有再尝试 localStorage，Transaction 页拖动也会互相同步 localStorage）
                 const savedOrderKey = 'dashboard_currency_order_' + (window.companyId || 0);
                 let orderedData = [...data.data];
                 try {
-                    // 不用 transaction_currency_order_global：Transaction 页拖动会写该 key，会盖掉 Dashboard 专属顺序
-                    const saved = localStorage.getItem(savedOrderKey) || localStorage.getItem('dashboard_currency_order_global');
+                    let saved = null;
+                    if (orderData && orderData.success && Array.isArray(orderData.data?.order) && orderData.data.order.length > 0) {
+                        saved = JSON.stringify(orderData.data.order);
+                    } else {
+                        saved = localStorage.getItem(savedOrderKey) || localStorage.getItem('dashboard_currency_order_global');
+                    }
                     if (saved) {
                         const order = JSON.parse(saved);
                         if (Array.isArray(order) && order.length > 0) {
@@ -2018,6 +2024,13 @@ function initDashboardCurrencyDragDrop() {
             // 与 Transaction 列表共用同公司顺序，避免另一页拖动后全局 key 与 Dashboard 预期不一致
             localStorage.setItem('transaction_currency_order_' + cid, serialized);
             localStorage.setItem('transaction_currency_order_global', serialized);
+
+            // 同时永久保存到数据库
+            fetch('api/transactions/user_currency_order_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: newOrder })
+            }).catch(err => console.error('Failed to save currency order to DB:', err));
         } catch (err) { /* ignore */ }
         const first = newOrder[0];
         if (first) {
