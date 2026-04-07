@@ -29,6 +29,13 @@ body.process-page {
     overflow: hidden;
 }
 
+/* Bank Process List：主区域可纵向滚动 + 底部留白，避免分页贴任务栏或被裁切（不影响 Games 版 Process List） */
+.process-page.process-page--bank .container {
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 32px;
+}
+
 .process-page .page-header {
     display: none;
 }
@@ -669,117 +676,6 @@ body.process-page {
     border: 0.0625rem solid #e0e0e0;
 }
 
-/* Bank Process List 专页：无整页/表内纵向滚动；flex 把剩余高度给表格，略压缩行高与留白，使 20 行 + 分页落在 100vh 内（Games 不受影响） */
-.process-page.process-page--bank .container {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    max-height: 100vh;
-    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
-}
-
-.process-page.process-page--bank .content {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.process-page.process-page--bank .bank-table-wrapper {
-    flex: 1 1 auto;
-    min-height: 0;
-    align-self: stretch;
-    margin-top: 10px;
-    max-height: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-}
-
-.process-page.process-page--bank .bank-data-table {
-    height: 100%;
-    max-height: 100%;
-    width: 100%;
-    font-size: clamp(10px, 0.72vw, 13px);
-}
-
-.process-page.process-page--bank .bank-data-table thead {
-    font-size: clamp(9px, 0.62vw, 14px);
-}
-
-.process-page.process-page--bank .bank-data-table td {
-    line-height: 1.12;
-    padding: 0 3px;
-}
-
-.process-page.process-page--bank .bank-data-table th {
-    padding: 0 3px;
-}
-
-.process-page.process-page--bank .bank-status-button {
-    min-height: 19px;
-    padding: 2px 7px;
-    line-height: 1;
-    background-size: 12px 12px;
-    background-position: right 6px center;
-}
-
-.process-page.process-page--bank .contract-badge {
-    padding: 0 clamp(3px, 0.35vw, 6px);
-    font-size: clamp(6px, 0.55vw, 11px);
-}
-
-.process-page.process-page--bank .content > div:first-child {
-    margin-top: 12px !important;
-    margin-bottom: 10px !important;
-}
-
-.process-page.process-page--bank .action-buttons-container {
-    margin-top: 12px;
-}
-
-.process-page.process-page--bank .action-buttons {
-    padding: 8px 16px;
-}
-
-.process-page.process-page--bank .pagination-container {
-    flex-shrink: 0;
-    margin-top: 6px;
-    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
-}
-
-@media (max-height: 820px) {
-
-    .process-page.process-page--bank .bank-data-table {
-        font-size: clamp(9px, 0.68vw, 12px);
-    }
-
-    .process-page.process-page--bank .bank-data-table td {
-        line-height: 1.08;
-    }
-
-    .process-page.process-page--bank .content > div:first-child {
-        margin-top: 8px !important;
-        margin-bottom: 6px !important;
-    }
-
-    .process-page.process-page--bank .action-buttons {
-        padding: 6px 12px;
-    }
-}
-
-@media (max-height: 720px) {
-
-    .process-page.process-page--bank .bank-data-table {
-        font-size: clamp(8px, 0.62vw, 11px);
-    }
-
-    .process-page.process-page--bank .bank-status-button {
-        min-height: 17px;
-        padding: 1px 6px;
-    }
-}
-
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;
@@ -1255,6 +1151,12 @@ body.process-page {
     width: clamp(30px, 3.13vw, 60px);
     text-align: center;
 }
+
+.process-page.process-page--bank .pagination-container {
+    margin-top: 10px;
+    margin-bottom: 16px;
+}
+
 
 /* Animation */
 @keyframes fadeIn {
