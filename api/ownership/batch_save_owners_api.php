@@ -59,6 +59,14 @@ $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_typ
 try {
     $pdo->beginTransaction();
 
+    // Preserve existing partner_group_id
+    $existingGroups = [];
+    $stmtGroups = $pdo->prepare("SELECT account_id, partner_group_id FROM company_ownership WHERE company_id = ? AND owner_type = 'owner'");
+    $stmtGroups->execute([$company_id]);
+    while ($row = $stmtGroups->fetch(PDO::FETCH_ASSOC)) {
+        $existingGroups[$row['account_id']] = $row['partner_group_id'];
+    }
+
     // Remove all existing owners for this company
     $stmt = $pdo->prepare("DELETE FROM company_ownership WHERE company_id = ?");
     $stmt->execute([$company_id]);
@@ -67,8 +75,8 @@ try {
     if (count($owners) > 0) {
         if ($hasOwnerType) {
             $insertStmt = $pdo->prepare("
-                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, partner_group_id)
+                VALUES (?, ?, ?, ?, ?)
             ");
         } else {
             $insertStmt = $pdo->prepare("
@@ -94,7 +102,11 @@ try {
             }
 
             if ($hasOwnerType) {
-                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage']]);
+                $pgid = null;
+                if ($owner_type === 'owner' && isset($existingGroups[(int)$real_id])) {
+                    $pgid = $existingGroups[(int)$real_id];
+                }
+                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid]);
             } else {
                 // If migration hasn't run, we must drop Users so it doesn't crash, or attempt.
                 // In a perfect world, migration is run first. If not, only save numbers.
