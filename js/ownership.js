@@ -444,7 +444,7 @@ function showToast(message, type = 'success') {
 // External Partner Linking
 // ---------------------------------------------
 
-function linkExternalPartner(companyId, event) {
+function linkExternalPartner(companyId, event, forceType = '') {
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);
     const loginId = loginIdInput.value.trim();
     if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }
@@ -456,7 +456,7 @@ function linkExternalPartner(companyId, event) {
     fetch('api/ownership/add_external_partner_api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company_id: companyId, login_id: loginId })
+        body: JSON.stringify({ company_id: companyId, login_id: loginId, force_type: forceType })
     })
     .then(res => res.json())
     .then(res => {
@@ -467,6 +467,8 @@ function linkExternalPartner(companyId, event) {
             loginIdInput.value = '';
             cancelEdit(companyId, true);
             setTimeout(() => toggleCard(companyId, null), 300);
+        } else if (res.status === 'conflict') {
+            showConflictModal(companyId, event, res.data);
         } else {
             showToast(res.message, 'error');
         }
@@ -477,4 +479,41 @@ function linkExternalPartner(companyId, event) {
         console.error(err);
         showToast('Server error', 'error');
     });
+}
+
+// ---------------------------------------------
+// Conflict Modal
+// ---------------------------------------------
+
+function showConflictModal(companyId, event, data) {
+    const tpl = document.getElementById('tpl-conflict-modal');
+    if (!tpl) return;
+    
+    const clone = tpl.content.cloneNode(true);
+    const overlay = clone.querySelector('.own-modal-overlay');
+
+    // Populate data
+    clone.querySelector('[data-bind="login-name"]').textContent = data.login_partner;
+    clone.querySelector('[data-bind="group-name"]').textContent = data.group_partner;
+
+    // Attach events
+    clone.querySelector('[data-action="choose-login"]').addEventListener('click', () => {
+        closeModal();
+        linkExternalPartner(companyId, event, 'login');
+    });
+
+    clone.querySelector('[data-action="choose-group"]').addEventListener('click', () => {
+        closeModal();
+        linkExternalPartner(companyId, event, 'group');
+    });
+
+    clone.querySelector('[data-action="cancel-conflict"]').addEventListener('click', closeModal);
+
+    function closeModal() {
+        if (overlay && overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+    }
+
+    document.body.appendChild(overlay);
 }

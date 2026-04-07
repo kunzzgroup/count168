@@ -601,6 +601,69 @@ body {
     border-color: #fecaca;
 }
 
+/* Conflict Modal */
+.own-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.own-modal {
+    background: #fff;
+    width: 400px;
+    max-width: 90%;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    overflow: hidden;
+    font-family: inherit;
+}
+.own-modal-header {
+    background: #f8fafc;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.own-modal-title {
+    margin: 0;
+    font-size: 16px;
+    color: #1e293b;
+    font-weight: 600;
+}
+.own-modal-body {
+    padding: 20px;
+}
+.own-modal-desc {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.5;
+}
+.own-modal-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.own-btn-conflict {
+    height: auto;
+    padding: 12px;
+    text-align: left;
+    line-height: 1.4;
+    white-space: normal;
+    border-color: #cbd5e1;
+}
+.own-btn-conflict:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+.own-modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+}
+
 /* Over Limit Header State */
 .own-over-limit {
     color: var(--own-danger-red) !important;

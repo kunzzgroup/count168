@@ -12,6 +12,7 @@ if (!isset($_SESSION['user_id'])) {
 $data = json_decode(file_get_contents('php://input'), true);
 $company_id = intval($data['company_id'] ?? 0);
 $login_or_group_id = trim($data['login_id'] ?? '');
+$force_type = trim($data['force_type'] ?? '');
 
 if (!$company_id || !$login_or_group_id) {
     echo json_encode(['status' => 'error', 'message' => 'Valid Company ID and Login ID/Group ID are required']);
@@ -19,26 +20,52 @@ if (!$company_id || !$login_or_group_id) {
 }
 
 try {
-    // 1. First, try to find the owner by their Login ID (owner_code)
-    $stmt = $pdo->prepare("SELECT id, name FROM owner WHERE UPPER(owner_code) = UPPER(?) AND status = 'active'");
-    $stmt->execute([$login_or_group_id]);
-    $partner = $stmt->fetch(PDO::FETCH_ASSOC);
-    $matched_by_group = null;
+    // 1. Check for Login ID (owner_code) match
+    $partnerByLogin = null;
+    if ($force_type === '' || $force_type === 'login') {
+        $stmtLogin = $pdo->prepare("SELECT id, name, owner_code FROM owner WHERE UPPER(owner_code) = UPPER(?) AND status = 'active'");
+        $stmtLogin->execute([$login_or_group_id]);
+        $partnerByLogin = $stmtLogin->fetch(PDO::FETCH_ASSOC);
+    }
 
-    // 2. If not found, try to find the owner by Group ID in the company table
-    if (!$partner) {
+    // 2. Check for Group ID match
+    $partnerByGroup = null;
+    if ($force_type === '' || $force_type === 'group') {
         $stmtGrp = $pdo->prepare("
-            SELECT o.id, o.name 
+            SELECT o.id, o.name, c.group_id 
             FROM company c
             JOIN owner o ON c.owner_id = o.id
             WHERE UPPER(c.group_id) = UPPER(?) AND o.status = 'active'
             LIMIT 1
         ");
         $stmtGrp->execute([$login_or_group_id]);
-        $partner = $stmtGrp->fetch(PDO::FETCH_ASSOC);
-        if ($partner) {
-            $matched_by_group = strtoupper($login_or_group_id);
+        $partnerByGroup = $stmtGrp->fetch(PDO::FETCH_ASSOC);
+    }
+
+    $partner = null;
+    $matched_by_group = null;
+
+    if ($partnerByLogin && $partnerByGroup) {
+        if ($partnerByLogin['id'] !== $partnerByGroup['id']) {
+            // Collision: ID is used by two different people
+            echo json_encode([
+                'status' => 'conflict', 
+                'message' => 'Multiple matches found.',
+                'data' => [
+                    'login_partner' => $partnerByLogin['name'] . ' (' . $partnerByLogin['owner_code'] . ')',
+                    'group_partner' => $partnerByGroup['name'] . ' (Group: ' . $partnerByGroup['group_id'] . ')'
+                ]
+            ]);
+            exit();
         }
+        // Same person: Treat as Group ID match so the group gets assigned
+        $partner = $partnerByGroup;
+        $matched_by_group = strtoupper($login_or_group_id);
+    } elseif ($partnerByGroup) {
+        $partner = $partnerByGroup;
+        $matched_by_group = strtoupper($login_or_group_id);
+    } elseif ($partnerByLogin) {
+        $partner = $partnerByLogin;
     }
 
     if (!$partner) {

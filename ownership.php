@@ -153,6 +153,31 @@ $assetVer = function ($file) {
 
 
 
+    <!-- Conflict Resolution Modal -->
+    <template id="tpl-conflict-modal">
+        <div class="own-modal-overlay">
+            <div class="own-modal">
+                <div class="own-modal-header">
+                    <h3 class="own-modal-title">Multiple Matches Found</h3>
+                </div>
+                <div class="own-modal-body">
+                    <p class="own-modal-desc">This ID is used by two different partners. Which one do you want to link?</p>
+                    <div class="own-modal-options">
+                        <button class="own-btn-outline own-btn-conflict" data-action="choose-login">
+                            Link as Login ID:<br><strong data-bind="login-name"></strong>
+                        </button>
+                        <button class="own-btn-outline own-btn-conflict" data-action="choose-group">
+                            Join Group:<br><strong data-bind="group-name"></strong>
+                        </button>
+                    </div>
+                </div>
+                <div class="own-modal-footer">
+                    <button class="own-footer-btn own-btn-cancel" data-action="cancel-conflict">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <!-- Toast Notification -->
     <div id="ownToast" class="own-toast">
         <div id="ownToastIcon"></div>
