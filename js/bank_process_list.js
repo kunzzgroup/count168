@@ -1440,18 +1440,52 @@ async function postToTransactionSelected() {
 
 // 执行状态切换（API + 本地更新）
 async function performToggleStatus(processId) {
-    const formData = new FormData();
-    formData.append('id', processId);
-    if (selectedPermission === 'Bank') {
-        formData.append('permission', 'Bank');
-    }
-    const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
-        method: 'POST',
-        body: formData
-    });
-    const result = await response.json();
+    try {
+        const formData = new FormData();
+        formData.append('id', processId);
 
-    if (result.success) {
+        // Bank list page may rely on body class even before selectedPermission settles
+        const isBank = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
+        if (isBank) {
+            formData.append('permission', 'Bank');
+        }
+
+        const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            let msg = 'Status toggle failed';
+            try {
+                const errJson = await response.json();
+                msg = errJson?.error || errJson?.message || msg;
+            } catch (_) {
+                try {
+                    const txt = await response.text();
+                    if (txt && txt.trim()) msg = txt.trim();
+                } catch (_) { /* ignore */ }
+            }
+            showNotification(msg, 'danger');
+            return;
+        }
+
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (parseErr) {
+            // Backend updated but response was not valid JSON (e.g. warning output). Treat as success and refresh.
+            console.warn('toggle status: invalid JSON response, refreshing list', parseErr);
+            await fetchProcesses();
+            showNotification('Status updated', 'success');
+            return;
+        }
+
+        if (!result || result.success !== true) {
+            showNotification((result && (result.error || result.message)) || 'Status toggle failed', 'danger');
+            return;
+        }
+
         const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
         const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
         const process = processes.find(p => p.id === processId);
@@ -1544,8 +1578,9 @@ async function performToggleStatus(processId) {
 
         const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
         showNotification(`Process status changed to ${statusText}`, 'success');
-    } else {
-        showNotification(result.error || 'Status toggle failed', 'danger');
+    } catch (e) {
+        console.error('performToggleStatus error:', e);
+        showNotification('Status toggle failed', 'danger');
     }
 }
 
