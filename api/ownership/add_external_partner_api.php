@@ -19,11 +19,6 @@ if (!$company_id || !$login_or_group_id) {
 }
 
 try {
-    // Try adding partner_group_id column if it doesn't exist
-    try {
-        $pdo->exec("ALTER TABLE company_ownership ADD COLUMN partner_group_id VARCHAR(50) DEFAULT NULL");
-    } catch (Exception $e) {}
-
     // 1. First, try to find the owner by their Login ID (owner_code)
     $stmt = $pdo->prepare("SELECT id, name FROM owner WHERE UPPER(owner_code) = UPPER(?) AND status = 'active'");
     $stmt->execute([$login_or_group_id]);
@@ -71,9 +66,15 @@ try {
         exit();
     }
 
-    // 3. Link by inserting a 0% entry into company_ownership with the matched group
-    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id) VALUES (?, 'owner', ?, 0, ?)");
-    $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
+    // 3. Link by inserting a 0% entry into company_ownership
+    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage) VALUES (?, 'owner', ?, 0)");
+    $stmtInsert->execute([$company_id, $partnerId]);
+
+    // 4. If matched by Group ID, physically update the company's group_id so it completely joins the other person's group
+    if ($matched_by_group) {
+        $stmtUpdateGrp = $pdo->prepare("UPDATE company SET group_id = ? WHERE id = ?");
+        $stmtUpdateGrp->execute([$matched_by_group, $company_id]);
+    }
 
     echo json_encode([
         'status' => 'success',
