@@ -307,6 +307,12 @@ function normalizeBankFilterState() {
         showEInvoice = false;
         showBlock = false;
     }
+    if (showInactive) {
+        // Show Inactive should only display pure INACTIVE rows
+        showOfficial = false;
+        showEInvoice = false;
+        showBlock = false;
+    }
     syncBankFilterCheckboxes();
 }
 
@@ -521,7 +527,8 @@ function matchesCurrentBankFilters(process) {
     const status = String(process.status || '').toLowerCase();
     const issueFlag = normalizeBankIssueFlag(process.issue_flag);
     const matches = [];
-    if (showInactive) matches.push(status === 'inactive');
+    const isPlainInactive = status === 'inactive' && issueFlag !== 'official' && issueFlag !== 'e_invoice' && issueFlag !== 'block';
+    if (showInactive) matches.push(isPlainInactive);
     if (showOfficial) matches.push(issueFlag === 'official');
     if (showEInvoice) matches.push(issueFlag === 'e_invoice');
     if (showBlock) matches.push(issueFlag === 'block');
