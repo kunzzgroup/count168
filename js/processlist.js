@@ -2277,7 +2277,12 @@ async function confirmInactive() {
         // 无论目标是 Active 还是 Inactive，都交给同一个切换函数处理
         await performToggleStatus(processId);
         if (pendingStatusSelection && pendingStatusSelection.processId === processId) {
-            await updateBankIssueFlag(processId, '', { silent: true });
+            try {
+                await updateBankIssueFlag(processId, '', { silent: true });
+            } catch (flagError) {
+                // 状态切换已成功时，不因清空 issue_flag 失败而提示整体失败，避免误报
+                console.warn('Status changed but clearing issue_flag failed:', flagError);
+            }
         }
     } catch (error) {
         console.error('Error:', error);
