@@ -444,9 +444,19 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                     break;
                 }
+                // 与 process_accounting_inbox_api：同月内「应付早于创建」仍入账并比例摊分，勿整月跳过
                 if ($due < $createdYmd) {
-                    $iter = $iter->modify('+1 month');
-                    continue;
+                    try {
+                        $billYm = $iter->format('Y-n');
+                        $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                        if ($billYm !== $createdYmOnly) {
+                            $iter = $iter->modify('+1 month');
+                            continue;
+                        }
+                    } catch (Throwable $e) {
+                        $iter = $iter->modify('+1 month');
+                        continue;
+                    }
                 }
                 if ($today >= $due
                     && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
