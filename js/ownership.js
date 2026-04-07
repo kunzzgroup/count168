@@ -447,7 +447,7 @@ function showToast(message, type = 'success') {
 function linkExternalPartner(companyId, event) {
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);
     const loginId = loginIdInput.value.trim();
-    if (!loginId) { showToast('Please enter a Partner Login ID', 'error'); return; }
+    if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }
 
     const btn = event.target.closest('[data-action="link-partner"]');
     btn.disabled = true;

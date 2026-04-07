@@ -96,7 +96,7 @@ $assetVer = function ($file) {
                         </div>
                         <div class="own-partner-actions">
                             <input type="text" class="own-partner-input" data-bind="partner-input"
-                                placeholder="Partner Login ID" autocomplete="off">
+                                placeholder="Login ID/Group ID" autocomplete="off">
                             <button class="own-partner-link-btn" data-action="link-partner">Link Partner</button>
                         </div>
                     </div>

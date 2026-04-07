@@ -11,21 +11,43 @@ if (!isset($_SESSION['user_id'])) {
 
 $data = json_decode(file_get_contents('php://input'), true);
 $company_id = intval($data['company_id'] ?? 0);
-$owner_code = trim($data['login_id'] ?? '');
+$login_or_group_id = trim($data['login_id'] ?? '');
 
-if (!$company_id || !$owner_code) {
-    echo json_encode(['status' => 'error', 'message' => 'Valid Company ID and Partner Login ID are required']);
+if (!$company_id || !$login_or_group_id) {
+    echo json_encode(['status' => 'error', 'message' => 'Valid Company ID and Login ID/Group ID are required']);
     exit();
 }
 
 try {
-    // 1. Check if the owner exists based on owner_code
-    $stmt = $pdo->prepare("SELECT id, name FROM owner WHERE owner_code = ? AND status = 'active'");
-    $stmt->execute([$owner_code]);
+    // Try adding partner_group_id column if it doesn't exist
+    try {
+        $pdo->exec("ALTER TABLE company_ownership ADD COLUMN partner_group_id VARCHAR(50) DEFAULT NULL");
+    } catch (Exception $e) {}
+
+    // 1. First, try to find the owner by their Login ID (owner_code)
+    $stmt = $pdo->prepare("SELECT id, name FROM owner WHERE UPPER(owner_code) = UPPER(?) AND status = 'active'");
+    $stmt->execute([$login_or_group_id]);
     $partner = $stmt->fetch(PDO::FETCH_ASSOC);
+    $matched_by_group = null;
+
+    // 2. If not found, try to find the owner by Group ID in the company table
+    if (!$partner) {
+        $stmtGrp = $pdo->prepare("
+            SELECT o.id, o.name 
+            FROM company c
+            JOIN owner o ON c.owner_id = o.id
+            WHERE UPPER(c.group_id) = UPPER(?) AND o.status = 'active'
+            LIMIT 1
+        ");
+        $stmtGrp->execute([$login_or_group_id]);
+        $partner = $stmtGrp->fetch(PDO::FETCH_ASSOC);
+        if ($partner) {
+            $matched_by_group = strtoupper($login_or_group_id);
+        }
+    }
 
     if (!$partner) {
-        echo json_encode(['status' => 'error', 'message' => 'Owner account not found or inactive']);
+        echo json_encode(['status' => 'error', 'message' => 'Owner account or Group ID not found or inactive']);
         exit();
     }
 
@@ -49,9 +71,9 @@ try {
         exit();
     }
 
-    // 3. Link by inserting a 0% entry into company_ownership
-    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage) VALUES (?, 'owner', ?, 0)");
-    $stmtInsert->execute([$company_id, $partnerId]);
+    // 3. Link by inserting a 0% entry into company_ownership with the matched group
+    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id) VALUES (?, 'owner', ?, 0, ?)");
+    $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
 
     echo json_encode([
         'status' => 'success',
