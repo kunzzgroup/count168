@@ -230,6 +230,18 @@ function normalizeBankFilterState() {
         showBlock = false;
     }
     syncBankFilterCheckboxes();
+    updateBankListScrollMode();
+}
+
+/** Bank + Show All：仅此时允许表格区域纵向滚动；否则保持原样（分页、表格外不滚） */
+function updateBankListScrollMode() {
+    if (!document.body) return;
+    const onBank = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
+    if (onBank && showAll) {
+        document.body.classList.add('process-page--bank-show-all');
+    } else {
+        document.body.classList.remove('process-page--bank-show-all');
+    }
 }
 
 function normalizeBankIssueFlag(value) {
@@ -652,6 +664,7 @@ async function fetchProcesses() {
             if (currentPage > totalPages) currentPage = totalPages;
             renderTable();
             renderPagination();
+            updateBankListScrollMode();
             if (selectedPermission === 'Bank') {
                 const bankModule = getBankProcessModule();
                 if (bankModule && typeof bankModule.loadAccountingInbox === 'function') {
@@ -2264,7 +2277,12 @@ async function confirmInactive() {
         // 无论目标是 Active 还是 Inactive，都交给同一个切换函数处理
         await performToggleStatus(processId);
         if (pendingStatusSelection && pendingStatusSelection.processId === processId) {
-            await updateBankIssueFlag(processId, '', { silent: true });
+            try {
+                await updateBankIssueFlag(processId, '', { silent: true });
+            } catch (flagError) {
+                // 状态切换已成功时，不因清空 issue_flag 失败而提示整体失败，避免误报
+                console.warn('Status changed but clearing issue_flag failed:', flagError);
+            }
         }
     } catch (error) {
         console.error('Error:', error);
@@ -6242,6 +6260,8 @@ function switchPermission(permission) {
     if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
         window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
     }
+
+    updateBankListScrollMode();
 
     // 重新加载数据
     currentPage = 1;
