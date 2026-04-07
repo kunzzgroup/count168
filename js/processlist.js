@@ -230,6 +230,18 @@ function normalizeBankFilterState() {
         showBlock = false;
     }
     syncBankFilterCheckboxes();
+    updateBankListScrollMode();
+}
+
+/** Bank + Show All：仅此时允许表格区域纵向滚动；否则保持原样（分页、表格外不滚） */
+function updateBankListScrollMode() {
+    if (!document.body) return;
+    const onBank = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
+    if (onBank && showAll) {
+        document.body.classList.add('process-page--bank-show-all');
+    } else {
+        document.body.classList.remove('process-page--bank-show-all');
+    }
 }
 
 function normalizeBankIssueFlag(value) {
@@ -652,6 +664,7 @@ async function fetchProcesses() {
             if (currentPage > totalPages) currentPage = totalPages;
             renderTable();
             renderPagination();
+            updateBankListScrollMode();
             if (selectedPermission === 'Bank') {
                 const bankModule = getBankProcessModule();
                 if (bankModule && typeof bankModule.loadAccountingInbox === 'function') {
@@ -6242,6 +6255,8 @@ function switchPermission(permission) {
     if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
         window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
     }
+
+    updateBankListScrollMode();
 
     // 重新加载数据
     currentPage = 1;
