@@ -737,6 +737,36 @@
     overflow: hidden !important; /* Force modal scrolling to be handled by body */
 }
 
+/* Bank modal body: flex column so action buttons stay pinned at bottom */
+#addBankModal .modal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* allow flex child to shrink */
+}
+
+/* The bank form itself: flex column, scrollable fields area + fixed action bar */
+#addBankModal .bank-form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+}
+
+/* Wrap all .bank-form-row elements in a scrollable area */
+#addBankModal .bank-form .bank-form-row {
+    flex-shrink: 0; /* rows don't shrink */
+}
+
+/* The action buttons bar: always visible, never scrolled away */
+#addBankModal .bank-form .bank-actions {
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    background: #ffffff;
+    z-index: 10;
+    margin-top: auto; /* push to bottom */
+}
+
 .bank-form {
     display: flex;
     flex-direction: column;
@@ -1213,6 +1243,7 @@
 #addBankModal .modal-body {
     overflow-y: auto !important;
     flex: 1;
+    min-height: 0; /* critical for flex overflow to work */
 }
 
 #addBankModal .custom-select-wrapper {
