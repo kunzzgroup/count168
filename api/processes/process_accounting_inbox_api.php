@@ -31,10 +31,48 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool
     return $stmt->rowCount() > 0;
 }
 
+/**
+ * 与 process_post_to_transaction_api::bankProcessDateFieldToYmd 一致：优先 d/m/Y，避免 01/04/2026 被 strtotime 当成美式 1 月 4 日，
+ * 从而导致「day_start 在 1 号」分支永远不命中、Resend 后当月进不了 Accounting Due。
+ */
+function inboxBankProcessDateFieldToYmd($raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    $dateStr = str_replace('/', '-', $s);
+    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+        $dateStr .= '-' . date('Y');
+    }
+    $ts = strtotime($dateStr);
+    return $ts !== false ? date('Y-m-d', $ts) : null;
+}
+
 /** Pro-rated cost/price/profit for partial first month: day_start to end of that month */
 function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, float $profit): array
 {
-    $ts = strtotime($dayStart);
+    $norm = inboxBankProcessDateFieldToYmd($dayStart);
+    $ts = $norm !== null ? strtotime($norm) : strtotime($dayStart);
     if ($ts === false) {
         return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
     }
@@ -166,10 +204,19 @@ function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract
  */
 function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, ?string $contract, ?string $dayEndYmd, ?string $frequency = null): bool
 {
-    if ($dayStartYmd === null || $dayStartYmd === '' || strtotime($dayStartYmd) === false) {
+    if ($dayStartYmd === null || trim($dayStartYmd) === '') {
         return true;
     }
-    $start = date('Y-m-d', strtotime($dayStartYmd));
+    $normStart = inboxBankProcessDateFieldToYmd($dayStartYmd);
+    if ($normStart !== null) {
+        $start = $normStart;
+    } else {
+        $ts0 = strtotime($dayStartYmd);
+        if ($ts0 === false) {
+            return true;
+        }
+        $start = date('Y-m-d', $ts0);
+    }
     if ($todayYmd < $start) {
         return false;
     }
@@ -498,11 +545,14 @@ try {
             if (empty($dayStart)) {
                 continue;
             }
-            if (strtotime($dayStart) === false) {
+            $startDate = inboxBankProcessDateFieldToYmd($dayStart);
+            if ($startDate === null) {
                 continue;
             }
-            $startTs = strtotime($dayStart);
-            $startDate = date('Y-m-d', $startTs);
+            $startTs = strtotime($startDate);
+            if ($startTs === false) {
+                continue;
+            }
             if ($today < $startDate) {
                 continue;
             }
@@ -559,8 +609,18 @@ try {
         $need = false;
         $monthlyBillingMonth = null;
         $createdYmd = createdYmdOrFallbackToday($r, $today);
-        $startTs = (!empty($dayStart)) ? strtotime($dayStart) : false;
-        $startDate = $startTs !== false ? date('Y-m-d', $startTs) : '';
+        $startDate = '';
+        $startTs = false;
+        if (!empty($dayStart)) {
+            $parsedStart = inboxBankProcessDateFieldToYmd($dayStart);
+            if ($parsedStart !== null) {
+                $tsParsed = strtotime($parsedStart);
+                if ($tsParsed !== false) {
+                    $startDate = $parsedStart;
+                    $startTs = $tsParsed;
+                }
+            }
+        }
         $contract = $r['contract'] ?? null;
         $dayEnd = $r['day_end'] ?? null;
 
@@ -768,10 +828,13 @@ try {
                 continue;
             }
             $dayStart = $r['day_start'] ?? null;
-            if (empty($dayStart) || strtotime($dayStart) === false) {
+            if (empty($dayStart)) {
                 continue;
             }
-            $startDate = date('Y-m-d', strtotime($dayStart));
+            $startDate = inboxBankProcessDateFieldToYmd($dayStart);
+            if ($startDate === null) {
+                continue;
+            }
             $dayEndInc = date('Y-m-d', strtotime($dayEndRaw));
             $contract = $r['contract'] ?? null;
             $term = getBillingTermMonthsFromContract($contract);
@@ -786,11 +849,8 @@ try {
             if (isDayEndTailAlreadyPosted($pdo, $company_id, $processId)) {
                 continue;
             }
-            $startTs = strtotime($dayStart);
-            $startDayOfMonth = $startTs !== false ? (int) date('j', $startTs) : 1;
-            if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType)) {
-                continue;
-            }
+            $startTsNorm = strtotime($startDate);
+            $startDayOfMonth = $startTsNorm !== false ? (int) date('j', $startTsNorm) : 1;
             if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType)) {
                 continue;
             }
@@ -839,7 +899,7 @@ try {
     $inactivePending = fetchInactiveBankProcessesPendingTransaction($pdo, $company_id, $hasPeriodType, $hasIssueFlagColumn, $hasFlagColumn);
     foreach ($inactivePending as $r) {
         $miDayStart = $r['day_start'] ?? null;
-        if (empty($miDayStart) || strtotime((string) $miDayStart) === false) {
+        if (empty($miDayStart) || inboxBankProcessDateFieldToYmd((string) $miDayStart) === null) {
             continue;
         }
         $needToday[] = [
