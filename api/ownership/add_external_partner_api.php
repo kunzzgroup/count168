@@ -40,7 +40,7 @@ try {
             SELECT o.id, o.name, c.group_id 
             FROM company c
             JOIN owner o ON c.owner_id = o.id
-            WHERE UPPER(c.group_id) = UPPER(?) AND id != ? AND o.status = 'active'
+            WHERE UPPER(c.group_id) = UPPER(?) AND o.id != ? AND o.status = 'active'
             LIMIT 1
         ");
         $stmtGrp->execute([$login_or_group_id, $nativeOwner]);
