@@ -42,9 +42,10 @@ try {
                        END, 
                        co.account_id
                    ) as account_id,
-                   COALESCE(a.account_id, o.owner_code, u.login_id) as account_name,
+                   COALESCE(co.partner_group_id, a.account_id, o.owner_code, u.login_id) as account_name,
                    COALESCE(a.name, o.name, u.name) as name,
-                   COALESCE(a.role, 'OWNER', u.role) as role
+                   COALESCE(a.role, 'OWNER', u.role) as role,
+                   co.partner_group_id
             FROM company_ownership co
             LEFT JOIN account a ON co.account_id = a.id AND co.owner_type = 'account'
             LEFT JOIN owner o ON co.account_id = o.id AND co.owner_type = 'owner'
@@ -57,7 +58,8 @@ try {
         $stmt = $pdo->prepare("
             SELECT co.id as ownership_id, co.percentage, 'account' as owner_type,
                    CONCAT('A_', co.account_id) as account_id,
-                   a.account_id as account_name, a.name, a.role
+                   a.account_id as account_name, a.name, a.role,
+                   NULL as partner_group_id
             FROM company_ownership co
             JOIN account a ON co.account_id = a.id
             WHERE co.company_id = ?

@@ -27,7 +27,9 @@ try {
 
         // Fetch native owner and any linked external partners
         $stmtOwner = $pdo->prepare("
-            SELECT DISTINCT CONCAT('O_', o.id) as id, o.owner_code as account_name, o.name, 'OWNER' as role, 'owner' as type
+            SELECT DISTINCT CONCAT('O_', o.id) as id, 
+                   COALESCE(co.partner_group_id, o.owner_code) as account_name, 
+                   o.name, 'OWNER' as role, 'owner' as type
             FROM owner o
             LEFT JOIN company c ON o.id = c.owner_id AND c.id = :comp_id1
             LEFT JOIN company_ownership co ON o.id = co.account_id AND co.owner_type = 'owner' AND co.company_id = :comp_id2
