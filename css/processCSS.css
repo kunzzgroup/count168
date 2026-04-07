@@ -29,6 +29,13 @@ body.process-page {
     overflow: hidden;
 }
 
+/* Bank Process List：主区域可纵向滚动 + 底部留白，避免分页贴任务栏或被裁切（不影响 Games 版 Process List） */
+.process-page.process-page--bank .container {
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 32px;
+}
+
 .process-page .page-header {
     display: none;
 }
@@ -1144,6 +1151,11 @@ body.process-page {
     white-space: nowrap;
     width: clamp(30px, 3.13vw, 60px);
     text-align: center;
+}
+
+.process-page.process-page--bank .pagination-container {
+    margin-top: 10px;
+    margin-bottom: 16px;
 }
 
 
