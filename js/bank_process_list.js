@@ -517,6 +517,7 @@ if (!window.__bankStatusDropdownBound) {
 function matchesCurrentBankFilters(process) {
     if (!process) return false;
     if (!processMatchesSelectedDate(process)) return false;
+    if (showAll) return true;
     const status = String(process.status || '').toLowerCase();
     const issueFlag = normalizeBankIssueFlag(process.issue_flag);
     const matches = [];
@@ -702,10 +703,15 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
-    if (currentPage > totalPagesBank) currentPage = totalPagesBank;
-    startIndex = (currentPage - 1) * pageSize;
-    pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
+    if (showAll) {
+        startIndex = 0;
+        pageItems = listToShow;
+    } else {
+        const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
+        if (currentPage > totalPagesBank) currentPage = totalPagesBank;
+        startIndex = (currentPage - 1) * pageSize;
+        pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
+    }
 
     function dashIfEmpty(val) {
         if (val == null) return '-';

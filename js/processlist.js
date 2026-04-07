@@ -439,6 +439,7 @@ if (!window.__bankStatusDropdownBound) {
 function matchesCurrentBankFilters(process) {
     if (!process) return false;
     if (!processMatchesSelectedDate(process)) return false;
+    if (showAll) return true;
     const status = String(process.status || '').toLowerCase();
     const issueFlag = normalizeBankIssueFlag(process.issue_flag);
     const matches = [];
@@ -799,10 +800,15 @@ function renderBankTable() {
     }
 
     let pageItems, startIndex;
-    const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
-    if (currentPage > totalPagesBank) currentPage = totalPagesBank;
-    startIndex = (currentPage - 1) * pageSize;
-    pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
+    if (showAll) {
+        startIndex = 0;
+        pageItems = listToShow;
+    } else {
+        const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
+        if (currentPage > totalPagesBank) currentPage = totalPagesBank;
+        startIndex = (currentPage - 1) * pageSize;
+        pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
+    }
 
     function dashIfEmpty(val) {
         if (val == null) return '-';
@@ -869,7 +875,15 @@ function syncBankTableColumnWidth() {
 }
 
 function renderPagination() {
-    // showAll =「Show Active」筛选状态，与是否分页无关；始终显示分页（含 1 of 1）
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (!paginationContainer) return;
+
+    // Bank: Show All 时不分页且隐藏分页控件
+    if (selectedPermission === 'Bank' && showAll) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -884,11 +898,11 @@ function renderPagination() {
     document.getElementById('nextBtn').disabled = isNextDisabled;
 
     // 始终显示分页控件
-    const paginationContainer = document.getElementById('paginationContainer');
     paginationContainer.style.display = 'flex';
 }
 
 function goToPage(page) {
+    if (selectedPermission === 'Bank' && showAll) return;
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const newPage = Math.min(Math.max(1, page), totalPages);
