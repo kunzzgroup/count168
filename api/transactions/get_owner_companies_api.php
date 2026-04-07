@@ -33,7 +33,7 @@ function getCompaniesByOwner(PDO $pdo, int $ownerId): array {
         WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
         ORDER BY is_external ASC, c.company_id ASC
     ");
-    $stmt->execute([$ownerId, $ownerId, $ownerId, $ownerId, $ownerId]);
+    $stmt->execute([$ownerId, $ownerId, $ownerId, $ownerId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
