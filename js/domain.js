@@ -305,7 +305,7 @@ function setupInputFormatting() {
 
 // Company管理相关函数
 // 初始化 tempCompanies（在打开 Domain Modal 时调用）
-function initTempCompanies() {
+function initTempCompanies(extraGroups = []) {
     tempCompanies = selectedCompanies.map(c => ({ ...c }));
     tempCompanies.forEach(company => {
         company.originalExpirationDate = company.expiration_date || null;
@@ -314,7 +314,8 @@ function initTempCompanies() {
         company.isExtending = company.expiration_date ? true : false;
     });
     // 提取 unique group_ids
-    tempGroups = [...new Set(tempCompanies.filter(c => c.group_id).map(c => c.group_id))];
+    const groupsFromCompanies = tempCompanies.filter(c => c.group_id).map(c => c.group_id);
+    tempGroups = [...new Set([...groupsFromCompanies, ...extraGroups])];
     selectedGroupId = null;
     isMultipleChoiceMode = false;
     resetMultipleChoiceBtn();
@@ -1004,6 +1005,20 @@ function syncCompaniesFromTemp() {
         permissions: Array.isArray(c.permissions) ? c.permissions : [],
         group_id: c.group_id || null
     }));
+    
+    // 处理没有任何公司的 group，使其也能被保存
+    const groupsWithCompanies = new Set(selectedCompanies.map(c => c.group_id).filter(g => g));
+    tempGroups.forEach(gid => {
+        if (!groupsWithCompanies.has(gid)) {
+            selectedCompanies.push({
+                company_id: '',
+                expiration_date: null,
+                permissions: [],
+                group_id: gid
+            });
+        }
+    });
+
     document.getElementById('companies').value = JSON.stringify(selectedCompanies);
 }
 
@@ -1022,6 +1037,20 @@ function syncCompaniesHiddenField() {
         permissions: Array.isArray(c.permissions) ? c.permissions : [],
         group_id: c.group_id || null
     }));
+    
+    // 处理没有任何公司的 group
+    const groupsWithCompanies = new Set(cleaned.map(c => c.group_id).filter(g => g));
+    tempGroups.forEach(gid => {
+        if (!groupsWithCompanies.has(gid)) {
+            cleaned.push({
+                company_id: '',
+                expiration_date: null,
+                permissions: [],
+                group_id: gid
+            });
+        }
+    });
+
     document.getElementById('companies').value = JSON.stringify(cleaned);
 }
 
@@ -1200,18 +1229,29 @@ function editDomain(id) {
     })
         .then(response => response.json())
         .then(data => {
+            let standaloneGroups = [];
             if (data.success && data.data && data.data.companies) {
-                selectedCompanies = data.data.companies.map(c => ({
-                    company_id: c.company_id,
-                    expiration_date: c.expiration_date || null,
-                    permissions: Array.isArray(c.permissions) ? c.permissions : [],
-                    group_id: c.group_id || null
-                }));
+                const validCompanies = [];
+                const allGroups = new Set();
+                
+                data.data.companies.forEach(c => {
+                    if (c.group_id) allGroups.add(c.group_id);
+                    if (c.company_id) {
+                        validCompanies.push({
+                            company_id: c.company_id,
+                            expiration_date: c.expiration_date || null,
+                            permissions: Array.isArray(c.permissions) ? c.permissions : [],
+                            group_id: c.group_id || null
+                        });
+                    }
+                });
+                selectedCompanies = validCompanies;
+                standaloneGroups = Array.from(allGroups);
             } else {
                 selectedCompanies = [];
             }
             // 初始化 tempCompanies 并渲染 inline 列表
-            initTempCompanies();
+            initTempCompanies(standaloneGroups);
         })
         .catch(error => {
             console.error('Error loading companies:', error);

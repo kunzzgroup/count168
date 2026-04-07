@@ -124,7 +124,7 @@ function getOwnerWithCompanies(PDO $pdo, $owner_id) {
     $stmt = $pdo->prepare("
         SELECT o.id, o.owner_code, o.name, o.email, o.created_by,
                GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
-               GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
+               GROUP_CONCAT(NULLIF(TRIM(c.company_id), '') ORDER BY c.company_id SEPARATOR ', ') as companies
         FROM owner o
         LEFT JOIN company c ON o.id = c.owner_id
         WHERE o.id = ?
@@ -205,8 +205,9 @@ try {
                             $permissions = (isset($company['permissions']) && is_array($company['permissions'])) ? json_encode($company['permissions']) : null;
                             $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
                             
-                            if (!empty($company_id)) {
-                                $stmt->execute([$company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id]);
+                            if (!empty($company_id) || !empty($group_id)) {
+                                $db_company_id = !empty($company_id) ? $company_id : null;
+                                $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id]);
                             }
                         }
                     } else {
@@ -298,10 +299,12 @@ try {
                 $stmt->execute($updateValues);
                 
                 // Get existing companies for this owner
-                $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ?");
+                $stmt = $pdo->prepare("SELECT id, company_id, group_id FROM company WHERE owner_id = ?");
                 $stmt->execute([$id]);
                 $existing_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                $existing_company_ids = array_map(function($c) { return strtoupper($c['company_id']); }, $existing_companies);
+                $existing_company_keys = array_map(function($c) { 
+                    return !empty($c['company_id']) ? strtoupper($c['company_id']) : 'GROUPONLY:' . strtoupper($c['group_id']); 
+                }, $existing_companies);
                 
                 // Get new company IDs from input
                 $new_companies_data = [];
@@ -313,12 +316,17 @@ try {
                         // 新格式：JSON 数组
                         foreach ($companies_data as $company) {
                             $company_id = strtoupper(trim($company['company_id'] ?? $company));
-                            if (!empty($company_id)) {
+                            $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
+                            
+                            if (!empty($company_id) || !empty($group_id)) {
+                                $db_company_id = !empty($company_id) ? $company_id : null;
+                                $key = $db_company_id !== null ? $db_company_id : 'GROUPONLY:' . $group_id;
                                 $new_companies_data[] = [
-                                    'company_id' => $company_id,
+                                    'key' => $key,
+                                    'company_id' => $db_company_id,
                                     'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
                                     'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : [],
-                                    'group_id' => !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null
+                                    'group_id' => $group_id
                                 ];
                             }
                         }
@@ -328,20 +336,22 @@ try {
                         $company_ids = array_filter($company_ids, function($c) { return !empty($c); });
                         foreach ($company_ids as $company_id) {
                             $new_companies_data[] = [
+                                'key' => $company_id,
                                 'company_id' => $company_id,
                                 'expiration_date' => null,
-                                'permissions' => []
+                                'permissions' => [],
+                                'group_id' => null
                             ];
                         }
                     }
                 }
-                $new_company_ids = array_column($new_companies_data, 'company_id');
+                $new_company_keys = array_column($new_companies_data, 'key');
                 
                 // Find companies to delete (existing but not in new list)
                 $companies_to_delete = [];
                 foreach ($existing_companies as $existing) {
-                    $company_id_upper = strtoupper($existing['company_id']);
-                    if (!in_array($company_id_upper, $new_company_ids)) {
+                    $key = !empty($existing['company_id']) ? strtoupper($existing['company_id']) : 'GROUPONLY:' . strtoupper($existing['group_id']);
+                    if (!in_array($key, $new_company_keys)) {
                         $companies_to_delete[] = $existing;
                     }
                 }
@@ -477,7 +487,7 @@ try {
                 // Find companies to add (in new list but not existing)
                 $companies_to_add = [];
                 foreach ($new_companies_data as $new_company) {
-                    if (!in_array($new_company['company_id'], $existing_company_ids)) {
+                    if (!in_array($new_company['key'], $existing_company_keys)) {
                         $companies_to_add[] = $new_company;
                     }
                 }
@@ -488,27 +498,26 @@ try {
                     
                     foreach ($companies_to_add as $company_data) {
                         $permissions_json = !empty($company_data['permissions']) && is_array($company_data['permissions']) ? json_encode($company_data['permissions']) : null;
-                        $group_id = !empty($company_data['group_id']) ? strtoupper(trim($company_data['group_id'])) : null;
                         $stmt->execute([
                             $company_data['company_id'], 
                             $id, 
                             $_SESSION['login_id'] ?? 'system',
                             $company_data['expiration_date'],
                             $permissions_json,
-                            $group_id
+                            $company_data['group_id']
                         ]);
                     }
                 }
                 
                 // Update existing companies' expiration dates and permissions if changed
                 foreach ($new_companies_data as $new_company) {
-                    if (in_array($new_company['company_id'], $existing_company_ids)) {
+                    if (in_array($new_company['key'], $existing_company_keys)) {
                         foreach ($existing_companies as $existing) {
-                            if (strtoupper($existing['company_id']) === $new_company['company_id']) {
+                            $existing_key = !empty($existing['company_id']) ? strtoupper($existing['company_id']) : 'GROUPONLY:' . strtoupper($existing['group_id']);
+                            if ($existing_key === $new_company['key']) {
                                 $permissions_json = !empty($new_company['permissions']) && is_array($new_company['permissions']) ? json_encode($new_company['permissions']) : null;
-                                $group_id = !empty($new_company['group_id']) ? strtoupper(trim($new_company['group_id'])) : null;
                                 $updateStmt = $pdo->prepare("UPDATE company SET expiration_date = ?, permissions = ?, group_id = ? WHERE id = ?");
-                                $updateStmt->execute([$new_company['expiration_date'], $permissions_json, $group_id, $existing['id']]);
+                                $updateStmt->execute([$new_company['expiration_date'], $permissions_json, $new_company['group_id'], $existing['id']]);
                                 break;
                             }
                         }

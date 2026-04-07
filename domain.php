@@ -50,7 +50,7 @@ try {
             o.created_by,
             o.created_at,
             GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
-            GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
+            GROUP_CONCAT(NULLIF(TRIM(c.company_id), '') ORDER BY c.company_id SEPARATOR ', ') as companies
         FROM owner o
         LEFT JOIN company c ON o.id = c.owner_id
         GROUP BY o.id
