@@ -272,6 +272,15 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                     <div class="kpi-label">NET PROFIT</div>
                     <div class="kpi-value" id="profit-value">0</div>
                 </div>
+
+                <!-- Earnings -->
+                <div class="dashboard-kpi-card" style="border: 1px solid #dbeafe; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);">
+                    <div class="icon text-blue">
+                        <i class="fas fa-hand-holding-usd"></i>
+                    </div>
+                    <div class="kpi-label" style="color: #2563eb;">Earnings</div>
+                    <div class="kpi-value" id="earnings-value" style="color: #1d4ed8;">0</div>
+                </div>
             </div>
 
             <!-- 图表区域 -->

@@ -413,6 +413,44 @@ try {
         dashboardHasContraApprovalColumns($pdo)
     );
 
+    // 获取当前账户的 ownership_percentage
+    $ownership_percentage = 0;
+    try {
+        $hasCompanyOwnership = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
+        if ($hasCompanyOwnership) {
+            $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+            $userId = $_SESSION['user_id'] ?? 0;
+            $userType = $_SESSION['user_type'] ?? '';
+
+            if ($hasOwnerType) {
+                $ownerTypeStr = 'account';
+                if ($userType === 'owner') {
+                    $ownerTypeStr = 'owner';
+                } elseif ($userType === 'user') {
+                    $ownerTypeStr = 'user';
+                }
+
+                $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?");
+                $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
+                $pct = $stmtPct->fetchColumn();
+                if ($pct !== false) {
+                    $ownership_percentage = (float)$pct;
+                }
+            } else {
+                 if ($userType === 'member') {
+                     $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ?");
+                     $stmtPct->execute([$company_id, $userId]);
+                     $pct = $stmtPct->fetchColumn();
+                     if ($pct !== false) {
+                         $ownership_percentage = (float)$pct;
+                     }
+                 }
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
     echo json_encode([
         'success' => true,
@@ -420,6 +458,7 @@ try {
             'capital' => $result['capital']['total_balance'],
             'expenses' => $result['expenses']['total_balance'],
             'profit' => $result['profit']['total_balance'],
+            'ownership_percentage' => $ownership_percentage,
             'period_total' => [
                 'capital' => $result['capital']['period_total'],
                 'expenses' => $result['expenses']['period_total'],

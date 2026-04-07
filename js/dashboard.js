@@ -1036,6 +1036,7 @@ function updateDashboard(data) {
                 const capitalEl = document.getElementById('capital-value');
                 const expensesEl = document.getElementById('expenses-value');
                 const profitEl = document.getElementById('profit-value');
+                const earningsEl = document.getElementById('earnings-value');
 
                 // 原始值（跟 Payment 一致）
                 const rawProfit = parseFloat(data?.period_total?.profit ?? data.profit) || 0
@@ -1051,6 +1052,10 @@ function updateDashboard(data) {
                 // 规则：NET PROFIT = Profit(显示) + Expenses(显示)
                 const netProfitDisplay = displayProfitNum + displayExpensesNum;
 
+                // Earnings 卡片：(NET PROFIT) * (Ownership Percentage)
+                const ownershipPercentage = parseFloat(data?.ownership_percentage) || 0;
+                const earningsDisplay = netProfitDisplay * (ownershipPercentage / 100);
+
                 // 记录卡片显示值，供图表 tooltip 统一读取，避免口径不一致
                 chartMetadata.cardProfitDisplay = displayProfitNum;
                 chartMetadata.cardExpensesDisplay = displayExpensesNum;
@@ -1058,6 +1063,7 @@ function updateDashboard(data) {
                 if (capitalEl) capitalEl.textContent = formatCurrency(displayProfitNum);
                 if (expensesEl) expensesEl.textContent = formatCurrency(displayExpensesNum);
                 if (profitEl) profitEl.textContent = formatCurrency(netProfitDisplay);
+                if (earningsEl) earningsEl.textContent = formatCurrency(earningsDisplay);
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
                     chartDateRangeEl.textContent =

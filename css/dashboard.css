@@ -128,10 +128,10 @@ body.dashboard-page {
     padding: clamp(8px, 1vw, 12px) clamp(14px, 1.2vw, 24px);
 }
 
-/* KPI卡片网格 - 三列，大屏到1024px一致 */
+/* KPI卡片网格 - 四列，大屏到1024px一致 */
 .dashboard-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: clamp(12px, 1.5vw, 20px);
     flex-shrink: 0;
 }
