@@ -78,7 +78,9 @@ try {
     error_log("Failed to get user company list: " . $e->getMessage());
 }
 
-// Data Capture 页面不显示 C168 公司按钮
+$user_companies_all = $user_companies;
+
+// Data Capture 页面不显示 C168 公司按钮（切换条用过滤后列表；校验 session 须用完整列表以免误把当前 C168 切到其他公司）
 if (!empty($user_companies)) {
     $user_companies = array_values(array_filter($user_companies, function($comp) {
         return strtoupper(trim((string)($comp['company_id'] ?? ''))) !== 'C168';
@@ -89,10 +91,10 @@ if (!empty($user_companies)) {
 $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
 
 // Validate if company_id belongs to current user
-if ($current_user_id && count($user_companies) > 0) {
+if ($current_user_id && count($user_companies_all) > 0) {
     $valid_company = false;
     if ($company_id) {
-        foreach ($user_companies as $comp) {
+        foreach ($user_companies_all as $comp) {
             if ($comp['id'] == $company_id) {
                 $valid_company = true;
                 break;
@@ -101,7 +103,7 @@ if ($current_user_id && count($user_companies) > 0) {
     }
     if (!$valid_company) {
         // If company_id is invalid or does not exist, use the first company
-        $company_id = $user_companies[0]['id'];
+        $company_id = $user_companies_all[0]['id'];
         // Update session (ensure first company is used by default after login)
         $_SESSION['company_id'] = $company_id;
     } elseif (isset($_GET['company_id']) && $company_id == (int)$_GET['company_id']) {
@@ -434,7 +436,18 @@ if ($current_user_id && count($user_companies) > 0) {
 
     <script>
         window.DATACAPTURE_COMPANY_ID = <?php echo json_encode($company_id); ?>;
-        window.DATACAPTURE_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+        window.DATACAPTURE_COMPANY_CODE = <?php
+            $dcCode = '';
+            if (!empty($user_companies_all) && $company_id) {
+                foreach ($user_companies_all as $c) {
+                    if ((int) $c['id'] === (int) $company_id) {
+                        $dcCode = (string) ($c['company_id'] ?? '');
+                        break;
+                    }
+                }
+            }
+            echo json_encode($dcCode);
+        ?>;
     </script>
     <script src="js/datacapture.js?v=<?php echo $assetVer('js/datacapture.js'); ?>"></script>
 

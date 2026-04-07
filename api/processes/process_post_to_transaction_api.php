@@ -705,6 +705,7 @@ try {
         if (!$p) {
             continue;
         }
+        $skipCurrentPair = false;
         $monthlyProrationPsRatio = null;
         $periodType = $pair['period_type'];
         $cost = (float) ($p['cost'] ?? 0);
@@ -890,12 +891,21 @@ try {
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
+                    // 防止未来账单被提前提交：仅对「未显式指定 billing_month」的场景生效（例如列表页直接批量 Transaction）。
+                    // Accounting Due 提交会带 billing_month，表示该期已在 inbox 判定为可入账，不在此二次拦截。
+                    if ($resolvedMonthlyBm === '' && $dueTx > $fallbackDate) {
+                        $skipCurrentPair = true;
+                    }
                     $postedDateForInbox = $dueTx;
                 }
             }
             if ($dayStartYmd) {
                 $transactionDate = maxYmd($dayStartYmd, $createdYmd);
             }
+        }
+
+        if ($skipCurrentPair) {
+            continue;
         }
 
         $ledgerDate = $transactionDate;

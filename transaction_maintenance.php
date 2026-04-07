@@ -122,6 +122,7 @@ if (!empty($session_company_id)) {
                         <th>No.</th>
                         <th>Created At</th>
                         <th>Process</th>
+                        <th>Id_Product</th>
                         <th>Account</th>
                         <th>Description</th>
                         <th>Remark</th>
@@ -697,7 +698,7 @@ if (!empty($session_company_id)) {
                 const emptyRow = document.createElement('tr');
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
-                    <td class="maintenance-table-cell" colspan="14" style="text-align: center; padding: 16px;">
+                    <td class="maintenance-table-cell" colspan="13" style="text-align: center; padding: 16px;">
                         No data
                     </td>
                 `;
@@ -711,6 +712,7 @@ if (!empty($session_company_id)) {
                 
                 const dtsCreatedDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const processDisplay = row.process ? escapeHtml(row.process) : '-';
+                const idProductDisplay = (row.id_product !== null && row.id_product !== undefined && row.id_product !== '') ? escapeHtml(row.id_product) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const descriptionDisplay = row.description ? escapeHtml(row.description) : '-';
                 const remarkDisplay = row.remark ? escapeHtml(row.remark) : '-';
@@ -733,6 +735,7 @@ if (!empty($session_company_id)) {
                     <td class="maintenance-table-cell">${row.no || index + 1}</td>
                     <td class="maintenance-table-cell">${dtsCreatedDisplay}</td>
                     <td class="maintenance-table-cell">${processDisplay}</td>
+                    <td class="maintenance-table-cell">${idProductDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell">${remarkDisplay}</td>
