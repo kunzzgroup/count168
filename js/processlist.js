@@ -2106,21 +2106,51 @@ async function postToTransactionSelected() {
 
 // 执行状态切换（API + 本地更新）
 async function performToggleStatus(processId) {
-    const formData = new FormData();
-    formData.append('id', processId);
-    if (selectedPermission === 'Bank') {
-        formData.append('permission', 'Bank');
-    }
-    const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
-        method: 'POST',
-        body: formData
-    });
-    const result = await response.json();
+    try {
+        const formData = new FormData();
+        formData.append('id', processId);
+        const isBank = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
+        if (isBank) {
+            formData.append('permission', 'Bank');
+        }
+        const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
+            method: 'POST',
+            body: formData
+        });
 
-    if (result.success) {
+        if (!response.ok) {
+            let msg = 'Status toggle failed';
+            try {
+                const errJson = await response.json();
+                msg = errJson?.error || errJson?.message || msg;
+            } catch (_) {
+                try {
+                    const txt = await response.text();
+                    if (txt && txt.trim()) msg = txt.trim();
+                } catch (_) { /* ignore */ }
+            }
+            showNotification(msg, 'danger');
+            return;
+        }
+
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (parseErr) {
+            console.warn('toggle status: invalid JSON response, refreshing list', parseErr);
+            await fetchProcesses();
+            showNotification('Status updated', 'success');
+            return;
+        }
+
+        if (!result || result.success !== true) {
+            showNotification((result && (result.error || result.message)) || 'Status toggle failed', 'danger');
+            return;
+        }
+
         const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
         const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
-        const process = processes.find(p => p.id === processId);
+        const process = processes.find(p => String(p.id) === String(processId));
         if (process) {
             process.status = newStatus;
             if (newDayEnd) process.day_end = newDayEnd;
@@ -2131,13 +2161,13 @@ async function performToggleStatus(processId) {
             : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
 
         if (!shouldShow) {
-            const processIndex = processes.findIndex(p => p.id === processId);
+            const processIndex = processes.findIndex(p => String(p.id) === String(processId));
             if (processIndex > -1) processes.splice(processIndex, 1);
             renderTable();
         } else if (newDayEnd) {
             renderTable();
         } else {
-            const process = processes.find(p => p.id === processId);
+            const process = processes.find(p => String(p.id) === String(processId));
             const statusSelect = renderBankStatusSelect(processId, process);
 
             if (selectedPermission === 'Bank') {
@@ -2183,7 +2213,7 @@ async function performToggleStatus(processId) {
                                 if (existingCheckbox) existingCheckbox.remove();
                                 if (existingMuted) existingMuted.remove();
                             } else {
-                                const proc = processes.find(function (p) { return p.id === processId; });
+                                const proc = processes.find(function (p) { return String(p.id) === String(processId); });
                                 if (!existingCheckbox && !existingMuted && (!proc || !proc.has_transactions)) {
                                     const checkbox = document.createElement('input');
                                     checkbox.type = 'checkbox';
@@ -2205,13 +2235,19 @@ async function performToggleStatus(processId) {
         updateSelectAllProcessesVisibility();
 
         if (selectedPermission === 'Bank' && newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
-            await loadAccountingInbox();
+            try {
+                await loadAccountingInbox();
+            } catch (inboxErr) {
+                // 状态切换已成功；inbox 刷新失败不应回滚为 toggle failed
+                console.warn('loadAccountingInbox failed after status toggle:', inboxErr);
+            }
         }
 
         const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
         showNotification(`Process status changed to ${statusText}`, 'success');
-    } else {
-        showNotification(result.error || 'Status toggle failed', 'danger');
+    } catch (e) {
+        console.error('performToggleStatus error:', e);
+        showNotification('Status toggle failed', 'danger');
     }
 }
 
