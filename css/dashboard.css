@@ -172,6 +172,20 @@ body.dashboard-page {
     font-family: 'Amaranth', sans-serif;
 }
 
+/* Earnings 卡片 — 与其他卡片统一圆角/阴影，仅调整强调色 */
+.dashboard-kpi-card--earnings {
+    border-color: #dbeafe;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.kpi-label--earnings {
+    color: #2563eb;
+}
+
+.kpi-value--earnings {
+    color: #1d4ed8;
+}
+
 /* 图表区域 - 占满剩余高度 */
 .dashboard-chart-section {
     flex: 1;
