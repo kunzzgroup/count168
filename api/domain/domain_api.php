@@ -206,7 +206,7 @@ try {
                             $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
                             
                             if (!empty($company_id) || !empty($group_id)) {
-                                $db_company_id = !empty($company_id) ? $company_id : null;
+                                $db_company_id = !empty($company_id) ? $company_id : '';
                                 $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id]);
                             }
                         }
@@ -319,8 +319,8 @@ try {
                             $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
                             
                             if (!empty($company_id) || !empty($group_id)) {
-                                $db_company_id = !empty($company_id) ? $company_id : null;
-                                $key = $db_company_id !== null ? $db_company_id : 'GROUPONLY:' . $group_id;
+                                $db_company_id = !empty($company_id) ? $company_id : '';
+                                $key = $db_company_id !== '' ? $db_company_id : 'GROUPONLY:' . $group_id;
                                 $new_companies_data[] = [
                                     'key' => $key,
                                     'company_id' => $db_company_id,
