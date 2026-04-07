@@ -444,9 +444,19 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                     break;
                 }
+                // 与 process_accounting_inbox_api：同月内「应付早于创建」仍入账并比例摊分，勿整月跳过
                 if ($due < $createdYmd) {
-                    $iter = $iter->modify('+1 month');
-                    continue;
+                    try {
+                        $billYm = $iter->format('Y-n');
+                        $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                        if ($billYm !== $createdYmOnly) {
+                            $iter = $iter->modify('+1 month');
+                            continue;
+                        }
+                    } catch (Throwable $e) {
+                        $iter = $iter->modify('+1 month');
+                        continue;
+                    }
                 }
                 if ($today >= $due
                     && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
@@ -864,30 +874,32 @@ try {
             continue;
         }
 
-        // transaction_date：partial/tail 等按账单/合同经济日；monthly 单独用 day_start 锚定（posted_date 仍用应付日）。
+        // transaction_date：写入「经济归属日」供 Transaction List / Payment History 按 capture 日期筛选；不用 max(day_start,创建日)，否则晚提交会落在 submit 日导致按 day_start 查不到。
+        // posted_date：仍单独用应付日（与 Inbox 去重一致）。
         // manual_inactive 的 process_accounting_posted.posted_date 仍用「今天」，否则 posted_date < dts_modified 时
         // fetchInactiveBankProcessesPendingTransaction 的 NOT EXISTS 无法识别本轮已入账（见 process_accounting_inbox_api）。
         $transactionDate = $fallbackDate;
         $postedDateForInbox = $fallbackDate;
 
         if ($periodType === 'partial_first_month' && $dayStartYmd) {
-            $transactionDate = maxYmd($dayStartYmd, $createdYmd);
-            $postedDateForInbox = $transactionDate;
+            $transactionDate = $dayStartYmd;
+            $postedDateForInbox = $dayStartYmd;
         } elseif ($periodType === 'manual_inactive') {
             $transactionDate = $dayStartYmd ?: $fallbackDate;
             $postedDateForInbox = $fallbackDate;
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
+            // 流水/ Payment History 与 monthly 一致锚定在 Day start；PAP.posted_date 仍用合同自然结束次日，避免与首期 monthly 同日期冲突
             $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
             if ($term !== null && $term >= 1) {
                 $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
                 if ($exclusiveEnd !== null) {
-                    $transactionDate = $exclusiveEnd;
+                    $transactionDate = $dayStartYmd;
                     $postedDateForInbox = $exclusiveEnd;
                 }
             }
         } elseif ($periodType === 'monthly') {
-            // posted_date：仍用账单应付日（如 1st → 当月 1 号），供 Inbox / process_accounting_posted 按自然月去重。
-            // transaction_date：统一用流程 day_start（不早于创建日），Payment History 与首笔一致，避免第二笔落在应付日或「未解析 billing_month」时误用提交当日。
+            // posted_date：账单应付日（如 1st → 当月 1 号），供 Inbox / PAP 按自然月去重。
+            // transaction_date：流程 Day start（合同起算日），与 Capture / Payment History 筛选一致；可与 posted_date 不同月。
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
@@ -900,7 +912,7 @@ try {
                 }
             }
             if ($dayStartYmd) {
-                $transactionDate = maxYmd($dayStartYmd, $createdYmd);
+                $transactionDate = $dayStartYmd;
             }
         }
 

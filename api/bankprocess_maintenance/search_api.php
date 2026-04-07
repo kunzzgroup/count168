@@ -130,7 +130,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
             $hasPapTable = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'")->rowCount() > 0;
         } catch (PDOException $e) {}
         $periodTypeSelect = $hasPapTable
-            ? ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type"
+            ? ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id ORDER BY ABS(DATEDIFF(pap.posted_date, DATE(t.transaction_date))), pap.id DESC LIMIT 1) AS period_type"
             : ", NULL AS period_type";
     }
 
@@ -144,12 +144,15 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 from_acc.account_id AS from_account_code, from_acc.name AS from_account_name,
                 {$schema['selectCurrency']},
                 u.login_id AS created_by_login, o.owner_code AS created_by_owner,
+                bp.name AS bank_process_name,
+                a_cm_bp.name AS card_owner_name,
                 bp.profit AS process_profit, bp.cost AS process_cost, bp.price AS process_price, bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.profit_sharing AS process_profit_sharing
                 $periodTypeSelect
             FROM transactions t
             JOIN account to_acc ON t.account_id = to_acc.id
             LEFT JOIN account from_acc ON t.from_account_id = from_acc.id
             LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
+            LEFT JOIN account a_cm_bp ON bp.card_merchant_id = a_cm_bp.id
             INNER JOIN account_company ac ON ac.account_id = to_acc.id
             {$schema['currencyJoinSql']}
             LEFT JOIN user u ON t.created_by = u.id
@@ -238,11 +241,16 @@ function rowToItem(array $row) {
     }
 
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
+    // From 列：与 transaction history 的 card_owner 一致——优先 bank_process.name（Add Process 的 Card Owner），否则供应商账户名
+    $bankProcessName = isset($row['bank_process_name']) ? trim((string) $row['bank_process_name']) : '';
+    $cardOwnerName = isset($row['card_owner_name']) ? trim((string) $row['card_owner_name']) : '';
+    $fromLabel = $bankProcessName !== '' ? $bankProcessName : ($cardOwnerName !== '' ? $cardOwnerName : '-');
+
     return [
         'transaction_id' => (int) $row['id'],
         'date' => $row['transaction_date'],
         'account' => $row['account_code'] ?? '-',
-        'from_account' => $row['from_account_code'] ?? '-',
+        'from_account' => $fromLabel,
         'currency' => $row['currency_code'] ?? '-',
         'amount' => (float) $row['amount'],
         'description' => $description ?: '-',

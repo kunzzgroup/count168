@@ -745,10 +745,20 @@ try {
                         if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                             break;
                         }
-                        // Skip any period whose due-date is before creation (no backfill).
+                        // Skip periods whose due-date is before creation (no backfill) — unless due 与创建日在同一自然月：
+                        // 例如 day_start=4/3、4/7 才创建：仍应在 4 月入账，金额由下方 createdYmd > dueYmd 摊至月底。
                         if ($due < $createdYmd) {
-                            $iter = $iter->modify('+1 month');
-                            continue;
+                            try {
+                                $billYm = $iter->format('Y-n');
+                                $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                                if ($billYm !== $createdYmOnly) {
+                                    $iter = $iter->modify('+1 month');
+                                    continue;
+                                }
+                            } catch (Throwable $e) {
+                                $iter = $iter->modify('+1 month');
+                                continue;
+                            }
                         }
                         if ($today >= $due
                             && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {

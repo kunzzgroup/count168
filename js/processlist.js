@@ -6153,6 +6153,13 @@ function switchPermission(permission) {
     selectedPermission = permission;
     updateProcessListPageTitle(permission);
 
+    // Bank 列表：外层 .container 纵向滚动；与 processlist.php 上 PHP 注入的 process-page--bank 一致（同页切换 Category 时补齐）
+    if (permission === 'Bank') {
+        document.body.classList.add('process-page--bank');
+    } else {
+        document.body.classList.remove('process-page--bank');
+    }
+
     // 保存到 localStorage
     const currentCompanyCode = (typeof window.PROCESSLIST_COMPANY_CODE !== 'undefined' ? window.PROCESSLIST_COMPANY_CODE : '');
     if (currentCompanyCode) {

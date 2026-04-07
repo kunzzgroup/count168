@@ -355,15 +355,14 @@ body.process-page {
     overflow-y: auto;
 }
 
-/* Bank 真实 table：与 Gambling 同设计、同宽高 */
+/* Bank 真实 table：与 Gambling 同设计；高度随行数增长，不在表格外壳内纵向滚动（整页由 Bank 的 .container 滚动） */
 .process-page .bank-table-wrapper {
     margin-top: 20px;
     width: 100%;
     padding: 0px;
-    /* Slightly taller viewport so 20 bank rows + sticky header fit without inner scroll on typical screens */
-    max-height: calc(100vh - 270px);
-    overflow-y: auto;
+    max-height: none;
     overflow-x: auto;
+    overflow-y: visible;
     box-sizing: border-box;
 }
 
@@ -668,6 +667,173 @@ body.process-page {
     background-color: #e0e0e0;
     color: #000000;
     border: 0.0625rem solid #e0e0e0;
+}
+
+/* Bank Process List 专页：无纵滚；剩余高度进表格区，flex-end 让表贴分页、空白留在「筛选区与表」之间；工具区略放宽（Games 不受影响） */
+.process-page.process-page--bank .container {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 100vh;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+.process-page.process-page--bank .content {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.process-page.process-page--bank .page-title {
+    font-size: clamp(20px, 1.72vw, 32px);
+    margin-top: 6px;
+    margin-bottom: 4px;
+}
+
+.process-page.process-page--bank .separator-line {
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
+.process-page.process-page--bank .bank-table-wrapper {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-self: stretch;
+    margin-top: 10px;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+/* 勿设 height:100%：否则行数少时浏览器会把行高均分撑满 flex 区，出现「两行占满一屏」 */
+.process-page.process-page--bank .bank-data-table {
+    height: auto;
+    width: 100%;
+    font-size: clamp(12px, 0.84vw, 15px);
+}
+
+.process-page.process-page--bank .bank-data-table thead {
+    font-size: clamp(11px, 0.76vw, 16px);
+}
+
+.process-page.process-page--bank .bank-data-table td {
+    line-height: 1.15;
+    padding: 2px 4px;
+}
+
+.process-page.process-page--bank .bank-data-table th {
+    padding: 2px 4px;
+}
+
+.process-page.process-page--bank .bank-status-button {
+    min-height: 21px;
+    padding: 2px 8px;
+    line-height: 1.05;
+    font-size: clamp(9px, 0.7vw, 13px);
+    background-size: 13px 13px;
+    background-position: right 6px center;
+}
+
+.process-page.process-page--bank .contract-badge {
+    padding: 0 clamp(3px, 0.38vw, 7px);
+    font-size: clamp(8px, 0.62vw, 12px);
+}
+
+.process-page.process-page--bank .content > div:first-child {
+    margin-top: 10px !important;
+    margin-bottom: 12px !important;
+}
+
+.process-page.process-page--bank .action-buttons-container {
+    margin-top: 10px;
+}
+
+.process-page.process-page--bank .action-buttons {
+    padding: 9px 18px;
+}
+
+.process-page.process-page--bank .action-buttons-container .process-company-filter {
+    padding: 0 18px 10px 18px;
+}
+
+.process-page.process-page--bank .pagination-container {
+    flex-shrink: 0;
+    margin-top: 8px;
+    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-height: 820px) {
+
+    .process-page.process-page--bank .bank-data-table {
+        font-size: clamp(11px, 0.78vw, 14px);
+    }
+
+    .process-page.process-page--bank .bank-data-table thead {
+        font-size: clamp(10px, 0.72vw, 15px);
+    }
+
+    .process-page.process-page--bank .bank-data-table td {
+        line-height: 1.1;
+        padding: 1px 4px;
+    }
+
+    .process-page.process-page--bank .bank-data-table th {
+        padding: 1px 4px;
+    }
+
+    .process-page.process-page--bank .content > div:first-child {
+        margin-top: 6px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .process-page.process-page--bank .action-buttons {
+        padding: 6px 14px;
+    }
+
+    .process-page.process-page--bank .action-buttons-container {
+        margin-top: 8px;
+    }
+
+    .process-page.process-page--bank .action-buttons-container .process-company-filter {
+        padding: 0 14px 6px 14px;
+    }
+
+    .process-page.process-page--bank .bank-table-wrapper {
+        margin-top: 8px;
+    }
+
+    .process-page.process-page--bank .page-title {
+        font-size: clamp(18px, 1.6vw, 28px);
+        margin-top: 4px;
+        margin-bottom: 2px;
+    }
+
+    .process-page.process-page--bank .separator-line {
+        margin-top: 4px;
+    }
+
+    .process-page.process-page--bank .pagination-container {
+        margin-top: 6px;
+        margin-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@media (max-height: 720px) {
+
+    .process-page.process-page--bank .bank-data-table {
+        font-size: clamp(10px, 0.72vw, 13px);
+    }
+
+    .process-page.process-page--bank .bank-status-button {
+        min-height: 19px;
+        padding: 1px 7px;
+        font-size: clamp(8px, 0.65vw, 12px);
+    }
 }
 
 /* Table Header - copied from accountCSS.css */
@@ -1145,7 +1311,6 @@ body.process-page {
     width: clamp(30px, 3.13vw, 60px);
     text-align: center;
 }
-
 
 /* Animation */
 @keyframes fadeIn {

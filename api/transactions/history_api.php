@@ -68,7 +68,7 @@ function historyParseBankProcessDayStartToYmd($raw): ?string
 }
 
 /**
- * Bank process 入账（monthly / partial_first_month）：Payment History 展示与日期筛选锚定为流程 Day start（合同起算日），
+ * Bank process 入账（monthly / partial_first_month / day_end_tail）：Payment History 展示与日期筛选锚定为流程 Day start（合同起算日），
  * 与提交入账日、dts_created 无关；若 day_start 无法解析则退回调用方使用 transaction_date。
  *
  * @param string|null $bpDtsCreated 保留参数以兼容调用方，不再用于压后展示日
@@ -525,7 +525,8 @@ try {
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
         } else {
-            $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type";
+            // monthly 的 transaction_date 可能为 day_start，posted_date 为应付日，二者不必相等；取最近一条 PAP 的 period_type
+            $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id ORDER BY ABS(DATEDIFF(pap.posted_date, DATE(t.transaction_date))), pap.id DESC LIMIT 1) AS period_type";
         }
     }
     
@@ -544,19 +545,20 @@ try {
         $sql .= " LEFT JOIN bank_process bp_t ON t.source_bank_process_id = bp_t.id LEFT JOIN account a_cm_t ON bp_t.card_merchant_id = a_cm_t.id";
     }
     
-    // monthly / partial_first_month + bank_process：过滤/排序与列表展示一致，按 day_start 锚定（不按提交日、dts_created）。
+    // monthly / partial_first_month / day_end_tail + bank_process：过滤/排序按 day_start 锚定（尾段入账 transaction_date 亦为 day_start）。
     $effectiveTxnDateExpr = "DATE(t.transaction_date)";
     if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        /* CAST 兼容 DATE/DATETIME 列；REGEXP 对 CHAR 上的 d/m/Y 与 Y-m-d 均可解析 */
         $bpDayStartSql = "CASE
-                            WHEN bp_t.day_start REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$' THEN DATE(bp_t.day_start)
-                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d/%m/%Y')
-                            WHEN bp_t.day_start REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d-%m-%Y')
+                            WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp_t.day_start)
+                            WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d/%m/%Y')
+                            WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d-%m-%Y')
                             ELSE NULL
                         END";
         $effectiveTxnDateExpr = "(
             CASE
                 WHEN t.source_bank_process_id IS NOT NULL
-                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month')
+                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
                      AND DATE(t.transaction_date) <= CURDATE()
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
@@ -571,10 +573,10 @@ try {
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
               AND $effectiveTxnDateExpr BETWEEN ? AND ?";
     if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
-        // monthly / partial_first_month（bank process）须 transaction_date 已到日才展示，避免未来账单提前出现。
+        // monthly / partial_first_month / day_end_tail（bank process）须 transaction_date 已到日才展示，避免未来账单提前出现。
         $sql .= " AND (
             t.source_bank_process_id IS NULL
-            OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month')
+            OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
             OR DATE(t.transaction_date) <= CURDATE()
         )";
     }
@@ -1005,7 +1007,7 @@ try {
         $displayDateYmd = $t['transaction_date'];
         if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
             $ptForDisplay = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
-            if ($ptForDisplay === 'monthly' || $ptForDisplay === 'partial_first_month') {
+            if ($ptForDisplay === 'monthly' || $ptForDisplay === 'partial_first_month' || $ptForDisplay === 'day_end_tail') {
                 $anchorYmd = historyMonthlyBankProcessDisplayYmd(
                     isset($t['bp_day_start']) ? (string) $t['bp_day_start'] : null,
                     $t['bp_dts_created'] ?? null,

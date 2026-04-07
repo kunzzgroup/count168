@@ -386,7 +386,7 @@
                 tr.className = 'maintenance-row';
                 const dateDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
-                const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';
+                const fromDisplay = escapeHtml(toUpperDisplay(row.from_account));
                 const currencyAmountDisplay = formatCurrencyAmountCell(row.currency, row.amount);
                 const descriptionDisplay = escapeHtml(toUpperDisplay(row.description));
                 const remarkDisplay = escapeHtml(toUpperDisplay(row.remark));

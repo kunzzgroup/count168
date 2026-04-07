@@ -246,7 +246,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
 </head>
 
-<body class="process-page">
+<body class="process-page<?php echo $processListPageFile === 'bank_process_list.php' ? ' process-page--bank' : ''; ?>">
     <div class="container">
         <div class="content">
             <div
