@@ -1070,6 +1070,42 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
         $has_transaction_currency = $stmt->rowCount() > 0;
     }
+
+    // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
+    static $has_source_bank_process_id = null;
+    static $has_source_bank_process_period_type = null;
+    if ($has_source_bank_process_id === null) {
+        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+        $has_source_bank_process_id = $stmt->rowCount() > 0;
+    }
+    if ($has_source_bank_process_period_type === null) {
+        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
+        $has_source_bank_process_period_type = $stmt->rowCount() > 0;
+    }
+    $wlJoinSql = '';
+    $wlDateExpr = "DATE(t.transaction_date)";
+    $wlFutureGuard = '';
+    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
+        $bpDayStartSql = "CASE
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
+            ELSE NULL
+        END";
+        $wlDateExpr = "(CASE
+            WHEN t.source_bank_process_id IS NOT NULL
+                 AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                 AND DATE(t.transaction_date) <= CURDATE()
+            THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+            ELSE DATE(t.transaction_date)
+        END)";
+        $wlFutureGuard = " AND (
+            t.source_bank_process_id IS NULL
+            OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+            OR DATE(t.transaction_date) <= CURDATE()
+        )";
+    }
     
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
     // 必须与 calculateWinLossByCurrency 一致：SUM(ROUND(processed_amount,2))，否则「当日 Balance」与「次日 B/F」会因舍入顺序差 0.01
@@ -1099,10 +1135,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
-                FROM transactions t
+                FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND t.transaction_date < ?
+                  AND $wlDateExpr < ?
                   AND t.transaction_type IN ('WIN', 'LOSE')
                   AND (
                       (t.currency_id = ?)
@@ -1113,7 +1149,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                             AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
                             AND dcd.currency_id = ?
                       ))
-                  )" . contraApprovedWhere($pdo, 't');
+                  )" . contraApprovedWhere($pdo, 't') . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
         $bf += $stmt->fetchColumn();
@@ -1146,14 +1182,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
-                FROM transactions t
-                WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date < ?
+                FROM transactions t $wlJoinSql
+                WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr < ?
                   AND t.transaction_type IN ('WIN', 'LOSE')
                   AND EXISTS (
                       SELECT 1 FROM data_capture_details dcd
                       JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ? AND dc.company_id = ? AND dcd.account_id = t.account_id AND dcd.currency_id = ?
-                  )" . contraApprovedWhere($pdo, 't');
+                  )" . contraApprovedWhere($pdo, 't') . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
         $bf += $stmt->fetchColumn();
@@ -1266,6 +1302,42 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '') {
     $win_loss = 0;
 
+    // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
+    static $has_source_bank_process_id = null;
+    static $has_source_bank_process_period_type = null;
+    if ($has_source_bank_process_id === null) {
+        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+        $has_source_bank_process_id = $stmt->rowCount() > 0;
+    }
+    if ($has_source_bank_process_period_type === null) {
+        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
+        $has_source_bank_process_period_type = $stmt->rowCount() > 0;
+    }
+    $wlJoinSql = '';
+    $wlDateExpr = "DATE(t.transaction_date)";
+    $wlFutureGuard = '';
+    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
+        $bpDayStartSql = "CASE
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
+            ELSE NULL
+        END";
+        $wlDateExpr = "(CASE
+            WHEN t.source_bank_process_id IS NOT NULL
+                 AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                 AND DATE(t.transaction_date) <= CURDATE()
+            THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+            ELSE DATE(t.transaction_date)
+        END)";
+        $wlFutureGuard = " AND (
+            t.source_bank_process_id IS NULL
+            OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+            OR DATE(t.transaction_date) <= CURDATE()
+        )";
+    }
+
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
     $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
             FROM data_capture_details dcd
@@ -1286,21 +1358,23 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
     if ($stmt->rowCount() > 0) {
         // 与 history_api 的事件口径一致：每条 transaction 金额先 round(2) 再求和
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN ROUND(amount, 2) WHEN transaction_type = 'LOSE' THEN -ROUND(amount, 2) ELSE 0 END), 0) as total
-                FROM transactions
-                WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
-                  AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
-                  AND (description LIKE 'Process: %')";
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN -ROUND(t.amount, 2) ELSE 0 END), 0) as total
+                FROM transactions t $wlJoinSql
+                WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
+                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND (t.description LIKE 'Process: %')"
+                  . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
 
         // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）：Select To 显示负数、Select From 显示正数（WIN -> -amount, LOSE -> +amount）
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN -ROUND(amount, 2) WHEN transaction_type = 'LOSE' THEN ROUND(amount, 2) ELSE 0 END), 0) as total
-                FROM transactions
-                WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
-                  AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
-                  AND (description NOT LIKE 'Process: %' OR description IS NULL)";
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN -ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN ROUND(t.amount, 2) ELSE 0 END), 0) as total
+                FROM transactions t $wlJoinSql
+                WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
+                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL)"
+                  . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();

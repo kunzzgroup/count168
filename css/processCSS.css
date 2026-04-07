@@ -1272,6 +1272,17 @@ body.process-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* Keep pagination at bottom-right on Games (non-bank) list page */
+.process-page:not(.process-page--bank) .pagination-container {
+    margin-top: auto !important;
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    align-self: flex-end;
+    position: sticky;
+    bottom: max(5px, env(safe-area-inset-bottom, 0px));
+    z-index: 120;
+}
+
 .process-page .pagination-btn {
     background: transparent;
     border: none;
@@ -2960,12 +2971,12 @@ body.process-page {
     }
 }
 
-/* Keep pagination fixed at bottom-center on Bank list page */
+/* Keep pagination at bottom-right on Bank list page */
 .process-page.process-page--bank .pagination-container {
     margin-top: auto !important;
     margin-left: auto !important;
-    margin-right: auto !important;
-    align-self: center;
+    margin-right: 0 !important;
+    align-self: flex-end;
     position: sticky;
     bottom: max(5px, env(safe-area-inset-bottom, 0px));
     z-index: 120;
