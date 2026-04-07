@@ -130,7 +130,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
             $hasPapTable = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'")->rowCount() > 0;
         } catch (PDOException $e) {}
         $periodTypeSelect = $hasPapTable
-            ? ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type"
+            ? ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id ORDER BY ABS(DATEDIFF(pap.posted_date, DATE(t.transaction_date))), pap.id DESC LIMIT 1) AS period_type"
             : ", NULL AS period_type";
     }
 

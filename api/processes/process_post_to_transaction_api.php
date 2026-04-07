@@ -887,7 +887,8 @@ try {
                 }
             }
         } elseif ($periodType === 'monthly') {
-            // posted_date：账单应付日；transaction_date：同期应付日（与 posted 一致），各月互不重复。
+            // posted_date：账单应付日（如 1st → 当月 1 号），供 Inbox / PAP 按自然月去重。
+            // transaction_date：流程 Day start（合同起算日），与 Capture / Payment History 筛选一致；可与 posted_date 不同月。
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
@@ -897,10 +898,9 @@ try {
                         $skipCurrentPair = true;
                     }
                     $postedDateForInbox = $dueTx;
-                    $transactionDate = $dueTx;
                 }
             }
-            if ($transactionDate === $fallbackDate && $dayStartYmd) {
+            if ($dayStartYmd) {
                 $transactionDate = $dayStartYmd;
             }
         }
