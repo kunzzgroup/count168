@@ -20,25 +20,30 @@ if (!$company_id || !$login_or_group_id) {
 }
 
 try {
-    // 1. Check for Login ID (owner_code) match
+    // Fetch native owner first
+    $stmtCheckNative = $pdo->prepare("SELECT owner_id FROM company WHERE id = ?");
+    $stmtCheckNative->execute([$company_id]);
+    $nativeOwner = $stmtCheckNative->fetchColumn();
+
+    // 1. Check for Login ID (owner_code) match (excluding native owner)
     $partnerByLogin = null;
     if ($force_type === '' || $force_type === 'login') {
-        $stmtLogin = $pdo->prepare("SELECT id, name, owner_code FROM owner WHERE UPPER(owner_code) = UPPER(?) AND status = 'active'");
-        $stmtLogin->execute([$login_or_group_id]);
+        $stmtLogin = $pdo->prepare("SELECT id, name, owner_code FROM owner WHERE UPPER(owner_code) = UPPER(?) AND id != ? AND status = 'active'");
+        $stmtLogin->execute([$login_or_group_id, $nativeOwner]);
         $partnerByLogin = $stmtLogin->fetch(PDO::FETCH_ASSOC);
     }
 
-    // 2. Check for Group ID match
+    // 2. Check for Group ID match (excluding native owner)
     $partnerByGroup = null;
     if ($force_type === '' || $force_type === 'group') {
         $stmtGrp = $pdo->prepare("
             SELECT o.id, o.name, c.group_id 
             FROM company c
             JOIN owner o ON c.owner_id = o.id
-            WHERE UPPER(c.group_id) = UPPER(?) AND o.status = 'active'
+            WHERE UPPER(c.group_id) = UPPER(?) AND id != ? AND o.status = 'active'
             LIMIT 1
         ");
-        $stmtGrp->execute([$login_or_group_id]);
+        $stmtGrp->execute([$login_or_group_id, $nativeOwner]);
         $partnerByGroup = $stmtGrp->fetch(PDO::FETCH_ASSOC);
     }
 
@@ -75,11 +80,8 @@ try {
 
     $partnerId = $partner['id'];
 
-    // Prevent self-linking (if JK tries to link himself)
-    $stmtCheckNative = $pdo->prepare("SELECT owner_id FROM company WHERE id = ?");
-    $stmtCheckNative->execute([$company_id]);
-    $nativeOwner = $stmtCheckNative->fetchColumn();
-
+    // Note: Self-linking check is now handled implicitly since we exclude nativeOwner in queries,
+    // but we can keep it as a fallback.
     if ($nativeOwner == $partnerId) {
         echo json_encode(['status' => 'error', 'message' => 'This account is already the main owner of the company']);
         exit();
