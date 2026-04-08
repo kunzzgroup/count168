@@ -38,6 +38,17 @@ function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
     return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
 }
 
+/** transactions.currency_id 是否存在（请求内只查一次，避免每个账户/组合重复 SHOW COLUMNS） */
+function searchApiTxnHasCurrencyId(PDO $pdo): bool
+{
+    static $v = null;
+    if ($v === null) {
+        $st = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+        $v = $st && $st->rowCount() > 0;
+    }
+    return $v;
+}
+
 /**
  * 将 currency 加入列表（根据 currency_id 去重）
  */
@@ -379,9 +390,10 @@ if (!empty($target_account_ids)) {
     
     // 收集「Edit Account 里勾选的 active 货币」：来自 account_currency 表，供前端 Show 0 balance 时只显示这些货币
     $active_currency_codes = [];
+    $has_account_currency_table = false;
     try {
-        $has_ac = $pdo->query("SHOW TABLES LIKE 'account_currency'")->rowCount() > 0;
-        if ($has_ac) {
+        $has_account_currency_table = $pdo->query("SHOW TABLES LIKE 'account_currency'")->rowCount() > 0;
+        if ($has_account_currency_table) {
             $placeholders = implode(',', array_fill(0, count($accounts), '?'));
             $ids = array_column($accounts, 'id');
             $stmt = $pdo->prepare("
@@ -394,13 +406,6 @@ if (!empty($target_account_ids)) {
             $active_currency_codes = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'code');
             $active_currency_codes = array_values(array_unique($active_currency_codes));
         }
-    } catch (PDOException $e) {
-        // 忽略，保持 active_currency_codes 为空，前端不按 active 过滤
-    }
-    
-    $has_account_currency_table = false;
-    try {
-        $has_account_currency_table = $pdo->query("SHOW TABLES LIKE 'account_currency'")->rowCount() > 0;
     } catch (PDOException $e) {
         $has_account_currency_table = false;
     }
@@ -437,8 +442,7 @@ if (!empty($target_account_ids)) {
                 $account_currencies = array_values($account_currencies);
             }
             // 补充：账户在日期范围内有交易（含 WIN/LOSE/PROFIT）的货币，确保有 PROFIT 的账户能显示
-            $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-            if ($stmt->rowCount() > 0) {
+            if (searchApiTxnHasCurrencyId($pdo)) {
                 // 新环境：transactions 有 currency_id，直接按 currency_id 收集
                 $txn_cur_stmt = $pdo->prepare("
                     SELECT DISTINCT t.currency_id, UPPER(c.code) AS currency_code
@@ -534,9 +538,7 @@ if (!empty($target_account_ids)) {
             
             if (empty($account_currencies)) {
                 try {
-                    $check_transaction_currency = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-                    $has_transaction_currency = $check_transaction_currency->rowCount() > 0;
-                    if ($has_transaction_currency) {
+                    if (searchApiTxnHasCurrencyId($pdo)) {
                         $txn_currency_stmt = $pdo->prepare("
                             SELECT DISTINCT t.currency_id, UPPER(c.code) AS currency_code
                             FROM transactions t
@@ -645,7 +647,8 @@ if (!empty($target_account_ids)) {
         $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '');
         
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
-        $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '');
+        $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '');
+        $win_loss = $wlPack['win_loss'];
         
         // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
@@ -668,8 +671,11 @@ if (!empty($target_account_ids)) {
         $cr_dr_display = round((float)$cr_dr, 2);
         $balance = round($bf_display + $win_loss_display + $cr_dr_display, 2);
         
-        // 4b. 本期是否有 RATE Middle-Man 分录（该账户+货币在本期作为 Middle-Man 收取手续费）
-        $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+        // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
+        $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
+        if (!$is_rate_middleman && !searchApiTxnHasCurrencyId($pdo)) {
+            $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+        }
         
         // 5. 检查 Alert 条件是否达成
         $is_alert = false;
@@ -790,9 +796,6 @@ if (!empty($target_account_ids)) {
         if (!isset($seen_combos[$combo_key])) {
             $seen_combos[$combo_key] = true;
             $deduplicated_results[] = $row;
-        } else {
-            // 如果发现重复，记录日志（用于调试）
-            error_log("发现重复的 account + currency 组合: account_id={$row['account_id']}, currency={$row['currency']}");
         }
     }
     $results = $deduplicated_results;
@@ -806,22 +809,12 @@ if (!empty($target_account_ids)) {
     });
     
     // 分离左右表格（正数 vs 负数）
-    // 调试：记录balance值
-    error_log("=== 调试 - Balance值检查 ===");
-    foreach ($results as $index => $row) {
-        error_log("结果[$index]: account_id={$row['account_id']}, balance={$row['balance']}, 类型=" . gettype($row['balance']) . ", is_numeric=" . is_numeric($row['balance']));
-    }
-    
     $left_table = array_filter($results, function($row) {
-        $condition = $row['balance'] >= 0;
-        error_log("左表格检查: account_id={$row['account_id']}, balance={$row['balance']}, condition={$condition}");
-        return $condition;
+        return $row['balance'] >= 0;
     });
     
     $right_table = array_filter($results, function($row) {
-        $condition = $row['balance'] < 0;
-        error_log("右表格检查: account_id={$row['account_id']}, balance={$row['balance']}, condition={$condition}");
-        return $condition;
+        return $row['balance'] < 0;
     });
     
     // 重新索引数组
@@ -1064,12 +1057,7 @@ function calculateTotals($data) {
 function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = '') {
     $bf = 0;
     
-    // 检查 transactions 表是否有 currency_id 字段（仅检查一次）
-    static $has_transaction_currency = null;
-    if ($has_transaction_currency === null) {
-        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-        $has_transaction_currency = $stmt->rowCount() > 0;
-    }
+    $has_transaction_currency = searchApiTxnHasCurrencyId($pdo);
 
     // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
     static $has_source_bank_process_id = null;
@@ -1298,9 +1286,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
  * Win/Loss = Data Capture + Bank Process 的 WIN/LOSE（description 以 "Process: " 开头）
  *          + 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
  *          + RATE Middle-Man 手续费（RATE_MIDDLEMAN）
+ *
+ * @return array{win_loss: float, has_rate_middleman: bool}
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '') {
     $win_loss = 0;
+    $has_rate_middleman = false;
 
     // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
     static $has_source_bank_process_id = null;
@@ -1355,8 +1346,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss += $stmt->fetchColumn();
 
     // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
-    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-    if ($stmt->rowCount() > 0) {
+    if (searchApiTxnHasCurrencyId($pdo)) {
         // 与 history_api 的事件口径一致：每条 transaction 金额先 round(2) 再求和
         $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN -ROUND(t.amount, 2) ELSE 0 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -1379,9 +1369,9 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
 
-        // 4. RATE Middle-Man：手续费应显示在 Win/Loss，而不是 Cr/Dr
+        // 4. RATE Middle-Man：手续费应显示在 Win/Loss，而不是 Cr/Dr（一次查询同时得到金额与是否存在）
         $rateStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(ROUND(e.amount, 2)), 0) AS total
+            SELECT COALESCE(SUM(ROUND(e.amount, 2)), 0) AS total, COUNT(*) AS cnt
             FROM transaction_entry e
             JOIN transactions h ON e.header_id = h.id
             WHERE h.company_id = ?
@@ -1393,10 +1383,15 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
               AND h.transaction_date BETWEEN ? AND ?
         ");
         $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
-        $win_loss += (float)$rateStmt->fetchColumn();
+        $mmRow = $rateStmt->fetch(PDO::FETCH_ASSOC);
+        $win_loss += (float)($mmRow['total'] ?? 0);
+        $has_rate_middleman = ((int)($mmRow['cnt'] ?? 0)) > 0;
     }
 
-    return $win_loss;
+    return [
+        'win_loss' => $win_loss,
+        'has_rate_middleman' => $has_rate_middleman,
+    ];
 }
 
 /**
@@ -1437,9 +1432,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     $cr_dr = 0;
     $transaction_count = 0;
 
-    // 检查 transactions 表是否有 currency_id 字段
-    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-    $has_currency_id = $stmt->rowCount() > 0;
+    $has_currency_id = searchApiTxnHasCurrencyId($pdo);
 
     if ($has_currency_id) {
         // Cr/Dr = 仅 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM；WIN/LOSE（含 PROFIT）计入 Win/Loss 列

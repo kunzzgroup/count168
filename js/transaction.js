@@ -1857,48 +1857,11 @@ function searchTransactions(isInitialLoad) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('✅ 搜索成功:', data.data);
-                console.log('📊 数据统计:', {
-                    left_table: data.data.left_table?.length || 0,
-                    right_table: data.data.right_table?.length || 0,
-                    total_accounts: (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0)
-                });
-                
-                // 调试：检查左右表格数据的存在性
-                console.log('🔍 调试 - left_table检查:', {
-                    exists: !!data.data.left_table,
-                    isArray: Array.isArray(data.data.left_table),
-                    length: data.data.left_table?.length,
-                    content: data.data.left_table
-                });
-                console.log('🔍 调试 - right_table检查:', {
-                    exists: !!data.data.right_table,
-                    isArray: Array.isArray(data.data.right_table),
-                    length: data.data.right_table?.length,
-                    content: data.data.right_table
-                });
-
-                // 调试：检查左右表格数据的balance正负
-                console.log('🔍 调试 - 左表格数据balance检查:');
-                if (data.data.left_table && Array.isArray(data.data.left_table) && data.data.left_table.length > 0) {
-                    data.data.left_table.forEach((row, index) => {
-                        console.log(`  左[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
-                    });
-                } else {
-                    console.log('  左表格数据不存在、不是数组或为空');
+                // 大量 console 在数据多时会明显拖慢主线程；需要时在控制台执行: window.DEBUG_TRANSACTION_SEARCH = true
+                if (typeof window !== 'undefined' && window.DEBUG_TRANSACTION_SEARCH) {
+                    console.log('✅ 搜索成功:', data.data);
+                    console.log('📊 行数:', (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0));
                 }
-
-                console.log('🔍 调试 - 右表格数据balance检查:');
-                if (data.data.right_table && Array.isArray(data.data.right_table) && data.data.right_table.length > 0) {
-                    data.data.right_table.forEach((row, index) => {
-                        console.log(`  右[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
-                    });
-                } else {
-                    console.log('  右表格数据不存在、不是数组或为空');
-                }
-
-                // 直接使用后端左右表分配结果，避免前端再次重分配造成筛选冲突
-                console.log('✅ 使用后端返回的左右表分配结果');
                 const currentSearchData = data.data || {};
                 const leftRows = Array.isArray(currentSearchData.left_table) ? currentSearchData.left_table : [];
                 const rightRows = Array.isArray(currentSearchData.right_table) ? currentSearchData.right_table : [];
@@ -2643,7 +2606,7 @@ function fillTable(tbodyId, tableId, data) {
     
     if (!data || data.length === 0) return;
     
-    function appendRow(row) {
+    function buildRow(row) {
         const tr = document.createElement('tr');
         const alertClass = (row.is_alert == 1 || row.is_alert === true) ? ' transaction-alert-row' : '';
         tr.className = 'transaction-table-row' + alertClass;
@@ -2663,21 +2626,33 @@ function fillTable(tbodyId, tableId, data) {
         tr.querySelector('.transaction-balance-cell').addEventListener('click', function() {
             handleBalanceClick(this, isLeftTable);
         });
-        tbody.appendChild(tr);
+        return tr;
+    }
+    
+    function appendRangeToFragment(frag, from, to) {
+        for (var i = from; i < to; i++) {
+            frag.appendChild(buildRow(data[i]));
+        }
     }
     
     var total = data.length;
     if (total <= FILL_TABLE_FIRST_PAINT_ROWS) {
-        data.forEach(appendRow);
+        var fragAll = document.createDocumentFragment();
+        appendRangeToFragment(fragAll, 0, total);
+        tbody.appendChild(fragAll);
         return;
     }
-    // 先渲染首屏行，尽快「直接显示」
-    for (var i = 0; i < FILL_TABLE_FIRST_PAINT_ROWS; i++) appendRow(data[i]);
-    // 其余行分批用 rAF 追加，避免长时间阻塞主线程
+    // 先渲染首屏行，DocumentFragment 一次挂载，减少多次 reflow
+    var fragFirst = document.createDocumentFragment();
+    appendRangeToFragment(fragFirst, 0, FILL_TABLE_FIRST_PAINT_ROWS);
+    tbody.appendChild(fragFirst);
     var index = FILL_TABLE_FIRST_PAINT_ROWS;
     function chunk() {
         var end = Math.min(index + FILL_TABLE_CHUNK_ROWS, total);
-        for (; index < end; index++) appendRow(data[index]);
+        var fragChunk = document.createDocumentFragment();
+        appendRangeToFragment(fragChunk, index, end);
+        tbody.appendChild(fragChunk);
+        index = end;
         if (index < total) requestAnimationFrame(chunk);
     }
     requestAnimationFrame(chunk);
