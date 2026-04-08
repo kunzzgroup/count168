@@ -553,9 +553,8 @@
                     }
                 });
             }
-            if (btn) {
-                btn.addEventListener('click', runIfReady);
-            }
+            // Bank Process List search bar has no explicit search button; keep click support only if present.
+            if (btn) btn.addEventListener('click', runIfReady);
         }
 
         document.addEventListener('DOMContentLoaded', function() {

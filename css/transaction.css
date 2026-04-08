@@ -927,9 +927,9 @@ body.transaction-page {
 }
 
 .transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-company {
-    background-color: #ede3d4 !important;
-    color: #6f4900 !important;
-    border: 1px solid #e6d5c3 !important;
+    background-color: #ecfccb !important;
+    color: #3f6212 !important;
+    border: 1px solid #bef264 !important;
     /* font-weight: 600 !important; */
 }
 
@@ -1519,9 +1519,9 @@ body.transaction-page .expiration-countdown-text {
 }
 
 .category-tag[data-category-value="COMPANY"] {
-    background-color: #ede3d4 !important;
-    color: #6f4900 !important;
-    border: 1px solid #e6d5c3 !important;
+    background-color: #ecfccb !important;
+    color: #3f6212 !important;
+    border: 1px solid #bef264 !important;
 }
 
 .category-tag[data-category-value="STAFF"] {
