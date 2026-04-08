@@ -58,6 +58,49 @@ h1 {
     gap: 10px;
 }
 
+/* Keep Date Range and Search bar same height */
+.maintenance-search-section {
+    --maintenance-control-height: clamp(36px, 2.8vw, 40px);
+}
+
+/* Bank Process List search bar (1:1 with processlist) */
+.maintenance-search-section .maintenance-search-container {
+    position: relative;
+}
+
+.maintenance-search-section .maintenance-search-container .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 25%;
+    z-index: 2;
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(14px, 0.83vw, 16px);
+    pointer-events: none;
+    object-fit: contain;
+}
+
+.maintenance-search-section .maintenance-search-input {
+    width: clamp(165px, 13vw, 250px);
+    padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.8vw, 15px);
+    background: rgba(255, 255, 255, 1);
+    color: #000000ff;
+    backdrop-filter: blur(8px) saturate(1.2);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    box-shadow: 0 3px 4px rgba(15, 23, 42, 0.1);
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.maintenance-search-section .maintenance-search-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 3px 4px rgba(15, 23, 42, 0.1);
+    background: rgba(255, 255, 255, 1);
+}
+
 .maintenance-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
@@ -181,32 +224,72 @@ h1 {
 }
 
 /* Search bar inline with Date Range (right side) */
+.maintenance-date-inline,
 .maintenance-search-inline {
-    /* Match Date Range visual size */
-    min-width: clamp(120px, 12vw, 240px);
-    width: 100%;
+    /* Match Date Range group sizing so it stays beside it */
+    /* Slightly wider to look balanced */
+    min-width: clamp(200px, 18vw, 320px);
+    max-width: clamp(200px, 18vw, 320px);
+}
+
+.maintenance-search-inline-wrap {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.52vw, 10px);
 }
 
 .maintenance-search-inline-controls {
+    /* Make it look/size like .date-range-picker */
     display: flex;
-    align-items: stretch;
-    gap: clamp(10px, 1vw, 16px);
+    align-items: center;
+    gap: clamp(4px, 0.42vw, 8px);
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    height: var(--maintenance-control-height);
+    padding: 0 clamp(8px, 0.83vw, 16px);
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .maintenance-search-inline-controls .maintenance-input {
     flex: 1 1 auto;
     min-width: 0;
-    /* Match date-range-picker padding/border/radius so height looks identical */
-    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
 }
 
-.maintenance-search-inline-controls .maintenance-from-search-btn {
-    height: auto;
-    margin-bottom: 0;
+/* Search button outside the bar */
+.maintenance-search-inline-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--maintenance-control-height); /* match Date Range */
+    width: clamp(38px, 3vw, 44px);    /* slightly smaller */
+    margin: 0;
+    border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
 }
+
+.maintenance-search-inline-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.35);
+}
+
+.maintenance-search-inline-btn:active {
+    transform: translateY(0);
+}
+
+/* Date Range uses shared styles from css/date-range-picker.css (do not override here). */
 
 .maintenance-from-search-btn {
     flex: 0 0 auto;

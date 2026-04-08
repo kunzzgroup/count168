@@ -1777,16 +1777,8 @@ function loadOwnerCompanies() {
                     selectedDashboardGroup = null;
                 }
 
-                // 如果经过上述验证后并没有选中 Group，但是当前数据所在的 Company 属于某个 Group
-                // 我们自动帮它设为默认选中状态，确保 UI "点亮" 的逻辑与当前读取的数据一致。
-                if (!selectedDashboardGroup && currentCompany && currentCompany.group_id) {
-                    const compGroup = currentCompany.group_id.toUpperCase();
-                    if (groups.includes(compGroup)) {
-                        selectedDashboardGroup = compGroup;
-                        sessionStorage.setItem('dashboard_group_filter', compGroup);
-                        console.log('[Dashboard] Auto-synced selectedDashboardGroup to match current company:', compGroup);
-                    }
-                }
+                // 如果经过上述验证后并没有选中 Group，则保持为空。
+                // 根据用户要求，登录第一眼应该默认不选中任何 Group，从而只展示独立公司。
 
                 // 渲染 Group pills（只在有 group 时才显示）
                 if (groups.length > 0) {
