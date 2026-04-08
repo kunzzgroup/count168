@@ -355,78 +355,56 @@ h1 {
     border-bottom: none;
 }
 
-/* 已删除记录：保留行并显示红色删除线 */
-.maintenance-table tbody tr.maintenance-row-deleted {
-    position: relative;
-    opacity: 0.95;
-}
-
-.maintenance-table tbody tr.maintenance-row-deleted::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    height: 2px;
-    background: #d11a2a;
-    pointer-events: none;
-}
-
-.maintenance-table tbody tr.maintenance-row-deleted .maintenance-table-cell {
+/* 已删除记录样式：与 payment_maintenance 一致（红色 + 文字删除线） */
+.maintenance-row-deleted .maintenance-table-cell {
+    color: #b91c1c;
     text-decoration: line-through;
-    text-decoration-color: #d11a2a;
-    text-decoration-thickness: 1.5px;
 }
 
-/* 10 columns: No., Created At, Account(To), Account(From), Amount, Description, Remark, Submitter, Deleter, Checkbox */
+/* 9 columns: No., Dts Created, Account, From, Amount, Description, Remark, Submitted By, Checkbox */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 2%;   /* No. */
+    width: 3%;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 11%;  /* Created At */
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 10%;  /* Account(To) */
+    width: 10%;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 10%;  /* Account(From) */
+    width: 10%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 8%;   /* Currency & Amount */
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 20%;  /* Description */
+    width: 22%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 11%;  /* Remark */
+    width: 8%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 5%;   /* Submitter */
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 12%;  /* Deleter */
-}
-
-.maintenance-table th:nth-child(10),
-.maintenance-table td:nth-child(10) {
-    width: 2%;   /* Checkbox */
+    width: 2%;
 }
 
 .maintenance-table-cell {
