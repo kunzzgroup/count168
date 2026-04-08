@@ -957,6 +957,13 @@ body.transaction-page {
     /* font-weight: 600 !important; */
 }
 
+.transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-debtor {
+    background-color: #ede9fe !important;
+    color: #4338ca !important;
+    border: 1px solid #c4b5fd !important;
+    /* font-weight: 600 !important; */
+}
+
 .transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-none {
     background-color: #eceef2 !important;
     color: #3e434f !important;
@@ -1547,6 +1554,12 @@ body.transaction-page .expiration-countdown-text {
 .category-tag[data-category-value="MEMBER"] {
     background-color: #f2dfd2 !important;
     color: #5f2e0f !important;
+}
+
+.category-tag[data-category-value="DEBTOR"] {
+    background-color: #ede9fe !important;
+    color: #4338ca !important;
+    border: 1px solid #c4b5fd !important;
 }
 
 .category-tag[data-category-value="NONE"] {
