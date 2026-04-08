@@ -182,30 +182,39 @@ h1 {
 
 /* Search bar inline with Date Range (right side) */
 .maintenance-search-inline {
-    /* Match Date Range visual size */
-    min-width: clamp(120px, 12vw, 240px);
-    width: 100%;
+    /* Match Date Range group sizing so it stays beside it */
+    min-width: clamp(150px, 12.5vw, 240px);
+    max-width: clamp(150px, 12.5vw, 240px);
 }
 
 .maintenance-search-inline-controls {
+    /* Make it look/size like .date-range-picker */
     display: flex;
-    align-items: stretch;
-    gap: clamp(10px, 1vw, 16px);
+    align-items: center;
+    gap: clamp(4px, 0.42vw, 8px);
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
+    box-sizing: border-box;
 }
 
 .maintenance-search-inline-controls .maintenance-input {
     flex: 1 1 auto;
     min-width: 0;
-    /* Match date-range-picker padding/border/radius so height looks identical */
-    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
 }
 
 .maintenance-search-inline-controls .maintenance-from-search-btn {
-    height: auto;
-    margin-bottom: 0;
+    width: clamp(24px, 1.25vw, 28px);
+    height: clamp(24px, 1.25vw, 28px);
+    margin: 0;
+    border: none;
     border-radius: clamp(4px, 0.42vw, 8px);
+    box-shadow: none;
 }
 
 .maintenance-from-search-btn {
