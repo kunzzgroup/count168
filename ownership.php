@@ -34,6 +34,7 @@ $assetVer = function ($file) {
 
     <div class="own-container">
         <h1 class="own-page-title">ACCOUNT OWNERSHIP</h1>
+        <div class="own-separator-line"></div>
 
         <!-- Companies will be injected here via JS -->
         <div id="companyCardsContainer">

@@ -49,6 +49,19 @@ body {
     text-transform: uppercase;
 }
 
+/* Separator Line extending beyond container */
+.own-separator-line {
+    width: 100vw;
+    height: 2px;
+    background-color: #939393;
+    margin: 5px 0 20px 0;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+}
+
 /* Card Container */
 .own-card {
     border: 1px solid var(--own-gray-border);
