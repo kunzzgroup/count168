@@ -779,6 +779,26 @@ if (!function_exists('renderBankProcessModals')) {
                 </div>
                 <h2 class="process-confirm-title">Resend to Accounting Due</h2>
                 <p id="confirmBankResendMessage" class="process-confirm-message"></p>
+                <div id="confirmBankResendScheduleFields" class="bank-resend-schedule-fields" style="text-align: left; margin: 16px 0 8px; max-width: 100%;">
+                    <p class="bank-resend-schedule-hint" style="margin: 0 0 10px; font-size: 13px; color: #4b5563;">Billing schedule (edit here only; not in Edit Process):</p>
+                    <div style="display: grid; gap: 10px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="bank_resend_day_start" style="display: block; font-size: 13px; margin-bottom: 4px;">Day start</label>
+                            <input type="date" id="bank_resend_day_start" class="bank-input" style="width: 100%; max-width: 220px; box-sizing: border-box;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="bank_resend_day_end" style="display: block; font-size: 13px; margin-bottom: 4px;">Day end</label>
+                            <input type="date" id="bank_resend_day_end" class="bank-input" style="width: 100%; max-width: 220px; box-sizing: border-box;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="bank_resend_frequency" style="display: block; font-size: 13px; margin-bottom: 4px;">Frequency</label>
+                            <select id="bank_resend_frequency" class="bank-input bank-select" style="width: 100%; max-width: 220px; box-sizing: border-box;">
+                                <option value="1st_of_every_month">1st of Every Month</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div class="process-confirm-actions">
                     <button type="button" class="process-btn process-btn-cancel confirm-cancel confirm-bank-resend-cancel"
                         onclick="closeConfirmBankResendModal()">Cancel</button>

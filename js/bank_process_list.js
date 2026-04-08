@@ -232,7 +232,7 @@ function resendBankProcessAccountingDue(processId) {
 }
 window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
 
-async function executeAccountingDueResend(processId) {
+async function executeAccountingDueResend(processId, scheduleOpts) {
     const id = parseInt(processId, 10);
     if (!id) return;
     const procGuard = processes.find(function (p) { return p.id === id; });
@@ -243,17 +243,30 @@ async function executeAccountingDueResend(processId) {
             return;
         }
     }
+    const payload = { bank_process_id: id };
+    if (scheduleOpts && typeof scheduleOpts === 'object') {
+        payload.day_start = scheduleOpts.day_start != null && String(scheduleOpts.day_start).trim() !== ''
+            ? String(scheduleOpts.day_start).trim() : '';
+        payload.day_end = scheduleOpts.day_end != null && String(scheduleOpts.day_end).trim() !== ''
+            ? String(scheduleOpts.day_end).trim() : '';
+        payload.day_start_frequency = (scheduleOpts.day_start_frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
+    }
     try {
         const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bank_process_id: id })
+            body: JSON.stringify(payload)
         });
         const result = await response.json();
         if (result.success) {
             const proc = processes.find(function (p) { return p.id === id; });
             if (proc) {
                 proc.maintenance_resend_pending = false;
+                if (scheduleOpts && typeof scheduleOpts === 'object') {
+                    proc.day_start = payload.day_start || null;
+                    proc.day_end = payload.day_end || null;
+                    proc.day_start_frequency = payload.day_start_frequency;
+                }
             }
             showNotification(result.message || 'You can post from Accounting Due again', 'success');
             if (typeof loadAccountingInbox === 'function') {
@@ -785,6 +798,7 @@ function openAddProcessForSelectedPermission() {
         document.getElementById('addBankModal').style.display = 'block';
         setBankModalLoadingState(true, 'Add Process');
         ensureAddBankProcessDataLoaded().then(async () => {
+            setBankProcessBillingScheduleLocked(false);
             const countryEl = document.getElementById('bank_country');
             if (countryEl) countryEl.value = '';
             applySelectedBanksToDropdown('');
@@ -846,7 +860,35 @@ function ensureAddBankProcessDataLoaded(forceReload) {
     return bankAddProcessDataPromise;
 }
 
+function isBankProcessBillingScheduleLocked() {
+    const form = document.getElementById('addBankProcessForm');
+    return !!(form && form.getAttribute('data-billing-schedule-locked') === '1');
+}
+
+function setBankProcessBillingScheduleLocked(locked) {
+    const form = document.getElementById('addBankProcessForm');
+    if (form) {
+        if (locked) {
+            form.setAttribute('data-billing-schedule-locked', '1');
+        } else {
+            form.removeAttribute('data-billing-schedule-locked');
+        }
+    }
+    ['bank_day_start', 'bank_day_end'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.readOnly = !!locked;
+        el.style.backgroundColor = locked ? '#f5f5f5' : '';
+    });
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    if (freqEl) {
+        freqEl.disabled = !!locked;
+        freqEl.style.backgroundColor = locked ? '#f5f5f5' : '';
+    }
+}
+
 function closeAddBankModal() {
+    setBankProcessBillingScheduleLocked(false);
     document.getElementById('addBankModal').style.display = 'none';
     document.getElementById('bank_edit_id').value = '';
     window.selectedProfitSharingEntries = [];
@@ -1119,7 +1161,7 @@ async function openBankEditModal(id) {
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
-        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+        setBankProcessBillingScheduleLocked(true);
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
         closeAddBankModal();
@@ -1856,6 +1898,7 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
 // Sync Frequency based on Day End
 function updateBankFrequencyOptions() {
+    if (isBankProcessBillingScheduleLocked()) return;
     const dayEndEl = document.getElementById('bank_day_end');
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
@@ -1960,6 +2003,7 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
  * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
  */
 function autoCalculateBankDayEnd() {
+    if (isBankProcessBillingScheduleLocked()) return;
     const dayStartEl = document.getElementById('bank_day_start');
     const dayEndEl = document.getElementById('bank_day_end');
     const contractEl = document.getElementById('bank_contract');
