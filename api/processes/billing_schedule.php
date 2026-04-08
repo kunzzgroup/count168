@@ -40,7 +40,7 @@ function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?
     }
 }
 
-/** 1st-of-month frequency + day_start 非1号：锚点为次月1号起 N 个整月，截止日为 (次月1号)+(N-1)月。 */
+/** 1st-of-month + day_start 非1号：首自然月为 partial 尾段；次月1号起至多 (N-1) 个整月账，截止日 = 次月1号 + (N-1) 月（如 3 MONTHS → 尾段+4月+5月）。 */
 function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $termMonths): ?string
 {
     if ($termMonths < 1) {

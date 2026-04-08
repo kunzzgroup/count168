@@ -196,6 +196,19 @@ function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $te
     }
 }
 
+/** 与 process_accounting_inbox_api::inboxAnchorMonthCapAfterPartialFirst 一致 */
+function txnAnchorMonthCapAfterPartialFirst(?string $contract, int $startDayOfMonth): ?int
+{
+    if ($startDayOfMonth === 1) {
+        return null;
+    }
+    $term = getBillingTermMonthsFromContract($contract);
+    if ($term === null || $term < 1) {
+        return null;
+    }
+    return max(0, $term - 1);
+}
+
 function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract, string $frequency): ?string
 {
     $term = getBillingTermMonthsFromContract($contract);
@@ -407,7 +420,12 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
             $term = getBillingTermMonthsFromContract($contract);
             $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdFirstOfMonth($startDate, $term) : null;
+            $anchorMonthCap = txnAnchorMonthCapAfterPartialFirst($contract, (int) date('j', $startTs));
+            $anchorSlotIndex = 0;
             while ($iter <= $endCap) {
+                if ($anchorMonthCap !== null && $anchorSlotIndex >= $anchorMonthCap) {
+                    break;
+                }
                 $y = (int) $iter->format('Y');
                 $mo = (int) $iter->format('n');
                 $firstOfThis = $iter->format('Y-m-d');
@@ -419,6 +437,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
                     return $iter->format('Y-n');
                 }
+                $anchorSlotIndex++;
                 $iter = $iter->modify('+1 month');
             }
         } catch (Throwable $e) {
