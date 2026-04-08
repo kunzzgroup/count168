@@ -542,9 +542,14 @@ try {
         $sql .= " LEFT JOIN bank_process bp_t ON t.source_bank_process_id = bp_t.id LEFT JOIN account a_cm_t ON bp_t.card_merchant_id = a_cm_t.id";
     }
     
-    // monthly / partial_first_month / day_end_tail + bank_process：过滤/排序按 day_start 锚定（尾段入账 transaction_date 亦为 day_start）。
+    // monthly / partial_first_month / day_end_tail + bank_process：
+    // 过滤/排序按 day_start 锚定（尾段入账 transaction_date 亦为 day_start）。
+    //
+    // 兼容旧库：若没有 source_bank_process_period_type 字段，也要能按 day_start 归属，
+    // 否则修改 day_start 后，历史/列表仍会按旧 transaction_date 落在旧日期区间。
     $effectiveTxnDateExpr = "DATE(t.transaction_date)";
-    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+    $bpDayStartSql = null;
+    if ($has_source_bank_process_id) {
         /* CAST 兼容 DATE/DATETIME 列；REGEXP 对 CHAR 上的 d/m/Y 与 Y-m-d 均可解析 */
         $bpDayStartSql = "CASE
                             WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp_t.day_start)
@@ -552,15 +557,28 @@ try {
                             WHEN CAST(bp_t.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp_t.day_start, '%d-%m-%Y')
                             ELSE NULL
                         END";
-        $effectiveTxnDateExpr = "(
-            CASE
-                WHEN t.source_bank_process_id IS NOT NULL
-                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
-                     AND DATE(t.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                ELSE DATE(t.transaction_date)
-            END
-        )";
+        if ($has_source_bank_process_period_type) {
+            $effectiveTxnDateExpr = "(
+                CASE
+                    WHEN t.source_bank_process_id IS NOT NULL
+                         AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                         AND DATE(t.transaction_date) <= CURDATE()
+                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                    ELSE DATE(t.transaction_date)
+                END
+            )";
+        } else {
+            // 没有 period_type 字段时，保守地仅对 bank_process 来源的交易使用 day_start 锚定
+            // （并仍遵守“未来交易不展示”的规则）。
+            $effectiveTxnDateExpr = "(
+                CASE
+                    WHEN t.source_bank_process_id IS NOT NULL
+                         AND DATE(t.transaction_date) <= CURDATE()
+                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                    ELSE DATE(t.transaction_date)
+                END
+            )";
+        }
     }
 
     $ph = implode(',', array_fill(0, count($account_ids), '?'));
@@ -569,13 +587,20 @@ try {
               AND t.transaction_type <> 'RATE'
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
               AND $effectiveTxnDateExpr BETWEEN ? AND ?";
-    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
-        // monthly / partial_first_month / day_end_tail（bank process）须 transaction_date 已到日才展示，避免未来账单提前出现。
-        $sql .= " AND (
-            t.source_bank_process_id IS NULL
-            OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
-            OR DATE(t.transaction_date) <= CURDATE()
-        )";
+    if ($has_source_bank_process_id) {
+        // bank process：transaction_date 已到日才展示，避免未来账单提前出现。
+        if ($has_source_bank_process_period_type) {
+            $sql .= " AND (
+                t.source_bank_process_id IS NULL
+                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
+        } else {
+            $sql .= " AND (
+                t.source_bank_process_id IS NULL
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
+        }
     }
     
     $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
