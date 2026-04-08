@@ -180,6 +180,22 @@ h1 {
     min-width: clamp(160px, 28vw, 320px);
 }
 
+/* Search bar inline with Date Range (right side) */
+.maintenance-search-inline {
+    min-width: clamp(220px, 22vw, 420px);
+}
+
+.maintenance-search-inline-controls {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 1vw, 16px);
+}
+
+.maintenance-search-inline-controls .maintenance-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .maintenance-from-search-btn {
     flex: 0 0 auto;
     display: inline-flex;
