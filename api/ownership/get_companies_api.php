@@ -19,7 +19,10 @@ try {
     // Get companies available to this user
     $companies = [];
     if ($current_user_role === 'owner') {
-        $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
+        // Use real_owner_id (permanent id) — owner_id can be swapped to another owner's id
+        // when the user selects an external company (e.g. LOL selects JK's company TT).
+        // Without this, we'd return JK's companies instead of LOL's.
+        $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id);
         $session_company_id = $_SESSION['company_id'] ?? null;
 
         // Get both the NATIVE group_id (c.group_id) and the PARTNER group_id (co.partner_group_id)
