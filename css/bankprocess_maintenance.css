@@ -58,11 +58,6 @@ h1 {
     gap: 10px;
 }
 
-/* Keep Date Range and Search bar same height */
-.maintenance-search-section {
-    --maintenance-control-height: clamp(36px, 2.8vw, 40px);
-}
-
 .maintenance-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
@@ -186,72 +181,32 @@ h1 {
 }
 
 /* Search bar inline with Date Range (right side) */
-.maintenance-date-inline,
 .maintenance-search-inline {
-    /* Match Date Range group sizing so it stays beside it */
-    /* Slightly wider to look balanced */
-    min-width: clamp(200px, 18vw, 320px);
-    max-width: clamp(200px, 18vw, 320px);
-}
-
-.maintenance-search-inline-wrap {
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 0.52vw, 10px);
+    /* Match Date Range visual size */
+    min-width: clamp(120px, 12vw, 240px);
+    width: 100%;
 }
 
 .maintenance-search-inline-controls {
-    /* Make it look/size like .date-range-picker */
     display: flex;
-    align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
-    background: white;
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
-    height: var(--maintenance-control-height);
-    padding: 0 clamp(8px, 0.83vw, 16px);
-    box-sizing: border-box;
-    width: 100%;
+    align-items: stretch;
+    gap: clamp(10px, 1vw, 16px);
 }
 
 .maintenance-search-inline-controls .maintenance-input {
     flex: 1 1 auto;
     min-width: 0;
-    padding: 0;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-}
-
-/* Search button outside the bar */
-.maintenance-search-inline-btn {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: var(--maintenance-control-height); /* match Date Range */
-    width: clamp(38px, 3vw, 44px);    /* slightly smaller */
-    margin: 0;
+    /* Match date-range-picker padding/border/radius so height looks identical */
+    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
     border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-    color: #fff;
-    cursor: pointer;
-    transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
 }
 
-.maintenance-search-inline-btn:hover {
-    opacity: 0.92;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.35);
+.maintenance-search-inline-controls .maintenance-from-search-btn {
+    height: auto;
+    margin-bottom: 0;
+    border-radius: clamp(4px, 0.42vw, 8px);
 }
-
-.maintenance-search-inline-btn:active {
-    transform: translateY(0);
-}
-
-/* Date Range uses shared styles from css/date-range-picker.css (do not override here). */
 
 .maintenance-from-search-btn {
     flex: 0 0 auto;
