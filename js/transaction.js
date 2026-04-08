@@ -450,9 +450,15 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('No currency available for current company', 'info');
             return loadAccounts().then(() => { initCustomSelects(); });
         }
-        // Contra Inbox 延后到用户点击再加载
-        loadAccounts().then(() => { initCustomSelects(); bindContraCurrencyAutoSync(); console.log('✅ 初始数据加载完成'); });
-        searchTransactions(true);
+        // 首次进入：先恢复同一会话内的列表缓存（秒开），再优先请求 search_api；账户下拉延后一帧，避免与列表抢库
+        const hadSessionReplay = tryRestoreTxListSearchFromSession();
+        searchTransactions(true, { silent: hadSessionReplay });
+        setTimeout(() => {
+            loadAccounts().then(() => {
+                initCustomSelects();
+                bindContraCurrencyAutoSync();
+            });
+        }, 0);
     }).catch(error => {
         console.error('❌ 初始数据加载失败:', error);
         showNotification('Failed to load initial data', 'error');
@@ -1317,6 +1323,57 @@ function persistTransactionCurrencyFilterState() {
     } catch (e) { /* ignore */ }
 }
 
+/** 同标签页内：用 sessionStorage 按筛选条件缓存列表，再次进入页面先秒开旧数据再静默拉新 */
+const TX_LIST_SESSION_PREFIX = 'count168_txlist_v1_';
+
+function buildTxListSessionKey() {
+    const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
+    const dateTo = document.getElementById('date_to') && document.getElementById('date_to').value;
+    if (!dateFrom || !dateTo) return null;
+    const selectedCategories = getSelectedCategories();
+    const showInactive = document.getElementById('show_inactive').checked ? '1' : '0';
+    const showCaptureOnly = document.getElementById('show_capture_only').checked ? '1' : '0';
+    const showZero = document.getElementById('show_zero_balance').checked ? '1' : '0';
+    const hideZero = showZero === '1' ? '0' : '1';
+    let cat = '';
+    if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
+        cat = selectedCategories.slice().sort().join(',');
+    }
+    let cur = '';
+    if (!showAllCurrencies && selectedCurrencies.length > 0) {
+        cur = selectedCurrencies.slice().sort().join(',');
+    }
+    const cid = currentCompanyId != null ? String(currentCompanyId) : '';
+    return TX_LIST_SESSION_PREFIX + [cid, dateFrom, dateTo, cat, showInactive, showCaptureOnly, hideZero, cur, showAllCurrencies ? '1' : '0'].join('|');
+}
+
+function saveTxListSearchToSession(data) {
+    try {
+        const key = buildTxListSessionKey();
+        if (!key || !data) return;
+        const wrap = JSON.stringify({ v: 1, data: data });
+        if (wrap.length > 1800000) return;
+        sessionStorage.setItem(key, wrap);
+    } catch (e) { /* quota or private mode */ }
+}
+
+function tryRestoreTxListSearchFromSession() {
+    try {
+        const key = buildTxListSessionKey();
+        if (!key) return false;
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return false;
+        const o = JSON.parse(raw);
+        if (!o || o.v !== 1 || !o.data) return false;
+        if (!Array.isArray(o.data.left_table) && !Array.isArray(o.data.right_table)) return false;
+        lastSearchData = o.data;
+        applyZeroBalanceFilterAndRender();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 // ==================== 加载 Company Currencies ====================
 function loadCompanyCurrencies() {
     // 构建 URL，如果指定了 company_id 则添加参数
@@ -1736,8 +1793,11 @@ function updateCurrencyButtonsState() {
 }
 
 // ==================== 搜索功能 ====================
-// isInitialLoad: 首次进入页面自动搜当天数据时传 true
-function searchTransactions(isInitialLoad) {
+// isInitialLoad: 首次进入页面自动搜当天数据时传 true（预留）
+// opts.silent: 为 true 时不盖掉已有表格、不显示全屏 Loading，且不弹出「搜索完成」类提示（用于 session 回放后的后台刷新）
+function searchTransactions(isInitialLoad, opts) {
+    opts = opts || {};
+    const silent = opts.silent === true;
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
     const selectedCategories = getSelectedCategories(); // 使用新的多选函数
@@ -1783,61 +1843,68 @@ function searchTransactions(isInitialLoad) {
     // 添加时间戳防止缓存
     url += '&_t=' + Date.now();
     
-    // 立即显示表格区域与加载状态，让用户感知到操作已响应
     const tablesSection = document.querySelector('.transaction-tables-section');
     const loadingEl = document.getElementById('transaction-tables-loading');
     const defaultTables = document.getElementById('default-tables-container');
     const groupedTables = document.getElementById('currency-grouped-tables-container');
-    if (tablesSection) {
-        tablesSection.style.display = 'flex';
-        tablesSection.style.flexDirection = 'column';
-    }
-    if (loadingEl) {
-        loadingEl.textContent = 'Loading data';
-        loadingEl.style.display = 'flex';
-    }
-    if (defaultTables) defaultTables.style.display = 'none';
-    if (groupedTables) groupedTables.style.display = 'none';
     const summarySection = document.querySelector('.transaction-summary-section');
-    if (summarySection) summarySection.style.display = 'none';
 
-    const commitSearchData = (searchData) => {
-        // 保存搜索结果到全局变量
+    // silent：已有 session 回放内容时，不整页 Loading、不隐藏表格，减少「空白等待」感
+    if (!silent) {
+        if (tablesSection) {
+            tablesSection.style.display = 'flex';
+            tablesSection.style.flexDirection = 'column';
+        }
+        if (loadingEl) {
+            loadingEl.textContent = 'Loading data';
+            loadingEl.style.display = 'flex';
+        }
+        if (defaultTables) defaultTables.style.display = 'none';
+        if (groupedTables) groupedTables.style.display = 'none';
+        if (summarySection) summarySection.style.display = 'none';
+    }
+
+    const commitSearchData = (searchData, commitOpts) => {
+        commitOpts = commitOpts || {};
+        const quiet = commitOpts.quiet === true;
         lastSearchData = searchData;
         const totalAccounts = (searchData.left_table?.length || 0) + (searchData.right_table?.length || 0);
 
         if (totalAccounts === 0) {
-            // 无数据时也保留空表结构
             if (tablesSection) {
                 tablesSection.style.display = 'flex';
                 tablesSection.style.flexDirection = '';
             }
             if (summarySection) summarySection.style.display = 'flex';
             applyZeroBalanceFilterAndRender();
-            showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
+            saveTxListSearchToSession(searchData);
+            if (!quiet) {
+                showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
+            }
             return;
         }
 
-        // 有数据，显示表格区域（恢复 flex 布局，由 applyZeroBalanceFilterAndRender 显示对应容器）
         if (tablesSection) {
             tablesSection.style.display = 'flex';
             tablesSection.style.flexDirection = '';
         }
         if (summarySection) summarySection.style.display = 'flex';
 
-        // 使用最新搜索结果，根据「Show 0 balance」等状态在前端过滤并渲染
         applyZeroBalanceFilterAndRender();
         const displayedCount =
             (currentDisplayData.left_table?.length || 0) +
             (currentDisplayData.right_table?.length || 0);
-        if (displayedCount === 0 && totalAccounts > 0) {
-            showNotification(
-                `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
-                'info'
-            );
-        } else {
-            showNotification(`Search completed, found ${displayedCount} record(s)`, 'success');
+        if (!quiet) {
+            if (displayedCount === 0 && totalAccounts > 0) {
+                showNotification(
+                    `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
+                    'info'
+                );
+            } else {
+                showNotification(`Search completed, found ${displayedCount} record(s)`, 'success');
+            }
         }
+        saveTxListSearchToSession(searchData);
     };
 
     const singleSelectedCurrency = (!showAllCurrencies && selectedCurrencies.length === 1)
@@ -1877,7 +1944,7 @@ function searchTransactions(isInitialLoad) {
                         fallbackUrl += `&company_id=${currentCompanyId}`;
                     }
                     fallbackUrl += '&_t=' + Date.now();
-                    if (loadingEl) {
+                    if (loadingEl && !silent) {
                         loadingEl.textContent = 'Loading data';
                         loadingEl.style.display = 'flex';
                     }
@@ -1893,7 +1960,7 @@ function searchTransactions(isInitialLoad) {
                         .then(fallback => {
                             if (loadingEl) loadingEl.style.display = 'none';
                             if (!fallback.success || !fallback.data) {
-                                commitSearchData(currentSearchData);
+                                commitSearchData(currentSearchData, { quiet: silent });
                                 return;
                             }
 
@@ -1913,12 +1980,12 @@ function searchTransactions(isInitialLoad) {
                                 }
                             };
 
-                            commitSearchData(rebuiltData);
+                            commitSearchData(rebuiltData, { quiet: silent });
                         })
                         .catch(error => {
                             if (loadingEl) loadingEl.style.display = 'none';
                             console.error('❌ 单币别兜底搜索失败:', error);
-                            commitSearchData(currentSearchData);
+                            commitSearchData(currentSearchData, { quiet: silent });
                         });
                 }
 
@@ -1936,7 +2003,7 @@ function searchTransactions(isInitialLoad) {
                     }
                     fallbackUrl += '&_t=' + Date.now();
 
-                    if (loadingEl) {
+                    if (loadingEl && !silent) {
                         loadingEl.textContent = 'Loading data';
                         loadingEl.style.display = 'flex';
                     }
@@ -1952,7 +2019,7 @@ function searchTransactions(isInitialLoad) {
                         .then(fallback => {
                             if (loadingEl) loadingEl.style.display = 'none';
                             if (!fallback.success || !fallback.data || !fallback.data.totals) {
-                                commitSearchData(currentSearchData);
+                                commitSearchData(currentSearchData, { quiet: silent });
                                 return;
                             }
 
@@ -1960,27 +2027,27 @@ function searchTransactions(isInitialLoad) {
                                 ...currentSearchData,
                                 totals: fallback.data.totals
                             };
-                            commitSearchData(rebuiltData);
+                            commitSearchData(rebuiltData, { quiet: silent });
                         })
                         .catch(error => {
                             if (loadingEl) loadingEl.style.display = 'none';
                             console.error('❌ Win/Loss 空结果 totals 兜底失败:', error);
-                            commitSearchData(currentSearchData);
+                            commitSearchData(currentSearchData, { quiet: silent });
                         });
                 }
 
                 if (loadingEl) loadingEl.style.display = 'none';
-                commitSearchData(currentSearchData);
+                commitSearchData(currentSearchData, { quiet: silent });
             } else {
                 if (loadingEl) loadingEl.style.display = 'none';
                 console.error('❌ 搜索失败:', data.error);
-                if (tablesSection) tablesSection.style.display = 'none';
+                if (!silent && tablesSection) tablesSection.style.display = 'none';
                 showNotification(data.error || 'Search failed', 'error');
             }
         })
         .catch(error => {
             if (loadingEl) loadingEl.style.display = 'none';
-            if (tablesSection) tablesSection.style.display = 'none';
+            if (!silent && tablesSection) tablesSection.style.display = 'none';
             console.error('❌ 搜索失败:', error);
             showNotification('Search failed: ' + error.message, 'error');
         });

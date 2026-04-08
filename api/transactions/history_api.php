@@ -1263,13 +1263,7 @@ try {
         }
         $eventWinLoss = round((float)($event['win_loss'] ?? 0), 2);
         $eventCrDr = round((float)($event['cr_dr'] ?? 0), 2);
-        // Data Capture 在此视图中表示该账户该币别的“最新金额快照”，
-        // 不应继续与前一行累计；后续交易再基于该最新值增减。
-        if (($event['row_type'] ?? '') === 'data_capture') {
-            $balance_by_currency[$curKey] = $eventWinLoss + $eventCrDr;
-        } else {
-            $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
-        }
+        $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
         $row_balance = $balance_by_currency[$curKey];
         
         // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化

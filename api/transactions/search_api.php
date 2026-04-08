@@ -188,8 +188,9 @@ if (empty($target_account_ids) && $isMemberUser) {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
     
-    // 短期缓存（60 秒）：相同条件再次请求直接返回，减轻首屏/刷新等待
-    $cache_ttl = 60;
+    // 列表结果缓存：从其他菜单返回、短时内重复相同条件时直接读文件，明显快于冷查询
+    // 略延长 TTL，减轻「大数据量首次算完后，几分钟内来回切换」时的等待（数据非实时时可接受）
+    $cache_ttl = 240;
     // 把当前文件版本纳入缓存 key，避免代码更新后仍命中旧结果（尤其是单币别筛选场景）
     $cache_version = (string)(@filemtime(__FILE__) ?: '0');
     $cache_key = md5(
