@@ -27,9 +27,9 @@ try {
         $stmtOwner->execute(['comp_id1' => $company_id, 'comp_id2' => $company_id]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        // Fetch user partners mapped to this company (Only 'owner' role can see partnerships)
+        // Fetch user partners mapped to this company (both owner and partnership roles can see this so their own names appear in dropdowns)
         $partners = [];
-        if (isset($_SESSION['role']) && strtolower($_SESSION['role']) === 'owner') {
+        if (isset($_SESSION['role']) && in_array(strtolower($_SESSION['role']), ['owner', 'partnership'])) {
             $stmtPartner = $pdo->prepare("
                 SELECT DISTINCT CONCAT('U_', u.id) as id, 
                        u.login_id as account_name, 
@@ -66,9 +66,9 @@ try {
         $stmtOwner->execute([$_SESSION['user_id']]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        // For fallback, fetch all active partners in the system (Only 'owner' role can see partnerships)
+        // For fallback, fetch all active partners in the system (both owner and partnership roles can see this)
         $partners = [];
-        if (isset($_SESSION['role']) && strtolower($_SESSION['role']) === 'owner') {
+        if (isset($_SESSION['role']) && in_array(strtolower($_SESSION['role']), ['owner', 'partnership'])) {
             $stmtPartner = $pdo->prepare("
                 SELECT DISTINCT CONCAT('U_', id) as id, 
                        login_id as account_name, 
