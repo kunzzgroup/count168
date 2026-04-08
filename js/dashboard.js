@@ -1854,6 +1854,9 @@ function renderCompanyButtons(companies) {
         filtered = companies.filter(c =>
             c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup
         );
+    } else {
+        // 如果没有选中任何 group，则只显示独立的公司
+        filtered = companies.filter(c => !c.group_id || c.group_id.trim() === '');
     }
     
     // 隐藏只作为 group 占位符而没有实质公司名称的记录
