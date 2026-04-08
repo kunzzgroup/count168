@@ -10,25 +10,31 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $data = json_decode(file_get_contents('php://input'), true);
-$user_id  = isset($data['user_id'])  ? (int)$data['user_id']  : null;
-$read_only = isset($data['read_only']) ? (int)$data['read_only'] : null;
+$read_only   = isset($data['read_only'])    ? (int)$data['read_only']    : null;
+$user_id     = isset($data['user_id'])      ? (int)$data['user_id']      : null;
+$ownership_id = isset($data['ownership_id']) ? (int)$data['ownership_id'] : null;
 
-if (!$user_id || $read_only === null) {
+if ($read_only === null || (!$user_id && !$ownership_id)) {
     echo json_encode(['status' => 'error', 'message' => 'Missing parameters']);
     exit();
 }
 
 try {
-    // Verify target user is Partnership role before updating
-    $check = $pdo->prepare("SELECT id FROM user WHERE id = ? AND role = 'Partnership'");
-    $check->execute([$user_id]);
-    if (!$check->fetch()) {
-        echo json_encode(['status' => 'error', 'message' => 'Not a Partnership user']);
-        exit();
+    if ($user_id) {
+        // Partnership user (user table) — verify role first
+        $check = $pdo->prepare("SELECT id FROM user WHERE id = ? AND role = 'Partnership'");
+        $check->execute([$user_id]);
+        if (!$check->fetch()) {
+            echo json_encode(['status' => 'error', 'message' => 'Not a Partnership user']);
+            exit();
+        }
+        $stmt = $pdo->prepare("UPDATE user SET read_only = ? WHERE id = ?");
+        $stmt->execute([$read_only, $user_id]);
+    } else {
+        // External Partner (company_ownership row)
+        $stmt = $pdo->prepare("UPDATE company_ownership SET read_only = ? WHERE id = ?");
+        $stmt->execute([$read_only, $ownership_id]);
     }
-
-    $stmt = $pdo->prepare("UPDATE user SET read_only = ? WHERE id = ?");
-    $stmt->execute([$read_only, $user_id]);
 
     echo json_encode(['status' => 'success', 'message' => 'Read-only status updated']);
 } catch (PDOException $e) {

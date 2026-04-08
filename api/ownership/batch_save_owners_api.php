@@ -59,12 +59,14 @@ $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_typ
 try {
     $pdo->beginTransaction();
 
-    // Preserve existing partner_group_id
+    // Preserve existing partner_group_id and read_only for owner-type rows
     $existingGroups = [];
-    $stmtGroups = $pdo->prepare("SELECT account_id, partner_group_id FROM company_ownership WHERE company_id = ? AND owner_type = 'owner'");
+    $existingReadOnly = [];
+    $stmtGroups = $pdo->prepare("SELECT account_id, partner_group_id, COALESCE(read_only, 1) as read_only FROM company_ownership WHERE company_id = ? AND owner_type = 'owner'");
     $stmtGroups->execute([$company_id]);
     while ($row = $stmtGroups->fetch(PDO::FETCH_ASSOC)) {
         $existingGroups[$row['account_id']] = $row['partner_group_id'];
+        $existingReadOnly[$row['account_id']] = (int)$row['read_only'];
     }
 
     // Remove all existing owners for this company
@@ -75,8 +77,8 @@ try {
     if (count($owners) > 0) {
         if ($hasOwnerType) {
             $insertStmt = $pdo->prepare("
-                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, partner_group_id)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, partner_group_id, read_only)
+                VALUES (?, ?, ?, ?, ?, ?)
             ");
         } else {
             $insertStmt = $pdo->prepare("
@@ -103,10 +105,12 @@ try {
 
             if ($hasOwnerType) {
                 $pgid = null;
+                $roVal = 1; // default read-only for new external partners
                 if ($owner_type === 'owner' && isset($existingGroups[(int)$real_id])) {
                     $pgid = $existingGroups[(int)$real_id];
+                    $roVal = $existingReadOnly[(int)$real_id] ?? 1;
                 }
-                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid]);
+                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid, $roVal]);
             } else {
                 // If migration hasn't run, we must drop Users so it doesn't crash, or attempt.
                 // In a perfect world, migration is run first. If not, only save numbers.

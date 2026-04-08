@@ -31,7 +31,12 @@ try {
     $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
 
     if ($hasOwnerType) {
-        // Polymorphic query
+        // Auto-add read_only column to company_ownership if not present
+        try {
+            $pdo->exec("ALTER TABLE company_ownership ADD COLUMN read_only TINYINT(1) NOT NULL DEFAULT 1");
+        } catch (Exception $e) {}
+
+        // Polymorphic query — JOIN company to detect external partners
         $stmt = $pdo->prepare("
             SELECT co.id as ownership_id, co.percentage, co.owner_type,
                    CONCAT(
@@ -47,11 +52,20 @@ try {
                    CASE WHEN co.owner_type = 'user' THEN u.role WHEN co.owner_type = 'owner' THEN 'OWNER' ELSE a.role END as role,
                    co.partner_group_id,
                    CASE WHEN co.owner_type = 'user' THEN co.account_id ELSE NULL END as user_raw_id,
-                   CASE WHEN co.owner_type = 'user' THEN u.read_only ELSE NULL END as read_only
+                   CASE
+                       WHEN co.owner_type = 'user'  THEN u.read_only
+                       WHEN co.owner_type = 'owner' AND comp.owner_id != co.account_id THEN co.read_only
+                       ELSE NULL
+                   END as read_only,
+                   CASE
+                       WHEN co.owner_type = 'owner' AND comp.owner_id != co.account_id THEN 1
+                       ELSE 0
+                   END as is_external_partner
             FROM company_ownership co
             LEFT JOIN account a ON co.account_id = a.id AND co.owner_type = 'account'
             LEFT JOIN owner o ON co.account_id = o.id AND co.owner_type = 'owner'
             LEFT JOIN user u ON co.account_id = u.id AND co.owner_type = 'user'
+            LEFT JOIN company comp ON comp.id = co.company_id
             WHERE co.company_id = ? AND co.owner_type != 'account'
             ORDER BY co.percentage DESC
         ");

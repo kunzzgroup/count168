@@ -156,6 +156,8 @@ function loadCompanyData(companyId) {
                 percentage: parseFloat(o.percentage),
                 role: o.role || '',
                 user_raw_id: o.user_raw_id || null,
+                ownership_id: o.ownership_id || null,
+                is_external_partner: parseInt(o.is_external_partner) === 1,
                 read_only: o.read_only !== null && o.read_only !== undefined ? parseInt(o.read_only) : 1
             }))
         };
@@ -194,7 +196,6 @@ function renderCardBodyRows(companyId) {
 }
 
 function createRowElement(companyId, idx, rowData) {
-    console.log(`[Row ${idx}] account_id="${rowData.account_id}" role="${rowData.role}" user_raw_id=${rowData.user_raw_id}`);
     const frag = tpl.row().content.cloneNode(true);
     const div = frag.querySelector('.own-account-row');
     div.dataset.index = idx;
@@ -236,12 +237,14 @@ function createRowElement(companyId, idx, rowData) {
         }
     });
 
-    // Read Only toggle for Partnership accounts
+    // Read Only toggle: show for Partnership users OR External Partners
     const badge = $(div, 'read-only-badge');
     const roCheck = $(div, 'read-only-check');
 
     const isPartnership = (rowData.role || '').toLowerCase() === 'partnership';
-    if (isPartnership && badge && roCheck) {
+    const showToggle = isPartnership || rowData.is_external_partner;
+
+    if (showToggle && badge && roCheck) {
         badge.style.display = 'flex';
         roCheck.checked = rowData.read_only === 1;
 
@@ -249,10 +252,18 @@ function createRowElement(companyId, idx, rowData) {
             const newVal = roCheck.checked ? 1 : 0;
             companyStates[companyId].rows[idx].read_only = newVal;
 
+            // Build payload: use user_id for Partnership users, ownership_id for external partners
+            const payload = { read_only: newVal };
+            if (isPartnership && rowData.user_raw_id) {
+                payload.user_id = rowData.user_raw_id;
+            } else if (rowData.ownership_id) {
+                payload.ownership_id = rowData.ownership_id;
+            }
+
             fetch('api/ownership/update_read_only_api.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: rowData.user_raw_id, read_only: newVal })
+                body: JSON.stringify(payload)
             })
             .then(r => r.json())
             .then(res => {
@@ -308,6 +319,7 @@ function updateRowData(companyId, idx, field, value) {
         renderCardBodyRows(companyId);
     }
 }
+
 
 // ---------------------------------------------
 // Slider & Input Sync
