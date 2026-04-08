@@ -14,7 +14,15 @@
 }
 
 body {
-    background-color: #ffffff;
+    background-color: #e9f1ff;
+    background-image:
+        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+    background-blend-mode: screen, screen, multiply, screen, normal;
+    min-height: 100vh;
 }
 
 *, *::before, *::after {
@@ -30,15 +38,15 @@ body {
 }
 
 .own-page-title {
-    font-size: 26px; /* Slightly larger */
-    font-family: 'Amaranth', sans-serif;
-    font-weight: 700;
     color: #002C49;
-    letter-spacing: 1px;
-    margin-bottom: 30px; 
-    text-decoration: underline;
-    text-underline-offset: 6px;
-    text-decoration-thickness: 2.5px; 
+    text-align: left;
+    margin-top: clamp(12px, 1.04vw, 20px);
+    margin-bottom: clamp(16px, 1.35vw, 26px);
+    font-size: clamp(26px, 2.08vw, 40px);
+    font-family: 'Amaranth', sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    text-transform: uppercase;
 }
 
 /* Card Container */
