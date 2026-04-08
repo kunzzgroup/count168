@@ -51,9 +51,9 @@ try {
         $whereParts = [];
 
         if ($partner_group !== null) {
-            // External partner mode: only show companies explicitly linked via partner_group_id
-            // This prevents TEST's own native companies (MON, THU) from leaking through
-            $whereParts[] = "(c.owner_id != ? AND co.account_id = ? AND LOWER(co.partner_group_id) = LOWER(?))";
+            // External partner mode: only show companies where we have ACTUAL percentage (> 0)
+            // This excludes MON/THU that JK linked to LOL group but with 0% ownership
+            $whereParts[] = "(c.owner_id != ? AND co.account_id = ? AND LOWER(co.partner_group_id) = LOWER(?) AND co.percentage > 0)";
             $params = array_merge($params, [$owner_id, $owner_id, $partner_group]);
         } elseif ($native_group !== null) {
             // Native owner mode: show all native companies sharing the same group
