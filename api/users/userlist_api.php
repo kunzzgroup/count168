@@ -569,6 +569,12 @@ try {
                     throw new Exception('Failed to update user');
                 }
                 
+                // 同步 read_only 到 company_ownership
+                if (isset($input['read_only']) && strtolower($input['role']) === 'partnership') {
+                    $updCoStmt = $pdo->prepare("UPDATE company_ownership SET read_only = ? WHERE company_id = ? AND account_id = ? AND owner_type = 'user'");
+                    $updCoStmt->execute([(int)$input['read_only'], $current_company_id, $input['id']]);
+                }
+                
                 // 如果提供了 company_ids，更新 company 关联
                 if (isset($input['company_ids']) && is_array($input['company_ids']) && count($input['company_ids']) > 0) {
                     // 验证所有 company_ids 是否存在
@@ -1077,6 +1083,16 @@ try {
                         // 如果公司特定的权限不存在，设置为 null（表示未设置，默认可以看到所有）
                         $user['account_permissions'] = null;
                         $user['process_permissions'] = null;
+                    }
+                    
+                    // 同步获取 company_ownership 中的 read_only 状态（如果有，优先级更高）
+                    if (strtolower($user['role']) === 'partnership') {
+                        $roStmt = $pdo->prepare("SELECT read_only FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = 'user'");
+                        $roStmt->execute([$current_company_id, $user['id']]);
+                        $co_ro = $roStmt->fetchColumn();
+                        if ($co_ro !== false) {
+                            $user['read_only'] = (int)$co_ro;
+                        }
                     }
                     
                     sendResponse(true, 'User found', $user);
