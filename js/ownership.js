@@ -244,41 +244,18 @@ function createRowElement(companyId, idx, rowData) {
     const isPartnership = (rowData.role || '').toLowerCase() === 'partnership';
     const showToggle = isPartnership || rowData.is_external_partner;
 
-    if (showToggle && badge && roCheck) {
+    if (badge && roCheck) {
         badge.style.display = 'flex';
-        roCheck.checked = rowData.read_only === 1;
+        badge.style.visibility = showToggle ? 'visible' : 'hidden';
 
-        roCheck.addEventListener('change', () => {
-            const newVal = roCheck.checked ? 1 : 0;
-            companyStates[companyId].rows[idx].read_only = newVal;
+        if (showToggle) {
+            roCheck.checked = rowData.read_only === 1;
 
-            // Build payload: use user_id for Partnership users, ownership_id for external partners
-            const payload = { read_only: newVal };
-            if (isPartnership && rowData.user_raw_id) {
-                payload.user_id = rowData.user_raw_id;
-            } else if (rowData.ownership_id) {
-                payload.ownership_id = rowData.ownership_id;
-            }
-
-            fetch('api/ownership/update_read_only_api.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.status === 'success') {
-                    showToast(roCheck.checked ? 'Set to Read Only' : 'Set to Editable', 'success');
-                } else {
-                    showToast(res.message, 'error');
-                    roCheck.checked = !roCheck.checked; // revert
-                }
-            })
-            .catch(() => {
-                showToast('Failed to update', 'error');
-                roCheck.checked = !roCheck.checked; // revert
+            roCheck.addEventListener('change', () => {
+                companyStates[companyId].rows[idx].read_only = roCheck.checked ? 1 : 0;
+                // Immediate API call removed, this will be saved on confirm
             });
-        });
+        }
     }
 
     // Initialize slider gradient
@@ -442,7 +419,8 @@ function confirmEdit(companyId) {
         company_id: companyId,
         owners: rows.map(r => ({
             account_id: r.account_id,
-            percentage: parseFloat(r.percentage)
+            percentage: parseFloat(r.percentage),
+            read_only: r.read_only
         }))
     };
 
