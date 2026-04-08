@@ -479,21 +479,14 @@ h1 {
 }
 
 /* Title bar: title + toggle on same row */
-.sidebar-permissions-title-bar {
+.sidebar-permissions-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
     padding: 0 clamp(14px, 1.04vw, 20px) clamp(4px, 0.42vw, 8px);
-    border-bottom: 2px solid #1a237e;
-    flex-shrink: 0;
-}
-
-.sidebar-permissions-title {
-    margin: 0;
-    padding: 0;
-    border: none;
     color: #1e293b;
+    border-bottom: 2px solid #1a237e;
     font-size: clamp(12px, 0.88vw, 16px);
     font-weight: 700;
     flex-shrink: 0;
@@ -1313,16 +1306,16 @@ h1 {
 
 /* ── Read Only Toggle — inline with Permissions title ─── */
 .read-only-toggle-inline {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: clamp(4px, 0.31vw, 7px);
-    flex-shrink: 0;
+    gap: clamp(4px, 0.31vw, 6px);
+    font-weight: normal;
 }
 
 .read-only-label {
-    font-size: clamp(9px, 0.63vw, 11px);
+    font-size: clamp(9px, 0.6vw, 11px);
     font-weight: 600;
-    color: #475569;
+    color: #64748b;
     white-space: nowrap;
 }
 

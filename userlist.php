@@ -498,17 +498,16 @@ try {
 
                         <!-- Sidebar Permissions (always in left panel) -->
                         <div id="sidebarPermissionsWrapper" class="sidebar-permissions-section">
-                            <div class="sidebar-permissions-title-bar">
-                                <h3 class="sidebar-permissions-title">Permissions</h3>
-                                <!-- Read Only Toggle (only shown for Partnership role) -->
-                                <div id="readOnlyToggleWrapper" class="read-only-toggle-inline" style="display:none;">
-                                    <span class="read-only-label">Read Only</span>
+                            <h3 class="sidebar-permissions-title">
+                                Permissions
+                                <span id="readOnlyToggleWrapper" class="read-only-toggle-inline" style="display:none;">
                                     <label class="toggle-switch" id="readOnlyToggleLabel">
                                         <input type="checkbox" id="readOnlyToggle" name="read_only" value="1" checked>
                                         <span class="toggle-slider"></span>
                                     </label>
-                                </div>
-                            </div>
+                                    <span class="read-only-label">Read Only</span>
+                                </span>
+                            </h3>
                             <div class="permissions-container">
                                 <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="home" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</span></label></div>
                                 <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="admin" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Admin</span></label></div>
