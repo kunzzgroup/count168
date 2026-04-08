@@ -137,8 +137,14 @@ $assetVer = function ($file) {
             </div>
 
             <div class="own-row-actions">
-                <button class="own-btn-square" data-action="tweak-up">+</button>
-                <button class="own-btn-square" data-action="tweak-down">-</button>
+                <!-- Read Only toggle: shown only for Partnership accounts -->
+                <div class="own-read-only-badge" data-bind="read-only-badge" style="display:none;">
+                    <span class="own-read-only-text">Read Only</span>
+                    <label class="own-ro-toggle">
+                        <input type="checkbox" data-bind="read-only-check" checked>
+                        <span class="own-ro-slider"></span>
+                    </label>
+                </div>
                 <button class="own-btn-square own-btn-delete" title="Remove" data-action="delete">
                     <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd"
@@ -146,12 +152,9 @@ $assetVer = function ($file) {
                             clip-rule="evenodd"></path>
                     </svg>
                 </button>
-
             </div>
         </div>
     </template>
-
-
 
     <!-- Conflict Resolution Modal -->
     <template id="tpl-conflict-modal">

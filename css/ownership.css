@@ -672,3 +672,69 @@ body {
 .own-bar-danger {
     background-color: var(--own-danger-red) !important;
 }
+
+/* ── Partnership Read Only Toggle ─────────────────── */
+.own-read-only-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    border-right: 1px solid var(--own-gray-border);
+    margin-right: 4px;
+}
+
+.own-read-only-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--own-gray-text);
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.own-ro-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 36px;
+    height: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.own-ro-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.own-ro-slider {
+    position: absolute;
+    inset: 0;
+    background: #cbd5e1;
+    border-radius: 999px;
+    transition: background 0.25s ease;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+}
+
+.own-ro-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
+    background: white;
+    border-radius: 50%;
+    transition: left 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.own-ro-toggle input:checked + .own-ro-slider {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.own-ro-toggle input:checked + .own-ro-slider::before {
+    left: calc(100% - 17px);
+}

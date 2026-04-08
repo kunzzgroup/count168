@@ -153,7 +153,10 @@ function loadCompanyData(companyId) {
             accounts: accountsRes.status === 'success' ? accountsRes.data : [],
             rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
                 account_id: o.account_id,
-                percentage: parseFloat(o.percentage)
+                percentage: parseFloat(o.percentage),
+                role: o.role || '',
+                user_raw_id: o.user_raw_id || null,
+                read_only: o.read_only !== null && o.read_only !== undefined ? parseInt(o.read_only) : 1
             }))
         };
 
@@ -223,21 +226,47 @@ function createRowElement(companyId, idx, rowData) {
     slider.id = `slider-${companyId}-${idx}`;
     slider.addEventListener('input', () => updateInputFromSlider(companyId, idx, slider.value));
 
-    // Action buttons (via event delegation)
+    // Action buttons (via event delegation — only delete now)
     div.addEventListener('click', (e) => {
         const action = e.target.closest('[data-action]')?.dataset.action;
         if (!action) return;
         switch (action) {
-            case 'tweak-up': tweakPercentage(companyId, idx, 1); break;
-            case 'tweak-down': tweakPercentage(companyId, idx, -1); break;
             case 'delete': removeRow(companyId, idx); break;
         }
     });
 
-    // Remove Grp checkbox slot reference
-    const grpSlot = $(div, 'grp-slot');
-    if (grpSlot) {
-        grpSlot.remove();
+    // Read Only toggle for Partnership accounts
+    const badge = $(div, 'read-only-badge');
+    const roCheck = $(div, 'read-only-check');
+
+    const isPartnership = (rowData.role || '').toLowerCase() === 'partnership';
+    if (isPartnership && badge && roCheck) {
+        badge.style.display = 'flex';
+        roCheck.checked = rowData.read_only === 1;
+
+        roCheck.addEventListener('change', () => {
+            const newVal = roCheck.checked ? 1 : 0;
+            companyStates[companyId].rows[idx].read_only = newVal;
+
+            fetch('api/ownership/update_read_only_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: rowData.user_raw_id, read_only: newVal })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    showToast(roCheck.checked ? 'Set to Read Only' : 'Set to Editable', 'success');
+                } else {
+                    showToast(res.message, 'error');
+                    roCheck.checked = !roCheck.checked; // revert
+                }
+            })
+            .catch(() => {
+                showToast('Failed to update', 'error');
+                roCheck.checked = !roCheck.checked; // revert
+            });
+        });
     }
 
     // Initialize slider gradient

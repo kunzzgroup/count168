@@ -45,7 +45,9 @@ try {
                    COALESCE(co.partner_group_id, a.account_id, o.owner_code, u.login_id) as account_name,
                    COALESCE(a.name, o.name, u.name) as name,
                    COALESCE(a.role, 'OWNER', u.role) as role,
-                   co.partner_group_id
+                   co.partner_group_id,
+                   CASE WHEN co.owner_type = 'user' THEN co.account_id ELSE NULL END as user_raw_id,
+                   CASE WHEN co.owner_type = 'user' THEN u.read_only ELSE NULL END as read_only
             FROM company_ownership co
             LEFT JOIN account a ON co.account_id = a.id AND co.owner_type = 'account'
             LEFT JOIN owner o ON co.account_id = o.id AND co.owner_type = 'owner'
