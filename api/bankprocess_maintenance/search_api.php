@@ -120,8 +120,10 @@ function likeContainsPattern(?string $raw): ?string {
 
 /**
  * 查询主表 transactions 中 source_bank_process_id IS NOT NULL 的记录
+ *
+ * @param string|null $from_search 单一关键词：可匹配流程名、卡主名、账户代码、银行，或与 From 列一致的「名(银行)」整串（OR）
  */
-function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, array $currency_filters, array $schema, ?string $card_owner_filter = null, ?string $bank_filter = null) {
+function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, array $currency_filters, array $schema, ?string $from_search = null) {
     $hasSourceBankProcess = false;
     try {
         $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
@@ -181,17 +183,28 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
         $sql .= " AND {$schema['currencyFilterField']} IN ($placeholders)";
         $params = array_merge($params, array_map('strtoupper', $currency_filters));
     }
-    $coPat = likeContainsPattern($card_owner_filter);
-    if ($coPat !== null) {
-        $sql .= " AND (COALESCE(bp.name, '') LIKE ? OR COALESCE(a_cm_bp.name, '') LIKE ? OR COALESCE(a_cm_bp.account_id, '') LIKE ?)";
-        $params[] = $coPat;
-        $params[] = $coPat;
-        $params[] = $coPat;
-    }
-    $bkPat = likeContainsPattern($bank_filter);
-    if ($bkPat !== null) {
-        $sql .= " AND COALESCE(bp.bank, '') LIKE ?";
-        $params[] = $bkPat;
+    $fromPat = likeContainsPattern($from_search);
+    if ($fromPat !== null) {
+        // From 列拼接规则与 rowToItem 一致，便于搜「TEST M16(CIMB)」整串
+        $sql .= " AND (
+            COALESCE(bp.name, '') LIKE ?
+            OR COALESCE(a_cm_bp.name, '') LIKE ?
+            OR COALESCE(a_cm_bp.account_id, '') LIKE ?
+            OR COALESCE(bp.bank, '') LIKE ?
+            OR CONCAT(
+                CASE
+                    WHEN NULLIF(TRIM(COALESCE(bp.name, '')), '') IS NOT NULL THEN TRIM(bp.name)
+                    WHEN NULLIF(TRIM(COALESCE(a_cm_bp.name, '')), '') IS NOT NULL THEN TRIM(a_cm_bp.name)
+                    ELSE '-'
+                END,
+                IF(bp.bank IS NOT NULL AND TRIM(bp.bank) <> '', CONCAT('(', TRIM(bp.bank), ')'), '')
+            ) LIKE ?
+        )";
+        $params[] = $fromPat;
+        $params[] = $fromPat;
+        $params[] = $fromPat;
+        $params[] = $fromPat;
+        $params[] = $fromPat;
     }
     $sql .= " ORDER BY t.transaction_date DESC, t.created_at DESC";
     $stmt = $pdo->prepare($sql);
@@ -324,10 +337,11 @@ try {
         throw new Exception('系统缺少货币信息，无法按货币筛选，请联系管理员');
     }
 
-    $card_owner_filter = isset($_GET['card_owner']) ? (string) $_GET['card_owner'] : '';
-    $bank_filter = isset($_GET['bank']) ? (string) $_GET['bank'] : '';
+    $from_search = isset($_GET['q']) && $_GET['q'] !== ''
+        ? (string) $_GET['q']
+        : (isset($_GET['search']) ? (string) $_GET['search'] : '');
 
-    $rows = fetchBankProcessTransactions($pdo, $company_id, $date_from_db, $date_to_db, $currency_filters, $schema, $card_owner_filter, $bank_filter);
+    $rows = fetchBankProcessTransactions($pdo, $company_id, $date_from_db, $date_to_db, $currency_filters, $schema, $from_search);
     $data = [];
     foreach ($rows as $row) {
         $data[] = rowToItem($row);

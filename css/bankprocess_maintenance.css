@@ -165,22 +165,22 @@ h1 {
     gap: clamp(4px, 0.52vw, 8px);
 }
 
-.maintenance-owner-bank-search {
+.maintenance-from-search-row {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
     gap: clamp(10px, 1vw, 16px);
     margin-top: clamp(6px, 0.52vw, 10px);
     width: 100%;
-    max-width: min(100%, 720px);
+    max-width: min(100%, 560px);
 }
 
-.maintenance-owner-bank-search .maintenance-search-field {
-    flex: 1 1 140px;
-    min-width: clamp(120px, 18vw, 200px);
+.maintenance-from-search-row .maintenance-from-search-field {
+    flex: 1 1 200px;
+    min-width: clamp(160px, 28vw, 320px);
 }
 
-.maintenance-search-apply-btn {
+.maintenance-from-search-btn {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
@@ -197,12 +197,12 @@ h1 {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
 }
 
-.maintenance-search-apply-btn:hover {
+.maintenance-from-search-btn:hover {
     opacity: 0.92;
     transform: translateY(-1px);
 }
 
-.maintenance-search-apply-btn:active {
+.maintenance-from-search-btn:active {
     transform: translateY(0);
 }
 
