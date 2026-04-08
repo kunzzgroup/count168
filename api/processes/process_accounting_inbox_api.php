@@ -159,6 +159,21 @@ function getBillingTermMonthsFromContract(?string $contract): ?int
     return null;
 }
 
+/**
+ * 1st of Every Month + day_start 非1号：次月1号起的「整月」锚点月份个数上限 = max(0, N-1)。用于防止 exclusiveEnd 未命中时多出一期（如第4笔6月账）。
+ */
+function inboxAnchorMonthCapAfterPartialFirst(?string $contract, int $startDayOfMonth): ?int
+{
+    if ($startDayOfMonth === 1) {
+        return null;
+    }
+    $term = getBillingTermMonthsFromContract($contract);
+    if ($term === null || $term < 1) {
+        return null;
+    }
+    return max(0, $term - 1);
+}
+
 function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?string
 {
     if ($termMonths < 1) {
@@ -172,8 +187,8 @@ function billingContractExclusiveEndYmd(string $dayStartYmd, int $termMonths): ?
 }
 
 /**
- * 每月1号算账 + day_start 非1号：整月锚点从「次月1号」起共 N 个，合同自然截止日为 (次月1号) + (N-1) 个月。
- * day_start 在1号时与 billingContractExclusiveEndYmd 相同。
+ * 每月1号算账 + day_start 非1号：首自然月走 partial_first_month，其后从「次月1号」起至多 (N-1) 个整月账（N 为合同月数，如 3 MONTHS → 尾段+4月+5月共3笔）。
+ * 截止日 firstAnchor+(N-1) 月（与 billing_schedule 一致）。day_start 在1号时与 billingContractExclusiveEndYmd 相同。
  */
 function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $termMonths): ?string
 {
@@ -612,7 +627,7 @@ try {
     }
 
     //$today = date('Y-m-d');
-    $today = '2026-06-01';
+    $today = '2026-05-01';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -785,7 +800,13 @@ try {
                     $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
                     $term = getBillingTermMonthsFromContract($contract);
                     $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdFirstOfMonth($startDate, $term) : null;
+                    $startDayForCap = (int) date('j', $startTs);
+                    $anchorMonthCap = inboxAnchorMonthCapAfterPartialFirst($contract, $startDayForCap);
+                    $anchorSlotIndex = 0;
                     while ($iter <= $endCap) {
+                        if ($anchorMonthCap !== null && $anchorSlotIndex >= $anchorMonthCap) {
+                            break;
+                        }
                         $y = (int) $iter->format('Y');
                         $mo = (int) $iter->format('n');
                         $firstOfThis = $iter->format('Y-m-d');
@@ -804,6 +825,7 @@ try {
                                 break;
                             }
                         }
+                        $anchorSlotIndex++;
                         $iter = $iter->modify('+1 month');
                     }
                 } catch (Throwable $e) {
