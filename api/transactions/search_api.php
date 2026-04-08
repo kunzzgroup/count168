@@ -710,7 +710,7 @@ if (!empty($target_account_ids)) {
                   $contra_where_t
                 GROUP BY t.account_id, t.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_to'][$r['account_id']][$r['currency_id']] = [
                 'bf' => (float)$r['bf_cr_dr'],
@@ -744,7 +744,7 @@ if (!empty($target_account_ids)) {
                   $contra_where_t
                 GROUP BY t.from_account_id, t.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_from'][$r['account_id']][$r['currency_id']] = [
                 'bf' => (float)$r['bf_cr_dr'],
