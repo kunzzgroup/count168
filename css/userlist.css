@@ -1306,9 +1306,9 @@ h1 {
 /* ── Read Only Toggle — absolute positioned in header ─── */
 .read-only-toggle-inline {
     position: absolute;
-    right: 0;
+    right: clamp(14px, 1.04vw, 20px);
     top: 0;
-    bottom: 2px; /* offset border-bottom thickness */
+    bottom: 0;
     display: inline-flex;
     align-items: center;
     gap: clamp(4px, 0.31vw, 6px);
