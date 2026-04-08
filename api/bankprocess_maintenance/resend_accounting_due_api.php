@@ -1,6 +1,7 @@
 <?php
 /**
  * Bank Process List：Resend — 清除已入账标记，使 Process 可再次进入 Accounting Due（入账规则不变）。
+ * 成功后置 accounting_resend_relax_created_floor，使 Inbox 在「旧数据不拿」上与日常新建流程区分（见 maintenance_accounting_resend_lib::bmp_inboxEffectiveCreatedYmd）。
  */
 
 session_start();
@@ -205,6 +206,13 @@ try {
             );
             $upd->execute([$newDayStart, $newDayEnd, $bankProcessId, $company_id]);
         }
+    }
+
+    if (bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor')) {
+        $flg = $pdo->prepare(
+            'UPDATE bank_process SET accounting_resend_relax_created_floor = 1, dts_modified = NOW() WHERE id = ? AND company_id = ?'
+        );
+        $flg->execute([$bankProcessId, $company_id]);
     }
 
     $pdo->commit();

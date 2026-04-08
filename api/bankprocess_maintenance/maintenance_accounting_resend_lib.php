@@ -2,6 +2,7 @@
 /**
  * 维护页删除 Bank process 来源的 transactions 后，记录「Resend → Accounting Due」待办。
  * Resend 时仅删除对应 process_accounting_posted，入账算法不变。
+ * Resend 成功后可置 accounting_resend_relax_created_floor：Inbox / 入账推断里「创建日门槛」与 day_start 取较早者，避免用户修正 day_start 后仍被「旧数据不拿」挡住（正常新建流程不受影响）。
  */
 
 if (!function_exists('bmp_resend_tableHasColumn')) {
@@ -41,6 +42,26 @@ if (!function_exists('bmp_normalizePeriodType')) {
             return $t;
         }
         return 'monthly';
+    }
+}
+
+/**
+ * Accounting Inbox / 入账推断：Resend 后放宽「旧数据不拿」的创建日门槛。
+ * 将 effectiveCreated = min(dts_created 日, day_start)，使修正后的 day_start 不晚于创建日时仍可按新锚点排队。
+ *
+ * @param string $createdYmd 来自 dts_created 的 Y-m-d
+ * @param string|null $dayStartYmd 解析后的 day_start（Y-m-d），无效时传 null
+ */
+if (!function_exists('bmp_inboxEffectiveCreatedYmd')) {
+    function bmp_inboxEffectiveCreatedYmd(string $createdYmd, ?string $dayStartYmd, bool $relaxCreatedFloor): string
+    {
+        if (!$relaxCreatedFloor || $dayStartYmd === null || $dayStartYmd === '') {
+            return $createdYmd;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd)) {
+            return $createdYmd;
+        }
+        return min($createdYmd, $dayStartYmd);
     }
 }
 
