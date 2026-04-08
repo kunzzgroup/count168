@@ -628,7 +628,7 @@ if (!empty($target_account_ids)) {
         $wlJoinSql = '';
         $wlDateExpr = "DATE(t.transaction_date)";
         $wlFutureGuard = '';
-        if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        if ($has_source_bank_process_id) {
             $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
             $bpDayStartSql = "CASE
                 WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
@@ -636,18 +636,33 @@ if (!empty($target_account_ids)) {
                 WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
                 ELSE NULL
             END";
-            $wlDateExpr = "(CASE
-                WHEN t.source_bank_process_id IS NOT NULL
-                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
-                     AND DATE(t.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                ELSE DATE(t.transaction_date)
-            END)";
-            $wlFutureGuard = " AND (
-                t.source_bank_process_id IS NULL
-                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
+
+            if ($has_source_bank_process_period_type) {
+                $wlDateExpr = "(CASE
+                    WHEN t.source_bank_process_id IS NOT NULL
+                         AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                         AND DATE(t.transaction_date) <= CURDATE()
+                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                    ELSE DATE(t.transaction_date)
+                END)";
+                $wlFutureGuard = " AND (
+                    t.source_bank_process_id IS NULL
+                    OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                    OR DATE(t.transaction_date) <= CURDATE()
+                )";
+            } else {
+                // 兼容旧库：缺少 period_type 字段时，仍将 bank_process 来源交易按 day_start 归属日期统计
+                $wlDateExpr = "(CASE
+                    WHEN t.source_bank_process_id IS NOT NULL
+                         AND DATE(t.transaction_date) <= CURDATE()
+                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                    ELSE DATE(t.transaction_date)
+                END)";
+                $wlFutureGuard = " AND (
+                    t.source_bank_process_id IS NULL
+                    OR DATE(t.transaction_date) <= CURDATE()
+                )";
+            }
         }
 
         $sql = "SELECT t.account_id, IFNULL(t.currency_id, 0) AS currency_id,
@@ -1257,7 +1272,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $wlJoinSql = '';
     $wlDateExpr = "DATE(t.transaction_date)";
     $wlFutureGuard = '';
-    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+    if ($has_source_bank_process_id) {
         $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
         $bpDayStartSql = "CASE
             WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
@@ -1265,18 +1280,31 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
             ELSE NULL
         END";
-        $wlDateExpr = "(CASE
-            WHEN t.source_bank_process_id IS NOT NULL
-                 AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
-                 AND DATE(t.transaction_date) <= CURDATE()
-            THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-            ELSE DATE(t.transaction_date)
-        END)";
-        $wlFutureGuard = " AND (
-            t.source_bank_process_id IS NULL
-            OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
-            OR DATE(t.transaction_date) <= CURDATE()
-        )";
+        if ($has_source_bank_process_period_type) {
+            $wlDateExpr = "(CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
+        } else {
+            $wlDateExpr = "(CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
+        }
     }
     
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
@@ -1522,7 +1550,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $wlJoinSql = '';
     $wlDateExpr = "DATE(t.transaction_date)";
     $wlFutureGuard = '';
-    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+    if ($has_source_bank_process_id) {
         $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
         $bpDayStartSql = "CASE
             WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
@@ -1530,18 +1558,31 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
             ELSE NULL
         END";
-        $wlDateExpr = "(CASE
-            WHEN t.source_bank_process_id IS NOT NULL
-                 AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
-                 AND DATE(t.transaction_date) <= CURDATE()
-            THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-            ELSE DATE(t.transaction_date)
-        END)";
-        $wlFutureGuard = " AND (
-            t.source_bank_process_id IS NULL
-            OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
-            OR DATE(t.transaction_date) <= CURDATE()
-        )";
+        if ($has_source_bank_process_period_type) {
+            $wlDateExpr = "(CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
+        } else {
+            $wlDateExpr = "(CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
+        }
     }
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
