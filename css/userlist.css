@@ -479,9 +479,11 @@ h1 {
 }
 
 
-/* Header: Permissions title — toggle is absolute-positioned inside */
+/* Header: Permissions title — toggle sits inline via flex */
 .sidebar-permissions-title {
-    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
     padding: 0 clamp(14px, 1.04vw, 20px) clamp(4px, 0.42vw, 8px);
     color: #1e293b;
@@ -1305,13 +1307,10 @@ h1 {
 
 /* ── Read Only Toggle — absolute positioned in header ─── */
 .read-only-toggle-inline {
-    position: absolute;
-    right: clamp(14px, 1.04vw, 20px);
-    top: 0;
-    bottom: 0;
     display: inline-flex;
     align-items: center;
     gap: clamp(4px, 0.31vw, 6px);
+    flex-shrink: 0;
 }
 
 .read-only-label {
