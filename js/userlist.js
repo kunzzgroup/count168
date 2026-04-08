@@ -59,6 +59,17 @@ const allRoles = [
     
 ];
 
+// ── Read Only Toggle 显示/隐藏（只有 Partnership 角色才显示）──
+function updateReadOnlyToggleVisibility(role) {
+    const wrapper = document.getElementById('readOnlyToggleWrapper');
+    if (!wrapper) return;
+    if (role && role.toLowerCase() === 'partnership') {
+        wrapper.style.display = 'block';
+    } else {
+        wrapper.style.display = 'none';
+    }
+}
+
 // 根据当前用户角色获取可创建的角色列表
 function getAvailableRolesForCreation() {
     const currentLevel = roleHierarchy[currentUserRole] ?? 999;
@@ -633,6 +644,11 @@ function openAddModal() {
     clearAllAccounts();
     clearAllProcesses();
 
+    // 重置 Read Only toggle（创建模式默认隐藏，打开时 role 还未选，等 role change 时触发）
+    updateReadOnlyToggleVisibility('');
+    const readOnlyToggle = document.getElementById('readOnlyToggle');
+    if (readOnlyToggle) readOnlyToggle.checked = true; // 默认 read-only ON
+
     document.getElementById('userModal').style.display = 'block';
     // 设置输入格式化
     setupInputFormatting();
@@ -927,6 +943,20 @@ function editUser(id, isOwnerShadow = false) {
                         }
                     }
 
+                    // 加载 read_only 值并更新 Toggle
+                    const readOnlyToggle = document.getElementById('readOnlyToggle');
+                    if (readOnlyToggle) {
+                        // read_only: 1 = 只读（toggle ON/checked），0 = 可编辑（toggle OFF/unchecked）
+                        // 默认为 1（只读）
+                        const readOnlyVal = data.data.read_only !== undefined ? parseInt(data.data.read_only) : 1;
+                        readOnlyToggle.checked = (readOnlyVal === 1);
+                    }
+
+                    // 根据被编辑用户的角色显示/隐藏 Read Only toggle
+                    const editedCard = document.querySelector(`.user-card[data-id="${id}"]`);
+                    const editedRole = editedCard ? editedCard.getAttribute('data-role') : '';
+                    updateReadOnlyToggleVisibility(editedRole);
+
                     // 添加小延迟确保 DOM 已完全渲染
                     setTimeout(() => {
                         loadAccountPermissions(accountPermissions);
@@ -1164,6 +1194,11 @@ function closeModal() {
     selectedProcesses = [];
     clearAllAccounts();
     clearAllProcesses();
+
+    // 重置 Read Only toggle
+    updateReadOnlyToggleVisibility('');
+    const readOnlyToggle = document.getElementById('readOnlyToggle');
+    if (readOnlyToggle) readOnlyToggle.checked = true;
 }
 
 // 切换删除模式
@@ -2057,6 +2092,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (roleSelect) {
         roleSelect.addEventListener('change', function () {
             const selectedRole = this.value;
+            // 显示/隐藏 Read Only toggle（只在 Partnership 角色时显示）
+            updateReadOnlyToggleVisibility(selectedRole);
             if (selectedRole) {
                 // setDefaultPermissionsByRole 内部已经会处理权限限制（创建模式时）
                 setDefaultPermissionsByRole(selectedRole, { force: isEditMode });
@@ -2123,6 +2160,13 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
         }
     }
     // 编辑模式：所有角色都可以编辑其他用户（但只能编辑 Account 和 Process Permissions）
+
+    // 添加 read_only 字段（只针对 partnership 角色）
+    const roleForReadOnly = data.role || (card ? card.getAttribute('data-role') : '');
+    if (roleForReadOnly && roleForReadOnly.toLowerCase() === 'partnership') {
+        const readOnlyToggle = document.getElementById('readOnlyToggle');
+        data.read_only = (readOnlyToggle && readOnlyToggle.checked) ? 1 : 0;
+    }
 
     // 只有非owner影子才添加权限数据
     if (!isOwnerShadow) {

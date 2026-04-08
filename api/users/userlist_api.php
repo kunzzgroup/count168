@@ -254,8 +254,9 @@ try {
             
             try {
                 // Insert new user (不再使用 company_id，因为已移除)
-                $sql = "INSERT INTO user (login_id, name, password, secondary_password, email, role, permissions, status, created_by, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                $readOnly = isset($input['read_only']) ? (int)$input['read_only'] : 1;
+                $sql = "INSERT INTO user (login_id, name, password, secondary_password, email, role, permissions, read_only, status, created_by, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                 
                 $stmt = $pdo->prepare($sql);
                 $result = $stmt->execute([
@@ -266,6 +267,7 @@ try {
                     $input['email'],
                     $input['role'],
                     $permissions,
+                    $readOnly,
                     $input['status'],
                     getCurrentUser()
                 ]);
@@ -521,6 +523,12 @@ try {
 
             $updateFields[] = "status = ?";
             $updateValues[] = $input['status'];
+
+            // 保存 read_only 字段（只有 partnership 角色才有意义，但所有用户都存储）
+            if (isset($input['read_only'])) {
+                $updateFields[] = "read_only = ?";
+                $updateValues[] = (int)$input['read_only'];
+            }
 
             // 添加权限字段到更新列表（系统级权限仍然存储在 user 表）
             $updateFields[] = "permissions = ?";
@@ -1045,7 +1053,7 @@ try {
             global $current_company_id;
             if (isset($input['id'])) {
                 // Get specific user - 只从 user 表获取基本字段，权限从 user_company_permissions 表获取
-                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, permissions, status, created_by, created_at, last_login FROM user WHERE id = ?");
+                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, permissions, status, read_only, created_by, created_at, last_login FROM user WHERE id = ?");
                 $stmt->execute([$input['id']]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
