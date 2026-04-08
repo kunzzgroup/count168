@@ -290,6 +290,7 @@ function getRoleClass(role) {
         'upline': 'transaction-role-upline',
         'agent': 'transaction-role-agent',
         'member': 'transaction-role-member',
+        'debtor': 'transaction-role-debtor',
         'none': 'transaction-role-none'
     };
     return roleMap[roleLower] || '';
