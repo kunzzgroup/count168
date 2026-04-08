@@ -1955,6 +1955,27 @@ function closeConfirmAccountingDueDeleteModal() {
     pendingDismissPairs = [];
 }
 
+function bindBankResendModalFrequencySyncOnce() {
+    const modal = document.getElementById('confirmBankResendModal');
+    if (!modal || modal._bankResendFreqBound) return;
+    modal._bankResendFreqBound = true;
+    const dayEnd = document.getElementById('bank_resend_day_end');
+    const freq = document.getElementById('bank_resend_frequency');
+    if (!dayEnd || !freq) return;
+    function syncResendFreq() {
+        const monthlyOpt = freq.querySelector('option[value="monthly"]');
+        const hasEnd = !!(dayEnd.value && String(dayEnd.value).trim());
+        if (hasEnd) {
+            freq.value = '1st_of_every_month';
+            if (monthlyOpt) monthlyOpt.disabled = true;
+        } else if (monthlyOpt) {
+            monthlyOpt.disabled = false;
+        }
+    }
+    dayEnd.addEventListener('change', syncResendFreq);
+    dayEnd.addEventListener('input', syncResendFreq);
+}
+
 function showConfirmBankResendModal(processId) {
     const id = parseInt(processId, 10);
     if (!id) return;
@@ -1978,6 +1999,33 @@ function showConfirmBankResendModal(processId) {
             'Resend "' + label + '" to Accounting Due?\n\n' +
             'Posting rules stay the same. This clears the "already posted" / skipped mark after the bank posting was removed in Maintenance (Bank or Payment), or after you removed the row from Accounting Due.';
     }
+    bindBankResendModalFrequencySyncOnce();
+    const dsEl = document.getElementById('bank_resend_day_start');
+    const deEl = document.getElementById('bank_resend_day_end');
+    const fqEl = document.getElementById('bank_resend_frequency');
+    if (dsEl) {
+        const d1 = proc ? (proc.day_start || '') : '';
+        dsEl.value = d1 ? (d1.length === 10 ? d1 : String(d1).split(' ')[0]) : '';
+    }
+    if (deEl) {
+        const d2 = proc ? (proc.day_end || '') : '';
+        deEl.value = d2 ? (d2.length === 10 ? d2 : String(d2).split(' ')[0]) : '';
+    }
+    if (fqEl) {
+        fqEl.value = proc && proc.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+    }
+    const dayEndSync = document.getElementById('bank_resend_day_end');
+    const freqSync = document.getElementById('bank_resend_frequency');
+    if (dayEndSync && freqSync) {
+        const monthlyOpt = freqSync.querySelector('option[value="monthly"]');
+        const hasEnd = !!(dayEndSync.value && String(dayEndSync.value).trim());
+        if (hasEnd) {
+            freqSync.value = '1st_of_every_month';
+            if (monthlyOpt) monthlyOpt.disabled = true;
+        } else if (monthlyOpt) {
+            monthlyOpt.disabled = false;
+        }
+    }
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     if (confirmBtn) {
         confirmBtn.disabled = false;
@@ -1994,6 +2042,11 @@ function closeConfirmBankResendModal() {
     const modal = document.getElementById('confirmBankResendModal');
     if (modal) modal.style.display = 'none';
     pendingBankResendProcessId = null;
+    const fqClose = document.getElementById('bank_resend_frequency');
+    if (fqClose) {
+        const mo = fqClose.querySelector('option[value="monthly"]');
+        if (mo) mo.disabled = false;
+    }
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     if (confirmBtn) {
         confirmBtn.disabled = false;
@@ -2019,10 +2072,18 @@ async function confirmBankResendFromModal() {
         confirmBtn.textContent = 'Resending...';
     }
     if (cancelBtn) cancelBtn.disabled = true;
+    const dsEl = document.getElementById('bank_resend_day_start');
+    const deEl = document.getElementById('bank_resend_day_end');
+    const fqEl = document.getElementById('bank_resend_frequency');
+    const scheduleOpts = (dsEl && deEl && fqEl) ? {
+        day_start: (dsEl.value || '').trim(),
+        day_end: (deEl.value || '').trim(),
+        day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : '1st_of_every_month'
+    } : null;
     try {
         const bankModule = getBankProcessModule();
         if (bankModule && typeof bankModule.executeAccountingDueResend === 'function') {
-            await bankModule.executeAccountingDueResend(id);
+            await bankModule.executeAccountingDueResend(id, scheduleOpts);
         }
     } finally {
         closeConfirmBankResendModal();

@@ -35,6 +35,22 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
+/** @return string|null */
+function bank_resend_normalizeOptionalYmd($value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+    $v = trim((string) $value);
+    if ($v === '') {
+        return null;
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) {
+        throw new Exception('日期格式无效（需 YYYY-MM-DD）');
+    }
+    return $v;
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('请先登录');
@@ -55,6 +71,25 @@ try {
     $bankProcessId = isset($payload['bank_process_id']) ? (int) $payload['bank_process_id'] : 0;
     if ($bankProcessId <= 0) {
         throw new Exception('无效的 Process ID');
+    }
+
+    $scheduleFromClient = array_key_exists('day_start', $payload)
+        || array_key_exists('day_end', $payload)
+        || array_key_exists('day_start_frequency', $payload);
+    $newDayStart = null;
+    $newDayEnd = null;
+    $newFrequency = '1st_of_every_month';
+    if ($scheduleFromClient) {
+        $newDayStart = bank_resend_normalizeOptionalYmd($payload['day_start'] ?? null);
+        $newDayEnd = bank_resend_normalizeOptionalYmd($payload['day_end'] ?? null);
+        $newFrequency = trim((string) ($payload['day_start_frequency'] ?? '1st_of_every_month'));
+        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly'], true)) {
+            $newFrequency = '1st_of_every_month';
+        }
+        // 与前端 Add/Edit 一致：已设 day_end 时不允许 monthly
+        if ($newDayEnd !== null && $newFrequency === 'monthly') {
+            $newFrequency = '1st_of_every_month';
+        }
     }
 
     $selectCols = ['id', 'status'];
@@ -155,6 +190,21 @@ try {
             'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'
         );
         $delPend->execute([$company_id, $bankProcessId]);
+    }
+
+    if ($scheduleFromClient) {
+        $hasFreqCol = bmp_resend_tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
+        if ($hasFreqCol) {
+            $upd = $pdo->prepare(
+                'UPDATE bank_process SET day_start = ?, day_end = ?, day_start_frequency = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?'
+            );
+            $upd->execute([$newDayStart, $newDayEnd, $newFrequency, $bankProcessId, $company_id]);
+        } else {
+            $upd = $pdo->prepare(
+                'UPDATE bank_process SET day_start = ?, day_end = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?'
+            );
+            $upd->execute([$newDayStart, $newDayEnd, $bankProcessId, $company_id]);
+        }
     }
 
     $pdo->commit();
