@@ -50,7 +50,7 @@ try {
             LEFT JOIN account a ON co.account_id = a.id AND co.owner_type = 'account'
             LEFT JOIN owner o ON co.account_id = o.id AND co.owner_type = 'owner'
             LEFT JOIN user u ON co.account_id = u.id AND co.owner_type = 'user'
-            WHERE co.company_id = ?
+            WHERE co.company_id = ? AND co.owner_type != 'account'
             ORDER BY co.percentage DESC
         ");
     } else {
@@ -62,7 +62,7 @@ try {
                    NULL as partner_group_id
             FROM company_ownership co
             JOIN account a ON co.account_id = a.id
-            WHERE co.company_id = ?
+            WHERE co.company_id = ? AND 1=0
             ORDER BY co.percentage DESC, a.account_id ASC
         ");
     }

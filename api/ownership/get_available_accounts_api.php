@@ -13,18 +13,6 @@ $company_id = $_GET['company_id'] ?? null;
 
 try {
     if ($company_id) {
-        // Fetch accounts linked to the company
-        $stmtAcc = $pdo->prepare("
-            SELECT CONCAT('A_', a.id) as id, a.account_id as account_name, a.name, a.role
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.company_id = ? 
-              AND a.status = 'active'
-              AND LOWER(a.role) IN ('company', 'partner', 'agent')
-        ");
-        $stmtAcc->execute([$company_id]);
-        $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
-
         // Fetch native owner and any linked external partners
         $stmtOwner = $pdo->prepare("
             SELECT DISTINCT CONCAT('O_', o.id) as id, 
@@ -39,8 +27,8 @@ try {
         $stmtOwner->execute(['comp_id1' => $company_id, 'comp_id2' => $company_id]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        // Combine
-        $combined = array_merge($accounts, $users);
+        // Sort by account_name
+        $combined = $users;
         
         // Sort alphabetically by account_name
         usort($combined, function($a, $b) {
@@ -54,15 +42,6 @@ try {
 
     } else {
         // Fallback or global mode, return generally available
-        $stmtAcc = $pdo->prepare("
-            SELECT CONCAT('A_', id) as id, account_id as account_name, name, role
-            FROM account
-            WHERE status = 'active'
-              AND LOWER(role) IN ('company', 'partner', 'agent')
-        ");
-        $stmtAcc->execute();
-        $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
-
         $stmtOwner = $pdo->prepare("
             SELECT CONCAT('O_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type
             FROM owner
@@ -72,7 +51,7 @@ try {
         $stmtOwner->execute([$_SESSION['user_id']]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        $combined = array_merge($accounts, $users);
+        $combined = $users;
         usort($combined, function($a, $b) {
             return strcmp($a['account_name'], $b['account_name']);
         });

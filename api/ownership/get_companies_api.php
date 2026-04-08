@@ -37,14 +37,27 @@ try {
     
     // Get total ownership assigned for each company
     if ($tableExists && count($companies) > 0) {
+        $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+        
         $company_ids = array_column($companies, 'id');
         $in = str_repeat('?,', count($company_ids) - 1) . '?';
-        $stmt = $pdo->prepare("
-            SELECT company_id, SUM(percentage) as total_percent
-            FROM company_ownership
-            WHERE company_id IN ($in)
-            GROUP BY company_id
-        ");
+        
+        if ($hasOwnerType) {
+            $stmt = $pdo->prepare("
+                SELECT company_id, SUM(percentage) as total_percent
+                FROM company_ownership
+                WHERE company_id IN ($in) AND owner_type != 'account'
+                GROUP BY company_id
+            ");
+        } else {
+            // If before migration, return 0 for safe fallback rather than accounts we want ignored
+            $stmt = $pdo->prepare("
+                SELECT company_id, SUM(percentage) as total_percent
+                FROM company_ownership
+                WHERE company_id IN ($in) AND 1=0
+                GROUP BY company_id
+            ");
+        }
         $stmt->execute($company_ids);
         $totals = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
         
