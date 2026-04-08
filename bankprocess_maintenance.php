@@ -73,7 +73,7 @@ $error = isset($_GET['error']) ? true : false;
                     <label class="maintenance-label" for="filter_from_search">Search From</label>
                     <div class="maintenance-search-inline-wrap">
                         <div class="maintenance-search-inline-controls">
-                            <input type="text" id="filter_from_search" class="maintenance-input" placeholder="e.g.TEST M16(CIMB)" autocomplete="off">
+                            <input type="text" id="filter_from_search" class="maintenance-input" placeholder="e.g.TEST M16(CIMB), CIMB" autocomplete="off">
                         </div>
                         <button type="button" class="maintenance-search-inline-btn" id="filter_from_search_apply" title="Search">
                             <i class="fas fa-search"></i>
