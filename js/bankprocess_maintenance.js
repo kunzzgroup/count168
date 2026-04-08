@@ -335,6 +335,14 @@
             if (selectedCurrency) {
                 url += `&currency=${encodeURIComponent(selectedCurrency)}`;
             }
+            const cardOwnerEl = document.getElementById('filter_card_owner');
+            const bankFilterEl = document.getElementById('filter_bank');
+            if (cardOwnerEl && cardOwnerEl.value.trim()) {
+                url += `&card_owner=${encodeURIComponent(cardOwnerEl.value.trim())}`;
+            }
+            if (bankFilterEl && bankFilterEl.value.trim()) {
+                url += `&bank=${encodeURIComponent(bankFilterEl.value.trim())}`;
+            }
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>';
             document.getElementById('emptyState').style.display = 'none';
@@ -526,8 +534,37 @@
             }
         }
 
+        function bindOwnerBankSearchControls() {
+            const cardOwnerEl = document.getElementById('filter_card_owner');
+            const bankFilterEl = document.getElementById('filter_bank');
+            const applyBtn = document.getElementById('filter_owner_bank_apply');
+            const runIfReady = () => {
+                const dateFrom = document.getElementById('date_from').value.trim();
+                const dateTo = document.getElementById('date_to').value.trim();
+                if (dateFrom && dateTo && selectedCurrency) {
+                    searchData();
+                }
+            };
+            const onEnter = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runIfReady();
+                }
+            };
+            if (cardOwnerEl) {
+                cardOwnerEl.addEventListener('keydown', onEnter);
+            }
+            if (bankFilterEl) {
+                bankFilterEl.addEventListener('keydown', onEnter);
+            }
+            if (applyBtn) {
+                applyBtn.addEventListener('click', runIfReady);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             initDatePickers();
+            bindOwnerBankSearchControls();
             updateDeleteButtonState();
             loadOwnerCompanies()
                 .catch(() => {})

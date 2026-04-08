@@ -165,6 +165,47 @@ h1 {
     gap: clamp(4px, 0.52vw, 8px);
 }
 
+.maintenance-owner-bank-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: clamp(10px, 1vw, 16px);
+    margin-top: clamp(6px, 0.52vw, 10px);
+    width: 100%;
+    max-width: min(100%, 720px);
+}
+
+.maintenance-owner-bank-search .maintenance-search-field {
+    flex: 1 1 140px;
+    min-width: clamp(120px, 18vw, 200px);
+}
+
+.maintenance-search-apply-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(40px, 3.2vw, 44px);
+    height: clamp(36px, 2.8vw, 40px);
+    margin-bottom: 2px;
+    border: 0.125rem solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.15s ease;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
+}
+
+.maintenance-search-apply-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+.maintenance-search-apply-btn:active {
+    transform: translateY(0);
+}
+
 .maintenance-company-btn {
     padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
     border: 1px solid #d0d7de;

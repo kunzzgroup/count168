@@ -104,9 +104,24 @@ function getCurrencySchema(PDO $pdo) {
 }
 
 /**
+ * 将用户输入转为 SQL LIKE 的包含匹配参数（转义 \ % _）；空串返回 null 表示不筛选
+ */
+function likeContainsPattern(?string $raw): ?string {
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim($raw);
+    if ($s === '') {
+        return null;
+    }
+    $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
+    return '%' . $escaped . '%';
+}
+
+/**
  * 查询主表 transactions 中 source_bank_process_id IS NOT NULL 的记录
  */
-function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, array $currency_filters, array $schema) {
+function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, array $currency_filters, array $schema, ?string $card_owner_filter = null, ?string $bank_filter = null) {
     $hasSourceBankProcess = false;
     try {
         $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
@@ -165,6 +180,18 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
         $placeholders = implode(',', array_fill(0, count($currency_filters), '?'));
         $sql .= " AND {$schema['currencyFilterField']} IN ($placeholders)";
         $params = array_merge($params, array_map('strtoupper', $currency_filters));
+    }
+    $coPat = likeContainsPattern($card_owner_filter);
+    if ($coPat !== null) {
+        $sql .= " AND (COALESCE(bp.name, '') LIKE ? OR COALESCE(a_cm_bp.name, '') LIKE ? OR COALESCE(a_cm_bp.account_id, '') LIKE ?)";
+        $params[] = $coPat;
+        $params[] = $coPat;
+        $params[] = $coPat;
+    }
+    $bkPat = likeContainsPattern($bank_filter);
+    if ($bkPat !== null) {
+        $sql .= " AND COALESCE(bp.bank, '') LIKE ?";
+        $params[] = $bkPat;
     }
     $sql .= " ORDER BY t.transaction_date DESC, t.created_at DESC";
     $stmt = $pdo->prepare($sql);
@@ -297,7 +324,10 @@ try {
         throw new Exception('系统缺少货币信息，无法按货币筛选，请联系管理员');
     }
 
-    $rows = fetchBankProcessTransactions($pdo, $company_id, $date_from_db, $date_to_db, $currency_filters, $schema);
+    $card_owner_filter = isset($_GET['card_owner']) ? (string) $_GET['card_owner'] : '';
+    $bank_filter = isset($_GET['bank']) ? (string) $_GET['bank'] : '';
+
+    $rows = fetchBankProcessTransactions($pdo, $company_id, $date_from_db, $date_to_db, $currency_filters, $schema, $card_owner_filter, $bank_filter);
     $data = [];
     foreach ($rows as $row) {
         $data[] = rowToItem($row);
