@@ -23,6 +23,8 @@ body {
         linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
     background-blend-mode: screen, screen, multiply, screen, normal;
     min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
 
 *, *::before, *::after {
@@ -38,6 +40,8 @@ body {
     box-sizing: border-box;
     overflow: hidden;
     color: var(--own-dark-text);
+    display: flex;
+    flex-direction: column;
 }
 
 .own-page-title {
@@ -49,6 +53,7 @@ body {
     font-family: 'Amaranth';
     font-weight: 500;
     letter-spacing: -0.025em;
+    flex-shrink: 0;
 }
 
 /* Separator Line extending beyond container */
@@ -56,19 +61,21 @@ body {
     width: 100vw;
     height: 2px;
     background-color: #939393;
-    margin: 5px 0 -10px 0;
+    margin: 5px 0 0 0;
     position: relative;
     left: 50%;
     right: 50%;
     margin-left: -50vw;
     margin-right: -50vw;
+    flex-shrink: 0;
 }
 
 #companyCardsContainer {
     overflow-y: auto;
     overflow-x: hidden;
-    max-height: calc(100vh - 100px);
-    padding-top: 30px;
+    flex: 1;
+    min-height: 0;
+    margin-top: 20px;
     padding-bottom: 60px;
     padding-right: 15px;
     width: 100%;
