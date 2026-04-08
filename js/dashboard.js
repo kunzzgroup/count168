@@ -1786,10 +1786,11 @@ function loadOwnerCompanies() {
                 }
 
                 // 渲染 Company buttons
-                if (data.data.length > 1) {
+                if (data.data.length > 0) {
+                    if (data.data.length === 1) {
+                        window.companyId = data.data[0].id;
+                    }
                     renderCompanyButtons(data.data);
-                } else if (data.data.length === 1) {
-                    window.companyId = data.data[0].id;
                 }
             }
             return data;
