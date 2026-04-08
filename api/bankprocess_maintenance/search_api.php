@@ -145,6 +145,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 {$schema['selectCurrency']},
                 u.login_id AS created_by_login, o.owner_code AS created_by_owner,
                 bp.name AS bank_process_name,
+                bp.bank AS process_bank,
                 a_cm_bp.name AS card_owner_name,
                 bp.profit AS process_profit, bp.cost AS process_cost, bp.price AS process_price, bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.profit_sharing AS process_profit_sharing
                 $periodTypeSelect
@@ -241,10 +242,14 @@ function rowToItem(array $row) {
     }
 
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
-    // From 列：与 transaction history 的 card_owner 一致——优先 bank_process.name（Add Process 的 Card Owner），否则供应商账户名
+    // From 列：与 transaction history 的 card_owner 一致——优先 bank_process.name（Card Owner），否则供应商账户名；有银行时追加 (BANK)，如 TEST M16(CIMB)
     $bankProcessName = isset($row['bank_process_name']) ? trim((string) $row['bank_process_name']) : '';
     $cardOwnerName = isset($row['card_owner_name']) ? trim((string) $row['card_owner_name']) : '';
     $fromLabel = $bankProcessName !== '' ? $bankProcessName : ($cardOwnerName !== '' ? $cardOwnerName : '-');
+    $processBank = isset($row['process_bank']) ? trim((string) $row['process_bank']) : '';
+    if ($fromLabel !== '-' && $processBank !== '') {
+        $fromLabel .= '(' . $processBank . ')';
+    }
 
     return [
         'transaction_id' => (int) $row['id'],
