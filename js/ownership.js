@@ -280,7 +280,7 @@ function createRowElement(companyId, idx, rowData) {
 // ---------------------------------------------
 
 function addAccountRow(companyId) {
-    companyStates[companyId].rows.push({ account_id: '', percentage: 0 });
+    companyStates[companyId].rows.push({ account_id: '', percentage: 0, role: '', user_raw_id: null, read_only: 1 });
     renderCardBodyRows(companyId);
 }
 
@@ -292,7 +292,20 @@ function removeRow(companyId, idx) {
 function updateRowData(companyId, idx, field, value) {
     companyStates[companyId].rows[idx][field] = value;
     if (field === 'percentage') updateCalculations(companyId);
-    if (field === 'account_id') renderCardBodyRows(companyId);
+    if (field === 'account_id') {
+        // Sync role / user info from accounts list so toggle can detect Partnership
+        const acc = companyStates[companyId].accounts.find(a => a.id === value);
+        if (acc) {
+            companyStates[companyId].rows[idx].role = (acc.role || '').toLowerCase();
+            const isUser = String(value).startsWith('U_');
+            companyStates[companyId].rows[idx].user_raw_id = isUser ? parseInt(value.replace('U_', '')) : null;
+            companyStates[companyId].rows[idx].read_only = 1; // default read-only for new Partnership row
+        } else {
+            companyStates[companyId].rows[idx].role = '';
+            companyStates[companyId].rows[idx].user_raw_id = null;
+        }
+        renderCardBodyRows(companyId);
+    }
 }
 
 // ---------------------------------------------

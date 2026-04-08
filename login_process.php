@@ -130,6 +130,7 @@ try {
         $_SESSION['company_id'] = $user['company_numeric_id'];
         $_SESSION['company_code'] = $user['company_code'];
         $_SESSION['last_activity'] = time();
+        $_SESSION['read_only'] = isset($user['read_only']) ? (int)$user['read_only'] : 1; // Partnership read-only state
 
         // 处理Remember Me
         $remember_me = isset($_POST['remember_me']) ? $_POST['remember_me'] : false;
