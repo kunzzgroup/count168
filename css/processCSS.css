@@ -2776,6 +2776,149 @@ body.process-page {
     transform: none;
 }
 
+/* Resend to Accounting Due — layout & form panel */
+#confirmBankResendModal .bank-resend-modal-content {
+    width: clamp(400px, 94vw, 520px);
+    max-width: 96%;
+    display: flex;
+    flex-direction: column;
+}
+
+#confirmBankResendModal .bank-resend-modal-hero {
+    text-align: center;
+    padding: 0 clamp(8px, 2vw, 12px);
+}
+
+#confirmBankResendModal .bank-resend-modal-icon-wrap {
+    padding-top: clamp(22px, 2.2vw, 36px);
+    padding-bottom: clamp(10px, 1vw, 16px);
+}
+
+#confirmBankResendModal .bank-resend-modal-title {
+    margin-bottom: clamp(10px, 1vw, 16px);
+    font-size: clamp(1.15rem, 2.8vw, 1.5rem);
+}
+
+#confirmBankResendModal .bank-resend-modal-message {
+    text-align: center;
+    font-size: clamp(14px, 1.05vw, 16px);
+    line-height: 1.65;
+    color: #64748b;
+    font-weight: 500;
+    padding: 0 clamp(12px, 3vw, 28px);
+    margin: 0 auto;
+    max-width: 38rem;
+    max-height: none;
+    white-space: pre-line;
+}
+
+#confirmBankResendModal .bank-resend-modal-message::first-line {
+    color: #334155;
+    font-weight: 600;
+}
+
+#confirmBankResendModal .bank-resend-schedule-card {
+    margin: clamp(18px, 2.2vw, 26px) clamp(18px, 3.5vw, 32px) 0;
+    padding: clamp(16px, 1.8vw, 20px) clamp(16px, 2vw, 22px);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    border-top: 3px solid #10b981;
+    text-align: left;
+}
+
+#confirmBankResendModal .bank-resend-schedule-card__head {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#confirmBankResendModal .bank-resend-schedule-card__label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #0f766e;
+    margin-bottom: 6px;
+}
+
+#confirmBankResendModal .bank-resend-schedule-card__hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #64748b;
+}
+
+#confirmBankResendModal .bank-resend-schedule-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+@media (min-width: 440px) {
+    #confirmBankResendModal .bank-resend-schedule-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 14px 16px;
+    }
+
+    #confirmBankResendModal .bank-resend-field--full {
+        grid-column: 1 / -1;
+    }
+}
+
+#confirmBankResendModal .bank-resend-field__label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 6px;
+    letter-spacing: 0.01em;
+}
+
+#confirmBankResendModal .bank-resend-control {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 42px;
+    padding: 8px 12px;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: #1e293b;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#confirmBankResendModal .bank-resend-control:hover {
+    border-color: #94a3b8;
+}
+
+#confirmBankResendModal .bank-resend-control:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+#confirmBankResendModal .bank-resend-control--select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 40px;
+}
+
+#confirmBankResendModal .process-confirm-actions.bank-resend-modal-actions {
+    margin-top: 0;
+    padding: clamp(18px, 2vw, 26px) clamp(22px, 3vw, 36px) clamp(22px, 2.5vw, 32px);
+    border-top: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(241, 245, 249, 0.9) 100%);
+}
+
 /* Scrollbar for long messages */
 .process-confirm-message::-webkit-scrollbar {
     width: 6px;
