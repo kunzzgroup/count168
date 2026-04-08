@@ -398,7 +398,8 @@
             }
             data.forEach((row, index) => {
                 const tr = document.createElement('tr');
-                tr.className = 'maintenance-row';
+                const isDeleted = !!row.is_deleted;
+                tr.className = 'maintenance-row' + (isDeleted ? ' maintenance-row-deleted' : '');
                 const dateDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = escapeHtml(toUpperDisplay(row.from_account));
@@ -406,7 +407,13 @@
                 const descriptionDisplay = escapeHtml(toUpperDisplay(row.description));
                 const remarkDisplay = escapeHtml(toUpperDisplay(row.remark));
                 const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
+                const deletedByDisplay = row.deleter ? escapeHtml(row.deleter) : '-';
+                const submitterDisplay = isDeleted && deletedByDisplay !== '-' ? deletedByDisplay : createdByDisplay;
+                const rowCheckboxHtml = isDeleted
+                    ? '<input type="checkbox" class="maintenance-row-checkbox" disabled title="Already deleted">'
+                    : `<input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="updateDeleteButtonState()">`;
                 tr.setAttribute('data-transaction-id', row.transaction_id);
+                tr.setAttribute('data-is-deleted', isDeleted ? '1' : '0');
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
                     <td class="maintenance-table-cell">${dateDisplay}</td>
@@ -415,9 +422,9 @@
                     <td class="maintenance-table-cell maintenance-cell-currency-amount">${currencyAmountDisplay}</td>
                     <td class="maintenance-table-cell text-uppercase">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell text-uppercase">${remarkDisplay}</td>
-                    <td class="maintenance-table-cell">${createdByDisplay}</td>
+                    <td class="maintenance-table-cell">${submitterDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-checkbox">
-                        <input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="updateDeleteButtonState()">
+                        ${rowCheckboxHtml}
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -425,7 +432,7 @@
         }
 
         function toggleSelectAllRows(source) {
-            const rowCheckboxes = document.querySelectorAll('.maintenance-row-checkbox');
+            const rowCheckboxes = document.querySelectorAll('.maintenance-row-checkbox:not(:disabled)');
             const targetState = !!source.checked;
             rowCheckboxes.forEach(cb => {
                 cb.checked = targetState;
@@ -434,8 +441,8 @@
         }
 
         function updateDeleteButtonState() {
-            const checkboxes = document.querySelectorAll('.maintenance-row-checkbox');
-            const checkedCheckboxes = document.querySelectorAll('.maintenance-row-checkbox:checked');
+            const checkboxes = document.querySelectorAll('.maintenance-row-checkbox:not(:disabled)');
+            const checkedCheckboxes = document.querySelectorAll('.maintenance-row-checkbox:not(:disabled):checked');
             const deleteBtn = document.getElementById('deleteBtn');
             const confirmCheckbox = document.getElementById('confirmDelete');
             const selectAllCheckbox = document.getElementById('select_all_bankprocess');

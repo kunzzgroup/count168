@@ -165,7 +165,9 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 bp.bank AS process_bank,
                 a_cm_bp.name AS card_owner_name,
                 bp.profit AS process_profit, bp.cost AS process_cost, bp.price AS process_price, bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.profit_sharing AS process_profit_sharing
-                $periodTypeSelect
+                $periodTypeSelect,
+                0 AS is_deleted,
+                NULL AS deleter
             FROM transactions t
             JOIN account to_acc ON t.account_id = to_acc.id
             LEFT JOIN account from_acc ON t.from_account_id = from_acc.id
@@ -206,7 +208,100 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
         $params[] = $fromPat;
         $params[] = $fromPat;
     }
-    $sql .= " ORDER BY t.transaction_date DESC, t.created_at DESC";
+    // deleted 记录：保留在列表中，供前端做删除线展示
+    $hasDeletedTable = false;
+    try {
+        $hasDeletedTable = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'")->rowCount() > 0;
+    } catch (PDOException $e) {}
+
+    if ($hasDeletedTable) {
+        $deletedHasSourceBpCol = false;
+        $deletedHasPeriodTypeCol = false;
+        $deletedHasCurrencyIdCol = false;
+        try { $deletedHasSourceBpCol = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'source_bank_process_id'")->rowCount() > 0; } catch (PDOException $e) {}
+        try { $deletedHasPeriodTypeCol = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'source_bank_process_period_type'")->rowCount() > 0; } catch (PDOException $e) {}
+        try { $deletedHasCurrencyIdCol = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'currency_id'")->rowCount() > 0; } catch (PDOException $e) {}
+
+        if ($deletedHasSourceBpCol) {
+            $deletedPeriodTypeSelect = $deletedHasPeriodTypeCol
+                ? "td.source_bank_process_period_type AS period_type"
+                : "NULL AS period_type";
+            $deletedCurrencyJoinSql = '';
+            $deletedCurrencyFilterField = "''";
+            if ($deletedHasCurrencyIdCol) {
+                $deletedCurrencyJoinSql = " LEFT JOIN currency c_del ON td.currency_id = c_del.id";
+                $deletedCurrencyFilterField = "UPPER(COALESCE(c_del.code, ''))";
+                $deletedSelectCurrency = "UPPER(COALESCE(c_del.code, '')) AS currency_code";
+            } else {
+                $deletedSelectCurrency = "{$schema['selectCurrency']}";
+                $deletedCurrencyFilterField = $schema['currencyFilterField'] !== null ? $schema['currencyFilterField'] : "''";
+            }
+
+            $sql .= "
+                UNION ALL
+                SELECT
+                    td.transaction_id AS id,
+                    DATE_FORMAT(td.transaction_date, '%d/%m/%Y') AS transaction_date,
+                    td.transaction_type, td.amount, td.description,
+                    COALESCE(td.sms, '') AS remark,
+                    DATE_FORMAT(td.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
+                    to_acc_del.id AS account_id, to_acc_del.account_id AS account_code, to_acc_del.name AS account_name,
+                    from_acc_del.account_id AS from_account_code, from_acc_del.name AS from_account_name,
+                    {$deletedSelectCurrency},
+                    u_del.login_id AS created_by_login, o_del.owner_code AS created_by_owner,
+                    bp_del.name AS bank_process_name,
+                    bp_del.bank AS process_bank,
+                    a_cm_bp_del.name AS card_owner_name,
+                    bp_del.profit AS process_profit, bp_del.cost AS process_cost, bp_del.price AS process_price, bp_del.card_merchant_id, bp_del.customer_id, bp_del.profit_account_id, bp_del.profit_sharing AS process_profit_sharing,
+                    {$deletedPeriodTypeSelect},
+                    1 AS is_deleted,
+                    COALESCE(del_u.login_id, del_o.owner_code, '-') AS deleter
+                FROM transactions_deleted td
+                LEFT JOIN account to_acc_del ON td.account_id = to_acc_del.id
+                LEFT JOIN account from_acc_del ON td.from_account_id = from_acc_del.id
+                LEFT JOIN bank_process bp_del ON td.source_bank_process_id = bp_del.id
+                LEFT JOIN account a_cm_bp_del ON bp_del.card_merchant_id = a_cm_bp_del.id
+                {$deletedCurrencyJoinSql}
+                LEFT JOIN user u_del ON td.created_by = u_del.id
+                LEFT JOIN owner o_del ON td.created_by_owner = o_del.id
+                LEFT JOIN user del_u ON td.deleted_by_user_id = del_u.id
+                LEFT JOIN owner del_o ON td.deleted_by_owner_id = del_o.id
+                WHERE td.company_id = ? AND td.transaction_date BETWEEN ? AND ?
+                  AND td.source_bank_process_id IS NOT NULL";
+
+            $params = array_merge($params, [$company_id, $date_from_db, $date_to_db]);
+
+            if (!empty($currency_filters)) {
+                $placeholders = implode(',', array_fill(0, count($currency_filters), '?'));
+                $sql .= " AND {$deletedCurrencyFilterField} IN ($placeholders)";
+                $params = array_merge($params, array_map('strtoupper', $currency_filters));
+            }
+
+            if ($fromPat !== null) {
+                $sql .= " AND (
+                    COALESCE(bp_del.name, '') LIKE ?
+                    OR COALESCE(a_cm_bp_del.name, '') LIKE ?
+                    OR COALESCE(a_cm_bp_del.account_id, '') LIKE ?
+                    OR COALESCE(bp_del.bank, '') LIKE ?
+                    OR CONCAT(
+                        CASE
+                            WHEN NULLIF(TRIM(COALESCE(bp_del.name, '')), '') IS NOT NULL THEN TRIM(bp_del.name)
+                            WHEN NULLIF(TRIM(COALESCE(a_cm_bp_del.name, '')), '') IS NOT NULL THEN TRIM(a_cm_bp_del.name)
+                            ELSE '-'
+                        END,
+                        IF(bp_del.bank IS NOT NULL AND TRIM(bp_del.bank) <> '', CONCAT('(', TRIM(bp_del.bank), ')'), '')
+                    ) LIKE ?
+                )";
+                $params[] = $fromPat;
+                $params[] = $fromPat;
+                $params[] = $fromPat;
+                $params[] = $fromPat;
+                $params[] = $fromPat;
+            }
+        }
+    }
+
+    $sql .= " ORDER BY STR_TO_DATE(transaction_date, '%d/%m/%Y') DESC, dts_created DESC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -302,6 +397,8 @@ function rowToItem(array $row) {
         'remark' => $row['remark'] ?? '',
         'dts_created' => $row['dts_created'] ?? '',
         'created_by' => $createdBy,
+        'deleter' => $row['deleter'] ?? '',
+        'is_deleted' => isset($row['is_deleted']) ? ((int) $row['is_deleted'] === 1) : false,
         'transaction_type' => $row['transaction_type'],
     ];
 }

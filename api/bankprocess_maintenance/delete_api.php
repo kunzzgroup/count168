@@ -46,12 +46,38 @@ function ensureTransactionsDeletedTable(PDO $pdo) {
             deleted_by_user_id INT NULL,
             deleted_by_owner_id INT NULL,
             deleted_at TIMESTAMP NULL,
+            source_bank_process_id INT NULL,
+            source_bank_process_period_type VARCHAR(64) NULL,
+            currency_id INT NULL,
             INDEX idx_company_date (company_id, transaction_date),
             INDEX idx_transaction_id (transaction_id),
-            INDEX idx_deleted_at (deleted_at)
+            INDEX idx_deleted_at (deleted_at),
+            INDEX idx_source_bank_process_id (source_bank_process_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
     $pdo->exec($sql);
+}
+
+/**
+ * 兼容旧库：为 transactions_deleted 补齐 bank process 相关列
+ */
+function ensureTransactionsDeletedExtraColumns(PDO $pdo) {
+    $checks = [
+        'source_bank_process_id' => "ALTER TABLE transactions_deleted ADD COLUMN source_bank_process_id INT NULL",
+        'source_bank_process_period_type' => "ALTER TABLE transactions_deleted ADD COLUMN source_bank_process_period_type VARCHAR(64) NULL",
+        'currency_id' => "ALTER TABLE transactions_deleted ADD COLUMN currency_id INT NULL",
+    ];
+    foreach ($checks as $column => $ddl) {
+        try {
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM transactions_deleted LIKE ?");
+            $stmt->execute([$column]);
+            if ($stmt->rowCount() === 0) {
+                $pdo->exec($ddl);
+            }
+        } catch (Throwable $e) {
+            // 并发/重复添加时忽略，避免阻塞删除流程
+        }
+    }
 }
 
 /**
@@ -86,12 +112,14 @@ function backupTransactionsToDeleted(PDO $pdo, array $ids, $company_id, $deleted
         INSERT INTO transactions_deleted (
             transaction_id, company_id, transaction_type, account_id, from_account_id,
             amount, transaction_date, description, sms, created_by, created_by_owner, created_at,
-            deleted_by_user_id, deleted_by_owner_id, deleted_at
+            deleted_by_user_id, deleted_by_owner_id, deleted_at,
+            source_bank_process_id, source_bank_process_period_type, currency_id
         )
         SELECT
             t.id AS transaction_id, ? AS company_id, t.transaction_type, t.account_id, t.from_account_id,
             t.amount, t.transaction_date, t.description, t.sms, t.created_by, t.created_by_owner, t.created_at,
-            ?, ?, NOW()
+            ?, ?, NOW(),
+            t.source_bank_process_id, t.source_bank_process_period_type, t.currency_id
         FROM transactions t
         INNER JOIN account a ON t.account_id = a.id
         INNER JOIN account_company ac ON a.id = ac.account_id
@@ -173,6 +201,7 @@ try {
     }
 
     ensureTransactionsDeletedTable($pdo);
+    ensureTransactionsDeletedExtraColumns($pdo);
     // Ensure resend-pending table exists BEFORE starting a DB transaction
     // (DDL inside transaction can cause implicit commit).
     bmp_ensureMaintenanceResendPendingTable($pdo);

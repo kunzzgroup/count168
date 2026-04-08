@@ -355,6 +355,29 @@ h1 {
     border-bottom: none;
 }
 
+/* 已删除记录：保留行并显示红色删除线 */
+.maintenance-table tbody tr.maintenance-row-deleted {
+    position: relative;
+    opacity: 0.95;
+}
+
+.maintenance-table tbody tr.maintenance-row-deleted::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 2px;
+    background: #d11a2a;
+    pointer-events: none;
+}
+
+.maintenance-table tbody tr.maintenance-row-deleted .maintenance-table-cell {
+    text-decoration: line-through;
+    text-decoration-color: #d11a2a;
+    text-decoration-thickness: 1.5px;
+}
+
 /* 9 columns: No., Dts Created, Account, From, Amount (currency + value), Description, Remark, Submitted By, Checkbox */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
@@ -465,6 +488,13 @@ h1 {
     font-size: clamp(10px, 0.83vw, 14px);
     font-weight: bold;
     line-height: 1;
+}
+
+.maintenance-row-checkbox:disabled {
+    border-color: #cbd5e1;
+    background-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 .maintenance-select-all-header {
