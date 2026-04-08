@@ -677,16 +677,38 @@ try {
             'billing_month' => isset($billingMonths[$i]) ? trim((string) $billingMonths[$i]) : '',
         ];
     }
-    // Accounting Due 每行只入账一次：按 (process_id, period_type) 去重，避免重复提交导致同一笔数额乘多倍
+    // Accounting Due 每行只入账一次：monthly 按 billing_month 区分多期；其它 period_type 仍按 process_id + period_type 去重
     $seen = [];
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
-        $key = $p['id'] . '_' . $p['period_type'];
+        $pt = $p['period_type'] ?? '';
+        $bm = trim((string) ($p['billing_month'] ?? ''));
+        $key = $p['id'] . '_' . $pt . '_' . (($pt === 'monthly' && $bm !== '') ? $bm : '');
         if (isset($seen[$key])) {
             return false;
         }
         $seen[$key] = true;
         return true;
     }));
+
+    usort($pairs, static function ($a, $b) {
+        if ((int) $a['id'] !== (int) $b['id']) {
+            return (int) $a['id'] <=> (int) $b['id'];
+        }
+        $ba = trim((string) ($a['billing_month'] ?? ''));
+        $bb = trim((string) ($b['billing_month'] ?? ''));
+        if ($ba === '' && $bb === '') {
+            return 0;
+        }
+        if (!preg_match('/^(\d{4})-(\d{1,2})$/', $ba, $ma)) {
+            return $ba <=> $bb;
+        }
+        if (!preg_match('/^(\d{4})-(\d{1,2})$/', $bb, $mb)) {
+            return $ba <=> $bb;
+        }
+        $ta = (int) $ma[1] * 100 + (int) $ma[2];
+        $tb = (int) $mb[1] * 100 + (int) $mb[2];
+        return $ta <=> $tb;
+    });
 
     $company_id = (int) ($_SESSION['company_id'] ?? 0);
     if (!$company_id) {
