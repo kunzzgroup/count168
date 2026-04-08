@@ -1824,9 +1824,9 @@ function renderGroupButtons(groups) {
                 btn.classList.add('active');
 
                 // 默认选择该 group 旗下的第一家公司并同步 session
-                // 注意：一视同仁 — 同时包含 group_id 匹配的公司，以及当前已在会话中的公司
+                // 注意：一视同仁 — 同时包含 group_id 匹配的公司，排除只有 group 占位符、没有真实 company_id 的记录
                 const groupCompanies = allOwnerCompanies.filter(c =>
-                    c.group_id && c.group_id.toUpperCase() === groupId
+                    c.group_id && c.group_id.toUpperCase() === groupId && c.company_id && c.company_id.trim() !== ''
                 );
                 console.log('[Dashboard] Group clicked:', groupId,
                     '| window.companyId:', window.companyId,
