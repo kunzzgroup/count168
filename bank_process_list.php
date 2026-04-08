@@ -768,38 +768,43 @@ if (!function_exists('renderBankProcessModals')) {
         </div>
 
         <!-- Confirm Resend to Accounting Due (replaces browser confirm) -->
-        <div id="confirmBankResendModal" class="process-modal" style="display: none;">
-            <div class="process-confirm-modal-content">
-                <div class="process-confirm-icon-container">
-                    <svg class="process-confirm-icon process-confirm-icon--resend" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v5h5" />
-                    </svg>
+        <div id="confirmBankResendModal" class="process-modal process-modal--bank-resend" style="display: none;">
+            <div class="process-confirm-modal-content bank-resend-modal-content">
+                <div class="bank-resend-modal-hero">
+                    <div class="process-confirm-icon-container bank-resend-modal-icon-wrap">
+                        <svg class="process-confirm-icon process-confirm-icon--resend" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v5h5" />
+                        </svg>
+                    </div>
+                    <h2 class="process-confirm-title bank-resend-modal-title">Resend to Accounting Due</h2>
+                    <p id="confirmBankResendMessage" class="process-confirm-message bank-resend-modal-message"></p>
                 </div>
-                <h2 class="process-confirm-title">Resend to Accounting Due</h2>
-                <p id="confirmBankResendMessage" class="process-confirm-message"></p>
-                <div id="confirmBankResendScheduleFields" class="bank-resend-schedule-fields" style="text-align: left; margin: 16px 0 8px; max-width: 100%;">
-                    <p class="bank-resend-schedule-hint" style="margin: 0 0 10px; font-size: 13px; color: #4b5563;">Billing schedule (edit here only; not in Edit Process):</p>
-                    <div style="display: grid; gap: 10px;">
-                        <div class="form-group" style="margin: 0;">
-                            <label for="bank_resend_day_start" style="display: block; font-size: 13px; margin-bottom: 4px;">Day start</label>
-                            <input type="date" id="bank_resend_day_start" class="bank-input" style="width: 100%; max-width: 220px; box-sizing: border-box;">
+                <div id="confirmBankResendScheduleFields" class="bank-resend-schedule-card">
+                    <div class="bank-resend-schedule-card__head">
+                        <span class="bank-resend-schedule-card__label">Billing schedule</span>
+                        <p class="bank-resend-schedule-card__hint">Edit here only — these fields are read-only in Edit Process.</p>
+                    </div>
+                    <div class="bank-resend-schedule-grid">
+                        <div class="bank-resend-field">
+                            <label class="bank-resend-field__label" for="bank_resend_day_start">Day start</label>
+                            <input type="date" id="bank_resend_day_start" class="bank-resend-control" autocomplete="off">
                         </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label for="bank_resend_day_end" style="display: block; font-size: 13px; margin-bottom: 4px;">Day end</label>
-                            <input type="date" id="bank_resend_day_end" class="bank-input" style="width: 100%; max-width: 220px; box-sizing: border-box;">
+                        <div class="bank-resend-field">
+                            <label class="bank-resend-field__label" for="bank_resend_day_end">Day end</label>
+                            <input type="date" id="bank_resend_day_end" class="bank-resend-control" autocomplete="off">
                         </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label for="bank_resend_frequency" style="display: block; font-size: 13px; margin-bottom: 4px;">Frequency</label>
-                            <select id="bank_resend_frequency" class="bank-input bank-select" style="width: 100%; max-width: 220px; box-sizing: border-box;">
+                        <div class="bank-resend-field bank-resend-field--full">
+                            <label class="bank-resend-field__label" for="bank_resend_frequency">Frequency</label>
+                            <select id="bank_resend_frequency" class="bank-resend-control bank-resend-control--select">
                                 <option value="1st_of_every_month">1st of Every Month</option>
                                 <option value="monthly">Monthly</option>
                             </select>
                         </div>
                     </div>
                 </div>
-                <div class="process-confirm-actions">
+                <div class="process-confirm-actions bank-resend-modal-actions">
                     <button type="button" class="process-btn process-btn-cancel confirm-cancel confirm-bank-resend-cancel"
                         onclick="closeConfirmBankResendModal()">Cancel</button>
                     <button type="button" class="process-btn process-btn-resend confirm-bank-resend-confirm" id="confirmBankResendBtn"
