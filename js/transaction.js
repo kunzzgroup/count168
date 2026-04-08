@@ -301,8 +301,17 @@ function getSingleSelectedCategoryRoleClass() {
     const selectedCategories = getSelectedCategories();
     if (!Array.isArray(selectedCategories) || selectedCategories.length !== 1) return '';
     const selected = selectedCategories[0];
-    if (!selected) return '';
-    return getRoleClass(selected);
+    if (selected) {
+        return getRoleClass(selected);
+    }
+
+    const selectedTags = document.querySelectorAll('#category_selected_tags .category-tag[data-category-value]');
+    if (selectedTags.length === 1) {
+        const tagValue = selectedTags[0].getAttribute('data-category-value') || '';
+        if (tagValue) return getRoleClass(tagValue);
+    }
+
+    return '';
 }
 
 // ==================== 获取 Role 的排序优先级 ====================
