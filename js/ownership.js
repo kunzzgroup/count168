@@ -160,6 +160,9 @@ function loadCompanyData(companyId) {
             }))
         };
 
+        // DEBUG — remove after confirming
+        console.log('[Ownership Debug] rows:', JSON.stringify(companyStates[companyId].rows));
+
         renderCardBodyRows(companyId);
     }).catch(err => {
         console.error(err);
