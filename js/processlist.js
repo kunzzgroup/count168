@@ -1983,7 +1983,7 @@ function showConfirmBankResendModal(processId) {
     if (!modalEl) {
         const bankModule = getBankProcessModule();
         if (bankModule && typeof bankModule.executeAccountingDueResend === 'function' &&
-            window.confirm('Resend this process to Accounting Due?\n\nPosting rules stay the same.')) {
+            window.confirm('Resend this process to Accounting Due?')) {
             void bankModule.executeAccountingDueResend(id);
         }
         return;
@@ -1997,7 +1997,7 @@ function showConfirmBankResendModal(processId) {
     if (msgEl) {
         msgEl.textContent =
             'Resend "' + label + '" to Accounting Due?\n\n' +
-            'Posting rules stay the same. This clears the "already posted" / skipped mark after the bank posting was removed in Maintenance (Bank or Payment), or after you removed the row from Accounting Due.';
+            'This clears the "already posted" after the bank posting was removed in Maintenance (Bank or Payment).';
     }
     bindBankResendModalFrequencySyncOnce();
     const dsEl = document.getElementById('bank_resend_day_start');
