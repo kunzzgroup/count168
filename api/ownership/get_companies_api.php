@@ -64,11 +64,15 @@ try {
             $params = array_merge($params, [$owner_id, trim($native_group)]);
         } else {
             // No group context — show all independent companies (matching dashboard logic)
-            // Dashboard sees as independent if effective group_id is empty
+            // We avoid COALESCE(col1, col2) because partner_group_id and group_id might have different collations,
+            // resulting in "Illegal mix of collations" when compared to ''.
             $whereParts[] = "(
                 (c.owner_id = ? AND (c.group_id IS NULL OR c.group_id = ''))
                 OR 
-                (c.owner_id != ? AND co.account_id = ? AND co.percentage > 0 AND (COALESCE(co.partner_group_id, c.group_id) IS NULL OR COALESCE(co.partner_group_id, c.group_id) = ''))
+                (c.owner_id != ? AND co.account_id = ? AND co.percentage > 0 AND (
+                    co.partner_group_id = '' 
+                    OR (co.partner_group_id IS NULL AND (c.group_id IS NULL OR c.group_id = ''))
+                ))
             )";
             $params = array_merge($params, [$owner_id, $owner_id, $owner_id]);
         }
