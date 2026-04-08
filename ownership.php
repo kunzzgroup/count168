@@ -33,7 +33,7 @@ $assetVer = function ($file) {
     <?php include 'sidebar.php'; ?>
 
     <div class="own-container">
-        <h1 class="own-page-title">ACCOUNT OWNERSHIP</h1>
+        <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
         <!-- Companies will be injected here via JS -->
