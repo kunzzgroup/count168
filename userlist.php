@@ -498,17 +498,11 @@ try {
 
                         <!-- Sidebar Permissions (always in left panel) -->
                         <div id="sidebarPermissionsWrapper" class="sidebar-permissions-section">
-                            <h3 class="sidebar-permissions-title">Permissions</h3>
-                            <!-- Read Only Toggle (only shown for Partnership role) -->
-                            <div id="readOnlyToggleWrapper" class="read-only-toggle-wrapper" style="display:none;">
-                                <div class="read-only-toggle-row">
-                                    <div class="read-only-toggle-info">
-                                        <svg class="read-only-icon" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l7 3.13V11c0 3.81-2.64 7.38-7 8.68C7.64 18.38 5 14.81 5 11V8.13L12 5z"/>
-                                        </svg>
-                                        <span class="read-only-label">Read Only</span>
-                                        <span class="read-only-desc">Partnership can only view, not edit</span>
-                                    </div>
+                            <div class="sidebar-permissions-title-bar">
+                                <h3 class="sidebar-permissions-title">Permissions</h3>
+                                <!-- Read Only Toggle (only shown for Partnership role) -->
+                                <div id="readOnlyToggleWrapper" class="read-only-toggle-inline" style="display:none;">
+                                    <span class="read-only-label">Read Only</span>
                                     <label class="toggle-switch" id="readOnlyToggleLabel">
                                         <input type="checkbox" id="readOnlyToggle" name="read_only" value="1" checked>
                                         <span class="toggle-slider"></span>
