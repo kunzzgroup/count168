@@ -80,19 +80,6 @@ $assetVer = function ($file) {
                     <div class="own-loader"></div>
                 </div>
                 <div class="own-editor-hidden" data-bind="editor">
-                    <div class="own-partner-section" style="margin-top: 24px; margin-bottom: 8px;">
-                        <div class="own-partner-info">
-                            <span class="own-partner-title">External Partner</span>
-                            <span class="own-partner-desc">Share this company's read-only dashboard visibility with
-                                another independent owner.</span>
-                        </div>
-                        <div class="own-partner-actions">
-                            <input type="text" class="own-partner-input" data-bind="partner-input"
-                                placeholder="Login ID/Group ID" autocomplete="off">
-                            <button class="own-partner-link-btn" data-action="link-partner">Link Partner</button>
-                        </div>
-                    </div>
-
                     <div class="own-table-headers">
                         <div>Account</div>
                         <div>Ownership%</div>
@@ -100,7 +87,22 @@ $assetVer = function ($file) {
 
                     <div data-bind="rows-container"></div>
 
-                    <button class="own-btn-add-account" data-action="add-row" style="margin-bottom: 32px;">+ Add Account</button>
+                    <button class="own-btn-add-account" data-action="add-row">+ Add Account</button>
+
+                    <div class="own-partner-section">
+                        <div class="own-partner-info">
+                            <div class="own-partner-title-row">
+                                <span class="own-partner-title">External Partner</span>
+                                <div class="own-partner-actions">
+                                    <input type="text" class="own-partner-input" data-bind="partner-input"
+                                        placeholder="Login ID/Group ID" autocomplete="off">
+                                    <button class="own-partner-link-btn" data-action="link-partner">Link Partner</button>
+                                </div>
+                            </div>
+                            <span class="own-partner-desc">Share this company's read-only dashboard visibility with
+                                another independent owner.</span>
+                        </div>
+                    </div>
 
                     <div class="own-card-footer">
                         <div class="own-footer-left">
