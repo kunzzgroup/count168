@@ -22,9 +22,10 @@ try {
         $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
         $session_company_id = $_SESSION['company_id'] ?? null;
 
-        // Get the effective group_id of the current session company in PHP
-        // (avoids SQL collation mismatch by fetching columns separately)
-        $effective_group = null;
+        // Get both the NATIVE group_id (c.group_id) and the PARTNER group_id (co.partner_group_id)
+        // for the current session company. These are kept separate to correctly scope ownership.
+        $partner_group = null;  // Explicit link group (e.g. LOL externally linked TT)
+        $native_group  = null;  // TT's own company.group_id in the DB
         if ($session_company_id) {
             $stmtGrp = $pdo->prepare("
                 SELECT co.partner_group_id, c.group_id
@@ -37,48 +38,53 @@ try {
             $stmtGrp->execute([$owner_id, $session_company_id]);
             $grpRow = $stmtGrp->fetch(PDO::FETCH_ASSOC);
             if ($grpRow) {
-                $effective_group = $grpRow['partner_group_id'] ?: ($grpRow['group_id'] ?: null);
+                $partner_group = $grpRow['partner_group_id'] ?: null;
+                $native_group  = $grpRow['group_id']         ?: null;
             }
         }
 
-        if ($effective_group) {
-            // Fetch all companies for this owner (with partner info), filter by group in PHP
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id as name,
-                       co.partner_group_id, c.group_id
-                FROM company c
-                LEFT JOIN company_ownership co
-                    ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
-                WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$owner_id, $owner_id, $owner_id]);
-            $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $egLower = strtolower($effective_group);
-            $companies = array_values(array_filter($all, function($c) use ($egLower) {
-                $effGroup = $c['partner_group_id'] ?: ($c['group_id'] ?: '');
-                return strtolower($effGroup) === $egLower;
-            }));
-            // Strip helper columns
-            $companies = array_map(fn($c) => ['id' => $c['id'], 'name' => $c['name']], $companies);
-        } elseif ($session_company_id) {
-            // No group — scope to just the current company
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id as name
-                FROM company c
-                LEFT JOIN company_ownership co
-                    ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
-                WHERE c.id = ? AND (c.owner_id = ? OR co.account_id = ?)
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$owner_id, $session_company_id, $owner_id, $owner_id]);
-            $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } else {
-            // Fallback: show all companies for this owner
-            $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id]);
-            $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Build a targeted query:
+        //   - EXTERNAL companies (c.owner_id != this owner) only show if they were explicitly
+        //     linked to us via the same partner_group_id (e.g. JK linked TT to LOL group).
+        //   - NATIVE companies (c.owner_id == this owner) show if they share the session
+        //     company's own native group_id (e.g. JK's own companies under JK's group).
+        $params = [];
+        $whereParts = [];
+
+        if ($partner_group !== null) {
+            // External companies explicitly linked to us with this partner_group
+            $whereParts[] = "(c.owner_id != ? AND co.account_id = ? AND LOWER(co.partner_group_id) = LOWER(?))";
+            $params = array_merge($params, [$owner_id, $owner_id, $partner_group]);
         }
+
+        if ($native_group !== null) {
+            // Native companies in the same group as the session company
+            $whereParts[] = "(c.owner_id = ? AND LOWER(c.group_id) = LOWER(?))";
+            $params = array_merge($params, [$owner_id, $native_group]);
+        }
+
+        if (empty($whereParts) && $session_company_id) {
+            // Fallback: just show the current session company
+            $whereParts[] = "c.id = ?";
+            $params[] = $session_company_id;
+        } elseif (empty($whereParts)) {
+            // No context at all: show all owner's companies
+            $whereParts[] = "c.owner_id = ?";
+            $params[] = $owner_id;
+        }
+
+        $whereSQL = implode(" OR ", $whereParts);
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT c.id, c.company_id as name
+            FROM company c
+            LEFT JOIN company_ownership co
+                ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
+            WHERE ($whereSQL)
+            ORDER BY c.company_id ASC
+        ");
+        array_unshift($params, $owner_id);  // prepend for LEFT JOIN condition
+        $stmt->execute($params);
+        $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.id, c.company_id as name
