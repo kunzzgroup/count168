@@ -20,8 +20,29 @@ try {
     $companies = [];
     if ($current_user_role === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-        $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-        $stmt->execute([$owner_id]);
+
+        // Scope by group: get group_id of the currently selected company
+        $session_company_id = $_SESSION['company_id'] ?? null;
+        $group_id = null;
+        if ($session_company_id) {
+            $stmtGrp = $pdo->prepare("SELECT group_id FROM company WHERE id = ?");
+            $stmtGrp->execute([$session_company_id]);
+            $group_id = $stmtGrp->fetchColumn() ?: null;
+        }
+
+        if ($group_id) {
+            // Show only companies in the same group (e.g. LOL group → only TT)
+            $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? AND group_id = ? ORDER BY company_id ASC");
+            $stmt->execute([$owner_id, $group_id]);
+        } elseif ($session_company_id) {
+            // No group — show only the currently selected company
+            $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? AND id = ? ORDER BY company_id ASC");
+            $stmt->execute([$owner_id, $session_company_id]);
+        } else {
+            // Fallback: show all companies for this owner
+            $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? ORDER BY company_id ASC");
+            $stmt->execute([$owner_id]);
+        }
         $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $stmt = $pdo->prepare("
