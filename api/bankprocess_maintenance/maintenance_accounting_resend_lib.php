@@ -1,7 +1,7 @@
 <?php
 /**
  * 维护页删除 Bank process 来源的 transactions 后，记录「Resend → Accounting Due」待办。
- * Resend 时仅删除对应 process_accounting_posted，入账算法不变。
+ * Resend 成功时清除该 bank_process 下全部 process_accounting_posted（避免只删了部分 period 时残留 PAP 导致 Inbox 少行）。
  * Resend 成功后可置 accounting_resend_relax_created_floor：Inbox / 入账推断里「创建日门槛」与 day_start 取较早者，避免用户修正 day_start 后仍被「旧数据不拿」挡住（正常新建流程不受影响）。
  */
 
@@ -31,6 +31,24 @@ if (!function_exists('bmp_ensureMaintenanceResendPendingTable')) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ";
         $pdo->exec($sql);
+    }
+}
+
+if (!function_exists('bmp_ensureBankProcessAccountingResendRelaxColumn')) {
+    /** 若无列则 ALTER，避免未跑迁移时 Resend 无法置 accounting_resend_relax_created_floor */
+    function bmp_ensureBankProcessAccountingResendRelaxColumn(PDO $pdo): void
+    {
+        if (bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor')) {
+            return;
+        }
+        try {
+            $pdo->exec(
+                "ALTER TABLE bank_process ADD COLUMN accounting_resend_relax_created_floor TINYINT(1) NOT NULL DEFAULT 0
+                 COMMENT '1=Resend 后 Inbox 放宽创建日门槛并允许多账期'"
+            );
+        } catch (Throwable $e) {
+            // 并发重复添加等：忽略
+        }
     }
 }
 

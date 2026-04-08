@@ -662,7 +662,8 @@ try {
                 continue;
             }
             $firstMonthEnd = date('Y-m-t', $startTs);
-            if ($createdYmd > $firstMonthEnd) {
+            // 无 Resend 标记时：创建日晚于首自然月末则整段跳过（旧数据不拿）。Resend 后须仍可出现首月按比例。
+            if ($createdYmd > $firstMonthEnd && empty($r['accounting_resend_relax_created_floor'])) {
                 continue;
             }
             $processId = (int) $r['id'];

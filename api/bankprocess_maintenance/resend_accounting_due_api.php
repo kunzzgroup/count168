@@ -114,6 +114,7 @@ try {
     }
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
+    bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
 
     $stmt = $pdo->prepare(
         'SELECT id, process_accounting_posted_id, period_type, transaction_date
@@ -123,24 +124,6 @@ try {
     $stmt->execute([$company_id, $bankProcessId]);
     $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $orphanClearAllPap = false;
-    // 当 transactions.transaction_date 被业务逻辑固定锚定为 day_start（例如 monthly 一律写 day_start）
-    // 而 PAP.posted_date 使用当期 due date（如每月 1 号）时，仅凭 (period_type, transaction_date) 可能无法反查到正确 PAP。
-    // 此时 pending 里会全是 fallback（process_accounting_posted_id 为 NULL），若继续逐条 fallback 删除会删不到真实的 PAP，
-    // 导致 Resend 后 Accounting Due 仍不出现。对于这种“无法定位具体 PAP”的情况，直接清除该 process 的 PAP 标记。
-    if (!empty($pending)) {
-        $hasAnyPapId = false;
-        foreach ($pending as $p) {
-            $papId = isset($p['process_accounting_posted_id']) ? (int) $p['process_accounting_posted_id'] : 0;
-            if ($papId > 0) {
-                $hasAnyPapId = true;
-                break;
-            }
-        }
-        if (!$hasAnyPapId) {
-            $orphanClearAllPap = true;
-        }
-    }
     if (empty($pending)) {
         $hasSourceCol = bmp_resend_tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
         if (!$hasSourceCol) {
@@ -164,34 +147,18 @@ try {
         if ((int) $papCntStmt->fetchColumn() === 0) {
             throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
         }
-        $orphanClearAllPap = true;
     }
 
     $pdo->beginTransaction();
-    $removedPap = 0;
-    if ($orphanClearAllPap) {
-        $delAll = $pdo->prepare('DELETE FROM process_accounting_posted WHERE company_id = ? AND process_id = ?');
-        $delAll->execute([$company_id, $bankProcessId]);
-        $removedPap = $delAll->rowCount();
-    } else {
-        foreach ($pending as $row) {
-            $papId = isset($row['process_accounting_posted_id']) ? (int) $row['process_accounting_posted_id'] : 0;
-            if ($papId > 0) {
-                $del = $pdo->prepare('DELETE FROM process_accounting_posted WHERE id = ? AND company_id = ?');
-                $del->execute([$papId, $company_id]);
-                $removedPap += $del->rowCount();
-            } else {
-                $pt = bmp_normalizePeriodType($row['period_type'] ?? 'monthly');
-                $txd = $row['transaction_date'] ?? '1970-01-01';
-                $removedPap += bmp_deletePapFallback($pdo, $company_id, $bankProcessId, $pt, (string) $txd);
-            }
-        }
+    // 一律清除该 Process 的全部入账标记：Maintenance 常只删部分 period 的交易，若仅删 monthly 会残留 partial 等 PAP，Inbox 会少「首月按比例」等行。
+    $delAllPap = $pdo->prepare('DELETE FROM process_accounting_posted WHERE company_id = ? AND process_id = ?');
+    $delAllPap->execute([$company_id, $bankProcessId]);
+    $removedPap = $delAllPap->rowCount();
 
-        $delPend = $pdo->prepare(
-            'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'
-        );
-        $delPend->execute([$company_id, $bankProcessId]);
-    }
+    $delPend = $pdo->prepare(
+        'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'
+    );
+    $delPend->execute([$company_id, $bankProcessId]);
 
     if ($scheduleFromClient) {
         $hasFreqCol = bmp_resend_tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
@@ -208,12 +175,10 @@ try {
         }
     }
 
-    if (bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor')) {
-        $flg = $pdo->prepare(
-            'UPDATE bank_process SET accounting_resend_relax_created_floor = 1, dts_modified = NOW() WHERE id = ? AND company_id = ?'
-        );
-        $flg->execute([$bankProcessId, $company_id]);
-    }
+    $flg = $pdo->prepare(
+        'UPDATE bank_process SET accounting_resend_relax_created_floor = 1, dts_modified = NOW() WHERE id = ? AND company_id = ?'
+    );
+    $flg->execute([$bankProcessId, $company_id]);
 
     $pdo->commit();
     jsonResponse(true, '已处理：该 Process 可再次进入 Accounting Due', [
