@@ -610,8 +610,8 @@ if ($companyId) {
     })();
 </script>
 <script>
-    // B2B Cross-Account Sharing: Partner Read-Only Mode
-    window.isExternalView = <?php echo isset($_SESSION['is_external_view']) && $_SESSION['is_external_view'] ? 'true' : 'false'; ?>;
+    // B2B Cross-Account Sharing & Partnership: Partner Read-Only Mode
+    window.isExternalView = <?php echo (isset($_SESSION['is_external_view']) && $_SESSION['is_external_view']) || (isset($_SESSION['role']) && strtolower($_SESSION['role']) === 'partnership') ? 'true' : 'false'; ?>;
 
     if (window.isExternalView) {
         document.addEventListener('DOMContentLoaded', () => {
