@@ -60,7 +60,7 @@ $error = isset($_GET['error']) ? true : false;
         <!-- Search Section -->
         <div class="maintenance-search-section">
             <div class="maintenance-filters">
-                <div class="maintenance-form-group">
+                <div class="maintenance-form-group maintenance-date-inline">
                     <label class="maintenance-label">Date Range</label>
                     <div class="date-range-picker" id="date-range-picker">
                         <i class="fas fa-calendar-alt"></i>
@@ -71,9 +71,11 @@ $error = isset($_GET['error']) ? true : false;
                 </div>
                 <div class="maintenance-form-group maintenance-search-inline" id="from-search-row">
                     <label class="maintenance-label" for="filter_from_search">Search From</label>
-                    <div class="maintenance-search-inline-controls">
-                        <input type="text" id="filter_from_search" class="maintenance-input" placeholder="e.g. TEST M16, CIMB, or TEST M16(CIMB)" autocomplete="off">
-                        <button type="button" class="maintenance-from-search-btn" id="filter_from_search_apply" title="Search">
+                    <div class="maintenance-search-inline-wrap">
+                        <div class="maintenance-search-inline-controls">
+                            <input type="text" id="filter_from_search" class="maintenance-input" placeholder="e.g. TEST M16, CIMB, or TEST M16(CIMB)" autocomplete="off">
+                        </div>
+                        <button type="button" class="maintenance-search-inline-btn" id="filter_from_search_apply" title="Search">
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
