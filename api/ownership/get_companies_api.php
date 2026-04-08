@@ -44,33 +44,25 @@ try {
         }
 
         // Build a targeted query:
-        //   - EXTERNAL companies (c.owner_id != this owner) only show if they were explicitly
-        //     linked to us via the same partner_group_id (e.g. JK linked TT to LOL group).
-        //   - NATIVE companies (c.owner_id == this owner) show if they share the session
-        //     company's own native group_id (e.g. JK's own companies under JK's group).
+        // KEY RULE: if partner_group is set (owner is an EXTERNAL PARTNER to the session company),
+        // show ONLY externally linked companies — do NOT mix in native companies.
+        // If partner_group is null (pure native owner), show native companies in the same group.
         $params = [];
         $whereParts = [];
 
         if ($partner_group !== null) {
-            // External companies explicitly linked to us with this partner_group
+            // External partner mode: only show companies explicitly linked via partner_group_id
+            // This prevents TEST's own native companies (MON, THU) from leaking through
             $whereParts[] = "(c.owner_id != ? AND co.account_id = ? AND LOWER(co.partner_group_id) = LOWER(?))";
             $params = array_merge($params, [$owner_id, $owner_id, $partner_group]);
-        }
-
-        if ($native_group !== null) {
-            // Native companies in the same group as the session company
+        } elseif ($native_group !== null) {
+            // Native owner mode: show all native companies sharing the same group
             $whereParts[] = "(c.owner_id = ? AND LOWER(c.group_id) = LOWER(?))";
             $params = array_merge($params, [$owner_id, $native_group]);
-        }
-
-        if (empty($whereParts) && $session_company_id) {
-            // Fallback: just show the current session company
+        } else {
+            // No group context — show only the session company
             $whereParts[] = "c.id = ?";
-            $params[] = $session_company_id;
-        } elseif (empty($whereParts)) {
-            // No context at all: show all owner's companies
-            $whereParts[] = "c.owner_id = ?";
-            $params[] = $owner_id;
+            $params[] = $session_company_id ?: -1;
         }
 
         $whereSQL = implode(" OR ", $whereParts);
