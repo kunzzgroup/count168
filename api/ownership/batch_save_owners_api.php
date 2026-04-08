@@ -105,10 +105,13 @@ try {
 
             if ($hasOwnerType) {
                 $pgid = null;
-                $roVal = 1; // default read-only for new external partners
+                $roVal = isset($owner['read_only']) ? (int)$owner['read_only'] : 1;
+
                 if ($owner_type === 'owner' && isset($existingGroups[(int)$real_id])) {
                     $pgid = $existingGroups[(int)$real_id];
-                    $roVal = $existingReadOnly[(int)$real_id] ?? 1;
+                    if (!isset($owner['read_only'])) {
+                        $roVal = $existingReadOnly[(int)$real_id] ?? 1;
+                    }
                 }
                 $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid, $roVal]);
             } else {

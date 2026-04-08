@@ -138,7 +138,7 @@ $assetVer = function ($file) {
 
             <div class="own-row-actions">
                 <!-- Read Only toggle: shown only for Partnership accounts -->
-                <div class="own-read-only-badge" data-bind="read-only-badge" style="display:none;">
+                <div class="own-read-only-badge" data-bind="read-only-badge">
                     <span class="own-read-only-text">Read Only</span>
                     <label class="own-ro-toggle">
                         <input type="checkbox" data-bind="read-only-check" checked>
