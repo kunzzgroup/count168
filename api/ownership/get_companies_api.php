@@ -22,33 +22,45 @@ try {
         $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
         $session_company_id = $_SESSION['company_id'] ?? null;
 
-        // Get the effective group_id of the current session company
-        // (mirrors dashboard's COALESCE(partner_group_id, group_id) logic)
+        // Get the effective group_id of the current session company in PHP
+        // (avoids SQL collation mismatch by fetching columns separately)
         $effective_group = null;
         if ($session_company_id) {
             $stmtGrp = $pdo->prepare("
-                SELECT COALESCE(co.partner_group_id, c.group_id) as group_id
+                SELECT co.partner_group_id, c.group_id
                 FROM company c
                 LEFT JOIN company_ownership co
                     ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
                 WHERE c.id = ?
+                LIMIT 1
             ");
             $stmtGrp->execute([$owner_id, $session_company_id]);
-            $effective_group = $stmtGrp->fetchColumn() ?: null;
+            $grpRow = $stmtGrp->fetch(PDO::FETCH_ASSOC);
+            if ($grpRow) {
+                $effective_group = $grpRow['partner_group_id'] ?: ($grpRow['group_id'] ?: null);
+            }
         }
 
         if ($effective_group) {
-            // Show only companies in the same effective group as current session company
+            // Fetch all companies for this owner (with partner info), filter by group in PHP
             $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id as name
+                SELECT DISTINCT c.id, c.company_id as name,
+                       co.partner_group_id, c.group_id
                 FROM company c
                 LEFT JOIN company_ownership co
                     ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
-                WHERE (c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0))
-                  AND LOWER(COALESCE(co.partner_group_id, c.group_id)) = LOWER(?)
+                WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
                 ORDER BY c.company_id ASC
             ");
-            $stmt->execute([$owner_id, $owner_id, $owner_id, $effective_group]);
+            $stmt->execute([$owner_id, $owner_id, $owner_id]);
+            $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $egLower = strtolower($effective_group);
+            $companies = array_values(array_filter($all, function($c) use ($egLower) {
+                $effGroup = $c['partner_group_id'] ?: ($c['group_id'] ?: '');
+                return strtolower($effGroup) === $egLower;
+            }));
+            // Strip helper columns
+            $companies = array_map(fn($c) => ['id' => $c['id'], 'name' => $c['name']], $companies);
         } elseif ($session_company_id) {
             // No group — scope to just the current company
             $stmt = $pdo->prepare("
@@ -60,12 +72,13 @@ try {
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$owner_id, $session_company_id, $owner_id, $owner_id]);
+            $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             // Fallback: show all companies for this owner
             $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? ORDER BY company_id ASC");
             $stmt->execute([$owner_id]);
+            $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.id, c.company_id as name
