@@ -60,7 +60,7 @@ $error = isset($_GET['error']) ? true : false;
         <!-- Search Section -->
         <div class="maintenance-search-section">
             <div class="maintenance-filters">
-                <div class="maintenance-form-group">
+                <div class="maintenance-form-group maintenance-date-inline">
                     <label class="maintenance-label">Date Range</label>
                     <div class="date-range-picker" id="date-range-picker">
                         <i class="fas fa-calendar-alt"></i>
