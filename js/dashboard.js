@@ -1063,7 +1063,20 @@ function updateDashboard(data) {
                 if (capitalEl) capitalEl.textContent = formatCurrency(displayProfitNum);
                 if (expensesEl) expensesEl.textContent = formatCurrency(displayExpensesNum);
                 if (profitEl) profitEl.textContent = formatCurrency(netProfitDisplay);
-                if (earningsEl) earningsEl.textContent = formatCurrency(earningsDisplay);
+                if (earningsEl) {
+                    earningsEl.textContent = formatCurrency(earningsDisplay);
+                    const earningsCard = earningsEl.closest('.dashboard-kpi-card');
+                    const kpiGrid = document.querySelector('.dashboard-kpi-grid');
+                    if (earningsCard) {
+                        if (data?.has_ownership_setup) {
+                            earningsCard.style.display = 'flex';
+                            if (kpiGrid) kpiGrid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+                        } else {
+                            earningsCard.style.display = 'none';
+                            if (kpiGrid) kpiGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                        }
+                    }
+                }
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
                     chartDateRangeEl.textContent =

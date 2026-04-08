@@ -415,9 +415,16 @@ try {
 
     // 获取当前账户的 ownership_percentage
     $ownership_percentage = 0;
+    $has_ownership_setup = false;
     try {
         $hasCompanyOwnership = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
         if ($hasCompanyOwnership) {
+            $stmtSetup = $pdo->prepare("SELECT 1 FROM company_ownership WHERE company_id = ? LIMIT 1");
+            $stmtSetup->execute([$company_id]);
+            if ($stmtSetup->fetchColumn() !== false) {
+                $has_ownership_setup = true;
+            }
+
             $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
             $userId = $_SESSION['user_id'] ?? 0;
             $userType = $_SESSION['user_type'] ?? '';
@@ -459,6 +466,7 @@ try {
             'expenses' => $result['expenses']['total_balance'],
             'profit' => $result['profit']['total_balance'],
             'ownership_percentage' => $ownership_percentage,
+            'has_ownership_setup' => $has_ownership_setup,
             'period_total' => [
                 'capital' => $result['capital']['period_total'],
                 'expenses' => $result['expenses']['period_total'],
