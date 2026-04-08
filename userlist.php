@@ -106,7 +106,7 @@ try {
             0 as is_owner_shadow
         FROM user u
         INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-        WHERE ucm.company_id = ?
+        WHERE ucm.company_id = ?" . ($current_user_role !== 'owner' ? " AND LOWER(u.role) != 'partnership'" : "") . "
         ORDER BY 
         CASE 
             WHEN login_id REGEXP '^[0-9]' THEN 0 

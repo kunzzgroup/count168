@@ -27,17 +27,20 @@ try {
         $stmtOwner->execute(['comp_id1' => $company_id, 'comp_id2' => $company_id]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        // Fetch user partners mapped to this company
-        $stmtPartner = $pdo->prepare("
-            SELECT DISTINCT CONCAT('U_', u.id) as id, 
-                   u.login_id as account_name, 
-                   u.name, 'PARTNERSHIP' as role, 'user' as type
-            FROM user u
-            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-            WHERE ucm.company_id = ? AND LOWER(u.role) = 'partnership' AND LOWER(u.status) = 'active'
-        ");
-        $stmtPartner->execute([$company_id]);
-        $partners = $stmtPartner->fetchAll(PDO::FETCH_ASSOC);
+        // Fetch user partners mapped to this company (Only 'owner' role can see partnerships)
+        $partners = [];
+        if (isset($_SESSION['role']) && strtolower($_SESSION['role']) === 'owner') {
+            $stmtPartner = $pdo->prepare("
+                SELECT DISTINCT CONCAT('U_', u.id) as id, 
+                       u.login_id as account_name, 
+                       u.name, 'PARTNERSHIP' as role, 'user' as type
+                FROM user u
+                INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+                WHERE ucm.company_id = ? AND LOWER(u.role) = 'partnership' AND LOWER(u.status) = 'active'
+            ");
+            $stmtPartner->execute([$company_id]);
+            $partners = $stmtPartner->fetchAll(PDO::FETCH_ASSOC);
+        }
 
         // Sort by account_name
         $combined = array_merge($users, $partners);
@@ -63,16 +66,19 @@ try {
         $stmtOwner->execute([$_SESSION['user_id']]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        // For fallback, fetch all active partners in the system (or mapped to something? If global, just all partners)
-        $stmtPartner = $pdo->prepare("
-            SELECT DISTINCT CONCAT('U_', id) as id, 
-                   login_id as account_name, 
-                   name, 'PARTNERSHIP' as role, 'user' as type
-            FROM user
-            WHERE LOWER(role) = 'partnership' AND LOWER(status) = 'active'
-        ");
-        $stmtPartner->execute();
-        $partners = $stmtPartner->fetchAll(PDO::FETCH_ASSOC);
+        // For fallback, fetch all active partners in the system (Only 'owner' role can see partnerships)
+        $partners = [];
+        if (isset($_SESSION['role']) && strtolower($_SESSION['role']) === 'owner') {
+            $stmtPartner = $pdo->prepare("
+                SELECT DISTINCT CONCAT('U_', id) as id, 
+                       login_id as account_name, 
+                       name, 'PARTNERSHIP' as role, 'user' as type
+                FROM user
+                WHERE LOWER(role) = 'partnership' AND LOWER(status) = 'active'
+            ");
+            $stmtPartner->execute();
+            $partners = $stmtPartner->fetchAll(PDO::FETCH_ASSOC);
+        }
 
         $combined = array_merge($users, $partners);
         usort($combined, function($a, $b) {
