@@ -186,6 +186,41 @@ if (isset($_SESSION['user_id'])) {
     // 更新活动时间戳 - 每次页面访问都更新
     $_SESSION['last_activity'] = time();
     
+    // 动态刷新 Partnership 账户的 read_only 状态（避免需要重新登录才能生效）
+    if (isset($_SESSION['user_type'], $_SESSION['role']) && 
+        $_SESSION['user_type'] === 'user' && 
+        strtolower($_SESSION['role']) === 'partnership') {
+        try {
+            $user_id = $_SESSION['user_id'];
+            $company_id = $_SESSION['company_id'] ?? null;
+            
+            $ro_updated = false;
+            if ($company_id) {
+                // 优先从 company_ownership 获取当前公司下的局部只读状态
+                $stmt = $pdo->prepare("SELECT read_only FROM company_ownership WHERE account_id = ? AND company_id = ? AND owner_type = 'user'");
+                $stmt->execute([$user_id, $company_id]);
+                $co_ro = $stmt->fetchColumn();
+                
+                if ($co_ro !== false) {
+                    $_SESSION['read_only'] = (int)$co_ro;
+                    $ro_updated = true;
+                }
+            }
+            
+            // 如果细分表里没有，则回退到 user 全局表
+            if (!$ro_updated) {
+                $stmt = $pdo->prepare("SELECT read_only FROM user WHERE id = ?");
+                $stmt->execute([$user_id]);
+                $user_ro = $stmt->fetchColumn();
+                if ($user_ro !== false) {
+                    $_SESSION['read_only'] = (int)$user_ro;
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Failed to refresh read_only status: " . $e->getMessage());
+        }
+    }
+    
 } else {
     // 未登录
     // 如果是API请求，返回JSON错误
