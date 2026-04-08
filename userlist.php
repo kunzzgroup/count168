@@ -279,7 +279,7 @@ try {
                     // 定义角色层级（数字越小，层级越高）
                     $role_hierarchy = [
                         'owner' => 0,
-                        'partner' => 1,
+                        'partnership' => 1,
                         'admin' => 2,
                         'manager' => 3,
                         'supervisor' => 4,
@@ -474,7 +474,7 @@ try {
                                 <label for="role">Role *</label>
                                 <select id="role" name="role" required>
                                     <option value="">Select Role</option>
-                                    <option value="partner">Partner</option>
+                                    <option value="partnership">Partnership</option>
                                     <option value="admin">Admin</option>
                                     <option value="manager">Manager</option>
                                     <option value="supervisor">Supervisor</option>

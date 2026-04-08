@@ -89,7 +89,7 @@ function validateUserData($data, $isUpdate = false) {
     }
     
     // Validate role
-    $validRoles = ['partner', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+    $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
     if (!in_array($data['role'], $validRoles)) {
         return "Invalid role";
     }
@@ -164,7 +164,7 @@ try {
             }
             
             // Validate role
-            $validRoles = ['partner', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+            $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
             if (!in_array($input['role'], $validRoles)) {
                 sendResponse(false, "Invalid role");
             }
@@ -742,7 +742,7 @@ try {
             // 检查是否试图删除同等级或更高层级的用户
             $role_hierarchy = [
                 'owner' => 0,
-                'partner' => 1,
+                'partnership' => 1,
                 'admin' => 2,
                 'manager' => 3,
                 'supervisor' => 4,

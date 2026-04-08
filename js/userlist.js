@@ -37,7 +37,7 @@ let selectedProcesses = [];
 // 角色层级定义（数字越小，层级越高）
 const roleHierarchy = {
     'owner': 0,
-    'partner': 1,
+    'partnership': 1,
     'admin': 2,
     'manager': 3,
     'supervisor': 4,
@@ -49,7 +49,7 @@ const roleHierarchy = {
 
 // 所有可用角色列表
 const allRoles = [
-    { value: 'partner', label: 'Partner' },
+    { value: 'partnership', label: 'Partnership' },
     { value: 'admin', label: 'Admin' },
     { value: 'manager', label: 'Manager' },
     { value: 'supervisor', label: 'Supervisor' },
@@ -189,7 +189,7 @@ function applySorting() {
         // Role 层级顺序（根据常见的层级）
         const roleOrder = {
             'OWNER': 0,
-            'PARTNER': 1,
+            'PARTNERSHIP': 1,
             'ADMIN': 2,
             'MANAGER': 3,
             'SUPERVISOR': 4,
