@@ -1322,7 +1322,8 @@ h1 {
 /* Toggle switch */
 .toggle-switch {
     position: relative;
-    display: inline-block;
+    display: flex;
+    align-items: center;
     width: clamp(28px, 2.08vw, 38px);
     height: clamp(15px, 1.15vw, 21px);
     flex-shrink: 0;
