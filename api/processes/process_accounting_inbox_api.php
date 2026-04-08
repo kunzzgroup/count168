@@ -4,6 +4,7 @@
  * 返回「当天需要算账」的 Bank Process 列表（用于 Process List 标题旁的“需要算账”Inbox）
  * 规则：
  * - 1st of Every Month：首笔整月账单起，「何时出现在待算账」取 max(当月1号, dts_created)，避免 day_start 早于创建日时提前出现（旧数据不拿）；金额仍按当期应付日（1号）起算整月或比例，不用创建日摊分。
+ * - Maintenance 删交易后 Resend 成功：bank_process.accounting_resend_relax_created_floor=1 期间，上述「创建日门槛」与 day_start 取较早者，便于用户修正 day_start 后仍进 Accounting Due；从 Accounting Due 入账成功后清零。
  * - Day start 为当月1号且与创建同月：仍自 day_start 当日起可入账（与上条后续整月不同）。
  * - 非1号 day_start：首月按比例从 day_start 起算；若创建日晚于该自然月末则整段跳过（旧数据不拿）；出现日 max(day_start, 创建日)。
  * - Monthly = 每月(day_start 日 - 1)号，如 2月8日开始则每月7号算账
@@ -15,6 +16,7 @@ session_start();
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 
 /** 统一 JSON 响应 */
 function jsonResponse(bool $success, string $message = '', $data = null): void
@@ -333,6 +335,14 @@ function createdYmdOrFallbackToday(array $processRow, string $todayYmd): string
     return date('Y-m-d', $ts);
 }
 
+/** Resend 后：旧数据不拿的创建日门槛用 bmp_inboxEffectiveCreatedYmd 放宽。 */
+function inboxEffectiveCreatedYmdForProcess(array $processRow, string $todayYmd, ?string $parsedDayStartYmd): string
+{
+    $base = createdYmdOrFallbackToday($processRow, $todayYmd);
+    $relax = !empty($processRow['accounting_resend_relax_created_floor']);
+    return bmp_inboxEffectiveCreatedYmd($base, $parsedDayStartYmd, $relax);
+}
+
 function maxYmd(string $a, string $b): string
 {
     return ($a >= $b) ? $a : $b;
@@ -355,11 +365,12 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
 }
 
 /** 获取当前公司下可用于 Accounting Inbox 的 active Bank Process 列表 */
-function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency): array
+function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency, bool $hasResendRelaxCol): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit,
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.day_end, bp.contract, bp.dts_created" .
-        ($hasFrequency ? ", bp.day_start_frequency" : "") . "
+        ($hasFrequency ? ", bp.day_start_frequency" : "") .
+        ($hasResendRelaxCol ? ", bp.accounting_resend_relax_created_floor" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
@@ -532,8 +543,9 @@ try {
     } catch (Throwable $e) {
         // ignore
     }
+    $hasResendRelaxCol = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
 
-    $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency);
+    $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency, $hasResendRelaxCol);
     $needToday = [];
 
     // 1) Partial first month
@@ -558,7 +570,7 @@ try {
             if ($today < $startDate) {
                 continue;
             }
-            $createdYmd = createdYmdOrFallbackToday($r, $today);
+            $createdYmd = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate);
             if ($today < maxYmd($startDate, $createdYmd)) {
                 continue;
             }
@@ -609,7 +621,6 @@ try {
         $dayStart = $r['day_start'] ?? null;
         $need = false;
         $monthlyBillingMonth = null;
-        $createdYmd = createdYmdOrFallbackToday($r, $today);
         $startDate = '';
         $startTs = false;
         if (!empty($dayStart)) {
@@ -622,6 +633,7 @@ try {
                 }
             }
         }
+        $createdYmd = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate !== '' ? $startDate : null);
         $contract = $r['contract'] ?? null;
         $dayEnd = $r['day_end'] ?? null;
 
@@ -861,7 +873,7 @@ try {
             if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $r['day_end'] ?? null, $frequency)) {
                 continue;
             }
-            $createdYmdTail = createdYmdOrFallbackToday($r, $today);
+            $createdYmdTail = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate);
             if ($today < maxYmd($startDate, $createdYmdTail)) {
                 continue;
             }

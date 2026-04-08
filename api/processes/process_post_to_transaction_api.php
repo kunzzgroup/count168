@@ -10,6 +10,7 @@ session_start();
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 
 /** 统一 JSON 响应 */
 function jsonResponse(bool $success, string $message = '', $data = null): void
@@ -372,6 +373,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
         return null;
     }
     $createdYmd = ymdFromNullableDateTime($r['dts_created'] ?? null, $today);
+    $createdYmd = bmp_inboxEffectiveCreatedYmd($createdYmd, $startDate, !empty($r['accounting_resend_relax_created_floor']));
 
     if ($frequency === '1st_of_every_month') {
         // 与 process_accounting_inbox_api 一致：首月同月且 1 号起算仍只看 day_start；后续整月「可推断」日 max(1号, 创建日)
@@ -482,9 +484,11 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $hasFrequency = tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
     $hasFlagColumn = tableHasColumn($pdo, 'bank_process', 'flag');
+    $hasResendRelax = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
     $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
-            bp.dts_created" . ($hasFrequency ? ", bp.day_start_frequency" : "") . ",
+            bp.dts_created" . ($hasFrequency ? ", bp.day_start_frequency" : "") .
+        ($hasResendRelax ? ", bp.accounting_resend_relax_created_floor" : "") . ",
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
@@ -707,6 +711,7 @@ try {
     $has_source_bank_process_id = tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
     $has_source_bank_process_period_type = tableHasColumn($pdo, 'transactions', 'source_bank_process_period_type');
     $has_period_type = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
+    $has_resend_relax_col = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
     $fallbackDate = date('Y-m-d');
     $createdCount = 0;
     $currencyCache = [];
@@ -723,9 +728,13 @@ try {
         $price = (float) ($p['price'] ?? 0);
         $profit = (float) ($p['profit'] ?? 0);
 
-        $createdYmd = ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate);
         $dayStartYmd = !empty($p['day_start']) ? bankProcessDateFieldToYmd($p['day_start']) : null;
         $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
+        $createdYmd = bmp_inboxEffectiveCreatedYmd(
+            ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate),
+            $dayStartYmd,
+            $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])
+        );
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致
         $resolvedMonthlyBm = '';
@@ -1022,6 +1031,12 @@ try {
         }
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
+
+        if ($has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])) {
+            $clr = $pdo->prepare('UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?');
+            $clr->execute([(int) $p['id'], $companyId]);
+            $p['accounting_resend_relax_created_floor'] = 0;
+        }
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {
