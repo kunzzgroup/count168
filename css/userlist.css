@@ -478,22 +478,17 @@ h1 {
     padding-top: clamp(10px, 0.73vw, 14px);
 }
 
-/* Header row: Permissions title + Read Only toggle */
-.sidebar-permissions-header {
+
+/* Header: Permissions title — toggle is absolute-positioned inside */
+.sidebar-permissions-title {
     position: relative;
     margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
     padding: 0 clamp(14px, 1.04vw, 20px) clamp(4px, 0.42vw, 8px);
-    border-bottom: 2px solid #1a237e;
-    flex-shrink: 0;
-}
-
-.sidebar-permissions-title {
-    margin: 0;
-    padding: 0;
     color: #1e293b;
+    border-bottom: 2px solid #1a237e;
     font-size: clamp(12px, 0.88vw, 16px);
     font-weight: 700;
-    line-height: 1.4;
+    flex-shrink: 0;
 }
 
 /* Permissions list: scrollable */
@@ -1312,8 +1307,8 @@ h1 {
 .read-only-toggle-inline {
     position: absolute;
     right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
+    bottom: 2px; /* offset border-bottom thickness */
     display: inline-flex;
     align-items: center;
     gap: clamp(4px, 0.31vw, 6px);
