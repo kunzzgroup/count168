@@ -134,13 +134,14 @@ $error = isset($_GET['error']) ? true : false;
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Dts Created</th>
-                        <th>Account</th>
-                        <th>From</th>
+                        <th>Created At</th>
+                        <th>Account(To)</th>
+                        <th>Account(From)</th>
                         <th class="maintenance-header-amount">Amount</th>
                         <th>Description</th>
                         <th>Remark</th>
-                        <th>Submitted By</th>
+                        <th>Submitter</th>
+                        <th>Deleter</th>
                         <th class="maintenance-select-all-header">
                             <input type="checkbox" id="select_all_bankprocess" class="maintenance-checkbox" title="Select All" onchange="toggleSelectAllRows(this)">
                         </th>

@@ -340,7 +340,7 @@
                 url += `&q=${encodeURIComponent(fromSearchEl.value.trim())}`;
             }
             const tbody = document.getElementById('dataTableBody');
-            tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('tableContainer').style.display = 'block';
             fetch(url)
@@ -389,7 +389,7 @@
                 const emptyRow = document.createElement('tr');
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
-                    <td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 16px;">
+                    <td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 16px;">
                         No data
                     </td>
                 `;
@@ -406,9 +406,8 @@
                 const currencyAmountDisplay = formatCurrencyAmountCell(row.currency, row.amount);
                 const descriptionDisplay = escapeHtml(toUpperDisplay(row.description));
                 const remarkDisplay = escapeHtml(toUpperDisplay(row.remark));
-                const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
-                const deletedByDisplay = row.deleter ? escapeHtml(row.deleter) : '-';
-                const submitterDisplay = isDeleted && deletedByDisplay !== '-' ? deletedByDisplay : createdByDisplay;
+                const submitterDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
+                const deletedByDisplay = isDeleted && row.deleter ? escapeHtml(row.deleter) : '-';
                 const rowCheckboxHtml = isDeleted
                     ? '<input type="checkbox" class="maintenance-row-checkbox" disabled title="Already deleted">'
                     : `<input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="updateDeleteButtonState()">`;
@@ -423,6 +422,7 @@
                     <td class="maintenance-table-cell text-uppercase">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell text-uppercase">${remarkDisplay}</td>
                     <td class="maintenance-table-cell">${submitterDisplay}</td>
+                    <td class="maintenance-table-cell">${deletedByDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-checkbox">
                         ${rowCheckboxHtml}
                     </td>
