@@ -335,6 +335,10 @@
             if (selectedCurrency) {
                 url += `&currency=${encodeURIComponent(selectedCurrency)}`;
             }
+            const fromSearchEl = document.getElementById('filter_from_search');
+            if (fromSearchEl && fromSearchEl.value.trim()) {
+                url += `&q=${encodeURIComponent(fromSearchEl.value.trim())}`;
+            }
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>';
             document.getElementById('emptyState').style.display = 'none';
@@ -526,8 +530,32 @@
             }
         }
 
+        function bindFromSearchControls() {
+            const input = document.getElementById('filter_from_search');
+            const btn = document.getElementById('filter_from_search_apply');
+            const runIfReady = () => {
+                const dateFrom = document.getElementById('date_from').value.trim();
+                const dateTo = document.getElementById('date_to').value.trim();
+                if (dateFrom && dateTo && selectedCurrency) {
+                    searchData();
+                }
+            };
+            if (input) {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        runIfReady();
+                    }
+                });
+            }
+            if (btn) {
+                btn.addEventListener('click', runIfReady);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             initDatePickers();
+            bindFromSearchControls();
             updateDeleteButtonState();
             loadOwnerCompanies()
                 .catch(() => {})

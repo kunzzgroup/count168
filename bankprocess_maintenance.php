@@ -106,6 +106,16 @@ $error = isset($_GET['error']) ? true : false;
                             <!-- Currency buttons injected here -->
                         </div>
                     </div>
+
+                    <div class="maintenance-from-search-row" id="from-search-row">
+                        <div class="maintenance-form-group maintenance-from-search-field">
+                            <label class="maintenance-label" for="filter_from_search">Search From</label>
+                            <input type="text" id="filter_from_search" class="maintenance-input" placeholder="e.g. TEST M16, CIMB, or TEST M16(CIMB)" autocomplete="off">
+                        </div>
+                        <button type="button" class="maintenance-from-search-btn" id="filter_from_search_apply" title="Search">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="maintenance-actions">
