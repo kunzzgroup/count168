@@ -69,7 +69,7 @@ $error = isset($_GET['error']) ? true : false;
                     <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
                     <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
                 </div>
-                <div class="maintenance-form-group" id="from-search-row">
+                <div class="maintenance-form-group maintenance-search-inline" id="from-search-row">
                     <label class="maintenance-label" for="filter_from_search">Search</label>
                     <div class="search-container maintenance-search-container">
                         <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
