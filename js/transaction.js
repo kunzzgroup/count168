@@ -286,6 +286,7 @@ function getRoleClass(role) {
         'profit': 'transaction-role-profit',
         'expenses': 'transaction-role-expenses',
         'company': 'transaction-role-company',
+        'partner': 'transaction-role-partner',
         'staff': 'transaction-role-staff',
         'upline': 'transaction-role-upline',
         'agent': 'transaction-role-agent',

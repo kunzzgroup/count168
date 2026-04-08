@@ -933,6 +933,13 @@ body.transaction-page {
     /* font-weight: 600 !important; */
 }
 
+.transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-partner {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+    /* font-weight: 600 !important; */
+}
+
 .transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-staff {
     background-color: #ffe5cc !important;
     color: #a24700 !important;
@@ -979,6 +986,7 @@ body.transaction-page {
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-profit,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-expenses,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-company,
+.transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-partner,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-staff,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-upline,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-agent,
