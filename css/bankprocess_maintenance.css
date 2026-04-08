@@ -58,6 +58,11 @@ h1 {
     gap: 10px;
 }
 
+/* Keep Date Range and Search bar same height */
+.maintenance-search-section {
+    --maintenance-control-height: clamp(36px, 2.8vw, 40px);
+}
+
 .maintenance-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
@@ -203,7 +208,8 @@ h1 {
     background: white;
     border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
-    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
+    height: var(--maintenance-control-height);
+    padding: 0 clamp(8px, 0.83vw, 16px);
     box-sizing: border-box;
     width: 100%;
 }
@@ -223,7 +229,7 @@ h1 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: clamp(36px, 2.8vw, 40px); /* match date-range-picker visual height */
+    height: var(--maintenance-control-height); /* match Date Range */
     width: clamp(38px, 3vw, 44px);    /* slightly smaller */
     margin: 0;
     border: 1px solid #d1d5db;
@@ -243,6 +249,12 @@ h1 {
 
 .maintenance-search-inline-btn:active {
     transform: translateY(0);
+}
+
+/* Override shared date-range-picker height for this page */
+.maintenance-date-inline .date-range-picker {
+    height: var(--maintenance-control-height);
+    padding: 0 clamp(8px, 0.83vw, 16px);
 }
 
 .maintenance-from-search-btn {
