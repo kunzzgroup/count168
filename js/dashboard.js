@@ -1758,17 +1758,34 @@ function loadOwnerCompanies() {
 
                 // 从 sessionStorage 恢复 Group
                 const savedGroup = sessionStorage.getItem('dashboard_group_filter');
-                console.log('[Dashboard] loadOwnerCompanies | savedGroup:', savedGroup, '| groups:', groups, '| window.companyId:', window.companyId, '| allCompanies:', JSON.stringify(data.data.map(c=>({id:c.id,name:c.company_id,gid:c.group_id}))));
+                const currentCompany = data.data.find(c => parseInt(c.id) === parseInt(window.companyId));
+                console.log('[Dashboard] loadOwnerCompanies | savedGroup:', savedGroup, '| groups:', groups, '| window.companyId:', window.companyId);
+
                 if (savedGroup && groups.includes(savedGroup)) {
-                    // 只要 savedGroup 是一个有效的 group（在列表中存在），就恢复选中状态。
-                    // 不再强求 currentCompany.group_id === savedGroup，因为 partner 公司
-                    // （通过 Login ID 链接的外部公司）的 group_id 可能是原始 owner 的 group，
-                    // 而非 partner 绑定的 group，导致校验失败后 group 按钮无法高亮。
-                    selectedDashboardGroup = savedGroup;
-                    console.log('[Dashboard] Restored selectedDashboardGroup =', savedGroup);
+                    // 确认当前公司确实属于这个 group，防止多标签页/重定向导致的 session 状态与实际内容不同步
+                    if (currentCompany && currentCompany.group_id && currentCompany.group_id.toUpperCase() === savedGroup) {
+                        selectedDashboardGroup = savedGroup;
+                        console.log('[Dashboard] Restored selectedDashboardGroup =', savedGroup);
+                    } else {
+                        console.log('[Dashboard] savedGroup', savedGroup, 'does not match current company, clearing');
+                        sessionStorage.removeItem('dashboard_group_filter');
+                        selectedDashboardGroup = null;
+                    }
                 } else if (savedGroup) {
                     console.log('[Dashboard] savedGroup', savedGroup, 'NOT in groups list, clearing');
                     sessionStorage.removeItem('dashboard_group_filter');
+                    selectedDashboardGroup = null;
+                }
+
+                // 如果经过上述验证后并没有选中 Group，但是当前数据所在的 Company 属于某个 Group
+                // 我们自动帮它设为默认选中状态，确保 UI "点亮" 的逻辑与当前读取的数据一致。
+                if (!selectedDashboardGroup && currentCompany && currentCompany.group_id) {
+                    const compGroup = currentCompany.group_id.toUpperCase();
+                    if (groups.includes(compGroup)) {
+                        selectedDashboardGroup = compGroup;
+                        sessionStorage.setItem('dashboard_group_filter', compGroup);
+                        console.log('[Dashboard] Auto-synced selectedDashboardGroup to match current company:', compGroup);
+                    }
                 }
 
                 // 渲染 Group pills（只在有 group 时才显示）
@@ -1866,17 +1883,10 @@ function renderCompanyButtons(companies) {
     // 根据选中的 group 筛选
     let filtered = companies;
     if (selectedDashboardGroup) {
-        // 一视同仁：不论公司是原生的还是来自 partner 账号的外部公司，
-        // 只要 group_id 匹配（大小写不敏感），就显示在该 group 下。
-        // 同时兼容 partner 公司：当前选中公司（window.companyId）即使 group_id
-        // 不匹配（因为 partner_group_id 未设定），也要显示在该 group 下。
-        filtered = companies.filter(c => {
-            if (c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup) return true;
-            // 兼容 partner 公司：若该公司就是当前会话公司，且 group 按钮点击时
-            // 已通过 switchCompany 切换，说明它属于此 group，强制显示。
-            if (parseInt(c.id) === parseInt(window.companyId)) return true;
-            return false;
-        });
+        // 严格根据 selectedDashboardGroup 筛选，避免其它 group 的公司跨界混入
+        filtered = companies.filter(c =>
+            c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup
+        );
     } else {
         // 如果没有选中任何 group，则只显示独立的公司
         filtered = companies.filter(c => !c.group_id || c.group_id.trim() === '');
