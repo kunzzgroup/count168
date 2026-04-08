@@ -190,7 +190,7 @@ if (empty($target_account_ids) && $isMemberUser) {
     
     // 列表结果缓存：从其他菜单返回、短时内重复相同条件时直接读文件，明显快于冷查询
     // 略延长 TTL，减轻「大数据量首次算完后，几分钟内来回切换」时的等待（数据非实时时可接受）
-    $cache_ttl = 240;
+    $cache_ttl = 600; // 10 分钟：已优化为批量查询，计算开销低，可适当延长缓存时间
     // 把当前文件版本纳入缓存 key，避免代码更新后仍命中旧结果（尤其是单币别筛选场景）
     $cache_version = (string)(@filemtime(__FILE__) ?: '0');
     $cache_key = md5(
@@ -410,223 +410,180 @@ if (!empty($target_account_ids)) {
     } catch (PDOException $e) {
         $has_account_currency_table = false;
     }
-    
+
+    // ====== BULK PRE-LOAD 账户货币组合（避免每个账户在循环内单独查询，消除 N+1） ======
+    $bulk_ac           = []; // [account_id][currency_id] => currency_code  (来自 account_currency 表)
+    $bulk_txn_cur_prd  = []; // [account_id][currency_id] => currency_code  (本期 transactions)
+    $bulk_dcd_cur      = []; // [acc_str][currency_id] => currency_code      (DCD 历史，截至 date_to)
+    $bulk_txn_cur_all  = []; // [account_id][currency_id] => currency_code  (全历史 transactions，legacy 兜底)
+
+    if (!empty($accounts)) {
+        $all_ids = array_column($accounts, 'id');
+        $all_ph  = implode(',', array_fill(0, count($all_ids), '?'));
+
+        // 1. account_currency 批量
+        if ($has_account_currency_table) {
+            $st = $pdo->prepare("
+                SELECT ac.account_id, ac.currency_id, UPPER(c.code) AS currency_code
+                FROM account_currency ac
+                INNER JOIN currency c ON ac.currency_id = c.id AND c.company_id = ?
+                WHERE ac.account_id IN ($all_ph)
+                ORDER BY ac.account_id, ac.currency_id ASC
+            ");
+            $st->execute(array_merge([$company_id], $all_ids));
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                $bulk_ac[(int)$r['account_id']][(int)$r['currency_id']] = strtoupper($r['currency_code']);
+            }
+        }
+
+        if (searchApiTxnHasCurrencyId($pdo)) {
+            // 2a. 本期交易币别（现代环境）
+            $st = $pdo->prepare("
+                SELECT DISTINCT t.account_id, t.currency_id, UPPER(c.code) AS currency_code
+                FROM transactions t
+                INNER JOIN currency c ON t.currency_id = c.id AND c.company_id = ?
+                WHERE t.account_id IN ($all_ph)
+                  AND t.currency_id IS NOT NULL
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','RATE')
+            ");
+            $st->execute(array_merge([$company_id], $all_ids, [$date_from_db, $date_to_db]));
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                $bulk_txn_cur_prd[(int)$r['account_id']][(int)$r['currency_id']] = strtoupper($r['currency_code']);
+            }
+
+            // 2b. 全历史交易币别（legacy 路径 DCD 为空时兜底）
+            try {
+                $st = $pdo->prepare("
+                    SELECT DISTINCT t.account_id, t.currency_id, UPPER(c.code) AS currency_code
+                    FROM transactions t INNER JOIN currency c ON t.currency_id = c.id
+                    WHERE t.account_id IN ($all_ph) AND t.currency_id IS NOT NULL
+                      AND t.company_id = ? AND c.company_id = ?
+                    UNION
+                    SELECT DISTINCT t.from_account_id, t.currency_id, UPPER(c.code) AS currency_code
+                    FROM transactions t INNER JOIN currency c ON t.currency_id = c.id
+                    WHERE t.from_account_id IN ($all_ph) AND t.currency_id IS NOT NULL
+                      AND t.company_id = ? AND c.company_id = ?
+                ");
+                $st->execute(array_merge($all_ids, [$company_id, $company_id], $all_ids, [$company_id, $company_id]));
+                while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                    if ($r['account_id'] !== null) {
+                        $bulk_txn_cur_all[(int)$r['account_id']][(int)$r['currency_id']] = strtoupper($r['currency_code']);
+                    }
+                }
+            } catch (PDOException $e) {}
+        }
+
+        // 3. DCD 历史币别（截至 date_to，用于 legacy 路径）
+        try {
+            $st = $pdo->prepare("
+                SELECT DISTINCT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str,
+                       dcd.currency_id, UPPER(c.code) AS currency_code
+                FROM data_capture_details dcd
+                INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+                INNER JOIN currency c ON dcd.currency_id = c.id
+                WHERE dcd.company_id = ? AND dc.company_id = ? AND c.company_id = ?
+                  AND dc.capture_date <= ?
+                  AND dcd.currency_id IS NOT NULL
+            ");
+            $st->execute([$company_id, $company_id, $company_id, $date_to_db]);
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                $bulk_dcd_cur[$r['acc_str']][(int)$r['currency_id']] = strtoupper($r['currency_code']);
+            }
+        } catch (PDOException $e) {}
+    }
+    // ====== END BULK PRE-LOAD ======
+
     foreach ($accounts as $account) {
         $account_id = $account['id'];
         $account_currencies = [];
         $account_currency_ids = [];
-        
-        // 当「Show 0 balance」勾选时：只使用 account_currency 表（Edit Account 里勾选的 active 货币），不显示未 active 的货币
+        $acc_str = trim((string)$account_id);
+
         if (!$hide_zero_balance && $has_account_currency_table) {
-            $ac_stmt = $pdo->prepare("
-                SELECT ac.currency_id, UPPER(c.code) AS currency_code
-                FROM account_currency ac
-                INNER JOIN currency c ON ac.currency_id = c.id AND c.company_id = ?
-                WHERE ac.account_id = ?
-                ORDER BY ac.currency_id ASC
-            ");
-            $ac_stmt->execute([$company_id, $account_id]);
-            $ac_rows = $ac_stmt->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($ac_rows as $ac_row) {
-                addAccountCurrencyCombo(
-                    $account_currencies,
-                    $account_currency_ids,
-                    $ac_row['currency_id'] ?? null,
-                    $ac_row['currency_code'] ?? null
-                );
+            // === 现代路径：从 bulk_ac 批量数据读取，无需逐账户查询 ===
+            foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
+                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
             }
             // 若指定了 currency 筛选，只保留筛选内的
-            if (!empty($filter_currency_codes)) {
-                $account_currencies = array_filter($account_currencies, function($ac) use ($filter_currency_codes) {
-                    return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
-                });
-                $account_currencies = array_values($account_currencies);
-            }
-            // 补充：账户在日期范围内有交易（含 WIN/LOSE/PROFIT）的货币，确保有 PROFIT 的账户能显示
-            if (searchApiTxnHasCurrencyId($pdo)) {
-                // 新环境：transactions 有 currency_id，直接按 currency_id 收集
-                $txn_cur_stmt = $pdo->prepare("
-                    SELECT DISTINCT t.currency_id, UPPER(c.code) AS currency_code
-                    FROM transactions t
-                    INNER JOIN currency c ON t.currency_id = c.id AND c.company_id = ?
-                    WHERE t.account_id = ? AND t.currency_id IS NOT NULL
-                      AND t.transaction_date BETWEEN ? AND ?
-                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE', 'RATE')
-                ");
-                $txn_cur_stmt->execute([$company_id, $account_id, $date_from_db, $date_to_db]);
-                foreach ($txn_cur_stmt->fetchAll(PDO::FETCH_ASSOC) as $tc) {
-                    addAccountCurrencyCombo(
-                        $account_currencies,
-                        $account_currency_ids,
-                        $tc['currency_id'] ?? null,
-                        $tc['currency_code'] ?? null
-                    );
-                }
-            } else {
-                // 旧环境：transactions 没有 currency_id 时，从 data_capture_details 里补充本期有数据的币别
-                // 仅在存在 currency 筛选时启用，避免影响原有「全部币别」逻辑
-                if (!empty($filter_currency_codes)) {
-                    $dc_cur_stmt = $pdo->prepare("
-                        SELECT DISTINCT dcd.currency_id, UPPER(c.code) AS currency_code
-                        FROM data_capture_details dcd
-                        INNER JOIN data_captures dc ON dcd.capture_id = dc.id
-                        INNER JOIN currency c ON dcd.currency_id = c.id AND c.company_id = ?
-                        WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                          AND dcd.currency_id IS NOT NULL
-                          AND dc.capture_date BETWEEN ? AND ?
-                    ");
-                    $dc_cur_stmt->execute([$company_id, $account_id, $date_from_db, $date_to_db]);
-                    foreach ($dc_cur_stmt->fetchAll(PDO::FETCH_ASSOC) as $dc) {
-                        addAccountCurrencyCombo(
-                            $account_currencies,
-                            $account_currency_ids,
-                            $dc['currency_id'] ?? null,
-                            $dc['currency_code'] ?? null
-                        );
-                    }
-                }
-            }
             if (!empty($filter_currency_codes)) {
                 $account_currencies = array_values(array_filter($account_currencies, function($ac) use ($filter_currency_codes) {
                     return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
                 }));
+                $account_currency_ids = [];
+                foreach ($account_currencies as $ac) { $account_currency_ids[(int)$ac['currency_id']] = true; }
             }
-            // 若在 Show 0 balance 模式下，经过以上所有来源仍然没有任何币别，
-            // 但用户在前端选择了特定币别（例如只选 MYR），则作为兜底：
-            // 为该账户直接挂上这些被选择的币别，让它在该币别下参与计算。
-            if (empty($account_currencies) && !empty($filter_currency_codes)) {
-                foreach ($filter_currency_codes as $filter_currency_code) {
-                    $code = strtoupper($filter_currency_code);
-                    if (!isset($currency_map[$code])) {
-                        continue;
+            // 补充：本期有交易的货币（确保有 PROFIT 的账户能显示）
+            if (searchApiTxnHasCurrencyId($pdo)) {
+                foreach ($bulk_txn_cur_prd[$account_id] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
+            } elseif (!empty($filter_currency_codes)) {
+                // 旧环境：从 DCD 本期数据补充
+                foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+                    if (in_array($code, $filter_currency_codes)) {
+                        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                     }
-                    addAccountCurrencyCombo(
-                        $account_currencies,
-                        $account_currency_ids,
-                        $currency_map[$code],
-                        $code
-                    );
+                }
+            }
+            // 再次过滤
+            if (!empty($filter_currency_codes)) {
+                $account_currencies = array_values(array_filter($account_currencies, function($ac) use ($filter_currency_codes) {
+                    return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
+                }));
+                $account_currency_ids = [];
+                foreach ($account_currencies as $ac) { $account_currency_ids[(int)$ac['currency_id']] = true; }
+            }
+            // 兜底：仍无币别但有 currency 筛选时，直接挂上筛选的币别
+            if (empty($account_currencies) && !empty($filter_currency_codes)) {
+                foreach ($filter_currency_codes as $fcc) {
+                    $code = strtoupper($fcc);
+                    if (!isset($currency_map[$code])) continue;
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
                 }
             }
         } else {
-            // 未勾选 Show 0 balance 或没有 account_currency 表：沿用原逻辑（data_capture + transactions + 全公司货币）
-            try {
-                $dc_currency_stmt = $pdo->prepare("
-                    SELECT DISTINCT dcd.currency_id, UPPER(c.code) AS currency_code
-                    FROM data_capture_details dcd
-                    INNER JOIN data_captures dc ON dcd.capture_id = dc.id
-                    INNER JOIN currency c ON dcd.currency_id = c.id
-                    WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                      AND dcd.currency_id IS NOT NULL
-                      AND dc.capture_date <= ?
-                      AND dc.company_id = ?
-                      AND c.company_id = ?
-                    ORDER BY dcd.currency_id ASC
-                ");
-                $dc_currency_stmt->execute([$account_id, $date_to_db, $company_id, $company_id]);
-                $dc_rows = $dc_currency_stmt->fetchAll(PDO::FETCH_ASSOC);
-                foreach ($dc_rows as $dc_row) {
-                    addAccountCurrencyCombo(
-                        $account_currencies,
-                        $account_currency_ids,
-                        $dc_row['currency_id'] ?? null,
-                        $dc_row['currency_code'] ?? null
-                    );
-                }
-            } catch (PDOException $e) {
-                // 忽略数据捕捉表结构差异导致的错误
+            // === Legacy 路径：从 bulk_dcd_cur 批量数据读取 ===
+            foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
             }
-            
+            // 若 DCD 无数据，从全历史交易兜底
             if (empty($account_currencies)) {
-                try {
-                    if (searchApiTxnHasCurrencyId($pdo)) {
-                        $txn_currency_stmt = $pdo->prepare("
-                            SELECT DISTINCT t.currency_id, UPPER(c.code) AS currency_code
-                            FROM transactions t
-                            INNER JOIN currency c ON t.currency_id = c.id
-                            WHERE CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
-                              AND t.currency_id IS NOT NULL
-                              AND t.company_id = ?
-                              AND c.company_id = ?
-                            UNION
-                            SELECT DISTINCT t.currency_id, UPPER(c.code) AS currency_code
-                            FROM transactions t
-                            INNER JOIN currency c ON t.currency_id = c.id
-                            WHERE CAST(t.from_account_id AS CHAR) = CAST(? AS CHAR)
-                              AND t.currency_id IS NOT NULL
-                              AND t.company_id = ?
-                              AND c.company_id = ?
-                        ");
-                        $txn_currency_stmt->execute([$account_id, $company_id, $company_id, $account_id, $company_id, $company_id]);
-                        $txn_rows = $txn_currency_stmt->fetchAll(PDO::FETCH_ASSOC);
-                        foreach ($txn_rows as $txn_row) {
-                            addAccountCurrencyCombo(
-                                $account_currencies,
-                                $account_currency_ids,
-                                $txn_row['currency_id'] ?? null,
-                                $txn_row['currency_code'] ?? null
-                            );
-                        }
-                    }
-                } catch (PDOException $e) {
-                    // 忽略
+                foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                 }
             }
-            
+            // 添加 filter 或全公司币别
             if (!empty($filter_currency_codes)) {
-                foreach ($filter_currency_codes as $filter_currency_code) {
-                    if (!isset($currency_map[$filter_currency_code])) continue;
-                    $currency_id = $currency_map[$filter_currency_code];
-                    $already_added = false;
-                    foreach ($account_currencies as $ac_currency) {
-                        if ((int)$ac_currency['currency_id'] === $currency_id) {
-                            $already_added = true;
-                            break;
-                        }
-                    }
-                    if (!$already_added) {
-                        $account_currencies[] = [
-                            'currency_id' => $currency_id,
-                            'currency_code' => $filter_currency_code
-                        ];
+                foreach ($filter_currency_codes as $fcc) {
+                    if (!isset($currency_map[$fcc])) continue;
+                    $cid = $currency_map[$fcc];
+                    if (!isset($account_currency_ids[$cid])) {
+                        $account_currencies[] = ['currency_id' => $cid, 'currency_code' => $fcc];
+                        $account_currency_ids[$cid] = true;
                     }
                 }
             } else {
-                foreach ($currency_map as $currency_code => $currency_id) {
-                    $already_added = false;
-                    foreach ($account_currencies as $ac_currency) {
-                        if ((int)$ac_currency['currency_id'] === $currency_id) {
-                            $already_added = true;
-                            break;
-                        }
-                    }
-                    if (!$already_added) {
-                        $account_currencies[] = [
-                            'currency_id' => $currency_id,
-                            'currency_code' => $currency_code
-                        ];
+                foreach ($currency_map as $code => $cid) {
+                    if (!isset($account_currency_ids[$cid])) {
+                        $account_currencies[] = ['currency_id' => $cid, 'currency_code' => $code];
+                        $account_currency_ids[$cid] = true;
                     }
                 }
             }
         }
-        
+
         if (empty($account_currencies)) {
             continue;
         }
-        
+
         // 为每个 currency 创建 account + currency 组合
         foreach ($account_currencies as $ac_currency) {
             $currency_id = (int)$ac_currency['currency_id'];
             $currency_code = strtoupper($ac_currency['currency_code']);
-            
-            // 如果指定了 currency 筛选，检查该 currency 是否匹配
-            if (!empty($filter_currency_codes)) {
-                if (!in_array($currency_code, $filter_currency_codes)) {
-                    continue; // 不匹配筛选条件，跳过该 currency
-                }
+            if (!empty($filter_currency_codes) && !in_array($currency_code, $filter_currency_codes)) {
+                continue;
             }
-            
-            // 创建 account + currency 组合
             $account_currency_combos[] = [
                 'account' => $account,
                 'currency_id' => $currency_id,
@@ -638,6 +595,203 @@ if (!empty($target_account_ids)) {
     // 计算每个 account + currency 组合的数据
     $results = [];
     
+    // ==================== BULK DATA PREPARATION ====================
+    // N+1 optimization for modern environments.
+    $bulk = null;
+    if (searchApiTxnHasCurrencyId($pdo)) {
+        $bulk = [
+            'dcd' => [], 'txn_win_lose' => [], 'txn_crdr_to' => [], 'txn_crdr_from' => [], 'entry' => []
+        ];
+        $contra_where_t = contraApprovedWhere($pdo, 't');
+        
+        $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
+                       SUM(CASE WHEN dc.capture_date < ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS bf_total,
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS wl_total
+                FROM data_capture_details dcd
+                JOIN data_captures dc ON dcd.capture_id = dc.id
+                WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL
+                GROUP BY TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')), dcd.currency_id";
+        $stmt_bulk = $pdo->prepare($sql);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
+        while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
+            $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
+                'bf' => (float)$r['bf_total'],
+                'wl' => (float)$r['wl_total']
+            ];
+        }
+
+        $stmt_bp1 = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+        $has_source_bank_process_id = $stmt_bp1->rowCount() > 0;
+        $stmt_bp2 = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
+        $has_source_bank_process_period_type = $stmt_bp2->rowCount() > 0;
+
+        $wlJoinSql = '';
+        $wlDateExpr = "DATE(t.transaction_date)";
+        $wlFutureGuard = '';
+        if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+            $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
+            $bpDayStartSql = "CASE
+                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
+                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
+                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
+                ELSE NULL
+            END";
+            $wlDateExpr = "(CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
+        }
+
+        $sql = "SELECT t.account_id, IFNULL(t.currency_id, 0) AS currency_id,
+                 SUM(CASE WHEN $wlDateExpr < ? THEN (
+                    CASE 
+                        WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
+                        ELSE 0 
+                    END
+                 ) ELSE 0 END) AS bf_total,
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
+                    CASE 
+                        WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
+                        ELSE 0 
+                    END
+                 ) ELSE 0 END) AS wl_total
+                FROM transactions t $wlJoinSql
+                WHERE t.company_id = ?
+                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  $contra_where_t $wlFutureGuard
+                GROUP BY t.account_id, IFNULL(t.currency_id, 0)";
+        $stmt_bulk = $pdo->prepare($sql);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id]);
+        while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
+            $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
+                'bf' => (float)$r['bf_total'],
+                'wl' => (float)$r['wl_total']
+            ];
+        }
+
+        $sql = "SELECT t.account_id, t.currency_id,
+                 SUM(CASE WHEN t.transaction_date < ? THEN (
+                    CASE 
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        ELSE 0 
+                    END
+                 ) ELSE 0 END) AS bf_cr_dr,
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN (
+                    CASE 
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        ELSE 0 
+                    END
+                 ) ELSE 0 END) AS wl_cr_dr,
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
+                FROM transactions t
+                WHERE t.company_id = ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND t.currency_id IS NOT NULL 
+                  $contra_where_t
+                GROUP BY t.account_id, t.currency_id";
+        $stmt_bulk = $pdo->prepare($sql);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id]);
+        while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
+            $bulk['txn_crdr_to'][$r['account_id']][$r['currency_id']] = [
+                'bf' => (float)$r['bf_cr_dr'],
+                'cr_dr' => (float)$r['wl_cr_dr'],
+                'count' => (int)$r['wl_txn_count']
+            ];
+        }
+
+        $sql = "SELECT t.from_account_id AS account_id, t.currency_id,
+                 SUM(CASE WHEN t.transaction_date < ? THEN (
+                    CASE 
+                        WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
+                        ELSE 0 
+                    END
+                 ) ELSE 0 END) AS bf_cr_dr,
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN (
+                    CASE 
+                        WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
+                        ELSE 0 
+                    END
+                 ) ELSE 0 END) AS wl_cr_dr,
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
+                FROM transactions t
+                WHERE t.company_id = ? AND t.from_account_id IS NOT NULL
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND t.currency_id IS NOT NULL 
+                  $contra_where_t
+                GROUP BY t.from_account_id, t.currency_id";
+        $stmt_bulk = $pdo->prepare($sql);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id]);
+        while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
+            $bulk['txn_crdr_from'][$r['account_id']][$r['currency_id']] = [
+                'bf' => (float)$r['bf_cr_dr'],
+                'cr_dr' => (float)$r['wl_cr_dr'],
+                'count' => (int)$r['wl_txn_count']
+            ];
+        }
+
+        $sql = "SELECT e.account_id, e.currency_id,
+                 SUM(CASE WHEN h.transaction_date < ? THEN (
+                    CASE
+                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+                      WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
+                      WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2)
+                      ELSE ROUND(e.amount, 2)
+                    END
+                 ) ELSE 0 END) AS bf_total,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2) ELSE 0 END) AS wl_rate_mm,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
+                    CASE
+                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+                      WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
+                      ELSE ROUND(e.amount, 2)
+                    END
+                 ) ELSE 0 END) AS wl_cr_dr_other,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_cr_dr_other_count
+            FROM transaction_entry e
+            JOIN transactions h ON e.header_id = h.id
+            WHERE h.company_id = ?
+              AND e.company_id = ?
+              AND h.transaction_type = 'RATE'
+            GROUP BY e.account_id, e.currency_id";
+        $stmt_bulk = $pdo->prepare($sql);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
+        while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
+            $bulk['entry'][$r['account_id']][$r['currency_id']] = [
+                'bf' => (float)$r['bf_total'],
+                'wl_mm' => (float)$r['wl_rate_mm'],
+                'wl_mm_count' => (int)$r['wl_rate_mm_count'],
+                'cr_dr' => (float)$r['wl_cr_dr_other'],
+                'cr_dr_count' => (int)$r['wl_cr_dr_other_count']
+            ];
+        }
+    }
+    // ===============================================================
+    
     foreach ($account_currency_combos as $combo) {
         $account = $combo['account'];
         $account_id = $account['id'];
@@ -645,14 +799,14 @@ if (!empty($target_account_ids)) {
         $currency_code = $combo['currency_code'];
         
         // 1. 计算 B/F (起始日期之前的所有累计余额，按 currency 过滤)
-        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '');
+        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
         
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
-        $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '');
+        $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
         $win_loss = $wlPack['win_loss'];
         
         // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
-        $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+        $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
         
@@ -675,7 +829,7 @@ if (!empty($target_account_ids)) {
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
         if (!$is_rate_middleman && !searchApiTxnHasCurrencyId($pdo)) {
-            $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+            $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
         }
         
         // 5. 检查 Alert 条件是否达成
@@ -1055,7 +1209,36 @@ function calculateTotals($data) {
  * 按 Currency 计算 B/F (Balance Forward)
  * B/F = 起始日期之前的所有累计余额（按 currency 过滤）
  */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = '') {
+function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = '', &$bulk = null) {
+    if ($bulk !== null) {
+        $bf = 0;
+        $acc_str = trim((string)$account_id);
+        $code_str = trim((string)$account_code);
+        
+        $bf += $bulk['dcd'][$acc_str][$currency_id]['bf'] ?? 0;
+        if ($code_str !== '' && $code_str !== $acc_str) {
+            $bf += $bulk['dcd'][$code_str][$currency_id]['bf'] ?? 0;
+        }
+
+        $bf += $bulk['txn_crdr_to'][$account_id][$currency_id]['bf'] ?? 0;
+        $bf += $bulk['txn_crdr_from'][$account_id][$currency_id]['bf'] ?? 0;
+        $bf += $bulk['entry'][$account_id][$currency_id]['bf'] ?? 0;
+        
+        $txn_wl = $bulk['txn_win_lose'][$account_id][$currency_id] ?? ['bf' => 0, 'wl' => 0];
+        $bf += $txn_wl['bf'];
+        
+        // Check fallback for currency_id IS NULL in WIN/LOSE transactions
+        $txn_wl_null = $bulk['txn_win_lose'][$account_id][0] ?? null;
+        if ($txn_wl_null !== null) {
+            // Only aggregate if this currency exists in DCD for this account
+            if (isset($bulk['dcd'][$acc_str][$currency_id]) || ($code_str !== '' && isset($bulk['dcd'][$code_str][$currency_id]))) {
+                $bf += $txn_wl_null['bf'];
+            }
+        }
+        
+        return $bf;
+    }
+
     $bf = 0;
     
     $has_transaction_currency = searchApiTxnHasCurrencyId($pdo);
@@ -1290,7 +1473,38 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
  *
  * @return array{win_loss: float, has_rate_middleman: bool}
  */
-function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '') {
+function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '', &$bulk = null) {
+    if ($bulk !== null) {
+        $win_loss = 0;
+        $acc_str = trim((string)$account_id);
+        $code_str = trim((string)$account_code);
+        
+        $win_loss += $bulk['dcd'][$acc_str][$currency_id]['wl'] ?? 0;
+        if ($code_str !== '' && $code_str !== $acc_str) {
+            $win_loss += $bulk['dcd'][$code_str][$currency_id]['wl'] ?? 0;
+        }
+
+        $txn_wl = $bulk['txn_win_lose'][$account_id][$currency_id] ?? ['bf' => 0, 'wl' => 0];
+        $win_loss += $txn_wl['wl'];
+        
+        // Handle fallback for currency_id IS NULL in transactions (fallback to DCD check)
+        $txn_wl_null = $bulk['txn_win_lose'][$account_id][0] ?? null;
+        if ($txn_wl_null !== null) {
+            // Only aggregate if this currency_id exists in DCD for this account
+            if (isset($bulk['dcd'][$acc_str][$currency_id]) || ($code_str !== '' && isset($bulk['dcd'][$code_str][$currency_id]))) {
+                $win_loss += $txn_wl_null['wl'];
+            }
+        }
+
+        $win_loss += $bulk['entry'][$account_id][$currency_id]['wl_mm'] ?? 0;
+        
+        $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
+        return [
+            'win_loss' => $win_loss,
+            'has_rate_middleman' => $has_rate_mm,
+        ];
+    }
+
     $win_loss = 0;
     $has_rate_middleman = false;
 
@@ -1410,8 +1624,12 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
  * 本期（date_from ~ date_to）内该 account_id + currency_id 是否有 RATE_MIDDLEMAN 分录
  * 用于前端识别 Middle-Man 行并保持其显示在左侧
  */
-function hasRateMiddlemanInPeriod(PDO $pdo, $account_id, $currency_id, $date_from, $date_to, $company_id): bool
+function hasRateMiddlemanInPeriod(PDO $pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, &$bulk = null): bool
 {
+    if ($bulk !== null) {
+        return ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
+    }
+
     $stmt = $pdo->prepare("
         SELECT 1
         FROM transaction_entry e
@@ -1429,7 +1647,29 @@ function hasRateMiddlemanInPeriod(PDO $pdo, $account_id, $currency_id, $date_fro
     return $stmt->fetchColumn() !== false;
 }
 
-function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
+function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, &$bulk = null) {
+    if ($bulk !== null) {
+        $cr_dr = 0;
+        $txn_count = 0;
+        
+        $to = $bulk['txn_crdr_to'][$account_id][$currency_id] ?? ['cr_dr' => 0, 'count' => 0];
+        $cr_dr += $to['cr_dr'];
+        $txn_count += $to['count'];
+
+        $from = $bulk['txn_crdr_from'][$account_id][$currency_id] ?? ['cr_dr' => 0, 'count' => 0];
+        $cr_dr += $from['cr_dr'];
+        $txn_count += $from['count'];
+
+        $entry = $bulk['entry'][$account_id][$currency_id] ?? ['cr_dr' => 0, 'cr_dr_count' => 0];
+        $cr_dr += $entry['cr_dr'];
+        $txn_count += $entry['cr_dr_count'];
+
+        return [
+            'value' => $cr_dr,
+            'has_transactions' => $txn_count > 0 || abs($cr_dr) > 0.01,
+        ];
+    }
+
     $cr_dr = 0;
     $transaction_count = 0;
 

@@ -1705,23 +1705,12 @@ function initCurrencyDragDrop() {
 function toggleAllCurrencies() {
     showAllCurrencies = !showAllCurrencies;
     
-    // 如果选择 All，清空选中的 currency
     if (showAllCurrencies) {
         selectedCurrencies = [];
     }
     
-    // 更新按钮状态
     updateCurrencyButtonsState();
     
-    console.log('✅ All Currencies 切换:', showAllCurrencies, '当前选中的:', selectedCurrencies);
-    
-    // 重新加载账户列表
-    loadAccounts().then(() => {
-        // 初始化自定义下拉选单
-        initCustomSelects();
-    });
-    
-    // 如果有搜索结果，重新搜索
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
     if (dateFrom && dateTo) {
@@ -1732,33 +1721,19 @@ function toggleAllCurrencies() {
 
 // ==================== 切换 Currency (Toggle) ====================
 function toggleCurrency(currencyCode) {
-    // 如果选择具体 currency，取消 All
     if (showAllCurrencies) {
         showAllCurrencies = false;
     }
     
     const index = selectedCurrencies.indexOf(currencyCode);
-    
     if (index > -1) {
-        // 如果已选中，则取消选中
         selectedCurrencies.splice(index, 1);
     } else {
-        // 如果未选中，则添加
         selectedCurrencies.push(currencyCode);
     }
     
-    // 更新按钮状态
     updateCurrencyButtonsState();
     
-    console.log('✅ Currency 切换:', currencyCode, '当前选中的:', selectedCurrencies, 'Show All:', showAllCurrencies);
-    
-    // 重新加载账户列表（根据选中的 currency 筛选）
-    loadAccounts().then(() => {
-        // 初始化自定义下拉选单
-        initCustomSelects();
-    });
-    
-    // 如果有搜索结果，重新搜索
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
     if (dateFrom && dateTo) {

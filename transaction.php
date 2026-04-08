@@ -35,12 +35,12 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo file_exists('css/transaction.css') ? filemtime('css/transaction.css') : time(); ?>">
     <!-- Shared Date Range Picker (same UI/UX as dashboard) -->
-    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo file_exists('css/date-range-picker.css') ? filemtime('css/date-range-picker.css') : time(); ?>">
     <!-- Flatpickr CSS（用于单日日期选择） -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo file_exists('css/sidebar.css') ? filemtime('css/sidebar.css') : time(); ?>">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <script src="js/sidebar.js?v=<?php echo file_exists('js/sidebar.js') ? filemtime('js/sidebar.js') : time(); ?>" defer></script>
 </head>
 <body class="transaction-page">
     <?php include 'sidebar.php'; ?>
@@ -562,7 +562,7 @@ $default_date_to = $today_dt->format('d/m/Y');
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
+    <script src="js/date-range-picker.js?v=<?php echo file_exists('js/date-range-picker.js') ? filemtime('js/date-range-picker.js') : time(); ?>"></script>
     <script src="js/transaction.js?v=<?php echo file_exists('js/transaction.js') ? filemtime('js/transaction.js') : time(); ?>"></script>
 </body>
 </html>
