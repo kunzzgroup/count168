@@ -45,7 +45,7 @@ try {
                 LEFT JOIN company_ownership co
                     ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
                 WHERE (c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0))
-                  AND COALESCE(co.partner_group_id, c.group_id) = ?
+                  AND LOWER(COALESCE(co.partner_group_id, c.group_id)) = LOWER(?)
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$owner_id, $owner_id, $owner_id, $effective_group]);
