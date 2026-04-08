@@ -1345,7 +1345,7 @@ h1 {
     background: #cbd5e1;
     border-radius: 999px;
     transition: background 0.25s ease;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .toggle-slider::before {
@@ -1359,24 +1359,26 @@ h1 {
     background: white;
     border-radius: 50%;
     transition: left 0.25s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 
 /* When checked (Read Only ON) → blue theme */
-.toggle-switch input:checked + .toggle-slider {
+.toggle-switch input:checked+.toggle-slider {
     background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    top: 5px;
+    bottom: -5px;
 }
 
-.toggle-switch input:checked + .toggle-slider::before {
+.toggle-switch input:checked+.toggle-slider::before {
     left: calc(100% - clamp(11px, 0.83vw, 15px) - 2px);
 }
 
 /* Disabled state */
-.toggle-switch input:disabled + .toggle-slider {
+.toggle-switch input:disabled+.toggle-slider {
     opacity: 0.4;
     cursor: not-allowed;
 }
 
 .toggle-switch:has(input:disabled) {
     cursor: not-allowed;
-}
+}
