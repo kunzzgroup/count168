@@ -20,24 +20,46 @@ try {
     $companies = [];
     if ($current_user_role === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-
-        // Scope by group: get group_id of the currently selected company
         $session_company_id = $_SESSION['company_id'] ?? null;
-        $group_id = null;
+
+        // Get the effective group_id of the current session company
+        // (mirrors dashboard's COALESCE(partner_group_id, group_id) logic)
+        $effective_group = null;
         if ($session_company_id) {
-            $stmtGrp = $pdo->prepare("SELECT group_id FROM company WHERE id = ?");
-            $stmtGrp->execute([$session_company_id]);
-            $group_id = $stmtGrp->fetchColumn() ?: null;
+            $stmtGrp = $pdo->prepare("
+                SELECT COALESCE(co.partner_group_id, c.group_id) as group_id
+                FROM company c
+                LEFT JOIN company_ownership co
+                    ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
+                WHERE c.id = ?
+            ");
+            $stmtGrp->execute([$owner_id, $session_company_id]);
+            $effective_group = $stmtGrp->fetchColumn() ?: null;
         }
 
-        if ($group_id) {
-            // Show only companies in the same group (e.g. LOL group → only TT)
-            $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? AND group_id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id, $group_id]);
+        if ($effective_group) {
+            // Show only companies in the same effective group as current session company
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT c.id, c.company_id as name
+                FROM company c
+                LEFT JOIN company_ownership co
+                    ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
+                WHERE (c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0))
+                  AND COALESCE(co.partner_group_id, c.group_id) = ?
+                ORDER BY c.company_id ASC
+            ");
+            $stmt->execute([$owner_id, $owner_id, $owner_id, $effective_group]);
         } elseif ($session_company_id) {
-            // No group — show only the currently selected company
-            $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? AND id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id, $session_company_id]);
+            // No group — scope to just the current company
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT c.id, c.company_id as name
+                FROM company c
+                LEFT JOIN company_ownership co
+                    ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
+                WHERE c.id = ? AND (c.owner_id = ? OR co.account_id = ?)
+                ORDER BY c.company_id ASC
+            ");
+            $stmt->execute([$owner_id, $session_company_id, $owner_id, $owner_id]);
         } else {
             // Fallback: show all companies for this owner
             $stmt = $pdo->prepare("SELECT id, company_id as name FROM company WHERE owner_id = ? ORDER BY company_id ASC");
