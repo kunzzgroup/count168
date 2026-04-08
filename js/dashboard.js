@@ -1758,12 +1758,17 @@ function loadOwnerCompanies() {
 
                 // 从 sessionStorage 恢复 Group
                 const savedGroup = sessionStorage.getItem('dashboard_group_filter');
+                console.log('[Dashboard] loadOwnerCompanies | savedGroup:', savedGroup, '| groups:', groups, '| window.companyId:', window.companyId, '| allCompanies:', JSON.stringify(data.data.map(c=>({id:c.id,name:c.company_id,gid:c.group_id}))));
                 if (savedGroup && groups.includes(savedGroup)) {
                     // 只要 savedGroup 是一个有效的 group（在列表中存在），就恢复选中状态。
                     // 不再强求 currentCompany.group_id === savedGroup，因为 partner 公司
                     // （通过 Login ID 链接的外部公司）的 group_id 可能是原始 owner 的 group，
                     // 而非 partner 绑定的 group，导致校验失败后 group 按钮无法高亮。
                     selectedDashboardGroup = savedGroup;
+                    console.log('[Dashboard] Restored selectedDashboardGroup =', savedGroup);
+                } else if (savedGroup) {
+                    console.log('[Dashboard] savedGroup', savedGroup, 'NOT in groups list, clearing');
+                    sessionStorage.removeItem('dashboard_group_filter');
                 }
 
                 // 渲染 Group pills（只在有 group 时才显示）
@@ -1819,15 +1824,28 @@ function renderGroupButtons(groups) {
                 btn.classList.add('active');
 
                 // 默认选择该 group 旗下的第一家公司并同步 session
-                const groupCompanies = allOwnerCompanies.filter(c => c.group_id && c.group_id.toUpperCase() === groupId);
+                // 注意：一视同仁 — 同时包含 group_id 匹配的公司，以及当前已在会话中的公司
+                const groupCompanies = allOwnerCompanies.filter(c =>
+                    c.group_id && c.group_id.toUpperCase() === groupId
+                );
+                console.log('[Dashboard] Group clicked:', groupId,
+                    '| window.companyId:', window.companyId,
+                    '| groupCompanies:', JSON.stringify(groupCompanies.map(c => ({id:c.id, name:c.company_id, gid:c.group_id}))));
+
                 if (groupCompanies.length > 0) {
                     const firstCompany = groupCompanies[0];
+                    console.log('[Dashboard] firstCompany:', firstCompany.company_id, firstCompany.id, '| same?', parseInt(firstCompany.id) === parseInt(window.companyId));
                     if (parseInt(firstCompany.id) !== parseInt(window.companyId)) {
                         switchCompany(firstCompany.id, firstCompany.company_id);
                     } else {
+                        // 当前公司就是该 group 的第一家，直接渲染并高亮
+                        console.log('[Dashboard] Already on first company, just re-rendering');
                         renderCompanyButtons(allOwnerCompanies);
                     }
                 } else {
+                    // groupCompanies 为空（partner 公司 group_id 与 groupId 不一致）
+                    // 直接渲染，显示当前公司，通过 fallback 逻辑高亮
+                    console.log('[Dashboard] No groupCompanies found for', groupId, '— re-rendering with fallback');
                     renderCompanyButtons(allOwnerCompanies);
                 }
             }
@@ -1866,6 +1884,7 @@ function renderCompanyButtons(companies) {
     
     // 隐藏只作为 group 占位符而没有实质公司名称的记录
     filtered = filtered.filter(c => c.company_id && c.company_id.trim() !== '');
+    console.log('[Dashboard] renderCompanyButtons | selectedGroup:', selectedDashboardGroup, '| window.companyId:', window.companyId, '| filtered:', JSON.stringify(filtered.map(c=>({id:c.id,name:c.company_id,gid:c.group_id}))));
 
     if (filtered.length === 0) {
         wrapper.style.display = 'none';
