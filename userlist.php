@@ -279,12 +279,13 @@ try {
                     // 定义角色层级（数字越小，层级越高）
                     $role_hierarchy = [
                         'owner' => 0,
-                        'admin' => 1,
-                        'manager' => 2,
-                        'supervisor' => 3,
-                        'accountant' => 4,
-                        'audit' => 5,
-                        'customer service' => 6,
+                        'partner' => 1,
+                        'admin' => 2,
+                        'manager' => 3,
+                        'supervisor' => 4,
+                        'accountant' => 5,
+                        'audit' => 6,
+                        'customer service' => 7,
 
                     ];
                     $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
@@ -473,6 +474,7 @@ try {
                                 <label for="role">Role *</label>
                                 <select id="role" name="role" required>
                                     <option value="">Select Role</option>
+                                    <option value="partner">Partner</option>
                                     <option value="admin">Admin</option>
                                     <option value="manager">Manager</option>
                                     <option value="supervisor">Supervisor</option>

@@ -89,7 +89,7 @@ function validateUserData($data, $isUpdate = false) {
     }
     
     // Validate role
-    $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+    $validRoles = ['partner', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
     if (!in_array($data['role'], $validRoles)) {
         return "Invalid role";
     }
@@ -164,7 +164,7 @@ try {
             }
             
             // Validate role
-            $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+            $validRoles = ['partner', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
             if (!in_array($input['role'], $validRoles)) {
                 sendResponse(false, "Invalid role");
             }
@@ -742,12 +742,13 @@ try {
             // 检查是否试图删除同等级或更高层级的用户
             $role_hierarchy = [
                 'owner' => 0,
-                'admin' => 1,
-                'manager' => 2,
-                'supervisor' => 3,
-                'accountant' => 4,
-                'audit' => 5,
-                'customer service' => 6,
+                'partner' => 1,
+                'admin' => 2,
+                'manager' => 3,
+                'supervisor' => 4,
+                'accountant' => 5,
+                'audit' => 6,
+                'customer service' => 7,
 
             ];
             $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;

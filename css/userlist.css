@@ -266,6 +266,12 @@ h1 {
     border: 1px solid #dbb99a;
 }
 
+.role-partner {
+    background-color: #ffdce6;
+    color: #9d0b49;
+    border: 1px solid #ffb3c6;
+}
+
 /* ============================================================
    USER MODAL - Edit Page (covers right content area only)
    Sidebar (.informationmenu) is position:fixed z-index:1000
