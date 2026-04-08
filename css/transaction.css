@@ -933,6 +933,13 @@ body.transaction-page {
     /* font-weight: 600 !important; */
 }
 
+.transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-partner {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+    /* font-weight: 600 !important; */
+}
+
 .transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-staff {
     background-color: #ffe5cc !important;
     color: #a24700 !important;
@@ -957,6 +964,13 @@ body.transaction-page {
     /* font-weight: 600 !important; */
 }
 
+.transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-debtor {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+    /* font-weight: 600 !important; */
+}
+
 .transaction-page .transaction-table tbody .transaction-account-cell.transaction-role-none {
     background-color: #eceef2 !important;
     color: #3e434f !important;
@@ -972,10 +986,12 @@ body.transaction-page {
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-profit,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-expenses,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-company,
+.transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-partner,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-staff,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-upline,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-agent,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-member,
+.transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-debtor,
 .transaction-page .transaction-table tbody .transaction-table-row:hover .transaction-account-cell.transaction-role-none {
     background-color: #bfc9ff !important;
     color: #000000 !important;

@@ -286,13 +286,23 @@ function getRoleClass(role) {
         'profit': 'transaction-role-profit',
         'expenses': 'transaction-role-expenses',
         'company': 'transaction-role-company',
+        'partner': 'transaction-role-partner',
         'staff': 'transaction-role-staff',
         'upline': 'transaction-role-upline',
         'agent': 'transaction-role-agent',
         'member': 'transaction-role-member',
+        'debtor': 'transaction-role-debtor',
         'none': 'transaction-role-none'
     };
     return roleMap[roleLower] || '';
+}
+
+function getSingleSelectedCategoryRoleClass() {
+    const selectedCategories = getSelectedCategories();
+    if (!Array.isArray(selectedCategories) || selectedCategories.length !== 1) return '';
+    const selected = selectedCategories[0];
+    if (!selected) return '';
+    return getRoleClass(selected);
 }
 
 // ==================== 获取 Role 的排序优先级 ====================
@@ -2268,6 +2278,7 @@ function createCurrencyTable(tableId, rows) {
     tbody.id = `tbody_${tableId}`;
     
     if (rows && rows.length > 0) {
+        const fallbackRoleClass = getSingleSelectedCategoryRoleClass();
         // 在 Rate 模式下，识别当前表单中选择的 Middle-Man 账户，用于正数显示金额
         const isRateView = isRateTypeSelected && typeof isRateTypeSelected === 'function' ? isRateTypeSelected() : false;
         let middlemanAccountId = '';
@@ -2289,7 +2300,7 @@ function createCurrencyTable(tableId, rows) {
             tr.className = 'transaction-table-row' + alertClass;
             
             // 获取 role 对应的 CSS class
-            const roleClass = getRoleClass(row.role || '');
+            const roleClass = getRoleClass(row.role || '') || fallbackRoleClass;
             const accountCellClass = roleClass 
                 ? `transaction-account-cell ${roleClass}` 
                 : 'transaction-account-cell';
@@ -2640,6 +2651,7 @@ function fillTable(tbodyId, tableId, data) {
     
     const showName = document.getElementById('show_name')?.checked || false;
     const isLeftTable = tableId === 'table_left';
+    const fallbackRoleClass = getSingleSelectedCategoryRoleClass();
     
     const nameHeader = table.querySelector('thead th.transaction-name-column');
     const nameFooter = table.querySelector('tfoot td.transaction-name-column');
@@ -2652,7 +2664,7 @@ function fillTable(tbodyId, tableId, data) {
         const tr = document.createElement('tr');
         const alertClass = (row.is_alert == 1 || row.is_alert === true) ? ' transaction-alert-row' : '';
         tr.className = 'transaction-table-row' + alertClass;
-        const roleClass = getRoleClass(row.role || '');
+        const roleClass = getRoleClass(row.role || '') || fallbackRoleClass;
         const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : 'transaction-account-cell';
         tr.innerHTML = `
             <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">${row.account_id}</td>
