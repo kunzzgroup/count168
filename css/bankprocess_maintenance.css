@@ -251,11 +251,7 @@ h1 {
     transform: translateY(0);
 }
 
-/* Override shared date-range-picker height for this page */
-.maintenance-date-inline .date-range-picker {
-    height: var(--maintenance-control-height);
-    padding: 0 clamp(8px, 0.83vw, 16px);
-}
+/* Date Range uses shared styles from css/date-range-picker.css (do not override here). */
 
 .maintenance-from-search-btn {
     flex: 0 0 auto;
