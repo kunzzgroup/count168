@@ -480,9 +480,7 @@ h1 {
 
 /* Header row: Permissions title + Read Only toggle */
 .sidebar-permissions-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    position: relative;
     margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
     padding: 0 clamp(14px, 1.04vw, 20px) clamp(4px, 0.42vw, 8px);
     border-bottom: 2px solid #1a237e;
@@ -495,7 +493,7 @@ h1 {
     color: #1e293b;
     font-size: clamp(12px, 0.88vw, 16px);
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.4;
 }
 
 /* Permissions list: scrollable */
@@ -1310,12 +1308,15 @@ h1 {
     }
 }
 
-/* ── Read Only Toggle — inline with Permissions title ─── */
+/* ── Read Only Toggle — absolute positioned in header ─── */
 .read-only-toggle-inline {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     gap: clamp(4px, 0.31vw, 6px);
-    font-weight: normal;
 }
 
 .read-only-label {
@@ -1323,6 +1324,7 @@ h1 {
     font-weight: 600;
     color: #64748b;
     white-space: nowrap;
+    line-height: 1;
 }
 
 /* Toggle switch */
