@@ -194,6 +194,7 @@ function renderCardBodyRows(companyId) {
 }
 
 function createRowElement(companyId, idx, rowData) {
+    console.log(`[Row ${idx}] account_id="${rowData.account_id}" role="${rowData.role}" user_raw_id=${rowData.user_raw_id}`);
     const frag = tpl.row().content.cloneNode(true);
     const div = frag.querySelector('.own-account-row');
     div.dataset.index = idx;
