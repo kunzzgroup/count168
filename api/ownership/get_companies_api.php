@@ -53,19 +53,24 @@ try {
         $params = [];
         $whereParts = [];
 
-        if ($partner_group !== null) {
+        if ($partner_group !== null && trim($partner_group) !== '') {
             // External partner mode: only show companies where we have ACTUAL percentage (> 0)
             // This excludes MON/THU that JK linked to LOL group but with 0% ownership
             $whereParts[] = "(c.owner_id != ? AND co.account_id = ? AND LOWER(co.partner_group_id) = LOWER(?) AND co.percentage > 0)";
-            $params = array_merge($params, [$owner_id, $owner_id, $partner_group]);
-        } elseif ($native_group !== null) {
+            $params = array_merge($params, [$owner_id, $owner_id, trim($partner_group)]);
+        } elseif ($native_group !== null && trim($native_group) !== '') {
             // Native owner mode: show all native companies sharing the same group
             $whereParts[] = "(c.owner_id = ? AND LOWER(c.group_id) = LOWER(?))";
-            $params = array_merge($params, [$owner_id, $native_group]);
+            $params = array_merge($params, [$owner_id, trim($native_group)]);
         } else {
-            // No group context — show only the session company
-            $whereParts[] = "c.id = ?";
-            $params[] = $session_company_id ?: -1;
+            // No group context — show all independent companies (matching dashboard logic)
+            // Dashboard sees as independent if effective group_id is empty
+            $whereParts[] = "(
+                (c.owner_id = ? AND (c.group_id IS NULL OR c.group_id = ''))
+                OR 
+                (c.owner_id != ? AND co.account_id = ? AND co.percentage > 0 AND (COALESCE(co.partner_group_id, c.group_id) IS NULL OR COALESCE(co.partner_group_id, c.group_id) = ''))
+            )";
+            $params = array_merge($params, [$owner_id, $owner_id, $owner_id]);
         }
 
         $whereSQL = implode(" OR ", $whereParts);
