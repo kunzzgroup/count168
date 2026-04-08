@@ -71,9 +71,11 @@ $error = isset($_GET['error']) ? true : false;
                 </div>
                 <div class="maintenance-form-group maintenance-search-inline" id="from-search-row">
                     <label class="maintenance-label" for="filter_from_search">Search From</label>
-                    <div class="maintenance-search-inline-controls">
-                        <input type="text" id="filter_from_search" class="maintenance-input" placeholder="e.g. TEST M16, CIMB, or TEST M16(CIMB)" autocomplete="off">
-                        <button type="button" class="maintenance-from-search-btn" id="filter_from_search_apply" title="Search">
+                    <div class="maintenance-search-inline-wrap">
+                        <div class="maintenance-search-inline-controls">
+                            <input type="text" id="filter_from_search" class="maintenance-input" placeholder="e.g. TEST M16, CIMB, or TEST M16(CIMB)" autocomplete="off">
+                        </div>
+                        <button type="button" class="maintenance-search-inline-btn" id="filter_from_search_apply" title="Search">
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
