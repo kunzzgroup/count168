@@ -553,7 +553,7 @@ body.process-page--bank .bank-table-wrapper {
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
-    display: flex !important;
+    display: flex; /* NO !important (Allows JS to hide it) */
     flex-direction: column !important;
     overflow: hidden !important;
     padding-bottom: 74px !important; /* Reserve pagination space */
@@ -565,7 +565,7 @@ body.process-page .process-cards {
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
-    display: flex !important;
+    display: flex; /* NO !important (Allows JS to hide it) */
     flex-direction: column !important;
     overflow: hidden !important;
     padding-bottom: 0 !important;
