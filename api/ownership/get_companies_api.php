@@ -79,7 +79,7 @@ try {
 
         $whereSQL = implode(" OR ", $whereParts);
         $stmt = $pdo->prepare("
-            SELECT DISTINCT c.id, c.company_id as name
+            SELECT DISTINCT c.id, c.company_id as name, c.expiration_date
             FROM company c
             LEFT JOIN company_ownership co
                 ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
@@ -91,7 +91,7 @@ try {
         $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $stmt = $pdo->prepare("
-            SELECT DISTINCT c.id, c.company_id as name
+            SELECT DISTINCT c.id, c.company_id as name, c.expiration_date
             FROM company c
             INNER JOIN user_company_map ucm ON c.id = ucm.company_id
             WHERE ucm.user_id = ?

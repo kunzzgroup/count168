@@ -76,7 +76,16 @@ function renderCompanyCards() {
 
         // Fill data bindings
         $(card, 'name').textContent = comp.name;
-
+        
+        const dateEl = $(card, 'date');
+        if (dateEl) {
+            if (comp.expiration_date) {
+                const expStr = comp.expiration_date.split(' ')[0];
+                dateEl.textContent = `Exp: ${expStr}`;
+            } else {
+                dateEl.textContent = '';
+            }
+        }
         const pctEl = $(card, 'percent');
         pctEl.textContent = `${alloc}%`;
         pctEl.id = `header-percent-${id}`;

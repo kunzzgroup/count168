@@ -53,6 +53,7 @@ $assetVer = function ($file) {
             <div class="own-card-header" data-action="toggle">
                 <div class="own-card-header-left">
                     <div class="own-company-name" data-bind="name"></div>
+                    <div class="own-company-date" data-bind="date"></div>
                 </div>
                 <div class="own-card-header-middle">
                     <div class="own-allocation-info">
