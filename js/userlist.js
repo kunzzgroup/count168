@@ -8,7 +8,7 @@ function buildApiUrl(pathAndQuery) {
 
 // 分页相关变量
 let currentPage = 1;
-let rowsPerPage = 15;
+let rowsPerPage = 20;
 let filteredRows = [];
 let allRows = [];
 

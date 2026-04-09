@@ -4,7 +4,7 @@ var isOwnerOrAdmin = typeof window.DOMAIN_IS_OWNER_OR_ADMIN !== 'undefined' ? wi
 
 // 分页相关变量
 let currentPage = 1;
-let rowsPerPage = 10;
+let rowsPerPage = 20;
 let filteredRows = [];
 let allRows = [];
 
@@ -2006,11 +2006,8 @@ function addDomainCard(domainData) {
     let companiesHTML = '-';
     if (domainData.companies && domainData.companies !== '-') {
         const companyList = domainData.companies.split(', ');
-        const maxVisible = 3;
-        const visibleItems = companyList.slice(0, maxVisible);
-        const hiddenItems = companyList.slice(maxVisible);
         
-        let chipsHTML = visibleItems.map((companyId) => {
+        let chipsHTML = companyList.map((companyId) => {
             const companyIdTrim = companyId.trim();
             const companyInfo = companiesFull.find(c => c.company_id === companyIdTrim);
             const expDate = companyInfo ? companyInfo.expiration_date : null;
@@ -2018,12 +2015,7 @@ function addDomainCard(domainData) {
             return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
         }).join('');
         
-        if (hiddenItems.length > 0) {
-            const hiddenStr = hiddenItems.map(h => h.trim()).join(', ');
-            chipsHTML += `<span class="chip-more company-badge" title="${hiddenStr}">+${hiddenItems.length}</span>`;
-        }
-        
-        companiesHTML = `<div class="chip-group">${chipsHTML}</div>`;
+        companiesHTML = `<div class="chip-group" style="flex-wrap: wrap;">${chipsHTML}</div>`;
     }
     
     const companiesDataAttr = JSON.stringify(companiesFull);
@@ -2071,11 +2063,8 @@ function updateDomainCard(domainData) {
     if (domainData.companies && domainData.companies !== '-') {
         const companiesFull = domainData.companies_full || [];
         const companyList = domainData.companies.split(', ');
-        const maxVisible = 3;
-        const visibleItems = companyList.slice(0, maxVisible);
-        const hiddenItems = companyList.slice(maxVisible);
         
-        let chipsHTML = visibleItems.map((companyId) => {
+        let chipsHTML = companyList.map((companyId) => {
             const companyIdTrim = companyId.trim();
             const companyInfo = companiesFull.find(c => c.company_id === companyIdTrim);
             const expDate = companyInfo ? companyInfo.expiration_date : null;
@@ -2083,12 +2072,7 @@ function updateDomainCard(domainData) {
             return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
         }).join('');
         
-        if (hiddenItems.length > 0) {
-            const hiddenStr = hiddenItems.map(h => h.trim()).join(', ');
-            chipsHTML += `<span class="chip-more company-badge" title="${hiddenStr}">+${hiddenItems.length}</span>`;
-        }
-        
-        companiesHTML = `<div class="chip-group">${chipsHTML}</div>`;
+        companiesHTML = `<div class="chip-group" style="flex-wrap: wrap;">${chipsHTML}</div>`;
     }
     
     // 更新各列数据（保持序号不变）
