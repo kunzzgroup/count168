@@ -564,6 +564,7 @@ let currentEditingCompanyId = null;
 let companySnapshotWhenModalOpened = null;
 // Company Settings → Share %：下拉账户列表（来自 API）
 let shareModalAccounts = [];
+let domainFeePriceCache = 0;
 
 function defaultFeeShareAllocations() {
     return { sales: [], cs: [], it: [] };
@@ -736,6 +737,39 @@ function updateCompanyShareTotals() {
     if (grandBar) {
         grandBar.classList.toggle('company-share-grand-total--over', grand > 100);
     }
+    updateCompanyShareRowAmounts();
+}
+
+function getDomainPriceForShareCalc() {
+    var n = Number(domainFeePriceCache);
+    return isFinite(n) ? n : 0;
+}
+
+function formatShareRowAmount2(value) {
+    var n = Number(value);
+    if (!isFinite(n)) {
+        return '0.00';
+    }
+    return n.toFixed(2);
+}
+
+function updateCompanyShareRowAmounts() {
+    var price = getDomainPriceForShareCalc();
+    var rows = document.querySelectorAll('.company-share-data-row');
+    rows.forEach(function (row) {
+        var pctEl = row.querySelector('.share-pct-input');
+        var amountEl = row.querySelector('.company-share-amount-input');
+        if (!pctEl || !amountEl) {
+            return;
+        }
+        var pct = parseFloat(pctEl.value);
+        if (!isFinite(pct) || pct < 0) {
+            pct = 0;
+        }
+        // percentage input uses % unit, so convert by /100.
+        var amount = price * (pct / 100);
+        amountEl.value = formatShareRowAmount2(amount);
+    });
 }
 
 function renderCompanySharePanel() {
@@ -770,6 +804,9 @@ function renderCompanySharePanel() {
                 '<input type="number" class="share-pct-input company-share-pct-input" step="0.01" min="0" max="100" value="' +
                 (pctVal !== '' ? escapeHtmlShare(String(pctVal)) : '') + '" placeholder="0" inputmode="decimal" aria-label="Percentage" />' +
                 '<span class="company-share-pct-suffix">%</span></div></div>' +
+                '<div class="company-share-cell company-share-cell-amount">' +
+                '<input type="text" class="company-share-amount-input" value="0.00" readonly tabindex="-1" aria-label="Calculated total" />' +
+                '</div>' +
                 '<div class="company-share-cell company-share-cell-remove">' +
                 '<button type="button" class="company-share-remove-btn" data-share-role="' + role + '" data-share-idx="' + idx + '" title="Remove row" aria-label="Remove row">' +
                 '<span aria-hidden="true">&times;</span></button></div>';
@@ -1482,6 +1519,8 @@ function applyDomainFeeSummaryDisplays(data) {
     if (!data) {
         return;
     }
+    var parsedPrice = Number(data.price);
+    domainFeePriceCache = isFinite(parsedPrice) ? parsedPrice : 0;
     var modalEl = document.getElementById('domainFeeSummaryDisplay');
     if (modalEl) {
         modalEl.innerHTML = buildDomainFeeSummaryHtml2(data);
@@ -1490,6 +1529,7 @@ function applyDomainFeeSummaryDisplays(data) {
     if (inline) {
         inline.textContent = buildDomainFeeInlineSummaryText2(data);
     }
+    updateCompanyShareRowAmounts();
 }
 
 function applyDomainFeeEditInputs(data) {

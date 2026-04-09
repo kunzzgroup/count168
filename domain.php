@@ -332,6 +332,7 @@ try {
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
+                                <span>Total</span>
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsSales" role="list"></div>
@@ -364,6 +365,7 @@ try {
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
+                                <span>Total</span>
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsCs" role="list"></div>
@@ -396,6 +398,7 @@ try {
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
+                                <span>Total</span>
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsIt" role="list"></div>
