@@ -719,12 +719,6 @@ function updateCompanyShareTotals() {
         if (sumEl) {
             sumEl.textContent = count === 1 ? '1 account' : count + ' accounts';
         }
-        var remEl = document.getElementById('shareRemaining-' + role);
-        if (remEl) {
-            var rem = 100 - t;
-            remEl.textContent = rem.toFixed(2) + '% remaining';
-            remEl.classList.toggle('company-share-role-remaining--over', t > 100);
-        }
         var fill = document.getElementById('shareProgressFill-' + role);
         if (fill) {
             var w = Math.min(100, Math.max(0, t));

@@ -319,23 +319,17 @@ h1 {
     flex: 1;
     min-width: 0;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
 }
 
 .company-share-account-count-display {
-    font-size: 12px;
-    font-weight: 600;
-    color: #64748b;
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 500;
+    color: #94a3b8;
     line-height: 1.2;
-    transition: font-size 0.2s ease, color 0.2s ease;
-}
-
-.company-share-role-card:not(.expanded) .company-share-account-count-display {
-    font-size: clamp(20px, 2.2vw, 26px);
-    font-weight: 800;
-    color: #0f172a;
-    letter-spacing: -0.02em;
 }
 
 .company-share-role-header-middle {
@@ -347,8 +341,8 @@ h1 {
 .company-share-role-alloc-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: 6px 10px;
+    align-items: center;
+    gap: 8px 12px;
     margin-bottom: 6px;
 }
 
@@ -372,17 +366,6 @@ h1 {
 
 .company-share-role-header-middle .company-share-card-sum.company-share-card-sum--over {
     color: #dc2626;
-}
-
-.company-share-role-remaining {
-    font-size: clamp(9px, 0.68vw, 12px);
-    font-weight: 500;
-    color: #94a3b8;
-}
-
-.company-share-role-remaining--over {
-    color: #dc2626;
-    font-weight: 600;
 }
 
 .company-share-progress-track {
