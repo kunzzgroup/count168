@@ -321,9 +321,7 @@ try {
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsSales" role="list"></div>
-                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">
-                                <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
-                            </button>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add Account</button>
                         </div>
                         <div class="company-share-role-card" data-share-card="cs">
                             <div class="company-share-card-head">
@@ -336,9 +334,7 @@ try {
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsCs" role="list"></div>
-                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">
-                                <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
-                            </button>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add Account</button>
                         </div>
                         <div class="company-share-role-card" data-share-card="it">
                             <div class="company-share-card-head">
@@ -351,9 +347,7 @@ try {
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsIt" role="list"></div>
-                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">
-                                <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
-                            </button>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add Account</button>
                         </div>
                     </div>
                     </div>
