@@ -218,7 +218,7 @@ h1 {
 .domain-accounting-due-table thead th {
     position: sticky;
     top: 0;
-    background: #0f172a;
+    background: #f1f5f9;
     color: #fff;
     text-align: left;
     padding: 10px 10px;
@@ -1148,6 +1148,7 @@ h1 {
     font-weight: bold;
     color: #1e293b;
     border-bottom: 1px solid #e2e8f0;
+    width: 100%;
 }
 
 .modal-body {
