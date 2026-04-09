@@ -355,7 +355,6 @@ function createDomainShareCommissionPayments(
         'skipped_admin_count' => 0,
         'skipped_invalid_account_count' => 0,
         'skipped_no_from_account_count' => 0,
-        'skipped_duplicate_account_count' => 0,
     ];
 
     $feePrice = getDomainFeePrice($pdo);
@@ -449,26 +448,6 @@ function createDomainShareCommissionPayments(
             $chk->execute([$aid, $targetCompanyPk]);
             if ((int) $chk->fetchColumn() <= 0) {
                 $result['skipped_invalid_account_count']++;
-                continue;
-            }
-
-            // 去重规则（仅针对 Domain Share% 自动入账）：
-            // 同公司 + 同 account + 同标记(sms) + PAYMENT，若已存在则不再重复写入。
-            // 这样后续再次 Save 时旧账号不会再次进入 Transaction Payment；
-            // 即使新增账号，也只会新增该新账号的记录。
-            $dupStmt = $pdo->prepare("
-                SELECT id
-                FROM transactions
-                WHERE company_id = ?
-                  AND transaction_type = 'PAYMENT'
-                  AND account_id = ?
-                  AND sms = ?
-                LIMIT 1
-            ");
-            $dupStmt->execute([$targetCompanyPk, $aid, $smsMarker]);
-            $existsId = $dupStmt->fetchColumn();
-            if ($existsId !== false && $existsId !== null) {
-                $result['skipped_duplicate_account_count']++;
                 continue;
             }
 
@@ -1318,7 +1297,6 @@ try {
                     'commission_skipped_admin' => $commissionResult['skipped_admin_count'],
                     'commission_skipped_invalid_account' => $commissionResult['skipped_invalid_account_count'],
                     'commission_skipped_no_from_account' => $commissionResult['skipped_no_from_account_count'],
-                    'commission_skipped_duplicate_account' => $commissionResult['skipped_duplicate_account_count'],
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
