@@ -862,7 +862,7 @@ body.process-page {
 }
 
 .process-page .table-header .header-item {
-    padding: 4px 0px;
+    padding: 2px 4px; /* Default CSS padding, overridden by global-13inch on small screens */
     white-space: nowrap;
     min-width: 0;
 }
@@ -890,7 +890,7 @@ body.process-page {
     display: grid;
     grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
-    padding: 2px 20px;
+    padding: 0px 20px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;

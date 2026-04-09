@@ -406,6 +406,8 @@ body {
 /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
 .table-container,
 .account-cards,
+.process-cards,
+.process-table-wrapper,
 .dashboard-content,
 .transaction-main-content,
 .transaction-table-wrapper,
