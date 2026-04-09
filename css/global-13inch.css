@@ -512,7 +512,7 @@ body {
 /* 1. Enforce strict 100vh bounds on main containers to prevent native scroll */
 body.user-page,
 body.account-page,
-body.process-page:not(.process-page--bank) {
+body.process-page {
     height: 100vh !important;
     min-height: 100vh !important;
     max-height: 100vh !important;
@@ -521,7 +521,7 @@ body.process-page:not(.process-page--bank) {
 
 body.user-page .container,
 body.account-page .container,
-body.process-page:not(.process-page--bank) .container {
+body.process-page .container {
     height: 100vh !important;
     min-height: 100vh !important;
     max-height: 100vh !important;
@@ -533,7 +533,7 @@ body.process-page:not(.process-page--bank) .container {
 
 body.user-page .content,
 body.account-page .content,
-body.process-page:not(.process-page--bank) .content {
+body.process-page .content {
     flex: 1 !important;
     height: auto !important;
     min-height: 0 !important;
@@ -547,7 +547,8 @@ body.process-page:not(.process-page--bank) .content {
 /* 2. Make wrappers dynamically distribute their height */
 body.user-page .table-container,
 body.account-page .account-cards,
-body.process-page:not(.process-page--bank) .process-table-wrapper {
+body.process-page .process-table-wrapper,
+body.process-page--bank .bank-table-wrapper {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     height: auto !important;
@@ -559,7 +560,7 @@ body.process-page:not(.process-page--bank) .process-table-wrapper {
 }
 
 body.user-page .user-cards,
-body.process-page:not(.process-page--bank) .process-cards {
+body.process-page .process-cards {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     height: auto !important;
@@ -584,9 +585,15 @@ body.process-page:not(.process-page--bank) .process-card {
     padding-bottom: 0 !important;
 }
 
+/* For Native Tables in Bank Process, explicitly calculate fixed height to match Games exactly without Flex breakage */
+body.process-page--bank .bank-data-table tbody tr {
+    height: calc((100vh - 280px) / 20) !important;
+    box-sizing: border-box !important;
+}
+
 /* 4. Ensure headers don't compress */
 body.account-page .account-table-header,
 body.user-page .table-header,
-body.process-page:not(.process-page--bank) .table-header {
+body.process-page .table-header {
     flex-shrink: 0 !important;
 }
