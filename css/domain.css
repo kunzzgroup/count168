@@ -376,7 +376,7 @@ h1 {
 }
 
 .company-share-role-card--empty .company-share-rows::after {
-    content: 'No rows yet — use “Add account” below.';
+    content: 'No rows yet — use “+ Add Account” below.';
     display: block;
     padding: 12px 14px;
     font-size: clamp(10px, 0.78vw, 13px);
@@ -480,33 +480,28 @@ h1 {
     color: #dc2626;
 }
 
+/* Match Ownership page `.own-btn-add-account` (ownership.css) */
 .company-share-add-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    padding: 8px 14px;
-    border: 1px dashed #94a3b8;
-    border-radius: 10px;
-    background: #fff;
-    color: #475569;
-    font-size: clamp(11px, 0.83vw, 14px);
-    font-weight: 600;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 8px 0 0 0;
+    padding: 14px;
+    background-color: #e6f0fd;
+    color: #3b8ef6;
+    border: 2px dashed #bfdbfe;
+    border-radius: 12px;
+    font-size: clamp(13px, 0.95vw, 15px);
+    font-weight: 700;
+    text-align: center;
     cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .company-share-add-btn:hover {
-    border-color: #3b82f6;
-    color: #1d4ed8;
-    background: #eff6ff;
-}
-
-.company-share-add-icon {
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1;
-    color: #3b82f6;
+    background-color: #dbeafe;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
 }
 
 .company-share-grand-total {
