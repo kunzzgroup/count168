@@ -1245,9 +1245,12 @@ try {
                     foreach ($uStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
                         $uid = (int) $r['id'];
                         $tid = -$uid;
-                        $label = trim((string) ($r['login_id'] ?? ''));
-                        $nm = trim((string) ($r['name'] ?? ''));
-                        $accountLabels[$tid] = '[Admin] ' . $label . ($nm !== '' ? (' · ' . $nm) : '');
+                        // Admin display should be concise: "[Admin] <login_id>" (avoid duplicate name like "JK · JK")
+                        $login = trim((string) ($r['login_id'] ?? ''));
+                        if ($login === '') {
+                            $login = trim((string) ($r['name'] ?? ''));
+                        }
+                        $accountLabels[$tid] = '[Admin] ' . ($login !== '' ? $login : (string) $tid);
                     }
                 }
 
