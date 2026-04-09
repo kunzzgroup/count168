@@ -107,6 +107,59 @@ h1 {
     transform: translateY(-1px);
 }
 
+.btn-fee-settings {
+    background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
+    color: white;
+    font-family: 'Amaranth', sans-serif;
+    padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 18px);
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(71, 85, 105, 0.35);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-fee-settings:hover {
+    background: linear-gradient(180deg, #64748b 0%, #334155 100%);
+    box-shadow: 0 4px 8px rgba(51, 65, 85, 0.4);
+    transform: translateY(-1px);
+}
+
+.domain-fee-inline-summary {
+    font-size: clamp(10px, 0.78vw, 14px);
+    color: #475569;
+    white-space: nowrap;
+}
+
+.domain-fee-summary-display {
+    font-size: clamp(11px, 0.83vw, 15px);
+    color: #1e293b;
+    margin: 0 0 12px 0;
+    padding: clamp(8px, 0.63vw, 12px) clamp(10px, 0.83vw, 14px);
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    line-height: 1.45;
+}
+
+.domain-fee-summary-display strong {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.domain-fee-edit-hint {
+    color: #64748b;
+    font-size: clamp(9px, 0.73vw, 13px);
+    margin: 0 0 12px 0;
+}
+
+.domain-fee-decimals-hint {
+    font-weight: normal;
+    color: #94a3b8;
+    font-size: 0.92em;
+}
+
 .btn-edit {
     background-color: transparent;
     color: black;

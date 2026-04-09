@@ -13,7 +13,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['create', 'update', 'delete'])) {
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -106,6 +106,43 @@ function deleteByIds(PDO $pdo, string $table, string $column, array $ids): void
 /**
  * 检查公司是否为 C168（用于二级密码等权限判断）
  */
+/**
+ * Domain 列表页：全局 Price / Maintenance fee（单行 id=1）
+ */
+function ensureDomainListFeeSettingsTable(PDO $pdo): void {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `domain_list_fee_settings` (
+            `id` TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+            `price` DECIMAL(14,4) NULL DEFAULT NULL,
+            `maintenance_fee` DECIMAL(14,4) NULL DEFAULT NULL,
+            `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    $pdo->exec("INSERT IGNORE INTO `domain_list_fee_settings` (`id`, `price`, `maintenance_fee`) VALUES (1, NULL, NULL)");
+}
+
+/**
+ * 表单或 JSON 中的可选十进制数：空为 null，非法返回 false
+ *
+ * @param mixed $val
+ * @return float|null|false
+ */
+function normalizeOptionalDecimal($val) {
+    if ($val === null || $val === '') {
+        return null;
+    }
+    if (is_string($val)) {
+        $val = trim($val);
+        if ($val === '') {
+            return null;
+        }
+    }
+    if (!is_numeric($val)) {
+        return false;
+    }
+    return round((float) $val, 4);
+}
+
 function isC168Company(PDO $pdo, $company_id): bool {
     if (!$company_id) return false;
     try {
@@ -809,6 +846,48 @@ try {
                     'message' => 'Error: ' . $e->getMessage(),
                     'data' => null
                 ]);
+            }
+            break;
+
+        case 'get_domain_fee_settings':
+            if (!$hasC168Context || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            try {
+                ensureDomainListFeeSettingsTable($pdo);
+                $stmt = $pdo->query("SELECT `price`, `maintenance_fee` FROM `domain_list_fee_settings` WHERE `id` = 1");
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    $row = ['price' => null, 'maintenance_fee' => null];
+                }
+                jsonResponse(true, 'OK', $row);
+            } catch (Exception $e) {
+                jsonResponse(false, 'Error: ' . $e->getMessage(), null);
+            }
+            break;
+
+        case 'save_domain_fee_settings':
+            if (!$hasC168Context || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            $price = normalizeOptionalDecimal($data['price'] ?? null);
+            $maintenanceFee = normalizeOptionalDecimal($data['maintenance_fee'] ?? null);
+            if ($price === false || $maintenanceFee === false) {
+                jsonResponse(false, 'Price and maintenance fee must be numbers or empty', null);
+                exit;
+            }
+            try {
+                ensureDomainListFeeSettingsTable($pdo);
+                $stmt = $pdo->prepare("UPDATE `domain_list_fee_settings` SET `price` = ?, `maintenance_fee` = ? WHERE `id` = 1");
+                $stmt->execute([$price, $maintenanceFee]);
+                jsonResponse(true, 'Saved successfully', [
+                    'price' => $price,
+                    'maintenance_fee' => $maintenanceFee
+                ]);
+            } catch (Exception $e) {
+                jsonResponse(false, 'Error: ' . $e->getMessage(), null);
             }
             break;
             
