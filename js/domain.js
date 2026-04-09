@@ -624,8 +624,7 @@ function buildShareAccountOptionsHtml(selectedId) {
     var h = '<option value="">— Select —</option>';
     shareModalAccounts.forEach(function (a) {
         var id = String(a.id);
-        var isAdmin = a.entry_type === 'admin' || parseInt(a.id, 10) < 0;
-        var prefix = isAdmin ? '[Admin] ' : '[Account] ';
+        var prefix = '[Account] ';
         var label = prefix + (a.account_id || '');
         h += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + escapeHtmlShare(label) + '</option>';
     });

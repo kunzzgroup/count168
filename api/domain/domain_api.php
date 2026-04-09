@@ -219,8 +219,7 @@ function getC168CompanyPk(PDO $pdo): ?int {
 }
 
 /**
- * Share % 下拉数据：全部 Admin 用户 + 仅绑定 C168 公司的 Account（与 Sales/CS/IT 角色名无关）。
- * Admin 使用负数 id（-user.id），Account 使用正数 account.id。
+ * Share % 下拉数据：仅绑定 C168 公司的 Account，且 account.role 只能是 staff/agent。
  */
 function fetchFeeSharePickerAccounts(PDO $pdo): array {
     $rows = [];
@@ -231,6 +230,7 @@ function fetchFeeSharePickerAccounts(PDO $pdo): array {
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
+              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
             ORDER BY a.account_id ASC
         ");
         $accStmt->execute([$c168Pk]);
@@ -242,75 +242,42 @@ function fetchFeeSharePickerAccounts(PDO $pdo): array {
                 'entry_type' => 'account',
             ];
         }
-        $admStmt = $pdo->prepare("
-            SELECT DISTINCT u.id, u.login_id, u.name
-            FROM user u
-            INNER JOIN user_company_map ucm ON ucm.user_id = u.id
-            WHERE ucm.company_id = ?
-              AND LOWER(TRIM(u.role)) = 'admin'
-              AND (u.status IS NULL OR LOWER(TRIM(u.status)) = 'active')
-            ORDER BY u.login_id ASC
-        ");
-        $admStmt->execute([$c168Pk]);
-        foreach ($admStmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
-            $rows[] = [
-                'id' => -(int) $u['id'],
-                'account_id' => $u['login_id'],
-                'name' => $u['name'],
-                'entry_type' => 'admin',
-            ];
-        }
     }
     return $rows;
 }
 
-/** 校验：正数 account_id 须属于 C168；负数须为有效 Admin 的 user.id */
+/** 校验：仅允许 C168 公司的 account，且 role 必须是 staff/agent */
 function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     $uniqueIds = collectUniqueAccountIdsFromFeeShare($normalized);
     if (empty($uniqueIds)) {
         return true;
     }
     $accountIds = [];
-    $adminUserIds = [];
     foreach ($uniqueIds as $id) {
         $id = (int) $id;
-        if ($id < 0) {
-            $adminUserIds[] = abs($id);
-        } elseif ($id > 0) {
-            $accountIds[] = $id;
+        if ($id <= 0) {
+            return false;
         }
+        $accountIds[] = $id;
     }
     $accountIds = array_values(array_unique($accountIds));
-    $adminUserIds = array_values(array_unique($adminUserIds));
     $c168Pk = getC168CompanyPk($pdo);
     if (!empty($accountIds)) {
         if (!$c168Pk) {
             return false;
         }
         $placeholders = buildInPlaceholders(count($accountIds));
-        $sql = "SELECT COUNT(DISTINCT ac.account_id) FROM account_company ac WHERE ac.company_id = ? AND ac.account_id IN ($placeholders)";
+        $sql = "
+            SELECT COUNT(DISTINCT a.id)
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND a.id IN ($placeholders)
+              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
+        ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute(array_merge([$c168Pk], $accountIds));
         if ((int) $stmt->fetchColumn() !== count($accountIds)) {
-            return false;
-        }
-    }
-    if (!empty($adminUserIds)) {
-        $placeholders = buildInPlaceholders(count($adminUserIds));
-        if (!$c168Pk) {
-            return false;
-        }
-        $sql = "
-            SELECT COUNT(DISTINCT u.id)
-            FROM user u
-            INNER JOIN user_company_map ucm ON ucm.user_id = u.id
-            WHERE u.id IN ($placeholders)
-              AND LOWER(TRIM(u.role)) = 'admin'
-              AND ucm.company_id = ?
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(array_merge($adminUserIds, [$c168Pk]));
-        if ((int) $stmt->fetchColumn() !== count($adminUserIds)) {
             return false;
         }
     }
@@ -331,6 +298,143 @@ function normalizeOptionalDecimal($val) {
         return false;
     }
     return round((float) $val, 2);
+}
+
+function tableHasColumn(PDO $pdo, string $table, string $column): bool
+{
+    try {
+        $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+        $stmt->execute([$column]);
+        return $stmt->rowCount() > 0;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+function getDomainFeePrice(PDO $pdo): ?float
+{
+    ensureDomainListFeeSettingsTable($pdo);
+    $stmt = $pdo->query("SELECT `price` FROM `domain_list_fee_settings` WHERE `id` = 1");
+    $price = $stmt ? $stmt->fetchColumn() : null;
+    if ($price === false || $price === null || $price === '') {
+        return null;
+    }
+    return (float) $price;
+}
+
+/**
+ * Domain Share% 保存后，写入 Transaction Payment 记录（专用于 Commission）
+ * - 仅处理 account（正数 account_id），admin（负数）跳过
+ * - amount = domain fee price * percentage / 100
+ * - description 固定为：Commision FROM [公司代码]
+ * - sms 固定标记，便于前端识别为 Commission
+ */
+function createDomainShareCommissionPayments(
+    PDO $pdo,
+    string $sourceCompanyCode,
+    array $normalizedAllocations,
+    ?int $createdByUser,
+    ?int $createdByOwner
+): array {
+    $result = [
+        'created_count' => 0,
+        'skipped_admin_count' => 0,
+        'skipped_invalid_account_count' => 0,
+    ];
+
+    $feePrice = getDomainFeePrice($pdo);
+    if ($feePrice === null || $feePrice <= 0) {
+        return $result;
+    }
+
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return $result;
+    }
+
+    $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
+    $hasApprovalStatus = tableHasColumn($pdo, 'transactions', 'approval_status');
+    $hasApprovedBy = tableHasColumn($pdo, 'transactions', 'approved_by');
+    $hasApprovedByOwner = tableHasColumn($pdo, 'transactions', 'approved_by_owner');
+    $hasApprovedAt = tableHasColumn($pdo, 'transactions', 'approved_at');
+
+    $today = date('Y-m-d');
+    $now = date('Y-m-d H:i:s');
+    $description = 'Commision FROM ' . strtoupper($sourceCompanyCode);
+    $smsMarker = '[DOMAIN_SHARE_COMMISSION]';
+
+    foreach (['sales', 'cs', 'it'] as $role) {
+        $rows = $normalizedAllocations[$role] ?? [];
+        if (!is_array($rows)) {
+            continue;
+        }
+        foreach ($rows as $row) {
+            $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+            $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
+
+            if ($aid < 0) {
+                $result['skipped_admin_count']++;
+                continue;
+            }
+            if ($aid <= 0 || $pct <= 0) {
+                continue;
+            }
+
+            $amount = round($feePrice * ($pct / 100), 2);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            // 必须是 C168 旗下账户
+            $chk = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM account_company ac
+                WHERE ac.account_id = ? AND ac.company_id = ?
+            ");
+            $chk->execute([$aid, $c168Pk]);
+            if ((int) $chk->fetchColumn() <= 0) {
+                $result['skipped_invalid_account_count']++;
+                continue;
+            }
+
+            $insertCols = [
+                'company_id' => $c168Pk,
+                'transaction_type' => 'PAYMENT',
+                'account_id' => $aid,
+                'from_account_id' => null,
+                'amount' => $amount,
+                'transaction_date' => $today,
+                'description' => $description,
+                'sms' => $smsMarker,
+                'created_by' => $createdByUser,
+                'created_by_owner' => $createdByOwner,
+            ];
+            if ($hasCurrencyId) {
+                $insertCols['currency_id'] = null;
+            }
+            if ($hasApprovalStatus) {
+                $insertCols['approval_status'] = 'APPROVED';
+                if ($hasApprovedBy) {
+                    $insertCols['approved_by'] = $createdByUser;
+                }
+                if ($hasApprovedByOwner) {
+                    $insertCols['approved_by_owner'] = $createdByOwner;
+                }
+                if ($hasApprovedAt) {
+                    $insertCols['approved_at'] = $now;
+                }
+            }
+
+            $columns = array_keys($insertCols);
+            $placeholders = implode(',', array_fill(0, count($columns), '?'));
+            $sql = "INSERT INTO transactions (`" . implode('`,`', $columns) . "`) VALUES ($placeholders)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(array_values($insertCols));
+            $result['created_count']++;
+        }
+    }
+
+    return $result;
 }
 
 function isC168Company(PDO $pdo, $company_id): bool {
@@ -1105,13 +1209,33 @@ try {
                 }
                 $saveCompanyPk = (int) $saveRow['id'];
                 if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized)) {
-                    jsonResponse(false, 'Each entry must be a C168 account or an Admin user.', null);
+                    jsonResponse(false, 'Each entry must be a C168 account with role staff or agent.', null);
                     exit;
                 }
                 $saveJson = feeShareAllocationsToJson($saveNormalized);
                 $up = $pdo->prepare("UPDATE company SET fee_share_allocations = ? WHERE id = ?");
                 $up->execute([$saveJson, $saveCompanyPk]);
-                jsonResponse(true, 'Share settings saved', ['fee_share_allocations' => $saveNormalized]);
+                $createdByUser = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+                    ? null
+                    : (int) ($_SESSION['user_id'] ?? 0);
+                $createdByOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+                    ? (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0)
+                    : null;
+
+                $commissionResult = createDomainShareCommissionPayments(
+                    $pdo,
+                    $saveShareCode,
+                    $saveNormalized,
+                    $createdByUser > 0 ? $createdByUser : null,
+                    $createdByOwner > 0 ? $createdByOwner : null
+                );
+
+                jsonResponse(true, 'Share settings saved', [
+                    'fee_share_allocations' => $saveNormalized,
+                    'commission_payment_created' => $commissionResult['created_count'],
+                    'commission_skipped_admin' => $commissionResult['skipped_admin_count'],
+                    'commission_skipped_invalid_account' => $commissionResult['skipped_invalid_account_count'],
+                ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
             }
