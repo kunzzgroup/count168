@@ -107,19 +107,10 @@ try {
                         </svg>
                     <input type="text" id="searchInput" placeholder="Search by Owner/Name/Email" class="search-input">
                 </div>
-                <button type="button" class="btn btn-fee-settings" id="domainFeeSettingsBtn" onclick="openDomainFeeSettingsModal()">Price &amp; Maintenance</button>
+                <button type="button" class="btn btn-fee-settings" id="domainFeeSettingsBtn" onclick="openDomainFeeSettingsModal()">Price</button>
                 <span id="domainFeeInlineSummary" class="domain-fee-inline-summary" aria-live="polite"></span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="domain-accounting-due-wrap" id="domainAccountingDueWrap">
-                    <button type="button" class="domain-accounting-due-btn domain-accounting-due-btn-main" id="domainAccountingDueBtn" onclick="openDomainAccountingDueModal()">
-                        <svg class="domain-accounting-due-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
-                        </svg>
-                        Accounting Due
-                        <span class="domain-accounting-due-badge" id="domainAccountingDueCount">0</span>
-                    </button>
-                </div>
                 <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()">Delete</button>
             </div>
         </div>
@@ -205,22 +196,18 @@ try {
         </div>
     </div>
 
-    <!-- Domain list: global price & maintenance fee -->
+    <!-- Domain list: global price -->
     <div id="domainFeeSettingsModal" class="modal" style="z-index: 10004;">
         <div class="modal-content" style="max-width: 440px;">
             <span class="close" onclick="closeDomainFeeSettingsModal()">&times;</span>
-            <h2>Price &amp; Maintenance Fee</h2>
+            <h2>Price</h2>
             <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
                 <p style="color: #64748b; font-size: clamp(10px, 0.78vw, 14px); margin: 0 0 10px 0;">Set default amounts for the domain list (saved for C168 admin use).</p>
                 <div id="domainFeeSummaryDisplay" class="domain-fee-summary-display" aria-live="polite"></div>
-                <p class="domain-fee-edit-hint">Edit fields below support up to 4 decimal places.</p>
+                <p class="domain-fee-edit-hint">Edit fields below support up to 2 decimal places.</p>
                 <div class="form-group">
                     <label for="domainFeePrice">Price <span class="domain-fee-decimals-hint">(edit)</span></label>
-                    <input type="number" id="domainFeePrice" class="form-group input" step="0.0001" placeholder="0.0000" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
-                </div>
-                <div class="form-group" style="margin-bottom: 8px;">
-                    <label for="domainFeeMaintenance">Maintenance fee <span class="domain-fee-decimals-hint">(edit)</span></label>
-                    <input type="number" id="domainFeeMaintenance" class="form-group input" step="0.0001" placeholder="0.0000" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
+                    <input type="number" id="domainFeePrice" class="form-group input" step="0.01" placeholder="0.00" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
                 </div>
                 <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                     <button type="button" class="btn btn-save" onclick="saveDomainFeeSettings()">Save</button>
@@ -243,44 +230,6 @@ try {
             <div class="confirm-actions">
                 <button type="button" class="btn btn-cancel confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
                 <button type="button" class="btn btn-delete confirm-delete" id="confirmDeleteBtn">Delete</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Domain Accounting Due Modal -->
-    <div id="domainAccountingDueModal" class="modal" style="display: none; z-index: 10005;">
-        <div class="modal-content domain-accounting-due-modal-content">
-            <div class="modal-header domain-accounting-due-modal-header">
-                <h2>
-                    Accounting Due
-                    <span class="domain-accounting-due-badge" id="domainAccountingDueCountModal">0</span>
-                </h2>
-                <div class="modal-header-actions">
-                    <span class="close" onclick="closeDomainAccountingDueModal()">&times;</span>
-                </div>
-            </div>
-            <div class="modal-body domain-accounting-due-modal-body">
-                <div class="domain-accounting-due-table-wrap">
-                    <table class="domain-accounting-due-table domain-accounting-inbox-table">
-                        <thead>
-                            <tr>
-                                <th style="width:36px;"><input type="checkbox" id="domainAccountingInboxSelectAll" title="Select all" class="domain-accounting-inbox-cb"></th>
-                                <th style="width:56px;">No</th>
-                                <th>Account</th>
-                                <th style="width:180px;">Companies</th>
-                                <th>Breakdown</th>
-                                <th style="width:120px; text-align: right;">Due</th>
-                                <th style="width:80px;">Delete <input type="checkbox" id="domainAccountingInboxDeleteSelectAll" title="Select all for delete" class="domain-accounting-inbox-delete-cb"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="domainAccountingDueTbody"></tbody>
-                    </table>
-                </div>
-                <div class="domain-accounting-due-actions domain-accounting-inbox-actions">
-                    <button type="button" class="btn btn-primary" id="domainAccountingInboxPostBtn" onclick="postDomainAccountingInboxSelected()" disabled>Transaction</button>
-                    <button type="button" class="btn btn-delete" id="domainAccountingInboxDeleteBtn" onclick="deleteDomainAccountingInboxSelected()" disabled>Delete</button>
-                    <button type="button" class="btn btn-cancel" onclick="closeDomainAccountingDueModal()">Cancel</button>
-                </div>
             </div>
         </div>
     </div>
@@ -393,6 +342,7 @@ try {
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
+                                <span>Total</span>
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsSales" role="list"></div>
@@ -425,6 +375,7 @@ try {
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
+                                <span>Total</span>
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsCs" role="list"></div>
@@ -457,6 +408,7 @@ try {
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
+                                <span>Total</span>
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsIt" role="list"></div>
