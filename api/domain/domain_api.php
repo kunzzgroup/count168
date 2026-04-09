@@ -218,27 +218,13 @@ function getC168CompanyPk(PDO $pdo): ?int {
     return (int) $v;
 }
 
-function getCompanyPkByCode(PDO $pdo, string $companyCode): ?int {
-    $companyCode = strtoupper(trim($companyCode));
-    if ($companyCode === '') {
-        return null;
-    }
-    $stmt = $pdo->prepare("SELECT id FROM company WHERE UPPER(TRIM(company_id)) = ? LIMIT 1");
-    $stmt->execute([$companyCode]);
-    $v = $stmt->fetchColumn();
-    if ($v === false || $v === null || $v === '') {
-        return null;
-    }
-    return (int) $v;
-}
-
 /**
- * Share % 下拉数据：仅绑定当前目标公司的 Account，且 account.role 只能是 staff/agent。
+ * Share % 下拉数据：仅绑定 C168 公司的 Account，且 account.role 只能是 staff/agent。
  */
-function fetchFeeSharePickerAccounts(PDO $pdo, string $companyCode): array {
+function fetchFeeSharePickerAccounts(PDO $pdo): array {
     $rows = [];
-    $targetCompanyPk = getCompanyPkByCode($pdo, $companyCode);
-    if ($targetCompanyPk) {
+    $c168Pk = getC168CompanyPk($pdo);
+    if ($c168Pk) {
         $accStmt = $pdo->prepare("
             SELECT DISTINCT a.id, a.account_id, a.name
             FROM account a
@@ -247,7 +233,7 @@ function fetchFeeSharePickerAccounts(PDO $pdo, string $companyCode): array {
               AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
             ORDER BY a.account_id ASC
         ");
-        $accStmt->execute([$targetCompanyPk]);
+        $accStmt->execute([$c168Pk]);
         foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $rows[] = [
                 'id' => (int) $r['id'],
@@ -260,8 +246,8 @@ function fetchFeeSharePickerAccounts(PDO $pdo, string $companyCode): array {
     return $rows;
 }
 
-/** 校验：仅允许目标公司的 account，且 role 必须是 staff/agent */
-function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized, string $companyCode): bool {
+/** 校验：仅允许 C168 公司的 account，且 role 必须是 staff/agent */
+function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     $uniqueIds = collectUniqueAccountIdsFromFeeShare($normalized);
     if (empty($uniqueIds)) {
         return true;
@@ -275,9 +261,9 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized, string $co
         $accountIds[] = $id;
     }
     $accountIds = array_values(array_unique($accountIds));
-    $targetCompanyPk = getCompanyPkByCode($pdo, $companyCode);
+    $c168Pk = getC168CompanyPk($pdo);
     if (!empty($accountIds)) {
-        if (!$targetCompanyPk) {
+        if (!$c168Pk) {
             return false;
         }
         $placeholders = buildInPlaceholders(count($accountIds));
@@ -290,7 +276,7 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized, string $co
               AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
         ";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute(array_merge([$targetCompanyPk], $accountIds));
+        $stmt->execute(array_merge([$c168Pk], $accountIds));
         if ((int) $stmt->fetchColumn() !== count($accountIds)) {
             return false;
         }
@@ -362,8 +348,8 @@ function createDomainShareCommissionPayments(
         return $result;
     }
 
-    $targetCompanyPk = getCompanyPkByCode($pdo, $sourceCompanyCode);
-    if (!$targetCompanyPk) {
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
         return $result;
     }
 
@@ -379,7 +365,7 @@ function createDomainShareCommissionPayments(
     $smsMarker = '[DOMAIN_SHARE_COMMISSION]';
 
     // 仅 Share% 自动入账使用：内部解析 From Account，满足 DB 对 PAYMENT 的约束
-    $resolveFromAccountId = function (int $toAccountId) use ($pdo, $targetCompanyPk): ?int {
+    $resolveFromAccountId = function (int $toAccountId) use ($pdo, $c168Pk): ?int {
         // 优先 PROFIT
         $stmtProfit = $pdo->prepare("
             SELECT a.id
@@ -392,7 +378,7 @@ function createDomainShareCommissionPayments(
             ORDER BY a.id ASC
             LIMIT 1
         ");
-        $stmtProfit->execute([$targetCompanyPk, $toAccountId]);
+        $stmtProfit->execute([$c168Pk, $toAccountId]);
         $profitId = $stmtProfit->fetchColumn();
         if ($profitId !== false && $profitId !== null) {
             return (int) $profitId;
@@ -409,7 +395,7 @@ function createDomainShareCommissionPayments(
             ORDER BY a.account_id ASC, a.id ASC
             LIMIT 1
         ");
-        $stmtAny->execute([$targetCompanyPk, $toAccountId]);
+        $stmtAny->execute([$c168Pk, $toAccountId]);
         $anyId = $stmtAny->fetchColumn();
         if ($anyId === false || $anyId === null) {
             return null;
@@ -439,20 +425,20 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
-            // 必须是目标公司旗下账户
+            // 必须是 C168 旗下账户
             $chk = $pdo->prepare("
                 SELECT COUNT(*)
                 FROM account_company ac
                 WHERE ac.account_id = ? AND ac.company_id = ?
             ");
-            $chk->execute([$aid, $targetCompanyPk]);
+            $chk->execute([$aid, $c168Pk]);
             if ((int) $chk->fetchColumn() <= 0) {
                 $result['skipped_invalid_account_count']++;
                 continue;
             }
 
             $insertCols = [
-                'company_id' => $targetCompanyPk,
+                'company_id' => $c168Pk,
                 'transaction_type' => 'PAYMENT',
                 'account_id' => $aid,
                 'from_account_id' => null,
@@ -1232,12 +1218,12 @@ try {
                 if (!$shareRow) {
                     jsonResponse(true, 'OK', [
                         'allocations' => normalizeFeeShareAllocationsInput(null),
-                        'accounts' => fetchFeeSharePickerAccounts($pdo, $shareCompanyCode),
+                        'accounts' => fetchFeeSharePickerAccounts($pdo),
                         'company_exists' => false,
                     ]);
                     break;
                 }
-                $shareAccounts = fetchFeeSharePickerAccounts($pdo, $shareCompanyCode);
+                $shareAccounts = fetchFeeSharePickerAccounts($pdo);
                 jsonResponse(true, 'OK', [
                     'allocations' => normalizeFeeShareAllocationsInput($shareRow['fee_share_allocations'] ?? null),
                     'accounts' => $shareAccounts,
@@ -1269,8 +1255,8 @@ try {
                     exit;
                 }
                 $saveCompanyPk = (int) $saveRow['id'];
-                if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized, $saveShareCode)) {
-                    jsonResponse(false, 'Each entry must be a staff/agent account in the selected company.', null);
+                if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized)) {
+                    jsonResponse(false, 'Each entry must be a C168 account with role staff or agent.', null);
                     exit;
                 }
                 $saveJson = feeShareAllocationsToJson($saveNormalized);
