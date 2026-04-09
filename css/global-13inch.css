@@ -409,9 +409,9 @@ textarea {
 }
 
 /* ==========================================================================
-   Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
+   Global 20-Row Exact Fit Layout (Strict 100vh No-Overflow)
    ========================================================================== */
-/* 1. Unlock the main bounding containers so they stretch infinitely downwards */
+/* 1. Enforce strict 100vh bounds on main containers to prevent native scroll */
 html,
 body.user-page,
 body.account-page,
@@ -419,43 +419,89 @@ body.transaction-page,
 body.datacapture-page,
 body.dashboard-page,
 body {
-    height: auto !important;
+    height: 100vh !important;
     min-height: 100vh !important;
-    max-height: none !important;
-    overflow-y: visible !important;
-    overflow-x: hidden !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
 }
 
+/* 2. Make wrappers dynamically distribute their height to fill the screen */
 .container,
-.content,
 .transaction-container,
 .datacapture-container,
 .dashboard-container {
-    height: auto !important;
+    height: 100vh !important;
     min-height: 100vh !important;
-    max-height: none !important;
-    overflow: visible !important;
-    padding-bottom: 100px !important;
-    /* Absolute guarantee we never cut off the bottom element */
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0px !important;
 }
 
-/* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
+.content {
+    flex: 1 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+}
+
+/* 3. Give physical padding space for pagination so the data wrapper doesn't cover it */
 .table-container,
 .account-cards,
-.process-cards,
 .process-table-wrapper,
 .dashboard-content,
 .transaction-main-content,
 .transaction-table-wrapper,
 .datacapture-table-wrapper {
-    height: auto !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
+    height: auto !important;
     max-height: none !important;
-    overflow: visible !important;
-    /* This forces the data to completely render out, triggering the global browser scrollbar */
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important; /* No internal scrolling since exactly 20 items will be shown */
+    padding-bottom: 48px !important; /* Leave space for pagination */
 }
 
-/* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
+.process-cards,
+.user-cards { 
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important; /* Nested inside process-table-wrapper / table-container */
+}
+
+/* 4. Distribute the 20 items perfectly inside the available flex vertical space */
+.account-card,
+.user-card,
+.process-card,
+.domain-card {
+    box-sizing: border-box !important;
+    flex: 0 0 calc(100% / 20) !important; /* Explicitly sizes 20 items to 100% */
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    align-content: center !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Ensure process/account lists aren't compressed by their headers */
+.table-header,
+.account-table-header {
+    flex-shrink: 0 !important;
+}
+
+/* 5. Ensure the aesthetic background behaves well */
 body {
     background-attachment: fixed !important;
     background-size: cover !important;
