@@ -11,6 +11,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
+require_once __DIR__ . '/contract_billing_addon.php';
 
 /** 统一 JSON 响应 */
 function jsonResponse(bool $success, string $message = '', $data = null): void
@@ -525,19 +526,6 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     return $byId;
 }
 
-/** manual_inactive 入账：1+1/1+2/1+3 按合约总月数 (1+X) 乘 Buy/Sell/Profit/Profit Sharing（整月全额，与 getBillingTermMonthsFromContract 一致）；其他→1 */
-function getManualInactiveMultiplierFromContract(?string $contract): int
-{
-    if ($contract === null || $contract === '') {
-        return 1;
-    }
-    $c = trim($contract);
-    if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
-        return 1 + (int) $m[1];
-    }
-    return 1;
-}
-
 /** 1+1/1+2/1+3 的「额外月数」：1+1→1，1+2→2，1+3→3，其他 0（用于 manual_inactive 入账后给 day_end 加月） */
 function getExtraMonthsFromContract(?string $contract): int
 {
@@ -765,6 +753,7 @@ try {
         $cost = (float) ($p['cost'] ?? 0);
         $price = (float) ($p['price'] ?? 0);
         $profit = (float) ($p['profit'] ?? 0);
+        $lastProrationRatio = null;
 
         $dayStartYmd = !empty($p['day_start']) ? bankProcessDateFieldToYmd($p['day_start']) : null;
         $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
@@ -804,6 +793,7 @@ try {
             if ($partialStart > $firstMonthEnd) {
                 continue;
             }
+            $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($partialStart);
             $partial = prorateToMonthEndFromStart($partialStart, $cost, $price, $profit);
             $cost = $partial['cost'];
             $price = $partial['price'];
@@ -846,6 +836,7 @@ try {
                     $sdTs = strtotime($dayStartYmd);
                     if ($startYmForBill === $billYm && $sdTs !== false && (int) date('j', $sdTs) === 1) {
                         $prorateFrom = $dayStartYmd;
+                        $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
                         $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
                         $cost = $pr['cost'];
                         $price = $pr['price'];
@@ -875,6 +866,7 @@ try {
                         }
                     }
                     if ($dueYmd !== null && $createdYmd > $dueYmd) {
+                        $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($dueYmd);
                         $pr = prorateToMonthEndFromStart($dueYmd, $cost, $price, $profit);
                         $cost = $pr['cost'];
                         $price = $pr['price'];
@@ -893,6 +885,10 @@ try {
                 // ignore
             }
         }
+
+        $origPriceRow = (float) ($p['price'] ?? 0);
+        applyOnePlusXRemainingDaysSellAddon($p['contract'] ?? null, $origPriceRow, $cost, $price, $profit, $lastProrationRatio);
+
         // manual_inactive：1+X 合约时 Buy/Sell/Profit 乘 (1+X) 再入账
         if ($periodType === 'manual_inactive') {
             $mult = getManualInactiveMultiplierFromContract($p['contract'] ?? null);
