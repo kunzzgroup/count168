@@ -750,7 +750,7 @@ body.process-page {
     font-size: clamp(8px, 0.64vw, 12px);
 }
 
-.process-page.process-page--bank .content > div:first-child {
+.process-page.process-page--bank .content>div:first-child {
     margin-top: 8px !important;
     margin-bottom: 8px !important;
 }
@@ -792,7 +792,7 @@ body.process-page {
         padding: 1px 4px;
     }
 
-    .process-page.process-page--bank .content > div:first-child {
+    .process-page.process-page--bank .content>div:first-child {
         margin-top: 6px !important;
         margin-bottom: 8px !important;
     }
@@ -858,7 +858,7 @@ body.process-page {
 }
 
 .process-page .table-header .header-item {
-    padding: 2px 4px;
+    padding: 4px 0px;
     white-space: nowrap;
     min-width: 0;
 }
