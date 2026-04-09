@@ -1581,14 +1581,51 @@ function updateDomainAccountingInboxButtons() {
 function postDomainAccountingInboxSelected() {
     const tbody = document.getElementById('domainAccountingDueTbody');
     if (!tbody) return;
-    const checked = tbody.querySelectorAll('.domain-accounting-inbox-row-cb:checked');
-    const count = checked.length;
-    if (count <= 0) {
+    const checked = Array.from(tbody.querySelectorAll('.domain-accounting-inbox-row-cb:checked'));
+    const targetIds = checked.map(cb => {
+        const tr = cb.closest('tr');
+        if (!tr) return null;
+        const key = tr.getAttribute('data-key');
+        const n = parseInt(key, 10);
+        return Number.isFinite(n) ? n : null;
+    }).filter(v => v !== null);
+    if (targetIds.length <= 0) {
         showAlert('Please select at least one row', 'danger');
         return;
     }
-    // Domain keeps data display only for now
-    showAlert('Domain Accounting Due kept as display data. Selected: ' + count);
+    const btn = document.getElementById('domainAccountingInboxPostBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Posting...';
+    }
+    fetch('api/domain/domain_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'post_domain_accounting_due_transactions',
+            target_ids: targetIds
+        })
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.success) {
+                showAlert((res && res.message) ? res.message : 'Post failed', 'danger');
+                return;
+            }
+            const created = (res.data && res.data.created_count) ? res.data.created_count : 0;
+            showAlert('Posted successfully. Created ' + created + ' transaction(s).');
+            refreshDomainAccountingDue();
+        })
+        .catch(() => {
+            showAlert('Post failed', 'danger');
+        })
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Transaction';
+            }
+            updateDomainAccountingInboxButtons();
+        });
 }
 
 function deleteDomainAccountingInboxSelected() {
