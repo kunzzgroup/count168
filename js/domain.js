@@ -624,8 +624,8 @@ function buildShareAccountOptionsHtml(selectedId) {
     shareModalAccounts.forEach(function (a) {
         var id = String(a.id);
         var isAdmin = a.entry_type === 'admin' || parseInt(a.id, 10) < 0;
-        var prefix = isAdmin ? '[Admin] ' : '[C168] ';
-        var label = prefix + (a.account_id || '') + (a.name ? ' · ' + a.name : '');
+        var prefix = isAdmin ? '[Admin] ' : '[Account] ';
+        var label = prefix + (a.account_id || '');
         h += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + escapeHtmlShare(label) + '</option>';
     });
     return h;
@@ -1503,7 +1503,7 @@ function renderDomainAccountingDueRows(items) {
     __domainAccountingDueItems = items.slice();
     updateDomainAccountingDueBadges(items.length);
     tbody.innerHTML = items.map((row, idx) => {
-        const key = (row.target_id != null ? String(row.target_id) : ('idx_' + idx));
+        const key = row.item_key ? String(row.item_key) : (row.target_id != null ? String(row.target_id) : ('idx_' + idx));
         const acct = row.account_label || row.account_id_label || ('#' + row.target_id);
         const due = formatMoney2(row.due_amount);
         const companies = Array.isArray(row.companies) ? row.companies.join(', ') : '';
@@ -1582,14 +1582,20 @@ function postDomainAccountingInboxSelected() {
     const tbody = document.getElementById('domainAccountingDueTbody');
     if (!tbody) return;
     const checked = Array.from(tbody.querySelectorAll('.domain-accounting-inbox-row-cb:checked'));
-    const targetIds = checked.map(cb => {
+    const selectedEntries = checked.map(cb => {
         const tr = cb.closest('tr');
         if (!tr) return null;
-        const key = tr.getAttribute('data-key');
-        const n = parseInt(key, 10);
-        return Number.isFinite(n) ? n : null;
+        const key = String(tr.getAttribute('data-key') || '').trim();
+        if (!key) return null;
+        const parts = key.split('|');
+        const targetId = parseInt(parts[0], 10);
+        const role = (parts[1] || '').trim().toUpperCase();
+        if (!Number.isFinite(targetId) || !role) {
+            return null;
+        }
+        return { target_id: targetId, role: role };
     }).filter(v => v !== null);
-    if (targetIds.length <= 0) {
+    if (selectedEntries.length <= 0) {
         showAlert('Please select at least one row', 'danger');
         return;
     }
@@ -1603,7 +1609,7 @@ function postDomainAccountingInboxSelected() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             action: 'post_domain_accounting_due_transactions',
-            target_ids: targetIds
+            selected_entries: selectedEntries
         })
     })
         .then(r => r.json())
@@ -1638,7 +1644,7 @@ function deleteDomainAccountingInboxSelected() {
     }
     const keySet = new Set(checked.map(cb => String(cb.dataset.key || '')));
     __domainAccountingDueItems = (__domainAccountingDueItems || []).filter(function (row, idx) {
-        const key = row.target_id != null ? String(row.target_id) : ('idx_' + idx);
+        const key = row.item_key ? String(row.item_key) : (row.target_id != null ? String(row.target_id) : ('idx_' + idx));
         return !keySet.has(key);
     });
     renderDomainAccountingDueRows(__domainAccountingDueItems);
