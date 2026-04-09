@@ -1443,6 +1443,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ============ Domain Accounting Due ============
 let __domainAccountingDueCache = null;
+let __domainAccountingDueItems = [];
 
 function formatMoney2(val) {
     const n = Number(val);
@@ -1502,12 +1503,15 @@ function renderDomainAccountingDueRows(items) {
     const tbody = document.getElementById('domainAccountingDueTbody');
     if (!tbody) return;
     if (!Array.isArray(items) || items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="padding:10px 8px; color:#6b7280;">No accounting due based on current Price/Maintenance and Share %.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No accounting due based on current Price/Maintenance and Share %.</td></tr>';
         updateDomainAccountingDueBadges(0);
+        updateDomainAccountingInboxButtons();
         return;
     }
+    __domainAccountingDueItems = items.slice();
     updateDomainAccountingDueBadges(items.length);
     tbody.innerHTML = items.map((row, idx) => {
+        const key = (row.target_id != null ? String(row.target_id) : ('idx_' + idx));
         const acct = row.account_label || row.account_id_label || ('#' + row.target_id);
         const due = formatMoney2(row.due_amount);
         const companies = Array.isArray(row.companies) ? row.companies.join(', ') : '';
@@ -1519,15 +1523,93 @@ function renderDomainAccountingDueRows(items) {
             return escapeHtmlLite(comp) + ' ' + escapeHtmlLite(role) + ' ' + escapeHtmlLite(pct) + '% = ' + escapeHtmlLite(amt);
         }).join('<br>') : '';
         return (
-            '<tr>' +
+            '<tr data-key="' + escapeHtmlLite(key) + '">' +
+            '<td><input type="checkbox" class="domain-accounting-inbox-row-cb" data-key="' + escapeHtmlLite(key) + '" checked onchange="updateDomainAccountingInboxButtons()"></td>' +
             '<td>' + (idx + 1) + '</td>' +
             '<td class="domain-accounting-due-account">' + escapeHtmlLite(acct) + '</td>' +
             '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + escapeHtmlLite(due) + '</td>' +
             '<td class="domain-accounting-due-companies">' + escapeHtmlLite(companies) + '</td>' +
             '<td class="domain-accounting-due-breakdown">' + (breakdown || '-') + '</td>' +
+            '<td><input type="checkbox" class="domain-accounting-inbox-delete-cb" data-key="' + escapeHtmlLite(key) + '" onchange="updateDomainAccountingInboxButtons()"></td>' +
             '</tr>'
         );
     }).join('');
+    const selectAll = document.getElementById('domainAccountingInboxSelectAll');
+    const deleteSelectAll = document.getElementById('domainAccountingInboxDeleteSelectAll');
+    if (selectAll && !selectAll.__bound) {
+        selectAll.__bound = true;
+        selectAll.addEventListener('change', function () {
+            const checked = this.checked;
+            const box = document.getElementById('domainAccountingDueTbody');
+            if (box) box.querySelectorAll('.domain-accounting-inbox-row-cb').forEach(cb => { cb.checked = checked; });
+            updateDomainAccountingInboxButtons();
+        });
+    }
+    if (deleteSelectAll && !deleteSelectAll.__bound) {
+        deleteSelectAll.__bound = true;
+        deleteSelectAll.addEventListener('change', function () {
+            const checked = this.checked;
+            const box = document.getElementById('domainAccountingDueTbody');
+            if (box) box.querySelectorAll('.domain-accounting-inbox-delete-cb').forEach(cb => { cb.checked = checked; });
+            updateDomainAccountingInboxButtons();
+        });
+    }
+    updateDomainAccountingInboxButtons();
+}
+
+function updateDomainAccountingInboxButtons() {
+    const tbody = document.getElementById('domainAccountingDueTbody');
+    const postBtn = document.getElementById('domainAccountingInboxPostBtn');
+    const delBtn = document.getElementById('domainAccountingInboxDeleteBtn');
+    const selectAll = document.getElementById('domainAccountingInboxSelectAll');
+    const deleteSelectAll = document.getElementById('domainAccountingInboxDeleteSelectAll');
+    if (!tbody) return;
+
+    const postBoxes = tbody.querySelectorAll('.domain-accounting-inbox-row-cb');
+    const postChecked = tbody.querySelectorAll('.domain-accounting-inbox-row-cb:checked');
+    const delBoxes = tbody.querySelectorAll('.domain-accounting-inbox-delete-cb');
+    const delChecked = tbody.querySelectorAll('.domain-accounting-inbox-delete-cb:checked');
+
+    if (postBtn) postBtn.disabled = postChecked.length === 0;
+    if (delBtn) delBtn.disabled = delChecked.length === 0;
+    if (selectAll) {
+        selectAll.disabled = postBoxes.length === 0;
+        selectAll.checked = postBoxes.length > 0 && postBoxes.length === postChecked.length;
+    }
+    if (deleteSelectAll) {
+        deleteSelectAll.disabled = delBoxes.length === 0;
+        deleteSelectAll.checked = delBoxes.length > 0 && delBoxes.length === delChecked.length;
+    }
+}
+
+function postDomainAccountingInboxSelected() {
+    const tbody = document.getElementById('domainAccountingDueTbody');
+    if (!tbody) return;
+    const checked = tbody.querySelectorAll('.domain-accounting-inbox-row-cb:checked');
+    const count = checked.length;
+    if (count <= 0) {
+        showAlert('Please select at least one row', 'danger');
+        return;
+    }
+    // Domain keeps data display only for now
+    showAlert('Domain Accounting Due kept as display data. Selected: ' + count);
+}
+
+function deleteDomainAccountingInboxSelected() {
+    const tbody = document.getElementById('domainAccountingDueTbody');
+    if (!tbody) return;
+    const checked = Array.from(tbody.querySelectorAll('.domain-accounting-inbox-delete-cb:checked'));
+    if (checked.length <= 0) {
+        showAlert('Please tick rows in Delete column', 'danger');
+        return;
+    }
+    const keySet = new Set(checked.map(cb => String(cb.dataset.key || '')));
+    __domainAccountingDueItems = (__domainAccountingDueItems || []).filter(function (row, idx) {
+        const key = row.target_id != null ? String(row.target_id) : ('idx_' + idx);
+        return !keySet.has(key);
+    });
+    renderDomainAccountingDueRows(__domainAccountingDueItems);
+    showAlert('Selected rows removed from current view');
 }
 
 function refreshDomainAccountingDue() {

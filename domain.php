@@ -112,8 +112,10 @@ try {
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <div class="domain-accounting-due-wrap" id="domainAccountingDueWrap">
-                    <button type="button" class="domain-accounting-due-btn" id="domainAccountingDueBtn" onclick="openDomainAccountingDueModal()">
-                        <span class="domain-accounting-due-icon" aria-hidden="true">⟲</span>
+                    <button type="button" class="domain-accounting-due-btn domain-accounting-due-btn-main" id="domainAccountingDueBtn" onclick="openDomainAccountingDueModal()">
+                        <svg class="domain-accounting-due-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
+                        </svg>
                         Accounting Due
                         <span class="domain-accounting-due-badge" id="domainAccountingDueCount">0</span>
                     </button>
@@ -250,22 +252,25 @@ try {
             <div class="modal-body domain-accounting-due-modal-body">
                 <div class="domain-accounting-due-summary" id="domainAccountingDueSummary" aria-live="polite"></div>
                 <div class="domain-accounting-due-table-wrap">
-                    <table class="domain-accounting-due-table">
+                    <table class="domain-accounting-due-table domain-accounting-inbox-table">
                         <thead>
                             <tr>
+                                <th style="width:36px;"><input type="checkbox" id="domainAccountingInboxSelectAll" title="Select all" class="domain-accounting-inbox-cb"></th>
                                 <th style="width:56px;">No</th>
                                 <th>Account</th>
                                 <th style="width:120px; text-align: right;">Due</th>
                                 <th style="width:180px;">Companies</th>
                                 <th>Breakdown</th>
+                                <th style="width:80px;">Delete <input type="checkbox" id="domainAccountingInboxDeleteSelectAll" title="Select all for delete" class="domain-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
                         <tbody id="domainAccountingDueTbody"></tbody>
                     </table>
                 </div>
-                <div class="domain-accounting-due-actions">
-                    <button type="button" class="btn btn-save" onclick="refreshDomainAccountingDue()">Refresh</button>
-                    <button type="button" class="btn btn-cancel" onclick="closeDomainAccountingDueModal()">Close</button>
+                <div class="domain-accounting-due-actions domain-accounting-inbox-actions">
+                    <button type="button" class="btn btn-primary" id="domainAccountingInboxPostBtn" onclick="postDomainAccountingInboxSelected()" disabled>Transaction</button>
+                    <button type="button" class="btn btn-delete" id="domainAccountingInboxDeleteBtn" onclick="deleteDomainAccountingInboxSelected()" disabled>Delete</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeDomainAccountingDueModal()">Cancel</button>
                 </div>
             </div>
         </div>
