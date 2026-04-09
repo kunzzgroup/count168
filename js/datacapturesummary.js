@@ -20012,19 +20012,24 @@ function getCurrencyIdByCode(currencyCode) {
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Enter') {
         const modal = document.getElementById('editFormulaModal');
-        // Only trigger if modal is open and the event originated from within the modal
-        if (modal && modal.style.display !== 'none' && modal.contains(event.target)) {
+        // Only trigger if modal is open (even if focus isn't strictly inside it yet)
+        if (modal && modal.style.display !== 'none') {
             // Check if dropdown is active AND the user is interacting with it
             const activeDropdown = modal.querySelector('.custom-select-dropdown.show');
             if (activeDropdown && event.target.closest('.custom-select-wrapper')) {
                 return; // Let the dropdown handle the Select
             }
+            
+            // Do not trigger if SweetAlert or another library's confirmation popup is open and focused
+            if (document.body.classList.contains('swal2-shown') || event.target.closest('.swal2-container')) {
+                return;
+            }
+
             // Prevent default form submission or other Enter behaviors
             event.preventDefault();
-            // Trigger Save
-            const saveBtn = document.getElementById('editFormulaSaveBtn');
-            if (saveBtn && !saveBtn.disabled) {
-                saveBtn.click();
+            // Call saveFormula directly to ensure validation popups trigger even if button appears visually disabled
+            if (typeof saveFormula === 'function') {
+                saveFormula();
             }
         }
     }
