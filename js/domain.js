@@ -1098,7 +1098,95 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => forceUppercase(this), 0);
         });
     }
+
+    refreshDomainFeeSummaryFromApi();
 });
+
+/** 展示用：固定两位小数 */
+function formatDomainFeeDisplay2(val) {
+    if (val === null || val === undefined || val === '') {
+        return '—';
+    }
+    var n = Number(val);
+    if (!isFinite(n)) {
+        return '—';
+    }
+    return n.toFixed(2);
+}
+
+/** 编辑用：固定四位小数填入输入框 */
+function formatDomainFeeEdit4(val) {
+    if (val === null || val === undefined || val === '') {
+        return '';
+    }
+    var n = Number(val);
+    if (!isFinite(n)) {
+        return '';
+    }
+    return n.toFixed(4);
+}
+
+function buildDomainFeeSummaryHtml2(data) {
+    var p2 = formatDomainFeeDisplay2(data.price);
+    var m2 = formatDomainFeeDisplay2(data.maintenance_fee);
+    return 'Display: Price <strong>' + p2 + '</strong> · Maintenance <strong>' + m2 + '</strong>';
+}
+
+function buildDomainFeeInlineSummaryText2(data) {
+    var p2 = formatDomainFeeDisplay2(data.price);
+    var m2 = formatDomainFeeDisplay2(data.maintenance_fee);
+    if (p2 === '—' && m2 === '—') {
+        return '';
+    }
+    return 'Display: Price ' + p2 + ' · Maint ' + m2;
+}
+
+function applyDomainFeeSummaryDisplays(data) {
+    if (!data) {
+        return;
+    }
+    var modalEl = document.getElementById('domainFeeSummaryDisplay');
+    if (modalEl) {
+        modalEl.innerHTML = buildDomainFeeSummaryHtml2(data);
+    }
+    var inline = document.getElementById('domainFeeInlineSummary');
+    if (inline) {
+        inline.textContent = buildDomainFeeInlineSummaryText2(data);
+    }
+}
+
+function applyDomainFeeEditInputs(data) {
+    if (!data) {
+        return;
+    }
+    var p = document.getElementById('domainFeePrice');
+    var m = document.getElementById('domainFeeMaintenance');
+    if (p) {
+        p.value = formatDomainFeeEdit4(data.price);
+    }
+    if (m) {
+        m.value = formatDomainFeeEdit4(data.maintenance_fee);
+    }
+}
+
+/** 页面加载时更新列表旁「展示」文案（失败则静默） */
+function refreshDomainFeeSummaryFromApi() {
+    if (!document.getElementById('domainFeeInlineSummary')) {
+        return;
+    }
+    fetch('api/domain/domain_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_domain_fee_settings' })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && res.data) {
+                applyDomainFeeSummaryDisplays(res.data);
+            }
+        })
+        .catch(function () { /* ignore */ });
+}
 
 function openDomainFeeSettingsModal() {
     const modal = document.getElementById('domainFeeSettingsModal');
@@ -1113,10 +1201,8 @@ function openDomainFeeSettingsModal() {
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.success && res.data) {
-                var p = document.getElementById('domainFeePrice');
-                var m = document.getElementById('domainFeeMaintenance');
-                if (p) p.value = res.data.price != null && res.data.price !== '' ? res.data.price : '';
-                if (m) m.value = res.data.maintenance_fee != null && res.data.maintenance_fee !== '' ? res.data.maintenance_fee : '';
+                applyDomainFeeSummaryDisplays(res.data);
+                applyDomainFeeEditInputs(res.data);
             } else {
                 showAlert(res.message || 'Could not load settings', 'danger');
             }
@@ -1149,6 +1235,11 @@ function saveDomainFeeSettings() {
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.success) {
+                if (res.data) {
+                    applyDomainFeeSummaryDisplays(res.data);
+                } else {
+                    refreshDomainFeeSummaryFromApi();
+                }
                 showAlert(res.message || 'Saved');
                 closeDomainFeeSettingsModal();
             } else {

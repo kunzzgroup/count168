@@ -108,6 +108,7 @@ try {
                     <input type="text" id="searchInput" placeholder="Search by Owner/Name/Email" class="search-input">
                 </div>
                 <button type="button" class="btn btn-fee-settings" id="domainFeeSettingsBtn" onclick="openDomainFeeSettingsModal()">Price &amp; Maintenance</button>
+                <span id="domainFeeInlineSummary" class="domain-fee-inline-summary" aria-live="polite"></span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()">Delete</button>
@@ -191,14 +192,16 @@ try {
             <span class="close" onclick="closeDomainFeeSettingsModal()">&times;</span>
             <h2>Price &amp; Maintenance Fee</h2>
             <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
-                <p style="color: #64748b; font-size: clamp(10px, 0.78vw, 14px); margin: 0 0 16px 0;">Set default amounts for the domain list (saved for C168 admin use).</p>
+                <p style="color: #64748b; font-size: clamp(10px, 0.78vw, 14px); margin: 0 0 10px 0;">Set default amounts for the domain list (saved for C168 admin use).</p>
+                <div id="domainFeeSummaryDisplay" class="domain-fee-summary-display" aria-live="polite"></div>
+                <p class="domain-fee-edit-hint">Edit fields below support up to 4 decimal places.</p>
                 <div class="form-group">
-                    <label for="domainFeePrice">Price</label>
-                    <input type="number" id="domainFeePrice" class="form-group input" step="any" placeholder="0.00" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
+                    <label for="domainFeePrice">Price <span class="domain-fee-decimals-hint">(edit)</span></label>
+                    <input type="number" id="domainFeePrice" class="form-group input" step="0.0001" placeholder="0.0000" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
                 </div>
                 <div class="form-group" style="margin-bottom: 8px;">
-                    <label for="domainFeeMaintenance">Maintenance fee</label>
-                    <input type="number" id="domainFeeMaintenance" class="form-group input" step="any" placeholder="0.00" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
+                    <label for="domainFeeMaintenance">Maintenance fee <span class="domain-fee-decimals-hint">(edit)</span></label>
+                    <input type="number" id="domainFeeMaintenance" class="form-group input" step="0.0001" placeholder="0.0000" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
                 </div>
                 <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                     <button type="button" class="btn btn-save" onclick="saveDomainFeeSettings()">Save</button>
