@@ -41,6 +41,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo file_exists('css/sidebar.css') ? filemtime('css/sidebar.css') : time(); ?>">
     <script src="js/sidebar.js?v=<?php echo file_exists('js/sidebar.js') ? filemtime('js/sidebar.js') : time(); ?>" defer></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body class="transaction-page">
     <?php include 'sidebar.php'; ?>

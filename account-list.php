@@ -215,6 +215,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
     <link rel="stylesheet" href="css/account-list.css?v=<?php echo $assetVer('css/account-list.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">

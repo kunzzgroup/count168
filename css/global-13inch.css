@@ -1,0 +1,264 @@
+/* ==========================================================================
+   Global 13-Inch Laptop Optimization (1280px - 1440px)
+   Smart Density & Readability Enhancements for the Entire System
+   ========================================================================== */
+
+@media screen and (max-width: 1440px) {
+
+    /* ----------------------------------------------------
+       1. Base Typography & Hierarchy
+       ---------------------------------------------------- */
+    /* Page title hierarchy - Must be the most obvious element */
+    h1, .account-page-title, .transaction-title, .datacapture-title, .page-title {
+        font-size: 32px !important;
+        margin-bottom: 20px !important;
+    }
+
+    /* Container / Margins - 保留左侧 sidebar 的空间 */
+    .container, .transaction-container {
+        padding-right: clamp(16px, 2.5vw, 40px) !important;
+    }
+
+    /* ----------------------------------------------------
+       2. Controls & Interactions (Buttons, Inputs, Checkboxes)
+       ---------------------------------------------------- */
+    /* Make them easy to click and identify */
+    .btn, .btn-add, .btn-delete, .btn-save, .btn-cancel, .btn-secondary, .btn-account-control, .btn-clearall,
+    .account-btn, .transaction-submit-btn, .transaction-search-btn {
+        font-size: 14px !important;
+        padding: 8px 18px !important;
+        height: auto !important;
+    }
+    
+    .account-company-btn, .transaction-company-btn {
+        font-size: 13px !important;
+        padding: 6px 14px !important;
+    }
+
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea,
+    .search-input, .account-search-input, .transaction-input, .transaction-select,
+    .custom-select-button {
+        font-size: 14px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+    }
+
+    /* Checkboxes and Labels */
+    label, .account-checkbox-section label, .checkbox-section label, .transaction-label {
+        font-size: 14px !important;
+    }
+    input[type="checkbox"] {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* ----------------------------------------------------
+       3. Table Headers (Div-based & native tables)
+       ---------------------------------------------------- */
+    .table-header, .account-table-header, .transaction-table-header, .contract-table-header, .datacapture-table-header, .member-table-header {
+        font-size: 14px !important;
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+    }
+    .table-header .header-item, .account-table-header .header-item {
+        padding: 0 10px !important;
+    }
+
+    /* For native tables th */
+    table th, .transaction-table th, .datacapture-table th {
+        font-size: 14px !important;
+        padding: 10px 14px !important;
+    }
+
+    /* ----------------------------------------------------
+       4. Table Rows & Data (Smart Density)
+       ---------------------------------------------------- */
+    /* Div-based Rows (Cards) */
+    .user-card, .account-card, .contract-card, .member-card {
+        padding: 10px 22px !important;
+        min-height: 52px !important;
+    }
+    
+    .card-item, .account-card-item, .contract-card-item, .member-card-item {
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+        letter-spacing: 0.015em !important;
+    }
+
+    /* Native Table Rows */
+    .transaction-table td, .datacapture-table td, table td {
+        font-size: 14px !important;
+        padding: 10px 14px !important;
+        line-height: 1.5 !important;
+    }
+    .transaction-table-row {
+        min-height: 52px !important;
+    }
+
+    /* ----------------------------------------------------
+       5. Status & Role Badges (Visual Cues)
+       ---------------------------------------------------- */
+    .role-badge, .account-role-badge, .contract-badge, .status-badge, .member-badge {
+        font-size: 12px !important;
+        padding: 4px 10px !important;
+    }
+
+    /* ----------------------------------------------------
+       6. Edit Action Buttons Sizing
+       ---------------------------------------------------- */
+    .btn-edit svg, .btn-edit img, 
+    .account-edit-btn svg, .account-edit-btn img, 
+    .contract-edit-btn svg, .contract-edit-btn img,
+    .member-edit-btn svg, .member-edit-btn img {
+        width: 18px !important; 
+        height: 18px !important;
+    }
+}
+
+/* ==========================================================================
+   Global Hover UI Polish (Applies to all screens for better UX)
+   - Improves eye-tracking and highlights the specific row clearly.
+   ========================================================================== */
+.user-card:hover, .account-card:hover, .contract-card:hover, .member-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-1px) !important;
+    background-color: #ebf5ff !important;
+    border-radius: 4px;
+    z-index: 5;
+    position: relative;
+}
+
+/* For native table rows */
+.transaction-table tbody tr:hover td, .datacapture-table tbody tr:hover td {
+    background-color: #ebf5ff !important;
+    transition: background-color 0.15s ease;
+}
+
+/* ==========================================================================
+   Global SaaS "Premium Feel" Upgrades
+   ========================================================================== */
+
+/* 1. Global Custom Scrollbars (Sleek MacOS style for Windows) */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.7);
+}
+
+/* 2. Modal/Dialog Smart Overflow for 13-inch Screens */
+@media screen and (max-height: 800px) {
+    .modal-content, .transaction-modal-content, .notification-popup {
+        max-height: 90vh !important;
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-body, .transaction-modal-body, .form-container {
+        overflow-y: auto;
+        padding-bottom: 20px !important;
+    }
+}
+
+/* 3. Interactive Polish (Micro-animations) */
+/* Checkbox snap animation */
+input[type="checkbox"] {
+    cursor: pointer;
+    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type="checkbox"]:active {
+    transform: scale(0.85);
+}
+
+/* Buttons click effect */
+.btn:active, .transaction-search-btn:active, .transaction-submit-btn:active, button:not(.fc-button):active {
+    transform: translateY(1px) scale(0.98) !important;
+    transition: all 0.1s;
+}
+
+/* Better glowing focus ring for inputs */
+input:focus, select:focus, textarea:focus, .search-input:focus {
+    box-shadow: 0 0 0 3px rgba(15, 97, 255, 0.15) !important;
+    border-color: #0F61FF !important;
+    transition: all 0.2s ease-in-out;
+}
+
+/* Smooth HTML scroll */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ==========================================================================
+   Global "WOW Factor" Final Polish
+   ========================================================================== */
+
+/* 4. SPA-like Entrance Animation (Makes PHP page loads feel modern) */
+@keyframes premiumEntrance {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.container, .transaction-container, .modal-content, .datacapture-container {
+    animation: premiumEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 5. Custom Brand Text Selection */
+::selection {
+    background-color: rgba(15, 97, 255, 0.25) !important;
+    color: #001f3f !important;
+    text-shadow: none !important;
+}
+
+/* 6. Glowing Action Buttons on Hover */
+.btn-save:hover, .btn-add:hover, .transaction-submit-btn:hover {
+    box-shadow: 0 0 15px rgba(15, 97, 255, 0.4) !important;
+    -webkit-filter: brightness(1.05);
+    filter: brightness(1.05);
+}
+.btn-delete:hover {
+    box-shadow: 0 0 15px rgba(220, 53, 69, 0.3) !important;
+    -webkit-filter: brightness(1.05);
+    filter: brightness(1.05);
+}
+
+/* 7. Chrome Autofill Premium Override (Removes the ugly yellow background) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active{
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: #333 !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* 8. Table Headers Sticky Drop-Shadow for 13-inch scrolling */
+.table-header, .account-table-header, .datacapture-table-header {
+    position: sticky !important;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+/* 9. Smart Text Truncation for Responsive Data Rows */
+/* Prevents long unspaced text (like emails or hashes) from blowing out the table width */
+td, .card-item, .account-card-item, .contract-card-item, .member-card-item {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* 10. Forms / Textareas Max-Height Constraints */
+textarea {
+    max-height: 120px !important;
+}

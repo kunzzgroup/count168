@@ -88,7 +88,8 @@ try {
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>Admin删除调试信息</title>
         <link rel="stylesheet" href="css/debug_admin_delete.css">
-    </head>
+        <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
+</head>
     <body>
     <div class='container'>
         <h1>🔍 Admin用户删除调试信息</h1>";

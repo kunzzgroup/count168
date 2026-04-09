@@ -228,6 +228,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
 <body class="process-page<?php echo $processListPageFile === 'bank_process_list.php' ? ' process-page--bank' : ''; ?>">

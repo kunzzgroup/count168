@@ -144,6 +144,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
     </script>
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <script src="js/dashboard.js?v=<?php echo $assetVer('js/dashboard.js'); ?>"></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
 <body class="dashboard-page">

@@ -55,6 +55,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <title>Announcement Management</title>
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body class="announcement-page">
     <?php include 'sidebar.php'; ?>
