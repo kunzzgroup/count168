@@ -646,10 +646,15 @@ function readFeeShareFromModalDom() {
             var sEl = tr.querySelector('.share-account-select');
             var pEl = tr.querySelector('.share-pct-input');
             var aid = sEl ? parseInt(sEl.value, 10) : 0;
-            var pct = pEl && pEl.value !== '' ? parseFloat(pEl.value) : NaN;
-            if (aid !== 0 && isFinite(pct)) {
-                out[role].push({ account_id: aid, percentage: pct });
+            var pct = pEl ? String(pEl.value).trim() : '';
+            // Keep incomplete rows in local state so users can add multiple rows
+            // continuously without previous empty rows being dropped.
+            if (pct === '') {
+                out[role].push({ account_id: aid, percentage: '' });
+                return;
             }
+            var pctNum = parseFloat(pct);
+            out[role].push({ account_id: aid, percentage: isFinite(pctNum) ? pctNum : '' });
         });
     });
     return out;
