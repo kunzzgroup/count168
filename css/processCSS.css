@@ -845,7 +845,7 @@ body.process-page {
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;
-    grid-template-columns: 0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1fr 0.3fr;
+    grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
     padding: 0px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -884,7 +884,7 @@ body.process-page {
 
 .process-page .process-card {
     display: grid;
-    grid-template-columns: 0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr;
+    grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
     padding: 0px 20px;
     background: #f0e5fb;
