@@ -249,4 +249,41 @@ function filterProcessesByPermissions($pdo, $baseQuery, $params = []) {
 
     return [$baseQuery, $params];
 }
+
+if (!function_exists('checkCompanyCategoryPermission')) {
+    /**
+     * Helper to verify if a company has access to a specific UI category (Data-Level Access Control).
+     *
+     * @param PDO $pdo
+     * @param int|string $companyId
+     * @param string $category (e.g., 'Games', 'Bank', 'Loan', 'Rate', 'Money')
+     * @return bool
+     */
+    function checkCompanyCategoryPermission(PDO $pdo, $companyId, $category) {
+        if (empty($companyId)) return false;
+        try {
+            $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+            // If companyId is string like 'C168', ensure we handle it, but table 'id' is int.
+            // Assuming companyId here is the `id` column. If it's the string code, caller must provide `id`.
+            $stmt->execute([$companyId]);
+            $permsJson = $stmt->fetchColumn();
+            
+            if ($permsJson === false || $permsJson === null || $permsJson === '') {
+                return false;
+            }
+
+            $perms = json_decode($permsJson, true);
+            if (!is_array($perms)) return false;
+
+            // Handle "Games" vs "Gambling" backward compatibility
+            if ($category === 'Games' || $category === 'Gambling') {
+                return in_array('Games', $perms) || in_array('Gambling', $perms);
+            }
+
+            return in_array($category, $perms);
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+}
 ?>

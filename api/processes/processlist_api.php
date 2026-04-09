@@ -184,6 +184,33 @@ function parseProfitSharingTotal(?string $profitSharing): float
 // Handle different actions
 $action = $_GET['action'] ?? '';
 
+// --- BEGIN DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
+$req_company_id = $_GET['company_id'] ?? $_POST['company_id'] ?? $_SESSION['company_id'] ?? null;
+if ($req_company_id) {
+    // Actions that are strictly for 'Bank' category
+    $bankOnlyActions = [
+        'get_banks_by_country', 'get_countries', 'add_country', 
+        'save_country_banks', 'get_selected_countries', 'save_selected_countries', 
+        'get_selected_banks', 'save_selected_banks', 'update_bank_process'
+    ];
+
+    $requiredCategory = 'Games'; // Default fallback
+    if (in_array($action, $bankOnlyActions)) {
+        $requiredCategory = 'Bank';
+    } else {
+        $reqPermission = $_GET['permission'] ?? $_POST['permission'] ?? '';
+        if ($reqPermission === 'Bank') {
+            $requiredCategory = 'Bank';
+        }
+    }
+
+    if (!checkCompanyCategoryPermission($pdo, $req_company_id, $requiredCategory)) {
+        jsonResponse(false, 'Unauthorized permission category');
+        exit;
+    }
+}
+// --- END DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
+
 switch ($action) {
     case 'get_process':
         getProcess();

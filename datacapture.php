@@ -14,8 +14,9 @@ if ($session_company_id) {
         $stmt->execute([$session_company_id]);
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
-        if (!is_array($companyPerms) || (!in_array('Games', $companyPerms) && !in_array('Gambling', $companyPerms))) {
-            header('Location: processlist.php?error=no_gambling_permission');
+        if (!is_array($companyPerms) || empty($companyPerms)) {
+            // IF no permissions, block. If any permissions (Games, Bank etc.), allow page load, API will filter later
+            header('Location: processlist.php?error=no_permission');
             exit;
         }
     } catch (PDOException $e) {

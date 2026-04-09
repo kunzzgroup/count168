@@ -71,6 +71,13 @@ if ($current_user_role === 'owner') {
 $user_id = $_SESSION['user_id'];
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+// Enforce Data-Level Category Permission for Data Capture (Currently inherently 'Games')
+if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized category permission (Games required)']);
+    exit;
+}
+
 try {
     switch ($action) {
         case 'get_week_submissions':
