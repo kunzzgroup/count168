@@ -13,7 +13,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings', 'get_domain_accounting_due'], true)) {
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings', 'get_domain_accounting_due', 'post_domain_accounting_due_transactions'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -343,6 +343,43 @@ function isC168Company(PDO $pdo, $company_id): bool {
     } catch (PDOException $e) {
         return false;
     }
+}
+
+function tableHasColumnDomain(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+    $stmt->execute([$column]);
+    return $stmt->rowCount() > 0;
+}
+
+function insertTransactionRowDomain(PDO $pdo, array $data): int
+{
+    $columns = array_keys($data);
+    $placeholders = implode(',', array_fill(0, count($columns), '?'));
+    $sql = "INSERT INTO transactions (`" . implode('`,`', $columns) . "`) VALUES ($placeholders)";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_values($data));
+    return (int) $pdo->lastInsertId();
+}
+
+function resolveCompanyPkByCode(PDO $pdo, string $companyCode): ?int
+{
+    $code = strtoupper(trim($companyCode));
+    if ($code === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare("SELECT id FROM company WHERE UPPER(TRIM(company_id)) = ? LIMIT 1");
+    $stmt->execute([$code]);
+    $id = $stmt->fetchColumn();
+    return $id ? (int) $id : null;
+}
+
+function getAnyCurrencyIdForCompany(PDO $pdo, int $companyPk): ?int
+{
+    $stmt = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? ORDER BY id ASC LIMIT 1");
+    $stmt->execute([$companyPk]);
+    $id = $stmt->fetchColumn();
+    return $id ? (int) $id : null;
 }
 
 /**
@@ -1295,6 +1332,154 @@ try {
                     'base_amount' => round($base, 4),
                     'company_count' => count($companies),
                     'items' => $items,
+                ]);
+            } catch (Exception $e) {
+                jsonResponse(false, 'Error: ' . $e->getMessage(), null);
+            }
+            break;
+
+        case 'post_domain_accounting_due_transactions':
+            if (!$hasC168Context || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            $targetIdsRaw = $data['target_ids'] ?? [];
+            if (!is_array($targetIdsRaw) || empty($targetIdsRaw)) {
+                jsonResponse(false, 'Please select at least one account', null);
+                exit;
+            }
+            $targetIds = array_values(array_unique(array_map('intval', $targetIdsRaw)));
+            $targetIds = array_values(array_filter($targetIds, function ($v) { return $v !== 0; }));
+            if (empty($targetIds)) {
+                jsonResponse(false, 'Invalid target account IDs', null);
+                exit;
+            }
+            try {
+                ensureDomainListFeeSettingsTable($pdo);
+                ensureCompanyFeeShareColumn($pdo);
+
+                $stmt = $pdo->query("SELECT `price`, `maintenance_fee` FROM `domain_list_fee_settings` WHERE `id` = 1");
+                $feeRow = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+                $price = $feeRow && $feeRow['price'] !== null ? (float) $feeRow['price'] : 0.0;
+                $maint = $feeRow && $feeRow['maintenance_fee'] !== null ? (float) $feeRow['maintenance_fee'] : 0.0;
+                $base = $price + $maint;
+                if ($base <= 0) {
+                    jsonResponse(false, 'Price + Maintenance fee must be greater than 0', null);
+                    exit;
+                }
+
+                $cStmt = $pdo->query("
+                    SELECT company_id, fee_share_allocations
+                    FROM company
+                    WHERE TRIM(company_id) <> ''
+                      AND UPPER(TRIM(company_id)) <> 'C168'
+                    ORDER BY company_id ASC
+                ");
+                $companies = $cStmt ? $cStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+                // Build selected account -> role -> company -> amount
+                $selectedSet = array_fill_keys($targetIds, true);
+                $bucket = [];
+                foreach ($companies as $c) {
+                    $code = strtoupper(trim($c['company_id'] ?? ''));
+                    if ($code === '') {
+                        continue;
+                    }
+                    $alloc = normalizeFeeShareAllocationsInput($c['fee_share_allocations'] ?? null);
+                    foreach (['sales', 'cs', 'it'] as $role) {
+                        foreach (($alloc[$role] ?? []) as $row) {
+                            $tid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+                            $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
+                            if ($tid === 0 || $pct <= 0 || !isset($selectedSet[$tid])) {
+                                continue;
+                            }
+                            $amt = round($base * ($pct / 100.0), 4);
+                            if ($amt <= 0) {
+                                continue;
+                            }
+                            $roleKey = strtoupper($role);
+                            if (!isset($bucket[$tid])) {
+                                $bucket[$tid] = [];
+                            }
+                            if (!isset($bucket[$tid][$roleKey])) {
+                                $bucket[$tid][$roleKey] = [];
+                            }
+                            if (!isset($bucket[$tid][$roleKey][$code])) {
+                                $bucket[$tid][$roleKey][$code] = 0.0;
+                            }
+                            $bucket[$tid][$roleKey][$code] += $amt;
+                        }
+                    }
+                }
+
+                if (empty($bucket)) {
+                    jsonResponse(false, 'No due data found for selected account(s)', null);
+                    exit;
+                }
+
+                $has_currency_id = tableHasColumnDomain($pdo, 'transactions', 'currency_id');
+                $has_approval_status = tableHasColumnDomain($pdo, 'transactions', 'approval_status');
+                $has_approved_at = tableHasColumnDomain($pdo, 'transactions', 'approved_at');
+                $has_approved_by_owner = tableHasColumnDomain($pdo, 'transactions', 'approved_by_owner');
+                $has_created_by_owner = tableHasColumnDomain($pdo, 'transactions', 'created_by_owner');
+
+                $createdByUser = (int) ($_SESSION['user_id'] ?? 0);
+                $createdByOwner = (int) ($_SESSION['owner_id'] ?? 0);
+                $nowDate = date('Y-m-d');
+                $nowTs = date('Y-m-d H:i:s');
+
+                $createdCount = 0;
+                $pdo->beginTransaction();
+                try {
+                    foreach ($bucket as $targetId => $rolesMap) {
+                        foreach ($rolesMap as $roleKey => $companyAmounts) {
+                            // keep one transaction per role per company:
+                            // if same account has SALES + CS, they become separate transactions.
+                            foreach ($companyAmounts as $companyCode => $amount) {
+                                $companyPk = resolveCompanyPkByCode($pdo, (string) $companyCode);
+                                if (!$companyPk) {
+                                    continue;
+                                }
+                                $txn = [
+                                    'company_id' => $companyPk,
+                                    'transaction_type' => 'WIN',
+                                    'transaction_date' => $nowDate,
+                                    'account_id' => (int) $targetId,
+                                    'amount' => round((float) $amount, 2),
+                                    'description' => 'Domain Accounting Due: ' . $roleKey,
+                                    'created_by' => $createdByUser > 0 ? $createdByUser : null,
+                                ];
+                                if ($has_created_by_owner) {
+                                    $txn['created_by_owner'] = $createdByOwner > 0 ? $createdByOwner : null;
+                                }
+                                if ($has_currency_id) {
+                                    $currencyId = getAnyCurrencyIdForCompany($pdo, $companyPk);
+                                    if ($currencyId) {
+                                        $txn['currency_id'] = $currencyId;
+                                    }
+                                }
+                                if ($has_approval_status) {
+                                    $txn['approval_status'] = 'APPROVED';
+                                    if ($has_approved_at) {
+                                        $txn['approved_at'] = $nowTs;
+                                    }
+                                    if ($has_approved_by_owner) {
+                                        $txn['approved_by_owner'] = $createdByOwner > 0 ? $createdByOwner : null;
+                                    }
+                                }
+                                insertTransactionRowDomain($pdo, $txn);
+                                $createdCount++;
+                            }
+                        }
+                    }
+                    $pdo->commit();
+                } catch (Exception $inner) {
+                    $pdo->rollBack();
+                    throw $inner;
+                }
+
+                jsonResponse(true, 'Posted successfully', [
+                    'created_count' => $createdCount
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
