@@ -213,6 +213,7 @@ h1 {
     width: 100%;
     border-collapse: collapse;
     font-size: clamp(10px, 0.83vw, 14px);
+    table-layout: fixed;
 }
 
 .domain-accounting-due-table thead th {
@@ -241,6 +242,9 @@ h1 {
 .domain-accounting-due-account {
     font-weight: 700;
     color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .domain-accounting-due-companies {
@@ -251,6 +255,9 @@ h1 {
 .domain-accounting-due-breakdown {
     color: #334155;
     line-height: 1.45;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .domain-accounting-due-actions {
