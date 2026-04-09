@@ -9,13 +9,18 @@
        1. Base Typography & Hierarchy
        ---------------------------------------------------- */
     /* Page title hierarchy - Must be the most obvious element */
-    h1, .account-page-title, .transaction-title, .datacapture-title, .page-title {
+    h1,
+    .account-page-title,
+    .transaction-title,
+    .datacapture-title,
+    .page-title {
         font-size: 32px !important;
         margin-bottom: 20px !important;
     }
 
     /* Container / Margins - 保留左侧 sidebar 的空间 */
-    .container, .transaction-container {
+    .container,
+    .transaction-container {
         padding-right: clamp(16px, 2.5vw, 40px) !important;
     }
 
@@ -23,36 +28,59 @@
        2. Controls & Interactions (Buttons, Inputs, Checkboxes)
        ---------------------------------------------------- */
     /* Make them easy to click and identify */
-    .btn, .btn-add, .btn-delete, .btn-save, .btn-cancel, .btn-secondary, .btn-account-control, .btn-clearall,
-    .account-btn, .transaction-submit-btn, .transaction-search-btn {
-        font-size: 14px !important;
-        padding: 8px 18px !important;
+    .btn,
+    .btn-add,
+    .btn-delete,
+    .btn-save,
+    .btn-cancel,
+    .btn-secondary,
+    .btn-account-control,
+    .btn-clearall,
+    .account-btn,
+    .transaction-submit-btn,
+    .transaction-search-btn {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
         height: auto !important;
     }
-    
-    .account-company-btn, .transaction-company-btn {
+
+    .account-company-btn,
+    .transaction-company-btn {
         font-size: 13px !important;
         padding: 6px 14px !important;
     }
 
-    input:not([type="checkbox"]):not([type="radio"]), select, textarea,
-    .search-input, .account-search-input, .transaction-input, .transaction-select,
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea,
+    .search-input,
+    .account-search-input,
+    .transaction-input,
+    .transaction-select,
     .custom-select-button {
-        font-size: 14px !important;
+        font-size: 11px !important;
         padding-top: 8px !important;
         padding-bottom: 8px !important;
     }
-    
-    .search-input, .account-search-input, #searchInput {
-        padding-left: 32px !important; /* Prevent text from overlapping the magnifying glass icon */
-        width: 100% !important; /* Ensure enough width for "Search by Account or Name" */
+
+    .search-input,
+    .account-search-input,
+    #searchInput {
+        padding-left: 32px !important;
+        /* Prevent text from overlapping the magnifying glass icon */
+        width: 100% !important;
+        /* Ensure enough width for "Search by Account or Name" */
         max-width: 250px !important;
     }
 
     /* Checkboxes and Labels */
-    label, .account-checkbox-section label, .checkbox-section label, .transaction-label {
+    label,
+    .account-checkbox-section label,
+    .checkbox-section label,
+    .transaction-label {
         font-size: 14px !important;
     }
+
     input[type="checkbox"] {
         width: 16px !important;
         height: 16px !important;
@@ -61,17 +89,26 @@
     /* ----------------------------------------------------
        3. Table Headers (Div-based & native tables)
        ---------------------------------------------------- */
-    .table-header, .account-table-header, .transaction-table-header, .contract-table-header, .datacapture-table-header, .member-table-header {
+    .table-header,
+    .account-table-header,
+    .transaction-table-header,
+    .contract-table-header,
+    .datacapture-table-header,
+    .member-table-header {
         font-size: 14px !important;
         padding-top: 12px !important;
         padding-bottom: 12px !important;
     }
-    .table-header .header-item, .account-table-header .header-item {
+
+    .table-header .header-item,
+    .account-table-header .header-item {
         padding: 0 10px !important;
     }
 
     /* For native tables th */
-    table th, .transaction-table th, .datacapture-table th {
+    table th,
+    .transaction-table th,
+    .datacapture-table th {
         font-size: 14px !important;
         padding: 10px 14px !important;
     }
@@ -80,23 +117,32 @@
        4. Table Rows & Data (Smart Density)
        ---------------------------------------------------- */
     /* Div-based Rows (Cards) */
-    .user-card, .account-card, .contract-card, .member-card {
+    .user-card,
+    .account-card,
+    .contract-card,
+    .member-card {
         padding: 10px 22px !important;
         min-height: 52px !important;
     }
-    
-    .card-item, .account-card-item, .contract-card-item, .member-card-item {
+
+    .card-item,
+    .account-card-item,
+    .contract-card-item,
+    .member-card-item {
         font-size: 14px !important;
         line-height: 1.5 !important;
         letter-spacing: 0.015em !important;
     }
 
     /* Native Table Rows */
-    .transaction-table td, .datacapture-table td, table td {
+    .transaction-table td,
+    .datacapture-table td,
+    table td {
         font-size: 14px !important;
         padding: 10px 14px !important;
         line-height: 1.5 !important;
     }
+
     .transaction-table-row {
         min-height: 52px !important;
     }
@@ -104,14 +150,20 @@
     /* ----------------------------------------------------
        5. Status & Role Badges (Visual Cues)
        ---------------------------------------------------- */
-    .role-badge, .account-role-badge, .contract-badge, .status-badge, .member-badge,
+    .role-badge,
+    .account-role-badge,
+    .contract-badge,
+    .status-badge,
+    .member-badge,
     span.account-role-badge {
-        font-size: 12px !important;
+        font-size: 10px !important; /* Set slightly smaller but perfectly legible, overriding the user's 9px edit */
         padding: 4px 10px !important;
         width: auto !important;
         min-width: max-content !important;
         white-space: nowrap !important;
         display: inline-flex !important;
+        justify-content: center !important;
+        align-items: center !important;
         box-sizing: border-box !important;
         line-height: 1 !important;
     }
@@ -119,11 +171,15 @@
     /* ----------------------------------------------------
        6. Edit Action Buttons Sizing
        ---------------------------------------------------- */
-    .btn-edit svg, .btn-edit img, 
-    .account-edit-btn svg, .account-edit-btn img, 
-    .contract-edit-btn svg, .contract-edit-btn img,
-    .member-edit-btn svg, .member-edit-btn img {
-        width: 18px !important; 
+    .btn-edit svg,
+    .btn-edit img,
+    .account-edit-btn svg,
+    .account-edit-btn img,
+    .contract-edit-btn svg,
+    .contract-edit-btn img,
+    .member-edit-btn svg,
+    .member-edit-btn img {
+        width: 18px !important;
         height: 18px !important;
     }
 }
@@ -132,7 +188,10 @@
    Global Hover UI Polish (Applies to all screens for better UX)
    - Improves eye-tracking and highlights the specific row clearly.
    ========================================================================== */
-.user-card:hover, .account-card:hover, .contract-card:hover, .member-card:hover {
+.user-card:hover,
+.account-card:hover,
+.contract-card:hover,
+.member-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
     transform: translateY(-1px) !important;
     background-color: #ebf5ff !important;
@@ -142,7 +201,8 @@
 }
 
 /* For native table rows */
-.transaction-table tbody tr:hover td, .datacapture-table tbody tr:hover td {
+.transaction-table tbody tr:hover td,
+.datacapture-table tbody tr:hover td {
     background-color: #ebf5ff !important;
     transition: background-color 0.15s ease;
 }
@@ -156,25 +216,34 @@
     width: 6px;
     height: 6px;
 }
+
 ::-webkit-scrollbar-track {
     background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.4);
     border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.7);
 }
 
 /* 2. Modal/Dialog Smart Overflow for 13-inch Screens */
 @media screen and (max-height: 800px) {
-    .modal-content, .transaction-modal-content, .notification-popup {
+
+    .modal-content,
+    .transaction-modal-content,
+    .notification-popup {
         max-height: 90vh !important;
         display: flex;
         flex-direction: column;
     }
-    .modal-body, .transaction-modal-body, .form-container {
+
+    .modal-body,
+    .transaction-modal-body,
+    .form-container {
         overflow-y: auto;
         padding-bottom: 20px !important;
     }
@@ -186,18 +255,25 @@ input[type="checkbox"] {
     cursor: pointer;
     transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 input[type="checkbox"]:active {
     transform: scale(0.85);
 }
 
 /* Buttons click effect */
-.btn:active, .transaction-search-btn:active, .transaction-submit-btn:active, button:not(.fc-button):active {
+.btn:active,
+.transaction-search-btn:active,
+.transaction-submit-btn:active,
+button:not(.fc-button):active {
     transform: translateY(1px) scale(0.98) !important;
     transition: all 0.1s;
 }
 
 /* Better glowing focus ring for inputs */
-input:focus, select:focus, textarea:focus, .search-input:focus {
+input:focus,
+select:focus,
+textarea:focus,
+.search-input:focus {
     box-shadow: 0 0 0 3px rgba(15, 97, 255, 0.15) !important;
     border-color: #0F61FF !important;
     transition: all 0.2s ease-in-out;
@@ -218,12 +294,17 @@ html {
         opacity: 0;
         transform: translateY(12px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
-.container, .transaction-container, .modal-content, .datacapture-container {
+
+.container,
+.transaction-container,
+.modal-content,
+.datacapture-container {
     animation: premiumEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -235,11 +316,14 @@ html {
 }
 
 /* 6. Glowing Action Buttons on Hover */
-.btn-save:hover, .btn-add:hover, .transaction-submit-btn:hover {
+.btn-save:hover,
+.btn-add:hover,
+.transaction-submit-btn:hover {
     box-shadow: 0 0 15px rgba(15, 97, 255, 0.4) !important;
     -webkit-filter: brightness(1.05);
     filter: brightness(1.05);
 }
+
 .btn-delete:hover {
     box-shadow: 0 0 15px rgba(220, 53, 69, 0.3) !important;
     -webkit-filter: brightness(1.05);
@@ -248,16 +332,18 @@ html {
 
 /* 7. Chrome Autofill Premium Override (Removes the ugly yellow background) */
 input:-webkit-autofill,
-input:-webkit-autofill:hover, 
-input:-webkit-autofill:focus, 
-input:-webkit-autofill:active{
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
     -webkit-box-shadow: 0 0 0 30px white inset !important;
     -webkit-text-fill-color: #333 !important;
     transition: background-color 5000s ease-in-out 0s;
 }
 
 /* 8. Table Headers Sticky Drop-Shadow for 13-inch scrolling */
-.table-header, .account-table-header, .datacapture-table-header {
+.table-header,
+.account-table-header,
+.datacapture-table-header {
     position: sticky !important;
     top: 0;
     z-index: 10;
@@ -266,7 +352,11 @@ input:-webkit-autofill:active{
 
 /* 9. Smart Text Truncation for Responsive Data Rows */
 /* Prevents long unspaced text (like emails or hashes) from blowing out the table width */
-td, .card-item, .account-card-item, .contract-card-item, .member-card-item {
+td,
+.card-item,
+.account-card-item,
+.contract-card-item,
+.member-card-item {
     word-break: break-word;
     overflow-wrap: anywhere;
 }
@@ -280,32 +370,45 @@ textarea {
    Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
    ========================================================================== */
 /* 1. Unlock the main bounding containers so they stretch infinitely downwards */
-html, body.user-page, body.account-page, body.transaction-page, body.datacapture-page, body.dashboard-page, body {
+html,
+body.user-page,
+body.account-page,
+body.transaction-page,
+body.datacapture-page,
+body.dashboard-page,
+body {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow: auto !important; /* Force native scrollbars to definitely appear */
+    overflow: auto !important;
+    /* Force native scrollbars to definitely appear */
 }
 
-.container, .content, .transaction-container, .datacapture-container, .dashboard-container {
+.container,
+.content,
+.transaction-container,
+.datacapture-container,
+.dashboard-container {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow: auto !important; /* Ensure the container itself can scroll if body fails */
-    padding-bottom: 100px !important; /* Absolute guarantee we never cut off the bottom element */
+    overflow: auto !important;
+    /* Ensure the container itself can scroll if body fails */
+    padding-bottom: 100px !important;
+    /* Absolute guarantee we never cut off the bottom element */
 }
 
 /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
-.table-container, 
-.account-cards, 
+.table-container,
+.account-cards,
 .dashboard-content,
 .transaction-main-content,
-.transaction-table-wrapper, 
+.transaction-table-wrapper,
 .datacapture-table-wrapper {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    overflow: visible !important; 
+    overflow: visible !important;
     /* This forces the data to completely render out, triggering the global browser scrollbar */
 }
 
