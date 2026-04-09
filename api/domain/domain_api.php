@@ -219,8 +219,7 @@ function getC168CompanyPk(PDO $pdo): ?int {
 }
 
 /**
- * Share % 下拉数据：全部 Admin 用户 + 仅绑定 C168 公司的 Account（与 Sales/CS/IT 角色名无关）。
- * Admin 使用负数 id（-user.id），Account 使用正数 account.id。
+ * Share % 下拉数据：仅绑定 C168 公司的 Account，且 account.role 只能是 staff/agent。
  */
 function fetchFeeSharePickerAccounts(PDO $pdo): array {
     $rows = [];
@@ -231,6 +230,7 @@ function fetchFeeSharePickerAccounts(PDO $pdo): array {
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
+              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
             ORDER BY a.account_id ASC
         ");
         $accStmt->execute([$c168Pk]);
@@ -242,75 +242,42 @@ function fetchFeeSharePickerAccounts(PDO $pdo): array {
                 'entry_type' => 'account',
             ];
         }
-        $admStmt = $pdo->prepare("
-            SELECT DISTINCT u.id, u.login_id, u.name
-            FROM user u
-            INNER JOIN user_company_map ucm ON ucm.user_id = u.id
-            WHERE ucm.company_id = ?
-              AND LOWER(TRIM(u.role)) = 'admin'
-              AND (u.status IS NULL OR LOWER(TRIM(u.status)) = 'active')
-            ORDER BY u.login_id ASC
-        ");
-        $admStmt->execute([$c168Pk]);
-        foreach ($admStmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
-            $rows[] = [
-                'id' => -(int) $u['id'],
-                'account_id' => $u['login_id'],
-                'name' => $u['name'],
-                'entry_type' => 'admin',
-            ];
-        }
     }
     return $rows;
 }
 
-/** 校验：正数 account_id 须属于 C168；负数须为有效 Admin 的 user.id */
+/** 校验：仅允许 C168 公司的 account，且 role 必须是 staff/agent */
 function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     $uniqueIds = collectUniqueAccountIdsFromFeeShare($normalized);
     if (empty($uniqueIds)) {
         return true;
     }
     $accountIds = [];
-    $adminUserIds = [];
     foreach ($uniqueIds as $id) {
         $id = (int) $id;
-        if ($id < 0) {
-            $adminUserIds[] = abs($id);
-        } elseif ($id > 0) {
-            $accountIds[] = $id;
+        if ($id <= 0) {
+            return false;
         }
+        $accountIds[] = $id;
     }
     $accountIds = array_values(array_unique($accountIds));
-    $adminUserIds = array_values(array_unique($adminUserIds));
     $c168Pk = getC168CompanyPk($pdo);
     if (!empty($accountIds)) {
         if (!$c168Pk) {
             return false;
         }
         $placeholders = buildInPlaceholders(count($accountIds));
-        $sql = "SELECT COUNT(DISTINCT ac.account_id) FROM account_company ac WHERE ac.company_id = ? AND ac.account_id IN ($placeholders)";
+        $sql = "
+            SELECT COUNT(DISTINCT a.id)
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND a.id IN ($placeholders)
+              AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
+        ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute(array_merge([$c168Pk], $accountIds));
         if ((int) $stmt->fetchColumn() !== count($accountIds)) {
-            return false;
-        }
-    }
-    if (!empty($adminUserIds)) {
-        $placeholders = buildInPlaceholders(count($adminUserIds));
-        if (!$c168Pk) {
-            return false;
-        }
-        $sql = "
-            SELECT COUNT(DISTINCT u.id)
-            FROM user u
-            INNER JOIN user_company_map ucm ON ucm.user_id = u.id
-            WHERE u.id IN ($placeholders)
-              AND LOWER(TRIM(u.role)) = 'admin'
-              AND ucm.company_id = ?
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(array_merge($adminUserIds, [$c168Pk]));
-        if ((int) $stmt->fetchColumn() !== count($adminUserIds)) {
             return false;
         }
     }
@@ -1242,7 +1209,7 @@ try {
                 }
                 $saveCompanyPk = (int) $saveRow['id'];
                 if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized)) {
-                    jsonResponse(false, 'Each entry must be a C168 account or an Admin user.', null);
+                    jsonResponse(false, 'Each entry must be a C168 account with role staff or agent.', null);
                     exit;
                 }
                 $saveJson = feeShareAllocationsToJson($saveNormalized);
