@@ -340,6 +340,7 @@ function createDomainShareCommissionPayments(
         'created_count' => 0,
         'skipped_admin_count' => 0,
         'skipped_invalid_account_count' => 0,
+        'skipped_no_from_account_count' => 0,
     ];
 
     $feePrice = getDomainFeePrice($pdo);
@@ -362,6 +363,45 @@ function createDomainShareCommissionPayments(
     $now = date('Y-m-d H:i:s');
     $description = 'Commision FROM ' . strtoupper($sourceCompanyCode);
     $smsMarker = '[DOMAIN_SHARE_COMMISSION]';
+
+    // 仅 Share% 自动入账使用：内部解析 From Account，满足 DB 对 PAYMENT 的约束
+    $resolveFromAccountId = function (int $toAccountId) use ($pdo, $c168Pk): ?int {
+        // 优先 PROFIT
+        $stmtProfit = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND UPPER(TRIM(a.account_id)) = 'PROFIT'
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            ORDER BY a.id ASC
+            LIMIT 1
+        ");
+        $stmtProfit->execute([$c168Pk, $toAccountId]);
+        $profitId = $stmtProfit->fetchColumn();
+        if ($profitId !== false && $profitId !== null) {
+            return (int) $profitId;
+        }
+
+        // 其次任意一个 active account（非本身）
+        $stmtAny = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            ORDER BY a.account_id ASC, a.id ASC
+            LIMIT 1
+        ");
+        $stmtAny->execute([$c168Pk, $toAccountId]);
+        $anyId = $stmtAny->fetchColumn();
+        if ($anyId === false || $anyId === null) {
+            return null;
+        }
+        return (int) $anyId;
+    };
 
     foreach (['sales', 'cs', 'it'] as $role) {
         $rows = $normalizedAllocations[$role] ?? [];
@@ -409,6 +449,13 @@ function createDomainShareCommissionPayments(
                 'created_by' => $createdByUser,
                 'created_by_owner' => $createdByOwner,
             ];
+
+            $fromAccountId = $resolveFromAccountId($aid);
+            if (!$fromAccountId || $fromAccountId === $aid) {
+                $result['skipped_no_from_account_count']++;
+                continue;
+            }
+            $insertCols['from_account_id'] = $fromAccountId;
             if ($hasCurrencyId) {
                 $insertCols['currency_id'] = null;
             }
@@ -1235,6 +1282,7 @@ try {
                     'commission_payment_created' => $commissionResult['created_count'],
                     'commission_skipped_admin' => $commissionResult['skipped_admin_count'],
                     'commission_skipped_invalid_account' => $commissionResult['skipped_invalid_account_count'],
+                    'commission_skipped_no_from_account' => $commissionResult['skipped_no_from_account_count'],
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
