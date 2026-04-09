@@ -671,7 +671,7 @@ function readFeeShareFromModalDom() {
         if (!tb) {
             return;
         }
-        tb.querySelectorAll('tr').forEach(function (tr) {
+        tb.querySelectorAll('.company-share-data-row').forEach(function (tr) {
             var sEl = tr.querySelector('.share-account-select');
             var pEl = tr.querySelector('.share-pct-input');
             var aid = sEl ? parseInt(sEl.value, 10) : 0;
@@ -691,6 +691,7 @@ function syncFeeShareFromDomToCompany(company) {
 
 function updateCompanyShareTotals() {
     var out = readFeeShareFromModalDom();
+    var grand = 0;
     [['sales', 'shareTotalSales'], ['cs', 'shareTotalCs'], ['it', 'shareTotalIt']].forEach(function (pair) {
         var role = pair[0];
         var tid = pair[1];
@@ -702,9 +703,18 @@ function updateCompanyShareTotals() {
         (out[role] || []).forEach(function (r) {
             t += parseFloat(r.percentage) || 0;
         });
-        el.textContent = 'Total: ' + t.toFixed(2) + '%';
-        el.style.color = t > 100 ? '#dc2626' : '#475569';
+        grand += t;
+        el.textContent = t.toFixed(2) + '%';
+        el.classList.toggle('company-share-card-sum--over', t > 100);
     });
+    var grandEl = document.getElementById('shareGrandTotal');
+    var grandBar = document.getElementById('shareGrandTotalBar');
+    if (grandEl) {
+        grandEl.textContent = grand.toFixed(2) + '%';
+    }
+    if (grandBar) {
+        grandBar.classList.toggle('company-share-grand-total--over', grand > 100);
+    }
 }
 
 function renderCompanySharePanel() {
@@ -724,16 +734,24 @@ function renderCompanySharePanel() {
         }
         tbody.innerHTML = '';
         company.fee_share_allocations[role].forEach(function (row, idx) {
-            var tr = document.createElement('tr');
+            var tr = document.createElement('div');
+            tr.className = 'company-share-data-row';
+            tr.setAttribute('role', 'listitem');
             var pctVal = row.percentage !== undefined && row.percentage !== null && row.percentage !== ''
                 ? row.percentage
                 : '';
-            tr.innerHTML = '<td><select class="share-account-select form-group input">' +
+            tr.innerHTML = '<div class="company-share-cell company-share-cell-account">' +
+                '<select class="share-account-select company-share-select" aria-label="Account">' +
                 buildShareAccountOptionsHtml(row.account_id) +
-                '</select></td>' +
-                '<td><input type="number" class="share-pct-input form-group input" step="0.01" min="0" max="100" value="' +
-                (pctVal !== '' ? escapeHtmlShare(String(pctVal)) : '') + '" placeholder="0" /></td>' +
-                '<td><button type="button" class="company-share-remove-btn" data-share-role="' + role + '" data-share-idx="' + idx + '" aria-label="Remove">&times;</button></td>';
+                '</select></div>' +
+                '<div class="company-share-cell company-share-cell-pct">' +
+                '<div class="company-share-pct-wrap">' +
+                '<input type="number" class="share-pct-input company-share-pct-input" step="0.01" min="0" max="100" value="' +
+                (pctVal !== '' ? escapeHtmlShare(String(pctVal)) : '') + '" placeholder="0" inputmode="decimal" aria-label="Percentage" />' +
+                '<span class="company-share-pct-suffix">%</span></div></div>' +
+                '<div class="company-share-cell company-share-cell-remove">' +
+                '<button type="button" class="company-share-remove-btn" data-share-role="' + role + '" data-share-idx="' + idx + '" title="Remove row" aria-label="Remove row">' +
+                '<span aria-hidden="true">&times;</span></button></div>';
             tbody.appendChild(tr);
             tr.querySelector('.company-share-remove-btn').addEventListener('click', function () {
                 removeCompanyShareRow(this.getAttribute('data-share-role'), parseInt(this.getAttribute('data-share-idx'), 10));
@@ -743,6 +761,10 @@ function renderCompanySharePanel() {
             el.addEventListener('change', updateCompanyShareTotals);
             el.addEventListener('input', updateCompanyShareTotals);
         });
+        var card = tbody.closest('.company-share-role-card');
+        if (card) {
+            card.classList.toggle('company-share-role-card--empty', tbody.children.length === 0);
+        }
     });
     var hint = document.getElementById('companyShareNoAccountsHint');
     if (hint) {
