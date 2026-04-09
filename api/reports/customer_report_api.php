@@ -5,6 +5,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
 session_start();
 
 function resolveCompanyId(PDO $pdo): int {
@@ -199,6 +200,10 @@ function jsonResponse(bool $success, string $message, $data = null, array $extra
 
 try {
     $companyId = resolveCompanyId($pdo);
+
+    if (!checkCompanyCategoryPermission($pdo, $companyId, 'Games')) {
+        throw new Exception('Unauthorized permission category');
+    }
 
     $dateFrom = trim($_GET['date_from'] ?? '');
     $dateTo = trim($_GET['date_to'] ?? '');

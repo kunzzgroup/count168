@@ -1,9 +1,16 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once 'permissions.php';
 
 // 获取 company_id（session_check.php已确保用户已登录）
 $company_id = $_SESSION['company_id'];
+
+if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+    header('Location: index.php?error=unauthorized_category');
+    exit;
+}
+
 $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
 $isOwner = ($userRole === 'owner');
 ?>
