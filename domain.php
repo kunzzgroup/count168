@@ -250,7 +250,6 @@ try {
                 </div>
             </div>
             <div class="modal-body domain-accounting-due-modal-body">
-                <div class="domain-accounting-due-summary" id="domainAccountingDueSummary" aria-live="polite"></div>
                 <div class="domain-accounting-due-table-wrap">
                     <table class="domain-accounting-due-table domain-accounting-inbox-table">
                         <thead>

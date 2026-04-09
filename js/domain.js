@@ -1482,21 +1482,7 @@ function closeDomainAccountingDueModal() {
 }
 
 function buildDomainAccountingDueSummary(res) {
-    const el = document.getElementById('domainAccountingDueSummary');
-    if (!el) return;
-    if (!res || !res.success || !res.data) {
-        el.textContent = '';
-        return;
-    }
-    const d = res.data;
-    const price = d.fee_settings ? d.fee_settings.price : null;
-    const maint = d.fee_settings ? d.fee_settings.maintenance_fee : null;
-    const base = d.base_amount;
-    const companyCount = d.company_count;
-    el.innerHTML =
-        'Base fee per company: <strong>' + escapeHtmlLite(formatMoney2(base)) + '</strong> ' +
-        '(Price ' + escapeHtmlLite(formatMoney2(price)) + ' + Maint ' + escapeHtmlLite(formatMoney2(maint)) + ')' +
-        ' · Companies counted: <strong>' + escapeHtmlLite(companyCount) + '</strong>';
+    // Intentionally removed from Domain Accounting Due UI (kept for backward compatibility).
 }
 
 function renderDomainAccountingDueRows(items) {
@@ -1622,18 +1608,15 @@ function refreshDomainAccountingDue() {
         .then(res => {
             __domainAccountingDueCache = res;
             if (!res || !res.success) {
-                buildDomainAccountingDueSummary(null);
                 renderDomainAccountingDueRows([]);
                 if (res && res.message) {
                     showAlert(res.message, 'danger');
                 }
                 return;
             }
-            buildDomainAccountingDueSummary(res);
             renderDomainAccountingDueRows((res.data && res.data.items) ? res.data.items : []);
         })
         .catch(() => {
-            buildDomainAccountingDueSummary(null);
             renderDomainAccountingDueRows([]);
             showAlert('Could not load Accounting Due', 'danger');
         });
