@@ -170,7 +170,8 @@ function normalizeFeeShareAllocationsInput($raw): array {
             }
             $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
             $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
-            if ($aid > 0 && $pct >= 0) {
+            // 正数 = account.id（须为 C168 旗下 Account）；负数 = -user.id（Admin 用户）
+            if ($aid !== 0 && $pct >= 0) {
                 $out[$role][] = [
                     'account_id' => $aid,
                     'percentage' => round($pct, 4),
@@ -196,24 +197,114 @@ function collectUniqueAccountIdsFromFeeShare(array $normalized): array {
     $ids = [];
     foreach (['sales', 'cs', 'it'] as $role) {
         foreach ($normalized[$role] as $row) {
-            if (!empty($row['account_id'])) {
-                $ids[] = (int) $row['account_id'];
+            if (!array_key_exists('account_id', $row)) {
+                continue;
+            }
+            $aid = (int) $row['account_id'];
+            if ($aid !== 0) {
+                $ids[] = $aid;
             }
         }
     }
-    return array_values(array_unique(array_filter($ids)));
+    return array_values(array_unique($ids));
 }
 
-function feeShareAccountsValidForCompany(PDO $pdo, int $companyPk, array $normalized): bool {
+function getC168CompanyPk(PDO $pdo): ?int {
+    $stmt = $pdo->prepare("SELECT id FROM company WHERE UPPER(TRIM(company_id)) = 'C168' LIMIT 1");
+    $stmt->execute();
+    $v = $stmt->fetchColumn();
+    if ($v === false || $v === null || $v === '') {
+        return null;
+    }
+    return (int) $v;
+}
+
+/**
+ * Share % 下拉数据：全部 Admin 用户 + 仅绑定 C168 公司的 Account（与 Sales/CS/IT 角色名无关）。
+ * Admin 使用负数 id（-user.id），Account 使用正数 account.id。
+ */
+function fetchFeeSharePickerAccounts(PDO $pdo): array {
+    $rows = [];
+    $c168Pk = getC168CompanyPk($pdo);
+    if ($c168Pk) {
+        $accStmt = $pdo->prepare("
+            SELECT DISTINCT a.id, a.account_id, a.name
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+            ORDER BY a.account_id ASC
+        ");
+        $accStmt->execute([$c168Pk]);
+        foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $rows[] = [
+                'id' => (int) $r['id'],
+                'account_id' => $r['account_id'],
+                'name' => $r['name'],
+                'entry_type' => 'account',
+            ];
+        }
+    }
+    $admStmt = $pdo->query("
+        SELECT id, login_id, name
+        FROM user
+        WHERE LOWER(TRIM(role)) = 'admin'
+          AND (status IS NULL OR LOWER(TRIM(status)) = 'active')
+        ORDER BY login_id ASC
+    ");
+    if ($admStmt) {
+        foreach ($admStmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
+            $rows[] = [
+                'id' => -(int) $u['id'],
+                'account_id' => $u['login_id'],
+                'name' => $u['name'],
+                'entry_type' => 'admin',
+            ];
+        }
+    }
+    return $rows;
+}
+
+/** 校验：正数 account_id 须属于 C168；负数须为有效 Admin 的 user.id */
+function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     $uniqueIds = collectUniqueAccountIdsFromFeeShare($normalized);
     if (empty($uniqueIds)) {
         return true;
     }
-    $placeholders = buildInPlaceholders(count($uniqueIds));
-    $sql = "SELECT COUNT(DISTINCT ac.account_id) FROM account_company ac WHERE ac.company_id = ? AND ac.account_id IN ($placeholders)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge([$companyPk], $uniqueIds));
-    return (int) $stmt->fetchColumn() === count($uniqueIds);
+    $accountIds = [];
+    $adminUserIds = [];
+    foreach ($uniqueIds as $id) {
+        $id = (int) $id;
+        if ($id < 0) {
+            $adminUserIds[] = abs($id);
+        } elseif ($id > 0) {
+            $accountIds[] = $id;
+        }
+    }
+    $accountIds = array_values(array_unique($accountIds));
+    $adminUserIds = array_values(array_unique($adminUserIds));
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!empty($accountIds)) {
+        if (!$c168Pk) {
+            return false;
+        }
+        $placeholders = buildInPlaceholders(count($accountIds));
+        $sql = "SELECT COUNT(DISTINCT ac.account_id) FROM account_company ac WHERE ac.company_id = ? AND ac.account_id IN ($placeholders)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_merge([$c168Pk], $accountIds));
+        if ((int) $stmt->fetchColumn() !== count($accountIds)) {
+            return false;
+        }
+    }
+    if (!empty($adminUserIds)) {
+        $placeholders = buildInPlaceholders(count($adminUserIds));
+        $sql = "SELECT COUNT(*) FROM user WHERE id IN ($placeholders) AND LOWER(TRIM(role)) = 'admin'";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($adminUserIds);
+        if ((int) $stmt->fetchColumn() !== count($adminUserIds)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function normalizeOptionalDecimal($val) {
@@ -966,21 +1057,12 @@ try {
                 if (!$shareRow) {
                     jsonResponse(true, 'OK', [
                         'allocations' => normalizeFeeShareAllocationsInput(null),
-                        'accounts' => [],
+                        'accounts' => fetchFeeSharePickerAccounts($pdo),
                         'company_exists' => false,
                     ]);
                     break;
                 }
-                $companyPk = (int) $shareRow['id'];
-                $accStmt = $pdo->prepare("
-                    SELECT DISTINCT a.id, a.account_id, a.name
-                    FROM account a
-                    INNER JOIN account_company ac ON ac.account_id = a.id
-                    WHERE ac.company_id = ?
-                    ORDER BY a.account_id ASC
-                ");
-                $accStmt->execute([$companyPk]);
-                $shareAccounts = $accStmt->fetchAll(PDO::FETCH_ASSOC);
+                $shareAccounts = fetchFeeSharePickerAccounts($pdo);
                 jsonResponse(true, 'OK', [
                     'allocations' => normalizeFeeShareAllocationsInput($shareRow['fee_share_allocations'] ?? null),
                     'accounts' => $shareAccounts,
@@ -1012,8 +1094,8 @@ try {
                     exit;
                 }
                 $saveCompanyPk = (int) $saveRow['id'];
-                if (!feeShareAccountsValidForCompany($pdo, $saveCompanyPk, $saveNormalized)) {
-                    jsonResponse(false, 'Each account must belong to this company.', null);
+                if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized)) {
+                    jsonResponse(false, 'Each entry must be a C168 account or an Admin user.', null);
                     exit;
                 }
                 $saveJson = feeShareAllocationsToJson($saveNormalized);

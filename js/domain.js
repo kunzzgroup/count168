@@ -581,7 +581,7 @@ function normalizeFeeShareFromServer(raw) {
                     account_id: parseInt(r.account_id, 10) || 0,
                     percentage: r.percentage != null ? parseFloat(r.percentage) : 0
                 };
-            }).filter(function (r) { return r.account_id > 0; });
+            }).filter(function (r) { return r.account_id !== 0; });
         }
     });
     return d;
@@ -619,11 +619,13 @@ function escapeHtmlShare(str) {
 }
 
 function buildShareAccountOptionsHtml(selectedId) {
-    var sel = selectedId ? String(selectedId) : '';
+    var sel = selectedId !== undefined && selectedId !== null && selectedId !== '' ? String(selectedId) : '';
     var h = '<option value="">— Select —</option>';
     shareModalAccounts.forEach(function (a) {
         var id = String(a.id);
-        var label = (a.account_id || '') + (a.name ? ' · ' + a.name : '');
+        var isAdmin = a.entry_type === 'admin' || parseInt(a.id, 10) < 0;
+        var prefix = isAdmin ? '[Admin] ' : '[C168] ';
+        var label = prefix + (a.account_id || '') + (a.name ? ' · ' + a.name : '');
         h += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + escapeHtmlShare(label) + '</option>';
     });
     return h;
@@ -644,7 +646,7 @@ function readFeeShareFromModalDom() {
             var pEl = tr.querySelector('.share-pct-input');
             var aid = sEl ? parseInt(sEl.value, 10) : 0;
             var pct = pEl && pEl.value !== '' ? parseFloat(pEl.value) : NaN;
-            if (aid > 0 && isFinite(pct)) {
+            if (aid !== 0 && isFinite(pct)) {
                 out[role].push({ account_id: aid, percentage: pct });
             }
         });
@@ -667,7 +669,7 @@ function countShareRoleAssignedAccounts(role) {
     tb.querySelectorAll('.company-share-data-row').forEach(function (tr) {
         var sel = tr.querySelector('.share-account-select');
         var aid = sel ? parseInt(sel.value, 10) : 0;
-        if (aid > 0) {
+        if (aid !== 0) {
             n++;
         }
     });
