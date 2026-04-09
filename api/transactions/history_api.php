@@ -213,30 +213,6 @@ function ensureHistoryRatePrecision(PDO $pdo): void
     }
 }
 
-/**
- * 从 profit_sharing 字符串（如 "D - 500, A - 100"）中解析出指定账户的金额；按 account_id 或 name 匹配
- */
-function getProfitSharingAmountForAccount(?string $profitSharing, string $accountCode, string $accountName): ?float {
-    if ($profitSharing === null || trim($profitSharing) === '') {
-        return null;
-    }
-    $code = trim($accountCode);
-    $name = trim($accountName);
-    foreach (explode(',', $profitSharing) as $part) {
-        $t = trim($part);
-        $dash = strrpos($t, ' - ');
-        if ($dash !== false) {
-            $accountText = trim(substr($t, 0, $dash));
-            $amountStr = trim(substr($t, $dash + 3));
-            $amount = (float) $amountStr;
-            if ($accountText !== '' && (strcasecmp($accountText, $code) === 0 || strcasecmp($accountText, $name) === 0)) {
-                return $amount;
-            }
-        }
-    }
-    return null;
-}
-
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -924,7 +900,7 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（Bank process 入账）：按入账类型显示；Description 金额按当前账户：Supplier 用 Buy Price(cost)，Customer 用 Sell Price(price)，Company 用 Profit，Profit sharing 用对应金额，格式如 Remaining days bill 2000 (MBB)
+        // WIN/LOSE（Bank process 入账）：按入账类型显示；Description 金额用本笔交易实际入账 amount（含首月比例、1+X 加价、inactive 乘数等），与 Win/Loss 一致
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
@@ -938,21 +914,7 @@ try {
             } else {
                 $description = 'Monthly bill';
             }
-            $currentAccountId = (int) $account_ids_int[0];
-            $accountCode = isset($account['account_id']) ? (string) $account['account_id'] : '';
-            $accountName = isset($account['name']) ? (string) $account['name'] : '';
-            if ($isBankProcessTransaction && isset($t['card_merchant_id']) && (int) $t['card_merchant_id'] === $currentAccountId && $t['process_cost'] !== null && $t['process_cost'] !== '') {
-                $amt = (float) $t['process_cost'];
-            } elseif ($isBankProcessTransaction && isset($t['profit_account_id']) && (int) $t['profit_account_id'] === $currentAccountId && $t['process_profit'] !== null && $t['process_profit'] !== '') {
-                $amt = (float) $t['process_profit'];
-            } elseif ($isBankProcessTransaction && isset($t['customer_id']) && (int) $t['customer_id'] === $currentAccountId && $t['process_price'] !== null && $t['process_price'] !== '') {
-                $amt = (float) $t['process_price'];
-            } elseif ($isBankProcessTransaction && !empty($t['process_profit_sharing'])) {
-                $psAmount = getProfitSharingAmountForAccount($t['process_profit_sharing'], $accountCode, $accountName);
-                $amt = $psAmount !== null ? $psAmount : (isset($t['amount']) ? (float) $t['amount'] : 0);
-            } else {
-                $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
-            }
+            $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
             $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
             $description = $description . ' ' . $billAmount;
             if ($isBankProcessTransaction && !empty($t['bank_name'])) {

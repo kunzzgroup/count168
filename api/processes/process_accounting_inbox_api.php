@@ -18,6 +18,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
+require_once __DIR__ . '/contract_billing_addon.php';
 
 /** 统一 JSON 响应 */
 function jsonResponse(bool $success, string $message = '', $data = null): void
@@ -396,6 +397,7 @@ function inboxAppendMonthlyNeedToday(
     float $price,
     float $profit
 ): void {
+    $prorationRatio = null;
     try {
         $createdDt = new DateTimeImmutable($createdYmd);
         if ($monthlyBillingMonth !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $monthlyBillingMonth, $m)) {
@@ -416,6 +418,7 @@ function inboxAppendMonthlyNeedToday(
                     }
                 }
                 if ($dueYmd !== null && $createdYmd > $dueYmd) {
+                    $prorationRatio = ratioRemainingDaysInMonthFromStartYmd($dueYmd);
                     $pr = prorateToMonthEndFromStart($dueYmd, $cost, $price, $profit);
                     $cost = $pr['cost'];
                     $price = $pr['price'];
@@ -426,6 +429,8 @@ function inboxAppendMonthlyNeedToday(
     } catch (Throwable $e) {
         // keep base amounts
     }
+    $origPriceRow = (float) ($r['price'] ?? 0);
+    applyOnePlusXRemainingDaysSellAddon($r['contract'] ?? null, $origPriceRow, $cost, $price, $profit, $prorationRatio);
     $needToday[] = [
         'id' => (int) $r['id'],
         'name' => $r['name'] ?? '',
@@ -694,6 +699,11 @@ try {
                 continue;
             }
             $partial = prorateToMonthEndFromStart($partialStart, $cost, $price, $profit);
+            $pc = $partial['cost'];
+            $pp = $partial['price'];
+            $pf = $partial['profit'];
+            $pRatio = ratioRemainingDaysInMonthFromStartYmd($partialStart);
+            applyOnePlusXRemainingDaysSellAddon($r['contract'] ?? null, (float) ($r['price'] ?? 0), $pc, $pp, $pf, $pRatio);
             $needToday[] = [
                 'id' => $processId,
                 'name' => ($r['name'] ?? '') ?: ($r['bank'] ?? ''),
@@ -701,9 +711,9 @@ try {
                 'country' => $r['country'] ?? '',
                 'day_start' => $dayStart,
                 'contract' => $r['contract'] ?? '',
-                'cost' => $partial['cost'],
-                'price' => $partial['price'],
-                'profit' => $partial['profit'],
+                'cost' => $pc,
+                'price' => $pp,
+                'profit' => $pf,
                 'already_posted_today' => false,
                 'is_partial_first_month' => true,
                 'is_manual_inactive' => false,
@@ -766,6 +776,11 @@ try {
             }
             if ($firstMonthOnFirst) {
                 $pr = prorateToMonthEndFromStart($startDate, $baseCost, $basePrice, $baseProfit);
+                $mc = $pr['cost'];
+                $mp = $pr['price'];
+                $mf = $pr['profit'];
+                $mRatio = ratioRemainingDaysInMonthFromStartYmd($startDate);
+                applyOnePlusXRemainingDaysSellAddon($r['contract'] ?? null, $basePrice, $mc, $mp, $mf, $mRatio);
                 if ($resendMulti) {
                     $queuedMonthlyBillingMonths[] = (string) $monthlyBillingMonth;
                 } else {
@@ -776,9 +791,9 @@ try {
                         'country' => $r['country'] ?? '',
                         'day_start' => $r['day_start'] ?? null,
                         'contract' => $r['contract'] ?? '',
-                        'cost' => $pr['cost'],
-                        'price' => $pr['price'],
-                        'profit' => $pr['profit'],
+                        'cost' => $mc,
+                        'price' => $mp,
+                        'profit' => $mf,
                         'already_posted_today' => false,
                         'is_partial_first_month' => false,
                         'is_manual_inactive' => false,
