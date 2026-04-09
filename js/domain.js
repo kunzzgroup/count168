@@ -1441,240 +1441,6 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshDomainFeeSummaryFromApi();
 });
 
-// ============ Domain Accounting Due ============
-let __domainAccountingDueCache = null;
-let __domainAccountingDueItems = [];
-
-function formatMoney2(val) {
-    const n = Number(val);
-    if (!isFinite(n)) return '0.00';
-    return n.toFixed(2);
-}
-
-function escapeHtmlLite(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/"/g, '&quot;');
-}
-
-function formatPct1(val) {
-    const n = Number(val);
-    if (!isFinite(n)) return '0.0';
-    return n.toFixed(1);
-}
-
-function updateDomainAccountingDueBadges(count) {
-    const c = parseInt(count, 10) || 0;
-    const badge = document.getElementById('domainAccountingDueCount');
-    if (badge) badge.textContent = String(c);
-    const badge2 = document.getElementById('domainAccountingDueCountModal');
-    if (badge2) badge2.textContent = String(c);
-}
-
-function openDomainAccountingDueModal() {
-    const modal = document.getElementById('domainAccountingDueModal');
-    if (!modal) return;
-    modal.style.display = 'block';
-    document.body.style.overflow = 'hidden';
-    refreshDomainAccountingDue();
-}
-
-function closeDomainAccountingDueModal() {
-    const modal = document.getElementById('domainAccountingDueModal');
-    if (modal) modal.style.display = 'none';
-    document.body.style.overflow = '';
-}
-
-function buildDomainAccountingDueSummary(res) {
-    // Intentionally removed from Domain Accounting Due UI (kept for backward compatibility).
-}
-
-function renderDomainAccountingDueRows(items) {
-    const tbody = document.getElementById('domainAccountingDueTbody');
-    if (!tbody) return;
-    if (!Array.isArray(items) || items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No accounting due based on current Price/Maintenance and Share %.</td></tr>';
-        updateDomainAccountingDueBadges(0);
-        updateDomainAccountingInboxButtons();
-        return;
-    }
-    __domainAccountingDueItems = items.slice();
-    updateDomainAccountingDueBadges(items.length);
-    tbody.innerHTML = items.map((row, idx) => {
-        const key = row.item_key ? String(row.item_key) : (row.target_id != null ? String(row.target_id) : ('idx_' + idx));
-        const acct = row.account_label || row.account_id_label || ('#' + row.target_id);
-        const due = formatMoney2(row.due_amount);
-        const companies = Array.isArray(row.companies) ? row.companies.join(', ') : '';
-        const breakdown = Array.isArray(row.breakdown) ? row.breakdown.map(b => {
-            const pct = (b.percentage != null && b.percentage !== '') ? formatPct1(b.percentage) : '0.0';
-            const amt = formatMoney2(b.amount);
-            const role = b.role ? String(b.role).toUpperCase() : '';
-            // Keep breakdown concise: "SALES 10.0% = 241.56" (no company code like "TUE")
-            return '<span class="domain-accounting-breakdown-role">' + escapeHtmlLite(role) + '</span> ' + escapeHtmlLite(pct) + '%';
-        }).join(' · ') : '';
-        return (
-            '<tr data-key="' + escapeHtmlLite(key) + '">' +
-            '<td><input type="checkbox" class="domain-accounting-inbox-row-cb" data-key="' + escapeHtmlLite(key) + '" checked onchange="updateDomainAccountingInboxButtons()"></td>' +
-            '<td>' + (idx + 1) + '</td>' +
-            '<td class="domain-accounting-due-account">' + escapeHtmlLite(acct) + '</td>' +
-            '<td class="domain-accounting-due-companies">' + escapeHtmlLite(companies) + '</td>' +
-            '<td class="domain-accounting-due-breakdown" title="' + escapeHtmlLite((Array.isArray(row.breakdown) ? row.breakdown.map(b => {
-                const pct = (b.percentage != null && b.percentage !== '') ? formatPct1(b.percentage) : '0.0';
-                const role = b.role ? String(b.role).toUpperCase() : '';
-                return role + ' ' + pct + '%';
-            }).join(' · ') : '')) + '">' + (breakdown || '-') + '</td>' +
-            '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + escapeHtmlLite(due) + '</td>' +
-            '<td><input type="checkbox" class="domain-accounting-inbox-delete-cb" data-key="' + escapeHtmlLite(key) + '" onchange="updateDomainAccountingInboxButtons()"></td>' +
-            '</tr>'
-        );
-    }).join('');
-    const selectAll = document.getElementById('domainAccountingInboxSelectAll');
-    const deleteSelectAll = document.getElementById('domainAccountingInboxDeleteSelectAll');
-    if (selectAll && !selectAll.__bound) {
-        selectAll.__bound = true;
-        selectAll.addEventListener('change', function () {
-            const checked = this.checked;
-            const box = document.getElementById('domainAccountingDueTbody');
-            if (box) box.querySelectorAll('.domain-accounting-inbox-row-cb').forEach(cb => { cb.checked = checked; });
-            updateDomainAccountingInboxButtons();
-        });
-    }
-    if (deleteSelectAll && !deleteSelectAll.__bound) {
-        deleteSelectAll.__bound = true;
-        deleteSelectAll.addEventListener('change', function () {
-            const checked = this.checked;
-            const box = document.getElementById('domainAccountingDueTbody');
-            if (box) box.querySelectorAll('.domain-accounting-inbox-delete-cb').forEach(cb => { cb.checked = checked; });
-            updateDomainAccountingInboxButtons();
-        });
-    }
-    updateDomainAccountingInboxButtons();
-}
-
-function updateDomainAccountingInboxButtons() {
-    const tbody = document.getElementById('domainAccountingDueTbody');
-    const postBtn = document.getElementById('domainAccountingInboxPostBtn');
-    const delBtn = document.getElementById('domainAccountingInboxDeleteBtn');
-    const selectAll = document.getElementById('domainAccountingInboxSelectAll');
-    const deleteSelectAll = document.getElementById('domainAccountingInboxDeleteSelectAll');
-    if (!tbody) return;
-
-    const postBoxes = tbody.querySelectorAll('.domain-accounting-inbox-row-cb');
-    const postChecked = tbody.querySelectorAll('.domain-accounting-inbox-row-cb:checked');
-    const delBoxes = tbody.querySelectorAll('.domain-accounting-inbox-delete-cb');
-    const delChecked = tbody.querySelectorAll('.domain-accounting-inbox-delete-cb:checked');
-
-    if (postBtn) postBtn.disabled = postChecked.length === 0;
-    if (delBtn) delBtn.disabled = delChecked.length === 0;
-    if (selectAll) {
-        selectAll.disabled = postBoxes.length === 0;
-        selectAll.checked = postBoxes.length > 0 && postBoxes.length === postChecked.length;
-    }
-    if (deleteSelectAll) {
-        deleteSelectAll.disabled = delBoxes.length === 0;
-        deleteSelectAll.checked = delBoxes.length > 0 && delBoxes.length === delChecked.length;
-    }
-}
-
-function postDomainAccountingInboxSelected() {
-    const tbody = document.getElementById('domainAccountingDueTbody');
-    if (!tbody) return;
-    const checked = Array.from(tbody.querySelectorAll('.domain-accounting-inbox-row-cb:checked'));
-    const selectedEntries = checked.map(cb => {
-        const tr = cb.closest('tr');
-        if (!tr) return null;
-        const key = String(tr.getAttribute('data-key') || '').trim();
-        if (!key) return null;
-        const parts = key.split('|');
-        const targetId = parseInt(parts[0], 10);
-        const role = (parts[1] || '').trim().toUpperCase();
-        if (!Number.isFinite(targetId) || !role) {
-            return null;
-        }
-        return { target_id: targetId, role: role };
-    }).filter(v => v !== null);
-    if (selectedEntries.length <= 0) {
-        showAlert('Please select at least one row', 'danger');
-        return;
-    }
-    const btn = document.getElementById('domainAccountingInboxPostBtn');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Posting...';
-    }
-    fetch('api/domain/domain_api.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'post_domain_accounting_due_transactions',
-            selected_entries: selectedEntries
-        })
-    })
-        .then(r => r.json())
-        .then(res => {
-            if (!res || !res.success) {
-                showAlert((res && res.message) ? res.message : 'Post failed', 'danger');
-                return;
-            }
-            const created = (res.data && res.data.created_count) ? res.data.created_count : 0;
-            showAlert('Posted successfully. Created ' + created + ' transaction(s).');
-            refreshDomainAccountingDue();
-        })
-        .catch(() => {
-            showAlert('Post failed', 'danger');
-        })
-        .finally(() => {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Transaction';
-            }
-            updateDomainAccountingInboxButtons();
-        });
-}
-
-function deleteDomainAccountingInboxSelected() {
-    const tbody = document.getElementById('domainAccountingDueTbody');
-    if (!tbody) return;
-    const checked = Array.from(tbody.querySelectorAll('.domain-accounting-inbox-delete-cb:checked'));
-    if (checked.length <= 0) {
-        showAlert('Please tick rows in Delete column', 'danger');
-        return;
-    }
-    const keySet = new Set(checked.map(cb => String(cb.dataset.key || '')));
-    __domainAccountingDueItems = (__domainAccountingDueItems || []).filter(function (row, idx) {
-        const key = row.item_key ? String(row.item_key) : (row.target_id != null ? String(row.target_id) : ('idx_' + idx));
-        return !keySet.has(key);
-    });
-    renderDomainAccountingDueRows(__domainAccountingDueItems);
-    showAlert('Selected rows removed from current view');
-}
-
-function refreshDomainAccountingDue() {
-    return fetch('api/domain/domain_api.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'get_domain_accounting_due' })
-    })
-        .then(r => r.json())
-        .then(res => {
-            __domainAccountingDueCache = res;
-            if (!res || !res.success) {
-                renderDomainAccountingDueRows([]);
-                if (res && res.message) {
-                    showAlert(res.message, 'danger');
-                }
-                return;
-            }
-            renderDomainAccountingDueRows((res.data && res.data.items) ? res.data.items : []);
-        })
-        .catch(() => {
-            renderDomainAccountingDueRows([]);
-            showAlert('Could not load Accounting Due', 'danger');
-        });
-}
-
 /** 展示用：固定两位小数 */
 function formatDomainFeeDisplay2(val) {
     if (val === null || val === undefined || val === '') {
@@ -1701,17 +1467,15 @@ function formatDomainFeeEdit4(val) {
 
 function buildDomainFeeSummaryHtml2(data) {
     var p2 = formatDomainFeeDisplay2(data.price);
-    var m2 = formatDomainFeeDisplay2(data.maintenance_fee);
-    return 'Display: Price <strong>' + p2 + '</strong> · Maintenance <strong>' + m2 + '</strong>';
+    return 'Display: Price <strong>' + p2 + '</strong>';
 }
 
 function buildDomainFeeInlineSummaryText2(data) {
     var p2 = formatDomainFeeDisplay2(data.price);
-    var m2 = formatDomainFeeDisplay2(data.maintenance_fee);
-    if (p2 === '—' && m2 === '—') {
+    if (p2 === '—') {
         return '';
     }
-    return 'Display: Price ' + p2 + ' · Maint ' + m2;
+    return 'Display: Price ' + p2;
 }
 
 function applyDomainFeeSummaryDisplays(data) {
@@ -1733,12 +1497,8 @@ function applyDomainFeeEditInputs(data) {
         return;
     }
     var p = document.getElementById('domainFeePrice');
-    var m = document.getElementById('domainFeeMaintenance');
     if (p) {
         p.value = formatDomainFeeEdit4(data.price);
-    }
-    if (m) {
-        m.value = formatDomainFeeEdit4(data.maintenance_fee);
     }
 }
 
@@ -1793,16 +1553,13 @@ function closeDomainFeeSettingsModal() {
 
 function saveDomainFeeSettings() {
     var priceEl = document.getElementById('domainFeePrice');
-    var maintEl = document.getElementById('domainFeeMaintenance');
     var price = priceEl ? String(priceEl.value).trim() : '';
-    var maintenance_fee = maintEl ? String(maintEl.value).trim() : '';
     fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             action: 'save_domain_fee_settings',
-            price: price,
-            maintenance_fee: maintenance_fee
+            price: price
         })
     })
         .then(function (r) { return r.json(); })
@@ -2533,10 +2290,6 @@ window.onclick = function(event) {
         closeDomainFeeSettingsModal();
     }
 
-    const domainAccountingDueModal = document.getElementById('domainAccountingDueModal');
-    if (event.target === domainAccountingDueModal) {
-        // keep consistent with ProcessList: only close via X/Close button
-    }
 }
 
 // Hover color now only shows while hovered and resets on mouse leave
