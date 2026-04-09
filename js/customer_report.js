@@ -836,6 +836,19 @@ function renderCurrencyGroupedReports(groupedByCurrency, currencies, totalWin, t
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async function() {
+    let modeCode = typeof window.SIDEBAR_COMPANY_CODE !== 'undefined' ? String(window.SIDEBAR_COMPANY_CODE) : '';
+    if (!modeCode && typeof window.CUSTOMER_REPORT_COMPANY_ID !== 'undefined') {
+        modeCode = String(window.CUSTOMER_REPORT_COMPANY_ID);
+    }
+    if (modeCode) {
+        let rawMode = localStorage.getItem('selectedPermission_' + modeCode);
+        if (rawMode === 'Gambling') rawMode = 'Games';
+        if (rawMode === 'Bank') {
+            window.location.href = 'bank_process_list.php';
+            return;
+        }
+    }
+
     initCustomerReportDateRange();
     await loadOwnerCompanies(); // Load company buttons first (for owner)
     await loadCompanyCurrencies(); // Load currency buttons
