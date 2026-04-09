@@ -46,6 +46,12 @@ if ($current_user_id && count($user_companies) > 0) {
         $company_id = $user_companies[0]['id'];
         // 更新 session（确保登录后默认使用第一个 company）
         $_SESSION['company_id'] = $company_id;
+        
+        // 如果 URL 带有无效的 company_id，重定向以清除参数或修正为合法的 company_id
+        if (isset($_GET['company_id'])) {
+            header("Location: ?company_id=" . $company_id . (isset($_GET['search']) ? "&search=" . urlencode($_GET['search']) : ""));
+            exit();
+        }
     } elseif (isset($_GET['company_id']) && $company_id == (int)$_GET['company_id']) {
         // 如果 URL 中有 company_id 参数且验证通过，更新 session（实现跨页面同步）
         $_SESSION['company_id'] = $company_id;
@@ -291,7 +297,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     <div class="account-card-item">Loading...</div>
                 </div>
             </div>
-            
             <!-- 分页控件 - 浮动在右下角 -->
             <div class="account-pagination-container" id="paginationContainer">
                 <button class="account-pagination-btn" id="prevBtn" onclick="changePage(currentPage - 1)">◀</button>

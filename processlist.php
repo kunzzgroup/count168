@@ -199,6 +199,12 @@ if ($current_user_id && count($user_companies) > 0) {
         $company_id = $user_companies[0]['id'];
         // µ¢┤µû░ session∩╝êτí«Σ┐¥τÖ╗σ╜òσÉÄΘ╗ÿΦ«ñΣ╜┐τö¿τ¼¼Σ╕ÇΣ╕¬ company∩╝ë
         $_SESSION['company_id'] = $company_id;
+
+        // 如果 URL 带有无效的 company_id，重定向以清除参数或修正为合法的 company_id
+        if (isset($_GET['company_id'])) {
+            header("Location: ?company_id=" . $company_id . (isset($_GET['search']) ? "&search=" . urlencode($_GET['search']) : ""));
+            exit();
+        }
     } elseif (isset($_GET['company_id']) && $company_id == (int) $_GET['company_id']) {
         // σªéµ₧£ URL Σ╕¡µ£ë company_id σÅéµò░Σ╕öΘ¬îΦ»üΘÇÜΦ┐ç∩╝îµ¢┤µû░ session∩╝êσ«₧τÄ░Φ╖¿Θí╡Θ¥óσÉîµ¡Ñ∩╝ë
         $_SESSION['company_id'] = $company_id;

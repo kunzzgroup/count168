@@ -142,6 +142,7 @@ function renderTable() {
                         </div>
                     </div>
                 `;
+        renderPagination();
         return;
     }
 
@@ -240,7 +241,7 @@ function renderPagination() {
     document.getElementById('nextBtn').disabled = isNextDisabled;
 
     // 濡傛灉鍙湁涓€椤垫垨娌℃湁鏁版嵁锛岄殣钘忓垎椤垫帶浠?
-    if (totalPages <= 1) {
+    if (accounts.length === 0) {
         paginationContainer.style.display = 'none';
     } else {
         paginationContainer.style.display = 'flex';

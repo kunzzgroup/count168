@@ -359,7 +359,7 @@ function updatePagination() {
     // 如果只有一页或没有数据，隐藏分页控件
     const paginationContainer = document.getElementById('paginationContainer');
 
-    if (totalPages <= 1) {
+    if (filteredRows.length === 0) {
         paginationContainer.style.display = 'none';
     } else {
         paginationContainer.style.display = 'flex';

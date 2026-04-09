@@ -900,6 +900,10 @@ function renderPagination() {
     }
 
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
+    if (totalCount === 0) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
     // 更新分页控件信息
