@@ -694,7 +694,7 @@ h1 {
 
 .company-share-column-labels {
     display: grid;
-    grid-template-columns: 1fr 7.5rem 8.5rem 2.25rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
     gap: 8px;
     align-items: center;
     font-size: clamp(10px, 0.73vw, 12px);
@@ -735,7 +735,7 @@ h1 {
 
 .company-share-data-row {
     display: grid;
-    grid-template-columns: 1fr 7.5rem 8.5rem 2.25rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
     gap: 8px;
     align-items: center;
     padding: 8px 10px;
