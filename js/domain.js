@@ -2204,13 +2204,24 @@ function addDomainCard(domainData) {
     let companiesHTML = '-';
     if (domainData.companies && domainData.companies !== '-') {
         const companyList = domainData.companies.split(', ');
-        companiesHTML = companyList.map((companyId, idx) => {
+        const maxVisible = 3;
+        const visibleItems = companyList.slice(0, maxVisible);
+        const hiddenItems = companyList.slice(maxVisible);
+        
+        let chipsHTML = visibleItems.map((companyId) => {
             const companyIdTrim = companyId.trim();
             const companyInfo = companiesFull.find(c => c.company_id === companyIdTrim);
             const expDate = companyInfo ? companyInfo.expiration_date : null;
             const expAttr = expDate ? ' data-exp="' + expDate + '"' : '';
-            return '<span class="company-badge"' + expAttr + '>' + companyIdTrim + '</span>' + (idx < companyList.length - 1 ? ', ' : '');
+            return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
         }).join('');
+        
+        if (hiddenItems.length > 0) {
+            const hiddenStr = hiddenItems.map(h => h.trim()).join(', ');
+            chipsHTML += `<span class="chip-more company-badge" title="${hiddenStr}">+${hiddenItems.length}</span>`;
+        }
+        
+        companiesHTML = `<div class="chip-group">${chipsHTML}</div>`;
     }
     
     const companiesDataAttr = JSON.stringify(companiesFull);
@@ -2258,13 +2269,24 @@ function updateDomainCard(domainData) {
     if (domainData.companies && domainData.companies !== '-') {
         const companiesFull = domainData.companies_full || [];
         const companyList = domainData.companies.split(', ');
-        companiesHTML = companyList.map((companyId, idx) => {
+        const maxVisible = 3;
+        const visibleItems = companyList.slice(0, maxVisible);
+        const hiddenItems = companyList.slice(maxVisible);
+        
+        let chipsHTML = visibleItems.map((companyId) => {
             const companyIdTrim = companyId.trim();
             const companyInfo = companiesFull.find(c => c.company_id === companyIdTrim);
             const expDate = companyInfo ? companyInfo.expiration_date : null;
             const expAttr = expDate ? ' data-exp="' + expDate + '"' : '';
-            return '<span class="company-badge"' + expAttr + '>' + companyIdTrim + '</span>' + (idx < companyList.length - 1 ? ', ' : '');
+            return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
         }).join('');
+        
+        if (hiddenItems.length > 0) {
+            const hiddenStr = hiddenItems.map(h => h.trim()).join(', ');
+            chipsHTML += `<span class="chip-more company-badge" title="${hiddenStr}">+${hiddenItems.length}</span>`;
+        }
+        
+        companiesHTML = `<div class="chip-group">${chipsHTML}</div>`;
     }
     
     // 更新各列数据（保持序号不变）

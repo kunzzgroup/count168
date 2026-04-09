@@ -152,7 +152,13 @@ try {
                         <?php 
                         if (!empty($domain['companies'])) {
                             $companyList = explode(', ', $domain['companies']);
-                            foreach ($companyList as $idx => $companyId) {
+                            $maxVisible = 3;
+                            $visibleItems = array_slice($companyList, 0, $maxVisible);
+                            $hiddenItems = array_slice($companyList, $maxVisible);
+                            
+                            echo '<div class="chip-group">';
+                            // 渲染所有可见项
+                            foreach ($visibleItems as $companyId) {
                                 $companyId = trim($companyId);
                                 $expDate = null;
                                 if (!empty($domain['companies_full'])) {
@@ -164,11 +170,15 @@ try {
                                     }
                                 }
                                 $expAttr = $expDate ? ' data-exp="' . htmlspecialchars($expDate) . '"' : '';
-                                echo '<span class="company-badge"' . $expAttr . '>' . htmlspecialchars($companyId) . '</span>';
-                                if ($idx < count($companyList) - 1) {
-                                    echo ', ';
-                                }
+                                echo '<span class="chip company-badge"' . $expAttr . '>' . htmlspecialchars($companyId) . '</span>';
                             }
+                            
+                            // 渲染隐藏项 +N 标签
+                            if (count($hiddenItems) > 0) {
+                                $hiddenStr = implode(', ', array_map('htmlspecialchars', array_map('trim', $hiddenItems)));
+                                echo '<span class="chip-more company-badge" title="' . $hiddenStr . '">+' . count($hiddenItems) . '</span>';
+                            }
+                            echo '</div>';
                         } else {
                             echo '-';
                         }
