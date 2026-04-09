@@ -257,9 +257,9 @@ try {
                                 <th style="width:36px;"><input type="checkbox" id="domainAccountingInboxSelectAll" title="Select all" class="domain-accounting-inbox-cb"></th>
                                 <th style="width:56px;">No</th>
                                 <th>Account</th>
-                                <th style="width:120px; text-align: right;">Due</th>
                                 <th style="width:180px;">Companies</th>
                                 <th>Breakdown</th>
+                                <th style="width:120px; text-align: right;">Due</th>
                                 <th style="width:80px;">Delete <input type="checkbox" id="domainAccountingInboxDeleteSelectAll" title="Select all for delete" class="domain-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
