@@ -243,15 +243,16 @@ function fetchFeeSharePickerAccounts(PDO $pdo): array {
                 'entry_type' => 'account',
             ];
         }
-    }
-    $admStmt = $pdo->query("
-        SELECT id, login_id, name
-        FROM user
-        WHERE LOWER(TRIM(role)) = 'admin'
-          AND (status IS NULL OR LOWER(TRIM(status)) = 'active')
-        ORDER BY login_id ASC
-    ");
-    if ($admStmt) {
+        $admStmt = $pdo->prepare("
+            SELECT DISTINCT u.id, u.login_id, u.name
+            FROM user u
+            INNER JOIN user_company_map ucm ON ucm.user_id = u.id
+            WHERE ucm.company_id = ?
+              AND LOWER(TRIM(u.role)) = 'admin'
+              AND (u.status IS NULL OR LOWER(TRIM(u.status)) = 'active')
+            ORDER BY u.login_id ASC
+        ");
+        $admStmt->execute([$c168Pk]);
         foreach ($admStmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
             $rows[] = [
                 'id' => -(int) $u['id'],
@@ -297,9 +298,19 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     }
     if (!empty($adminUserIds)) {
         $placeholders = buildInPlaceholders(count($adminUserIds));
-        $sql = "SELECT COUNT(*) FROM user WHERE id IN ($placeholders) AND LOWER(TRIM(role)) = 'admin'";
+        if (!$c168Pk) {
+            return false;
+        }
+        $sql = "
+            SELECT COUNT(DISTINCT u.id)
+            FROM user u
+            INNER JOIN user_company_map ucm ON ucm.user_id = u.id
+            WHERE u.id IN ($placeholders)
+              AND LOWER(TRIM(u.role)) = 'admin'
+              AND ucm.company_id = ?
+        ";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($adminUserIds);
+        $stmt->execute(array_merge($adminUserIds, [$c168Pk]));
         if ((int) $stmt->fetchColumn() !== count($adminUserIds)) {
             return false;
         }
