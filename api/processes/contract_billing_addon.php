@@ -1,13 +1,13 @@
 <?php
 /**
- * 1+X 合同（1+1 / 1+2 / 1+3）在「首自然月按剩余天数」摊分时：在 partial 摊分后，Buy/Sell 同时加价（与合约「乘月」语义一致，且不涉及 insurance 字段）。
- * Sell = 整月卖价 + 摊分后利润段，Buy = 整月买价 + 同一摊分利润段（例 sell 2000+733.33，buy 1000+733.33），Profit 收回为 price−cost（整月价差）。
- * 仅 ratio&lt;1 的 remaining-days 场景生效；manual_inactive 仍单独整笔乘 (1+X)。
+ * 1+N 合同（1+1 / 1+2 / 1+3）：首自然月若按「剩余天数」partial 入账，则在 partial 金额之上再叠加 N 个「整月」的 buy/sell/profit（全额，不再摊分；不含 insurance）。
+ * 例 1+2、Sell 2000、4/9 起：首月 partial sell 1466.67 + 2×整月 2000 = 5466.67；Buy/Profit 同理按整月价叠加。
+ * 仅 ratio&lt;1 时生效；manual_inactive 仍单独整笔乘 (1+N)。
  */
 
 declare(strict_types=1);
 
-/** 与 manual_inactive 相同：1+1/1+2/1+3 → (1+X)，其余 → 1 */
+/** 与 manual_inactive 相同：1+1/1+2/1+3 → (1+N)，其余 → 1 */
 function getManualInactiveMultiplierFromContract(?string $contract): int
 {
     if ($contract === null || $contract === '') {
@@ -18,6 +18,21 @@ function getManualInactiveMultiplierFromContract(?string $contract): int
         return 1 + (int) $m[1];
     }
     return 1;
+}
+
+/**
+ * 合同里「+」后面的 N：1+2 → 2 个整月加价；1+1 → 1。支持值如 "1+2 MONTHS"（前缀匹配）。
+ */
+function getContractOnePlusExtraFullMonths(?string $contract): int
+{
+    if ($contract === null || trim($contract) === '') {
+        return 0;
+    }
+    $c = strtoupper(trim($contract));
+    if (preg_match('/^1\+(\d+)/', $c, $m)) {
+        return max(0, (int) $m[1]);
+    }
+    return 0;
 }
 
 /** 从 startYmd 到当月底（含）占当月天数的比例 */
@@ -38,20 +53,29 @@ function ratioRemainingDaysInMonthFromStartYmd(string $startYmd): ?float
 }
 
 /**
- * @param float|null $prorationRatio 本次入账使用的「剩余天数/当月天数」；为 null 或 ≥1 时不调整
- * @param float        $origCost      bank_process 整月 Buy（不含 insurance）
- * @param float        $origPrice     bank_process 整月 Sell
+ * @param float|null $prorationRatio 本次入账「剩余天数/当月天数」；null 或 ≥1 时不调整
+ * @param float        $origCost      整月 Buy
+ * @param float        $origPrice     整月 Sell
+ * @param float        $origProfit    整月 Profit
  */
-function applyOnePlusXRemainingDaysBuySellAddon(?string $contract, float $origCost, float $origPrice, float &$cost, float &$price, float &$profit, ?float $prorationRatio): void
-{
+function applyOnePlusXRemainingDaysBuySellAddon(
+    ?string $contract,
+    float $origCost,
+    float $origPrice,
+    float $origProfit,
+    float &$cost,
+    float &$price,
+    float &$profit,
+    ?float $prorationRatio
+): void {
     if ($prorationRatio === null || $prorationRatio >= 1.0 - 1e-9) {
         return;
     }
-    if (getManualInactiveMultiplierFromContract($contract) <= 1) {
+    $n = getContractOnePlusExtraFullMonths($contract);
+    if ($n < 1) {
         return;
     }
-    $prSlice = $profit;
-    $price = round($origPrice + $prSlice, 2);
-    $cost = round($origCost + $prSlice, 2);
-    $profit = round($price - $cost, 2);
+    $price = round($price + $n * $origPrice, 2);
+    $cost = round($cost + $n * $origCost, 2);
+    $profit = round($profit + $n * $origProfit, 2);
 }

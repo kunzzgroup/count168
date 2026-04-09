@@ -888,7 +888,8 @@ try {
 
         $origCostRow = (float) ($p['cost'] ?? 0);
         $origPriceRow = (float) ($p['price'] ?? 0);
-        applyOnePlusXRemainingDaysBuySellAddon($p['contract'] ?? null, $origCostRow, $origPriceRow, $cost, $price, $profit, $lastProrationRatio);
+        $origProfitRow = (float) ($p['profit'] ?? 0);
+        applyOnePlusXRemainingDaysBuySellAddon($p['contract'] ?? null, $origCostRow, $origPriceRow, $origProfitRow, $cost, $price, $profit, $lastProrationRatio);
 
         // manual_inactive：1+X 合约时 Buy/Sell/Profit 乘 (1+X) 再入账
         if ($periodType === 'manual_inactive') {
