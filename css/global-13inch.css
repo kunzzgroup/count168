@@ -551,10 +551,15 @@ body.process-page .process-table-wrapper,
 body.process-page--bank .bank-table-wrapper {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    height: auto !important;
+    height: 100% !important; /* Force explicit sizing so percentage cascading inside works reliably */
     max-height: none !important;
     display: flex; /* NO !important (Allows JS to hide it) */
     flex-direction: column !important;
+    
+    /* Support for JS forced 'display: grid' */
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr;
+
     overflow: hidden !important;
     padding-bottom: 74px !important; /* Reserve pagination space */
 }
@@ -563,7 +568,7 @@ body.user-page .user-cards,
 body.process-page .process-cards {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    height: auto !important;
+    height: 100% !important; /* Extremely important for calc(100% / 20) to work on children! */
     max-height: none !important;
     display: flex; /* NO !important (Allows JS to hide it) */
     flex-direction: column !important;
@@ -576,7 +581,7 @@ body.account-page .account-card,
 body.user-page .user-card,
 body.process-page:not(.process-page--bank) .process-card {
     box-sizing: border-box !important;
-    flex: 0 0 calc(100% / 20) !important;
+    flex: 0 0 calc(100% / 20) !important; /* Explicitly sizes 20 items to 100% */
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
