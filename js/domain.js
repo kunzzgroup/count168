@@ -1100,6 +1100,66 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function openDomainFeeSettingsModal() {
+    const modal = document.getElementById('domainFeeSettingsModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    fetch('api/domain/domain_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_domain_fee_settings' })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && res.data) {
+                var p = document.getElementById('domainFeePrice');
+                var m = document.getElementById('domainFeeMaintenance');
+                if (p) p.value = res.data.price != null && res.data.price !== '' ? res.data.price : '';
+                if (m) m.value = res.data.maintenance_fee != null && res.data.maintenance_fee !== '' ? res.data.maintenance_fee : '';
+            } else {
+                showAlert(res.message || 'Could not load settings', 'danger');
+            }
+        })
+        .catch(function () {
+            showAlert('Could not load settings', 'danger');
+        });
+}
+
+function closeDomainFeeSettingsModal() {
+    var modal = document.getElementById('domainFeeSettingsModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function saveDomainFeeSettings() {
+    var priceEl = document.getElementById('domainFeePrice');
+    var maintEl = document.getElementById('domainFeeMaintenance');
+    var price = priceEl ? String(priceEl.value).trim() : '';
+    var maintenance_fee = maintEl ? String(maintEl.value).trim() : '';
+    fetch('api/domain/domain_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'save_domain_fee_settings',
+            price: price,
+            maintenance_fee: maintenance_fee
+        })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success) {
+                showAlert(res.message || 'Saved');
+                closeDomainFeeSettingsModal();
+            } else {
+                showAlert(res.message || 'Save failed', 'danger');
+            }
+        })
+        .catch(function () {
+            showAlert('Save failed', 'danger');
+        });
+}
+
 function showAlert(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
     if (!container) return;
@@ -1801,6 +1861,11 @@ window.onclick = function(event) {
     const companyExpDateModal = document.getElementById('companyExpDateModal');
     if (event.target === companyExpDateModal) {
         closeCompanyExpDateModal(true); // 点击遮罩视为 Cancel，还原状态
+    }
+
+    const domainFeeSettingsModal = document.getElementById('domainFeeSettingsModal');
+    if (event.target === domainFeeSettingsModal) {
+        closeDomainFeeSettingsModal();
     }
 }
 
