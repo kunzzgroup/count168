@@ -262,3 +262,41 @@ td, .card-item, .account-card-item, .contract-card-item, .member-card-item {
 textarea {
     max-height: 120px !important;
 }
+
+/* ==========================================================================
+   Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
+   ========================================================================== */
+/* 1. Unlock the main bounding containers so they stretch infinitely downwards */
+html, body.user-page, body.account-page, body.transaction-page, body.datacapture-page, body.dashboard-page, body {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+.container, .transaction-container, .datacapture-container, .dashboard-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
+.table-container, 
+.account-cards, 
+.dashboard-content,
+.transaction-main-content,
+.transaction-table-wrapper, 
+.datacapture-table-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important; 
+    /* This forces the data to completely render out, triggering the global browser scrollbar */
+}
+
+/* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
+body {
+    background-attachment: fixed !important;
+    background-size: cover !important;
+}
