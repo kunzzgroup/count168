@@ -893,7 +893,7 @@ h1 {
 
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.5fr 1.5fr 2.5fr 2fr 1.95fr;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2fr 1.95fr;
     gap: 15px;
     padding: 0px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -943,7 +943,7 @@ h1 {
 
 .user-card {
     display: none;
-    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.5fr 1.5fr 2.5fr 2.45fr 1.53fr;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.6fr 1.5fr 2.5fr 2.45fr 1.53fr;
     gap: 15px;
     padding: clamp(1px, 0.21vw, 4px) 22px;
     background: #f0e5fb;
