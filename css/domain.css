@@ -160,6 +160,133 @@ h1 {
     font-size: 0.92em;
 }
 
+/* Company Settings modal: tabs + Share % */
+.company-settings-modal-content .company-settings-tabs {
+    display: flex;
+    gap: 0;
+    margin: 0 clamp(12px, 1.04vw, 20px) clamp(8px, 0.63vw, 12px);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.company-settings-tab {
+    flex: 1;
+    padding: clamp(8px, 0.63vw, 12px) clamp(12px, 1vw, 18px);
+    border: none;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: clamp(11px, 0.83vw, 15px);
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: clamp(6px, 0.52vw, 10px) clamp(6px, 0.52vw, 10px) 0 0;
+    margin-bottom: -1px;
+}
+
+.company-settings-tab:hover {
+    color: #334155;
+    background: #e2e8f0;
+}
+
+.company-settings-tab-active {
+    background: #fff;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+    border-bottom-color: #fff;
+}
+
+.company-share-intro {
+    color: #64748b;
+    font-size: clamp(10px, 0.78vw, 14px);
+    margin: 0 0 14px 0;
+    line-height: 1.45;
+}
+
+.company-share-role-block {
+    margin-bottom: clamp(14px, 1.04vw, 20px);
+    padding-bottom: clamp(10px, 0.83vw, 14px);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.company-share-role-block:last-of-type {
+    border-bottom: none;
+}
+
+.company-share-role-title {
+    font-weight: 700;
+    font-size: clamp(12px, 0.94vw, 16px);
+    color: #1e293b;
+    margin-bottom: 8px;
+}
+
+.company-share-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(10px, 0.78vw, 14px);
+    margin-bottom: 8px;
+}
+
+.company-share-table th {
+    text-align: left;
+    color: #64748b;
+    font-weight: 600;
+    padding: 4px 6px 6px 0;
+}
+
+.company-share-table td {
+    padding: 4px 6px 4px 0;
+    vertical-align: middle;
+}
+
+.company-share-table .share-account-select {
+    min-width: 140px;
+    max-width: 100%;
+}
+
+.company-share-table .share-pct-input {
+    width: 5.5rem;
+    max-width: 100%;
+}
+
+.company-share-add-btn {
+    background: #e2e8f0;
+    color: #334155;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: clamp(10px, 0.78vw, 14px);
+    cursor: pointer;
+    margin-bottom: 6px;
+}
+
+.company-share-add-btn:hover {
+    background: #cbd5e1;
+}
+
+.company-share-remove-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.company-share-remove-btn:hover {
+    color: #ef4444;
+}
+
+.company-share-total {
+    font-size: clamp(10px, 0.78vw, 14px);
+    font-weight: 600;
+    color: #475569;
+}
+
+.company-share-footnote {
+    font-size: clamp(9px, 0.73vw, 13px);
+    color: #94a3b8;
+    margin-top: 8px;
+}
+
 .btn-edit {
     background-color: transparent;
     color: black;
