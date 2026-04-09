@@ -429,8 +429,9 @@ function inboxAppendMonthlyNeedToday(
     } catch (Throwable $e) {
         // keep base amounts
     }
+    $origCostRow = (float) ($r['cost'] ?? 0);
     $origPriceRow = (float) ($r['price'] ?? 0);
-    applyOnePlusXRemainingDaysSellAddon($r['contract'] ?? null, $origPriceRow, $cost, $price, $profit, $prorationRatio);
+    applyOnePlusXRemainingDaysBuySellAddon($r['contract'] ?? null, $origCostRow, $origPriceRow, $cost, $price, $profit, $prorationRatio);
     $needToday[] = [
         'id' => (int) $r['id'],
         'name' => $r['name'] ?? '',
@@ -703,7 +704,7 @@ try {
             $pp = $partial['price'];
             $pf = $partial['profit'];
             $pRatio = ratioRemainingDaysInMonthFromStartYmd($partialStart);
-            applyOnePlusXRemainingDaysSellAddon($r['contract'] ?? null, (float) ($r['price'] ?? 0), $pc, $pp, $pf, $pRatio);
+            applyOnePlusXRemainingDaysBuySellAddon($r['contract'] ?? null, (float) ($r['cost'] ?? 0), (float) ($r['price'] ?? 0), $pc, $pp, $pf, $pRatio);
             $needToday[] = [
                 'id' => $processId,
                 'name' => ($r['name'] ?? '') ?: ($r['bank'] ?? ''),
@@ -780,7 +781,7 @@ try {
                 $mp = $pr['price'];
                 $mf = $pr['profit'];
                 $mRatio = ratioRemainingDaysInMonthFromStartYmd($startDate);
-                applyOnePlusXRemainingDaysSellAddon($r['contract'] ?? null, $basePrice, $mc, $mp, $mf, $mRatio);
+                applyOnePlusXRemainingDaysBuySellAddon($r['contract'] ?? null, $baseCost, $basePrice, $mc, $mp, $mf, $mRatio);
                 if ($resendMulti) {
                     $queuedMonthlyBillingMonths[] = (string) $monthlyBillingMonth;
                 } else {
