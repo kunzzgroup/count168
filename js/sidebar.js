@@ -338,13 +338,7 @@
         }
 
         var reportSection = document.getElementById('sidebar-report-section');
-        if (reportSection) {
-            if (isBankCategory) {
-                reportSection.style.display = 'none';
-            } else {
-                reportSection.style.display = hasGambling ? '' : 'none';
-            }
-        }
+        if (reportSection) reportSection.style.display = hasGambling ? '' : 'none';
 
     // 暴露给 HTML onclick 和 PHP 初始化脚本
     window.closeSidebar = closeSidebar;
