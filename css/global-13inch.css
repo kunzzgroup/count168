@@ -194,6 +194,14 @@
         width: 18px !important;
         height: 18px !important;
     }
+
+    /* ----------------------------------------------------
+       7. Account Grid Synchronization
+       ---------------------------------------------------- */
+    .account-table-header,
+    .account-card {
+        grid-template-columns: 0.5fr 1.4fr 1.4fr 0.8fr 0.6fr 0.8fr 2fr 1.2fr 0.45fr !important;
+    }
 }
 
 /* ==========================================================================
