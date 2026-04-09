@@ -271,10 +271,10 @@ html, body.user-page, body.account-page, body.transaction-page, body.datacapture
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow: auto !important; /* Force native scrollbars to definitely appear */
 }
 
-.container, .transaction-container, .datacapture-container, .dashboard-container {
+.container, .content, .transaction-container, .datacapture-container, .dashboard-container {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
