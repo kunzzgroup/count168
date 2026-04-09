@@ -133,7 +133,7 @@
     .contract-card,
     .member-card {
         padding: 10px 22px !important;
-        min-height: 52px !important;
+        min-height: 20px !important;
     }
 
     .card-item,
@@ -422,7 +422,8 @@ body {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    /* Force native scrollbars to definitely appear */
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
 }
 
 .container,
@@ -433,8 +434,7 @@ body {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow: hidden !important;
-    /* Ensure the container itself can scroll if body fails */
+    overflow: visible !important;
     padding-bottom: 100px !important;
     /* Absolute guarantee we never cut off the bottom element */
 }
