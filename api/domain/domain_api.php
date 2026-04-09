@@ -13,7 +13,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings'], true)) {
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -127,6 +127,95 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
  * @param mixed $val
  * @return float|null|false
  */
+/**
+ * company 表：费用分成（Sales / CS / IT），JSON
+ */
+function ensureCompanyFeeShareColumn(PDO $pdo): void {
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM `company` LIKE 'fee_share_allocations'");
+        if ($check && $check->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `company` ADD COLUMN `fee_share_allocations` JSON NULL DEFAULT NULL COMMENT 'Sales/CS/IT fee share % by account' AFTER `permissions`");
+        }
+    } catch (Exception $e) {
+        // 兼容旧环境
+    }
+}
+
+/**
+ * @param mixed $raw
+ * @return array{sales: list<array{account_id:int,percentage:float}>, cs: list, it: list}
+ */
+function normalizeFeeShareAllocationsInput($raw): array {
+    $empty = ['sales' => [], 'cs' => [], 'it' => []];
+    if ($raw === null || $raw === '') {
+        return $empty;
+    }
+    if (is_string($raw)) {
+        $raw = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($raw)) {
+            return $empty;
+        }
+    }
+    if (!is_array($raw)) {
+        return $empty;
+    }
+    $out = $empty;
+    foreach (['sales', 'cs', 'it'] as $role) {
+        if (empty($raw[$role]) || !is_array($raw[$role])) {
+            continue;
+        }
+        foreach ($raw[$role] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+            $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
+            if ($aid > 0 && $pct >= 0) {
+                $out[$role][] = [
+                    'account_id' => $aid,
+                    'percentage' => round($pct, 4),
+                ];
+            }
+        }
+    }
+    return $out;
+}
+
+function feeShareAllocationsToJson(?array $normalized): ?string {
+    if ($normalized === null) {
+        return null;
+    }
+    $allEmpty = empty($normalized['sales']) && empty($normalized['cs']) && empty($normalized['it']);
+    if ($allEmpty) {
+        return null;
+    }
+    return json_encode($normalized, JSON_UNESCAPED_UNICODE);
+}
+
+function collectUniqueAccountIdsFromFeeShare(array $normalized): array {
+    $ids = [];
+    foreach (['sales', 'cs', 'it'] as $role) {
+        foreach ($normalized[$role] as $row) {
+            if (!empty($row['account_id'])) {
+                $ids[] = (int) $row['account_id'];
+            }
+        }
+    }
+    return array_values(array_unique(array_filter($ids)));
+}
+
+function feeShareAccountsValidForCompany(PDO $pdo, int $companyPk, array $normalized): bool {
+    $uniqueIds = collectUniqueAccountIdsFromFeeShare($normalized);
+    if (empty($uniqueIds)) {
+        return true;
+    }
+    $placeholders = buildInPlaceholders(count($uniqueIds));
+    $sql = "SELECT COUNT(DISTINCT ac.account_id) FROM account_company ac WHERE ac.company_id = ? AND ac.account_id IN ($placeholders)";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge([$companyPk], $uniqueIds));
+    return (int) $stmt->fetchColumn() === count($uniqueIds);
+}
+
 function normalizeOptionalDecimal($val) {
     if ($val === null || $val === '') {
         return null;
@@ -221,6 +310,7 @@ try {
             $pdo->beginTransaction();
             
             try {
+                ensureCompanyFeeShareColumn($pdo);
                 // Insert owner
                 $stmt = $pdo->prepare("INSERT INTO owner (owner_code, name, email, password, secondary_password, created_by) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$owner_code, $name, $email, $hashed_password, $hashed_secondary_password, $_SESSION['login_id'] ?? 'system']);
@@ -233,18 +323,19 @@ try {
                     $companies_data = json_decode($companies, true);
                     
                     if (json_last_error() === JSON_ERROR_NONE && is_array($companies_data)) {
-                        // 新格式：JSON 数组，包含 company_id、expiration_date、permissions
-                        $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id) VALUES (?, ?, ?, ?, ?, ?)");
+                        // 新格式：JSON 数组，包含 company_id、expiration_date、permissions、fee_share_allocations
+                        $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
                         
                         foreach ($companies_data as $company) {
                             $company_id = strtoupper(trim($company['company_id'] ?? $company));
                             $expiration_date = !empty($company['expiration_date']) ? $company['expiration_date'] : null;
                             $permissions = (isset($company['permissions']) && is_array($company['permissions'])) ? json_encode($company['permissions']) : null;
                             $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
+                            $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($company['fee_share_allocations'] ?? null));
                             
                             if (!empty($company_id) || !empty($group_id)) {
                                 $db_company_id = !empty($company_id) ? $company_id : '';
-                                $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id]);
+                                $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id, $fee_share_json]);
                             }
                         }
                     } else {
@@ -307,6 +398,7 @@ try {
             $pdo->beginTransaction();
             
             try {
+                ensureCompanyFeeShareColumn($pdo);
                 // Update owner - 根据提供的字段构建UPDATE语句
                 $updateFields = [];
                 $updateValues = [];
@@ -363,7 +455,8 @@ try {
                                     'company_id' => $db_company_id,
                                     'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
                                     'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : [],
-                                    'group_id' => $group_id
+                                    'group_id' => $group_id,
+                                    'fee_share_allocations' => $company['fee_share_allocations'] ?? null,
                                 ];
                             }
                         }
@@ -377,7 +470,8 @@ try {
                                 'company_id' => $company_id,
                                 'expiration_date' => null,
                                 'permissions' => [],
-                                'group_id' => null
+                                'group_id' => null,
+                                'fee_share_allocations' => null,
                             ];
                         }
                     }
@@ -531,17 +625,19 @@ try {
                 
                 // Insert new companies
                 if (!empty($companies_to_add)) {
-                    $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     
                     foreach ($companies_to_add as $company_data) {
                         $permissions_json = !empty($company_data['permissions']) && is_array($company_data['permissions']) ? json_encode($company_data['permissions']) : null;
+                        $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($company_data['fee_share_allocations'] ?? null));
                         $stmt->execute([
                             $company_data['company_id'], 
                             $id, 
                             $_SESSION['login_id'] ?? 'system',
                             $company_data['expiration_date'],
                             $permissions_json,
-                            $company_data['group_id']
+                            $company_data['group_id'],
+                            $fee_share_json
                         ]);
                     }
                 }
@@ -553,8 +649,9 @@ try {
                             $existing_key = !empty($existing['company_id']) ? strtoupper($existing['company_id']) : 'GROUPONLY:' . strtoupper($existing['group_id']);
                             if ($existing_key === $new_company['key']) {
                                 $permissions_json = !empty($new_company['permissions']) && is_array($new_company['permissions']) ? json_encode($new_company['permissions']) : null;
-                                $updateStmt = $pdo->prepare("UPDATE company SET expiration_date = ?, permissions = ?, group_id = ? WHERE id = ?");
-                                $updateStmt->execute([$new_company['expiration_date'], $permissions_json, $new_company['group_id'], $existing['id']]);
+                                $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($new_company['fee_share_allocations'] ?? null));
+                                $updateStmt = $pdo->prepare("UPDATE company SET expiration_date = ?, permissions = ?, group_id = ?, fee_share_allocations = ? WHERE id = ?");
+                                $updateStmt->execute([$new_company['expiration_date'], $permissions_json, $new_company['group_id'], $fee_share_json, $existing['id']]);
                                 break;
                             }
                         }
@@ -733,7 +830,8 @@ try {
             }
             
             try {
-                $stmt = $pdo->prepare("SELECT company_id, expiration_date, permissions, group_id FROM company WHERE owner_id = ? ORDER BY company_id");
+                ensureCompanyFeeShareColumn($pdo);
+                $stmt = $pdo->prepare("SELECT company_id, expiration_date, permissions, group_id, fee_share_allocations FROM company WHERE owner_id = ? ORDER BY company_id");
                 $stmt->execute([$owner_id]);
                 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $companies = [];
@@ -745,6 +843,7 @@ try {
                     } else {
                         $row['permissions'] = [];
                     }
+                    $row['fee_share_allocations'] = normalizeFeeShareAllocationsInput($row['fee_share_allocations'] ?? null);
                     $companies[] = $row;
                 }
                 echo json_encode([
@@ -846,6 +945,83 @@ try {
                     'message' => 'Error: ' . $e->getMessage(),
                     'data' => null
                 ]);
+            }
+            break;
+
+        case 'get_company_share_settings':
+            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            $shareCompanyCode = strtoupper(trim($data['company_id'] ?? ''));
+            if ($shareCompanyCode === '') {
+                jsonResponse(false, 'Invalid company ID', null);
+                exit;
+            }
+            try {
+                ensureCompanyFeeShareColumn($pdo);
+                $stmt = $pdo->prepare("SELECT id, fee_share_allocations FROM company WHERE company_id = ? LIMIT 1");
+                $stmt->execute([$shareCompanyCode]);
+                $shareRow = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$shareRow) {
+                    jsonResponse(true, 'OK', [
+                        'allocations' => normalizeFeeShareAllocationsInput(null),
+                        'accounts' => [],
+                        'company_exists' => false,
+                    ]);
+                    break;
+                }
+                $companyPk = (int) $shareRow['id'];
+                $accStmt = $pdo->prepare("
+                    SELECT DISTINCT a.id, a.account_id, a.name
+                    FROM account a
+                    INNER JOIN account_company ac ON ac.account_id = a.id
+                    WHERE ac.company_id = ?
+                    ORDER BY a.account_id ASC
+                ");
+                $accStmt->execute([$companyPk]);
+                $shareAccounts = $accStmt->fetchAll(PDO::FETCH_ASSOC);
+                jsonResponse(true, 'OK', [
+                    'allocations' => normalizeFeeShareAllocationsInput($shareRow['fee_share_allocations'] ?? null),
+                    'accounts' => $shareAccounts,
+                    'company_exists' => true,
+                ]);
+            } catch (Exception $e) {
+                jsonResponse(false, 'Error: ' . $e->getMessage(), null);
+            }
+            break;
+
+        case 'save_company_share_settings':
+            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            $saveShareCode = strtoupper(trim($data['company_id'] ?? ''));
+            if ($saveShareCode === '') {
+                jsonResponse(false, 'Invalid company ID', null);
+                exit;
+            }
+            $saveNormalized = normalizeFeeShareAllocationsInput($data['fee_share_allocations'] ?? null);
+            try {
+                ensureCompanyFeeShareColumn($pdo);
+                $stmt = $pdo->prepare("SELECT id FROM company WHERE company_id = ? LIMIT 1");
+                $stmt->execute([$saveShareCode]);
+                $saveRow = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$saveRow) {
+                    jsonResponse(false, 'Company not found in database yet; save the domain first.', null);
+                    exit;
+                }
+                $saveCompanyPk = (int) $saveRow['id'];
+                if (!feeShareAccountsValidForCompany($pdo, $saveCompanyPk, $saveNormalized)) {
+                    jsonResponse(false, 'Each account must belong to this company.', null);
+                    exit;
+                }
+                $saveJson = feeShareAllocationsToJson($saveNormalized);
+                $up = $pdo->prepare("UPDATE company SET fee_share_allocations = ? WHERE id = ?");
+                $up->execute([$saveJson, $saveCompanyPk]);
+                jsonResponse(true, 'Share settings saved', ['fee_share_allocations' => $saveNormalized]);
+            } catch (Exception $e) {
+                jsonResponse(false, 'Error: ' . $e->getMessage(), null);
             }
             break;
 

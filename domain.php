@@ -243,10 +243,15 @@ try {
 
     <!-- Company Expiration Date Setting Modal -->
     <div id="companyExpDateModal" class="modal" style="z-index: 10003;">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content company-settings-modal-content" style="max-width: 560px;">
             <span class="close" onclick="closeCompanyExpDateModal(true)">&times;</span>
             <h2>Company Settings</h2>
+            <div class="company-settings-tabs" role="tablist">
+                <button type="button" id="companyTabGeneral" class="company-settings-tab company-settings-tab-active" onclick="switchCompanySettingsTab('general')" role="tab" aria-selected="true">General</button>
+                <button type="button" id="companyTabShare" class="company-settings-tab" onclick="switchCompanySettingsTab('share')" role="tab" aria-selected="false">Share %</button>
+            </div>
             <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
+                <div id="companySettingsPanelGeneral" class="company-settings-panel">
                 <div class="form-group">
                     <label id="expDateCompanyName" style="font-weight: bold; font-size: clamp(12px, 1.04vw, 16px); color: #1e293b; margin-bottom: 15px;">Company: </label>
                 </div>
@@ -300,6 +305,40 @@ try {
                     </div>
                     <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
                 </div>
+                </div>
+
+                <div id="companySettingsPanelShare" class="company-settings-panel" style="display: none;">
+                    <p class="company-share-intro">Assign accounts that receive an extra fee share by percentage. Each role (Sales, CS, IT) can list multiple accounts.</p>
+                    <div class="company-share-role-block">
+                        <div class="company-share-role-title">Sales</div>
+                        <table class="company-share-table" aria-label="Sales share">
+                            <thead><tr><th>Account</th><th>%</th><th></th></tr></thead>
+                            <tbody id="shareRowsSales"></tbody>
+                        </table>
+                        <button type="button" class="btn company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add account</button>
+                        <div class="company-share-total" id="shareTotalSales">Total: 0%</div>
+                    </div>
+                    <div class="company-share-role-block">
+                        <div class="company-share-role-title">CS</div>
+                        <table class="company-share-table" aria-label="CS share">
+                            <thead><tr><th>Account</th><th>%</th><th></th></tr></thead>
+                            <tbody id="shareRowsCs"></tbody>
+                        </table>
+                        <button type="button" class="btn company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add account</button>
+                        <div class="company-share-total" id="shareTotalCs">Total: 0%</div>
+                    </div>
+                    <div class="company-share-role-block">
+                        <div class="company-share-role-title">IT</div>
+                        <table class="company-share-table" aria-label="IT share">
+                            <thead><tr><th>Account</th><th>%</th><th></th></tr></thead>
+                            <tbody id="shareRowsIt"></tbody>
+                        </table>
+                        <button type="button" class="btn company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add account</button>
+                        <div class="company-share-total" id="shareTotalIt">Total: 0%</div>
+                    </div>
+                    <p class="company-share-footnote" id="companyShareNoAccountsHint" style="display: none;">No accounts linked to this company yet. Link accounts on the Account page, then save the domain if this is a new company.</p>
+                </div>
+
                 <div class="form-actions" style="margin-top: 20px;">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #ffa2b6 0%, #c91212 100%); color: white; margin-right: 8px;">Reset</button>

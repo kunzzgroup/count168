@@ -312,6 +312,8 @@ function initTempCompanies(extraGroups = []) {
         company.selectedPeriod = company.expiration_date ? getPeriodFromDate(company.expiration_date) : null;
         company.startDate = company.expiration_date ? null : new Date().toISOString().split('T')[0];
         company.isExtending = company.expiration_date ? true : false;
+        ensureCompanyFeeShare(company);
+        company.fee_share_allocations = normalizeFeeShareFromServer(company.fee_share_allocations);
     });
     // 提取 unique group_ids
     const groupsFromCompanies = tempCompanies.filter(c => c.group_id).map(c => c.group_id);
@@ -475,7 +477,8 @@ function addCompanyToList() {
         originalExpirationDate: newExpirationDate,
         startDate: today,
         isExtending: false,
-        group_id: selectedGroupId || null // 新添加的公司默认是独立的，如果有选中group则归入该group
+        group_id: selectedGroupId || null, // 新添加的公司默认是独立的，如果有选中group则归入该group
+        fee_share_allocations: defaultFeeShareAllocations()
     });
     
     if (selectedGroupId) {
@@ -559,11 +562,257 @@ function resetCompanyExpiration(companyId) {
 let currentEditingCompanyId = null;
 // 打开弹窗时该公司状态的快照，Cancel 时用于还原
 let companySnapshotWhenModalOpened = null;
+// Company Settings → Share %：下拉账户列表（来自 API）
+let shareModalAccounts = [];
+let companySettingsActiveTab = 'general';
+
+function defaultFeeShareAllocations() {
+    return { sales: [], cs: [], it: [] };
+}
+
+function normalizeFeeShareFromServer(raw) {
+    const d = defaultFeeShareAllocations();
+    if (!raw || typeof raw !== 'object') {
+        return d;
+    }
+    ['sales', 'cs', 'it'].forEach(function (k) {
+        if (Array.isArray(raw[k])) {
+            d[k] = raw[k].map(function (r) {
+                return {
+                    account_id: parseInt(r.account_id, 10) || 0,
+                    percentage: r.percentage != null ? parseFloat(r.percentage) : 0
+                };
+            }).filter(function (r) { return r.account_id > 0; });
+        }
+    });
+    return d;
+}
+
+function ensureCompanyFeeShare(company) {
+    if (!company) {
+        return;
+    }
+    if (!company.fee_share_allocations || typeof company.fee_share_allocations !== 'object') {
+        company.fee_share_allocations = defaultFeeShareAllocations();
+    }
+    ['sales', 'cs', 'it'].forEach(function (k) {
+        if (!Array.isArray(company.fee_share_allocations[k])) {
+            company.fee_share_allocations[k] = [];
+        }
+    });
+}
+
+function isFeeShareAllocationsEmpty(fs) {
+    if (!fs || typeof fs !== 'object') {
+        return true;
+    }
+    return (!fs.sales || !fs.sales.length) && (!fs.cs || !fs.cs.length) && (!fs.it || !fs.it.length);
+}
+
+function switchCompanySettingsTab(tab) {
+    companySettingsActiveTab = tab;
+    var gen = document.getElementById('companySettingsPanelGeneral');
+    var sh = document.getElementById('companySettingsPanelShare');
+    var tGen = document.getElementById('companyTabGeneral');
+    var tSh = document.getElementById('companyTabShare');
+    if (tab === 'share') {
+        if (gen) gen.style.display = 'none';
+        if (sh) sh.style.display = 'block';
+        if (tGen) {
+            tGen.classList.remove('company-settings-tab-active');
+            tGen.setAttribute('aria-selected', 'false');
+        }
+        if (tSh) {
+            tSh.classList.add('company-settings-tab-active');
+            tSh.setAttribute('aria-selected', 'true');
+        }
+    } else {
+        if (gen) gen.style.display = 'block';
+        if (sh) sh.style.display = 'none';
+        if (tSh) {
+            tSh.classList.remove('company-settings-tab-active');
+            tSh.setAttribute('aria-selected', 'false');
+        }
+        if (tGen) {
+            tGen.classList.add('company-settings-tab-active');
+            tGen.setAttribute('aria-selected', 'true');
+        }
+    }
+}
+
+function escapeHtmlShare(str) {
+    if (!str) {
+        return '';
+    }
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+}
+
+function buildShareAccountOptionsHtml(selectedId) {
+    var sel = selectedId ? String(selectedId) : '';
+    var h = '<option value="">— Select —</option>';
+    shareModalAccounts.forEach(function (a) {
+        var id = String(a.id);
+        var label = (a.account_id || '') + (a.name ? ' · ' + a.name : '');
+        h += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + escapeHtmlShare(label) + '</option>';
+    });
+    return h;
+}
+
+function readFeeShareFromModalDom() {
+    var out = defaultFeeShareAllocations();
+    var cfg = [['sales', 'shareRowsSales'], ['cs', 'shareRowsCs'], ['it', 'shareRowsIt']];
+    cfg.forEach(function (pair) {
+        var role = pair[0];
+        var tid = pair[1];
+        var tb = document.getElementById(tid);
+        if (!tb) {
+            return;
+        }
+        tb.querySelectorAll('tr').forEach(function (tr) {
+            var sEl = tr.querySelector('.share-account-select');
+            var pEl = tr.querySelector('.share-pct-input');
+            var aid = sEl ? parseInt(sEl.value, 10) : 0;
+            var pct = pEl && pEl.value !== '' ? parseFloat(pEl.value) : NaN;
+            if (aid > 0 && isFinite(pct)) {
+                out[role].push({ account_id: aid, percentage: pct });
+            }
+        });
+    });
+    return out;
+}
+
+function syncFeeShareFromDomToCompany(company) {
+    ensureCompanyFeeShare(company);
+    company.fee_share_allocations = readFeeShareFromModalDom();
+}
+
+function updateCompanyShareTotals() {
+    var out = readFeeShareFromModalDom();
+    [['sales', 'shareTotalSales'], ['cs', 'shareTotalCs'], ['it', 'shareTotalIt']].forEach(function (pair) {
+        var role = pair[0];
+        var tid = pair[1];
+        var el = document.getElementById(tid);
+        if (!el) {
+            return;
+        }
+        var t = 0;
+        (out[role] || []).forEach(function (r) {
+            t += parseFloat(r.percentage) || 0;
+        });
+        el.textContent = 'Total: ' + t.toFixed(2) + '%';
+        el.style.color = t > 100 ? '#dc2626' : '#475569';
+    });
+}
+
+function renderCompanySharePanel() {
+    if (!currentEditingCompanyId) {
+        return;
+    }
+    var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
+    if (!company) {
+        return;
+    }
+    ensureCompanyFeeShare(company);
+    var map = { sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
+    Object.keys(map).forEach(function (role) {
+        var tbody = document.getElementById(map[role]);
+        if (!tbody) {
+            return;
+        }
+        tbody.innerHTML = '';
+        company.fee_share_allocations[role].forEach(function (row, idx) {
+            var tr = document.createElement('tr');
+            var pctVal = row.percentage !== undefined && row.percentage !== null && row.percentage !== ''
+                ? row.percentage
+                : '';
+            tr.innerHTML = '<td><select class="share-account-select form-group input">' +
+                buildShareAccountOptionsHtml(row.account_id) +
+                '</select></td>' +
+                '<td><input type="number" class="share-pct-input form-group input" step="0.01" min="0" max="100" value="' +
+                (pctVal !== '' ? escapeHtmlShare(String(pctVal)) : '') + '" placeholder="0" /></td>' +
+                '<td><button type="button" class="company-share-remove-btn" data-share-role="' + role + '" data-share-idx="' + idx + '" aria-label="Remove">&times;</button></td>';
+            tbody.appendChild(tr);
+            tr.querySelector('.company-share-remove-btn').addEventListener('click', function () {
+                removeCompanyShareRow(this.getAttribute('data-share-role'), parseInt(this.getAttribute('data-share-idx'), 10));
+            });
+        });
+        tbody.querySelectorAll('.share-account-select, .share-pct-input').forEach(function (el) {
+            el.addEventListener('change', updateCompanyShareTotals);
+            el.addEventListener('input', updateCompanyShareTotals);
+        });
+    });
+    var hint = document.getElementById('companyShareNoAccountsHint');
+    if (hint) {
+        hint.style.display = shareModalAccounts.length ? 'none' : 'block';
+    }
+    updateCompanyShareTotals();
+}
+
+function addCompanyShareRow(role) {
+    if (!currentEditingCompanyId) {
+        return;
+    }
+    var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
+    if (!company) {
+        return;
+    }
+    ensureCompanyFeeShare(company);
+    syncFeeShareFromDomToCompany(company);
+    if (!company.fee_share_allocations[role]) {
+        company.fee_share_allocations[role] = [];
+    }
+    company.fee_share_allocations[role].push({ account_id: 0, percentage: '' });
+    renderCompanySharePanel();
+}
+
+function removeCompanyShareRow(role, index) {
+    if (!currentEditingCompanyId) {
+        return;
+    }
+    var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
+    if (!company) {
+        return;
+    }
+    syncFeeShareFromDomToCompany(company);
+    if (company.fee_share_allocations[role] && company.fee_share_allocations[role][index] !== undefined) {
+        company.fee_share_allocations[role].splice(index, 1);
+    }
+    renderCompanySharePanel();
+}
+
+function loadCompanyShareDataForModal(companyCode) {
+    fetch('api/domain/domain_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_company_share_settings', company_id: companyCode })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && res.data && Array.isArray(res.data.accounts)) {
+                shareModalAccounts = res.data.accounts;
+            } else {
+                shareModalAccounts = [];
+            }
+            var company = tempCompanies.find(function (c) { return c.company_id === companyCode; });
+            if (company && res.success && res.data && res.data.company_exists && isFeeShareAllocationsEmpty(company.fee_share_allocations)) {
+                company.fee_share_allocations = normalizeFeeShareFromServer(res.data.allocations);
+            }
+            renderCompanySharePanel();
+        })
+        .catch(function () {
+            shareModalAccounts = [];
+            renderCompanySharePanel();
+        });
+}
 
 // 打开到期日期设置弹窗
 function openCompanyExpDateModal(companyId) {
     const company = tempCompanies.find(c => c.company_id === companyId);
     if (!company) return;
+    ensureCompanyFeeShare(company);
     
     currentEditingCompanyId = companyId;
     // 保存打开时的完整状态，Cancel 时还原为此状态
@@ -624,8 +873,10 @@ function openCompanyExpDateModal(companyId) {
         updateExpDateDisplay();
     };
     
+    switchCompanySettingsTab('general');
     // 显示弹窗
     document.getElementById('companyExpDateModal').style.display = 'block';
+    loadCompanyShareDataForModal(company.company_id);
 }
 
 // 关闭到期日期设置弹窗。restore === true 时还原为打开弹窗时的状态（Cancel/X/点击遮罩）
@@ -801,9 +1052,9 @@ function saveCompanyExpDate() {
     if (document.getElementById('permissionMoney').checked) permissions.push('Money');
     // 存入当前公司，再次打开 Set 时优先用此显示
     company.permissions = permissions.slice();
+    syncFeeShareFromDomToCompany(company);
     
-    // 保存权限到数据库
-    fetch('api/domain/domain_api.php', {
+    const permReq = fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -813,21 +1064,50 @@ function saveCompanyExpDate() {
             company_id: company.company_id,
             permissions: permissions
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (!data.success) {
-            console.error('Error saving permissions:', data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error saving permissions:', error);
-    });
+    }).then(response => response.json());
     
-    // 更新显示
-    updateCompanyDisplay();
-    closeCompanyExpDateModal(false); // Save 不还原，保留当前修改
-    showAlert('Expiration date and permissions updated successfully!');
+    const shareReq = fetch('api/domain/domain_api.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'save_company_share_settings',
+            company_id: company.company_id,
+            fee_share_allocations: company.fee_share_allocations
+        })
+    }).then(response => response.json());
+    
+    Promise.all([permReq, shareReq])
+        .then(function (results) {
+            const permData = results[0];
+            const shareData = results[1];
+            updateCompanyDisplay();
+            syncCompaniesHiddenField();
+            closeCompanyExpDateModal(false);
+            if (!permData.success) {
+                console.error('Error saving permissions:', permData.message);
+                showAlert(permData.message || 'Permissions save failed', 'danger');
+                return;
+            }
+            if (!shareData.success) {
+                const msg = shareData.message || '';
+                if (msg.indexOf('not found') !== -1 || msg.indexOf('Save the domain first') !== -1) {
+                    showAlert('Company settings updated. Share % will apply after you save the domain.');
+                    return;
+                }
+                showAlert(msg || 'Share % save failed', 'danger');
+                return;
+            }
+            showAlert('Company settings updated successfully!');
+        })
+        .catch(function (error) {
+            console.error('Error saving company settings:', error);
+            updateCompanyDisplay();
+            syncCompaniesHiddenField();
+            closeCompanyExpDateModal(false);
+            showAlert('Could not reach server. Changes kept locally — try again.', 'danger');
+        });
 }
 
 // 在弹窗中重置到期日期
@@ -861,6 +1141,9 @@ function resetCompanyExpDateInModal() {
     document.getElementById('permissionRate').checked = true;
     document.getElementById('permissionMoney').checked = true;
     updatePermissionDisplay();
+    
+    company.fee_share_allocations = defaultFeeShareAllocations();
+    renderCompanySharePanel();
 }
 
 // 根据到期日期判断对应的期限选项
@@ -1003,7 +1286,8 @@ function syncCompaniesFromTemp() {
         company_id: c.company_id,
         expiration_date: c.expiration_date,
         permissions: Array.isArray(c.permissions) ? c.permissions : [],
-        group_id: c.group_id || null
+        group_id: c.group_id || null,
+        fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
     }));
     
     // 处理没有任何公司的 group，使其也能被保存
@@ -1014,7 +1298,8 @@ function syncCompaniesFromTemp() {
                 company_id: '',
                 expiration_date: null,
                 permissions: [],
-                group_id: gid
+                group_id: gid,
+                fee_share_allocations: defaultFeeShareAllocations()
             });
         }
     });
@@ -1035,7 +1320,8 @@ function syncCompaniesHiddenField() {
         company_id: c.company_id,
         expiration_date: c.expiration_date,
         permissions: Array.isArray(c.permissions) ? c.permissions : [],
-        group_id: c.group_id || null
+        group_id: c.group_id || null,
+        fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
     }));
     
     // 处理没有任何公司的 group
@@ -1046,7 +1332,8 @@ function syncCompaniesHiddenField() {
                 company_id: '',
                 expiration_date: null,
                 permissions: [],
-                group_id: gid
+                group_id: gid,
+                fee_share_allocations: defaultFeeShareAllocations()
             });
         }
     });
@@ -1392,7 +1679,8 @@ function editDomain(id) {
                             company_id: c.company_id,
                             expiration_date: c.expiration_date || null,
                             permissions: Array.isArray(c.permissions) ? c.permissions : [],
-                            group_id: c.group_id || null
+                            group_id: c.group_id || null,
+                            fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
                         });
                     }
                 });
