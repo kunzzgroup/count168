@@ -1459,6 +1459,12 @@ function escapeHtmlLite(str) {
         .replace(/"/g, '&quot;');
 }
 
+function formatPct1(val) {
+    const n = Number(val);
+    if (!isFinite(n)) return '0.0';
+    return n.toFixed(1);
+}
+
 function updateDomainAccountingDueBadges(count) {
     const c = parseInt(count, 10) || 0;
     const badge = document.getElementById('domainAccountingDueCount');
@@ -1502,11 +1508,11 @@ function renderDomainAccountingDueRows(items) {
         const due = formatMoney2(row.due_amount);
         const companies = Array.isArray(row.companies) ? row.companies.join(', ') : '';
         const breakdown = Array.isArray(row.breakdown) ? row.breakdown.map(b => {
-            const pct = (b.percentage != null && b.percentage !== '') ? formatMoney2(b.percentage) : '0.00';
+            const pct = (b.percentage != null && b.percentage !== '') ? formatPct1(b.percentage) : '0.0';
             const amt = formatMoney2(b.amount);
             const role = b.role ? String(b.role).toUpperCase() : '';
-            const comp = b.company_id || '';
-            return escapeHtmlLite(comp) + ' ' + escapeHtmlLite(role) + ' ' + escapeHtmlLite(pct) + '% = ' + escapeHtmlLite(amt);
+            // Keep breakdown concise: "SALES 10.0% = 241.56" (no company code like "TUE")
+            return escapeHtmlLite(role) + ' ' + escapeHtmlLite(pct) + '% = ' + escapeHtmlLite(amt);
         }).join(' · ') : '';
         return (
             '<tr data-key="' + escapeHtmlLite(key) + '">' +
