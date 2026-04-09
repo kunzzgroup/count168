@@ -252,15 +252,24 @@ try {
             <div class="modal-body domain-accounting-due-modal-body">
                 <div class="domain-accounting-due-table-wrap">
                     <table class="domain-accounting-due-table domain-accounting-inbox-table">
+                        <colgroup>
+                            <col class="domain-ad-col-select">
+                            <col class="domain-ad-col-no">
+                            <col class="domain-ad-col-account">
+                            <col class="domain-ad-col-companies">
+                            <col class="domain-ad-col-breakdown">
+                            <col class="domain-ad-col-due">
+                            <col class="domain-ad-col-delete">
+                        </colgroup>
                         <thead>
                             <tr>
-                                <th style="width:36px;"><input type="checkbox" id="domainAccountingInboxSelectAll" title="Select all" class="domain-accounting-inbox-cb"></th>
-                                <th style="width:56px;">No</th>
+                                <th><input type="checkbox" id="domainAccountingInboxSelectAll" title="Select all" class="domain-accounting-inbox-cb"></th>
+                                <th>No</th>
                                 <th>Account</th>
-                                <th style="width:180px;">Companies</th>
+                                <th>Companies</th>
                                 <th>Breakdown</th>
-                                <th style="width:120px; text-align: right;">Due</th>
-                                <th style="width:80px;">Delete <input type="checkbox" id="domainAccountingInboxDeleteSelectAll" title="Select all for delete" class="domain-accounting-inbox-delete-cb"></th>
+                                <th style="text-align: right;">Due</th>
+                                <th>Delete <input type="checkbox" id="domainAccountingInboxDeleteSelectAll" title="Select all for delete" class="domain-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
                         <tbody id="domainAccountingDueTbody"></tbody>
