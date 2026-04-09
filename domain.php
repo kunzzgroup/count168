@@ -243,7 +243,7 @@ try {
 
     <!-- Company Expiration Date Setting Modal -->
     <div id="companyExpDateModal" class="modal" style="z-index: 10003;">
-        <div class="modal-content company-settings-modal-content" style="max-width: 560px;">
+        <div class="modal-content company-settings-modal-content" style="max-width: 640px;">
             <span class="close" onclick="closeCompanyExpDateModal(true)">&times;</span>
             <h2>Company Settings</h2>
             <div class="company-settings-tabs" role="tablist">
@@ -308,35 +308,62 @@ try {
                 </div>
 
                 <div id="companySettingsPanelShare" class="company-settings-panel" style="display: none;">
-                    <p class="company-share-intro">Assign accounts that receive an extra fee share by percentage. Each role (Sales, CS, IT) can list multiple accounts.</p>
-                    <div class="company-share-role-block">
-                        <div class="company-share-role-title">Sales</div>
-                        <table class="company-share-table" aria-label="Sales share">
-                            <thead><tr><th>Account</th><th>%</th><th></th></tr></thead>
-                            <tbody id="shareRowsSales"></tbody>
-                        </table>
-                        <button type="button" class="btn company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add account</button>
-                        <div class="company-share-total" id="shareTotalSales">Total: 0%</div>
+                    <div class="company-share-scroll">
+                        <p class="company-share-intro">Split extra fees by role: pick an account and assign a percentage. You can add multiple rows per role.</p>
+                        <div class="company-share-role-card" data-share-card="sales">
+                            <div class="company-share-card-head">
+                                <span class="company-share-role-badge company-share-role-badge--sales">Sales</span>
+                                <span class="company-share-card-sum" id="shareTotalSales" title="Subtotal for this role">0.00%</span>
+                            </div>
+                            <div class="company-share-column-labels">
+                                <span>Account</span>
+                                <span>Share</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsSales" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">
+                                <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
+                            </button>
+                        </div>
+                        <div class="company-share-role-card" data-share-card="cs">
+                            <div class="company-share-card-head">
+                                <span class="company-share-role-badge company-share-role-badge--cs">CS</span>
+                                <span class="company-share-card-sum" id="shareTotalCs" title="Subtotal for this role">0.00%</span>
+                            </div>
+                            <div class="company-share-column-labels">
+                                <span>Account</span>
+                                <span>Share</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsCs" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">
+                                <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
+                            </button>
+                        </div>
+                        <div class="company-share-role-card" data-share-card="it">
+                            <div class="company-share-card-head">
+                                <span class="company-share-role-badge company-share-role-badge--it">IT</span>
+                                <span class="company-share-card-sum" id="shareTotalIt" title="Subtotal for this role">0.00%</span>
+                            </div>
+                            <div class="company-share-column-labels">
+                                <span>Account</span>
+                                <span>Share</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsIt" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">
+                                <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
+                            </button>
+                        </div>
+                        <div class="company-share-grand-total" id="shareGrandTotalBar">
+                            <span class="company-share-grand-label">Combined (all roles)</span>
+                            <span class="company-share-grand-value" id="shareGrandTotal">0.00%</span>
+                        </div>
+                        <div class="company-share-callout" id="companyShareNoAccountsHint" style="display: none;" role="status">
+                            <span class="company-share-callout-icon" aria-hidden="true">ⓘ</span>
+                            <span>No accounts linked to this company yet. Link them on the Account page, then save the domain if this company is new.</span>
+                        </div>
                     </div>
-                    <div class="company-share-role-block">
-                        <div class="company-share-role-title">CS</div>
-                        <table class="company-share-table" aria-label="CS share">
-                            <thead><tr><th>Account</th><th>%</th><th></th></tr></thead>
-                            <tbody id="shareRowsCs"></tbody>
-                        </table>
-                        <button type="button" class="btn company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add account</button>
-                        <div class="company-share-total" id="shareTotalCs">Total: 0%</div>
-                    </div>
-                    <div class="company-share-role-block">
-                        <div class="company-share-role-title">IT</div>
-                        <table class="company-share-table" aria-label="IT share">
-                            <thead><tr><th>Account</th><th>%</th><th></th></tr></thead>
-                            <tbody id="shareRowsIt"></tbody>
-                        </table>
-                        <button type="button" class="btn company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add account</button>
-                        <div class="company-share-total" id="shareTotalIt">Total: 0%</div>
-                    </div>
-                    <p class="company-share-footnote" id="companyShareNoAccountsHint" style="display: none;">No accounts linked to this company yet. Link accounts on the Account page, then save the domain if this is a new company.</p>
                 </div>
 
                 <div class="form-actions" style="margin-top: 20px;">
