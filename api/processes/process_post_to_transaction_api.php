@@ -525,18 +525,15 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     return $byId;
 }
 
-/** manual_inactive 入账时按 Contract 的金额倍数：1+2→2，1+3→3，1+1 或其他→1（Buy Price / Sell Price / Profit Sharing 均乘此倍数） */
+/** manual_inactive 入账：1+1/1+2/1+3 按合约总月数 (1+X) 乘 Buy/Sell/Profit/Profit Sharing（整月全额，与 getBillingTermMonthsFromContract 一致）；其他→1 */
 function getManualInactiveMultiplierFromContract(?string $contract): int
 {
     if ($contract === null || $contract === '') {
         return 1;
     }
     $c = trim($contract);
-    if ($c === '1+2') {
-        return 2;
-    }
-    if ($c === '1+3') {
-        return 3;
+    if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
+        return 1 + (int) $m[1];
     }
     return 1;
 }
@@ -896,7 +893,7 @@ try {
                 // ignore
             }
         }
-        // manual_inactive：1+2 时 Buy Price / Sell Price / Profit 乘 2，1+3 时乘 3，再入账
+        // manual_inactive：1+X 合约时 Buy/Sell/Profit 乘 (1+X) 再入账
         if ($periodType === 'manual_inactive') {
             $mult = getManualInactiveMultiplierFromContract($p['contract'] ?? null);
             $cost = round($cost * $mult, 2);
