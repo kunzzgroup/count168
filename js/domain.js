@@ -1512,16 +1512,20 @@ function renderDomainAccountingDueRows(items) {
             const amt = formatMoney2(b.amount);
             const role = b.role ? String(b.role).toUpperCase() : '';
             // Keep breakdown concise: "SALES 10.0% = 241.56" (no company code like "TUE")
-            return escapeHtmlLite(role) + ' ' + escapeHtmlLite(pct) + '% = ' + escapeHtmlLite(amt);
+            return '<span class="domain-accounting-breakdown-role">' + escapeHtmlLite(role) + '</span> ' + escapeHtmlLite(pct) + '%';
         }).join(' · ') : '';
         return (
             '<tr data-key="' + escapeHtmlLite(key) + '">' +
             '<td><input type="checkbox" class="domain-accounting-inbox-row-cb" data-key="' + escapeHtmlLite(key) + '" checked onchange="updateDomainAccountingInboxButtons()"></td>' +
             '<td>' + (idx + 1) + '</td>' +
             '<td class="domain-accounting-due-account">' + escapeHtmlLite(acct) + '</td>' +
-            '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + escapeHtmlLite(due) + '</td>' +
             '<td class="domain-accounting-due-companies">' + escapeHtmlLite(companies) + '</td>' +
-            '<td class="domain-accounting-due-breakdown" title="' + escapeHtmlLite(breakdown || '-') + '">' + (breakdown || '-') + '</td>' +
+            '<td class="domain-accounting-due-breakdown" title="' + escapeHtmlLite((Array.isArray(row.breakdown) ? row.breakdown.map(b => {
+                const pct = (b.percentage != null && b.percentage !== '') ? formatPct1(b.percentage) : '0.0';
+                const role = b.role ? String(b.role).toUpperCase() : '';
+                return role + ' ' + pct + '%';
+            }).join(' · ') : '')) + '">' + (breakdown || '-') + '</td>' +
+            '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + escapeHtmlLite(due) + '</td>' +
             '<td><input type="checkbox" class="domain-accounting-inbox-delete-cb" data-key="' + escapeHtmlLite(key) + '" onchange="updateDomainAccountingInboxButtons()"></td>' +
             '</tr>'
         );
