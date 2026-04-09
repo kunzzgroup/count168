@@ -506,6 +506,19 @@ function renderReport(data, totals = null) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    let modeCode = typeof window.SIDEBAR_COMPANY_CODE !== 'undefined' ? String(window.SIDEBAR_COMPANY_CODE) : '';
+    if (!modeCode && typeof window.DOMAIN_REPORT_COMPANY_ID !== 'undefined') {
+        modeCode = String(window.DOMAIN_REPORT_COMPANY_ID);
+    }
+    if (modeCode) {
+        let rawMode = localStorage.getItem('selectedPermission_' + modeCode);
+        if (rawMode === 'Gambling') rawMode = 'Games';
+        if (rawMode === 'Bank') {
+            window.location.href = 'bank_process_list.php';
+            return;
+        }
+    }
+
     initDomainReportDateRange();
     await loadOwnerCompanies();
     await loadProcesses();
