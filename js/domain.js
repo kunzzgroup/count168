@@ -665,6 +665,30 @@ function syncFeeShareFromDomToCompany(company) {
     company.fee_share_allocations = readFeeShareFromModalDom();
 }
 
+function pruneEmptyShareRows(fs) {
+    var out = defaultFeeShareAllocations();
+    if (!fs || typeof fs !== 'object') {
+        return out;
+    }
+    ['sales', 'cs', 'it'].forEach(function (role) {
+        var rows = Array.isArray(fs[role]) ? fs[role] : [];
+        out[role] = rows.filter(function (row) {
+            var aid = row && row.account_id !== undefined ? parseInt(row.account_id, 10) : 0;
+            // Keep only rows with a selected account.
+            return aid !== 0;
+        }).map(function (row) {
+            var pct = row && row.percentage !== undefined && row.percentage !== null && row.percentage !== ''
+                ? parseFloat(row.percentage)
+                : '';
+            return {
+                account_id: parseInt(row.account_id, 10) || 0,
+                percentage: isFinite(pct) ? pct : ''
+            };
+        });
+    });
+    return out;
+}
+
 function countShareRoleAssignedAccounts(role) {
     var map = { sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
     var tb = document.getElementById(map[role]);
@@ -846,6 +870,8 @@ function addCompanyShareRow(role) {
     }
     ensureCompanyFeeShare(company);
     syncFeeShareFromDomToCompany(company);
+    // Remove unfinished rows added via "+ Add Account" when user saves.
+    company.fee_share_allocations = pruneEmptyShareRows(company.fee_share_allocations);
     if (!company.fee_share_allocations[role]) {
         company.fee_share_allocations[role] = [];
     }
