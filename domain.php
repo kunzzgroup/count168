@@ -339,7 +339,7 @@ try {
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsSales" role="list"></div>
-                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add Account</button>
+                            <button type="button" class="company-share-add-btn" onclick="openCompanyShareBulkAdd('sales')">+ Add accounts</button>
                             </div>
                         </div>
                         <div class="company-share-role-card" data-share-card="cs">
@@ -371,7 +371,7 @@ try {
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsCs" role="list"></div>
-                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add Account</button>
+                            <button type="button" class="company-share-add-btn" onclick="openCompanyShareBulkAdd('cs')">+ Add accounts</button>
                             </div>
                         </div>
                         <div class="company-share-role-card" data-share-card="it">
@@ -403,7 +403,7 @@ try {
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>
                             <div class="company-share-rows" id="shareRowsIt" role="list"></div>
-                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add Account</button>
+                            <button type="button" class="company-share-add-btn" onclick="openCompanyShareBulkAdd('it')">+ Add accounts</button>
                             </div>
                         </div>
                     </div>
@@ -414,6 +414,37 @@ try {
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #ffa2b6 0%, #c91212 100%); color: white; margin-right: 8px;">Reset</button>
                     <button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal(true)">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share %: pick multiple company accounts at once -->
+    <div id="companyShareBulkAddModal" class="modal company-share-bulk-modal" style="display: none; z-index: 10004;" onclick="if (event.target === this) closeCompanyShareBulkAdd();">
+        <div class="modal-content company-share-bulk-content" onclick="event.stopPropagation();">
+            <div class="company-share-bulk-head">
+                <h3 id="companyShareBulkAddTitle">Add accounts</h3>
+                <button type="button" class="company-share-bulk-x" onclick="closeCompanyShareBulkAdd()" aria-label="Close">&times;</button>
+            </div>
+            <div class="company-share-bulk-body">
+                <p class="company-share-bulk-intro" id="companyShareBulkAddIntro">Select one or more accounts to add as new rows.</p>
+                <div class="company-share-bulk-toolbar" id="companyShareBulkToolbar">
+                    <button type="button" class="company-share-bulk-link" onclick="setShareBulkCheckboxes(true)">Select all</button>
+                    <span class="company-share-bulk-toolbar-sep" aria-hidden="true">·</span>
+                    <button type="button" class="company-share-bulk-link" onclick="setShareBulkCheckboxes(false)">Clear</button>
+                </div>
+                <div id="companyShareBulkAddList" class="company-share-bulk-list" role="group" aria-label="Accounts"></div>
+                <p class="company-share-bulk-empty" id="companyShareBulkAddEmpty" style="display: none;">No linked accounts available, or every account is already in this list. Use empty rows below to add placeholders.</p>
+                <div class="company-share-bulk-blank-row">
+                    <label for="companyShareBulkBlankCount">Empty rows (choose account later)</label>
+                    <div class="company-share-bulk-blank-controls">
+                        <input type="number" id="companyShareBulkBlankCount" min="1" max="30" value="1" />
+                        <button type="button" class="btn btn-cancel company-share-bulk-blank-btn" onclick="confirmCompanyShareBulkBlankRows()">Add rows</button>
+                    </div>
+                </div>
+                <div class="company-share-bulk-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeCompanyShareBulkAdd()">Cancel</button>
+                    <button type="button" class="btn btn-save" id="companyShareBulkAddConfirm" onclick="confirmCompanyShareBulkAdd()">Add selected</button>
                 </div>
             </div>
         </div>

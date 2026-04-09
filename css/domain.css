@@ -528,7 +528,7 @@ h1 {
 }
 
 .company-share-role-card--empty .company-share-rows::after {
-    content: 'No rows yet — use “+ Add Account” below.';
+    content: 'No rows yet — use “+ Add accounts” below.';
     display: block;
     padding: 12px 14px;
     font-size: clamp(10px, 0.78vw, 13px);
@@ -654,6 +654,174 @@ h1 {
     background-color: #dbeafe;
     border-color: #93c5fd;
     transform: translateY(-1px);
+}
+
+.company-share-bulk-modal .company-share-bulk-content {
+    width: clamp(320px, 90vw, 440px);
+    max-width: 440px;
+    margin: 8% auto;
+    padding: 0;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.company-share-bulk-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.company-share-bulk-head h3 {
+    margin: 0;
+    font-size: clamp(15px, 1.1vw, 18px);
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.company-share-bulk-x {
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+
+.company-share-bulk-x:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.company-share-bulk-body {
+    padding: 14px 16px 16px;
+}
+
+.company-share-bulk-intro {
+    margin: 0 0 10px;
+    font-size: clamp(11px, 0.8vw, 13px);
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.company-share-bulk-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.company-share-bulk-toolbar-sep {
+    color: #cbd5e1;
+}
+
+.company-share-bulk-link {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: clamp(11px, 0.78vw, 13px);
+    font-weight: 600;
+    color: #2563eb;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.company-share-bulk-link:hover {
+    color: #1d4ed8;
+}
+
+.company-share-bulk-list {
+    max-height: min(38vh, 280px);
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fafafa;
+    padding: 6px 0;
+    margin-bottom: 12px;
+}
+
+.company-share-bulk-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: clamp(11px, 0.82vw, 14px);
+    color: #1e293b;
+}
+
+.company-share-bulk-item:hover {
+    background: #f1f5f9;
+}
+
+.company-share-bulk-item input {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.company-share-bulk-item span {
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.company-share-bulk-empty {
+    margin: 0 0 12px;
+    font-size: clamp(11px, 0.78vw, 13px);
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.company-share-bulk-blank-row {
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    margin-bottom: 14px;
+}
+
+.company-share-bulk-blank-row label {
+    display: block;
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.company-share-bulk-blank-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.company-share-bulk-blank-controls input[type="number"] {
+    width: 4.5rem;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.company-share-bulk-blank-btn {
+    margin: 0 !important;
+}
+
+.company-share-bulk-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#companyShareBulkAddConfirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .company-share-grand-total {
