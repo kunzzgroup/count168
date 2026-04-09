@@ -42,6 +42,12 @@
         padding-top: 8px !important;
         padding-bottom: 8px !important;
     }
+    
+    .search-input, .account-search-input, #searchInput {
+        padding-left: 32px !important; /* Prevent text from overlapping the magnifying glass icon */
+        width: 100% !important; /* Ensure enough width for "Search by Account or Name" */
+        max-width: 250px !important;
+    }
 
     /* Checkboxes and Labels */
     label, .account-checkbox-section label, .checkbox-section label, .transaction-label {
@@ -98,9 +104,16 @@
     /* ----------------------------------------------------
        5. Status & Role Badges (Visual Cues)
        ---------------------------------------------------- */
-    .role-badge, .account-role-badge, .contract-badge, .status-badge, .member-badge {
+    .role-badge, .account-role-badge, .contract-badge, .status-badge, .member-badge,
+    span.account-role-badge {
         font-size: 12px !important;
         padding: 4px 10px !important;
+        width: auto !important;
+        min-width: max-content !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        box-sizing: border-box !important;
+        line-height: 1 !important;
     }
 
     /* ----------------------------------------------------
@@ -278,7 +291,8 @@ html, body.user-page, body.account-page, body.transaction-page, body.datacapture
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow: auto !important; /* Ensure the container itself can scroll if body fails */
+    padding-bottom: 100px !important; /* Absolute guarantee we never cut off the bottom element */
 }
 
 /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
