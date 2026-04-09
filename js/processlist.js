@@ -6243,7 +6243,7 @@ async function loadPermissionButtons() {
 
         if (permissions.length > 0) {
             if (permissionFilterEl) {
-                permissionFilterEl.style.display = hidePermissionFilter ? 'none' : 'flex';
+                permissionFilterEl.style.display = (hidePermissionFilter || permissions.length <= 1) ? 'none' : 'flex';
             }
 
             permissions.forEach(permission => {

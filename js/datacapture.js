@@ -24628,7 +24628,7 @@ async function loadPermissionButtons() {
         permissionContainer.innerHTML = '';
 
         if (permissions.length > 0) {
-            document.getElementById('data-capture-permission-filter').style.display = 'flex';
+            document.getElementById('data-capture-permission-filter').style.display = (permissions.length <= 1) ? 'none' : 'flex';
 
             permissions.forEach(permission => {
                 const btn = document.createElement('button');

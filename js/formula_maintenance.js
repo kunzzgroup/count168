@@ -446,7 +446,7 @@ async function loadPermissionButtons() {
         permissions = permissions.filter(p => p !== 'Bank');
         containerEl.innerHTML = '';
         if (permissions.length > 0) {
-            filterEl.style.display = 'flex';
+            filterEl.style.display = (permissions.length <= 1) ? 'none' : 'flex';
             permissions.forEach(permission => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
