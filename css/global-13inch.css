@@ -166,6 +166,17 @@
         line-height: 1.15 !important;
     }
 
+    /* Stop Bank badges from overflowing horizontally due to global constraints */
+    .process-page.process-page--bank .bank-data-table .contract-badge,
+    .process-page.process-page--bank .bank-data-table .status-badge {
+        font-size: 9px !important;
+        padding: 2px 4px !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+        text-align: center;
+        line-height: 1.1 !important;
+    }
+
     .transaction-table-row {
         min-height: 52px !important;
     }
