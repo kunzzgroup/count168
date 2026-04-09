@@ -243,15 +243,13 @@ try {
 
     <!-- Company Expiration Date Setting Modal -->
     <div id="companyExpDateModal" class="modal" style="z-index: 10003;">
-        <div class="modal-content company-settings-modal-content" style="max-width: 640px;">
+        <div class="modal-content company-settings-modal-content company-settings-modal-content--split">
             <span class="close" onclick="closeCompanyExpDateModal(true)">&times;</span>
             <h2>Company Settings</h2>
-            <div class="company-settings-tabs" role="tablist">
-                <button type="button" id="companyTabGeneral" class="company-settings-tab company-settings-tab-active" onclick="switchCompanySettingsTab('general')" role="tab" aria-selected="true">General</button>
-                <button type="button" id="companyTabShare" class="company-settings-tab" onclick="switchCompanySettingsTab('share')" role="tab" aria-selected="false">Share %</button>
-            </div>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
-                <div id="companySettingsPanelGeneral" class="company-settings-panel">
+            <div class="modal-body company-settings-modal-body">
+                <div class="company-settings-split">
+                    <div id="companySettingsPanelGeneral" class="company-settings-split-left">
+                        <h3 class="company-settings-column-title">Company settings</h3>
                 <div class="form-group">
                     <label id="expDateCompanyName" style="font-weight: bold; font-size: clamp(12px, 1.04vw, 16px); color: #1e293b; margin-bottom: 15px;">Company: </label>
                 </div>
@@ -305,11 +303,13 @@ try {
                     </div>
                     <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
                 </div>
-                </div>
+                    </div>
 
-                <div id="companySettingsPanelShare" class="company-settings-panel" style="display: none;">
+                    <div class="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true"></div>
+
+                    <div id="companySettingsPanelShare" class="company-settings-split-right">
+                        <h3 class="company-settings-column-title">Share %</h3>
                     <div class="company-share-scroll">
-                        <p class="company-share-intro">Split extra fees by role: pick an account and assign a percentage. You can add multiple rows per role.</p>
                         <div class="company-share-role-card" data-share-card="sales">
                             <div class="company-share-card-head">
                                 <span class="company-share-role-badge company-share-role-badge--sales">Sales</span>
@@ -355,18 +355,11 @@ try {
                                 <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
                             </button>
                         </div>
-                        <div class="company-share-grand-total" id="shareGrandTotalBar">
-                            <span class="company-share-grand-label">Combined (all roles)</span>
-                            <span class="company-share-grand-value" id="shareGrandTotal">0.00%</span>
-                        </div>
-                        <div class="company-share-callout" id="companyShareNoAccountsHint" style="display: none;" role="status">
-                            <span class="company-share-callout-icon" aria-hidden="true">ⓘ</span>
-                            <span>No accounts linked to this company yet. Link them on the Account page, then save the domain if this company is new.</span>
-                        </div>
+                    </div>
                     </div>
                 </div>
 
-                <div class="form-actions" style="margin-top: 20px;">
+                <div class="form-actions company-settings-form-actions">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #ffa2b6 0%, #c91212 100%); color: white; margin-right: 8px;">Reset</button>
                     <button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal(true)">Cancel</button>

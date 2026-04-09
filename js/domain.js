@@ -564,7 +564,6 @@ let currentEditingCompanyId = null;
 let companySnapshotWhenModalOpened = null;
 // Company Settings → Share %：下拉账户列表（来自 API）
 let shareModalAccounts = [];
-let companySettingsActiveTab = 'general';
 
 function defaultFeeShareAllocations() {
     return { sales: [], cs: [], it: [] };
@@ -607,37 +606,6 @@ function isFeeShareAllocationsEmpty(fs) {
         return true;
     }
     return (!fs.sales || !fs.sales.length) && (!fs.cs || !fs.cs.length) && (!fs.it || !fs.it.length);
-}
-
-function switchCompanySettingsTab(tab) {
-    companySettingsActiveTab = tab;
-    var gen = document.getElementById('companySettingsPanelGeneral');
-    var sh = document.getElementById('companySettingsPanelShare');
-    var tGen = document.getElementById('companyTabGeneral');
-    var tSh = document.getElementById('companyTabShare');
-    if (tab === 'share') {
-        if (gen) gen.style.display = 'none';
-        if (sh) sh.style.display = 'block';
-        if (tGen) {
-            tGen.classList.remove('company-settings-tab-active');
-            tGen.setAttribute('aria-selected', 'false');
-        }
-        if (tSh) {
-            tSh.classList.add('company-settings-tab-active');
-            tSh.setAttribute('aria-selected', 'true');
-        }
-    } else {
-        if (gen) gen.style.display = 'block';
-        if (sh) sh.style.display = 'none';
-        if (tSh) {
-            tSh.classList.remove('company-settings-tab-active');
-            tSh.setAttribute('aria-selected', 'false');
-        }
-        if (tGen) {
-            tGen.classList.add('company-settings-tab-active');
-            tGen.setAttribute('aria-selected', 'true');
-        }
-    }
 }
 
 function escapeHtmlShare(str) {
@@ -895,8 +863,7 @@ function openCompanyExpDateModal(companyId) {
         updateExpDateDisplay();
     };
     
-    switchCompanySettingsTab('general');
-    // 显示弹窗
+    // 显示弹窗（左右分栏同时展示 Company 与 Share %）
     document.getElementById('companyExpDateModal').style.display = 'block';
     loadCompanyShareDataForModal(company.company_id);
 }
