@@ -222,7 +222,8 @@ function createRowElement(companyId, idx, rowData) {
     companyStates[companyId].accounts.forEach(acc => {
         const opt = document.createElement('option');
         opt.value = acc.id;
-        opt.textContent = `${acc.account_name} (${acc.name})`;
+        const mainStr = parseInt(acc.is_main_owner) === 1 ? ' - Main' : '';
+        opt.textContent = `${acc.account_name} (${acc.name})${mainStr}`;
         if (acc.id == rowData.account_id) opt.selected = true;
         select.appendChild(opt);
     });

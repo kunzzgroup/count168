@@ -17,7 +17,8 @@ try {
         $stmtOwner = $pdo->prepare("
             SELECT DISTINCT CONCAT('O_', o.id) as id, 
                    COALESCE(co.partner_group_id, o.owner_code) as account_name, 
-                   o.name, 'OWNER' as role, 'owner' as type
+                   o.name, 'OWNER' as role, 'owner' as type,
+                   CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END as is_main_owner
             FROM owner o
             LEFT JOIN company c ON o.id = c.owner_id AND c.id = :comp_id1
             LEFT JOIN company_ownership co ON o.id = co.account_id AND co.owner_type = 'owner' AND co.company_id = :comp_id2
@@ -33,7 +34,8 @@ try {
             $stmtPartner = $pdo->prepare("
                 SELECT DISTINCT CONCAT('U_', u.id) as id, 
                        u.login_id as account_name, 
-                       u.name, 'PARTNERSHIP' as role, 'user' as type
+                       u.name, 'PARTNERSHIP' as role, 'user' as type,
+                       0 as is_main_owner
                 FROM user u
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                 WHERE ucm.company_id = ? AND LOWER(u.role) = 'partnership' AND LOWER(u.status) = 'active'
@@ -58,7 +60,7 @@ try {
     } else {
         // Fallback or global mode, return generally available
         $stmtOwner = $pdo->prepare("
-            SELECT CONCAT('O_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type
+            SELECT CONCAT('O_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type, 0 as is_main_owner
             FROM owner
             WHERE LOWER(status) = 'active'
               AND id = ?
@@ -72,7 +74,8 @@ try {
             $stmtPartner = $pdo->prepare("
                 SELECT DISTINCT CONCAT('U_', id) as id, 
                        login_id as account_name, 
-                       name, 'PARTNERSHIP' as role, 'user' as type
+                       name, 'PARTNERSHIP' as role, 'user' as type,
+                       0 as is_main_owner
                 FROM user
                 WHERE LOWER(role) = 'partnership' AND LOWER(status) = 'active'
             ");
