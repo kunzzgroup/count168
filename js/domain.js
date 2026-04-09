@@ -801,7 +801,7 @@ function renderCompanySharePanel() {
                 '</select></div>' +
                 '<div class="company-share-cell company-share-cell-pct">' +
                 '<div class="company-share-pct-wrap">' +
-                '<input type="number" class="share-pct-input company-share-pct-input" step="0.01" min="0" max="100" value="' +
+                '<input type="number" class="share-pct-input company-share-pct-input" step="0.1" min="0" max="100" value="' +
                 (pctVal !== '' ? escapeHtmlShare(String(pctVal)) : '') + '" placeholder="0" inputmode="decimal" aria-label="Percentage" />' +
                 '<span class="company-share-pct-suffix">%</span></div></div>' +
                 '<div class="company-share-cell company-share-cell-amount">' +
@@ -1490,8 +1490,8 @@ function formatDomainFeeDisplay2(val) {
     return n.toFixed(2);
 }
 
-/** 编辑用：固定四位小数填入输入框 */
-function formatDomainFeeEdit4(val) {
+/** 编辑用：固定两位小数填入输入框 */
+function formatDomainFeeEdit2(val) {
     if (val === null || val === undefined || val === '') {
         return '';
     }
@@ -1499,7 +1499,7 @@ function formatDomainFeeEdit4(val) {
     if (!isFinite(n)) {
         return '';
     }
-    return n.toFixed(4);
+    return n.toFixed(2);
 }
 
 function buildDomainFeeSummaryHtml2(data) {
@@ -1538,7 +1538,7 @@ function applyDomainFeeEditInputs(data) {
     }
     var p = document.getElementById('domainFeePrice');
     if (p) {
-        p.value = formatDomainFeeEdit4(data.price);
+        p.value = formatDomainFeeEdit2(data.price);
     }
 }
 

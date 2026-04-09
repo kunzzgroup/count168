@@ -330,7 +330,7 @@ function normalizeOptionalDecimal($val) {
     if (!is_numeric($val)) {
         return false;
     }
-    return round((float) $val, 4);
+    return round((float) $val, 2);
 }
 
 function isC168Company(PDO $pdo, $company_id): bool {
