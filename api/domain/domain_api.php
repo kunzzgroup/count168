@@ -1222,7 +1222,7 @@ try {
                 ");
                 $companies = $cStmt ? $cStmt->fetchAll(PDO::FETCH_ASSOC) : [];
 
-                $acc = []; // target_id => ['due_amount'=>float,'companies'=>set,'breakdown'=>[]]
+                $acc = []; // item_key(target|role) => ['target_id'=>int,'role'=>string,'due_amount'=>float,'companies'=>set,'breakdown'=>[]]
                 foreach ($companies as $c) {
                     $code = strtoupper(trim($c['company_id'] ?? ''));
                     if ($code === '') {
@@ -1237,16 +1237,20 @@ try {
                                 continue;
                             }
                             $amt = round($base * ($pct / 100.0), 4);
-                            if (!isset($acc[$tid])) {
-                                $acc[$tid] = [
+                            $roleKey = strtoupper($role);
+                            $itemKey = $tid . '|' . $roleKey;
+                            if (!isset($acc[$itemKey])) {
+                                $acc[$itemKey] = [
+                                    'target_id' => $tid,
+                                    'role' => $roleKey,
                                     'due_amount' => 0.0,
                                     'companies' => [],
                                     'breakdown' => [],
                                 ];
                             }
-                            $acc[$tid]['due_amount'] += $amt;
-                            $acc[$tid]['companies'][$code] = true;
-                            $acc[$tid]['breakdown'][] = [
+                            $acc[$itemKey]['due_amount'] += $amt;
+                            $acc[$itemKey]['companies'][$code] = true;
+                            $acc[$itemKey]['breakdown'][] = [
                                 'company_id' => $code,
                                 'role' => $role,
                                 'percentage' => round($pct, 4),
@@ -1303,13 +1307,16 @@ try {
                 }
 
                 $items = [];
-                foreach ($acc as $tid => $row) {
+                foreach ($acc as $itemKey => $row) {
+                    $tid = (int) ($row['target_id'] ?? 0);
                     $due = (float) $row['due_amount'];
                     $companiesList = array_keys($row['companies'] ?? []);
                     sort($companiesList, SORT_STRING);
                     $items[] = [
-                        'target_id' => (int) $tid,
-                        'account_label' => $accountLabels[(int) $tid] ?? ('#' . (int) $tid),
+                        'item_key' => (string) $itemKey,
+                        'target_id' => $tid,
+                        'role' => (string) ($row['role'] ?? ''),
+                        'account_label' => $accountLabels[$tid] ?? ('#' . $tid),
                         'due_amount' => round($due, 4),
                         'companies' => $companiesList,
                         'breakdown' => $row['breakdown'],
@@ -1343,15 +1350,26 @@ try {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
-            $targetIdsRaw = $data['target_ids'] ?? [];
-            if (!is_array($targetIdsRaw) || empty($targetIdsRaw)) {
-                jsonResponse(false, 'Please select at least one account', null);
+            $selectedEntriesRaw = $data['selected_entries'] ?? [];
+            if (!is_array($selectedEntriesRaw) || empty($selectedEntriesRaw)) {
+                jsonResponse(false, 'Please select at least one billing row', null);
                 exit;
             }
-            $targetIds = array_values(array_unique(array_map('intval', $targetIdsRaw)));
-            $targetIds = array_values(array_filter($targetIds, function ($v) { return $v !== 0; }));
-            if (empty($targetIds)) {
-                jsonResponse(false, 'Invalid target account IDs', null);
+            $selectedEntries = [];
+            foreach ($selectedEntriesRaw as $entry) {
+                if (!is_array($entry)) {
+                    continue;
+                }
+                $tid = isset($entry['target_id']) ? (int) $entry['target_id'] : 0;
+                $role = strtoupper(trim((string) ($entry['role'] ?? '')));
+                if ($tid === 0 || !in_array($role, ['SALES', 'CS', 'IT'], true)) {
+                    continue;
+                }
+                $selectedEntries[$tid . '|' . $role] = ['target_id' => $tid, 'role' => $role];
+            }
+            $selectedEntries = array_values($selectedEntries);
+            if (empty($selectedEntries)) {
+                jsonResponse(false, 'Invalid selected billing rows', null);
                 exit;
             }
             try {
@@ -1378,7 +1396,10 @@ try {
                 $companies = $cStmt ? $cStmt->fetchAll(PDO::FETCH_ASSOC) : [];
 
                 // Build selected account -> role -> company -> amount
-                $selectedSet = array_fill_keys($targetIds, true);
+                $selectedSet = [];
+                foreach ($selectedEntries as $se) {
+                    $selectedSet[$se['target_id'] . '|' . $se['role']] = true;
+                }
                 $bucket = [];
                 foreach ($companies as $c) {
                     $code = strtoupper(trim($c['company_id'] ?? ''));
@@ -1390,7 +1411,7 @@ try {
                         foreach (($alloc[$role] ?? []) as $row) {
                             $tid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
                             $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
-                            if ($tid === 0 || $pct <= 0 || !isset($selectedSet[$tid])) {
+                            if ($tid === 0 || $pct <= 0) {
                                 continue;
                             }
                             $amt = round($base * ($pct / 100.0), 4);
@@ -1398,6 +1419,10 @@ try {
                                 continue;
                             }
                             $roleKey = strtoupper($role);
+                            $selectedKey = $tid . '|' . $roleKey;
+                            if (!isset($selectedSet[$selectedKey])) {
+                                continue;
+                            }
                             if (!isset($bucket[$tid])) {
                                 $bucket[$tid] = [];
                             }
