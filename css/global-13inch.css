@@ -465,7 +465,7 @@ body {
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important; /* No internal scrolling since exactly 20 items will be shown */
-    padding-bottom: 48px !important; /* Leave space for pagination */
+    padding-bottom: 74px !important; /* Leave space for pagination */
 }
 
 .process-cards,
