@@ -1055,8 +1055,15 @@ try {
         
         // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）；仅 bank process 交易显示 card_owner，其余显示 id product
         $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
-        // Id Product：手动 PROFIT（WIN/LOSE，非 Bank Process）统一显示为 PROFIT，其余沿用 transaction_type
-        $productLabel = $isManualProfit ? 'PROFIT' : $t['transaction_type'];
+        // Id Product：手动 PROFIT（WIN/LOSE，非 Bank Process）统一显示为 PROFIT；
+        // Domain Share% 自动生成的 Commission Payment（sms 标记或固定描述前缀）显示为 Commission。
+        $isDomainShareCommission = false;
+        $smsText = trim((string)($t['sms'] ?? ''));
+        $descText = trim((string)($t['description'] ?? ''));
+        if ($smsText === '[DOMAIN_SHARE_COMMISSION]' || stripos($descText, 'Commision FROM ') === 0) {
+            $isDomainShareCommission = true;
+        }
+        $productLabel = $isManualProfit ? 'PROFIT' : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']);
         
         $events[] = [
             'row_type' => 'transaction',
