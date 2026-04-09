@@ -85,6 +85,7 @@ function redirectToProcessListPage(targetPage, permission) {
             localStorage.setItem(`selectedPermission_${currentCompanyCode}`, normalizedPermission);
         }
     }
+    window._isRedirecting = true;
     window.location.href = url.toString();
     return true;
 }
@@ -6167,7 +6168,9 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('DOM loaded, calling fetchProcesses...');
     try {
         loadPermissionButtons().then(() => {
-            fetchProcesses();
+            if (!window._isRedirecting) {
+                fetchProcesses();
+            }
         });
     } catch (error) {
         console.error('Error in fetchProcesses:', error);
