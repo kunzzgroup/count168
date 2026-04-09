@@ -1756,7 +1756,7 @@ let allOwnerCompanies = [];
 let selectedDashboardGroup = null; // null = 显示所有
 
 function loadOwnerCompanies() {
-    return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php'))
+    return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php?all=1'))
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
@@ -1790,8 +1790,13 @@ function loadOwnerCompanies() {
                     selectedDashboardGroup = null;
                 }
 
-                // 如果经过上述验证后并没有选中 Group，则保持为空。
-                // 根据用户要求，登录第一眼应该默认不选中任何 Group，从而只展示独立公司。
+                // 如果经过上述验证后并没有选中 Group（首次登录），但当前公司属于某个 Group，
+                // 说明用户是通过 Group ID 登录的，自动点亮该 Group
+                if (!selectedDashboardGroup && currentCompany && currentCompany.group_id && currentCompany.group_id.trim() !== '') {
+                    selectedDashboardGroup = currentCompany.group_id.toUpperCase();
+                    sessionStorage.setItem('dashboard_group_filter', selectedDashboardGroup);
+                    console.log('[Dashboard] Auto-selected group based on current company:', selectedDashboardGroup);
+                }
 
                 // 渲染 Group pills（只在有 group 时才显示）
                 if (groups.length > 0) {
@@ -1832,11 +1837,25 @@ function renderGroupButtons(groups) {
 
         btn.addEventListener('click', async function () {
             if (selectedDashboardGroup === groupId) {
-                // 再次点击 → 取消选择，显示所有公司
+                // 再次点击 → 取消选择，默认选择首个独立公司
                 selectedDashboardGroup = null;
                 sessionStorage.removeItem('dashboard_group_filter');
                 btn.classList.remove('active');
-                renderCompanyButtons(allOwnerCompanies);
+                
+                const independentCompanies = allOwnerCompanies.filter(c =>
+                    (!c.group_id || c.group_id.trim() === '') && c.company_id && c.company_id.trim() !== ''
+                );
+
+                if (independentCompanies.length > 0) {
+                    const firstCompany = independentCompanies[0];
+                    if (parseInt(firstCompany.id) !== parseInt(window.companyId)) {
+                        switchCompany(firstCompany.id, firstCompany.company_id);
+                    } else {
+                        renderCompanyButtons(allOwnerCompanies);
+                    }
+                } else {
+                    renderCompanyButtons(allOwnerCompanies);
+                }
             } else {
                 // 选择该 group
                 selectedDashboardGroup = groupId;
