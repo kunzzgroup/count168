@@ -1441,6 +1441,122 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshDomainFeeSummaryFromApi();
 });
 
+// ============ Domain Accounting Due ============
+let __domainAccountingDueCache = null;
+
+function formatMoney2(val) {
+    const n = Number(val);
+    if (!isFinite(n)) return '0.00';
+    return n.toFixed(2);
+}
+
+function escapeHtmlLite(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+}
+
+function updateDomainAccountingDueBadges(count) {
+    const c = parseInt(count, 10) || 0;
+    const badge = document.getElementById('domainAccountingDueCount');
+    if (badge) badge.textContent = String(c);
+    const badge2 = document.getElementById('domainAccountingDueCountModal');
+    if (badge2) badge2.textContent = String(c);
+}
+
+function openDomainAccountingDueModal() {
+    const modal = document.getElementById('domainAccountingDueModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    refreshDomainAccountingDue();
+}
+
+function closeDomainAccountingDueModal() {
+    const modal = document.getElementById('domainAccountingDueModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function buildDomainAccountingDueSummary(res) {
+    const el = document.getElementById('domainAccountingDueSummary');
+    if (!el) return;
+    if (!res || !res.success || !res.data) {
+        el.textContent = '';
+        return;
+    }
+    const d = res.data;
+    const price = d.fee_settings ? d.fee_settings.price : null;
+    const maint = d.fee_settings ? d.fee_settings.maintenance_fee : null;
+    const base = d.base_amount;
+    const companyCount = d.company_count;
+    el.innerHTML =
+        'Base fee per company: <strong>' + escapeHtmlLite(formatMoney2(base)) + '</strong> ' +
+        '(Price ' + escapeHtmlLite(formatMoney2(price)) + ' + Maint ' + escapeHtmlLite(formatMoney2(maint)) + ')' +
+        ' · Companies counted: <strong>' + escapeHtmlLite(companyCount) + '</strong>';
+}
+
+function renderDomainAccountingDueRows(items) {
+    const tbody = document.getElementById('domainAccountingDueTbody');
+    if (!tbody) return;
+    if (!Array.isArray(items) || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:10px 8px; color:#6b7280;">No accounting due based on current Price/Maintenance and Share %.</td></tr>';
+        updateDomainAccountingDueBadges(0);
+        return;
+    }
+    updateDomainAccountingDueBadges(items.length);
+    tbody.innerHTML = items.map((row, idx) => {
+        const acct = row.account_label || row.account_id_label || ('#' + row.target_id);
+        const due = formatMoney2(row.due_amount);
+        const companies = Array.isArray(row.companies) ? row.companies.join(', ') : '';
+        const breakdown = Array.isArray(row.breakdown) ? row.breakdown.map(b => {
+            const pct = (b.percentage != null && b.percentage !== '') ? formatMoney2(b.percentage) : '0.00';
+            const amt = formatMoney2(b.amount);
+            const role = b.role ? String(b.role).toUpperCase() : '';
+            const comp = b.company_id || '';
+            return escapeHtmlLite(comp) + ' ' + escapeHtmlLite(role) + ' ' + escapeHtmlLite(pct) + '% = ' + escapeHtmlLite(amt);
+        }).join('<br>') : '';
+        return (
+            '<tr>' +
+            '<td>' + (idx + 1) + '</td>' +
+            '<td class="domain-accounting-due-account">' + escapeHtmlLite(acct) + '</td>' +
+            '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + escapeHtmlLite(due) + '</td>' +
+            '<td class="domain-accounting-due-companies">' + escapeHtmlLite(companies) + '</td>' +
+            '<td class="domain-accounting-due-breakdown">' + (breakdown || '-') + '</td>' +
+            '</tr>'
+        );
+    }).join('');
+}
+
+function refreshDomainAccountingDue() {
+    return fetch('api/domain/domain_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_domain_accounting_due' })
+    })
+        .then(r => r.json())
+        .then(res => {
+            __domainAccountingDueCache = res;
+            if (!res || !res.success) {
+                buildDomainAccountingDueSummary(null);
+                renderDomainAccountingDueRows([]);
+                if (res && res.message) {
+                    showAlert(res.message, 'danger');
+                }
+                return;
+            }
+            buildDomainAccountingDueSummary(res);
+            renderDomainAccountingDueRows((res.data && res.data.items) ? res.data.items : []);
+        })
+        .catch(() => {
+            buildDomainAccountingDueSummary(null);
+            renderDomainAccountingDueRows([]);
+            showAlert('Could not load Accounting Due', 'danger');
+        });
+}
+
 /** 展示用：固定两位小数 */
 function formatDomainFeeDisplay2(val) {
     if (val === null || val === undefined || val === '') {
@@ -2297,6 +2413,11 @@ window.onclick = function(event) {
     const domainFeeSettingsModal = document.getElementById('domainFeeSettingsModal');
     if (event.target === domainFeeSettingsModal) {
         closeDomainFeeSettingsModal();
+    }
+
+    const domainAccountingDueModal = document.getElementById('domainAccountingDueModal');
+    if (event.target === domainAccountingDueModal) {
+        // keep consistent with ProcessList: only close via X/Close button
     }
 }
 

@@ -13,7 +13,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings', 'get_domain_accounting_due'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -1143,6 +1143,144 @@ try {
                 jsonResponse(true, 'Saved successfully', [
                     'price' => $price,
                     'maintenance_fee' => $maintenanceFee
+                ]);
+            } catch (Exception $e) {
+                jsonResponse(false, 'Error: ' . $e->getMessage(), null);
+            }
+            break;
+
+        case 'get_domain_accounting_due':
+            if (!$hasC168Context || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            try {
+                ensureDomainListFeeSettingsTable($pdo);
+                ensureCompanyFeeShareColumn($pdo);
+
+                $stmt = $pdo->query("SELECT `price`, `maintenance_fee` FROM `domain_list_fee_settings` WHERE `id` = 1");
+                $feeRow = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+                $price = $feeRow && $feeRow['price'] !== null ? (float) $feeRow['price'] : 0.0;
+                $maint = $feeRow && $feeRow['maintenance_fee'] !== null ? (float) $feeRow['maintenance_fee'] : 0.0;
+                $base = $price + $maint;
+
+                // Collect companies (exclude blank and C168 itself)
+                $cStmt = $pdo->query("
+                    SELECT company_id, fee_share_allocations
+                    FROM company
+                    WHERE TRIM(company_id) <> ''
+                      AND UPPER(TRIM(company_id)) <> 'C168'
+                    ORDER BY company_id ASC
+                ");
+                $companies = $cStmt ? $cStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+                $acc = []; // target_id => ['due_amount'=>float,'companies'=>set,'breakdown'=>[]]
+                foreach ($companies as $c) {
+                    $code = strtoupper(trim($c['company_id'] ?? ''));
+                    if ($code === '') {
+                        continue;
+                    }
+                    $alloc = normalizeFeeShareAllocationsInput($c['fee_share_allocations'] ?? null);
+                    foreach (['sales', 'cs', 'it'] as $role) {
+                        foreach (($alloc[$role] ?? []) as $row) {
+                            $tid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+                            $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
+                            if ($tid === 0 || $pct <= 0 || $base <= 0) {
+                                continue;
+                            }
+                            $amt = round($base * ($pct / 100.0), 4);
+                            if (!isset($acc[$tid])) {
+                                $acc[$tid] = [
+                                    'due_amount' => 0.0,
+                                    'companies' => [],
+                                    'breakdown' => [],
+                                ];
+                            }
+                            $acc[$tid]['due_amount'] += $amt;
+                            $acc[$tid]['companies'][$code] = true;
+                            $acc[$tid]['breakdown'][] = [
+                                'company_id' => $code,
+                                'role' => $role,
+                                'percentage' => round($pct, 4),
+                                'amount' => $amt,
+                            ];
+                        }
+                    }
+                }
+
+                if (empty($acc)) {
+                    jsonResponse(true, 'OK', [
+                        'fee_settings' => [
+                            'price' => $price,
+                            'maintenance_fee' => $maint,
+                        ],
+                        'base_amount' => round($base, 4),
+                        'company_count' => count($companies),
+                        'items' => [],
+                    ]);
+                    break;
+                }
+
+                $targetIds = array_map('intval', array_keys($acc));
+                $posIds = array_values(array_filter($targetIds, fn($i) => $i > 0));
+                $negIds = array_values(array_filter($targetIds, fn($i) => $i < 0));
+
+                $accountLabels = []; // id => label
+                if (!empty($posIds)) {
+                    $ph = buildInPlaceholders(count($posIds));
+                    $aStmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id IN ($ph)");
+                    $aStmt->execute($posIds);
+                    foreach ($aStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                        $id = (int) $r['id'];
+                        $label = trim((string) ($r['account_id'] ?? ''));
+                        $nm = trim((string) ($r['name'] ?? ''));
+                        $accountLabels[$id] = $label . ($nm !== '' ? (' · ' . $nm) : '');
+                    }
+                }
+                if (!empty($negIds)) {
+                    $userIds = array_map(fn($i) => abs((int) $i), $negIds);
+                    $ph = buildInPlaceholders(count($userIds));
+                    $uStmt = $pdo->prepare("SELECT id, login_id, name FROM user WHERE id IN ($ph)");
+                    $uStmt->execute($userIds);
+                    foreach ($uStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                        $uid = (int) $r['id'];
+                        $tid = -$uid;
+                        $label = trim((string) ($r['login_id'] ?? ''));
+                        $nm = trim((string) ($r['name'] ?? ''));
+                        $accountLabels[$tid] = '[Admin] ' . $label . ($nm !== '' ? (' · ' . $nm) : '');
+                    }
+                }
+
+                $items = [];
+                foreach ($acc as $tid => $row) {
+                    $due = (float) $row['due_amount'];
+                    $companiesList = array_keys($row['companies'] ?? []);
+                    sort($companiesList, SORT_STRING);
+                    $items[] = [
+                        'target_id' => (int) $tid,
+                        'account_label' => $accountLabels[(int) $tid] ?? ('#' . (int) $tid),
+                        'due_amount' => round($due, 4),
+                        'companies' => $companiesList,
+                        'breakdown' => $row['breakdown'],
+                    ];
+                }
+                usort($items, function ($a, $b) {
+                    $da = (float) ($a['due_amount'] ?? 0);
+                    $db = (float) ($b['due_amount'] ?? 0);
+                    if ($da === $db) {
+                        return strcmp((string) ($a['account_label'] ?? ''), (string) ($b['account_label'] ?? ''));
+                    }
+                    return ($da < $db) ? 1 : -1;
+                });
+
+                jsonResponse(true, 'OK', [
+                    'fee_settings' => [
+                        'price' => $price,
+                        'maintenance_fee' => $maint,
+                    ],
+                    'base_amount' => round($base, 4),
+                    'company_count' => count($companies),
+                    'items' => $items,
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);

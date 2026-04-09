@@ -111,6 +111,13 @@ try {
                 <span id="domainFeeInlineSummary" class="domain-fee-inline-summary" aria-live="polite"></span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="domain-accounting-due-wrap" id="domainAccountingDueWrap">
+                    <button type="button" class="domain-accounting-due-btn" id="domainAccountingDueBtn" onclick="openDomainAccountingDueModal()">
+                        <span class="domain-accounting-due-icon" aria-hidden="true">⟲</span>
+                        Accounting Due
+                        <span class="domain-accounting-due-badge" id="domainAccountingDueCount">0</span>
+                    </button>
+                </div>
                 <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()">Delete</button>
             </div>
         </div>
@@ -224,6 +231,42 @@ try {
             <div class="confirm-actions">
                 <button type="button" class="btn btn-cancel confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
                 <button type="button" class="btn btn-delete confirm-delete" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Accounting Due Modal -->
+    <div id="domainAccountingDueModal" class="modal" style="display: none; z-index: 10005;">
+        <div class="modal-content domain-accounting-due-modal-content">
+            <div class="modal-header domain-accounting-due-modal-header">
+                <h2>
+                    Accounting Due
+                    <span class="domain-accounting-due-badge" id="domainAccountingDueCountModal">0</span>
+                </h2>
+                <div class="modal-header-actions">
+                    <span class="close" onclick="closeDomainAccountingDueModal()">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body domain-accounting-due-modal-body">
+                <div class="domain-accounting-due-summary" id="domainAccountingDueSummary" aria-live="polite"></div>
+                <div class="domain-accounting-due-table-wrap">
+                    <table class="domain-accounting-due-table">
+                        <thead>
+                            <tr>
+                                <th style="width:56px;">No</th>
+                                <th>Account</th>
+                                <th style="width:120px; text-align: right;">Due</th>
+                                <th style="width:180px;">Companies</th>
+                                <th>Breakdown</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domainAccountingDueTbody"></tbody>
+                    </table>
+                </div>
+                <div class="domain-accounting-due-actions">
+                    <button type="button" class="btn btn-save" onclick="refreshDomainAccountingDue()">Refresh</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeDomainAccountingDueModal()">Close</button>
+                </div>
             </div>
         </div>
     </div>
