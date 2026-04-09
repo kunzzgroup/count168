@@ -51,34 +51,17 @@ $error = isset($_GET['error']) ? true : false;
 $current_user_id = $_SESSION['user_id'] ?? null;
 $current_user_role = $_SESSION['role'] ?? '';
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+
 // Get all companies associated with the current user (for displaying company buttons)
 $user_companies = [];
 try {
     if ($current_user_id) {
-        // If owner, get all owned companies
         if ($current_user_role === 'owner') {
             $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id
-                FROM company c
-                LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
-                WHERE (c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0))
-                AND c.company_id != ''
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$owner_id, $owner_id, $owner_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, false);
         } else {
-            // Regular user, get companies associated via user_company_map
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id 
-                FROM company c
-                INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ? AND c.company_id != ''
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$current_user_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id);
         }
     }
 } catch(PDOException $e) {
