@@ -184,6 +184,13 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
  * 将主表/删除表的一行转换为统一输出项
  */
 function rowToItem(array $row, $is_deleted = 0) {
+    $isDomainShareCommission = false;
+    $descriptionRaw = (string)($row['description'] ?? '');
+    $remarkRaw = (string)($row['remark'] ?? '');
+    if (stripos(trim($descriptionRaw), 'Commision FROM ') === 0 || trim($remarkRaw) === '[DOMAIN_SHARE_COMMISSION]') {
+        $isDomainShareCommission = true;
+    }
+
     $description = $row['description'] ?? '';
     if (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
@@ -194,7 +201,7 @@ function rowToItem(array $row, $is_deleted = 0) {
         'transaction_id' => (int) $row['id'],
         'date' => $row['transaction_date'],
         'account' => $row['account_code'] ?? '-',
-        'from_account' => $row['from_account_code'] ?? '-',
+        'from_account' => $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-'),
         'currency' => $row['currency_code'] ?? '-',
         'amount' => (float) $row['amount'],
         'description' => $description,
