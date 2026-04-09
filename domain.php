@@ -310,7 +310,6 @@ try {
                     <div id="companySettingsPanelShare" class="company-settings-split-right">
                         <h3 class="company-settings-column-title">Share %</h3>
                     <div class="company-share-scroll">
-                        <p class="company-share-intro">Split extra fees by role: pick an account and assign a percentage. You can add multiple rows per role.</p>
                         <div class="company-share-role-card" data-share-card="sales">
                             <div class="company-share-card-head">
                                 <span class="company-share-role-badge company-share-role-badge--sales">Sales</span>
@@ -355,14 +354,6 @@ try {
                             <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">
                                 <span class="company-share-add-icon" aria-hidden="true">+</span> Add account
                             </button>
-                        </div>
-                        <div class="company-share-grand-total" id="shareGrandTotalBar">
-                            <span class="company-share-grand-label">Combined (all roles)</span>
-                            <span class="company-share-grand-value" id="shareGrandTotal">0.00%</span>
-                        </div>
-                        <div class="company-share-callout" id="companyShareNoAccountsHint" style="display: none;" role="status">
-                            <span class="company-share-callout-icon" aria-hidden="true">ⓘ</span>
-                            <span>No accounts linked to this company yet. Link them on the Account page, then save the domain if this company is new.</span>
                         </div>
                     </div>
                     </div>
