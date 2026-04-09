@@ -2506,6 +2506,26 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
+    // Add Enter key event listener to trigger Save
+    const editFormulaFormObj = document.getElementById('editFormulaForm');
+    if (editFormulaFormObj) {
+        editFormulaFormObj.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                // Do not trigger save if we are searching/selecting in the account dropdown
+                const activeDropdown = document.querySelector('.custom-select-dropdown.show');
+                if (activeDropdown && event.target.closest('.custom-select-wrapper')) {
+                    return;
+                }
+                
+                event.preventDefault();
+                const saveBtn = document.getElementById('editFormulaSaveBtn');
+                if (saveBtn && !saveBtn.disabled) {
+                    saveBtn.click();
+                }
+            }
+        });
+    }
+
     // Clear clicked columns when opening new form (unless editing)
     setTimeout(() => {
         const formulaInput = document.getElementById('formula');
