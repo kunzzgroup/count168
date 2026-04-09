@@ -720,8 +720,8 @@ function renderTable() {
             const card = document.createElement('div');
             card.className = 'process-card';
             card.setAttribute('data-id', process.id);
-            // 恢复 Games 表格的列数（7列）并加宽 Status (0.35fr)
-            card.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.19fr';
+            // 恢复 Games 表格的列数（7列）并加宽 Status (0.35fr)，并统一前后数值保证严格对齐
+            card.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr';
 
             const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
 
@@ -6340,11 +6340,11 @@ function switchPermission(permission) {
 
         // 恢复 Games 表格的列数（7列）
         if (tableHeader) {
-            // Restore original columns, allocating more space to Status
-            tableHeader.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1fr 0.3fr';
+            // Restore original columns, allocating more space to Status AND matching the row exactly
+            tableHeader.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr';
         }
         processCards.forEach(card => {
-            card.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.19fr';
+            card.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr';
         });
     }
 
