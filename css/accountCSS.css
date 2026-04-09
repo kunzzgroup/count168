@@ -331,7 +331,7 @@ body {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;
     gap: 15px;
-    padding: 0px 22px;
+    padding: 2px 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -1606,32 +1606,39 @@ body {
         min-height: calc(100vh - 250px);
     }
 }
+
 /* ========================================================
    Compact Mode for Small Screens (Laptops, Tablets, etc.)
    ======================================================== */
-@media (max-height: 800px), (max-width: 1200px) {
+@media (max-height: 800px),
+(max-width: 1200px) {
+
     .account-form-group input,
     .account-form-group select,
     .account-form-group textarea {
         padding: 0.4rem 0.75rem !important;
         font-size: 0.8125rem !important;
     }
+
     .account-form-group label {
         font-size: 0.8125rem !important;
         margin-bottom: 0.25rem !important;
     }
+
     .account-form-column .account-form-group:has(.account-radio-group) label {
         margin-bottom: 0.25rem !important;
     }
+
     .account-form-column .account-form-row {
         margin-bottom: 0.75rem !important;
         gap: 0.875rem !important;
     }
+
     .account-form-column .account-form-group {
         margin-bottom: 0.75rem !important;
     }
+
     .account-form-row .account-form-group {
         margin-bottom: 0 !important;
     }
 }
-

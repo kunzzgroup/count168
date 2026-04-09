@@ -45,7 +45,13 @@
     }
 
     .account-company-btn,
-    .transaction-company-btn {
+    .transaction-company-btn,
+    .process-company-btn,
+    .maintenance-company-btn,
+    .datacapture-company-btn,
+    .member-company-btn,
+    .contract-company-btn,
+    .ownership-company-btn {
         font-size: 13px !important;
         padding: 6px 14px !important;
     }
@@ -161,7 +167,8 @@
     .status-badge,
     .member-badge,
     span.account-role-badge {
-        font-size: 10px !important; /* Set slightly smaller but perfectly legible, overriding the user's 9px edit */
+        font-size: 10px !important;
+        /* Set slightly smaller but perfectly legible, overriding the user's 9px edit */
         padding: 4px 10px !important;
         width: auto !important;
         min-width: max-content !important;
@@ -385,7 +392,6 @@ body {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow: auto !important;
     /* Force native scrollbars to definitely appear */
 }
 
@@ -397,7 +403,7 @@ body {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow: auto !important;
+    overflow: hidden !important;
     /* Ensure the container itself can scroll if body fails */
     padding-bottom: 100px !important;
     /* Absolute guarantee we never cut off the bottom element */
