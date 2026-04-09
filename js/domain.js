@@ -657,6 +657,45 @@ function syncFeeShareFromDomToCompany(company) {
     company.fee_share_allocations = readFeeShareFromModalDom();
 }
 
+function countShareRoleAssignedAccounts(role) {
+    var map = { sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
+    var tb = document.getElementById(map[role]);
+    if (!tb) {
+        return 0;
+    }
+    var n = 0;
+    tb.querySelectorAll('.company-share-data-row').forEach(function (tr) {
+        var sel = tr.querySelector('.share-account-select');
+        var aid = sel ? parseInt(sel.value, 10) : 0;
+        if (aid > 0) {
+            n++;
+        }
+    });
+    return n;
+}
+
+function collapseAllShareRoleCards() {
+    document.querySelectorAll('.company-share-role-card').forEach(function (card) {
+        card.classList.remove('expanded');
+        var hdr = card.querySelector('.company-share-role-header');
+        if (hdr) {
+            hdr.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+function toggleShareRoleCard(role) {
+    var card = document.querySelector('.company-share-role-card[data-share-card="' + role + '"]');
+    if (!card) {
+        return;
+    }
+    card.classList.toggle('expanded');
+    var hdr = card.querySelector('.company-share-role-header');
+    if (hdr) {
+        hdr.setAttribute('aria-expanded', card.classList.contains('expanded') ? 'true' : 'false');
+    }
+}
+
 function updateCompanyShareTotals() {
     var out = readFeeShareFromModalDom();
     var grand = 0;
@@ -674,6 +713,24 @@ function updateCompanyShareTotals() {
         grand += t;
         el.textContent = t.toFixed(2) + '%';
         el.classList.toggle('company-share-card-sum--over', t > 100);
+
+        var count = countShareRoleAssignedAccounts(role);
+        var sumEl = document.getElementById('shareAccountSummary-' + role);
+        if (sumEl) {
+            sumEl.textContent = count === 1 ? '1 account' : count + ' accounts';
+        }
+        var remEl = document.getElementById('shareRemaining-' + role);
+        if (remEl) {
+            var rem = 100 - t;
+            remEl.textContent = rem.toFixed(2) + '% remaining';
+            remEl.classList.toggle('company-share-role-remaining--over', t > 100);
+        }
+        var fill = document.getElementById('shareProgressFill-' + role);
+        if (fill) {
+            var w = Math.min(100, Math.max(0, t));
+            fill.style.width = w + '%';
+            fill.classList.toggle('company-share-progress-fill--over', t > 100);
+        }
     });
     var grandEl = document.getElementById('shareGrandTotal');
     var grandBar = document.getElementById('shareGrandTotalBar');
@@ -756,6 +813,14 @@ function addCompanyShareRow(role) {
     }
     company.fee_share_allocations[role].push({ account_id: 0, percentage: '' });
     renderCompanySharePanel();
+    var card = document.querySelector('.company-share-role-card[data-share-card="' + role + '"]');
+    if (card) {
+        card.classList.add('expanded');
+        var hdr = card.querySelector('.company-share-role-header');
+        if (hdr) {
+            hdr.setAttribute('aria-expanded', 'true');
+        }
+    }
 }
 
 function removeCompanyShareRow(role, index) {
@@ -865,6 +930,7 @@ function openCompanyExpDateModal(companyId) {
     
     // 显示弹窗（左右分栏同时展示 Company 与 Share %）
     document.getElementById('companyExpDateModal').style.display = 'block';
+    collapseAllShareRoleCards();
     loadCompanyShareDataForModal(company.company_id);
 }
 
@@ -1133,6 +1199,7 @@ function resetCompanyExpDateInModal() {
     
     company.fee_share_allocations = defaultFeeShareAllocations();
     renderCompanySharePanel();
+    collapseAllShareRoleCards();
 }
 
 // 根据到期日期判断对应的期限选项

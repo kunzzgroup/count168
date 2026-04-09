@@ -310,11 +310,31 @@ try {
                     <div id="companySettingsPanelShare" class="company-settings-split-right">
                         <h3 class="company-settings-column-title">Share %</h3>
                     <div class="company-share-scroll">
+                        <p class="company-share-intro">Split extra fees by role. Click the card header or <strong>Manage</strong> to edit. When collapsed, the header shows how many accounts are assigned.</p>
                         <div class="company-share-role-card" data-share-card="sales">
-                            <div class="company-share-card-head">
-                                <span class="company-share-role-badge company-share-role-badge--sales">Sales</span>
-                                <span class="company-share-card-sum" id="shareTotalSales" title="Subtotal for this role">0.00%</span>
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsSales" onclick="toggleShareRoleCard('sales')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('sales');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--sales">Sales</span>
+                                    <div class="company-share-account-count-display" id="shareAccountSummary-sales">0 accounts</div>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalSales">0.00%</span>
+                                        <span class="company-share-role-remaining" id="shareRemaining-sales">100.00% remaining</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-sales"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('sales');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('sales');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
                             </div>
+                            <div class="company-share-role-body">
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
@@ -322,12 +342,32 @@ try {
                             </div>
                             <div class="company-share-rows" id="shareRowsSales" role="list"></div>
                             <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add Account</button>
+                            </div>
                         </div>
                         <div class="company-share-role-card" data-share-card="cs">
-                            <div class="company-share-card-head">
-                                <span class="company-share-role-badge company-share-role-badge--cs">CS</span>
-                                <span class="company-share-card-sum" id="shareTotalCs" title="Subtotal for this role">0.00%</span>
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsCs" onclick="toggleShareRoleCard('cs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('cs');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--cs">CS</span>
+                                    <div class="company-share-account-count-display" id="shareAccountSummary-cs">0 accounts</div>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalCs">0.00%</span>
+                                        <span class="company-share-role-remaining" id="shareRemaining-cs">100.00% remaining</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-cs"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('cs');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('cs');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
                             </div>
+                            <div class="company-share-role-body">
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
@@ -335,12 +375,32 @@ try {
                             </div>
                             <div class="company-share-rows" id="shareRowsCs" role="list"></div>
                             <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add Account</button>
+                            </div>
                         </div>
                         <div class="company-share-role-card" data-share-card="it">
-                            <div class="company-share-card-head">
-                                <span class="company-share-role-badge company-share-role-badge--it">IT</span>
-                                <span class="company-share-card-sum" id="shareTotalIt" title="Subtotal for this role">0.00%</span>
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsIt" onclick="toggleShareRoleCard('it')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('it');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--it">IT</span>
+                                    <div class="company-share-account-count-display" id="shareAccountSummary-it">0 accounts</div>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalIt">0.00%</span>
+                                        <span class="company-share-role-remaining" id="shareRemaining-it">100.00% remaining</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-it"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('it');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('it');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
                             </div>
+                            <div class="company-share-role-body">
                             <div class="company-share-column-labels">
                                 <span>Account</span>
                                 <span>Share</span>
@@ -348,6 +408,15 @@ try {
                             </div>
                             <div class="company-share-rows" id="shareRowsIt" role="list"></div>
                             <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add Account</button>
+                            </div>
+                        </div>
+                        <div class="company-share-grand-total" id="shareGrandTotalBar">
+                            <span class="company-share-grand-label">Combined (all roles)</span>
+                            <span class="company-share-grand-value" id="shareGrandTotal">0.00%</span>
+                        </div>
+                        <div class="company-share-callout" id="companyShareNoAccountsHint" style="display: none;" role="status">
+                            <span class="company-share-callout-icon" aria-hidden="true">ⓘ</span>
+                            <span>No accounts linked to this company yet. Link them on the Account page, then save the domain if this company is new.</span>
                         </div>
                     </div>
                     </div>
