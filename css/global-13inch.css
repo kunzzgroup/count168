@@ -112,7 +112,7 @@
     .account-card-item,
     .contract-card-item,
     .member-card-item {
-        padding: 0 10px !important;
+        padding: 0px 0px !important;
         box-sizing: border-box !important;
     }
 
