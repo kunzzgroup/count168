@@ -514,7 +514,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         let rawMode = localStorage.getItem('selectedPermission_' + modeCode);
         if (rawMode === 'Gambling') rawMode = 'Games';
         if (rawMode === 'Bank') {
-            window.location.href = 'bank_process_list.php';
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'dashboard.php';
+            }
             return;
         }
     }
