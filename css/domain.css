@@ -221,8 +221,8 @@ h1 {
 .domain-ad-col-no { width: 8%; }
 .domain-ad-col-account { width: 18%; }
 .domain-ad-col-companies { width: 13%; }
-.domain-ad-col-breakdown { width: 30%; }
-.domain-ad-col-due { width: 14%; }
+.domain-ad-col-breakdown { width: 22%; }
+.domain-ad-col-due { width: 22%; }
 .domain-ad-col-delete { width: 12%; }
 
 .domain-accounting-due-table thead th {
