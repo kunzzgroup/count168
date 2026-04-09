@@ -6,6 +6,9 @@ let companiesData = [];
 let companyStates = {};
 let currentlyExpandedId = null;
 
+let draggedRowIdx = null;
+let draggedCompanyId = null;
+
 // Template references (cached on first use)
 const tpl = {
     card: () => document.getElementById('tpl-company-card'),
@@ -260,6 +263,87 @@ function createRowElement(companyId, idx, rowData) {
 
     // Initialize slider gradient
     requestAnimationFrame(() => applySliderBackground(slider));
+
+    // Drag and drop logic
+    const dragHandle = div.querySelector('.own-drag-handle');
+    if (dragHandle) {
+        dragHandle.addEventListener('mousedown', () => div.setAttribute('draggable', 'true'));
+        dragHandle.addEventListener('mouseup', () => div.removeAttribute('draggable'));
+        dragHandle.addEventListener('mouseleave', () => div.removeAttribute('draggable'));
+    }
+
+    div.addEventListener('dragstart', (e) => {
+        draggedRowIdx = idx;
+        draggedCompanyId = companyId;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', idx);
+        setTimeout(() => div.classList.add('own-dragging'), 0);
+    });
+
+    div.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (draggedCompanyId !== companyId || draggedRowIdx === idx) return;
+
+        const bounding = div.getBoundingClientRect();
+        const offset = bounding.y + (bounding.height / 2);
+        if (e.clientY > offset) {
+            div.style.borderBottom = '2px solid var(--own-primary-blue)';
+            div.style.borderTop = '';
+            div.style.transform = 'translateY(-2px)';
+        } else {
+            div.style.borderTop = '2px solid var(--own-primary-blue)';
+            div.style.borderBottom = '';
+            div.style.transform = 'translateY(2px)';
+        }
+    });
+
+    div.addEventListener('dragleave', () => {
+        div.style.borderTop = '';
+        div.style.borderBottom = '';
+        div.style.transform = '';
+    });
+
+    div.addEventListener('drop', (e) => {
+        e.preventDefault();
+        div.style.borderTop = '';
+        div.style.borderBottom = '';
+        div.style.transform = '';
+        
+        if (draggedCompanyId !== companyId || draggedRowIdx === null) return;
+        if (draggedRowIdx === idx) return;
+
+        const bounding = div.getBoundingClientRect();
+        const offset = bounding.y + (bounding.height / 2);
+        const insertAfter = e.clientY > offset;
+
+        const rows = companyStates[companyId].rows;
+        const [movedRow] = rows.splice(draggedRowIdx, 1);
+        
+        let newIdx = idx;
+        if (draggedRowIdx < idx) {
+            newIdx = insertAfter ? idx : idx - 1;
+        } else {
+            newIdx = insertAfter ? idx + 1 : idx;
+        }
+        
+        rows.splice(newIdx, 0, movedRow);
+        renderCardBodyRows(companyId);
+    });
+
+    div.addEventListener('dragend', () => {
+        div.classList.remove('own-dragging');
+        div.removeAttribute('draggable');
+        draggedRowIdx = null;
+        draggedCompanyId = null;
+        
+        const allRows = document.querySelectorAll(`#rows-container-${companyId} .own-account-row`);
+        allRows.forEach(r => {
+            r.style.borderTop = '';
+            r.style.borderBottom = '';
+            r.style.transform = '';
+        });
+    });
 
     return frag;
 }

@@ -262,8 +262,19 @@ body {
     user-select: none;
     transition: color 0.2s;
 }
+.own-drag-handle:active {
+    cursor: grabbing;
+}
 .own-account-row:hover .own-drag-handle {
     color: #94a3b8;
+}
+
+.own-account-row.own-dragging {
+    opacity: 0.5;
+    background-color: var(--own-gray-light);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border-color: var(--own-primary-blue);
+    z-index: 10;
 }
 
 .own-account-select {
