@@ -2506,26 +2506,6 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
-    // Add Enter key event listener to trigger Save
-    const editFormulaFormObj = document.getElementById('editFormulaForm');
-    if (editFormulaFormObj) {
-        editFormulaFormObj.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                // Do not trigger save if we are searching/selecting in the account dropdown
-                const activeDropdown = document.querySelector('.custom-select-dropdown.show');
-                if (activeDropdown && event.target.closest('.custom-select-wrapper')) {
-                    return;
-                }
-                
-                event.preventDefault();
-                const saveBtn = document.getElementById('editFormulaSaveBtn');
-                if (saveBtn && !saveBtn.disabled) {
-                    saveBtn.click();
-                }
-            }
-        });
-    }
-
     // Clear clicked columns when opening new form (unless editing)
     setTimeout(() => {
         const formulaInput = document.getElementById('formula');
@@ -20027,3 +20007,25 @@ function getCurrencyIdByCode(currencyCode) {
     }
     return null;
 }
+
+// Add Global Enter=Save Logic for Edit Formula Modal
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+        const modal = document.getElementById('editFormulaModal');
+        // Only trigger if modal is open and the event originated from within the modal
+        if (modal && modal.style.display !== 'none' && modal.contains(event.target)) {
+            // Check if dropdown is active AND the user is interacting with it
+            const activeDropdown = modal.querySelector('.custom-select-dropdown.show');
+            if (activeDropdown && event.target.closest('.custom-select-wrapper')) {
+                return; // Let the dropdown handle the Select
+            }
+            // Prevent default form submission or other Enter behaviors
+            event.preventDefault();
+            // Trigger Save
+            const saveBtn = document.getElementById('editFormulaSaveBtn');
+            if (saveBtn && !saveBtn.disabled) {
+                saveBtn.click();
+            }
+        }
+    }
+});
