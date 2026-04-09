@@ -564,8 +564,6 @@ let currentEditingCompanyId = null;
 let companySnapshotWhenModalOpened = null;
 // Company Settings → Share %：下拉账户列表（来自 API）
 let shareModalAccounts = [];
-/** @type {string|null} sales | cs | it */
-let shareBulkAddRole = null;
 
 function defaultFeeShareAllocations() {
     return { sales: [], cs: [], it: [] };
@@ -794,180 +792,7 @@ function renderCompanySharePanel() {
     updateCompanyShareTotals();
 }
 
-function getShareRoleAssignedAccountIdSet(role) {
-    var map = { sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
-    var tb = document.getElementById(map[role]);
-    var s = {};
-    if (!tb) {
-        return s;
-    }
-    tb.querySelectorAll('.share-account-select').forEach(function (el) {
-        var id = parseInt(el.value, 10);
-        if (id > 0) {
-            s[id] = true;
-        }
-    });
-    return s;
-}
-
-function shareBulkRoleLabel(role) {
-    if (role === 'cs') {
-        return 'CS';
-    }
-    if (role === 'it') {
-        return 'IT';
-    }
-    return 'Sales';
-}
-
-function expandShareRoleCard(role) {
-    var card = document.querySelector('.company-share-role-card[data-share-card="' + role + '"]');
-    if (!card) {
-        return;
-    }
-    card.classList.add('expanded');
-    var hdr = card.querySelector('.company-share-role-header');
-    if (hdr) {
-        hdr.setAttribute('aria-expanded', 'true');
-    }
-}
-
-function updateShareBulkConfirmButtonState() {
-    var btn = document.getElementById('companyShareBulkAddConfirm');
-    if (!btn) {
-        return;
-    }
-    var list = document.getElementById('companyShareBulkAddList');
-    var any = list && list.querySelector('input[type="checkbox"]:checked');
-    btn.disabled = !any;
-}
-
-function setShareBulkCheckboxes(checked) {
-    var list = document.getElementById('companyShareBulkAddList');
-    if (!list) {
-        return;
-    }
-    list.querySelectorAll('input[type="checkbox"]').forEach(function (c) {
-        c.checked = checked;
-    });
-    updateShareBulkConfirmButtonState();
-}
-
-function renderCompanyShareBulkAddList() {
-    var listEl = document.getElementById('companyShareBulkAddList');
-    var emptyEl = document.getElementById('companyShareBulkAddEmpty');
-    var toolbar = document.getElementById('companyShareBulkToolbar');
-    if (!listEl || !shareBulkAddRole) {
-        return;
-    }
-    var assigned = getShareRoleAssignedAccountIdSet(shareBulkAddRole);
-    listEl.innerHTML = '';
-    var anyChoice = false;
-    shareModalAccounts.forEach(function (a) {
-        var id = parseInt(a.id, 10);
-        if (!id || assigned[id]) {
-            return;
-        }
-        anyChoice = true;
-        var label = (a.account_id || '') + (a.name ? ' · ' + a.name : '');
-        var row = document.createElement('label');
-        row.className = 'company-share-bulk-item';
-        row.innerHTML = '<input type="checkbox" value="' + id + '" />' +
-            '<span>' + escapeHtmlShare(label) + '</span>';
-        row.querySelector('input').addEventListener('change', updateShareBulkConfirmButtonState);
-        listEl.appendChild(row);
-    });
-    if (emptyEl) {
-        emptyEl.style.display = anyChoice ? 'none' : 'block';
-    }
-    if (toolbar) {
-        toolbar.style.display = anyChoice ? 'flex' : 'none';
-    }
-    updateShareBulkConfirmButtonState();
-}
-
-function openCompanyShareBulkAdd(role) {
-    if (!currentEditingCompanyId || ['sales', 'cs', 'it'].indexOf(role) < 0) {
-        return;
-    }
-    var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
-    if (!company) {
-        return;
-    }
-    syncFeeShareFromDomToCompany(company);
-    shareBulkAddRole = role;
-    var title = document.getElementById('companyShareBulkAddTitle');
-    if (title) {
-        title.textContent = 'Add accounts — ' + shareBulkRoleLabel(role);
-    }
-    var intro = document.getElementById('companyShareBulkAddIntro');
-    if (intro) {
-        intro.style.display = shareModalAccounts.length ? 'block' : 'none';
-    }
-    var bc = document.getElementById('companyShareBulkBlankCount');
-    if (bc) {
-        bc.value = '1';
-    }
-    renderCompanyShareBulkAddList();
-    var modal = document.getElementById('companyShareBulkAddModal');
-    if (modal) {
-        modal.style.display = 'block';
-    }
-    expandShareRoleCard(role);
-}
-
-function closeCompanyShareBulkAdd() {
-    shareBulkAddRole = null;
-    var modal = document.getElementById('companyShareBulkAddModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-function confirmCompanyShareBulkAdd() {
-    if (!shareBulkAddRole || !currentEditingCompanyId) {
-        return;
-    }
-    var company = tempCompanies.find(function (c) { return c.company_id === currentEditingCompanyId; });
-    if (!company) {
-        return;
-    }
-    syncFeeShareFromDomToCompany(company);
-    ensureCompanyFeeShare(company);
-    var assigned = getShareRoleAssignedAccountIdSet(shareBulkAddRole);
-    var list = document.getElementById('companyShareBulkAddList');
-    if (!list) {
-        return;
-    }
-    var added = false;
-    list.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
-        var id = parseInt(cb.value, 10);
-        if (id > 0 && !assigned[id]) {
-            company.fee_share_allocations[shareBulkAddRole].push({ account_id: id, percentage: '' });
-            assigned[id] = true;
-            added = true;
-        }
-    });
-    if (!added) {
-        return;
-    }
-    var roleKeep = shareBulkAddRole;
-    renderCompanySharePanel();
-    expandShareRoleCard(roleKeep);
-    closeCompanyShareBulkAdd();
-}
-
-function confirmCompanyShareBulkBlankRows() {
-    if (!shareBulkAddRole || !currentEditingCompanyId) {
-        return;
-    }
-    var inp = document.getElementById('companyShareBulkBlankCount');
-    var n = inp ? parseInt(inp.value, 10) : 1;
-    addCompanyShareBlankRows(shareBulkAddRole, n);
-    closeCompanyShareBulkAdd();
-}
-
-function addCompanyShareBlankRows(role, count) {
+function addCompanyShareRow(role) {
     if (!currentEditingCompanyId) {
         return;
     }
@@ -977,22 +802,19 @@ function addCompanyShareBlankRows(role, count) {
     }
     ensureCompanyFeeShare(company);
     syncFeeShareFromDomToCompany(company);
-    var n = parseInt(count, 10);
-    if (!isFinite(n) || n < 1) {
-        n = 1;
+    if (!company.fee_share_allocations[role]) {
+        company.fee_share_allocations[role] = [];
     }
-    if (n > 30) {
-        n = 30;
-    }
-    for (var i = 0; i < n; i++) {
-        company.fee_share_allocations[role].push({ account_id: 0, percentage: '' });
-    }
+    company.fee_share_allocations[role].push({ account_id: 0, percentage: '' });
     renderCompanySharePanel();
-    expandShareRoleCard(role);
-}
-
-function addCompanyShareRow(role) {
-    addCompanyShareBlankRows(role, 1);
+    var card = document.querySelector('.company-share-role-card[data-share-card="' + role + '"]');
+    if (card) {
+        card.classList.add('expanded');
+        var hdr = card.querySelector('.company-share-role-header');
+        if (hdr) {
+            hdr.setAttribute('aria-expanded', 'true');
+        }
+    }
 }
 
 function removeCompanyShareRow(role, index) {
@@ -1108,7 +930,6 @@ function openCompanyExpDateModal(companyId) {
 
 // 关闭到期日期设置弹窗。restore === true 时还原为打开弹窗时的状态（Cancel/X/点击遮罩）
 function closeCompanyExpDateModal(restore = false) {
-    closeCompanyShareBulkAdd();
     if (restore && companySnapshotWhenModalOpened) {
         const idx = tempCompanies.findIndex(c => c.company_id === companySnapshotWhenModalOpened.company_id);
         if (idx >= 0) {
