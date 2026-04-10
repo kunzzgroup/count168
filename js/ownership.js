@@ -679,13 +679,8 @@ function joinCompanyGroup(companyId, groupId, companyName) {
     .then(res => {
         if (res.status === 'success') {
             showToast(`"${companyName}" joined group "${groupId}"`, 'success');
-            // Update both filtered list and full list
-            const comp = companiesData.find(c => parseInt(c.id) === companyId);
-            if (comp) comp.group_id = groupId;
-            const fullComp = allCompaniesData.find(c => parseInt(c.id) === companyId);
-            if (fullComp) fullComp.group_id = groupId;
-            _rebuildGroupIds();
-            renderCompanyCards();
+            // Re-fetch from server so the list immediately reflects the new group context
+            fetchCompanies();
         } else {
             showToast(res.message, 'error');
         }
@@ -706,13 +701,8 @@ function ungroupCompany(companyId, companyName) {
     .then(res => {
         if (res.status === 'success') {
             showToast(`"${companyName}" removed from group`, 'success');
-            // Update both filtered list and full list
-            const comp = companiesData.find(c => parseInt(c.id) === companyId);
-            if (comp) comp.group_id = null;
-            const fullComp = allCompaniesData.find(c => parseInt(c.id) === companyId);
-            if (fullComp) fullComp.group_id = null;
-            _rebuildGroupIds();
-            renderCompanyCards();
+            // Re-fetch from server so the list immediately reflects the new group context
+            fetchCompanies();
         } else {
             showToast(res.message, 'error');
         }
