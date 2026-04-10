@@ -185,6 +185,7 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
  */
 function rowToItem(array $row, $is_deleted = 0) {
     $isDomainShareCommission = false;
+    $isDomainListFee = false;
     $descriptionRaw = (string)($row['description'] ?? '');
     $remarkRaw = (string)($row['remark'] ?? '');
     $remarkTrim = trim($remarkRaw);
@@ -194,22 +195,31 @@ function rowToItem(array $row, $is_deleted = 0) {
         || stripos($remarkTrim, '[DOMAIN_SHARE_COMMISSION|') === 0) {
         $isDomainShareCommission = true;
     }
+    if (stripos(trim($descriptionRaw), 'Pay Domain Fee To ') === 0
+        || $remarkTrim === '[DOMAIN_LIST_FEE]'
+        || stripos($remarkTrim, '[DOMAIN_LIST_FEE|') === 0) {
+        $isDomainListFee = true;
+    }
 
     $description = $row['description'] ?? '';
     if (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
+    }
+    $displayAccount = $row['account_code'] ?? '-';
+    if ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee\s+To\s+([A-Za-z0-9_-]+)/i', trim((string)$description), $m)) {
+        $displayAccount = strtoupper(trim((string)$m[1]));
     }
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
     $deletedBy = !empty($row['deleted_by_login']) ? $row['deleted_by_login'] : ($row['deleted_by_owner'] ?? null);
     return [
         'transaction_id' => (int) $row['id'],
         'date' => $row['transaction_date'],
-        'account' => $row['account_code'] ?? '-',
+        'account' => $displayAccount,
         'from_account' => $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-'),
         'currency' => $row['currency_code'] ?? '-',
         'amount' => (float) $row['amount'],
         'description' => $description,
-        'remark' => $isDomainShareCommission ? '' : ($row['remark'] ?? ''),
+        'remark' => ($isDomainShareCommission || $isDomainListFee) ? '' : ($row['remark'] ?? ''),
         'dts_created' => $row['dts_created'] ?? '',
         'created_by' => $createdBy,
         'transaction_type' => $row['transaction_type'],
@@ -217,6 +227,99 @@ function rowToItem(array $row, $is_deleted = 0) {
         'deleted_by' => $deletedBy,
         'dts_deleted' => $row['dts_deleted'] ?? null,
     ];
+}
+
+function resolveCompanyOwnerCode(PDO $pdo, int $companyId): string {
+    try {
+        $st = $pdo->prepare("
+            SELECT UPPER(TRIM(COALESCE(o.owner_code, ''))) AS owner_code
+            FROM company c
+            INNER JOIN owner o ON o.id = c.owner_id
+            WHERE c.id = ?
+            LIMIT 1
+        ");
+        $st->execute([$companyId]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? strtoupper(trim((string)$v)) : '';
+    } catch (PDOException $e) {
+        return '';
+    }
+}
+
+function appendVirtualDomainNetProfitItem(
+    PDO $pdo,
+    array &$data,
+    int $companyId,
+    string $dateFromDb,
+    string $dateToDb,
+    array $currencyFilters
+): void {
+    foreach ($data as $item) {
+        $desc = strtoupper(trim((string)($item['description'] ?? '')));
+        $remark = strtoupper(trim((string)($item['remark'] ?? '')));
+        if (strpos($desc, 'PROFIT BY ') === 0 || strpos($remark, '[DOMAIN_NET_PROFIT|') === 0) {
+            return;
+        }
+    }
+
+    $ownerCode = resolveCompanyOwnerCode($pdo, $companyId);
+    if ($ownerCode === '') {
+        $ownerCode = 'C168';
+    }
+
+    $sql = "SELECT
+                UPPER(COALESCE(c.code, '')) AS currency_code,
+                SUM(CASE
+                      WHEN t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
+                      THEN ROUND(t.amount, 2)
+                      ELSE 0
+                    END) AS fee_total,
+                SUM(CASE
+                      WHEN t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
+                      THEN ROUND(t.amount, 2)
+                      ELSE 0
+                    END) AS comm_total
+            FROM transactions t
+            LEFT JOIN currency c ON t.currency_id = c.id
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+            GROUP BY UPPER(COALESCE(c.code, ''))";
+    $st = $pdo->prepare($sql);
+    $st->execute([$companyId, $dateFromDb, $dateToDb]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as $r) {
+        $currencyCode = strtoupper(trim((string)($r['currency_code'] ?? '')));
+        if ($currencyCode === '') {
+            continue;
+        }
+        if (!empty($currencyFilters) && !in_array($currencyCode, array_map('strtoupper', $currencyFilters), true)) {
+            continue;
+        }
+        $fee = round((float)($r['fee_total'] ?? 0), 2);
+        $comm = round((float)($r['comm_total'] ?? 0), 2);
+        $net = round($fee - $comm, 2);
+        if ($net <= 0) {
+            continue;
+        }
+        $data[] = [
+            'transaction_id' => 0,
+            'date' => date('d/m/Y', strtotime($dateToDb)),
+            'account' => $ownerCode,
+            'from_account' => '-',
+            'currency' => $currencyCode,
+            'amount' => $net,
+            'description' => 'Profit By ' . $ownerCode,
+            'remark' => '',
+            'dts_created' => date('d/m/Y H:i:s'),
+            'created_by' => '-',
+            'transaction_type' => 'PAYMENT',
+            'is_deleted' => 0,
+            'deleted_by' => null,
+            'dts_deleted' => null,
+        ];
+    }
 }
 
 /**
@@ -411,6 +514,9 @@ try {
     $mainRows = fetchMainTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema);
     foreach ($mainRows as $row) {
         $data[] = rowToItem($row, 0);
+    }
+    if (empty($transaction_type) || $transaction_type === 'PAYMENT') {
+        appendVirtualDomainNetProfitItem($pdo, $data, $company_id, $date_from_db, $date_to_db, $currency_filters);
     }
 
     if (empty($transaction_type) || $transaction_type === 'RATE') {
