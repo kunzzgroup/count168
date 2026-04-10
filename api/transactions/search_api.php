@@ -389,6 +389,99 @@ if (!empty($target_account_ids)) {
         $currency_map[$code] = $currencyId;
         $currency_id_map[$currencyId] = $code;
     }
+
+    // 付方（from_account）若未加入本公司的 account_company，原列表不会包含该账户，导致 CONTRA/PAYMENT 等只在「对方公司」建档的付方不出现在左侧。
+    // 合并：在本公司 transactions 中作为 from_account 出现、且落在查询日期与币别范围内的账户（member 限定单账户时不合并，避免泄露他人）。
+    if (empty($target_account_ids)) {
+        $existingAccountIds = [];
+        foreach ($accounts as $accRow) {
+            $existingAccountIds[(int)$accRow['id']] = true;
+        }
+        $cpContra = contraApprovedWhere($pdo, 't');
+        $cpSql = "SELECT DISTINCT t.from_account_id AS id
+                  FROM transactions t
+                  WHERE t.company_id = ?
+                    AND t.from_account_id IS NOT NULL
+                    AND t.transaction_date BETWEEN ? AND ?
+                    AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                    AND t.currency_id IS NOT NULL
+                    $cpContra";
+        $cpParams = [$company_id, $date_from_db, $date_to_db];
+        $cpCurrencyOk = true;
+        if (!empty($filter_currency_codes)) {
+            $cpCids = [];
+            foreach ($filter_currency_codes as $fcc) {
+                $uc = strtoupper((string)$fcc);
+                if (isset($currency_map[$uc])) {
+                    $cpCids[] = (int)$currency_map[$uc];
+                }
+            }
+            if (empty($cpCids)) {
+                $cpCurrencyOk = false;
+            } else {
+                $cpSql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($cpCids), '?')) . ')';
+                $cpParams = array_merge($cpParams, $cpCids);
+            }
+        }
+        if ($cpCurrencyOk) {
+            $cpStmt = $pdo->prepare($cpSql);
+            $cpStmt->execute($cpParams);
+            $cpNewIds = [];
+            while ($cpRow = $cpStmt->fetch(PDO::FETCH_ASSOC)) {
+                $fid = (int)$cpRow['id'];
+                if ($fid > 0 && empty($existingAccountIds[$fid])) {
+                    $cpNewIds[$fid] = true;
+                }
+            }
+            $cpNewIds = array_keys($cpNewIds);
+            if (!empty($cpNewIds)) {
+                $cpPh = implode(',', array_fill(0, count($cpNewIds), '?'));
+                $extraBits = [];
+                $extraParams = $cpNewIds;
+                if (!$show_inactive) {
+                    $extraBits[] = "a.status = 'active'";
+                }
+                if (!empty($category_filters)) {
+                    if (count($category_filters) === 1) {
+                        $extraBits[] = 'a.role = ?';
+                        $extraParams[] = $category_filters[0];
+                    } else {
+                        $extraBits[] = 'a.role IN (' . str_repeat('?,', count($category_filters) - 1) . '?)';
+                        $extraParams = array_merge($extraParams, $category_filters);
+                    }
+                }
+                $extraSql = "SELECT DISTINCT
+                        a.id,
+                        a.account_id,
+                        a.name,
+                        a.role,
+                        a.status,
+                        COALESCE(a.payment_alert, 0) AS payment_alert,
+                        a.alert_day,
+                        a.alert_specific_date,
+                        a.alert_amount
+                    FROM account a
+                    WHERE a.id IN ($cpPh)";
+                if (!empty($extraBits)) {
+                    $extraSql .= ' AND ' . implode(' AND ', $extraBits);
+                }
+                list($extraSql, $extraParams) = filterAccountsByPermissions($pdo, $extraSql, $extraParams);
+                $extraSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $extraSql);
+                $extraSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $extraSql);
+                $extraSql = preg_replace('/\bAND 1=0\b/i', 'AND 1=0', $extraSql);
+                $extraSql = preg_replace('/\bWHERE 1=0\b/i', 'WHERE 1=0', $extraSql);
+                $exSt = $pdo->prepare($extraSql);
+                $exSt->execute($extraParams);
+                $extraAcc = $exSt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($extraAcc)) {
+                    $accounts = array_merge($accounts, $extraAcc);
+                    usort($accounts, function ($x, $y) {
+                        return strcmp((string)($x['account_id'] ?? ''), (string)($y['account_id'] ?? ''));
+                    });
+                }
+            }
+        }
+    }
     
     // 收集「Edit Account 里勾选的 active 货币」：来自 account_currency 表，供前端 Show 0 balance 时只显示这些货币
     $active_currency_codes = [];
@@ -438,19 +531,28 @@ if (!empty($target_account_ids)) {
         }
 
         if (searchApiTxnHasCurrencyId($pdo)) {
-            // 2a. 本期交易币别（现代环境）
+            // 2a. 本期交易币别（现代环境）：含作为 To 与作为 From 的本期交易，否则仅 from 方有流水的账户无币别组合
             $st = $pdo->prepare("
-                SELECT DISTINCT t.account_id, t.currency_id, UPPER(c.code) AS currency_code
+                SELECT DISTINCT t.account_id AS acc_id, t.currency_id, UPPER(c.code) AS currency_code
                 FROM transactions t
                 INNER JOIN currency c ON t.currency_id = c.id AND c.company_id = ?
                 WHERE t.account_id IN ($all_ph)
                   AND t.currency_id IS NOT NULL
                   AND t.transaction_date BETWEEN ? AND ?
                   AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','RATE')
+                UNION
+                SELECT DISTINCT t.from_account_id AS acc_id, t.currency_id, UPPER(c.code) AS currency_code
+                FROM transactions t
+                INNER JOIN currency c ON t.currency_id = c.id AND c.company_id = ?
+                WHERE t.from_account_id IN ($all_ph)
+                  AND t.from_account_id IS NOT NULL
+                  AND t.currency_id IS NOT NULL
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','RATE')
             ");
-            $st->execute(array_merge([$company_id], $all_ids, [$date_from_db, $date_to_db]));
+            $st->execute(array_merge([$company_id], $all_ids, [$date_from_db, $date_to_db], [$company_id], $all_ids, [$date_from_db, $date_to_db]));
             while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-                $bulk_txn_cur_prd[(int)$r['account_id']][(int)$r['currency_id']] = strtoupper($r['currency_code']);
+                $bulk_txn_cur_prd[(int)$r['acc_id']][(int)$r['currency_id']] = strtoupper($r['currency_code']);
             }
 
             // 2b. 全历史交易币别（legacy 路径 DCD 为空时兜底）
