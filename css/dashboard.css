@@ -135,7 +135,8 @@ body.dashboard-page {
 }
 
 .dashboard-card--filters {
-    grid-column: 1 / 3; /* 横跨前两列 */
+    grid-column: 1 / 3;
+    /* 横跨前两列 */
     min-width: 0;
     overflow: visible;
 }
@@ -173,7 +174,7 @@ body.dashboard-page {
 
 /* Grid中的卡片加长 */
 .dashboard-kpi-grid .dashboard-kpi-card {
-    min-height: 120px;
+    min-height: 150px;
 }
 
 /* 左侧文本区 */
@@ -217,7 +218,8 @@ body.dashboard-page {
     flex-shrink: 0;
     color: inherit;
     font-size: clamp(20px, 1.6vw, 24px);
-    order: -1; /* Explicitly move icon to the top */
+    order: -1;
+    /* Explicitly move icon to the top */
 }
 
 /* === 语义色彩修饰 === */
@@ -239,7 +241,8 @@ body.dashboard-page {
 
 /* Earnings 卡片 — grid 第 3 列，自动与 NET PROFIT 同宽 */
 #earnings-card-wrapper {
-    grid-column: 3; /* 占据第三列，与底部 NET PROFIT 完美对齐 */
+    grid-column: 3;
+    /* 占据第三列，与底部 NET PROFIT 完美对齐 */
     min-width: 0;
 }
 
