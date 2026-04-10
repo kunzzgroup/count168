@@ -468,6 +468,27 @@ function getCompanyOwnerDisplayLabel(PDO $pdo, int $companyPk): string
     return ($v !== false && $v !== null) ? trim((string) $v) : '';
 }
 
+function getCompanyOwnerCodeByPk(PDO $pdo, int $companyPk): string
+{
+    if ($companyPk <= 0) {
+        return '';
+    }
+    try {
+        $stmt = $pdo->prepare("
+            SELECT TRIM(COALESCE(o.owner_code, '')) AS oc
+            FROM company c
+            INNER JOIN owner o ON o.id = c.owner_id
+            WHERE c.id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$companyPk]);
+        $v = $stmt->fetchColumn();
+        return ($v !== false && $v !== null) ? strtoupper(trim((string)$v)) : '';
+    } catch (Exception $e) {
+        return '';
+    }
+}
+
 /**
  * C168 侧接收 domain list 费用、并向 Agent 付款时使用的资金池账户
  */
@@ -730,14 +751,24 @@ function createDomainShareCommissionPayments(
 
     $today = date('Y-m-d');
     $now = date('Y-m-d H:i:s');
-    $description = 'Commision FROM ' . strtoupper(trim($sourceCompanyCode));
+    $c168OwnerCode = getCompanyOwnerCodeByPk($pdo, $c168Pk);
+    if ($c168OwnerCode === '') {
+        $c168OwnerCode = 'C168';
+    }
     $srcU = strtoupper(trim($sourceCompanyCode));
+    $roleLabelMap = [
+        'sales' => 'Sales',
+        'cs' => 'CS',
+        'it' => 'IT',
+    ];
 
     foreach (['sales', 'cs', 'it'] as $role) {
         $rows = $normalizedAllocations[$role] ?? [];
         if (!is_array($rows)) {
             continue;
         }
+        $roleLabel = $roleLabelMap[$role] ?? ucfirst($role);
+        $description = $roleLabel . ' Commision for ' . $c168OwnerCode;
         foreach ($rows as $row) {
             $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
             $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
