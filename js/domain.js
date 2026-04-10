@@ -1351,9 +1351,48 @@ function getPeriodFromDate(expirationDate) {
     return '7days';
 }
 
+// ============ 加入 Group / 取消 Group 功能 ============
+
+// 独立公司「加入 Group」：打开/关闭选择面板
+function openJoinGroupPanel(companyId) {
+    // 收起其他已打开的面板
+    document.querySelectorAll('.join-group-panel').forEach(function(el) {
+        if (el.dataset.for !== companyId) el.style.display = 'none';
+    });
+    const panel = document.getElementById('join-group-panel-' + companyId);
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+// 独立公司「加入 Group」：将公司分配到指定 group
+function joinGroup(companyId, groupId) {
+    const company = tempCompanies.find(c => c.company_id === companyId);
+    if (!company || !groupId) return;
+    company.group_id = groupId;
+    updateGroupPills();
+    updateCompanyDisplay();
+    syncCompaniesHiddenField();
+    showAlert(`"${companyId}" joined group "${groupId}"`);
+}
+
+// 已归组公司「取消 Group」：将公司变回独立
+function ungroupCompany(companyId) {
+    const company = tempCompanies.find(c => c.company_id === companyId);
+    if (!company) return;
+    const oldGroup = company.group_id;
+    company.group_id = null;
+    updateGroupPills();
+    updateCompanyDisplay();
+    syncCompaniesHiddenField();
+    showAlert(`"${companyId}" ungrouped from "${oldGroup}"`);
+}
+
 function updateCompanyDisplay() {
     const container = document.getElementById('companyItems');
     
+    // 更新标题行的上下文按钮
+    _updateCompanyHeaderBtn();
+
     if (tempCompanies.length === 0) {
         container.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies added yet</span>';
     } else {
@@ -1419,6 +1458,10 @@ function updateCompanyDisplay() {
             return;
         }
         
+        // 判断当前是「独立公司视图」还是「group公司视图」
+        const isIndependentView = !selectedGroupId && tempGroups.length > 0;
+        const isGroupView = !!selectedGroupId;
+
         container.innerHTML = sortedCompanies.map(company => {
             const isC168 = company.company_id.toUpperCase() === 'C168';
             const removeButton = isC168 ? '' : `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
@@ -1433,6 +1476,28 @@ function updateCompanyDisplay() {
                     <button type="button" class="company-reset-btn" onclick="openCompanyExpDateModal('${company.company_id}')" title="Set expiration date" style="background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);">Set</button>
                 `;
             }
+
+            // Feature 1：独立公司视图 → 每行加「Join Group」按钮 + 下拉面板
+            let joinGroupBtn = '';
+            if (isIndependentView && !isC168 && tempGroups.length > 0) {
+                const groupOptions = tempGroups.map(gid =>
+                    `<div class="join-group-option" onclick="joinGroup('${company.company_id}','${gid}')">${gid}</div>`
+                ).join('');
+                joinGroupBtn = `
+                    <div class="join-group-wrap" style="position:relative;display:inline-block;">
+                        <button type="button" class="company-join-group-btn" onclick="openJoinGroupPanel('${company.company_id}')" title="Join a group">+ Group</button>
+                        <div id="join-group-panel-${company.company_id}" class="join-group-panel" data-for="${company.company_id}" style="display:none;">
+                            ${groupOptions}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Feature 2：group公司视图 → 每行加「Ungroup」按钮
+            let ungroupBtn = '';
+            if (isGroupView && !isC168) {
+                ungroupBtn = `<button type="button" class="company-ungroup-btn" onclick="ungroupCompany('${company.company_id}')" title="Remove from group">Ungroup</button>`;
+            }
             
             return `
                 <div class="company-item">
@@ -1441,15 +1506,58 @@ function updateCompanyDisplay() {
                     </div>
                     <div class="company-item-right">
                         ${expirationControls}
+                        ${joinGroupBtn}
+                        ${ungroupBtn}
                         ${removeButton}
                     </div>
                 </div>
             `;
         }).join('');
+
+        // 点击其他地方关闭 join-group-panel
+        document.querySelectorAll('#companyItems .join-group-panel').forEach(function(panel) {
+            panel.addEventListener('mouseleave', function() {
+                // do not auto-close on mouse leave; let button toggle handle it
+            });
+        });
         
         // 同步 hidden 字段，确保表单提交时数据正确
         syncCompaniesHiddenField();
     }
+}
+
+// 更新标题行的上下文动作按钮（Feature 1/2 的标题区按钮）
+function _updateCompanyHeaderBtn() {
+    // 移除旧的上下文按钮（避免重复插入）
+    const oldCtx = document.getElementById('companyHeaderCtxBtn');
+    if (oldCtx) oldCtx.remove();
+
+    const header = document.querySelector('.selected-companies-header');
+    if (!header) return;
+
+    // Feature 2：在群组视图中，标题右侧显示「Ungroup All」按钮
+    if (selectedGroupId && tempGroups.length > 0) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'companyHeaderCtxBtn';
+        btn.className = 'badge-multi';
+        btn.style.cssText = 'background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%); border: none; cursor: pointer; margin-left: 6px;';
+        btn.title = 'Ungroup all companies in this group';
+        btn.textContent = 'Ungroup All';
+        btn.onclick = function() {
+            const inGroup = tempCompanies.filter(c => c.group_id === selectedGroupId && c.company_id.toUpperCase() !== 'C168');
+            if (inGroup.length === 0) { showAlert('No companies to ungroup', 'danger'); return; }
+            inGroup.forEach(c => { c.group_id = null; });
+            updateGroupPills();
+            updateCompanyDisplay();
+            syncCompaniesHiddenField();
+            showAlert(`All companies ungrouped from "${selectedGroupId}"`);
+        };
+        header.appendChild(btn);
+        return;
+    }
+
+    // Feature 1：在独立公司视图中，标题右侧无需额外按钮（每行已有「+ Group」）
 }
 
 // 同步 selectedCompanies 和 hidden field（表单提交前调用）
@@ -1566,6 +1674,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     refreshDomainFeeSummaryFromApi();
+
+    // 点击 companies box 外部时，关闭所有 join-group-panel 下拉
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.join-group-wrap')) {
+            document.querySelectorAll('.join-group-panel').forEach(function(p) {
+                p.style.display = 'none';
+            });
+        }
+    });
 });
 
 /** 展示用：固定两位小数 */
