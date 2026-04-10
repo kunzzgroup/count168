@@ -96,7 +96,7 @@ try {
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             $where_sql";
-    list($baseSql, $params) = filterAccountsByPermissions($pdo, $baseSql, $params);
+    list($baseSql, $params) = filterAccountsByPermissions($pdo, $baseSql, $params, $company_id);
     $baseSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $baseSql);
     $baseSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $baseSql);
     $baseSql = preg_replace('/\bAND 1=0\b/i', 'AND 1=0', $baseSql);
