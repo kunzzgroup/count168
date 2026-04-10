@@ -294,9 +294,6 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                         <div class="kpi-value" id="profit-value">0</div>
                     </div>
                 </div>
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                </div>
             </div>
 
             <!-- 图表区域 -->

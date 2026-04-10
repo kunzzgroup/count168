@@ -157,27 +157,23 @@ body.dashboard-page {
     flex-shrink: 0;
 }
 
-/* === KPI 卡片 - 左右平衡布局 === */
+/* === KPI 卡片 - 基础上下布局 === */
 .dashboard-kpi-card {
     background-color: white;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-    padding: clamp(16px, 1.2vw, 24px);
+    padding: 24px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-}
-
-/* Grid中的卡片恢复为上下布局并加长 */
-.dashboard-kpi-grid .dashboard-kpi-card {
     flex-direction: column;
     align-items: flex-start;
     justify-content: space-between;
-    min-height: 120px;
-    padding: 24px 24px 20px 24px;
     gap: 16px;
+}
+
+/* Grid中的卡片加长 */
+.dashboard-kpi-grid .dashboard-kpi-card {
+    min-height: 120px;
 }
 
 /* 左侧文本区 */
@@ -209,57 +205,34 @@ body.dashboard-page {
     white-space: nowrap;
 }
 
-/* 右侧圆形图标 (仅 Earnings 保留) */
+/* 卡片左上角小图标 */
 .kpi-icon {
-    width: clamp(40px, 2.8vw, 48px);
-    height: clamp(40px, 2.8vw, 48px);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: #e0f2fe;
-    color: #0284c7;
-    font-size: clamp(16px, 1.2vw, 20px);
-}
-
-/* Grid中的图标样式 (普通小图标) */
-.dashboard-kpi-grid .dashboard-kpi-card .kpi-icon {
     width: auto;
     height: auto;
     background: transparent !important;
     border-radius: 0;
-    font-size: 22px;
-    color: inherit;
+    display: flex;
+    align-items: center;
     justify-content: flex-start;
+    flex-shrink: 0;
+    color: inherit;
+    font-size: clamp(20px, 1.6vw, 24px);
 }
 
 /* === 语义色彩修饰 === */
 
 /* Blue (Profit & Earnings 默认) */
 .dashboard-kpi-card--blue .kpi-icon {
-    background: #e0f2fe;
     color: #3b82f6;
-}
-.dashboard-kpi-grid .dashboard-kpi-card--blue .kpi-icon {
-    color: #3b82f6; 
 }
 
 /* Red (Expenses 支出) */
 .dashboard-kpi-card--red .kpi-icon {
-    background: #fee2e2;
-    color: #ef4444;
-}
-.dashboard-kpi-grid .dashboard-kpi-card--red .kpi-icon {
     color: #ef4444;
 }
 
 /* Green (Net Profit 净利) */
 .dashboard-kpi-card--green .kpi-icon {
-    background: #dcfce7;
-    color: #22c55e;
-}
-.dashboard-kpi-grid .dashboard-kpi-card--green .kpi-icon {
     color: #22c55e;
 }
 
