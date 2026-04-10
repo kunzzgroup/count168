@@ -3354,7 +3354,7 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
     }
     
     // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-    let url = `/api/transactions/history_api.php?account_id=${isVirtualCompanyRow ? 0 : aid}&date_from=${dateFrom}&date_to=${dateTo}`;
+    let url = `/api/transactions/history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`;
     if (isVirtualCompanyRow) {
         url += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
     }
