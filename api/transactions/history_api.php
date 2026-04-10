@@ -244,8 +244,19 @@ function buildVirtualDomainCompanyHistory(
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
-              AND t.sms LIKE ?";
-    $params = [$companyId, $dateFromDb, $dateToDb, "[DOMAIN_LIST_FEE|{$src}]%"];
+              AND (
+                    t.sms LIKE ?
+                    OR UPPER(TRIM(COALESCE(t.description, ''))) = ?
+                    OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE ?
+              )";
+    $params = [
+        $companyId,
+        $dateFromDb,
+        $dateToDb,
+        "[DOMAIN_LIST_FEE|{$src}]%",
+        "DOMAIN LIST FEE FROM {$src}",
+        "DOMAIN LIST FEE FROM %({$src})"
+    ];
     if ($currencyId !== null && $currencyId > 0) {
         $sql .= " AND t.currency_id = ?";
         $params[] = $currencyId;
