@@ -234,16 +234,18 @@ if ($current_user_id && count($user_companies) > 0) {
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
+    <link rel="stylesheet"
+        href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
 <body class="process-page<?php echo $processListPageFile === 'bank_process_list.php' ? ' process-page--bank' : ''; ?>">
     <div class="container">
         <div class="content">
             <div
-                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
+                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0px; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars($processListPageTitle); ?></h1>
+                    <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars($processListPageTitle); ?>
+                    </h1>
                     <?php renderBankProcessToolbarAction(); ?>
                 </div>
                 <!-- Permission Filter -->
@@ -725,7 +727,8 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_SHOW_ALL = <?php echo $showAllChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
-            return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+            return $c['id'] == $company_id;
+        }))[0]['company_id'] ?? '' : ''); ?>;
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
         window.PROCESSLIST_PAGE_FILE = <?php echo json_encode($processListPageFile); ?>;
         window.PROCESSLIST_FORCED_PERMISSION = <?php echo json_encode($processListForcedPermission); ?>;
