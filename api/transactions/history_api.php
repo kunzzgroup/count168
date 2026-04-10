@@ -238,17 +238,15 @@ function buildVirtualDomainCompanyHistory(
         $currencyById[(int)$r['id']] = strtoupper((string)$r['code']);
     }
 
+    // 仅展示 Domain list fee（用户需求：单开一行 LGA -2400）
     $sql = "SELECT t.id, t.amount, t.currency_id, t.transaction_date, t.description, t.sms, t.created_by
             FROM transactions t
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
               AND t.currency_id IS NOT NULL
-              AND (
-                    t.sms LIKE ?
-                 OR t.sms LIKE ?
-              )";
-    $params = [$companyId, $dateFromDb, $dateToDb, "[DOMAIN_LIST_FEE|{$src}]%", "[DOMAIN_SHARE_COMMISSION|{$src}|%"];
+              AND t.sms LIKE ?";
+    $params = [$companyId, $dateFromDb, $dateToDb, "[DOMAIN_LIST_FEE|{$src}]%"];
     if ($currencyId !== null && $currencyId > 0) {
         $sql .= " AND t.currency_id = ?";
         $params[] = $currencyId;
@@ -313,11 +311,9 @@ function buildVirtualDomainCompanyHistory(
         $running = round($running + $amt, 2);
         $desc = strtoupper(trim((string)($r['description'] ?? '')));
         $sms = (string)($r['sms'] ?? '');
-        $product = (stripos($sms, '[DOMAIN_SHARE_COMMISSION|') === 0) ? 'Commission' : 'PAYMENT';
+        $product = 'PAYMENT';
         if ($desc === '') {
-            $desc = ($product === 'Commission')
-                ? ('COMMISSION FROM ' . $src)
-                : ('PAYMENT FROM ' . $src . ' TO C168');
+            $desc = ('PAYMENT FROM ' . $src . ' TO C168');
         }
         $history[] = [
             'date' => date('d/m/Y', strtotime((string)$r['transaction_date'])),
@@ -328,8 +324,8 @@ function buildVirtualDomainCompanyHistory(
             'percent' => '-',
             'rate' => '-',
             'win_loss' => number_format(0, 2),
-            'cr_dr' => number_format($amt, 2),
-            'balance' => number_format($running, 2),
+            'cr_dr' => number_format(-$amt, 2),
+            'balance' => number_format($running = round($running - $amt, 2), 2),
             'description' => $desc,
             'sms' => $sms,
             'remark' => $sms !== '' ? $sms : '-',
