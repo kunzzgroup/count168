@@ -770,6 +770,78 @@ function domainApiForceMemberDefaultsFromDomain(PDO $pdo, int $accountDbId, stri
 }
 
 /**
+ * Admin 等在 user_company_permissions 里用 account_permissions 白名单时，accountlistapi 只返回白名单内账户；
+ * 必须把新账户并入该 JSON，否则账户已写入库但列表被 IN 过滤掉（与 addaccountapi 行为一致，不能 require 该文件）。
+ */
+function domainApiGetUsersWithCompanyAccess(PDO $pdo, array $companyIds): array {
+    $companyIds = array_values(array_filter(array_map('intval', $companyIds), function ($id) {
+        return $id > 0;
+    }));
+    if (empty($companyIds)) {
+        return [];
+    }
+    $placeholders = str_repeat('?,', count($companyIds) - 1) . '?';
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT u.id, ucp.account_permissions
+        FROM user u
+        INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+        LEFT JOIN user_company_permissions ucp ON u.id = ucp.user_id AND ucm.company_id = ucp.company_id
+        WHERE ucm.company_id IN ($placeholders)
+    ");
+    $stmt->execute($companyIds);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function domainApiMergeAccountIntoUserCompanyPermissions(PDO $pdo, array $users, array $companyIdsToLink, int $newAccountId, string $account_id): void {
+    if ($newAccountId <= 0 || $account_id === '') {
+        return;
+    }
+    $updateStmt = $pdo->prepare("
+        INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions)
+        VALUES (?, ?, ?, NULL)
+        ON DUPLICATE KEY UPDATE account_permissions = VALUES(account_permissions)
+    ");
+    foreach ($users as $user) {
+        $currentPermissions = [];
+        $hasPermissionsSet = false;
+        if (isset($user['account_permissions']) && $user['account_permissions'] !== null && $user['account_permissions'] !== '') {
+            if (strtolower(trim((string) $user['account_permissions'])) === 'null') {
+                $hasPermissionsSet = false;
+            } else {
+                $decoded = json_decode($user['account_permissions'], true);
+                if (is_array($decoded)) {
+                    $hasPermissionsSet = true;
+                    if (!empty($decoded)) {
+                        $currentPermissions = $decoded;
+                    }
+                }
+            }
+        }
+        if (!$hasPermissionsSet) {
+            continue;
+        }
+        $accountExists = false;
+        foreach ($currentPermissions as $permission) {
+            if (isset($permission['id']) && (int) $permission['id'] === (int) $newAccountId) {
+                $accountExists = true;
+                break;
+            }
+        }
+        if ($accountExists) {
+            continue;
+        }
+        $currentPermissions[] = ['id' => (int) $newAccountId, 'account_id' => $account_id];
+        foreach ($companyIdsToLink as $comp_id) {
+            $comp_id = (int) $comp_id;
+            if ($comp_id <= 0) {
+                continue;
+            }
+            $updateStmt->execute([$user['id'], $comp_id, json_encode($currentPermissions)]);
+        }
+    }
+}
+
+/**
  * C168 在 Add Domain 时为公司代码创建 MEMBER 账户：挂在当前 C168 公司 account list，并关联主账号 C168（account_link）。
  * 密码明文 111，与 login_process.php member 校验一致。
  */
@@ -780,6 +852,12 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
     if (!domainApiMemberRoleAllowed($pdo)) {
         return;
     }
+
+    $usersForAccountListPerm = domainApiGetUsersWithCompanyAccess($pdo, [$c168NumericCompanyId]);
+    $companyIdsForPerm = [$c168NumericCompanyId];
+    $syncListPerm = function (int $accDbId, string $accountCode) use ($pdo, $usersForAccountListPerm, $companyIdsForPerm): void {
+        domainApiMergeAccountIntoUserCompanyPermissions($pdo, $usersForAccountListPerm, $companyIdsForPerm, $accDbId, $accountCode);
+    };
 
     $parentStmt = $pdo->prepare("
         SELECT a.id FROM account a
@@ -826,6 +904,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                         error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
                     }
                 }
+                $syncListPerm($alreadyId, $cid);
             }
             continue;
         }
@@ -850,6 +929,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                     error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
                 }
             }
+            $syncListPerm($existingAccId, $cid);
             continue;
         }
 
@@ -874,6 +954,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                     error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
                 }
             }
+            $syncListPerm($newAccId, $cid);
         } catch (PDOException $e) {
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
                 // 并发下可能已被他处插入：再尝试只关联
@@ -888,6 +969,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                         }
                     }
                     domainApiForceMemberDefaultsFromDomain($pdo, $retryId, $ownerDisplayName);
+                    $syncListPerm($retryId, $cid);
                 }
                 continue;
             }
