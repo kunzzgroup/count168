@@ -6322,13 +6322,16 @@ async function loadPermissionButtons() {
 function switchPermission(permission) {
     const targetPage = getProcessListPageByPermission(permission);
     // 使用 history.pushState 无刷新更新 URL（替代全页跳转，消除白屏卡顿）
-    // 注：processlist.php 已包含所有 Bank HTML，下方的 6290-6374 行代码已完整实现在页面内切换
-    if (targetPage && targetPage !== currentProcessListPage) {
-        try {
-            const _pUrl = new URL(window.location.href);
-            _pUrl.pathname = _pUrl.pathname.replace(/[^/]*$/, targetPage);
-            history.pushState({ permission: permission, page: targetPage }, '', _pUrl.toString());
-        } catch (e) { /* 降级：正常跳转 */ window.location.href = window.location.href.replace(/[^/]*$/, targetPage); return; }
+    // 注：currentProcessListPage 是 const 不会更新，必须从实时 URL 读取当前页名做比较
+    if (targetPage) {
+        const _currentPageName = window.location.pathname.replace(/.*\//, '');
+        if (targetPage !== _currentPageName) {
+            try {
+                const _pUrl = new URL(window.location.href);
+                _pUrl.pathname = _pUrl.pathname.replace(/[^/]*$/, targetPage);
+                history.pushState({ permission: permission, page: targetPage }, '', _pUrl.toString());
+            } catch (e) { /* 降级：正常跳转 */ window.location.href = window.location.href.replace(/[^/]*$/, targetPage); return; }
+        }
     }
 
     selectedPermission = permission;
