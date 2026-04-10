@@ -684,11 +684,11 @@ function createDomainListFeePayment(
         $out['skipped_no_accounts'] = true;
         return $out;
     }
-    $ownerLabel = getCompanyOwnerDisplayLabel($pdo, $customerPk);
-    $codeU = strtoupper(trim($customerCompanyCode));
-    $desc = $ownerLabel !== ''
-        ? ('Domain list fee FROM ' . $ownerLabel . ' (' . $codeU . ')')
-        : ('Domain list fee FROM ' . $codeU);
+    $c168OwnerCode = getCompanyOwnerCodeByPk($pdo, $c168Pk);
+    if ($c168OwnerCode === '') {
+        $c168OwnerCode = 'C168';
+    }
+    $desc = 'Pay Domain Fee To ' . $c168OwnerCode;
 
     $now = date('Y-m-d H:i:s');
     $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
