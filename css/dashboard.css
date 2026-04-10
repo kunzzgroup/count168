@@ -145,7 +145,7 @@ body.dashboard-page {
 .dashboard-top-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: clamp(12px, 1.5vw, 20px);
     flex-shrink: 0;
 }
@@ -215,6 +215,10 @@ body.dashboard-page {
     min-width: clamp(130px, 10vw, 180px);
     border-color: #dbeafe;
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    align-self: stretch;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
 }
 
 .kpi-label--earnings {
@@ -223,6 +227,7 @@ body.dashboard-page {
 
 .kpi-value--earnings {
     color: #1d4ed8;
+    font-size: clamp(18px, 1.4vw, 28px);
 }
 
 /* 图表区域 - 占满剩余高度 */
