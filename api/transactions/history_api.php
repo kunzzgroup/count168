@@ -416,6 +416,22 @@ try {
     if ($account_id <= 0 && $virtual_company_code === '') {
         throw new Exception('账户ID是必填项');
     }
+    if (!$date_from || !$date_to) {
+        throw new Exception('日期范围是必填项');
+    }
+    
+    // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
+    $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
+    $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
+    
+    // 获取 currency_id（如果指定了 currency）
+    $currency_id = null;
+    if ($currency) {
+        $currency_stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
+        $currency_stmt->execute([$currency, $company_id]);
+        $currency_id = $currency_stmt->fetchColumn();
+        error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
+    }
     if ($account_id <= 0 && $virtual_company_code !== '') {
         $virtual = buildVirtualDomainListFeeHistory(
             $pdo,
@@ -434,23 +450,6 @@ try {
             ]
         ]);
         exit;
-    }
-    
-    if (!$date_from || !$date_to) {
-        throw new Exception('日期范围是必填项');
-    }
-    
-    // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
-    $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
-    $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
-    
-    // 获取 currency_id（如果指定了 currency）
-    $currency_id = null;
-    if ($currency) {
-        $currency_stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-        $currency_stmt->execute([$currency, $company_id]);
-        $currency_id = $currency_stmt->fetchColumn();
-        error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
     }
 
     // 查询账户信息 - 使用 account_company 表过滤
