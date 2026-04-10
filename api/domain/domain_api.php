@@ -972,7 +972,7 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
-            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|AID:' . $aid . ']';
+            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|ROLE:' . strtoupper($role) . '|AID:' . $aid . ']';
             $dupStmt = $pdo->prepare("
                 SELECT id
                 FROM transactions
@@ -1107,7 +1107,20 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
         if (!$apply) {
             continue;
         }
+        // Confirm 路径优先使用数据库里已保存的 share 配置，避免前端 payload 缺 role 导致漏单
         $normalized = normalizeFeeShareAllocationsInput($row['fee_share_allocations'] ?? null);
+        try {
+            $stAlloc = $pdo->prepare("SELECT fee_share_allocations FROM company WHERE UPPER(TRIM(company_id)) = ? LIMIT 1");
+            $stAlloc->execute([$cid]);
+            $dbAllocRaw = $stAlloc->fetchColumn();
+            $dbNormalized = normalizeFeeShareAllocationsInput($dbAllocRaw);
+            $dbHasAny = !empty($dbNormalized['sales']) || !empty($dbNormalized['cs']) || !empty($dbNormalized['it']);
+            if ($dbHasAny) {
+                $normalized = $dbNormalized;
+            }
+        } catch (Exception $e) {
+            // ignore and keep payload normalization
+        }
         $feeResult = createDomainListFeePayment($pdo, $cid, $u, $o);
         $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
         if ($poolId <= 0) {
