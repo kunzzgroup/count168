@@ -251,7 +251,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                 <!-- Earnings 卡片 (右上角独立显示) -->
                 <div class="dashboard-kpi-card dashboard-kpi-card--blue" id="earnings-card-wrapper" style="display: none;">
                     <div class="kpi-text">
-                        <div class="kpi-label">EARNINGS</div>
+                        <div class="kpi-label">Earnings</div>
                         <div class="kpi-value" id="earnings-value">0</div>
                     </div>
                     <div class="kpi-icon">
@@ -264,33 +264,36 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
             <div class="dashboard-kpi-grid">
                 <!-- Profit -->
                 <div class="dashboard-kpi-card dashboard-kpi-card--blue">
-                    <div class="kpi-text">
-                        <div class="kpi-label">PROFIT</div>
-                        <div class="kpi-value" id="capital-value">0</div>
-                    </div>
                     <div class="kpi-icon">
                         <i class="fas fa-wallet"></i>
+                    </div>
+                    <div class="kpi-text">
+                        <div class="kpi-label">Profit</div>
+                        <div class="kpi-value" id="capital-value">0</div>
                     </div>
                 </div>
 
                 <!-- Expenses -->
                 <div class="dashboard-kpi-card dashboard-kpi-card--red">
-                    <div class="kpi-text">
-                        <div class="kpi-label">EXPENSES</div>
-                        <div class="kpi-value" id="expenses-value">0</div>
-                    </div>
                     <div class="kpi-icon">
                         <i class="fas fa-arrow-down"></i>
+                    </div>
+                    <div class="kpi-text">
+                        <div class="kpi-label">Expenses</div>
+                        <div class="kpi-value" id="expenses-value">0</div>
                     </div>
                 </div>
 
                 <!-- NET PROFIT -->
                 <div class="dashboard-kpi-card dashboard-kpi-card--green">
+                    <div class="kpi-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
                     <div class="kpi-text">
                         <div class="kpi-label">NET PROFIT</div>
                         <div class="kpi-value" id="profit-value">0</div>
                     </div>
-                    <div class="kpi-icon">
+                </div>
                         <i class="fas fa-chart-line"></i>
                     </div>
                 </div>
