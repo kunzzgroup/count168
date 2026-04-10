@@ -19,6 +19,21 @@ if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
         exit;
     }
+
+    // 根据 company_id 回填 company_code（Remember me、仅更新了 id 等情况下 session 可能缺 code，导致误判非 C168）
+    $sessCoId = $_SESSION['company_id'] ?? null;
+    if ($sessCoId) {
+        try {
+            $ccStmt = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
+            $ccStmt->execute([(int) $sessCoId]);
+            $ccVal = $ccStmt->fetchColumn();
+            if ($ccVal !== false && $ccVal !== null && trim((string) $ccVal) !== '') {
+                $_SESSION['company_code'] = trim((string) $ccVal);
+            }
+        } catch (PDOException $e) {
+            // ignore
+        }
+    }
     
     // 检查C168权限（用于二级密码修改权限判断）
     $user_role = strtolower($_SESSION['role'] ?? '');
@@ -645,6 +660,22 @@ function domainApiMemberRoleAllowed(PDO $pdo): bool {
 }
 
 /**
+ * Domain 同步策略：强制 name = Owner 姓名、role = MEMBER、password = 111（明文，与 member 登录一致）
+ */
+function domainApiForceMemberDefaultsFromDomain(PDO $pdo, int $accountDbId, string $ownerDisplayName): void {
+    if ($accountDbId <= 0) {
+        return;
+    }
+    try {
+        $stmt = $pdo->prepare("UPDATE account SET name = ?, role = 'MEMBER', password = '111' WHERE id = ?");
+        $stmt->execute([$ownerDisplayName, $accountDbId]);
+    } catch (PDOException $e) {
+        error_log('domainApiForceMemberDefaultsFromDomain: ' . $e->getMessage());
+        throw $e;
+    }
+}
+
+/**
  * C168 在 Add Domain 时为公司代码创建 MEMBER 账户：挂在当前 C168 公司 account list，并关联主账号 C168（account_link）。
  * 密码明文 111，与 login_process.php member 校验一致。
  */
@@ -670,11 +701,18 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         INNER JOIN account_company ac ON a.id = ac.account_id
         WHERE ac.company_id = ? AND UPPER(a.account_id) = UPPER(?)
     ");
+    $findAccIdInC168Stmt = $pdo->prepare("
+        SELECT a.id FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
+        LIMIT 1
+    ");
+    $findGlobalAccStmt = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
     $insertStmt = $pdo->prepare("
         INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
         VALUES (?, ?, 'MEMBER', '111', 0, NULL, NULL, NULL, NULL, 'active', NULL)
     ");
-    $linkCoStmt = $pdo->prepare("INSERT INTO account_company (account_id, company_id) VALUES (?, ?)");
+    $linkCoStmt = $pdo->prepare('INSERT INTO account_company (account_id, company_id) VALUES (?, ?)');
 
     foreach ($companyIdStrings as $raw) {
         $cid = strtoupper(trim((string) $raw));
@@ -683,8 +721,44 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         }
         $existsStmt->execute([$c168NumericCompanyId, $cid]);
         if ((int) $existsStmt->fetchColumn() > 0) {
+            $findAccIdInC168Stmt->execute([$c168NumericCompanyId, $cid]);
+            $alreadyId = (int) ($findAccIdInC168Stmt->fetchColumn() ?: 0);
+            if ($alreadyId > 0) {
+                domainApiForceMemberDefaultsFromDomain($pdo, $alreadyId, $ownerDisplayName);
+                if ($parentAccountId > 0) {
+                    try {
+                        domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $alreadyId, $c168NumericCompanyId);
+                    } catch (PDOException $e) {
+                        error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
+                    }
+                }
+            }
             continue;
         }
+
+        $findGlobalAccStmt->execute([$cid]);
+        $existingAccId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
+
+        if ($existingAccId > 0) {
+            // account_id 全局唯一：已存在则只补 account_company，把该账号挂到 C168 下展示
+            try {
+                $linkCoStmt->execute([$existingAccId, $c168NumericCompanyId]);
+            } catch (PDOException $e) {
+                if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
+                    throw $e;
+                }
+            }
+            domainApiForceMemberDefaultsFromDomain($pdo, $existingAccId, $ownerDisplayName);
+            if ($parentAccountId > 0) {
+                try {
+                    domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $existingAccId, $c168NumericCompanyId);
+                } catch (PDOException $e) {
+                    error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
+                }
+            }
+            continue;
+        }
+
         try {
             $insertStmt->execute([$cid, $ownerDisplayName]);
             $newAccId = (int) $pdo->lastInsertId();
@@ -698,6 +772,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                     throw $e;
                 }
             }
+            domainApiForceMemberDefaultsFromDomain($pdo, $newAccId, $ownerDisplayName);
             if ($parentAccountId > 0) {
                 try {
                     domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $newAccId, $c168NumericCompanyId);
@@ -707,6 +782,19 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
             }
         } catch (PDOException $e) {
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                // 并发下可能已被他处插入：再尝试只关联
+                $findGlobalAccStmt->execute([$cid]);
+                $retryId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
+                if ($retryId > 0) {
+                    try {
+                        $linkCoStmt->execute([$retryId, $c168NumericCompanyId]);
+                    } catch (PDOException $e2) {
+                        if ((int) ($e2->errorInfo[1] ?? 0) !== 1062) {
+                            throw $e2;
+                        }
+                    }
+                    domainApiForceMemberDefaultsFromDomain($pdo, $retryId, $ownerDisplayName);
+                }
                 continue;
             }
             throw $e;

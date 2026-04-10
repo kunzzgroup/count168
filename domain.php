@@ -10,6 +10,19 @@ header('Pragma: no-cache');
 $user_id      = $_SESSION['user_id']  ?? null;
 $user_role    = strtolower($_SESSION['role'] ?? '');
 $company_id   = $_SESSION['company_id'] ?? null;      // company 表数字主键
+// 按 id 同步 company_code，避免 Remember me 等场景下 code 缺失导致无法进入本页
+if ($company_id) {
+    try {
+        $stmtCc = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
+        $stmtCc->execute([(int) $company_id]);
+        $ccDb = $stmtCc->fetchColumn();
+        if ($ccDb !== false && $ccDb !== null && trim((string) $ccDb) !== '') {
+            $_SESSION['company_code'] = trim((string) $ccDb);
+        }
+    } catch (PDOException $e) {
+        error_log('domain.php company_code sync: ' . $e->getMessage());
+    }
+}
 $company_code = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选的公司代码
 
 // 角色必须是 owner 或 admin
