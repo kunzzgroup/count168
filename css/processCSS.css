@@ -750,13 +750,7 @@ body.process-page {
 
 /* 标题行外层 div 的 margin 不再缩减，保持与 processlist.php 一致（inline margin: 20px 生效） */
 
-.process-page.process-page--bank .action-buttons-container {
-    margin-top: 2px;
-}
-
-.process-page.process-page--bank .action-buttons {
-    padding: 5px 16px;
-}
+/* action-buttons-container 和 action-buttons 不再 override，与 Games 完全统一（margin-top: 20px, padding: 10px 20px）使 separator line 正确显示 */
 
 .process-page.process-page--bank .action-buttons-container .process-company-filter {
     padding: 0 16px 8px 16px;
