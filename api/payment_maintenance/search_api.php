@@ -246,6 +246,34 @@ function resolveCompanyOwnerCode(PDO $pdo, int $companyId): string {
     }
 }
 
+function resolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
+{
+    try {
+        $st = $pdo->prepare("
+            SELECT COALESCE(u.login_id, o.owner_code, '-') AS submitter
+            FROM transactions t
+            LEFT JOIN user u ON t.created_by = u.id
+            LEFT JOIN owner o ON t.created_by_owner = o.id
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              AND (
+                    t.sms LIKE '[DOMAIN_NET_PROFIT|%'
+                    OR t.sms LIKE '[DOMAIN_LIST_FEE|%'
+                    OR t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                    OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROFIT BY %'
+              )
+            ORDER BY t.created_at DESC, t.id DESC
+            LIMIT 1
+        ");
+        $st->execute([$companyId, $dateFromDb, $dateToDb]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null && trim((string)$v) !== '') ? trim((string)$v) : '-';
+    } catch (PDOException $e) {
+        return '-';
+    }
+}
+
 function appendVirtualDomainNetProfitItem(
     PDO $pdo,
     array &$data,
@@ -266,6 +294,7 @@ function appendVirtualDomainNetProfitItem(
     if ($ownerCode === '') {
         $ownerCode = 'C168';
     }
+    $submitter = resolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
 
     $sql = "SELECT
                 UPPER(COALESCE(c.code, '')) AS currency_code,
@@ -313,7 +342,7 @@ function appendVirtualDomainNetProfitItem(
             'description' => 'Profit By ' . $ownerCode,
             'remark' => '',
             'dts_created' => date('d/m/Y H:i:s'),
-            'created_by' => '-',
+            'created_by' => $submitter,
             'transaction_type' => 'PAYMENT',
             'is_deleted' => 0,
             'deleted_by' => null,
