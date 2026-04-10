@@ -179,8 +179,48 @@ function searchApiAppendDomainNetProfitVirtualRows(
     }
     $st = $pdo->prepare($sql);
     $st->execute($par);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    // 若尚未落库 DOMAIN_NET_PROFIT，动态按「Fee - Commission」计算一条利润行，确保交易页可见
+    if (empty($rows)) {
+        $aggSql = "SELECT
+                     t.currency_id,
+                     SUM(CASE
+                           WHEN t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
+                           THEN ROUND(t.amount, 2)
+                           ELSE 0
+                         END) AS fee_total,
+                     SUM(CASE
+                           WHEN t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
+                           THEN ROUND(t.amount, 2)
+                           ELSE 0
+                         END) AS comm_total
+                   FROM transactions t
+                   WHERE t.company_id = ?
+                     AND t.transaction_type = 'PAYMENT'
+                     AND t.transaction_date BETWEEN ? AND ?
+                   GROUP BY t.currency_id";
+        $aggSt = $pdo->prepare($aggSql);
+        $aggSt->execute([$company_id, $date_from_db, $date_to_db]);
+        while ($ar = $aggSt->fetch(PDO::FETCH_ASSOC)) {
+            $cid = (int)($ar['currency_id'] ?? 0);
+            if ($cid <= 0) continue;
+            $fee = round((float)($ar['fee_total'] ?? 0), 2);
+            $comm = round((float)($ar['comm_total'] ?? 0), 2);
+            $net = round($fee - $comm, 2);
+            if ($net <= 0) continue;
+            if (!empty($currencyFilterIds) && !in_array($cid, $currencyFilterIds, true)) {
+                continue;
+            }
+            $rows[] = [
+                'id' => 0,
+                'amount' => $net,
+                'currency_id' => $cid,
+            ];
+        }
+    }
+
+    while ($row = (is_array($rows) ? array_shift($rows) : null)) {
         $amt = round((float)($row['amount'] ?? 0), 2);
         if (abs($amt) < 0.00001) continue;
         $cid = (int)($row['currency_id'] ?? 0);

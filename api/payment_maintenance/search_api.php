@@ -160,11 +160,10 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
             FROM transactions t
             JOIN account to_acc ON t.account_id = to_acc.id
             LEFT JOIN account from_acc ON t.from_account_id = from_acc.id
-            INNER JOIN account_company ac ON ac.account_id = to_acc.id
             {$schema['currencyJoinSql']}
             LEFT JOIN user u ON t.created_by = u.id
             LEFT JOIN owner o ON t.created_by_owner = o.id
-            WHERE ac.company_id = ? AND t.transaction_date BETWEEN ? AND ?";
+            WHERE t.company_id = ? AND t.transaction_date BETWEEN ? AND ?";
     $params = [$company_id, $date_from_db, $date_to_db];
     if (!empty($transaction_type)) {
         $sql .= " AND t.transaction_type = ?";

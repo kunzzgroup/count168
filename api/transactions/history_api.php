@@ -348,6 +348,158 @@ function buildVirtualDomainListFeeHistory(
     ];
 }
 
+function buildVirtualDomainNetProfitHistory(
+    PDO $pdo,
+    int $companyId,
+    string $ownerCode,
+    string $dateFromDb,
+    string $dateToDb,
+    ?int $currencyId = null
+): array {
+    $owner = strtoupper(trim($ownerCode));
+    if ($owner === '') {
+        $owner = historyResolveCompanyOwnerCode($pdo, $companyId);
+    }
+    if ($owner === '') {
+        $owner = 'C168';
+    }
+
+    $currencyById = [];
+    $stCur = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?");
+    $stCur->execute([$companyId]);
+    foreach ($stCur->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $currencyById[(int)$r['id']] = strtoupper((string)$r['code']);
+    }
+
+    $sql = "SELECT t.id, t.amount, t.currency_id, t.transaction_date, t.description, t.sms
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              AND (
+                    t.sms LIKE '[DOMAIN_NET_PROFIT|%'
+                    OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROFIT BY %'
+              )";
+    $params = [$companyId, $dateFromDb, $dateToDb];
+    if ($currencyId !== null && $currencyId > 0) {
+        $sql .= " AND t.currency_id = ?";
+        $params[] = $currencyId;
+    }
+    $sql .= " ORDER BY t.transaction_date ASC, t.id ASC";
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    // 若真实利润单未落库，则与交易页一致：动态按 Fee - Commission 兜底显示
+    if (empty($rows)) {
+        $aggSql = "SELECT
+                     t.currency_id,
+                     SUM(CASE
+                           WHEN t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
+                           THEN ROUND(t.amount, 2)
+                           ELSE 0
+                         END) AS fee_total,
+                     SUM(CASE
+                           WHEN t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
+                           THEN ROUND(t.amount, 2)
+                           ELSE 0
+                         END) AS comm_total
+                   FROM transactions t
+                   WHERE t.company_id = ?
+                     AND t.transaction_type = 'PAYMENT'
+                     AND t.transaction_date BETWEEN ? AND ?
+                   GROUP BY t.currency_id";
+        $aggParams = [$companyId, $dateFromDb, $dateToDb];
+        if ($currencyId !== null && $currencyId > 0) {
+            $aggSql = "SELECT x.currency_id, x.fee_total, x.comm_total FROM (" . $aggSql . ") x WHERE x.currency_id = ?";
+            $aggParams[] = $currencyId;
+        }
+        $aggSt = $pdo->prepare($aggSql);
+        $aggSt->execute($aggParams);
+        foreach ($aggSt->fetchAll(PDO::FETCH_ASSOC) as $ar) {
+            $cid = (int)($ar['currency_id'] ?? 0);
+            if ($cid <= 0) continue;
+            $fee = round((float)($ar['fee_total'] ?? 0), 2);
+            $comm = round((float)($ar['comm_total'] ?? 0), 2);
+            $net = round($fee - $comm, 2);
+            if ($net <= 0) continue;
+            $rows[] = [
+                'id' => 0,
+                'amount' => $net,
+                'currency_id' => $cid,
+                'transaction_date' => $dateToDb,
+                'description' => 'Profit By ' . $owner,
+                'sms' => '[DOMAIN_NET_PROFIT|DYNAMIC]'
+            ];
+        }
+    }
+
+    $displayCurrency = '-';
+    if ($currencyId !== null && $currencyId > 0) {
+        $displayCurrency = $currencyById[$currencyId] ?? '-';
+    } elseif (!empty($rows)) {
+        $cid0 = (int)($rows[0]['currency_id'] ?? 0);
+        $displayCurrency = $cid0 > 0 ? ($currencyById[$cid0] ?? '-') : '-';
+    }
+
+    $history = [[
+        'date' => 'B/F',
+        'product' => '-',
+        'card_owner' => '-',
+        'is_bank_process_transaction' => false,
+        'currency' => $displayCurrency,
+        'percent' => '-',
+        'rate' => '-',
+        'win_loss' => '-',
+        'cr_dr' => '-',
+        'balance' => number_format(0, 2),
+        'description' => 'OPENING BALANCE',
+        'sms' => '-',
+        'remark' => '-',
+        'created_by' => '-',
+        'transaction_type' => 'PAYMENT',
+        'row_type' => 'bf'
+    ]];
+
+    $running = 0.0;
+    foreach ($rows as $r) {
+        $amt = round((float)($r['amount'] ?? 0), 2);
+        if (abs($amt) < 0.00001) continue;
+        $cid = (int)($r['currency_id'] ?? 0);
+        $cur = $cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency;
+        $cr = $amt;
+        $running = round($running + $cr, 2);
+        $history[] = [
+            'date' => date('d/m/Y', strtotime((string)$r['transaction_date'])),
+            'product' => 'PAYMENT',
+            'card_owner' => '-',
+            'is_bank_process_transaction' => false,
+            'currency' => $cur,
+            'percent' => '-',
+            'rate' => '-',
+            'win_loss' => number_format(0, 2),
+            'cr_dr' => number_format($cr, 2),
+            'balance' => number_format($running, 2),
+            'description' => 'Profit By ' . $owner,
+            'sms' => '-',
+            'remark' => '-',
+            'created_by' => '-',
+            'transaction_type' => 'PAYMENT',
+            'row_type' => 'txn'
+        ];
+    }
+
+    return [
+        'account' => [
+            'id' => 0,
+            'account_id' => $owner,
+            'name' => $owner,
+            'currency' => $displayCurrency
+        ],
+        'history' => $history
+    ];
+}
+
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -416,26 +568,6 @@ try {
     if ($account_id <= 0 && $virtual_company_code === '') {
         throw new Exception('账户ID是必填项');
     }
-    if ($account_id <= 0 && $virtual_company_code !== '') {
-        $virtual = buildVirtualDomainListFeeHistory(
-            $pdo,
-            $company_id,
-            $virtual_company_code,
-            $date_from_db,
-            $date_to_db,
-            $currency_id ? (int)$currency_id : null
-        );
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'account' => $virtual['account'],
-                'date_range' => ['from' => $date_from, 'to' => $date_to],
-                'history' => $virtual['history']
-            ]
-        ]);
-        exit;
-    }
-    
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
     }
@@ -451,6 +583,35 @@ try {
         $currency_stmt->execute([$currency, $company_id]);
         $currency_id = $currency_stmt->fetchColumn();
         error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
+    }
+    if ($account_id <= 0 && $virtual_company_code !== '') {
+        $isNetProfitVirtual = ($account_id <= -2000000);
+        $virtual = $isNetProfitVirtual
+            ? buildVirtualDomainNetProfitHistory(
+                $pdo,
+                $company_id,
+                $virtual_company_code,
+                $date_from_db,
+                $date_to_db,
+                $currency_id ? (int)$currency_id : null
+            )
+            : buildVirtualDomainListFeeHistory(
+                $pdo,
+                $company_id,
+                $virtual_company_code,
+                $date_from_db,
+                $date_to_db,
+                $currency_id ? (int)$currency_id : null
+            );
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'account' => $virtual['account'],
+                'date_range' => ['from' => $date_from, 'to' => $date_to],
+                'history' => $virtual['history']
+            ]
+        ]);
+        exit;
     }
 
     // 查询账户信息 - 使用 account_company 表过滤
