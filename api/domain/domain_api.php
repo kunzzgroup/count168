@@ -1250,11 +1250,14 @@ try {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $hashed_secondary_password = password_hash($secondary_password, PASSWORD_DEFAULT);
             
+            // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行
+            ensureCompanyFeeShareColumn($pdo);
+            ensureDomainListFeeSettingsTable($pdo);
+
             // Start transaction
             $pdo->beginTransaction();
             
             try {
-                ensureCompanyFeeShareColumn($pdo);
                 // Insert owner
                 $stmt = $pdo->prepare("INSERT INTO owner (owner_code, name, email, password, secondary_password, created_by) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$owner_code, $name, $email, $hashed_password, $hashed_secondary_password, $_SESSION['login_id'] ?? 'system']);
@@ -1298,7 +1301,9 @@ try {
                 ]);
                 
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 throw $e;
             }
             break;
@@ -1331,11 +1336,14 @@ try {
                 }
             }
             
+            // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行
+            ensureCompanyFeeShareColumn($pdo);
+            ensureDomainListFeeSettingsTable($pdo);
+
             // Start transaction
             $pdo->beginTransaction();
             
             try {
-                ensureCompanyFeeShareColumn($pdo);
                 // Update owner - 根据提供的字段构建UPDATE语句
                 $updateFields = [];
                 $updateValues = [];
@@ -1593,7 +1601,9 @@ try {
                 ]);
                 
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 throw $e;
             }
             break;
@@ -1740,7 +1750,9 @@ try {
                 ]);
                 
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 throw $e;
             }
             break;
