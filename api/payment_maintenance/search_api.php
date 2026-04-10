@@ -205,6 +205,28 @@ function rowToItem(array $row, $is_deleted = 0) {
     if (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
     }
+    if ($isDomainShareCommission) {
+        $roleLabel = 'Commission';
+        if (preg_match('/\|ROLE:([A-Z]+)\|/i', $remarkTrim, $mRole)) {
+            $roleCode = strtoupper(trim((string)$mRole[1]));
+            if (in_array($roleCode, ['SALES', 'CS', 'IT'], true)) {
+                $roleLabel = $roleCode;
+            }
+        } elseif (preg_match('/^(Sales|CS|IT)\s+Commision\b/i', trim((string)$description), $mRole2)) {
+            $roleLabel = strtoupper(trim((string)$mRole2[1]));
+        }
+        $sourceCompany = '';
+        if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^|\]]+)/i', $remarkTrim, $mSrc)) {
+            $sourceCompany = strtoupper(trim((string)$mSrc[1]));
+        }
+        if ($sourceCompany === '') {
+            $sourceCompany = strtoupper(trim((string)($row['from_account_code'] ?? '')));
+        }
+        if ($sourceCompany === '') {
+            $sourceCompany = 'LAG';
+        }
+        $description = $roleLabel . ' Commission From ' . $sourceCompany;
+    }
     $displayAccount = $row['account_code'] ?? '-';
     if ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee\s+To\s+([A-Za-z0-9_-]+)/i', trim((string)$description), $m)) {
         $displayAccount = strtoupper(trim((string)$m[1]));
