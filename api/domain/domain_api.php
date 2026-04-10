@@ -1319,13 +1319,34 @@ try {
                     ? (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0)
                     : null;
 
-                $commissionResult = createDomainShareCommissionPayments(
-                    $pdo,
-                    $saveShareCode,
-                    $saveNormalized,
-                    $createdByUser > 0 ? $createdByUser : null,
-                    $createdByOwner > 0 ? $createdByOwner : null
-                );
+                // 前端「Charge on save」為 Off 時只更新 Share%，不建立 Commission 入帳（收費）
+                $applyCommissionPayments = true;
+                if (array_key_exists('apply_commission_payments', $data)) {
+                    $rawApply = $data['apply_commission_payments'];
+                    if (is_bool($rawApply)) {
+                        $applyCommissionPayments = $rawApply;
+                    } else {
+                        $applyCommissionPayments = filter_var($rawApply, FILTER_VALIDATE_BOOLEAN);
+                    }
+                }
+
+                if ($applyCommissionPayments) {
+                    $commissionResult = createDomainShareCommissionPayments(
+                        $pdo,
+                        $saveShareCode,
+                        $saveNormalized,
+                        $createdByUser > 0 ? $createdByUser : null,
+                        $createdByOwner > 0 ? $createdByOwner : null
+                    );
+                } else {
+                    $commissionResult = [
+                        'created_count' => 0,
+                        'skipped_admin_count' => 0,
+                        'skipped_invalid_account_count' => 0,
+                        'skipped_no_from_account_count' => 0,
+                        'skipped_duplicate_account_count' => 0,
+                    ];
+                }
 
                 jsonResponse(true, 'Share settings saved', [
                     'fee_share_allocations' => $saveNormalized,

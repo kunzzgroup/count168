@@ -305,7 +305,16 @@ try {
                     <div class="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true"></div>
 
                     <div id="companySettingsPanelShare" class="company-settings-split-right">
-                        <h3 class="company-settings-column-title">Share %</h3>
+                        <div class="company-settings-share-header">
+                            <h3 class="company-settings-column-title company-settings-share-title">Share %</h3>
+                            <div class="company-share-charge-on-save" title="On: Save also creates commission payments from domain fee × Share %. Off: Save allocations only.">
+                                <span class="company-share-charge-on-save__state" id="companyShareChargeState" aria-hidden="true">Off</span>
+                                <label class="company-share-charge-switch">
+                                    <input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" aria-label="Charge on save" onchange="syncCompanyShareChargeToggleUi()">
+                                    <span class="company-share-charge-switch__track" aria-hidden="true"><span class="company-share-charge-switch__thumb"></span></span>
+                                </label>
+                            </div>
+                        </div>
                     <div class="company-share-scroll">
                         <div class="company-share-role-card" data-share-card="sales">
                             <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsSales" onclick="toggleShareRoleCard('sales')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('sales');}">

@@ -925,6 +925,20 @@ function loadCompanyShareDataForModal(companyCode) {
         });
 }
 
+// Company Settings → Share %：「Charge on save」開關（On 才寫入 Commission 收費）
+function syncCompanyShareChargeToggleUi() {
+    var cb = document.getElementById('companyShareChargeToggle');
+    var stateEl = document.getElementById('companyShareChargeState');
+    if (!cb) {
+        return;
+    }
+    if (stateEl) {
+        stateEl.textContent = cb.checked ? 'On' : 'Off';
+        stateEl.classList.toggle('company-share-charge-on-save__state--on', cb.checked);
+    }
+    cb.setAttribute('aria-checked', cb.checked ? 'true' : 'false');
+}
+
 // 打开到期日期设置弹窗
 function openCompanyExpDateModal(companyId) {
     const company = tempCompanies.find(c => c.company_id === companyId);
@@ -992,6 +1006,11 @@ function openCompanyExpDateModal(companyId) {
     
     // 显示弹窗（左右分栏同时展示 Company 与 Share %）
     document.getElementById('companyExpDateModal').style.display = 'block';
+    var chargeToggle = document.getElementById('companyShareChargeToggle');
+    if (chargeToggle) {
+        chargeToggle.checked = false;
+        syncCompanyShareChargeToggleUi();
+    }
     collapseAllShareRoleCards();
     loadCompanyShareDataForModal(company.company_id);
 }
@@ -1183,6 +1202,7 @@ function saveCompanyExpDate() {
         })
     }).then(response => response.json());
     
+    var chargeOnSave = !!(document.getElementById('companyShareChargeToggle') && document.getElementById('companyShareChargeToggle').checked);
     const shareReq = fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
@@ -1191,7 +1211,8 @@ function saveCompanyExpDate() {
         body: JSON.stringify({
             action: 'save_company_share_settings',
             company_id: company.company_id,
-            fee_share_allocations: company.fee_share_allocations
+            fee_share_allocations: company.fee_share_allocations,
+            apply_commission_payments: chargeOnSave
         })
     }).then(response => response.json());
     
@@ -1262,6 +1283,11 @@ function resetCompanyExpDateInModal() {
     company.fee_share_allocations = defaultFeeShareAllocations();
     renderCompanySharePanel();
     collapseAllShareRoleCards();
+    var chargeToggleReset = document.getElementById('companyShareChargeToggle');
+    if (chargeToggleReset) {
+        chargeToggleReset.checked = false;
+        syncCompanyShareChargeToggleUi();
+    }
 }
 
 // 根据到期日期判断对应的期限选项
