@@ -999,6 +999,7 @@ try {
                 } elseif ($is_to_account) {
                     // Domain Share Commission：收款账户在历史中显示正数，与主表一致
                     if (stripos((string)($t['sms'] ?? ''), '[DOMAIN_SHARE_COMMISSION|') === 0
+                        || stripos((string)($t['sms'] ?? ''), '[DOMAIN_NET_PROFIT|') === 0
                         || stripos((string)$rawDescription, 'Commision FROM ') === 0) {
                         $cr_dr = (float)$t['amount'];
                     } else {
@@ -1009,6 +1010,9 @@ try {
                     if (stripos((string)($t['sms'] ?? ''), '[DOMAIN_LIST_FEE|') === 0
                         || stripos((string)$rawDescription, 'Domain list fee FROM ') === 0) {
                         $cr_dr = -(float)$t['amount'];
+                    } elseif (stripos((string)($t['sms'] ?? ''), '[DOMAIN_NET_PROFIT|') === 0
+                        || stripos((string)$rawDescription, 'Profit By ') === 0) {
+                        $cr_dr = 0;
                     } else {
                         $cr_dr = $t['amount'];
                     }

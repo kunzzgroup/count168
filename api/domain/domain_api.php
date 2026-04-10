@@ -489,6 +489,136 @@ function getCompanyOwnerCodeByPk(PDO $pdo, int $companyPk): string
     }
 }
 
+function resolveC168OwnerAccountId(PDO $pdo, int $c168Pk): ?int
+{
+    if ($c168Pk <= 0) {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT a.id
+            FROM company c
+            INNER JOIN owner o ON o.id = c.owner_id
+            INNER JOIN account a ON UPPER(TRIM(a.account_id)) = UPPER(TRIM(o.owner_code))
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE c.id = ?
+              AND ac.company_id = c.id
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? (int)$v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+/**
+ * 第三笔：C168 最终净利润（fee - commissions）。
+ * 用独立标记避免重复写入，同一天同来源公司只写一笔。
+ */
+function createDomainNetProfitPayment(
+    PDO $pdo,
+    string $sourceCompanyCode,
+    float $feeAmount,
+    float $commissionTotal,
+    ?int $fromPoolAccountId,
+    ?int $createdByUser,
+    ?int $createdByOwner
+): array {
+    $out = [
+        'created' => false,
+        'skipped_duplicate' => false,
+        'skipped_zero_or_negative' => false,
+        'amount' => 0.0,
+    ];
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return $out;
+    }
+    $net = round((float)$feeAmount - (float)$commissionTotal, 2);
+    $out['amount'] = $net;
+    if ($net <= 0) {
+        $out['skipped_zero_or_negative'] = true;
+        return $out;
+    }
+
+    $today = date('Y-m-d');
+    $todayTag = date('Ymd', strtotime($today));
+    $srcU = strtoupper(trim($sourceCompanyCode));
+    $smsMarker = '[DOMAIN_NET_PROFIT|' . $srcU . '|D:' . $todayTag . ']';
+    $dupStmt = $pdo->prepare("
+        SELECT id FROM transactions
+        WHERE company_id = ? AND transaction_type = 'PAYMENT' AND sms = ?
+        LIMIT 1
+    ");
+    $dupStmt->execute([$c168Pk, $smsMarker]);
+    if ($dupStmt->fetchColumn() !== false) {
+        $out['skipped_duplicate'] = true;
+        return $out;
+    }
+
+    $poolId = $fromPoolAccountId;
+    if (!$poolId || $poolId <= 0) {
+        $poolId = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
+    }
+    $ownerAccId = resolveC168OwnerAccountId($pdo, $c168Pk);
+    // 回退：若没有 K(owner_code) 账号，则利润记到资金池账号，确保第三笔一定生成
+    if (!$ownerAccId || $ownerAccId <= 0) {
+        $ownerAccId = $poolId;
+    }
+    if (!$ownerAccId || !$poolId) {
+        return $out;
+    }
+
+    $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
+    $hasApprovalStatus = tableHasColumn($pdo, 'transactions', 'approval_status');
+    $hasApprovedBy = tableHasColumn($pdo, 'transactions', 'approved_by');
+    $hasApprovedByOwner = tableHasColumn($pdo, 'transactions', 'approved_by_owner');
+    $hasApprovedAt = tableHasColumn($pdo, 'transactions', 'approved_at');
+    $hasCreatedAt = tableHasColumn($pdo, 'transactions', 'created_at');
+    $defaultTxnCurrencyId = $hasCurrencyId ? resolveC168DefaultTransactionCurrencyId($pdo, $c168Pk) : null;
+    $now = date('Y-m-d H:i:s');
+
+    $ownerCode = getCompanyOwnerCodeByPk($pdo, $c168Pk);
+    if ($ownerCode === '') {
+        $ownerCode = 'C168';
+    }
+
+    $insertCols = [
+        'company_id' => $c168Pk,
+        'transaction_type' => 'PAYMENT',
+        'account_id' => $ownerAccId,
+        'from_account_id' => $poolId,
+        'amount' => $net,
+        'transaction_date' => $today,
+        'description' => 'Profit By ' . $ownerCode,
+        'sms' => $smsMarker,
+        'created_by' => $createdByUser,
+        'created_by_owner' => $createdByOwner,
+    ];
+    if ($hasCurrencyId) {
+        $insertCols['currency_id'] = $defaultTxnCurrencyId;
+    }
+    if ($hasApprovalStatus) {
+        $insertCols['approval_status'] = 'APPROVED';
+        if ($hasApprovedBy) { $insertCols['approved_by'] = $createdByUser; }
+        if ($hasApprovedByOwner) { $insertCols['approved_by_owner'] = $createdByOwner; }
+        if ($hasApprovedAt) { $insertCols['approved_at'] = $now; }
+    }
+    if ($hasCreatedAt) {
+        $insertCols['created_at'] = $now;
+    }
+    $cols = array_keys($insertCols);
+    $ph = implode(',', array_fill(0, count($cols), '?'));
+    $sql = "INSERT INTO transactions (`" . implode('`,`', $cols) . "`) VALUES ($ph)";
+    $st = $pdo->prepare($sql);
+    $st->execute(array_values($insertCols));
+    $out['created'] = true;
+    return $out;
+}
+
 /**
  * C168 侧接收 domain list 费用、并向 Agent 付款时使用的资金池账户
  */
@@ -2187,6 +2317,17 @@ try {
                             $createdByUser > 0 ? $createdByUser : null,
                             $createdByOwner > 0 ? $createdByOwner : null
                         );
+                        $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
+                        $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
+                        $profitResult = createDomainNetProfitPayment(
+                            $pdo,
+                            $saveShareCode,
+                            $feeAmtForNet,
+                            $commTotalForNet,
+                            $poolId,
+                            $createdByUser > 0 ? $createdByUser : null,
+                            $createdByOwner > 0 ? $createdByOwner : null
+                        );
                     } else {
                         $feeResult = [
                             'created' => false,
@@ -2205,6 +2346,12 @@ try {
                             'skipped_no_from_account_count' => 0,
                             'skipped_duplicate_account_count' => 0,
                             'commission_total' => 0.0,
+                        ];
+                        $profitResult = [
+                            'created' => false,
+                            'skipped_duplicate' => false,
+                            'skipped_zero_or_negative' => true,
+                            'amount' => 0.0,
                         ];
                     }
                     $pdo->commit();
@@ -2240,6 +2387,8 @@ try {
                     'commission_skipped_invalid_account' => $commissionResult['skipped_invalid_account_count'],
                     'commission_skipped_no_from_account' => $commissionResult['skipped_no_from_account_count'],
                     'commission_skipped_duplicate_account' => $commissionResult['skipped_duplicate_account_count'],
+                    'profit_payment_created' => $applyCommissionPayments ? !empty($profitResult['created']) : false,
+                    'profit_amount' => $applyCommissionPayments ? round((float)($profitResult['amount'] ?? 0), 2) : null,
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
