@@ -1125,7 +1125,13 @@ function updateDashboard(data) {
                     earningsEl.textContent = formatCurrency(earningsDisplay);
                     const earningsCard = document.getElementById('earnings-card-wrapper');
                     if (earningsCard) {
-                        earningsCard.style.display = data?.has_ownership_setup ? 'flex' : 'none';
+                        const showEarnings = !!data?.has_ownership_setup;
+                        earningsCard.style.display = showEarnings ? 'flex' : 'none';
+                        // Toggle top-row layout: 3-column grid when Earnings visible, full-width when hidden
+                        const topRow = earningsCard.closest('.dashboard-top-row');
+                        if (topRow) {
+                            topRow.classList.toggle('has-earnings', showEarnings);
+                        }
                     }
                 }
                 const chartDateRangeEl = document.getElementById('chart-date-range');

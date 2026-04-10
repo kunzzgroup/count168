@@ -125,20 +125,28 @@ body.dashboard-page {
     padding: clamp(8px, 1vw, 16px);
 }
 
-/* 顶部区域：筛选器 + Earnings 并排 — 用 3 列 grid 对齐底部 KPI 网格 */
+/* 顶部区域：默认筛选器占满全宽（无 Earnings 时） */
 .dashboard-top-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: clamp(12px, 1.5vw, 20px);
     align-items: stretch;
     flex-shrink: 0;
 }
 
+/* 有 Earnings 时：切换为 3 列 grid，与底部 KPI 网格对齐 */
+.dashboard-top-row.has-earnings {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 .dashboard-card--filters {
-    grid-column: 1 / 3;
-    /* 横跨前两列 */
     min-width: 0;
     overflow: visible;
+}
+
+/* 有 Earnings 时筛选器横跨前两列 */
+.dashboard-top-row.has-earnings .dashboard-card--filters {
+    grid-column: 1 / 3;
 }
 
 .dashboard-card--filters .dashboard-card-body,
