@@ -916,6 +916,10 @@ function mergeGroupData(dataList) {
     let periodCapital = 0, periodExpenses = 0, periodProfit = 0;
     let bfCapital = 0, bfExpenses = 0, bfProfit = 0;
     const dailyCapital = {}, dailyExpenses = {}, dailyProfit = {}, dailyProfitFlow = {};
+    let hasOwnershipSetup = false;
+
+    // 收集每家公司的 NET PROFIT 和 ownership_percentage，用于加权平均
+    const companyEarnings = [];
 
     dataList.forEach(d => {
         capital += parseFloat(d.capital || 0);
@@ -938,7 +942,38 @@ function mergeGroupData(dataList) {
             mergeDailyMap(dailyProfit, d.daily_data.profit);
             mergeDailyMap(dailyProfitFlow, d.daily_data.profit_payment_flow_daily);
         }
+        if (d.has_ownership_setup) {
+            hasOwnershipSetup = true;
+        }
+
+        // 收集各公司的 Earnings 信息
+        const pct = parseFloat(d.ownership_percentage || 0);
+        const rawP = parseFloat(d?.period_total?.profit ?? d.profit) || 0;
+        const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
+        const displayE = rawE > 0 ? -rawE : rawE;
+        const netProfit = rawP + displayE;
+        companyEarnings.push({ netProfit, pct, earnings: netProfit * (pct / 100) });
     });
+
+    // 合计 Earnings = 各公司的 NET PROFIT × 各自 ownership_percentage 之和
+    const totalEarnings = companyEarnings.reduce((sum, c) => sum + c.earnings, 0);
+
+    // 计算合并后的整体 NET PROFIT
+    const mergedRawProfit = periodProfit;
+    const mergedRawExpenses = periodExpenses;
+    const mergedDisplayExpenses = mergedRawExpenses > 0 ? -mergedRawExpenses : mergedRawExpenses;
+    const mergedNetProfit = mergedRawProfit + mergedDisplayExpenses;
+
+    // 反推等效 ownership_percentage：Earnings = NET_PROFIT × (pct/100)
+    // → pct = (totalEarnings / mergedNetProfit) * 100
+    let effectiveOwnershipPct = 0;
+    if (mergedNetProfit !== 0) {
+        effectiveOwnershipPct = (totalEarnings / mergedNetProfit) * 100;
+    } else if (companyEarnings.length > 0) {
+        // NET PROFIT 为 0 时，取各公司 ownership_percentage 的平均值
+        const totalPct = companyEarnings.reduce((sum, c) => sum + c.pct, 0);
+        effectiveOwnershipPct = totalPct / companyEarnings.length;
+    }
 
     return {
         capital, expenses, profit,
@@ -950,7 +985,9 @@ function mergeGroupData(dataList) {
             profit: dailyProfit,
             profit_payment_flow_daily: dailyProfitFlow
         },
-        date_range: dataList[0]?.date_range || { from: dateRange.startDate, to: dateRange.endDate }
+        date_range: dataList[0]?.date_range || { from: dateRange.startDate, to: dateRange.endDate },
+        ownership_percentage: effectiveOwnershipPct,
+        has_ownership_setup: hasOwnershipSetup
     };
 }
 

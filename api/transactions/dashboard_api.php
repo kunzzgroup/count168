@@ -98,10 +98,19 @@ try {
                 throw new Exception('无权访问该公司');
             }
         } else {
-            if (!isset($_SESSION['company_id']) || (int)$_SESSION['company_id'] !== (int)$_GET['company_id']) {
-                throw new Exception('无权访问该公司');
+            // 非 owner 用户：优先匹配 session, 否则通过 user_company_map 验证是否有权
+            if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === (int)$_GET['company_id']) {
+                $company_id = (int)$_SESSION['company_id'];
+            } else {
+                // 检查 user_company_map 是否包含该公司
+                $ucm_stmt = $pdo->prepare("SELECT 1 FROM user_company_map WHERE user_id = ? AND company_id = ? LIMIT 1");
+                $ucm_stmt->execute([$_SESSION['user_id'], (int)$_GET['company_id']]);
+                if ($ucm_stmt->fetchColumn()) {
+                    $company_id = (int)$_GET['company_id'];
+                } else {
+                    throw new Exception('无权访问该公司');
+                }
             }
-            $company_id = (int)$_SESSION['company_id'];
         }
     } else {
         if (!isset($_SESSION['company_id'])) {
