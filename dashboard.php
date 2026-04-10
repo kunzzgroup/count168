@@ -155,98 +155,110 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
         <h1 class="dashboard-title">Transaction Dashboard</h1>
 
         <div id="app" class="dashboard-content">
-            <!-- Date Controls -->
-            <div class="dashboard-card">
-                <div class="dashboard-card-body">
-                    <div class="dashboard-date-controls">
-                        <!-- 日期范围选择器 -->
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label class="form-label" style="margin: 0;">Date Range</label>
-                            <div class="date-range-picker" id="date-range-picker" onclick="toggleCalendar()">
-                                <i class="fas fa-calendar-alt"></i>
-                                <span id="date-range-display">Select date range</span>
-                            </div>
-                        </div>
-
-                        <div class="divider"></div>
-
-                        <!-- 月份选择器 -->
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
-                                <i class="fas fa-calendar" style="color: #3b82f6;"></i>
-                                Select Year & Month
-                            </label>
-                            <div class="enhanced-date-picker month-only" id="month-date-picker">
-                                <div class="date-part" data-type="year" onclick="showDateDropdown('month', 'year')">
-                                    <span id="month-year-display">--</span>
-                                </div>
-                                <span class="date-separator">Year</span>
-                                <div class="date-part" data-type="month" onclick="showDateDropdown('month', 'month')">
-                                    <span id="month-month-display">--</span>
-                                </div>
-                                <span class="date-separator">Month</span>
-
-                                <div class="date-dropdown" id="month-dropdown"></div>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: clamp(0px, 0.21vw, 4px);">
-                            <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
-                                <i class="fas fa-clock" style="color: #3b82f6;"></i>
-                                Quick Select
-                            </label>
-                            <div class="dropdown">
-                                <button class="btn btn-secondary dropdown-toggle" onclick="toggleQuickSelectDropdown()">
+            <!-- 顶部区域：筛选器 + Earnings 并排 -->
+            <div class="dashboard-top-row">
+                <!-- Date Controls (左侧筛选器) -->
+                <div class="dashboard-card dashboard-card--filters">
+                    <div class="dashboard-card-body">
+                        <div class="dashboard-date-controls">
+                            <!-- 日期范围选择器 -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <label class="form-label" style="margin: 0;">Date Range</label>
+                                <div class="date-range-picker" id="date-range-picker" onclick="toggleCalendar()">
                                     <i class="fas fa-calendar-alt"></i>
-                                    <span id="quick-select-text">Period</span>
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
-                                <div class="dropdown-menu" id="quick-select-dropdown">
-                                    <button class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
-                                    <button class="dropdown-item"
-                                        onclick="selectQuickRange('yesterday')">Yesterday</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisWeek')">This
-                                        Week</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last
-                                        Week</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisMonth')">This
-                                        Month</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last
-                                        Month</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisYear')">This
-                                        Year</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastYear')">Last
-                                        Year</button>
+                                    <span id="date-range-display">Select date range</span>
+                                </div>
+                            </div>
+
+                            <div class="divider"></div>
+
+                            <!-- 月份选择器 -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
+                                    <i class="fas fa-calendar" style="color: #3b82f6;"></i>
+                                    Select Year & Month
+                                </label>
+                                <div class="enhanced-date-picker month-only" id="month-date-picker">
+                                    <div class="date-part" data-type="year" onclick="showDateDropdown('month', 'year')">
+                                        <span id="month-year-display">--</span>
+                                    </div>
+                                    <span class="date-separator">Year</span>
+                                    <div class="date-part" data-type="month" onclick="showDateDropdown('month', 'month')">
+                                        <span id="month-month-display">--</span>
+                                    </div>
+                                    <span class="date-separator">Month</span>
+
+                                    <div class="date-dropdown" id="month-dropdown"></div>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: clamp(0px, 0.21vw, 4px);">
+                                <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
+                                    <i class="fas fa-clock" style="color: #3b82f6;"></i>
+                                    Quick Select
+                                </label>
+                                <div class="dropdown">
+                                    <button class="btn btn-secondary dropdown-toggle" onclick="toggleQuickSelectDropdown()">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <span id="quick-select-text">Period</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                    <div class="dropdown-menu" id="quick-select-dropdown">
+                                        <button class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                                        <button class="dropdown-item"
+                                            onclick="selectQuickRange('yesterday')">Yesterday</button>
+                                        <button class="dropdown-item" onclick="selectQuickRange('thisWeek')">This
+                                            Week</button>
+                                        <button class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last
+                                            Week</button>
+                                        <button class="dropdown-item" onclick="selectQuickRange('thisMonth')">This
+                                            Month</button>
+                                        <button class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last
+                                            Month</button>
+                                        <button class="dropdown-item" onclick="selectQuickRange('thisYear')">This
+                                            Year</button>
+                                        <button class="dropdown-item" onclick="selectQuickRange('lastYear')">Last
+                                            Year</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Group Buttons (above Company) -->
-                    <div id="group-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                        <span class="transaction-company-label">GroupID:</span>
-                        <div id="group-buttons-container" class="transaction-company-buttons">
-                            <!-- Group buttons will be dynamically added here -->
+                        <!-- Group Buttons (above Company) -->
+                        <div id="group-buttons-wrapper" class="transaction-company-filter" style="display: none;">
+                            <span class="transaction-company-label">GroupID:</span>
+                            <div id="group-buttons-container" class="transaction-company-buttons">
+                                <!-- Group buttons will be dynamically added here -->
+                            </div>
                         </div>
-                    </div>
-                    <!-- Company Buttons -->
-                    <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                        <span class="transaction-company-label">Company:</span>
-                        <div id="company-buttons-container" class="transaction-company-buttons">
-                            <!-- Company buttons will be dynamically added here -->
+                        <!-- Company Buttons -->
+                        <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
+                            <span class="transaction-company-label">Company:</span>
+                            <div id="company-buttons-container" class="transaction-company-buttons">
+                                <!-- Company buttons will be dynamically added here -->
+                            </div>
                         </div>
-                    </div>
-                    <!-- Currency Buttons (below Company) -->
-                    <div id="currency-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                        <span class="transaction-company-label">Currency:</span>
-                        <div id="currency-buttons-container" class="transaction-company-buttons">
-                            <!-- Currency buttons will be dynamically added here -->
+                        <!-- Currency Buttons (below Company) -->
+                        <div id="currency-buttons-wrapper" class="transaction-company-filter" style="display: none;">
+                            <span class="transaction-company-label">Currency:</span>
+                            <div id="currency-buttons-container" class="transaction-company-buttons">
+                                <!-- Currency buttons will be dynamically added here -->
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Earnings 卡片 (右上角独立显示) -->
+                <div class="dashboard-kpi-card dashboard-kpi-card--earnings" id="earnings-card-wrapper" style="display: none;">
+                    <div class="icon text-blue">
+                        <i class="fas fa-hand-holding-usd"></i>
+                    </div>
+                    <div class="kpi-label kpi-label--earnings">Earnings</div>
+                    <div class="kpi-value kpi-value--earnings" id="earnings-value">0</div>
+                </div>
             </div>
 
-            <!-- KPI卡片区域 -->
+            <!-- KPI卡片区域 (3列: Profit, Expenses, NET PROFIT) -->
             <div class="dashboard-kpi-grid">
                 <!-- Capital (显示为 Profit) -->
                 <div class="dashboard-kpi-card">
@@ -273,15 +285,6 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                     </div>
                     <div class="kpi-label">NET PROFIT</div>
                     <div class="kpi-value" id="profit-value">0</div>
-                </div>
-
-                <!-- Earnings: NET PROFIT × Ownership Percentage -->
-                <div class="dashboard-kpi-card dashboard-kpi-card--earnings">
-                    <div class="icon text-blue">
-                        <i class="fas fa-hand-holding-usd"></i>
-                    </div>
-                    <div class="kpi-label kpi-label--earnings">Earnings</div>
-                    <div class="kpi-value kpi-value--earnings" id="earnings-value">0</div>
                 </div>
             </div>
 

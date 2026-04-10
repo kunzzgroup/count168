@@ -141,14 +141,23 @@ body.dashboard-page {
     padding: clamp(8px, 1vw, 16px);
 }
 
-.dashboard-card:first-of-type {
+/* 顶部区域：筛选器 + Earnings 并排 */
+.dashboard-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: clamp(12px, 1.5vw, 20px);
     flex-shrink: 0;
-    min-width: min(900px, 100%);
+}
+
+.dashboard-card--filters {
+    flex: 1;
+    min-width: 0;
     overflow: visible;
 }
 
-.dashboard-card:first-of-type .dashboard-card-body,
-.dashboard-card:first-of-type .dashboard-date-controls {
+.dashboard-card--filters .dashboard-card-body,
+.dashboard-card--filters .dashboard-date-controls {
     overflow: visible;
 }
 
@@ -156,10 +165,10 @@ body.dashboard-page {
     padding: clamp(8px, 1vw, 12px) clamp(14px, 1.2vw, 24px);
 }
 
-/* KPI卡片网格 - 四列，大屏到1024px一致 */
+/* KPI卡片网格 - 固定3列 (Profit, Expenses, NET PROFIT) */
 .dashboard-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: clamp(12px, 1.5vw, 20px);
     flex-shrink: 0;
 }
@@ -200,10 +209,14 @@ body.dashboard-page {
     font-family: 'Amaranth', sans-serif;
 }
 
-/* Earnings 卡片 — 与其他卡片统一圆角/阴影，仅调整强调色 */
+/* Earnings 卡片 — 右上角独立显示 */
 .dashboard-kpi-card--earnings {
+    flex-shrink: 0;
+    min-width: clamp(130px, 10vw, 180px);
     border-color: #dbeafe;
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    align-self: stretch;
+    justify-content: center;
 }
 
 .kpi-label--earnings {
@@ -212,6 +225,7 @@ body.dashboard-page {
 
 .kpi-value--earnings {
     color: #1d4ed8;
+    font-size: clamp(18px, 1.4vw, 28px);
 }
 
 /* 图表区域 - 占满剩余高度 */
@@ -305,7 +319,7 @@ body.dashboard-page {
         gap: 8px;
     }
 
-    .dashboard-card:first-of-type .dashboard-card-body {
+    .dashboard-card--filters .dashboard-card-body {
         padding: 10px 12px;
     }
 
@@ -424,11 +438,11 @@ body.dashboard-page {
         gap: 6px;
     }
 
-    .dashboard-card:first-of-type {
+    .dashboard-card--filters {
         flex-shrink: 0;
     }
 
-    .dashboard-card:first-of-type .dashboard-card-body {
+    .dashboard-card--filters .dashboard-card-body {
         padding: 6px 10px;
     }
 

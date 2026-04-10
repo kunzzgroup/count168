@@ -1123,16 +1123,9 @@ function updateDashboard(data) {
                 if (profitEl) profitEl.textContent = formatCurrency(netProfitDisplay);
                 if (earningsEl) {
                     earningsEl.textContent = formatCurrency(earningsDisplay);
-                    const earningsCard = earningsEl.closest('.dashboard-kpi-card');
-                    const kpiGrid = document.querySelector('.dashboard-kpi-grid');
+                    const earningsCard = document.getElementById('earnings-card-wrapper');
                     if (earningsCard) {
-                        if (data?.has_ownership_setup) {
-                            earningsCard.style.display = 'flex';
-                            if (kpiGrid) kpiGrid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-                        } else {
-                            earningsCard.style.display = 'none';
-                            if (kpiGrid) kpiGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-                        }
+                        earningsCard.style.display = data?.has_ownership_setup ? 'flex' : 'none';
                     }
                 }
                 const chartDateRangeEl = document.getElementById('chart-date-range');
