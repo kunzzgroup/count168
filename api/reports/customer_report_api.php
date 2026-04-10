@@ -7,6 +7,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 function resolveCompanyId(PDO $pdo): int {
     if (!isset($_SESSION['user_id'])) {

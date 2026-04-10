@@ -4,6 +4,9 @@
  * 路径: api/session/update_company_session_api.php
  */
 
+// 此 API 需要写入 session（切换公司），不能让 session_check.php 提前关闭锁
+define('SESSION_KEEP_OPEN', true);
+
 require_once __DIR__ . '/../../session_check.php';
 
 header('Content-Type: application/json');
@@ -168,11 +171,15 @@ try {
         $_SESSION['company_code'] = $company_code;
     }
 
+    // 写入完成，立即释放 session 锁
+    session_write_close();
+
     jsonResponse(true, 'Company 已更新', [
         'company_id'   => $requested_company_id,
         'company_code' => $company_code,
         'has_gambling' => $has_gambling
     ]);
 } catch (Exception $e) {
+    session_write_close();
     jsonResponse(false, $e->getMessage(), null, 500);
 }

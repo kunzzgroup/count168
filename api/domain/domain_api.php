@@ -1,5 +1,6 @@
 <?php
 session_start();
+// session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../config.php';
 
 header('Content-Type: application/json');
@@ -34,6 +35,8 @@ if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 
             // ignore
         }
     }
+    // session 写入完成，立即释放锁，允许并发请求执行
+    session_write_close();
     
     // 检查C168权限（用于二级密码修改权限判断）
     $user_role = strtolower($_SESSION['role'] ?? '');
@@ -44,6 +47,9 @@ if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 
     $isC168ByCode = ($company_code === 'C168');
     $isC168ById = isC168Company($pdo, $company_id);
     $hasC168Context = ($isC168ByCode || $isC168ById);
+} else {
+    // 不需要写 session，直接释放锁
+    session_write_close();
 }
 
 /**

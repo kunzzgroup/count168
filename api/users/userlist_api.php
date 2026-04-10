@@ -11,6 +11,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 require_once __DIR__ . '/../../config.php';
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 // 检查用户是否登录
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['company_id'])) {

@@ -6,6 +6,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 function fetchCurrenciesByCompany(PDO $pdo, int $companyId): array {
     $stmt = $pdo->prepare("SELECT id, code FROM currency WHERE company_id = ? ORDER BY code ASC");

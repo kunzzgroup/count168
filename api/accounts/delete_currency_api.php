@@ -5,6 +5,7 @@
  * 统一响应格式：{ success: bool, message: string, data: mixed }
  */
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 

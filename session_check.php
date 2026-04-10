@@ -184,6 +184,7 @@ if (isset($_SESSION['user_id'])) {
     }
     
     // 更新活动时间戳 - 每次页面访问都更新
+    // 注意：此行需在 session_write_close() 之前执行
     $_SESSION['last_activity'] = time();
     
     // 动态刷新 Partnership 账户的 read_only 状态（避免需要重新登录才能生效）
@@ -236,5 +237,16 @@ if (isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit();
 }
-?>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session 解锁优化（防止 PHP Session 排队阻塞并发 AJAX 请求）
+//
+// 默认：验证完登录状态后立即释放 session 文件锁，让多个并发 AJAX 请求排队变并发。
+// 例外：如果某个 API 文件需要在验证后继续写入 session（如切换公司/账户），
+//       则在 require session_check.php 之前定义常量 SESSION_KEEP_OPEN，
+//       然后在该文件内写完 session 后自己负责调用 session_write_close()。
+// ─────────────────────────────────────────────────────────────────────────────
+if (!defined('SESSION_KEEP_OPEN')) {
+    session_write_close();
+}
 

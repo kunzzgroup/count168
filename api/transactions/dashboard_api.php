@@ -5,6 +5,7 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
@@ -19,6 +20,57 @@ function dashboardHasContraApprovalColumns(PDO $pdo): bool
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'");
     $has = $stmt->rowCount() > 0;
     return $has;
+}
+
+/**
+ * 检查 transactions.currency_id 字段是否存在（static 缓存，每次请求只查一次）
+ */
+function dashboardHasTransactionCurrency(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) return $has;
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+        $has = $check && $check->rowCount() > 0;
+    } catch (Throwable $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+/**
+ * 检查 transaction_entry 表是否存在（static 缓存，每次请求只查一次）
+ */
+function dashboardHasTransactionEntry(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) return $has;
+    try {
+        $check = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
+        $has = $check && $check->rowCount() > 0;
+    } catch (Throwable $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+/**
+ * 检查 company_ownership 表及 owner_type 列是否存在（static 缓存）
+ * 返回 ['table' => bool, 'owner_type_col' => bool]
+ */
+function dashboardCompanyOwnershipSchema(PDO $pdo): array
+{
+    static $schema = null;
+    if ($schema !== null) return $schema;
+    try {
+        $hasTable = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
+        $hasCol   = $hasTable && $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasTable = false;
+        $hasCol   = false;
+    }
+    $schema = ['table' => $hasTable, 'owner_type_col' => $hasCol];
+    return $schema;
 }
 
 function dashboardContraApprovedWhere(PDO $pdo, string $alias = 't'): string
@@ -136,14 +188,8 @@ try {
         $filter_currency_code = strtoupper(trim((string)$_GET['currency']));
     }
     
-    // 一次检测并缓存，避免循环内重复查询
-    $hasTransactionCurrency = false;
-    try {
-        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-        $hasTransactionCurrency = $check && $check->rowCount() > 0;
-    } catch (Throwable $e) {
-        // 忽略
-    }
+    // 使用 static 缓存函数，整个请求中只查一次 schema
+    $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);
     
     // 公司 currency 映射只查一次，供多角色复用
     $currency_map = [];
@@ -279,8 +325,7 @@ try {
 
             // RATE B/F from transaction_entry
             try {
-                $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
-                if ($rateCheck && $rateCheck->rowCount() > 0) {
+                if (dashboardHasTransactionEntry($pdo)) { // static 缓存，不重复 SHOW
                     $sql = "SELECT COALESCE(SUM(CASE
                                 WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
                                 WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
@@ -373,8 +418,7 @@ try {
 
             // RATE daily from transaction_entry
             try {
-                $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
-                if ($rateCheck && $rateCheck->rowCount() > 0) {
+                if (dashboardHasTransactionEntry($pdo)) {
                     $sql = "SELECT DATE(h.transaction_date) as date,
                                    COALESCE(SUM(CASE
                                        WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
@@ -426,7 +470,8 @@ try {
     $ownership_percentage = 0;
     $has_ownership_setup = false;
     try {
-        $hasCompanyOwnership = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
+        $ownershipSchema = dashboardCompanyOwnershipSchema($pdo); // static 缓存
+        $hasCompanyOwnership = $ownershipSchema['table'];
         if ($hasCompanyOwnership) {
             $stmtSetup = $pdo->prepare("SELECT 1 FROM company_ownership WHERE company_id = ? LIMIT 1");
             $stmtSetup->execute([$company_id]);
@@ -434,7 +479,7 @@ try {
                 $has_ownership_setup = true;
             }
 
-            $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+            $hasOwnerType = $ownershipSchema['owner_type_col'];
             $userId = $_SESSION['user_id'] ?? 0;
             $userType = $_SESSION['user_type'] ?? '';
 
@@ -632,8 +677,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     
     // 2. 计算起始日期之前所有 Cr/Dr（作为 To Account：PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM/WIN/LOSE；RATE 单独从 transaction_entry）
     if ($has_transaction_currency === null) {
-        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-        $has_transaction_currency = $check && $check->rowCount() > 0;
+        $has_transaction_currency = dashboardHasTransactionCurrency($pdo);
     }
     if ($has_transaction_currency) {
         $clearFilter = $exclude_clear ? " AND transaction_type <> 'CLEAR'" : "";
@@ -685,8 +729,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     
     // 4. 起始日期之前的 RATE 从 transaction_entry 计算（与 Transaction Search API 一致）
     try {
-        $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
-        if ($rateCheck && $rateCheck->rowCount() > 0) {
+        if (dashboardHasTransactionEntry($pdo)) {
             $rateStmt = $pdo->prepare("
                 SELECT COALESCE(SUM(CASE
                   WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
@@ -736,8 +779,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss += $stmt->fetchColumn();
 
     // 2. 所有 Bank Process 的 WIN/LOSE（description 以 Process: 开头，与 Transaction 页一致）
-    $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-    if ($check && $check->rowCount() > 0) {
+    if (dashboardHasTransactionCurrency($pdo)) {
         $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
@@ -748,8 +790,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $win_loss += $stmt->fetchColumn();
 
         try {
-            $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
-            if ($rateCheck && $rateCheck->rowCount() > 0) {
+            if (dashboardHasTransactionEntry($pdo)) {
                 $rateStmt = $pdo->prepare("
                     SELECT COALESCE(SUM(e.amount), 0) AS total
                     FROM transaction_entry e
@@ -783,8 +824,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     $has_transactions = false;
 
     if ($has_transaction_currency === null) {
-        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-        $has_transaction_currency = $check && $check->rowCount() > 0;
+        $has_transaction_currency = dashboardHasTransactionCurrency($pdo);
     }
 
     if ($has_transaction_currency) {
@@ -837,8 +877,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         // 本期 RATE 从 transaction_entry 计算（与 Transaction Search API 一致）
         // RATE_MIDDLEMAN 已归类到 Win/Loss，这里只保留其余 RATE 分录在 Cr/Dr
         try {
-            $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
-            if ($rateCheck && $rateCheck->rowCount() > 0) {
+            if (dashboardHasTransactionEntry($pdo)) {
                 $rateStmt = $pdo->prepare("
                     SELECT COALESCE(SUM(CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
@@ -916,8 +955,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         // RATE 分录（旧环境也从 transaction_entry 计算）
         // RATE_MIDDLEMAN 已归类到 Win/Loss，这里只保留其余 RATE 分录在 Cr/Dr
         try {
-            $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
-            if ($rateCheck && $rateCheck->rowCount() > 0) {
+            if (dashboardHasTransactionEntry($pdo)) {
                 $rateStmt = $pdo->prepare("
                     SELECT COALESCE(SUM(CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
