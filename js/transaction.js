@@ -3416,6 +3416,9 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
                     // Id Product 列：仅 bank process 交易显示 Card Owner；datacapturesummary 提交及其他均显示 id product
                     const idProductDisplay = row.is_bank_process_transaction ? (row.card_owner || '-') : (row.product || '-');
                     
+                    const createdByDisplay = (row.created_by === null || row.created_by === undefined || String(row.created_by).trim() === '' || String(row.created_by).toLowerCase() === 'null')
+                        ? '-'
+                        : String(row.created_by);
                     tr.innerHTML = `
                         <td class="transaction-history-col-date">${row.date}</td>
                         <td class="transaction-history-col-product">${String(idProductDisplay).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</td>
@@ -3425,7 +3428,7 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
                         <td class="transaction-history-col-crdr">${crDr}</td>
                         <td class="transaction-history-col-balance">${balance}</td>
                         ${descriptionCells}
-                        <td class="transaction-history-col-created">${row.created_by}</td>
+                        <td class="transaction-history-col-created">${createdByDisplay}</td>
                     `;
                     tbody.appendChild(tr);
                 });

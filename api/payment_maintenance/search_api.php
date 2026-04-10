@@ -268,10 +268,38 @@ function resolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, st
         ");
         $st->execute([$companyId, $dateFromDb, $dateToDb]);
         $v = $st->fetchColumn();
-        return ($v !== false && $v !== null && trim((string)$v) !== '') ? trim((string)$v) : '-';
+        if ($v !== false && $v !== null && trim((string)$v) !== '' && strtolower(trim((string)$v)) !== 'null') {
+            return trim((string)$v);
+        }
     } catch (PDOException $e) {
-        return '-';
     }
+    try {
+        $sessionUserType = strtolower((string)($_SESSION['user_type'] ?? ''));
+        if ($sessionUserType === 'owner') {
+            $ownerId = (int)($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
+            if ($ownerId > 0) {
+                $st2 = $pdo->prepare("SELECT owner_code FROM owner WHERE id = ? LIMIT 1");
+                $st2->execute([$ownerId]);
+                $oc = $st2->fetchColumn();
+                if ($oc !== false && $oc !== null && trim((string)$oc) !== '') {
+                    return trim((string)$oc);
+                }
+            }
+        } else {
+            $userId = (int)($_SESSION['user_id'] ?? 0);
+            if ($userId > 0) {
+                $st3 = $pdo->prepare("SELECT login_id FROM user WHERE id = ? LIMIT 1");
+                $st3->execute([$userId]);
+                $lid = $st3->fetchColumn();
+                if ($lid !== false && $lid !== null && trim((string)$lid) !== '') {
+                    return trim((string)$lid);
+                }
+            }
+        }
+    } catch (PDOException $e) {
+        // ignore fallback errors
+    }
+    return '-';
 }
 
 function appendVirtualDomainNetProfitItem(
