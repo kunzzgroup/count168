@@ -213,6 +213,14 @@ body {
     background: var(--own-primary-light);
 }
 
+/* Selected card in ungroup mode: red ring */
+.own-card.own-selected.own-ungroup-select {
+    box-shadow: 0 0 0 2.5px #e11d48,
+                0 4px 14px rgba(225, 29, 72, 0.18);
+    border-color: #e11d48;
+    background: #fff1f2;
+}
+
 /* Card Container */
 .own-card {
     border: 1px solid var(--own-gray-border);
@@ -1172,6 +1180,16 @@ body {
     background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
 }
 
+/* Red accent stripe when bulk bar is in ungroup mode */
+.own-bulk-bar.own-bulk-bar-ungroup::before {
+    background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+}
+
+/* Red border when in ungroup mode */
+.own-bulk-bar.own-bulk-bar-ungroup {
+    border-color: #e11d48;
+}
+
 .own-bulk-bar-left {
     display: flex;
     align-items: baseline;
@@ -1279,4 +1297,33 @@ body {
     border-color: #cbd5e1;
     color: var(--own-dark-text);
     background: var(--own-gray-light);
+}
+
+/* Bulk Ungroup button (group view) */
+.own-bulk-ungroup-btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35);
+    transition: all 0.18s ease;
+}
+
+.own-bulk-ungroup-btn:hover {
+    background: linear-gradient(180deg, #f43f5e 0%, #be123c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(225, 29, 72, 0.45);
+}
+
+.own-bulk-ungroup-btn:disabled {
+    background: var(--own-gray-border);
+    color: var(--own-gray-text);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
 }

@@ -154,8 +154,11 @@ function renderCompanyCards() {
         $(card, 'confirm-btn').id = `confirm-btn-${id}`;
 
         // ── In selection mode: mark selectable cards ─────────────────
-        if (!groupId && allGroupIds.length > 0) {
-            card.dataset.selectable = 'true';
+        // Independent cards selectable for grouping; grouped cards selectable for ungrouping
+        if (allGroupIds.length > 0) {
+            if (!groupId || activeGroupFilter !== null) {
+                card.dataset.selectable = 'true';
+            }
         }
 
         // ── Group management buttons in header-right ──────────────────
@@ -232,10 +235,12 @@ function renderCompanyCards() {
                 const isSelected = selectedCompanyIds.has(id);
                 if (isSelected) {
                     selectedCompanyIds.delete(id);
-                    card.classList.remove('own-selected');
+                    card.classList.remove('own-selected', 'own-ungroup-select');
                 } else {
                     selectedCompanyIds.add(id);
                     card.classList.add('own-selected');
+                    // Red tint for ungroup selection
+                    if (activeGroupFilter !== null) card.classList.add('own-ungroup-select');
                 }
                 _updateBulkBar();
                 return;
@@ -710,11 +715,31 @@ function _updateBulkBar() {
         return;
     }
 
-    // Create bar on first use
-    if (!bar) {
-        bar = document.createElement('div');
-        bar.id = 'own-bulk-bar';
-        bar.className = 'own-bulk-bar';
+    const isGroupView = activeGroupFilter !== null;
+
+    // Remove existing bar to rebuild with correct layout for context
+    if (bar) bar.remove();
+
+    bar = document.createElement('div');
+    bar.id = 'own-bulk-bar';
+    bar.className = 'own-bulk-bar' + (isGroupView ? ' own-bulk-bar-ungroup' : '');
+
+    if (isGroupView) {
+        // ── Group view: show Ungroup button ──────────────────
+        bar.innerHTML = `
+            <div class="own-bulk-bar-left">
+                <span class="own-bulk-count" id="own-bulk-count"></span>
+                <span class="own-bulk-label">selected</span>
+            </div>
+            <div class="own-bulk-bar-right">
+                <button class="own-bulk-ungroup-btn" id="own-bulk-ungroup-btn">Ungroup</button>
+                <button class="own-bulk-cancel-btn" id="own-bulk-cancel-btn">✕ Cancel</button>
+            </div>
+        `;
+        document.body.appendChild(bar);
+        document.getElementById('own-bulk-ungroup-btn').addEventListener('click', _bulkUngroupCompanies);
+    } else {
+        // ── Independent view: show group select + Join ───────
         bar.innerHTML = `
             <div class="own-bulk-bar-left">
                 <span class="own-bulk-count" id="own-bulk-count"></span>
@@ -731,24 +756,19 @@ function _updateBulkBar() {
             </div>
         `;
         document.body.appendChild(bar);
-
         document.getElementById('own-bulk-join-btn').addEventListener('click', _bulkJoinGroup);
-        document.getElementById('own-bulk-cancel-btn').addEventListener('click', _clearSelection);
+
+        // Rebuild group options
+        const sel = document.getElementById('own-bulk-group-select');
+        allGroupIds.forEach(gid => {
+            const opt = document.createElement('option');
+            opt.value = gid;
+            opt.textContent = gid;
+            sel.appendChild(opt);
+        });
     }
 
-    // Rebuild group options
-    const sel = document.getElementById('own-bulk-group-select');
-    const prev = sel.value;
-    sel.innerHTML = '<option value="">-- Select Group --</option>';
-    allGroupIds.forEach(gid => {
-        const opt = document.createElement('option');
-        opt.value = gid;
-        opt.textContent = gid;
-        sel.appendChild(opt);
-    });
-    // Restore previous selection if still valid
-    if (prev && allGroupIds.includes(prev)) sel.value = prev;
-
+    document.getElementById('own-bulk-cancel-btn').addEventListener('click', _clearSelection);
     document.getElementById('own-bulk-count').textContent = selectedCompanyIds.size;
     bar.classList.add('own-bulk-bar-visible');
 }
@@ -764,7 +784,7 @@ function _clearSelection() {
     if (selectionMode) _exitSelectionMode();
 }
 
-/** Enter selection mode: cursor changes on selectable cards, button becomes "Done". */
+/** Enter selection mode: cursor changes on selectable cards, button becomes "Cancel". */
 function _toggleSelectionMode() {
     if (selectionMode) {
         _exitSelectionMode();
@@ -786,7 +806,7 @@ function _exitSelectionMode() {
     selectionMode = false;
     selectedCompanyIds.clear();
     document.querySelectorAll('.own-card').forEach(c => {
-        c.classList.remove('own-selection-mode', 'own-selected');
+        c.classList.remove('own-selection-mode', 'own-selected', 'own-ungroup-select');
     });
     _updateBulkBar();
     const btn = document.getElementById('own-select-mode-btn');
@@ -835,6 +855,42 @@ function _bulkJoinGroup() {
             showToast('Server error during batch join', 'error');
             btn.disabled = false;
             btn.textContent = 'Join Group';
+        });
+}
+
+/** Batch-ungroup all selected companies from their current group. */
+function _bulkUngroupCompanies() {
+    const ids = [...selectedCompanyIds];
+    if (ids.length === 0) return;
+
+    const btn = document.getElementById('own-bulk-ungroup-btn');
+    btn.disabled = true;
+    btn.textContent = 'Ungrouping...';
+
+    const requests = ids.map(companyId =>
+        fetch('api/ownership/update_company_group_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: companyId, group_id: null })
+        }).then(r => r.json())
+    );
+
+    Promise.all(requests)
+        .then(results => {
+            const failed = results.filter(r => r.status !== 'success');
+            if (failed.length === 0) {
+                showToast(`${ids.length} compan${ids.length > 1 ? 'ies' : 'y'} removed from group`, 'success');
+            } else {
+                showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, 'error');
+            }
+            _clearSelection();
+            fetchCompanies();
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Server error during batch ungroup', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Ungroup';
         });
 }
 
@@ -903,9 +959,9 @@ function _renderGroupFilterBar() {
         btnContainer.appendChild(btn);
     });
 
-    // Select button: only visible when showing independent companies (no active group)
+    // Select button: visible for both independent and group views
     const selectBtn = document.getElementById('own-select-mode-btn');
-    if (selectBtn) selectBtn.style.display = activeGroupFilter === null ? '' : 'none';
+    if (selectBtn) selectBtn.style.display = '';
 }
 
 /** Sets the active group filter. Clicking the already-active group toggles it off (→ independent view). */
@@ -916,9 +972,7 @@ function _selectGroupFilter(groupId) {
     document.querySelectorAll('.own-gfb-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.group === (activeGroupFilter ?? ''));
     });
-    // Show Select button only when in independent view
-    const selectBtn = document.getElementById('own-select-mode-btn');
-    if (selectBtn) selectBtn.style.display = activeGroupFilter === null ? '' : 'none';
+    // Select button is always visible when groups exist
     _clearSelection();   // also exits selection mode if active
     _applyGroupFilter();
 }
