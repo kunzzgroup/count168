@@ -249,42 +249,50 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                 </div>
 
                 <!-- Earnings 卡片 (右上角独立显示) -->
-                <div class="dashboard-kpi-card dashboard-kpi-card--earnings" id="earnings-card-wrapper" style="display: none;">
-                    <div class="icon text-blue">
-                        <i class="fas fa-hand-holding-usd"></i>
+                <div class="dashboard-kpi-card dashboard-kpi-card--blue" id="earnings-card-wrapper" style="display: none;">
+                    <div class="kpi-text">
+                        <div class="kpi-label">EARNINGS</div>
+                        <div class="kpi-value" id="earnings-value">0</div>
                     </div>
-                    <div class="kpi-label kpi-label--earnings">Earnings</div>
-                    <div class="kpi-value kpi-value--earnings" id="earnings-value">0</div>
+                    <div class="kpi-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
                 </div>
             </div>
 
             <!-- KPI卡片区域 (3列: Profit, Expenses, NET PROFIT) -->
             <div class="dashboard-kpi-grid">
-                <!-- Capital (显示为 Profit) -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-blue">
-                        <i class="fas fa-wallet"></i>
+                <!-- Profit -->
+                <div class="dashboard-kpi-card dashboard-kpi-card--blue">
+                    <div class="kpi-text">
+                        <div class="kpi-label">PROFIT</div>
+                        <div class="kpi-value" id="capital-value">0</div>
                     </div>
-                    <div class="kpi-label">Profit</div>
-                    <div class="kpi-value" id="capital-value">0</div>
+                    <div class="kpi-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 8v8M8 12h8"/></svg>
+                    </div>
                 </div>
 
                 <!-- Expenses -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-red">
-                        <i class="fas fa-arrow-down"></i>
+                <div class="dashboard-kpi-card dashboard-kpi-card--red">
+                    <div class="kpi-text">
+                        <div class="kpi-label">EXPENSES</div>
+                        <div class="kpi-value" id="expenses-value">0</div>
                     </div>
-                    <div class="kpi-label">Expenses</div>
-                    <div class="kpi-value" id="expenses-value">0</div>
+                    <div class="kpi-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+                    </div>
                 </div>
 
-                <!-- Profit (显示为 NET PROFIT)：数值 = 所有 Role 为 PROFIT 的账户余额总和 -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-green">
-                        <i class="fas fa-chart-line"></i>
+                <!-- NET PROFIT -->
+                <div class="dashboard-kpi-card dashboard-kpi-card--green">
+                    <div class="kpi-text">
+                        <div class="kpi-label">NET PROFIT</div>
+                        <div class="kpi-value" id="profit-value">0</div>
                     </div>
-                    <div class="kpi-label">NET PROFIT</div>
-                    <div class="kpi-value" id="profit-value">0</div>
+                    <div class="kpi-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
                 </div>
             </div>
 
