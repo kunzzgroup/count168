@@ -1,5 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     fetchCompanies();
+
+    // Close group dropdowns when clicking anywhere outside the button wrap.
+    // Bubble phase (no capture) so the button's own stopPropagation works correctly.
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.own-group-btn-wrap')) {
+            document.querySelectorAll('.own-group-panel.open')
+                .forEach(p => p.classList.remove('open'));
+        }
+    });
 });
 
 let companiesData = [];
@@ -209,11 +218,6 @@ function renderCompanyCards() {
 
         container.appendChild(frag);
     });
-
-    // Close group dropdowns when clicking anywhere outside
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.own-group-panel.open').forEach(p => p.classList.remove('open'));
-    }, { capture: true, once: false });
 }
 
 // ---------------------------------------------
