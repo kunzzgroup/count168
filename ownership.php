@@ -37,12 +37,20 @@ $assetVer = function ($file) {
         <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
-        <!-- Group Filter Bar -->
+        <!-- Group Filter Bar + Select Mode Button (same row) -->
         <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
             <span class="own-gfb-label">Group</span>
             <div class="own-gfb-buttons" id="own-gfb-buttons">
                 <!-- Injected by JS -->
             </div>
+            <div class="own-gfb-spacer"></div>
+            <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v7"/>
+                </svg>
+                Select
+            </button>
         </div>
 
         <!-- Companies will be injected here via JS -->

@@ -154,6 +154,65 @@ body {
     color: #64748b;
 }
 
+/* Spacer pushes Select button to the right */
+.own-gfb-spacer {
+    flex: 1;
+}
+
+/* ── "Select" Mode Button (top-right of filter bar) ─────────── */
+.own-select-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    height: 32px;
+    background: #f1f5f9;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.own-select-mode-btn:hover {
+    background: #e2e8f0;
+    border-color: #a5b4fc;
+}
+
+.own-select-mode-btn.active {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #dc2626;
+}
+
+.own-select-mode-btn svg {
+    flex-shrink: 0;
+}
+
+/* ── Selection Mode Card Styles ─────────────────────────────── */
+/* In selection mode, selectable cards show a pointer + subtle hover ring */
+.own-card.own-selection-mode {
+    cursor: pointer;
+}
+
+.own-card.own-selection-mode:hover {
+    box-shadow: 0 0 0 2px rgba(59, 142, 246, 0.30),
+                0 4px 14px rgba(59, 142, 246, 0.10);
+    border-color: rgba(59, 142, 246, 0.40);
+}
+
+/* Selected card: solid blue ring */
+.own-card.own-selected {
+    box-shadow: 0 0 0 2.5px var(--own-primary-blue),
+                0 4px 14px rgba(59, 142, 246, 0.18);
+    border-color: var(--own-primary-blue);
+    background: #f0f7ff;
+}
+
 /* Card Container */
 .own-card {
     border: 1px solid var(--own-gray-border);

@@ -22,6 +22,7 @@ let draggedCompanyId = null;
 
 // ── Multi-select state ────────────────────────────────────────────
 const selectedCompanyIds = new Set(); // IDs of checked independent companies
+let selectionMode = false;            // true = clicking a card selects it
 
 // ── Group filter state ────────────────────────────────────────────
 // null = show independent companies; string = show that group's companies
@@ -137,37 +138,9 @@ function renderCompanyCards() {
         $(card, 'footer-remain').id = `footer-remain-${id}`;
         $(card, 'confirm-btn').id = `confirm-btn-${id}`;
 
-        // ── Multi-select checkbox for independent companies ───────────
+        // ── In selection mode: mark selectable cards ─────────────────
         if (!groupId && allGroupIds.length > 0) {
-            const headerLeft = card.querySelector('.own-card-header-left');
-            if (headerLeft) {
-                const chkWrap = document.createElement('label');
-                chkWrap.className = 'own-multisel-checkbox-wrap';
-                chkWrap.title = 'Select to batch-assign to a group';
-                // Prevent click from bubbling up to the card toggle handler
-                chkWrap.addEventListener('click', e => e.stopPropagation());
-
-                const chk = document.createElement('input');
-                chk.type = 'checkbox';
-                chk.className = 'own-multisel-checkbox';
-                chk.dataset.companyId = id;
-
-                chk.addEventListener('change', e => {
-                    e.stopPropagation();
-                    if (chk.checked) {
-                        selectedCompanyIds.add(id);
-                        card.classList.add('own-selected');
-                    } else {
-                        selectedCompanyIds.delete(id);
-                        card.classList.remove('own-selected');
-                    }
-                    _updateBulkBar();
-                });
-
-                chkWrap.appendChild(chk);
-                // Prepend before company name
-                headerLeft.insertBefore(chkWrap, headerLeft.firstChild);
-            }
+            card.dataset.selectable = 'true';
         }
 
         // ── Group management buttons in header-right ──────────────────
@@ -236,6 +209,23 @@ function renderCompanyCards() {
 
         // Bind actions via event delegation
         card.addEventListener('click', (e) => {
+            // Selection mode: clicking anywhere on a selectable card toggles it
+            if (selectionMode && card.dataset.selectable === 'true') {
+                // Allow buttons inside (+ Group, Ungroup, Manage) to still work normally
+                if (e.target.closest('button, .own-group-panel')) return;
+                e.stopPropagation();
+                const isSelected = selectedCompanyIds.has(id);
+                if (isSelected) {
+                    selectedCompanyIds.delete(id);
+                    card.classList.remove('own-selected');
+                } else {
+                    selectedCompanyIds.add(id);
+                    card.classList.add('own-selected');
+                }
+                _updateBulkBar();
+                return;
+            }
+
             const action = e.target.closest('[data-action]')?.dataset.action;
             if (!action) return;
             e.stopPropagation();
@@ -748,15 +738,47 @@ function _updateBulkBar() {
     bar.classList.add('own-bulk-bar-visible');
 }
 
-/** Clear all checkboxes and hide the bar. */
+/** Clear all selections, deselect card highlights, and exit selection mode. */
 function _clearSelection() {
     selectedCompanyIds.clear();
-    document.querySelectorAll('.own-multisel-checkbox:checked').forEach(chk => {
-        chk.checked = false;
-        const card = document.getElementById(`card-${chk.dataset.companyId}`);
-        if (card) card.classList.remove('own-selected');
+    document.querySelectorAll('.own-card.own-selected').forEach(card => {
+        card.classList.remove('own-selected');
     });
     _updateBulkBar();
+    // Also exit selection mode when Cancel is pressed from the bulk bar
+    if (selectionMode) _exitSelectionMode();
+}
+
+/** Enter selection mode: cursor changes on selectable cards, button becomes "Done". */
+function _toggleSelectionMode() {
+    if (selectionMode) {
+        _exitSelectionMode();
+    } else {
+        selectionMode = true;
+        document.querySelectorAll('.own-card[data-selectable="true"]').forEach(c => {
+            c.classList.add('own-selection-mode');
+        });
+        const btn = document.getElementById('own-select-mode-btn');
+        if (btn) {
+            btn.classList.add('active');
+            btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg> Cancel`;
+        }
+    }
+}
+
+/** Exit selection mode cleanly. */
+function _exitSelectionMode() {
+    selectionMode = false;
+    selectedCompanyIds.clear();
+    document.querySelectorAll('.own-card').forEach(c => {
+        c.classList.remove('own-selection-mode', 'own-selected');
+    });
+    _updateBulkBar();
+    const btn = document.getElementById('own-select-mode-btn');
+    if (btn) {
+        btn.classList.remove('active');
+        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v7"/></svg> Select`;
+    }
 }
 
 /** Batch-assign all selected companies to the chosen group. */
