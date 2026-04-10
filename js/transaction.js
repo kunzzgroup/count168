@@ -3339,9 +3339,7 @@ function submitAction() {
 // ==================== 打开历史记录弹窗 ====================
 function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
     const aid = parseInt(accountId, 10);
-    const virtualCompanyCode = String(accountCode || '').trim().toUpperCase();
-    const isVirtualCompanyRow = (!aid || aid <= 0) && virtualCompanyCode !== '';
-    if ((!aid || aid <= 0) && !isVirtualCompanyRow) {
+    if (!aid || aid <= 0) {
         showNotification('Invalid account for history', 'error');
         return;
     }
@@ -3354,10 +3352,7 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
     }
     
     // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-    let url = `/api/transactions/history_api.php?account_id=${isVirtualCompanyRow ? 0 : aid}&date_from=${dateFrom}&date_to=${dateTo}`;
-    if (isVirtualCompanyRow) {
-        url += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
-    }
+    let url = `/api/transactions/history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`;
     // 优先使用该行的 currency
     if (rowCurrency) {
         url += `&currency=${rowCurrency}`;

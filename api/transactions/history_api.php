@@ -214,152 +214,6 @@ function ensureHistoryRatePrecision(PDO $pdo): void
     }
 }
 
-/**
- * 虚拟来源公司历史：用于 Transaction List 中 DOMAIN 聚合行（如 LGA），展示 Domain list fee + Commission。
- * 口径按用户需求统一为正数 Cr/Dr。
- */
-function buildVirtualDomainCompanyHistory(
-    PDO $pdo,
-    int $companyId,
-    string $sourceCompanyCode,
-    string $dateFromDb,
-    string $dateToDb,
-    ?int $currencyId = null
-): array {
-    $src = strtoupper(trim($sourceCompanyCode));
-    if ($src === '') {
-        throw new Exception('虚拟公司代码为空');
-    }
-
-    $currencyById = [];
-    $stCur = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?");
-    $stCur->execute([$companyId]);
-    foreach ($stCur->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $currencyById[(int)$r['id']] = strtoupper((string)$r['code']);
-    }
-
-    // 仅展示 Domain list fee（用户需求：单开一行 LGA -2400）
-    $sql = "SELECT t.id, t.amount, t.currency_id, t.transaction_date, t.description, t.sms, t.created_by
-            FROM transactions t
-            WHERE t.company_id = ?
-              AND t.transaction_type = 'PAYMENT'
-              AND t.transaction_date BETWEEN ? AND ?
-              AND (
-                    t.sms LIKE ?
-                    OR UPPER(TRIM(COALESCE(t.description, ''))) = ?
-                    OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE ?
-              )";
-    $params = [
-        $companyId,
-        $dateFromDb,
-        $dateToDb,
-        "[DOMAIN_LIST_FEE|{$src}]%",
-        "DOMAIN LIST FEE FROM {$src}",
-        "DOMAIN LIST FEE FROM %({$src})"
-    ];
-    if ($currencyId !== null && $currencyId > 0) {
-        $sql .= " AND t.currency_id = ?";
-        $params[] = $currencyId;
-    }
-    $sql .= " ORDER BY t.transaction_date ASC, t.id ASC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $ownerName = '';
-    try {
-        $sto = $pdo->prepare("
-            SELECT TRIM(COALESCE(o.name, '')) AS n
-            FROM company c
-            INNER JOIN owner o ON o.id = c.owner_id
-            WHERE UPPER(TRIM(c.company_id)) = ? OR UPPER(TRIM(IFNULL(c.group_id, ''))) = ?
-            ORDER BY c.id ASC
-            LIMIT 1
-        ");
-        $sto->execute([$src, $src]);
-        $ownerName = trim((string)($sto->fetchColumn() ?: ''));
-    } catch (PDOException $e) {
-    }
-    if ($ownerName === '') {
-        $ownerName = $src;
-    }
-
-    $history = [];
-    $running = 0.0;
-    $displayCurrency = '-';
-    if ($currencyId !== null && $currencyId > 0) {
-        $displayCurrency = $currencyById[$currencyId] ?? '-';
-    } elseif (!empty($rows)) {
-        $firstCidRaw = $rows[0]['currency_id'] ?? null;
-        $firstCid = $firstCidRaw !== null ? (int)$firstCidRaw : 0;
-        $displayCurrency = ($firstCid > 0 ? ($currencyById[$firstCid] ?? '-') : '-');
-    }
-    $history[] = [
-        'date' => 'B/F',
-        'product' => '-',
-        'card_owner' => '-',
-        'is_bank_process_transaction' => false,
-        'currency' => $displayCurrency,
-        'percent' => '-',
-        'rate' => '-',
-        'win_loss' => '-',
-        'cr_dr' => '-',
-        'balance' => number_format(0, 2),
-        'description' => 'OPENING BALANCE',
-        'sms' => '-',
-        'remark' => '-',
-        'created_by' => '-',
-        'transaction_type' => '-',
-        'row_type' => 'bf'
-    ];
-
-    foreach ($rows as $r) {
-        $cidRaw = $r['currency_id'] ?? null;
-        $cid = $cidRaw !== null ? (int)$cidRaw : 0;
-        $cur = ($cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency);
-        $amt = round((float)($r['amount'] ?? 0), 2);
-        if (abs($amt) < 0.00001) {
-            continue;
-        }
-        $running = round($running + $amt, 2);
-        $desc = strtoupper(trim((string)($r['description'] ?? '')));
-        $sms = (string)($r['sms'] ?? '');
-        $product = 'PAYMENT';
-        if ($desc === '') {
-            $desc = ('PAYMENT FROM ' . $src . ' TO C168');
-        }
-        $history[] = [
-            'date' => date('d/m/Y', strtotime((string)$r['transaction_date'])),
-            'product' => $product,
-            'card_owner' => '-',
-            'is_bank_process_transaction' => false,
-            'currency' => $cur,
-            'percent' => '-',
-            'rate' => '-',
-            'win_loss' => number_format(0, 2),
-            'cr_dr' => number_format(-$amt, 2),
-            'balance' => number_format($running = round($running - $amt, 2), 2),
-            'description' => $desc,
-            'sms' => $sms,
-            'remark' => $sms !== '' ? $sms : '-',
-            'created_by' => '-',
-            'transaction_type' => 'PAYMENT',
-            'row_type' => 'txn'
-        ];
-    }
-
-    return [
-        'account' => [
-            'id' => 0,
-            'account_id' => $src,
-            'name' => $ownerName,
-            'currency' => $displayCurrency
-        ],
-        'history' => $history
-    ];
-}
-
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -419,13 +273,12 @@ try {
     
     // 获取参数
     $account_id = (int)($_GET['account_id'] ?? 0);
-    $virtual_company_code = strtoupper(trim((string)($_GET['virtual_company_code'] ?? '')));
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
     $currency = $_GET['currency'] ?? null; // 可选：按 data_capture 的 currency 筛选
     
     // 验证必填参数
-    if ($account_id <= 0 && $virtual_company_code === '') {
+    if ($account_id <= 0) {
         throw new Exception('账户ID是必填项');
     }
     
@@ -446,30 +299,6 @@ try {
         error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
     }
 
-    // 虚拟来源公司历史（Domain 聚合行）
-    if ($account_id <= 0 && $virtual_company_code !== '') {
-        $virtual = buildVirtualDomainCompanyHistory(
-            $pdo,
-            $company_id,
-            $virtual_company_code,
-            $date_from_db,
-            $date_to_db,
-            $currency_id ? (int)$currency_id : null
-        );
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'account' => $virtual['account'],
-                'date_range' => [
-                    'from' => $date_from,
-                    'to' => $date_to
-                ],
-                'history' => $virtual['history']
-            ]
-        ]);
-        exit;
-    }
-    
     // 查询账户信息 - 使用 account_company 表过滤
     $stmt = $pdo->prepare("
         SELECT a.id, a.account_id, a.name 
@@ -1014,7 +843,13 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    $cr_dr = -$t['amount'];
+                    // Domain Share Commission：收款账户在历史中显示正数，与主表一致
+                    if (stripos((string)($t['sms'] ?? ''), '[DOMAIN_SHARE_COMMISSION|') === 0
+                        || stripos((string)$rawDescription, 'Commision FROM ') === 0) {
+                        $cr_dr = (float)$t['amount'];
+                    } else {
+                        $cr_dr = -$t['amount'];
+                    }
                 } else {
                     $cr_dr = $t['amount'];
                 }
