@@ -839,7 +839,7 @@ body.process-page {
     }
 
     .process-page.process-page--bank .separator-line {
-        margin-top: 4px;
+        margin-bottom: 0px;
     }
 
     .process-page.process-page--bank .pagination-container {
