@@ -545,15 +545,18 @@ function createDomainNetProfitPayment(
     }
 
     $today = date('Y-m-d');
-    $todayTag = date('Ymd', strtotime($today));
     $srcU = strtoupper(trim($sourceCompanyCode));
-    $smsMarker = '[DOMAIN_NET_PROFIT|' . $srcU . '|D:' . $todayTag . ']';
+    $smsMarker = '[DOMAIN_NET_PROFIT|' . $srcU . ']';
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
-        WHERE company_id = ? AND transaction_type = 'PAYMENT' AND sms = ?
+        WHERE company_id = ? AND transaction_type = 'PAYMENT'
+          AND (
+                sms = ?
+                OR sms LIKE ?
+          )
         LIMIT 1
     ");
-    $dupStmt->execute([$c168Pk, $smsMarker]);
+    $dupStmt->execute([$c168Pk, $smsMarker, $smsMarker . '|%']);
     if ($dupStmt->fetchColumn() !== false) {
         $out['skipped_duplicate'] = true;
         return $out;
@@ -788,14 +791,17 @@ function createDomainListFeePayment(
         $out['pool_account_id'] = $poolEarly;
     }
     $today = date('Y-m-d');
-    $todayTag = date('Ymd', strtotime($today));
-    $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . '|D:' . $todayTag . ']';
+    $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . ']';
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
-        WHERE company_id = ? AND transaction_type = 'PAYMENT' AND sms = ?
+        WHERE company_id = ? AND transaction_type = 'PAYMENT'
+          AND (
+                sms = ?
+                OR sms LIKE ?
+          )
         LIMIT 1
     ");
-    $dupStmt->execute([$c168Pk, $feeSms]);
+    $dupStmt->execute([$c168Pk, $feeSms, $feeSms . '|%']);
     if ($dupStmt->fetchColumn() !== false) {
         $out['skipped_duplicate'] = true;
         return $out;
@@ -917,7 +923,6 @@ function createDomainShareCommissionPayments(
     $defaultTxnCurrencyId = $hasCurrencyId ? resolveC168DefaultTransactionCurrencyId($pdo, $c168Pk) : null;
 
     $today = date('Y-m-d');
-    $todayTag = date('Ymd', strtotime($today));
     $now = date('Y-m-d H:i:s');
     $c168OwnerCode = getCompanyOwnerCodeByPk($pdo, $c168Pk);
     if ($c168OwnerCode === '') {
@@ -967,17 +972,20 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
-            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|AID:' . $aid . '|D:' . $todayTag . ']';
+            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|AID:' . $aid . ']';
             $dupStmt = $pdo->prepare("
                 SELECT id
                 FROM transactions
                 WHERE company_id = ?
                   AND transaction_type = 'PAYMENT'
                   AND account_id = ?
-                  AND sms = ?
+                  AND (
+                        sms = ?
+                        OR sms LIKE ?
+                  )
                 LIMIT 1
             ");
-            $dupStmt->execute([$c168Pk, $aid, $smsMarker]);
+            $dupStmt->execute([$c168Pk, $aid, $smsMarker, $smsMarker . '|%']);
             if ($dupStmt->fetchColumn() !== false) {
                 $result['skipped_duplicate_account_count']++;
                 continue;
