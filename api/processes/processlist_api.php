@@ -24,13 +24,16 @@ function jsonResponse(bool $success, string $message = '', $data = null): void
 
 function bankProcessHasColumn(PDO $pdo, string $column): bool
 {
+    static $cache = [];
+    if (array_key_exists($column, $cache)) return $cache[$column];
     try {
         $stmt = $pdo->prepare("SHOW COLUMNS FROM bank_process LIKE ?");
         $stmt->execute([$column]);
-        return $stmt && $stmt->rowCount() > 0;
+        $cache[$column] = $stmt && $stmt->rowCount() > 0;
     } catch (Throwable $e) {
-        return false;
+        $cache[$column] = false;
     }
+    return $cache[$column];
 }
 
 function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn, bool $hasFlagColumn): string
@@ -664,22 +667,36 @@ function getBankProcesses() {
         $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showBlock = isset($_GET['showBlock']) && $_GET['showBlock'] == '1';
 
-        $hasSourceBankProcessId = false;
-        try {
-            $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
-            $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
-        } catch (PDOException $e) { /* ignore */ }
+        // static 缓存：每次请求只查一次 schema，避免重复 SHOW COLUMNS/TABLES
+        static $bankSchema = null;
+        if ($bankSchema === null) {
+            $hasSourceBankProcessId = false;
+            try {
+                $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+                $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+
+            $hasResendPendingTable = false;
+            try {
+                $rt = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'");
+                $hasResendPendingTable = $rt && $rt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+
+            $bankSchema = [
+                'has_source_bank_process_id' => $hasSourceBankProcessId,
+                'has_resend_pending_table'   => $hasResendPendingTable,
+            ];
+        }
+        $hasSourceBankProcessId = $bankSchema['has_source_bank_process_id'];
+        $hasResendPendingTable  = $bankSchema['has_resend_pending_table'];
+
+        // bankProcessHasColumn() 内部已有 static 缓存，两次调用只查一次 SHOW COLUMNS
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
         $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
-        $hasResendPendingTable = false;
-        try {
-            $rt = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'");
-            $hasResendPendingTable = $rt && $rt->rowCount() > 0;
-        } catch (PDOException $e) { /* ignore */ }
         $resendPendingSelect = $hasResendPendingTable
             ? "(EXISTS (SELECT 1 FROM bank_process_maintenance_resend_pending rp WHERE rp.company_id = bp.company_id AND rp.bank_process_id = bp.id)) AS maintenance_resend_pending"
             : "0 AS maintenance_resend_pending";

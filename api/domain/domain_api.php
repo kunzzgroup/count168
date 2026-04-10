@@ -928,11 +928,14 @@ function domainApiMayProvisionC168MemberAccounts(PDO $pdo, bool $hasC168Context,
 }
 
 function domainApiHasAccountLinkTable(PDO $pdo): bool {
+    static $v = null;
+    if ($v !== null) return $v;
     try {
-        return $pdo->query("SHOW TABLES LIKE 'account_link'")->rowCount() > 0;
+        $v = $pdo->query("SHOW TABLES LIKE 'account_link'")->rowCount() > 0;
     } catch (PDOException $e) {
-        return false;
+        $v = false;
     }
+    return $v;
 }
 
 /**
@@ -955,8 +958,13 @@ function domainApiLinkAccountsBidirectional(PDO $pdo, int $account_id_1, int $ac
     $existing = $stmt->fetch(PDO::FETCH_ASSOC);
     $link_type = 'bidirectional';
     $source = null;
-    $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
-    $has_link_type = $check_column_stmt && $check_column_stmt->rowCount() > 0;
+    static $has_link_type = null;
+    if ($has_link_type === null) {
+        try {
+            $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
+            $has_link_type = $check_column_stmt && $check_column_stmt->rowCount() > 0;
+        } catch (PDOException $e) { $has_link_type = false; }
+    }
     if ($existing) {
         if ($has_link_type) {
             $updateStmt = $pdo->prepare("UPDATE account_link SET link_type = ?, source_account_id = ? WHERE id = ?");

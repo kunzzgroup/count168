@@ -50,6 +50,45 @@ function searchApiTxnHasCurrencyId(PDO $pdo): bool
     return $v;
 }
 
+/** transactions.source_bank_process_id 是否存在（请求内只查一次） */
+function searchApiHasSourceBankProcessId(PDO $pdo): bool
+{
+    static $v = null;
+    if ($v === null) {
+        try {
+            $st = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+            $v = $st && $st->rowCount() > 0;
+        } catch (Throwable $e) { $v = false; }
+    }
+    return $v;
+}
+
+/** transactions.source_bank_process_period_type 是否存在（请求内只查一次） */
+function searchApiHasSourceBankProcessPeriodType(PDO $pdo): bool
+{
+    static $v = null;
+    if ($v === null) {
+        try {
+            $st = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
+            $v = $st && $st->rowCount() > 0;
+        } catch (Throwable $e) { $v = false; }
+    }
+    return $v;
+}
+
+/** account_currency 表是否存在（请求内只查一次） */
+function searchApiHasAccountCurrencyTable(PDO $pdo): bool
+{
+    static $v = null;
+    if ($v === null) {
+        try {
+            $st = $pdo->query("SHOW TABLES LIKE 'account_currency'");
+            $v = $st && $st->rowCount() > 0;
+        } catch (Throwable $e) { $v = false; }
+    }
+    return $v;
+}
+
 /**
  * 将 currency 加入列表（根据 currency_id 去重）
  */
@@ -394,7 +433,7 @@ if (!empty($target_account_ids)) {
     $active_currency_codes = [];
     $has_account_currency_table = false;
     try {
-        $has_account_currency_table = $pdo->query("SHOW TABLES LIKE 'account_currency'")->rowCount() > 0;
+        $has_account_currency_table = searchApiHasAccountCurrencyTable($pdo); // static 缓存，不重复 SHOW
         if ($has_account_currency_table) {
             $placeholders = implode(',', array_fill(0, count($accounts), '?'));
             $ids = array_column($accounts, 'id');
@@ -621,10 +660,8 @@ if (!empty($target_account_ids)) {
             ];
         }
 
-        $stmt_bp1 = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
-        $has_source_bank_process_id = $stmt_bp1->rowCount() > 0;
-        $stmt_bp2 = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
-        $has_source_bank_process_period_type = $stmt_bp2->rowCount() > 0;
+        $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存
+        $has_source_bank_process_period_type = searchApiHasSourceBankProcessPeriodType($pdo); // static 缓存
 
         $wlJoinSql = '';
         $wlDateExpr = "DATE(t.transaction_date)";
@@ -1260,16 +1297,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $has_transaction_currency = searchApiTxnHasCurrencyId($pdo);
 
     // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
-    static $has_source_bank_process_id = null;
-    static $has_source_bank_process_period_type = null;
-    if ($has_source_bank_process_id === null) {
-        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
-        $has_source_bank_process_id = $stmt->rowCount() > 0;
-    }
-    if ($has_source_bank_process_period_type === null) {
-        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
-        $has_source_bank_process_period_type = $stmt->rowCount() > 0;
-    }
+    $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存，跨函数共享
+    $has_source_bank_process_period_type = searchApiHasSourceBankProcessPeriodType($pdo); // static 缓存
     $wlJoinSql = '';
     $wlDateExpr = "DATE(t.transaction_date)";
     $wlFutureGuard = '';
@@ -1538,16 +1567,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $has_rate_middleman = false;
 
     // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
-    static $has_source_bank_process_id = null;
-    static $has_source_bank_process_period_type = null;
-    if ($has_source_bank_process_id === null) {
-        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
-        $has_source_bank_process_id = $stmt->rowCount() > 0;
-    }
-    if ($has_source_bank_process_period_type === null) {
-        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
-        $has_source_bank_process_period_type = $stmt->rowCount() > 0;
-    }
+    $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存，跨函数共享
+    $has_source_bank_process_period_type = searchApiHasSourceBankProcessPeriodType($pdo); // static 缓存
     $wlJoinSql = '';
     $wlDateExpr = "DATE(t.transaction_date)";
     $wlFutureGuard = '';
