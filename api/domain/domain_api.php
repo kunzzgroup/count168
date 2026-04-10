@@ -218,6 +218,24 @@ function getC168CompanyPk(PDO $pdo): ?int {
     return (int) $v;
 }
 
+/**
+ * company_id 欄位為全域 UNIQUE 且 NOT NULL：不可用空字串表示多個「僅有 Group、尚無公司代碼」的列。
+ * 使用每個 owner 內唯一的內部佔位碼（非業務公司代碼），避免 1062 Duplicate entry ''。
+ */
+function placeholderCompanyCodeForEmptyGroup(int $ownerNumericId, string $groupId): string
+{
+    $g = strtoupper(preg_replace('/[^A-Z0-9_]/', '', trim($groupId)));
+    if ($g === '') {
+        $g = 'GRP';
+    }
+    $base = '__G' . $ownerNumericId . '_' . $g;
+    if (strlen($base) <= 50) {
+        return $base;
+    }
+
+    return substr($base, 0, 50);
+}
+
 function getCompanyPkByCode(PDO $pdo, string $companyCode): ?int {
     $companyCode = strtoupper(trim($companyCode));
     if ($companyCode === '') {
@@ -716,7 +734,8 @@ try {
                     if (json_last_error() === JSON_ERROR_NONE && is_array($companies_data)) {
                         // 新格式：JSON 数组，包含 company_id、expiration_date、permissions、fee_share_allocations
                         $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        
+                        $seenGroupPlaceholders = [];
+
                         foreach ($companies_data as $company) {
                             $company_id = strtoupper(trim($company['company_id'] ?? $company));
                             $expiration_date = !empty($company['expiration_date']) ? $company['expiration_date'] : null;
@@ -724,13 +743,23 @@ try {
                             $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
                             $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($company['fee_share_allocations'] ?? null));
                             
-                            if (!empty($company_id) || !empty($group_id)) {
-                                $db_company_id = !empty($company_id) ? $company_id : '';
-                                $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id, $fee_share_json]);
-                                $newCompanyPk = (int) $pdo->lastInsertId();
-                                if ($newCompanyPk > 0 && $db_company_id !== '') {
-                                    ensureDefaultMemberAccountForCompany($pdo, $newCompanyPk, $db_company_id, $name);
+                            if ($company_id === '' && !$group_id) {
+                                continue;
+                            }
+                            if ($company_id !== '') {
+                                $db_company_id = $company_id;
+                            } else {
+                                $db_company_id = placeholderCompanyCodeForEmptyGroup((int) $owner_id, $group_id);
+                                if (isset($seenGroupPlaceholders[$db_company_id])) {
+                                    continue;
                                 }
+                                $seenGroupPlaceholders[$db_company_id] = true;
+                            }
+
+                            $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id, $fee_share_json]);
+                            $newCompanyPk = (int) $pdo->lastInsertId();
+                            if ($newCompanyPk > 0 && $company_id !== '') {
+                                ensureDefaultMemberAccountForCompany($pdo, $newCompanyPk, $company_id, $name);
                             }
                         }
                     } else {
@@ -1026,23 +1055,40 @@ try {
                 // Insert new companies
                 if (!empty($companies_to_add)) {
                     $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    
+                    $seenGroupPlaceholdersUpdate = [];
+
                     foreach ($companies_to_add as $company_data) {
+                        $rawCid = trim((string) ($company_data['company_id'] ?? ''));
+                        $rawCidUpper = strtoupper($rawCid);
+                        $gid = !empty($company_data['group_id']) ? strtoupper(trim((string) $company_data['group_id'])) : null;
+
+                        if ($rawCidUpper === '' && !$gid) {
+                            continue;
+                        }
+                        if ($rawCidUpper !== '') {
+                            $db_company_id = $rawCidUpper;
+                        } else {
+                            $db_company_id = placeholderCompanyCodeForEmptyGroup((int) $id, $gid);
+                            if (isset($seenGroupPlaceholdersUpdate[$db_company_id])) {
+                                continue;
+                            }
+                            $seenGroupPlaceholdersUpdate[$db_company_id] = true;
+                        }
+
                         $permissions_json = !empty($company_data['permissions']) && is_array($company_data['permissions']) ? json_encode($company_data['permissions']) : null;
                         $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($company_data['fee_share_allocations'] ?? null));
                         $stmt->execute([
-                            $company_data['company_id'], 
-                            $id, 
+                            $db_company_id,
+                            $id,
                             $_SESSION['login_id'] ?? 'system',
                             $company_data['expiration_date'],
                             $permissions_json,
-                            $company_data['group_id'],
+                            $gid,
                             $fee_share_json
                         ]);
                         $addedCompanyPk = (int) $pdo->lastInsertId();
-                        $addedCode = trim((string) ($company_data['company_id'] ?? ''));
-                        if ($addedCompanyPk > 0 && $addedCode !== '') {
-                            ensureDefaultMemberAccountForCompany($pdo, $addedCompanyPk, $addedCode, $name);
+                        if ($addedCompanyPk > 0 && $rawCidUpper !== '') {
+                            ensureDefaultMemberAccountForCompany($pdo, $addedCompanyPk, $rawCidUpper, $name);
                         }
                     }
                 }
