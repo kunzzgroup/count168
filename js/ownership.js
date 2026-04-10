@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let companiesData = [];
 let companyStates = {};
 let currentlyExpandedId = null;
+let allGroupIds = []; // unique group IDs across all companies
 
 let draggedRowIdx = null;
 let draggedCompanyId = null;
@@ -37,6 +38,12 @@ function fetchCompanies() {
         .then(res => {
             if (res.status === 'success') {
                 companiesData = res.data;
+                // Extract unique non-empty group_ids for the join-group dropdown
+                allGroupIds = [...new Set(
+                    companiesData
+                        .map(c => c.group_id)
+                        .filter(g => g && g.trim() !== '')
+                )].sort();
                 renderCompanyCards();
             } else {
                 showToast(res.message, 'error');
@@ -68,11 +75,13 @@ function renderCompanyCards() {
         const alloc = parseFloat(comp.allocated_percentage) || 0;
         const remaining = Math.max(0, 100 - alloc);
         const id = comp.id;
+        const groupId = comp.group_id || null;
 
         // Clone card template
         const frag = tpl.card().content.cloneNode(true);
         const card = frag.querySelector('.own-card');
         card.id = `card-${id}`;
+        if (groupId) card.dataset.groupId = groupId;
 
         // Fill data bindings
         $(card, 'name').textContent = comp.name;
@@ -109,6 +118,70 @@ function renderCompanyCards() {
         $(card, 'footer-remain').id = `footer-remain-${id}`;
         $(card, 'confirm-btn').id = `confirm-btn-${id}`;
 
+        // ── Group management buttons in header-right ──────────────────
+        const headerRight = card.querySelector('.own-card-header-right');
+        if (headerRight && allGroupIds.length > 0) {
+            if (!groupId) {
+                // Feature 1: Independent company → "+ Group" button with dropdown
+                const wrap = document.createElement('div');
+                wrap.className = 'own-group-btn-wrap';
+
+                const joinBtn = document.createElement('button');
+                joinBtn.className = 'own-group-join-btn';
+                joinBtn.textContent = '+ Group';
+                joinBtn.title = 'Assign this company to a group';
+                joinBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    // Toggle dropdown
+                    const panel = wrap.querySelector('.own-group-panel');
+                    // Close all other open panels first
+                    document.querySelectorAll('.own-group-panel.open').forEach(p => {
+                        if (p !== panel) p.classList.remove('open');
+                    });
+                    panel.classList.toggle('open');
+                });
+
+                const panel = document.createElement('div');
+                panel.className = 'own-group-panel';
+
+                allGroupIds.forEach(gid => {
+                    const opt = document.createElement('div');
+                    opt.className = 'own-group-option';
+                    opt.textContent = gid;
+                    opt.addEventListener('click', e => {
+                        e.stopPropagation();
+                        panel.classList.remove('open');
+                        joinCompanyGroup(id, gid, comp.name);
+                    });
+                    panel.appendChild(opt);
+                });
+
+                wrap.appendChild(joinBtn);
+                wrap.appendChild(panel);
+                // Insert before the Manage button
+                headerRight.insertBefore(wrap, headerRight.firstChild);
+            } else {
+                // Feature 2: Grouped company → "Ungroup" button
+                const ungroupBtn = document.createElement('button');
+                ungroupBtn.className = 'own-group-ungroup-btn';
+                ungroupBtn.textContent = 'Ungroup';
+                ungroupBtn.title = `Remove from group "${groupId}"`;
+                ungroupBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    ungroupCompany(id, comp.name);
+                });
+                headerRight.insertBefore(ungroupBtn, headerRight.firstChild);
+
+                // Show group badge next to company name
+                const nameEl = $(card, 'name');
+                const badge = document.createElement('span');
+                badge.className = 'own-group-badge';
+                badge.textContent = groupId;
+                nameEl.after(badge);
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
+
         // Bind actions via event delegation
         card.addEventListener('click', (e) => {
             const action = e.target.closest('[data-action]')?.dataset.action;
@@ -125,6 +198,11 @@ function renderCompanyCards() {
 
         container.appendChild(frag);
     });
+
+    // Close group dropdowns when clicking anywhere outside
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.own-group-panel.open').forEach(p => p.classList.remove('open'));
+    }, { capture: true, once: false });
 }
 
 // ---------------------------------------------
@@ -568,8 +646,63 @@ function showToast(message, type = 'success') {
 }
 
 // ---------------------------------------------
-// External Partner Linking
+// Group Management (Join / Ungroup)
 // ---------------------------------------------
+
+function joinCompanyGroup(companyId, groupId, companyName) {
+    fetch('api/ownership/update_company_group_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: companyId, group_id: groupId })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.status === 'success') {
+            showToast(`"${companyName}" joined group "${groupId}"`, 'success');
+            // Update local data and re-render
+            const comp = companiesData.find(c => parseInt(c.id) === companyId);
+            if (comp) comp.group_id = groupId;
+            if (!allGroupIds.includes(groupId)) {
+                allGroupIds.push(groupId);
+                allGroupIds.sort();
+            }
+            renderCompanyCards();
+        } else {
+            showToast(res.message, 'error');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast('Server error', 'error');
+    });
+}
+
+function ungroupCompany(companyId, companyName) {
+    fetch('api/ownership/update_company_group_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: companyId, group_id: null })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.status === 'success') {
+            showToast(`"${companyName}" removed from group`, 'success');
+            const comp = companiesData.find(c => parseInt(c.id) === companyId);
+            if (comp) comp.group_id = null;
+            // Recalculate all group IDs in case none remain
+            allGroupIds = [...new Set(
+                companiesData.map(c => c.group_id).filter(g => g && g.trim() !== '')
+            )].sort();
+            renderCompanyCards();
+        } else {
+            showToast(res.message, 'error');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast('Server error', 'error');
+    });
+}
 
 function linkExternalPartner(companyId, event, forceType = '') {
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);

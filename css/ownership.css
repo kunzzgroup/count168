@@ -788,3 +788,118 @@ body {
 .own-ro-toggle input:checked + .own-ro-slider::before {
     left: calc(100% - 17px);
 }
+
+/* ── Group Management Buttons ─────────────────────────────── */
+
+/* Group badge shown next to company name in grouped cards */
+.own-group-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    margin-left: 10px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+/* "+ Group" button wrapper — parent of button + dropdown */
+.own-group-btn-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* "+ Group" button */
+.own-group-join-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1.5px solid #059669;
+    background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%);
+    color: #065f46;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+}
+
+.own-group-join-btn:hover {
+    background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+    color: #fff;
+    border-color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(5, 150, 105, 0.3);
+}
+
+/* Dropdown panel for group options */
+.own-group-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 9999;
+    min-width: 130px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    display: none;
+}
+
+.own-group-panel.open {
+    display: block;
+    animation: own-panel-open 0.15s ease;
+}
+
+@keyframes own-panel-open {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Each group option inside dropdown */
+.own-group-option {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    transition: background 0.12s;
+    white-space: nowrap;
+}
+
+.own-group-option:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.own-group-option + .own-group-option {
+    border-top: 1px solid #f1f5f9;
+}
+
+/* "Ungroup" button for grouped companies */
+.own-group-ungroup-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1.5px solid #e11d48;
+    background: linear-gradient(180deg, #ffe4e6 0%, #fecdd3 100%);
+    color: #9f1239;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+}
+
+.own-group-ungroup-btn:hover {
+    background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+    color: #fff;
+    border-color: #e11d48;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(225, 29, 72, 0.3);
+}
