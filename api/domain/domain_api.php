@@ -567,10 +567,104 @@ function getMasterC168CompanyNumericId(PDO $pdo): ?int {
     try {
         $stmt = $pdo->query("SELECT id FROM company WHERE UPPER(TRIM(company_id)) = 'C168' ORDER BY id ASC LIMIT 1");
         $v = $stmt->fetchColumn();
-        return ($v !== false && $v !== null) ? (int) $v : null;
+        if ($v !== false && $v !== null) {
+            return (int) $v;
+        }
+        $stmt2 = $pdo->query("SELECT id FROM company WHERE UPPER(TRIM(IFNULL(group_id, ''))) = 'C168' ORDER BY id ASC LIMIT 1");
+        $v2 = $stmt2->fetchColumn();
+        return ($v2 !== false && $v2 !== null) ? (int) $v2 : null;
     } catch (PDOException $e) {
         return null;
     }
+}
+
+/**
+ * 写入 Account List 时使用的 C168 公司主键：优先当前 session 已选中的 C168 行，否则按库中 company_id / group_id 解析
+ */
+function resolveC168TargetCompanyId(PDO $pdo): ?int {
+    $sid = (int) ($_SESSION['company_id'] ?? 0);
+    if ($sid > 0 && isC168Company($pdo, $sid)) {
+        return $sid;
+    }
+    return getMasterC168CompanyNumericId($pdo);
+}
+
+/**
+ * 请求体里 companies 可能是 JSON 字符串、已解码数组或逗号列表；避免 json_decode(数组) 失败导致不写 company、不建 account
+ */
+function domainApiNormalizeCompaniesPayload($companies): array {
+    if ($companies === null || $companies === '') {
+        return [];
+    }
+    if (is_array($companies)) {
+        if (isset($companies['company_id']) || isset($companies['group_id']) || isset($companies['expiration_date'])) {
+            return [$companies];
+        }
+        $out = [];
+        foreach ($companies as $row) {
+            if (is_array($row)) {
+                $out[] = $row;
+            }
+        }
+        return $out;
+    }
+    if (!is_string($companies)) {
+        return [];
+    }
+    $trim = trim($companies);
+    if ($trim === '') {
+        return [];
+    }
+    if ($trim[0] === '[' || $trim[0] === '{') {
+        $decoded = json_decode($trim, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return [];
+        }
+        if (is_string($decoded)) {
+            $decoded = json_decode($decoded, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+                return [];
+            }
+        }
+        if (!is_array($decoded)) {
+            return [];
+        }
+        if (isset($decoded['company_id']) || isset($decoded['group_id']) || isset($decoded['expiration_date'])) {
+            return [$decoded];
+        }
+        $out = [];
+        foreach ($decoded as $row) {
+            if (is_array($row)) {
+                $out[] = $row;
+            }
+        }
+        return $out;
+    }
+    $out = [];
+    foreach (array_map('trim', explode(',', $trim)) as $cid) {
+        if ($cid === '') {
+            continue;
+        }
+        $out[] = [
+            'company_id' => strtoupper($cid),
+            'expiration_date' => null,
+            'permissions' => [],
+            'group_id' => null,
+            'fee_share_allocations' => null,
+        ];
+    }
+    return $out;
+}
+
+function domainApiExtractProvisionCompanyIds($companies): array {
+    $ids = [];
+    foreach (domainApiNormalizeCompaniesPayload($companies) as $row) {
+        $c = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        if ($c !== '') {
+            $ids[] = $c;
+        }
+    }
+    return array_values(array_unique($ids));
 }
 
 /**
@@ -584,7 +678,7 @@ function domainApiMayProvisionC168MemberAccounts(PDO $pdo, bool $hasC168Context,
         return true;
     }
     $uid = (int) ($_SESSION['user_id'] ?? 0);
-    $masterId = getMasterC168CompanyNumericId($pdo);
+    $masterId = resolveC168TargetCompanyId($pdo);
     if ($uid <= 0 || $masterId === null) {
         return false;
     }
@@ -876,63 +970,28 @@ try {
                 
                 $owner_id = $pdo->lastInsertId();
                 
-                // Insert companies if any
-                if (!empty($companies)) {
-                    // 尝试解析 JSON 格式的 companies 数据
-                    $companies_data = json_decode($companies, true);
-                    
-                    if (json_last_error() === JSON_ERROR_NONE && is_array($companies_data)) {
-                        // 新格式：JSON 数组，包含 company_id、expiration_date、permissions、fee_share_allocations
-                        $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        
-                        foreach ($companies_data as $company) {
-                            $company_id = strtoupper(trim($company['company_id'] ?? $company));
-                            $expiration_date = !empty($company['expiration_date']) ? $company['expiration_date'] : null;
-                            $permissions = (isset($company['permissions']) && is_array($company['permissions'])) ? json_encode($company['permissions']) : null;
-                            $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
-                            $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($company['fee_share_allocations'] ?? null));
-                            
-                            if (!empty($company_id) || !empty($group_id)) {
-                                $db_company_id = !empty($company_id) ? $company_id : '';
-                                $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id, $fee_share_json]);
-                            }
-                        }
-                    } else {
-                        // 旧格式：逗号分隔的字符串（向后兼容）
-                        $company_ids = array_map('trim', explode(',', $companies));
-                        $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date) VALUES (?, ?, ?, ?)");
-                        
-                        foreach ($company_ids as $company_id) {
-                            if (!empty($company_id)) {
-                                $stmt->execute([strtoupper($company_id), $owner_id, $_SESSION['login_id'] ?? 'system', null]);
-                            }
+                // Insert companies if any（companies 可为 JSON 字符串或已解析数组）
+                $companies_data = domainApiNormalizeCompaniesPayload($companies);
+                if (!empty($companies_data)) {
+                    $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    foreach ($companies_data as $company) {
+                        $company_id = strtoupper(trim((string) ($company['company_id'] ?? '')));
+                        $expiration_date = !empty($company['expiration_date']) ? $company['expiration_date'] : null;
+                        $permissions = (isset($company['permissions']) && is_array($company['permissions'])) ? json_encode($company['permissions']) : null;
+                        $group_id = !empty($company['group_id']) ? strtoupper(trim((string) $company['group_id'])) : null;
+                        $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($company['fee_share_allocations'] ?? null));
+                        if (!empty($company_id) || !empty($group_id)) {
+                            $db_company_id = !empty($company_id) ? $company_id : '';
+                            $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id, $fee_share_json]);
                         }
                     }
                 }
 
-                $provisionCompanyIds = [];
-                if (!empty($companies)) {
-                    $provParse = json_decode($companies, true);
-                    if (json_last_error() === JSON_ERROR_NONE && is_array($provParse)) {
-                        foreach ($provParse as $row) {
-                            $c = strtoupper(trim($row['company_id'] ?? ''));
-                            if ($c !== '') {
-                                $provisionCompanyIds[] = $c;
-                            }
-                        }
-                    } else {
-                        foreach (array_map('trim', explode(',', $companies)) as $c) {
-                            if ($c !== '') {
-                                $provisionCompanyIds[] = strtoupper($c);
-                            }
-                        }
-                    }
-                }
-                $provisionCompanyIds = array_values(array_unique($provisionCompanyIds));
+                $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies);
                 if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
-                    $masterC168 = getMasterC168CompanyNumericId($pdo);
-                    if ($masterC168 !== null) {
-                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $masterC168, $name, $provisionCompanyIds);
+                    $targetC168 = resolveC168TargetCompanyId($pdo);
+                    if ($targetC168 !== null) {
+                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionCompanyIds);
                     }
                 }
 
@@ -1020,45 +1079,22 @@ try {
                     return !empty($c['company_id']) ? strtoupper($c['company_id']) : 'GROUPONLY:' . strtoupper($c['group_id']); 
                 }, $existing_companies);
                 
-                // Get new company IDs from input
+                // Get new company IDs from input（companies 可为 JSON 字符串或已解析数组）
                 $new_companies_data = [];
-                if (!empty($companies)) {
-                    // 尝试解析 JSON 格式
-                    $companies_data = json_decode($companies, true);
-                    
-                    if (json_last_error() === JSON_ERROR_NONE && is_array($companies_data)) {
-                        // 新格式：JSON 数组
-                        foreach ($companies_data as $company) {
-                            $company_id = strtoupper(trim($company['company_id'] ?? $company));
-                            $group_id = !empty($company['group_id']) ? strtoupper(trim($company['group_id'])) : null;
-                            
-                            if (!empty($company_id) || !empty($group_id)) {
-                                $db_company_id = !empty($company_id) ? $company_id : '';
-                                $key = $db_company_id !== '' ? $db_company_id : 'GROUPONLY:' . $group_id;
-                                $new_companies_data[] = [
-                                    'key' => $key,
-                                    'company_id' => $db_company_id,
-                                    'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
-                                    'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : [],
-                                    'group_id' => $group_id,
-                                    'fee_share_allocations' => $company['fee_share_allocations'] ?? null,
-                                ];
-                            }
-                        }
-                    } else {
-                        // 旧格式：逗号分隔的字符串（向后兼容）
-                        $company_ids = array_map(function($c) { return strtoupper(trim($c)); }, explode(',', $companies));
-                        $company_ids = array_filter($company_ids, function($c) { return !empty($c); });
-                        foreach ($company_ids as $company_id) {
-                            $new_companies_data[] = [
-                                'key' => $company_id,
-                                'company_id' => $company_id,
-                                'expiration_date' => null,
-                                'permissions' => [],
-                                'group_id' => null,
-                                'fee_share_allocations' => null,
-                            ];
-                        }
+                foreach (domainApiNormalizeCompaniesPayload($companies) as $company) {
+                    $company_id = strtoupper(trim((string) ($company['company_id'] ?? '')));
+                    $group_id = !empty($company['group_id']) ? strtoupper(trim((string) $company['group_id'])) : null;
+                    if (!empty($company_id) || !empty($group_id)) {
+                        $db_company_id = !empty($company_id) ? $company_id : '';
+                        $key = $db_company_id !== '' ? $db_company_id : 'GROUPONLY:' . $group_id;
+                        $new_companies_data[] = [
+                            'key' => $key,
+                            'company_id' => $db_company_id,
+                            'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
+                            'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : [],
+                            'group_id' => $group_id,
+                            'fee_share_allocations' => $company['fee_share_allocations'] ?? null,
+                        ];
                     }
                 }
                 $new_company_keys = array_column($new_companies_data, 'key');
@@ -1228,18 +1264,11 @@ try {
                 }
 
                 // 对该 domain 表单中所有带 company_id 的公司同步 C168 下 MEMBER（幂等；便于历史数据补建）
-                $provisionFromUpdate = [];
-                foreach ($new_companies_data as $company_data) {
-                    $c = strtoupper(trim($company_data['company_id'] ?? ''));
-                    if ($c !== '') {
-                        $provisionFromUpdate[] = $c;
-                    }
-                }
-                $provisionFromUpdate = array_values(array_unique($provisionFromUpdate));
+                $provisionFromUpdate = domainApiExtractProvisionCompanyIds($companies);
                 if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
-                    $masterC168 = getMasterC168CompanyNumericId($pdo);
-                    if ($masterC168 !== null) {
-                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $masterC168, $name, $provisionFromUpdate);
+                    $targetC168 = resolveC168TargetCompanyId($pdo);
+                    if ($targetC168 !== null) {
+                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionFromUpdate);
                     }
                 }
                 
