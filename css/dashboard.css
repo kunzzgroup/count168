@@ -94,6 +94,25 @@ body.dashboard-page {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
+/* [All] 全选按钮：用渐变绿色区分，激活时与普通公司按钮保持一致风格 */
+.transaction-company-btn.dashboard-all-btn {
+    background: #f0fdf4;
+    border-color: #86efac;
+    color: #15803d;
+}
+
+.transaction-company-btn.dashboard-all-btn:hover {
+    background: #dcfce7;
+    border-color: #4ade80;
+}
+
+.transaction-company-btn.dashboard-all-btn.active {
+    background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 4px rgba(22, 163, 74, 0.35);
+}
+
 /* Currency 拖动（与 Transaction List / Member Win/Loss 一致） */
 #currency-buttons-container .transaction-company-btn.transaction-currency-dragging {
     opacity: 0.6;
