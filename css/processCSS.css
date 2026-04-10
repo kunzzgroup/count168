@@ -328,7 +328,7 @@ body.process-page {
 /* Separator line */
 .process-page .separator-line {
     width: 100vw;
-    height: 2px;
+    height: 1px;
     background-color: #939393;
     margin: 5px 0 -10px 0;
     position: relative;
@@ -696,23 +696,19 @@ body.process-page {
 /* separator-line 不再 override，与 Games 完全一致（margin: 5px 0 -10px 0） */
 
 .process-page.process-page--bank .bank-table-wrapper {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
+    /* 填满剩余垂直空间，分页条始终在 flex 末尾不遮挡数据 */
     min-height: 0;
     align-self: stretch;
     margin-top: 6px;
     max-height: none;
     overflow-x: auto;
-    overflow-y: hidden;
-}
-
-/* 仅 Show All：Bank 表格区域占满剩余高度并可纵向滚动 */
-.process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper {
-    flex: 1 1 auto;
-    min-height: 0;
     overflow-y: auto;
-    overflow-x: auto;
+    /* 20 条以上在 wrapper 内滚动，而非溢出到分页条后面 */
     -webkit-overflow-scrolling: touch;
 }
+
+/* Show All 模式：与普通模式相同（wrapper 已 flex:1，overflow-y:auto，无需额外规则） */
 
 /* 勿设 height:100%：否则行数少时浏览器会把行高均分撑满 flex 区，出现「两行占满一屏」 */
 .process-page.process-page--bank .bank-data-table {
