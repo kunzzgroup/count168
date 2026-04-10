@@ -262,7 +262,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
             <div class="action-buttons-container">
                 <div class="action-buttons">
-                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div class="action-controls-row" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <button class="btn btn-add" onclick="addProcess()">Add Process</button>
                         <div class="process-list-date-filter" id="processListDateFilter" style="display: none;">
                             <div class="date-range-picker" id="date-range-picker">

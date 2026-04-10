@@ -759,9 +759,10 @@ body.process-page {
 }
 
 /* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
-.process-page.process-page--bank .action-buttons > div:first-child {
-    flex-wrap: nowrap;
-    gap: clamp(4px, 0.5vw, 10px);
+/* !important 必须：inline style="flex-wrap:wrap" 优先级高于 CSS，需强制覆盖 */
+.process-page.process-page--bank .action-controls-row {
+    flex-wrap: nowrap !important;
+    gap: clamp(4px, 0.5vw, 10px) !important;
 }
 
 .process-page.process-page--bank .checkbox-section {

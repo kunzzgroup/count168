@@ -544,24 +544,32 @@ body.process-page .content {
     padding-bottom: 0 !important;
 }
 
-/* 2. Make wrappers dynamically distribute their height */
 body.user-page .table-container,
 body.account-page .account-cards,
-body.process-page .process-table-wrapper,
-body.process-page--bank .bank-table-wrapper {
+body.process-page .process-table-wrapper {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    height: 100% !important; /* Force explicit sizing so percentage cascading inside works reliably */
+    height: 100% !important;
     max-height: none !important;
     display: flex; /* NO !important (Allows JS to hide it) */
     flex-direction: column !important;
-    
+
     /* Support for JS forced 'display: grid' */
     grid-template-rows: auto 1fr;
     grid-template-columns: 1fr;
 
     overflow: hidden !important;
     padding-bottom: 74px !important; /* Reserve pagination space */
+}
+
+/* Bank table wrapper：flex + overflow-y:auto，20条时在wrapper内滚动，分页条固定在底部 */
+body.process-page.process-page--bank .bank-table-wrapper {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;   /* 允许内滚动，不再 overflow:hidden */
+    padding-bottom: 0 !important;  /* 分页条在 flex 流中，不需要 padding 占位 */
 }
 
 body.user-page .user-cards,
@@ -590,9 +598,9 @@ body.process-page:not(.process-page--bank) .process-card {
     padding-bottom: 0 !important;
 }
 
-/* For Native Tables in Bank Process, explicitly calculate fixed height to match Games exactly without Flex breakage */
+/* Bank 改用内滚动，行高不再固定（旧 calc 基于 280px 偏移已不适用） */
 body.process-page--bank .bank-data-table tbody tr {
-    height: calc((100vh - 280px) / 20) !important;
+    height: auto !important;
     box-sizing: border-box !important;
 }
 
@@ -602,3 +610,4 @@ body.user-page .table-header,
 body.process-page .table-header {
     flex-shrink: 0 !important;
 }
+
