@@ -290,6 +290,29 @@ function historyResolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFro
     return '-';
 }
 
+function historyParseDomainShareCommissionSourceCompanyCode(string $sms): ?string
+{
+    $s = trim($sms);
+    if ($s === '') return null;
+    if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^|\]]+)/i', $s, $m)) {
+        $v = strtoupper(trim((string)$m[1]));
+        return $v !== '' ? $v : null;
+    }
+    return null;
+}
+
+function historyResolveDomainShareRoleLabel(string $description): string
+{
+    $d = trim($description);
+    if (preg_match('/^(Sales|CS|IT)\s+Commision\b/i', $d, $m)) {
+        return strtoupper(trim((string)$m[1]));
+    }
+    if (preg_match('/^(Sales|CS|IT)\s+Commission\b/i', $d, $m)) {
+        return strtoupper(trim((string)$m[1]));
+    }
+    return 'COMMISSION';
+}
+
 function buildVirtualDomainListFeeHistory(
     PDO $pdo,
     int $companyId,
@@ -1466,6 +1489,14 @@ try {
             || stripos($descText, 'Domain list fee FROM ') === 0
             || stripos($descText, 'Pay Domain Fee To ') === 0) {
             $isDomainListFee = true;
+        }
+        if ($isDomainShareCommission) {
+            $srcCompany = historyParseDomainShareCommissionSourceCompanyCode($smsText);
+            if ($srcCompany === null || $srcCompany === '') {
+                $srcCompany = 'LAG';
+            }
+            $roleLabel = historyResolveDomainShareRoleLabel((string)$description);
+            $description = $roleLabel . ' Commission From ' . strtoupper($srcCompany);
         }
         $productLabel = $isManualProfit ? 'PROFIT' : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']);
         
