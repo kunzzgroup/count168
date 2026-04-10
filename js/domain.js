@@ -960,7 +960,7 @@ function loadCompanyShareDataForModal(companyCode) {
         });
 }
 
-// Company Settings → Share %：「Charge on save」開關（On 才寫入 Commission 收費）
+// Company Settings → Share %：開關 On 時在「主視窗 Confirm」後才寫入 domain fee / commission（transactions）
 function syncCompanyShareChargeToggleUi() {
     var cb = document.getElementById('companyShareChargeToggle');
     var stateEl = document.getElementById('companyShareChargeState');
@@ -1043,7 +1043,7 @@ function openCompanyExpDateModal(companyId) {
     document.getElementById('companyExpDateModal').style.display = 'block';
     var chargeToggle = document.getElementById('companyShareChargeToggle');
     if (chargeToggle) {
-        chargeToggle.checked = false;
+        chargeToggle.checked = !!company.apply_commission_payments_on_domain_save;
         syncCompanyShareChargeToggleUi();
     }
     collapseAllShareRoleCards();
@@ -1225,6 +1225,9 @@ function saveCompanyExpDate() {
     company.permissions = permissions.slice();
     syncFeeShareFromDomToCompany(company);
 
+    var chargeOnSave = !!(document.getElementById('companyShareChargeToggle') && document.getElementById('companyShareChargeToggle').checked);
+    company.apply_commission_payments_on_domain_save = chargeOnSave;
+
     const permReq = fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
@@ -1237,7 +1240,6 @@ function saveCompanyExpDate() {
         })
     }).then(response => response.json());
 
-    var chargeOnSave = !!(document.getElementById('companyShareChargeToggle') && document.getElementById('companyShareChargeToggle').checked);
     const shareReq = fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
@@ -1247,7 +1249,7 @@ function saveCompanyExpDate() {
             action: 'save_company_share_settings',
             company_id: company.company_id,
             fee_share_allocations: company.fee_share_allocations,
-            apply_commission_payments: chargeOnSave
+            apply_commission_payments: false
         })
     }).then(response => response.json());
 
@@ -1272,7 +1274,8 @@ function saveCompanyExpDate() {
                 showAlert(msg || 'Share % save failed', 'danger');
                 return;
             }
-            showAlert('Company settings updated successfully!');
+            var chargeHint = chargeOnSave ? ' Fee posts when you Confirm the domain (main modal).' : '';
+            showAlert('Company settings updated successfully!' + chargeHint);
         })
         .catch(function (error) {
             console.error('Error saving company settings:', error);
@@ -1316,6 +1319,7 @@ function resetCompanyExpDateInModal() {
     updatePermissionDisplay();
 
     company.fee_share_allocations = defaultFeeShareAllocations();
+    company.apply_commission_payments_on_domain_save = false;
     renderCompanySharePanel();
     collapseAllShareRoleCards();
     var chargeToggleReset = document.getElementById('companyShareChargeToggle');
@@ -1452,6 +1456,21 @@ function updateCompanyDisplay() {
     }
 }
 
+/** Domain 表單 JSON：帶入「確認後才入帳」標記（與 domain_api apply_commission_payments_on_domain_save 對應） */
+function companyToDomainPayloadEntry(c) {
+    const o = {
+        company_id: c.company_id,
+        expiration_date: c.expiration_date,
+        permissions: Array.isArray(c.permissions) ? c.permissions : [],
+        group_id: c.group_id || null,
+        fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
+    };
+    if (c.apply_commission_payments_on_domain_save) {
+        o.apply_commission_payments_on_domain_save = true;
+    }
+    return o;
+}
+
 // 同步 selectedCompanies 和 hidden field（表单提交前调用）
 function syncCompaniesFromTemp() {
     const sortedCompanies = [...tempCompanies].sort((a, b) => {
@@ -1461,25 +1480,19 @@ function syncCompaniesFromTemp() {
         if (bId === 'C168') return 1;
         return aId.localeCompare(bId);
     });
-    selectedCompanies = sortedCompanies.map(c => ({
-        company_id: c.company_id,
-        expiration_date: c.expiration_date,
-        permissions: Array.isArray(c.permissions) ? c.permissions : [],
-        group_id: c.group_id || null,
-        fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
-    }));
+    selectedCompanies = sortedCompanies.map(c => companyToDomainPayloadEntry(c));
 
     // 处理没有任何公司的 group，使其也能被保存
     const groupsWithCompanies = new Set(selectedCompanies.map(c => c.group_id).filter(g => g));
     tempGroups.forEach(gid => {
         if (!groupsWithCompanies.has(gid)) {
-            selectedCompanies.push({
+            selectedCompanies.push(companyToDomainPayloadEntry({
                 company_id: '',
                 expiration_date: null,
                 permissions: [],
                 group_id: gid,
                 fee_share_allocations: defaultFeeShareAllocations()
-            });
+            }));
         }
     });
 
@@ -1495,25 +1508,19 @@ function syncCompaniesHiddenField() {
         if (bId === 'C168') return 1;
         return aId.localeCompare(bId);
     });
-    const cleaned = sortedCompanies.map(c => ({
-        company_id: c.company_id,
-        expiration_date: c.expiration_date,
-        permissions: Array.isArray(c.permissions) ? c.permissions : [],
-        group_id: c.group_id || null,
-        fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
-    }));
+    const cleaned = sortedCompanies.map(c => companyToDomainPayloadEntry(c));
 
     // 处理没有任何公司的 group
     const groupsWithCompanies = new Set(cleaned.map(c => c.group_id).filter(g => g));
     tempGroups.forEach(gid => {
         if (!groupsWithCompanies.has(gid)) {
-            cleaned.push({
+            cleaned.push(companyToDomainPayloadEntry({
                 company_id: '',
                 expiration_date: null,
                 permissions: [],
                 group_id: gid,
                 fee_share_allocations: defaultFeeShareAllocations()
-            });
+            }));
         }
     });
 

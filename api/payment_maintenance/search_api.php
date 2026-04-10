@@ -188,7 +188,10 @@ function rowToItem(array $row, $is_deleted = 0) {
     $isDomainShareCommission = false;
     $descriptionRaw = (string)($row['description'] ?? '');
     $remarkRaw = (string)($row['remark'] ?? '');
-    if (stripos(trim($descriptionRaw), 'Commision FROM ') === 0 || trim($remarkRaw) === '[DOMAIN_SHARE_COMMISSION]') {
+    $remarkTrim = trim($remarkRaw);
+    if (stripos(trim($descriptionRaw), 'Commision FROM ') === 0
+        || $remarkTrim === '[DOMAIN_SHARE_COMMISSION]'
+        || stripos($remarkTrim, '[DOMAIN_SHARE_COMMISSION|') === 0) {
         $isDomainShareCommission = true;
     }
 
