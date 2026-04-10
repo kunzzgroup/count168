@@ -25,7 +25,7 @@ try {
 
     $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
     if ($userRole !== 'owner') {
-        $companies = getCompaniesByUser($pdo, (int)$_SESSION['user_id']);
+        $companies = getCompaniesByUser($pdo, (int)$_SESSION['user_id'], $fetchAll);
         // Users normally don't have large complex group mapping in dashboard
         api_success($companies);
         exit;
