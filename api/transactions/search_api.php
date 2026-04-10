@@ -208,10 +208,23 @@ function searchApiAppendDomainListFeeVirtualRows(
         $amt = round((float)($row['amount'] ?? 0), 2);
         if (abs($amt) < 0.00001) continue;
 
-        $txId = (int)($row['id'] ?? 0);
-        if ($txId <= 0) continue;
-        $virtualId = -$txId;
-        $k = $virtualId . '_' . $cur;
+        $realAccountId = 0;
+        try {
+            $sta = $pdo->prepare("
+                SELECT a.id
+                FROM account a
+                INNER JOIN account_company ac ON ac.account_id = a.id
+                WHERE ac.company_id = ?
+                  AND UPPER(TRIM(a.account_id)) = ?
+                LIMIT 1
+            ");
+            $sta->execute([$company_id, $src]);
+            $realAccountId = (int)($sta->fetchColumn() ?: 0);
+        } catch (PDOException $e) {}
+
+        $rowAccountId = $realAccountId > 0 ? $realAccountId : (-(int)($row['id'] ?? 0));
+        if ($rowAccountId === 0) continue;
+        $k = $rowAccountId . '_' . $cur;
         if (isset($seen[$k])) continue;
         $seen[$k] = true;
 
@@ -233,7 +246,7 @@ function searchApiAppendDomainListFeeVirtualRows(
         $results[] = [
             'account_id' => $src,
             'account_name' => $name,
-            'account_db_id' => $virtualId,
+            'account_db_id' => $rowAccountId,
             'role' => 'DOMAIN',
             'currency' => $cur,
             'currency_id_debug' => $cid,
@@ -1233,6 +1246,7 @@ if (!empty($target_account_ids)) {
                     CASE 
                         WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
                         ELSE 0 
                     END
@@ -1241,6 +1255,7 @@ if (!empty($target_account_ids)) {
                     CASE 
                         WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
                         ELSE 0 
                     END
@@ -2230,6 +2245,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         -- 作为 From Account（支付 / 收到）；CONTRA 时 FROM 显示正数
                         -- Domain Share Commission：不计入 from_account（避免重复显示池子/右表）
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -ROUND(t.amount, 2)
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN ROUND(t.amount, 2)
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
