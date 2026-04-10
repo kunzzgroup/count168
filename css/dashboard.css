@@ -209,23 +209,35 @@ body.dashboard-page {
     font-family: 'Amaranth', sans-serif;
 }
 
-/* Earnings 卡片 — 右上角独立显示 */
+/* Earnings 卡片 — 右上角独立显示，与下方 KPI 卡片视觉一致 */
 .dashboard-kpi-card--earnings {
     flex-shrink: 0;
-    min-width: clamp(130px, 10vw, 180px);
+    width: clamp(160px, 13vw, 220px);
     border-color: #dbeafe;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.12);
     align-self: stretch;
     justify-content: center;
+    padding: clamp(14px, 1.2vw, 22px);
+}
+
+.dashboard-kpi-card--earnings .icon {
+    width: 36px;
+    height: 36px;
+    font-size: clamp(18px, 1.4vw, 26px);
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 10px;
+    margin-bottom: clamp(4px, 0.4vw, 8px);
 }
 
 .kpi-label--earnings {
     color: #2563eb;
+    font-size: clamp(10px, 0.9vw, 15px);
 }
 
 .kpi-value--earnings {
     color: #1d4ed8;
-    font-size: clamp(18px, 1.4vw, 28px);
+    font-size: clamp(20px, 1.6vw, 30px);
 }
 
 /* 图表区域 - 占满剩余高度 */
