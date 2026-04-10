@@ -715,6 +715,49 @@ function createDomainShareCommissionPayments(
     return $result;
 }
 
+/**
+ * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
+ * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
+ */
+function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bool $hasC168Context, bool $isOwnerOrAdmin): void {
+    if (!$hasC168Context || !$isOwnerOrAdmin || !isset($_SESSION['user_id'])) {
+        return;
+    }
+    $rows = domainApiNormalizeCompaniesPayload($companies);
+    $createdByUser = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+        ? null
+        : (int) ($_SESSION['user_id'] ?? 0);
+    $createdByOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+        ? (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0)
+        : null;
+    $u = $createdByUser > 0 ? $createdByUser : null;
+    $o = $createdByOwner > 0 ? $createdByOwner : null;
+    $any = false;
+    foreach ($rows as $row) {
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        if ($cid === '' || $cid === 'C168') {
+            continue;
+        }
+        $apply = filter_var($row['apply_commission_payments_on_domain_save'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (!$apply) {
+            continue;
+        }
+        $normalized = normalizeFeeShareAllocationsInput($row['fee_share_allocations'] ?? null);
+        $feeResult = createDomainListFeePayment($pdo, $cid, $u, $o);
+        $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
+        if ($poolId <= 0) {
+            $poolId = null;
+        }
+        $commissionResult = createDomainShareCommissionPayments($pdo, $cid, $normalized, $poolId, $u, $o);
+        if (!empty($feeResult['created']) || (($commissionResult['created_count'] ?? 0) > 0)) {
+            $any = true;
+        }
+    }
+    if ($any) {
+        domainApiClearTransactionSearchCache();
+    }
+}
+
 function isC168Company(PDO $pdo, $company_id): bool {
     if (!$company_id) return false;
     try {
@@ -1243,6 +1286,8 @@ try {
                     }
                 }
 
+                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isOwnerOrAdmin);
+
                 $pdo->commit();
 
                 $owner = getOwnerWithCompanies($pdo, $owner_id);
@@ -1535,6 +1580,8 @@ try {
                         }
                     }
                 }
+
+                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isOwnerOrAdmin);
                 
                 $pdo->commit();
                 
