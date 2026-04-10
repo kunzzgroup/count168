@@ -477,6 +477,33 @@ function resolveC168DomainFeePoolAccountId(PDO $pdo, int $c168Pk, int $excludeAc
 }
 
 /**
+ * Transaction Payment / search_api 按 currency_id 汇总 Cr/Dr，且忽略 currency_id IS NULL 的 PAYMENT。
+ * Domain 入账必须写入 C168 公司下的币种，优先 MYR，否则取该公司第一条 currency。
+ */
+function resolveC168DefaultTransactionCurrencyId(PDO $pdo, int $c168CompanyPk): ?int {
+    if ($c168CompanyPk <= 0 || !tableHasColumn($pdo, 'transactions', 'currency_id')) {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? AND UPPER(TRIM(code)) = 'MYR' ORDER BY id ASC LIMIT 1");
+        $st->execute([$c168CompanyPk]);
+        $v = $st->fetchColumn();
+        if ($v !== false && $v !== null) {
+            return (int) $v;
+        }
+        $st2 = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? ORDER BY id ASC LIMIT 1");
+        $st2->execute([$c168CompanyPk]);
+        $v2 = $st2->fetchColumn();
+        if ($v2 !== false && $v2 !== null) {
+            return (int) $v2;
+        }
+    } catch (Exception $e) {
+        return null;
+    }
+    return null;
+}
+
+/**
  * 一次性：客户公司 owner 账户 -> C168 资金池；仅当 Charge on save=On 且尚未写过 DOMAIN_LIST_FEE 标记
  */
 function createDomainListFeePayment(
@@ -546,6 +573,7 @@ function createDomainListFeePayment(
     $hasApprovedByOwner = tableHasColumn($pdo, 'transactions', 'approved_by_owner');
     $hasApprovedAt = tableHasColumn($pdo, 'transactions', 'approved_at');
     $hasCreatedAt = tableHasColumn($pdo, 'transactions', 'created_at');
+    $defaultTxnCurrencyId = $hasCurrencyId ? resolveC168DefaultTransactionCurrencyId($pdo, $c168Pk) : null;
 
     $insertCols = [
         'company_id' => $c168Pk,
@@ -560,7 +588,7 @@ function createDomainListFeePayment(
         'created_by_owner' => $createdByOwner,
     ];
     if ($hasCurrencyId) {
-        $insertCols['currency_id'] = null;
+        $insertCols['currency_id'] = $defaultTxnCurrencyId;
     }
     if ($hasApprovalStatus) {
         $insertCols['approval_status'] = 'APPROVED';
@@ -632,6 +660,7 @@ function createDomainShareCommissionPayments(
     $hasApprovedByOwner = tableHasColumn($pdo, 'transactions', 'approved_by_owner');
     $hasApprovedAt = tableHasColumn($pdo, 'transactions', 'approved_at');
     $hasCreatedAt = tableHasColumn($pdo, 'transactions', 'created_at');
+    $defaultTxnCurrencyId = $hasCurrencyId ? resolveC168DefaultTransactionCurrencyId($pdo, $c168Pk) : null;
 
     $today = date('Y-m-d');
     $now = date('Y-m-d H:i:s');
@@ -708,7 +737,7 @@ function createDomainShareCommissionPayments(
             ];
 
             if ($hasCurrencyId) {
-                $insertCols['currency_id'] = null;
+                $insertCols['currency_id'] = $defaultTxnCurrencyId;
             }
             if ($hasApprovalStatus) {
                 $insertCols['approval_status'] = 'APPROVED';
