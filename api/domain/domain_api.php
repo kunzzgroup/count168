@@ -1042,6 +1042,42 @@ function createDomainShareCommissionPayments(
 }
 
 /**
+ * 公司级一次性锁：只要该来源公司已生成过任一 Domain 交易（fee/commission/profit），后续不再重复创建。
+ */
+function hasDomainOneTimeTransactionExecuted(PDO $pdo, string $sourceCompanyCode): bool
+{
+    $srcU = strtoupper(trim($sourceCompanyCode));
+    if ($srcU === '') {
+        return false;
+    }
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return false;
+    }
+    $likeFee = '[DOMAIN_LIST_FEE|' . $srcU . '%';
+    $likeComm = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '%';
+    $likeProfit = '[DOMAIN_NET_PROFIT|' . $srcU . '%';
+    try {
+        $st = $pdo->prepare("
+            SELECT 1
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND (
+                    t.sms LIKE ?
+                    OR t.sms LIKE ?
+                    OR t.sms LIKE ?
+              )
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk, $likeFee, $likeComm, $likeProfit]);
+        return $st->fetchColumn() !== false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
  */
@@ -1062,6 +1098,9 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
     foreach ($rows as $row) {
         $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
         if ($cid === '' || $cid === 'C168') {
+            continue;
+        }
+        if (hasDomainOneTimeTransactionExecuted($pdo, $cid)) {
             continue;
         }
         $apply = filter_var($row['apply_commission_payments_on_domain_save'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -2292,6 +2331,7 @@ try {
 
                 // 前端「Charge on save」為 Off 時只更新 Share%，不建立 Domain 費用與 Share 佣金入帳
                 $applyCommissionPayments = true;
+                $skippedOneTime = false;
                 if (array_key_exists('apply_commission_payments', $data)) {
                     $rawApply = $data['apply_commission_payments'];
                     if (is_bool($rawApply)) {
@@ -2307,35 +2347,63 @@ try {
                     $up->execute([$saveJson, $saveCompanyPk]);
 
                     if ($applyCommissionPayments) {
-                        $feeResult = createDomainListFeePayment(
-                            $pdo,
-                            $saveShareCode,
-                            $createdByUser > 0 ? $createdByUser : null,
-                            $createdByOwner > 0 ? $createdByOwner : null
-                        );
-                        $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
-                        if ($poolId <= 0) {
-                            $poolId = null;
+                        if (hasDomainOneTimeTransactionExecuted($pdo, $saveShareCode)) {
+                            $skippedOneTime = true;
+                            $feeResult = [
+                                'created' => false,
+                                'skipped_duplicate' => true,
+                                'skipped_no_price' => false,
+                                'skipped_no_customer' => false,
+                                'skipped_no_c168' => false,
+                                'skipped_no_accounts' => false,
+                                'amount' => 0.0,
+                                'pool_account_id' => null,
+                            ];
+                            $commissionResult = [
+                                'created_count' => 0,
+                                'skipped_admin_count' => 0,
+                                'skipped_invalid_account_count' => 0,
+                                'skipped_no_from_account_count' => 0,
+                                'skipped_duplicate_account_count' => 0,
+                                'commission_total' => 0.0,
+                            ];
+                            $profitResult = [
+                                'created' => false,
+                                'skipped_duplicate' => true,
+                                'skipped_zero_or_negative' => false,
+                                'amount' => 0.0,
+                            ];
+                        } else {
+                            $feeResult = createDomainListFeePayment(
+                                $pdo,
+                                $saveShareCode,
+                                $createdByUser > 0 ? $createdByUser : null,
+                                $createdByOwner > 0 ? $createdByOwner : null
+                            );
+                            $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
+                            if ($poolId <= 0) {
+                                $poolId = null;
+                            }
+                            $commissionResult = createDomainShareCommissionPayments(
+                                $pdo,
+                                $saveShareCode,
+                                $saveNormalized,
+                                $poolId,
+                                $createdByUser > 0 ? $createdByUser : null,
+                                $createdByOwner > 0 ? $createdByOwner : null
+                            );
+                            $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
+                            $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
+                            $profitResult = createDomainNetProfitPayment(
+                                $pdo,
+                                $saveShareCode,
+                                $feeAmtForNet,
+                                $commTotalForNet,
+                                $poolId,
+                                $createdByUser > 0 ? $createdByUser : null,
+                                $createdByOwner > 0 ? $createdByOwner : null
+                            );
                         }
-                        $commissionResult = createDomainShareCommissionPayments(
-                            $pdo,
-                            $saveShareCode,
-                            $saveNormalized,
-                            $poolId,
-                            $createdByUser > 0 ? $createdByUser : null,
-                            $createdByOwner > 0 ? $createdByOwner : null
-                        );
-                        $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
-                        $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
-                        $profitResult = createDomainNetProfitPayment(
-                            $pdo,
-                            $saveShareCode,
-                            $feeAmtForNet,
-                            $commTotalForNet,
-                            $poolId,
-                            $createdByUser > 0 ? $createdByUser : null,
-                            $createdByOwner > 0 ? $createdByOwner : null
-                        );
                     } else {
                         $feeResult = [
                             'created' => false,
@@ -2397,6 +2465,7 @@ try {
                     'commission_skipped_duplicate_account' => $commissionResult['skipped_duplicate_account_count'],
                     'profit_payment_created' => $applyCommissionPayments ? !empty($profitResult['created']) : false,
                     'profit_amount' => $applyCommissionPayments ? round((float)($profitResult['amount'] ?? 0), 2) : null,
+                    'domain_one_time_skipped' => $applyCommissionPayments ? $skippedOneTime : false,
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
