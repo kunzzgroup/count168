@@ -17,6 +17,41 @@ let tempGroups = [];        // 当前 owner 的所有 group_id 列表 (string[])
 let selectedGroupId = null; // 当前选中的 group pill（null = 显示未归组公司）
 let isMultipleChoiceMode = false; // "Multiple Choice" 模式：勾选公司分配到选中的 group
 
+// ==========================================================================
+// Chips with Overflow — shared renderer
+// MAX_VISIBLE: 最多显示几个普通 chip，超出部分折叠为 "+N" chip
+// ==========================================================================
+const MAX_VISIBLE = 3;
+
+/**
+ * 将公司列表渲染为带折叠的 chip 组 HTML 字符串。
+ * @param {string[]} companyList  - 公司代号字符串数组，例如 ['MON','THU','TT',...]
+ * @param {Array}    companiesFull - 完整公司对象数组（含 expiration_date），可为空
+ * @returns {string} HTML 字符串
+ */
+function renderChipsHTML(companyList, companiesFull) {
+    if (!companyList || companyList.length === 0) return '-';
+
+    const visible = companyList.slice(0, MAX_VISIBLE);
+    const hidden  = companyList.slice(MAX_VISIBLE);
+
+    const visibleHTML = visible.map(function(companyId) {
+        const companyIdTrim = companyId.trim();
+        const companyInfo = (companiesFull || []).find(function(c) { return c.company_id === companyIdTrim; });
+        const expDate = companyInfo ? companyInfo.expiration_date : null;
+        const expAttr = expDate ? ' data-exp="' + expDate + '"' : '';
+        return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
+    }).join('');
+
+    let moreHTML = '';
+    if (hidden.length > 0) {
+        const hiddenNames = hidden.map(function(id) { return id.trim(); }).join(', ');
+        moreHTML = '<span class="chip-more" title="' + hiddenNames + '">+' + hidden.length + '</span>';
+    }
+
+    return '<div class="chip-group">' + visibleHTML + moreHTML + '</div>';
+}
+
 // 计算到期日期
 // startDate: 可选的起始日期（YYYY-MM-DD格式），如果提供则从该日期开始计算，否则从今天开始
 function calculateExpirationDate(period, startDate = null) {
@@ -2030,16 +2065,7 @@ function addDomainCard(domainData) {
     let companiesHTML = '-';
     if (domainData.companies && domainData.companies !== '-') {
         const companyList = domainData.companies.split(', ');
-        
-        let chipsHTML = companyList.map((companyId) => {
-            const companyIdTrim = companyId.trim();
-            const companyInfo = companiesFull.find(c => c.company_id === companyIdTrim);
-            const expDate = companyInfo ? companyInfo.expiration_date : null;
-            const expAttr = expDate ? ' data-exp="' + expDate + '"' : '';
-            return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
-        }).join('');
-        
-        companiesHTML = `<div class="chip-group" style="flex-wrap: wrap;">${chipsHTML}</div>`;
+        companiesHTML = renderChipsHTML(companyList, companiesFull);
     }
     
     const companiesDataAttr = JSON.stringify(companiesFull);
@@ -2087,16 +2113,7 @@ function updateDomainCard(domainData) {
     if (domainData.companies && domainData.companies !== '-') {
         const companiesFull = domainData.companies_full || [];
         const companyList = domainData.companies.split(', ');
-        
-        let chipsHTML = companyList.map((companyId) => {
-            const companyIdTrim = companyId.trim();
-            const companyInfo = companiesFull.find(c => c.company_id === companyIdTrim);
-            const expDate = companyInfo ? companyInfo.expiration_date : null;
-            const expAttr = expDate ? ' data-exp="' + expDate + '"' : '';
-            return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
-        }).join('');
-        
-        companiesHTML = `<div class="chip-group" style="flex-wrap: wrap;">${chipsHTML}</div>`;
+        companiesHTML = renderChipsHTML(companyList, companiesFull);
     }
     
     // 更新各列数据（保持序号不变）
