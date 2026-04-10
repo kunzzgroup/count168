@@ -33,26 +33,37 @@ function fetchCompanies() {
     loaderWrap.appendChild(document.createElement('div')).className = 'own-loader';
     container.appendChild(loaderWrap);
 
-    fetch('api/ownership/get_companies_api.php')
-        .then(res => res.json())
-        .then(res => {
-            if (res.status === 'success') {
-                companiesData = res.data;
-                // Extract unique non-empty group_ids for the join-group dropdown
-                allGroupIds = [...new Set(
-                    companiesData
-                        .map(c => c.group_id)
-                        .filter(g => g && g.trim() !== '')
-                )].sort();
-                renderCompanyCards();
-            } else {
-                showToast(res.message, 'error');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            showToast('Failed to fetch companies', 'error');
-        });
+
+    // Fetch session-filtered companies (respects dashboard group/independent context) AND
+    // all companies in parallel to extract available group IDs for the dropdown.
+    Promise.all([
+        fetch('api/ownership/get_companies_api.php').then(r => r.json()),
+        fetch('api/transactions/get_owner_companies_api.php?all=1').then(r => r.json())
+    ])
+    .then(([filteredRes, allRes]) => {
+        if (filteredRes.status === 'success') {
+            companiesData = filteredRes.data;
+        } else {
+            showToast(filteredRes.message, 'error');
+            container.innerHTML = '';
+            return;
+        }
+
+        // Extract unique group_ids from FULL list so "+ Group" dropdown shows all options,
+        // even when currently viewing the independent (ungrouped) view.
+        const allCompanies = (allRes.success && Array.isArray(allRes.data)) ? allRes.data : [];
+        allGroupIds = [...new Set(
+            allCompanies
+                .map(c => c.group_id)
+                .filter(g => g && g.trim() !== '')
+        )].sort();
+
+        renderCompanyCards();
+    })
+    .catch(err => {
+        console.error(err);
+        showToast('Failed to fetch companies', 'error');
+    });
 }
 
 // ---------------------------------------------
