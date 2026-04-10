@@ -143,13 +143,10 @@ try {
                         <?php 
                         if (!empty($domain['companies'])) {
                             $companyList = explode(', ', $domain['companies']);
-                            $maxVisible = 3;
-                            $visible    = array_slice($companyList, 0, $maxVisible);
-                            $hidden     = array_slice($companyList, $maxVisible);
                             
-                            echo '<div class="chip-group">';
-                            // 渲染可见项
-                            foreach ($visible as $companyId) {
+                            echo '<div class="chip-group" style="flex-wrap: wrap;">';
+                            // 渲染所有项
+                            foreach ($companyList as $companyId) {
                                 $companyId = trim($companyId);
                                 $expDate = null;
                                 if (!empty($domain['companies_full'])) {
@@ -162,11 +159,6 @@ try {
                                 }
                                 $expAttr = $expDate ? ' data-exp="' . htmlspecialchars($expDate) . '"' : '';
                                 echo '<span class="chip company-badge"' . $expAttr . '>' . htmlspecialchars($companyId) . '</span>';
-                            }
-                            // 渲染 +N chip
-                            if (!empty($hidden)) {
-                                $hiddenNames = implode(', ', array_map('trim', $hidden));
-                                echo '<span class="chip-more" title="' . htmlspecialchars($hiddenNames) . '">+' . count($hidden) . '</span>';
                             }
                             echo '</div>';
                         } else {
