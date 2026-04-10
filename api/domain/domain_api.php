@@ -525,9 +525,16 @@ function domainApiEnsureAccountDefaultCurrency(PDO $pdo, int $accountId, int $co
     }
 
     try {
-        // 若该账号已绑定任何币别，则不覆盖（保持用户自定义）
-        $chk = $pdo->prepare("SELECT COUNT(*) FROM account_currency WHERE account_id = ?");
-        $chk->execute([$accountId]);
+        // 若该账号已绑定过“本公司”的任一币别，则不覆盖（保持用户自定义）。
+        // 注意：account_currency 没有 company_id，因此要 join currency 来限定 company。
+        $chk = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM account_currency ac
+            INNER JOIN currency c ON ac.currency_id = c.id
+            WHERE ac.account_id = ?
+              AND c.company_id = ?
+        ");
+        $chk->execute([$accountId, $companyPk]);
         if ((int)$chk->fetchColumn() > 0) {
             return;
         }
@@ -550,8 +557,13 @@ function domainApiEnsureAccountDefaultCurrency(PDO $pdo, int $accountId, int $co
             return;
         }
 
-        $ins = $pdo->prepare("INSERT INTO account_currency (account_id, currency_id) VALUES (?, ?)");
-        $ins->execute([$accountId, $curId]);
+        // 避免重复插入
+        $chk2 = $pdo->prepare("SELECT 1 FROM account_currency WHERE account_id = ? AND currency_id = ? LIMIT 1");
+        $chk2->execute([$accountId, $curId]);
+        if ($chk2->fetchColumn() === false) {
+            $ins = $pdo->prepare("INSERT INTO account_currency (account_id, currency_id) VALUES (?, ?)");
+            $ins->execute([$accountId, $curId]);
+        }
     } catch (PDOException $e) {
         // 忽略重复/兼容性错误
     }
