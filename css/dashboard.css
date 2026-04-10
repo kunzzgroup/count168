@@ -217,6 +217,7 @@ body.dashboard-page {
     flex-shrink: 0;
     color: inherit;
     font-size: clamp(20px, 1.6vw, 24px);
+    order: -1; /* Explicitly move icon to the top */
 }
 
 /* === 语义色彩修饰 === */
@@ -239,7 +240,9 @@ body.dashboard-page {
 /* Earnings 卡片 — 右上角独立 (top-row 内) */
 #earnings-card-wrapper {
     flex-shrink: 0;
-    min-width: clamp(240px, 15vw, 320px); /* 增加了宽度 */
+    /* 精确计算 3等分网格中最后一列的宽度：(100% - 2个gap) / 3 */
+    width: calc((100% - 2 * clamp(12px, 1.5vw, 20px)) / 3);
+    min-width: 0; /* 取消之前的最小宽度限制，让它完全跟随 NET PROFIT 的宽度 */
 }
 
 /* 图表区域 - 占满剩余高度 */
