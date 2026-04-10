@@ -545,6 +545,132 @@ function isC168Company(PDO $pdo, $company_id): bool {
     }
 }
 
+function domainApiHasAccountLinkTable(PDO $pdo): bool {
+    try {
+        return $pdo->query("SHOW TABLES LIKE 'account_link'")->rowCount() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * 与 account_link_api 一致：双向关联，account_id_1 < account_id_2
+ */
+function domainApiLinkAccountsBidirectional(PDO $pdo, int $account_id_1, int $account_id_2, int $company_id): void {
+    if ($account_id_1 === $account_id_2 || $account_id_1 <= 0 || $account_id_2 <= 0 || $company_id <= 0) {
+        return;
+    }
+    if (!domainApiHasAccountLinkTable($pdo)) {
+        return;
+    }
+    $a1 = $account_id_1;
+    $a2 = $account_id_2;
+    if ($a1 > $a2) {
+        [$a1, $a2] = [$a2, $a1];
+    }
+    $stmt = $pdo->prepare("SELECT id FROM account_link WHERE account_id_1 = ? AND account_id_2 = ? AND company_id = ?");
+    $stmt->execute([$a1, $a2, $company_id]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    $link_type = 'bidirectional';
+    $source = null;
+    $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
+    $has_link_type = $check_column_stmt && $check_column_stmt->rowCount() > 0;
+    if ($existing) {
+        if ($has_link_type) {
+            $updateStmt = $pdo->prepare("UPDATE account_link SET link_type = ?, source_account_id = ? WHERE id = ?");
+            $updateStmt->execute([$link_type, $source, $existing['id']]);
+        }
+        return;
+    }
+    if ($has_link_type) {
+        $ins = $pdo->prepare("INSERT INTO account_link (account_id_1, account_id_2, company_id, link_type, source_account_id) VALUES (?, ?, ?, ?, ?)");
+        $ins->execute([$a1, $a2, $company_id, $link_type, $source]);
+    } else {
+        $ins = $pdo->prepare("INSERT INTO account_link (account_id_1, account_id_2, company_id) VALUES (?, ?, ?)");
+        $ins->execute([$a1, $a2, $company_id]);
+    }
+}
+
+function domainApiMemberRoleAllowed(PDO $pdo): bool {
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM role WHERE LOWER(code) = LOWER(?)");
+        $stmt->execute(['MEMBER']);
+        return $stmt->fetchColumn() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * C168 在 Add Domain 时为公司代码创建 MEMBER 账户：挂在当前 C168 公司 account list，并关联主账号 C168（account_link）。
+ * 密码明文 111，与 login_process.php member 校验一致。
+ */
+function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168NumericCompanyId, string $ownerDisplayName, array $companyIdStrings): void {
+    if ($c168NumericCompanyId <= 0 || empty($companyIdStrings)) {
+        return;
+    }
+    if (!domainApiMemberRoleAllowed($pdo)) {
+        return;
+    }
+
+    $parentStmt = $pdo->prepare("
+        SELECT a.id FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND UPPER(a.account_id) = 'C168'
+        LIMIT 1
+    ");
+    $parentStmt->execute([$c168NumericCompanyId]);
+    $parentAccountId = (int) ($parentStmt->fetchColumn() ?: 0);
+
+    $existsStmt = $pdo->prepare("
+        SELECT COUNT(*) FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND UPPER(a.account_id) = UPPER(?)
+    ");
+    $insertStmt = $pdo->prepare("
+        INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
+        VALUES (?, ?, 'MEMBER', '111', 0, NULL, NULL, NULL, NULL, 'active', NULL)
+    ");
+    $linkCoStmt = $pdo->prepare("INSERT INTO account_company (account_id, company_id) VALUES (?, ?)");
+
+    foreach ($companyIdStrings as $raw) {
+        $cid = strtoupper(trim((string) $raw));
+        if ($cid === '') {
+            continue;
+        }
+        $existsStmt->execute([$c168NumericCompanyId, $cid]);
+        if ((int) $existsStmt->fetchColumn() > 0) {
+            continue;
+        }
+        try {
+            $insertStmt->execute([$cid, $ownerDisplayName]);
+            $newAccId = (int) $pdo->lastInsertId();
+            if ($newAccId <= 0) {
+                continue;
+            }
+            try {
+                $linkCoStmt->execute([$newAccId, $c168NumericCompanyId]);
+            } catch (PDOException $e) {
+                if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
+                    throw $e;
+                }
+            }
+            if ($parentAccountId > 0) {
+                try {
+                    domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $newAccId, $c168NumericCompanyId);
+                } catch (PDOException $e) {
+                    error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
+                }
+            }
+        } catch (PDOException $e) {
+            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                continue;
+            }
+            throw $e;
+        }
+    }
+}
+
 /**
  * 根据 owner_id 获取 owner 及其公司列表（含到期日）
  */
@@ -652,9 +778,35 @@ try {
                         }
                     }
                 }
-                
+
+                $provisionCompanyIds = [];
+                if (!empty($companies)) {
+                    $provParse = json_decode($companies, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($provParse)) {
+                        foreach ($provParse as $row) {
+                            $c = strtoupper(trim($row['company_id'] ?? ''));
+                            if ($c !== '') {
+                                $provisionCompanyIds[] = $c;
+                            }
+                        }
+                    } else {
+                        foreach (array_map('trim', explode(',', $companies)) as $c) {
+                            if ($c !== '') {
+                                $provisionCompanyIds[] = strtoupper($c);
+                            }
+                        }
+                    }
+                }
+                $provisionCompanyIds = array_values(array_unique($provisionCompanyIds));
+                if (!empty($provisionCompanyIds) && isset($hasC168Context) && $hasC168Context && $isOwnerOrAdmin) {
+                    $sessCo = (int) ($_SESSION['company_id'] ?? 0);
+                    if ($sessCo > 0 && isC168Company($pdo, $sessCo)) {
+                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $sessCo, $name, $provisionCompanyIds);
+                    }
+                }
+
                 $pdo->commit();
-                
+
                 $owner = getOwnerWithCompanies($pdo, $owner_id);
                 echo json_encode([
                     'success' => true,
@@ -941,6 +1093,23 @@ try {
                             $company_data['group_id'],
                             $fee_share_json
                         ]);
+                    }
+                }
+
+                $provisionFromUpdate = [];
+                if (!empty($companies_to_add)) {
+                    foreach ($companies_to_add as $company_data) {
+                        $c = strtoupper(trim($company_data['company_id'] ?? ''));
+                        if ($c !== '') {
+                            $provisionFromUpdate[] = $c;
+                        }
+                    }
+                }
+                $provisionFromUpdate = array_values(array_unique($provisionFromUpdate));
+                if (!empty($provisionFromUpdate) && isset($hasC168Context) && $hasC168Context && $isOwnerOrAdmin) {
+                    $sessCo = (int) ($_SESSION['company_id'] ?? 0);
+                    if ($sessCo > 0 && isC168Company($pdo, $sessCo)) {
+                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $sessCo, $name, $provisionFromUpdate);
                     }
                 }
                 
