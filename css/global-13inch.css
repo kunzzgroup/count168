@@ -102,8 +102,8 @@
     .datacapture-table-header,
     .member-table-header {
         font-size: 14px !important;
-        padding-top: 12px !important;
-        padding-bottom: 12px !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
     }
 
     .table-header .header-item,
@@ -231,6 +231,14 @@
        Bank 有 5 个 checkbox，label 14px + checkbox 16px + search 250px 导致换行
        必须用 !important 覆盖上方的全局 !important 规则（高特异性选择器取胜）
        ---------------------------------------------------- */
+
+    /* 全局 h1/page-title { margin-bottom: 20px !important } 会覆盖 h1 的 inline margin:0
+       在 Bank 页面 h1 下方偷偷多占 20px，必须归零 */
+    .process-page.process-page--bank .page-title {
+        margin-bottom: 0 !important;
+        margin-top: 0 !important;
+    }
+
     .process-page.process-page--bank .action-controls-row {
         flex-wrap: nowrap !important;
         gap: clamp(4px, 0.45vw, 8px) !important;
