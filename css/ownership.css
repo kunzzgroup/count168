@@ -848,25 +848,33 @@ body {
 .own-group-panel {
     position: absolute;
     right: 0;
-    top: calc(100% + 6px);
+    top: 100%; /* flush directly below button — no gap */
     z-index: 9999;
-    min-width: 130px;
+    min-width: 100%; /* at least as wide as the button */
     background: #fff;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    border: 1.5px solid #059669;
+    border-top: none; /* merges with button bottom border */
+    border-radius: 0 0 8px 8px; /* only bottom corners rounded */
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10);
     overflow: hidden;
     display: none;
 }
 
 .own-group-panel.open {
     display: block;
-    animation: own-panel-open 0.15s ease;
+    animation: own-panel-open 0.12s ease;
 }
 
 @keyframes own-panel-open {
-    from { opacity: 0; transform: translateY(-6px); }
+    from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* When panel is open, flatten the button's bottom corners to connect seamlessly */
+.own-group-btn-wrap:has(.own-group-panel.open) .own-group-join-btn {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent; /* hide bottom border so panel blends in */
 }
 
 /* Each group option inside dropdown */
