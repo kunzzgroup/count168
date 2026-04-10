@@ -813,6 +813,7 @@ body.transaction-page {
 .transaction-modal-body .transaction-table .transaction-history-col-date {
     width: 4%;
     min-width: 120px;
+    white-space: nowrap;
 }
 
 .transaction-modal-body .transaction-table .transaction-history-col-product {
