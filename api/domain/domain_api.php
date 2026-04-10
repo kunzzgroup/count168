@@ -504,6 +504,60 @@ function resolveC168DefaultTransactionCurrencyId(PDO $pdo, int $c168CompanyPk): 
 }
 
 /**
+ * 新增公司后自动创建/挂载 MEMBER 账号时，默认绑定该公司币别（优先 MYR）。
+ * account_currency 没有 company_id，因此通过 currency.company_id 限定。
+ */
+function domainApiEnsureAccountDefaultCurrency(PDO $pdo, int $accountId, int $companyPk, string $preferredCode = 'MYR'): void
+{
+    if ($accountId <= 0 || $companyPk <= 0) {
+        return;
+    }
+    static $hasTable = null;
+    if ($hasTable === null) {
+        try {
+            $hasTable = $pdo->query("SHOW TABLES LIKE 'account_currency'")->rowCount() > 0;
+        } catch (Exception $e) {
+            $hasTable = false;
+        }
+    }
+    if (!$hasTable) {
+        return;
+    }
+
+    try {
+        // 若该账号已绑定任何币别，则不覆盖（保持用户自定义）
+        $chk = $pdo->prepare("SELECT COUNT(*) FROM account_currency WHERE account_id = ?");
+        $chk->execute([$accountId]);
+        if ((int)$chk->fetchColumn() > 0) {
+            return;
+        }
+
+        $curId = null;
+        $st = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? AND UPPER(TRIM(code)) = ? ORDER BY id ASC LIMIT 1");
+        $st->execute([$companyPk, strtoupper(trim($preferredCode))]);
+        $v = $st->fetchColumn();
+        if ($v !== false && $v !== null) {
+            $curId = (int)$v;
+        } else {
+            $st2 = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? ORDER BY id ASC LIMIT 1");
+            $st2->execute([$companyPk]);
+            $v2 = $st2->fetchColumn();
+            if ($v2 !== false && $v2 !== null) {
+                $curId = (int)$v2;
+            }
+        }
+        if (!$curId || $curId <= 0) {
+            return;
+        }
+
+        $ins = $pdo->prepare("INSERT INTO account_currency (account_id, currency_id) VALUES (?, ?)");
+        $ins->execute([$accountId, $curId]);
+    } catch (PDOException $e) {
+        // 忽略重复/兼容性错误
+    }
+}
+
+/**
  * 一次性：客户公司 owner 账户 -> C168 资金池；仅当 Charge on save=On 且尚未写过 DOMAIN_LIST_FEE 标记
  */
 function createDomainListFeePayment(
@@ -1167,6 +1221,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
             $alreadyId = (int) ($findAccIdInC168Stmt->fetchColumn() ?: 0);
             if ($alreadyId > 0) {
                 domainApiForceMemberDefaultsFromDomain($pdo, $alreadyId, $ownerDisplayName);
+                domainApiEnsureAccountDefaultCurrency($pdo, $alreadyId, $c168NumericCompanyId, 'MYR');
                 if ($parentAccountId > 0) {
                     try {
                         domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $alreadyId, $c168NumericCompanyId);
@@ -1192,6 +1247,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                 }
             }
             domainApiForceMemberDefaultsFromDomain($pdo, $existingAccId, $ownerDisplayName);
+            domainApiEnsureAccountDefaultCurrency($pdo, $existingAccId, $c168NumericCompanyId, 'MYR');
             if ($parentAccountId > 0) {
                 try {
                     domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $existingAccId, $c168NumericCompanyId);
@@ -1217,6 +1273,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                 }
             }
             domainApiForceMemberDefaultsFromDomain($pdo, $newAccId, $ownerDisplayName);
+            domainApiEnsureAccountDefaultCurrency($pdo, $newAccId, $c168NumericCompanyId, 'MYR');
             if ($parentAccountId > 0) {
                 try {
                     domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $newAccId, $c168NumericCompanyId);
@@ -1239,6 +1296,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                         }
                     }
                     domainApiForceMemberDefaultsFromDomain($pdo, $retryId, $ownerDisplayName);
+                    domainApiEnsureAccountDefaultCurrency($pdo, $retryId, $c168NumericCompanyId, 'MYR');
                     $syncListPerm($retryId, $cid);
                 }
                 continue;

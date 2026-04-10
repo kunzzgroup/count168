@@ -244,7 +244,6 @@ function buildVirtualDomainCompanyHistory(
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
-              AND t.currency_id IS NOT NULL
               AND t.sms LIKE ?";
     $params = [$companyId, $dateFromDb, $dateToDb, "[DOMAIN_LIST_FEE|{$src}]%"];
     if ($currencyId !== null && $currencyId > 0) {
@@ -278,9 +277,12 @@ function buildVirtualDomainCompanyHistory(
     $history = [];
     $running = 0.0;
     $displayCurrency = '-';
-    if (!empty($rows)) {
-        $firstCid = (int)($rows[0]['currency_id'] ?? 0);
-        $displayCurrency = $currencyById[$firstCid] ?? '-';
+    if ($currencyId !== null && $currencyId > 0) {
+        $displayCurrency = $currencyById[$currencyId] ?? '-';
+    } elseif (!empty($rows)) {
+        $firstCidRaw = $rows[0]['currency_id'] ?? null;
+        $firstCid = $firstCidRaw !== null ? (int)$firstCidRaw : 0;
+        $displayCurrency = ($firstCid > 0 ? ($currencyById[$firstCid] ?? '-') : '-');
     }
     $history[] = [
         'date' => 'B/F',
@@ -302,8 +304,9 @@ function buildVirtualDomainCompanyHistory(
     ];
 
     foreach ($rows as $r) {
-        $cid = (int)($r['currency_id'] ?? 0);
-        $cur = $currencyById[$cid] ?? $displayCurrency;
+        $cidRaw = $r['currency_id'] ?? null;
+        $cid = $cidRaw !== null ? (int)$cidRaw : 0;
+        $cur = ($cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency);
         $amt = round((float)($r['amount'] ?? 0), 2);
         if (abs($amt) < 0.00001) {
             continue;
