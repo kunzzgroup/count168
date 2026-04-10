@@ -2479,6 +2479,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             fetch('api/domain/domain_api.php', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                 },
