@@ -33,11 +33,11 @@ function renderChipsHTML(companyList, companiesFull) {
     if (!companyList || companyList.length === 0) return '-';
 
     const visible = companyList.slice(0, MAX_VISIBLE);
-    const hidden  = companyList.slice(MAX_VISIBLE);
+    const hidden = companyList.slice(MAX_VISIBLE);
 
-    const visibleHTML = visible.map(function(companyId) {
+    const visibleHTML = visible.map(function (companyId) {
         const companyIdTrim = companyId.trim();
-        const companyInfo = (companiesFull || []).find(function(c) { return c.company_id === companyIdTrim; });
+        const companyInfo = (companiesFull || []).find(function (c) { return c.company_id === companyIdTrim; });
         const expDate = companyInfo ? companyInfo.expiration_date : null;
         const expAttr = expDate ? ' data-exp="' + expDate + '"' : '';
         return '<span class="chip company-badge"' + expAttr + '>' + companyIdTrim + '</span>';
@@ -45,7 +45,7 @@ function renderChipsHTML(companyList, companiesFull) {
 
     let moreHTML = '';
     if (hidden.length > 0) {
-        const hiddenNames = hidden.map(function(id) { return id.trim(); }).join(', ');
+        const hiddenNames = hidden.map(function (id) { return id.trim(); }).join(', ');
         moreHTML = '<span class="chip-more" title="' + hiddenNames + '">+' + hidden.length + '</span>';
     }
 
@@ -63,10 +63,10 @@ function calculateExpirationDate(period, startDate = null) {
         // 如果没有提供起始日期，从今天开始计算
         baseDate = new Date();
     }
-    
+
     const expDate = new Date(baseDate);
-    
-    switch(period) {
+
+    switch (period) {
         case '7days':
             expDate.setDate(baseDate.getDate() + 7);
             break;
@@ -85,7 +85,7 @@ function calculateExpirationDate(period, startDate = null) {
         default:
             expDate.setMonth(baseDate.getMonth() + 1);
     }
-    
+
     return expDate.toISOString().split('T')[0]; // 返回 YYYY-MM-DD 格式
 }
 
@@ -99,15 +99,15 @@ function formatDate(dateString) {
 // 计算倒计时
 function calculateCountdown(expirationDate) {
     if (!expirationDate) return null;
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const exp = new Date(expirationDate);
     exp.setHours(0, 0, 0, 0);
-    
+
     const diffTime = exp - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) {
         return { text: 'Expired', days: diffDays, status: 'expired' };
     } else if (diffDays === 0) {
@@ -130,17 +130,17 @@ function calculateCountdown(expirationDate) {
 // 初始化分页
 function initializePagination() {
     allRows = Array.from(document.querySelectorAll('#domainTableBody .domain-card'));
-    
+
     // 获取当前搜索过滤的行
     filteredRows = allRows.filter(row => !row.classList.contains('table-row-hidden'));
-    
+
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
-    
+
     // 如果当前页超过总页数，回到第一页
     if (currentPage > totalPages) {
         currentPage = 1;
     }
-    
+
     updatePagination();
     showCurrentPage();
 }
@@ -151,9 +151,9 @@ function showConfirmModal(message, onConfirm) {
     const modal = document.getElementById('confirmModal');
     modal.style.display = 'flex';  // 改为 flex
     document.body.style.overflow = 'hidden';  // 添加这行，禁止背景滚动
-    
+
     // 绑定确认按钮点击事件
-    document.getElementById('confirmDeleteBtn').onclick = function() {
+    document.getElementById('confirmDeleteBtn').onclick = function () {
         closeConfirmModal();
         onConfirm();
     };
@@ -168,7 +168,7 @@ function closeConfirmModal() {
 // 更新分页控件
 function updatePagination() {
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
-    
+
     // 更新分页控件信息
     document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
 
@@ -195,21 +195,21 @@ function showCurrentPage() {
     allRows.forEach(row => {
         row.classList.remove('show-card');
     });
-    
+
     // 计算当前页的起始和结束索引
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
-    
+
     // 显示当前页的行并更新序号
     for (let i = startIndex; i < endIndex && i < filteredRows.length; i++) {
         const row = filteredRows[i];
         row.classList.add('show-card');
-        
+
         // 更新序号
         const rowNumber = startIndex + (i - startIndex) + 1;
         row.querySelector('.card-item').textContent = rowNumber;
     }
-    
+
     // 重新初始化当前页的点击事件
     initializeCompanyClickHandlers();
 }
@@ -217,13 +217,13 @@ function showCurrentPage() {
 // 切换页面
 function changePage(direction) {
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
-    
+
     if (direction === -1 && currentPage > 1) {
         currentPage--;
     } else if (direction === 1 && currentPage < totalPages) {
         currentPage++;
     }
-    
+
     updatePagination();
     showCurrentPage();
 }
@@ -292,47 +292,47 @@ function forceNumeric(input) {
 function setupInputFormatting() {
     const uppercaseInputs = ['owner_code', 'name'];
     const lowercaseInputs = ['email'];
-    
+
     // 处理大写输入框
     uppercaseInputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
             // 输入时转换为大写
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 forceUppercase(this);
             });
-            
+
             // 粘贴时也转换为大写
-            input.addEventListener('paste', function() {
+            input.addEventListener('paste', function () {
                 setTimeout(() => forceUppercase(this), 0);
             });
         }
     });
-    
+
     // 处理小写输入框
     lowercaseInputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
             // 输入时转换为小写
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 forceLowercase(this);
             });
-            
+
             // 粘贴时也转换为小写
-            input.addEventListener('paste', function() {
+            input.addEventListener('paste', function () {
                 setTimeout(() => forceLowercase(this), 0);
             });
         }
     });
-    
+
     // 处理二级密码输入框（只允许数字，最多6位）
     const secondaryPasswordInput = document.getElementById('secondary_password');
     if (secondaryPasswordInput) {
-        secondaryPasswordInput.addEventListener('input', function() {
+        secondaryPasswordInput.addEventListener('input', function () {
             forceNumeric(this);
         });
-        
-        secondaryPasswordInput.addEventListener('paste', function() {
+
+        secondaryPasswordInput.addEventListener('paste', function () {
             setTimeout(() => forceNumeric(this), 0);
         });
     }
@@ -490,18 +490,18 @@ function toggleCompanyGroup(companyId) {
 function addCompanyToList() {
     const input = document.getElementById('companyInput');
     const companyId = input.value.trim().toUpperCase();
-    
+
     if (!companyId) {
         showAlert('Please enter a company ID', 'danger');
         return;
     }
-    
+
     // 检查是否已存在
     if (tempCompanies.some(c => c.company_id === companyId)) {
         showAlert('Company ID already added', 'danger');
         return;
     }
-    
+
     // 添加新公司，C168不需要设置到期日期
     const isC168 = companyId === 'C168';
     const today = new Date().toISOString().split('T')[0]; // 今天的日期 YYYY-MM-DD
@@ -515,11 +515,11 @@ function addCompanyToList() {
         group_id: selectedGroupId || null, // 新添加的公司默认是独立的，如果有选中group则归入该group
         fee_share_allocations: defaultFeeShareAllocations()
     });
-    
+
     if (selectedGroupId) {
         updateGroupPills();
     }
-    
+
     updateCompanyDisplay();
     input.value = '';
 }
@@ -979,14 +979,14 @@ function openCompanyExpDateModal(companyId) {
     const company = tempCompanies.find(c => c.company_id === companyId);
     if (!company) return;
     ensureCompanyFeeShare(company);
-    
+
     currentEditingCompanyId = companyId;
     // 保存打开时的完整状态，Cancel 时还原为此状态
     companySnapshotWhenModalOpened = JSON.parse(JSON.stringify(company));
-    
+
     // 设置公司名称
     document.getElementById('expDateCompanyName').textContent = `Company: ${company.company_id}`;
-    
+
     // 若本会话内已保存过权限，优先用 tempCompanies 中的显示，避免“再点回去全部点完”
     if (company.permissions && Array.isArray(company.permissions)) {
         const perms = company.permissions;
@@ -999,11 +999,11 @@ function openCompanyExpDateModal(companyId) {
     } else {
         loadCompanyPermissions(company.company_id);
     }
-    
+
     // 设置开始日期
     const startDate = company.startDate || new Date().toISOString().split('T')[0];
     document.getElementById('expDateStartDate').value = startDate;
-    
+
     // 设置是否禁用开始日期（续上时间时禁用）
     const startDateInput = document.getElementById('expDateStartDate');
     if (company.isExtending) {
@@ -1015,10 +1015,10 @@ function openCompanyExpDateModal(companyId) {
         document.getElementById('expDateStartDateHelp').textContent = 'Select the start date for calculating expiration date';
         document.getElementById('expDateStartDateHelp').style.color = '#64748b';
     }
-    
+
     // Period 默认显示 "Select Period"；只有用户手动选择具体期限时才在保存时更新到期日，避免仅改权限时误加 period
     document.getElementById('expDatePeriod').value = '';
-    
+
     // 如果已经有到期日期，直接显示；否则根据选择的period计算
     const displayElement = document.getElementById('expDateDisplay');
     if (company.expiration_date) {
@@ -1028,17 +1028,17 @@ function openCompanyExpDateModal(companyId) {
         // 更新到期日期显示（根据选择的period计算）
         updateExpDateDisplay();
     }
-    
+
     // 添加事件监听器
-    document.getElementById('expDateStartDate').onchange = function() {
+    document.getElementById('expDateStartDate').onchange = function () {
         if (!company.isExtending) {
             updateExpDateDisplay();
         }
     };
-    document.getElementById('expDatePeriod').onchange = function() {
+    document.getElementById('expDatePeriod').onchange = function () {
         updateExpDateDisplay();
     };
-    
+
     // 显示弹窗（左右分栏同时展示 Company 与 Share %）
     document.getElementById('companyExpDateModal').style.display = 'block';
     var chargeToggle = document.getElementById('companyShareChargeToggle');
@@ -1067,13 +1067,13 @@ function closeCompanyExpDateModal(restore = false) {
 // 更新到期日期显示（在弹窗中）；同时同步到 company，避免勾选/取消 permission 时丢失到期日
 function updateExpDateDisplay() {
     if (!currentEditingCompanyId) return;
-    
+
     const company = tempCompanies.find(c => c.company_id === currentEditingCompanyId);
     if (!company) return;
-    
+
     const startDate = document.getElementById('expDateStartDate').value;
     const period = document.getElementById('expDatePeriod').value;
-    
+
     let expDate = null;
     if (period) {
         if (company.isExtending) {
@@ -1084,10 +1084,10 @@ function updateExpDateDisplay() {
             expDate = calculateExpirationDate(period, baseDate);
         }
     }
-    
+
     company.expiration_date = expDate || null;
     company.selectedPeriod = period || null;
-    
+
     const displayElement = document.getElementById('expDateDisplay');
     if (expDate) {
         displayElement.textContent = formatDate(expDate);
@@ -1111,29 +1111,29 @@ function loadCompanyPermissions(companyId) {
             company_id: companyId
         })
     })
-    .then(response => response.json())
-    .then(data => {
-        const permissions = (data.success && data.data && Array.isArray(data.data.permissions)) ? data.data.permissions : [];
-        document.getElementById('permissionGambling').checked = permissions.includes('Games');
-        document.getElementById('permissionBank').checked = permissions.includes('Bank');
-        document.getElementById('permissionLoan').checked = permissions.includes('Loan');
-        document.getElementById('permissionRate').checked = permissions.includes('Rate');
-        document.getElementById('permissionMoney').checked = permissions.includes('Money');
-        updatePermissionDisplay();
-        const company = tempCompanies.find(c => c.company_id === companyId);
-        if (company) company.permissions = permissions.slice();
-    })
-    .catch(error => {
-        console.error('Error loading permissions:', error);
-        const company = tempCompanies.find(c => c.company_id === companyId);
-        if (company) company.permissions = [];
-        document.getElementById('permissionGambling').checked = false;
-        document.getElementById('permissionBank').checked = false;
-        document.getElementById('permissionLoan').checked = false;
-        document.getElementById('permissionRate').checked = false;
-        document.getElementById('permissionMoney').checked = false;
-        updatePermissionDisplay();
-    });
+        .then(response => response.json())
+        .then(data => {
+            const permissions = (data.success && data.data && Array.isArray(data.data.permissions)) ? data.data.permissions : [];
+            document.getElementById('permissionGambling').checked = permissions.includes('Games');
+            document.getElementById('permissionBank').checked = permissions.includes('Bank');
+            document.getElementById('permissionLoan').checked = permissions.includes('Loan');
+            document.getElementById('permissionRate').checked = permissions.includes('Rate');
+            document.getElementById('permissionMoney').checked = permissions.includes('Money');
+            updatePermissionDisplay();
+            const company = tempCompanies.find(c => c.company_id === companyId);
+            if (company) company.permissions = permissions.slice();
+        })
+        .catch(error => {
+            console.error('Error loading permissions:', error);
+            const company = tempCompanies.find(c => c.company_id === companyId);
+            if (company) company.permissions = [];
+            document.getElementById('permissionGambling').checked = false;
+            document.getElementById('permissionBank').checked = false;
+            document.getElementById('permissionLoan').checked = false;
+            document.getElementById('permissionRate').checked = false;
+            document.getElementById('permissionMoney').checked = false;
+            updatePermissionDisplay();
+        });
 }
 
 // 更新权限显示（勾选/取消 permission 时保持 Expiration Date 区域可见且内容不丢失）
@@ -1175,13 +1175,13 @@ function updatePermissionDisplay() {
 // 保存到期日期设置
 function saveCompanyExpDate() {
     if (!currentEditingCompanyId) return;
-    
+
     const company = tempCompanies.find(c => c.company_id === currentEditingCompanyId);
     if (!company) return;
-    
+
     const startDate = document.getElementById('expDateStartDate').value;
     const period = document.getElementById('expDatePeriod').value;
-    
+
     // 如果选择了 period，则计算到期日期；否则保持原有或清空
     if (period) {
         // 更新公司数据
@@ -1189,7 +1189,7 @@ function saveCompanyExpDate() {
             // 新添加或重置：可以修改开始日期
             company.startDate = startDate || new Date().toISOString().split('T')[0];
         }
-        
+
         // 计算到期日期
         let expDate;
         if (company.isExtending) {
@@ -1201,7 +1201,7 @@ function saveCompanyExpDate() {
             const baseDate = company.startDate || new Date().toISOString().split('T')[0];
             expDate = calculateExpirationDate(period, baseDate);
         }
-        
+
         company.expiration_date = expDate;
         company.selectedPeriod = period;
     } else {
@@ -1213,7 +1213,7 @@ function saveCompanyExpDate() {
             company.startDate = startDate;
         }
     }
-    
+
     // 获取选中的权限
     const permissions = [];
     if (document.getElementById('permissionGambling').checked) permissions.push('Games');
@@ -1224,7 +1224,7 @@ function saveCompanyExpDate() {
     // 存入当前公司，再次打开 Set 时优先用此显示
     company.permissions = permissions.slice();
     syncFeeShareFromDomToCompany(company);
-    
+
     const permReq = fetch('api/domain/domain_api.php', {
         method: 'POST',
         headers: {
@@ -1236,7 +1236,7 @@ function saveCompanyExpDate() {
             permissions: permissions
         })
     }).then(response => response.json());
-    
+
     var chargeOnSave = !!(document.getElementById('companyShareChargeToggle') && document.getElementById('companyShareChargeToggle').checked);
     const shareReq = fetch('api/domain/domain_api.php', {
         method: 'POST',
@@ -1250,7 +1250,7 @@ function saveCompanyExpDate() {
             apply_commission_payments: chargeOnSave
         })
     }).then(response => response.json());
-    
+
     Promise.all([permReq, shareReq])
         .then(function (results) {
             const permData = results[0];
@@ -1286,10 +1286,10 @@ function saveCompanyExpDate() {
 // 在弹窗中重置到期日期
 function resetCompanyExpDateInModal() {
     if (!currentEditingCompanyId) return;
-    
+
     const company = tempCompanies.find(c => c.company_id === currentEditingCompanyId);
     if (!company) return;
-    
+
     // 重置为今天
     const today = new Date().toISOString().split('T')[0];
     company.startDate = today;
@@ -1297,7 +1297,7 @@ function resetCompanyExpDateInModal() {
     company.originalExpirationDate = null;
     company.selectedPeriod = null;
     company.expiration_date = null;
-    
+
     // 更新弹窗中的显示
     document.getElementById('expDateStartDate').value = today;
     document.getElementById('expDateStartDate').disabled = false;
@@ -1306,7 +1306,7 @@ function resetCompanyExpDateInModal() {
     document.getElementById('expDatePeriod').value = '';
     document.getElementById('expDateDisplay').textContent = 'Not set';
     document.getElementById('expDateDisplay').style.color = '#94a3b8';
-    
+
     // 重置权限为全选
     document.getElementById('permissionGambling').checked = true;
     document.getElementById('permissionBank').checked = true;
@@ -1314,7 +1314,7 @@ function resetCompanyExpDateInModal() {
     document.getElementById('permissionRate').checked = true;
     document.getElementById('permissionMoney').checked = true;
     updatePermissionDisplay();
-    
+
     company.fee_share_allocations = defaultFeeShareAllocations();
     renderCompanySharePanel();
     collapseAllShareRoleCards();
@@ -1328,20 +1328,20 @@ function resetCompanyExpDateInModal() {
 // 根据到期日期判断对应的期限选项
 function getPeriodFromDate(expirationDate) {
     if (!expirationDate) return '1month';
-    
+
     const today = new Date();
     const exp = new Date(expirationDate);
     const diffMonths = (exp.getFullYear() - today.getFullYear()) * 12 + (exp.getMonth() - today.getMonth());
-    
+
     // 允许一些误差（±2天）
     const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays >= 360 && diffDays <= 370) return '1year';
     if (diffDays >= 175 && diffDays <= 190) return '6months';
     if (diffDays >= 88 && diffDays <= 95) return '3months';
     if (diffDays >= 28 && diffDays <= 32) return '1month';
     if (diffDays >= 5 && diffDays <= 9) return '7days';
-    
+
     // 默认返回最接近的选项
     if (diffMonths >= 11) return '1year';
     if (diffMonths >= 5) return '6months';
@@ -1351,47 +1351,8 @@ function getPeriodFromDate(expirationDate) {
     return '7days';
 }
 
-// ============ 加入 Group / 取消 Group 功能 ============
-
-// 独立公司「加入 Group」：打开/关闭选择面板
-function openJoinGroupPanel(companyId) {
-    // 收起其他已打开的面板
-    document.querySelectorAll('.join-group-panel').forEach(function(el) {
-        if (el.dataset.for !== companyId) el.style.display = 'none';
-    });
-    const panel = document.getElementById('join-group-panel-' + companyId);
-    if (!panel) return;
-    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-}
-
-// 独立公司「加入 Group」：将公司分配到指定 group
-function joinGroup(companyId, groupId) {
-    const company = tempCompanies.find(c => c.company_id === companyId);
-    if (!company || !groupId) return;
-    company.group_id = groupId;
-    updateGroupPills();
-    updateCompanyDisplay();
-    syncCompaniesHiddenField();
-    showAlert(`"${companyId}" joined group "${groupId}"`);
-}
-
-// 已归组公司「取消 Group」：将公司变回独立
-function ungroupCompany(companyId) {
-    const company = tempCompanies.find(c => c.company_id === companyId);
-    if (!company) return;
-    const oldGroup = company.group_id;
-    company.group_id = null;
-    updateGroupPills();
-    updateCompanyDisplay();
-    syncCompaniesHiddenField();
-    showAlert(`"${companyId}" ungrouped from "${oldGroup}"`);
-}
-
 function updateCompanyDisplay() {
     const container = document.getElementById('companyItems');
-    
-    // 更新标题行的上下文按钮
-    _updateCompanyHeaderBtn();
 
     if (tempCompanies.length === 0) {
         container.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies added yet</span>';
@@ -1415,7 +1376,7 @@ function updateCompanyDisplay() {
             const assignableCandidates = tempCompanies.filter(c => {
                 return c.company_id.toUpperCase() !== 'C168' && (!c.group_id || c.group_id === selectedGroupId);
             });
-            
+
             const sortedCandidates = [...assignableCandidates].sort((a, b) => {
                 return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
             });
@@ -1435,7 +1396,7 @@ function updateCompanyDisplay() {
             if (sortedCandidates.length === 0) {
                 container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No ungrouped companies available</span>';
             }
-            
+
             syncCompaniesHiddenField();
             return;
         }
@@ -1450,22 +1411,18 @@ function updateCompanyDisplay() {
         });
 
         if (sortedCompanies.length === 0) {
-            const msg = selectedGroupId 
+            const msg = selectedGroupId
                 ? `No companies in group "${selectedGroupId}". Click "Multiple Choice" to assign.`
                 : 'No ungrouped companies';
             container.innerHTML = `<span style="color: #94a3b8; font-size: 12px;">${msg}</span>`;
             syncCompaniesHiddenField();
             return;
         }
-        
-        // 判断当前是「独立公司视图」还是「group公司视图」
-        const isIndependentView = !selectedGroupId && tempGroups.length > 0;
-        const isGroupView = !!selectedGroupId;
 
         container.innerHTML = sortedCompanies.map(company => {
             const isC168 = company.company_id.toUpperCase() === 'C168';
             const removeButton = isC168 ? '' : `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
-            
+
             // C168不显示到期日期设置按钮
             let expirationControls = '';
             if (!isC168) {
@@ -1477,28 +1434,6 @@ function updateCompanyDisplay() {
                 `;
             }
 
-            // Feature 1：独立公司视图 → 每行加「Join Group」按钮 + 下拉面板
-            let joinGroupBtn = '';
-            if (isIndependentView && !isC168 && tempGroups.length > 0) {
-                const groupOptions = tempGroups.map(gid =>
-                    `<div class="join-group-option" onclick="joinGroup('${company.company_id}','${gid}')">${gid}</div>`
-                ).join('');
-                joinGroupBtn = `
-                    <div class="join-group-wrap" style="position:relative;display:inline-block;">
-                        <button type="button" class="company-join-group-btn" onclick="openJoinGroupPanel('${company.company_id}')" title="Join a group">+ Group</button>
-                        <div id="join-group-panel-${company.company_id}" class="join-group-panel" data-for="${company.company_id}" style="display:none;">
-                            ${groupOptions}
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Feature 2：group公司视图 → 每行加「Ungroup」按钮
-            let ungroupBtn = '';
-            if (isGroupView && !isC168) {
-                ungroupBtn = `<button type="button" class="company-ungroup-btn" onclick="ungroupCompany('${company.company_id}')" title="Remove from group">Ungroup</button>`;
-            }
-            
             return `
                 <div class="company-item">
                     <div class="company-item-left">
@@ -1506,58 +1441,15 @@ function updateCompanyDisplay() {
                     </div>
                     <div class="company-item-right">
                         ${expirationControls}
-                        ${joinGroupBtn}
-                        ${ungroupBtn}
                         ${removeButton}
                     </div>
                 </div>
             `;
         }).join('');
 
-        // 点击其他地方关闭 join-group-panel
-        document.querySelectorAll('#companyItems .join-group-panel').forEach(function(panel) {
-            panel.addEventListener('mouseleave', function() {
-                // do not auto-close on mouse leave; let button toggle handle it
-            });
-        });
-        
         // 同步 hidden 字段，确保表单提交时数据正确
         syncCompaniesHiddenField();
     }
-}
-
-// 更新标题行的上下文动作按钮（Feature 1/2 的标题区按钮）
-function _updateCompanyHeaderBtn() {
-    // 移除旧的上下文按钮（避免重复插入）
-    const oldCtx = document.getElementById('companyHeaderCtxBtn');
-    if (oldCtx) oldCtx.remove();
-
-    const header = document.querySelector('.selected-companies-header');
-    if (!header) return;
-
-    // Feature 2：在群组视图中，标题右侧显示「Ungroup All」按钮
-    if (selectedGroupId && tempGroups.length > 0) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.id = 'companyHeaderCtxBtn';
-        btn.className = 'badge-multi';
-        btn.style.cssText = 'background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%); border: none; cursor: pointer; margin-left: 6px;';
-        btn.title = 'Ungroup all companies in this group';
-        btn.textContent = 'Ungroup All';
-        btn.onclick = function() {
-            const inGroup = tempCompanies.filter(c => c.group_id === selectedGroupId && c.company_id.toUpperCase() !== 'C168');
-            if (inGroup.length === 0) { showAlert('No companies to ungroup', 'danger'); return; }
-            inGroup.forEach(c => { c.group_id = null; });
-            updateGroupPills();
-            updateCompanyDisplay();
-            syncCompaniesHiddenField();
-            showAlert(`All companies ungrouped from "${selectedGroupId}"`);
-        };
-        header.appendChild(btn);
-        return;
-    }
-
-    // Feature 1：在独立公司视图中，标题右侧无需额外按钮（每行已有「+ Group」）
 }
 
 // 同步 selectedCompanies 和 hidden field（表单提交前调用）
@@ -1576,7 +1468,7 @@ function syncCompaniesFromTemp() {
         group_id: c.group_id || null,
         fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
     }));
-    
+
     // 处理没有任何公司的 group，使其也能被保存
     const groupsWithCompanies = new Set(selectedCompanies.map(c => c.group_id).filter(g => g));
     tempGroups.forEach(gid => {
@@ -1610,7 +1502,7 @@ function syncCompaniesHiddenField() {
         group_id: c.group_id || null,
         fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
     }));
-    
+
     // 处理没有任何公司的 group
     const groupsWithCompanies = new Set(cleaned.map(c => c.group_id).filter(g => g));
     tempGroups.forEach(gid => {
@@ -1634,24 +1526,24 @@ function updateSelectedCompaniesDisplay() {
 }
 
 // 允许Enter键添加company/group和格式化输入
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const companyInput = document.getElementById('companyInput');
     if (companyInput) {
         // Enter键添加
-        companyInput.addEventListener('keypress', function(e) {
+        companyInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 addCompanyToList();
             }
         });
-        
+
         // 输入时强制大写
-        companyInput.addEventListener('input', function() {
+        companyInput.addEventListener('input', function () {
             forceUppercase(this);
         });
-        
+
         // 粘贴时强制大写
-        companyInput.addEventListener('paste', function() {
+        companyInput.addEventListener('paste', function () {
             setTimeout(() => forceUppercase(this), 0);
         });
     }
@@ -1659,30 +1551,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Group ID input handlers
     const groupInput = document.getElementById('groupInput');
     if (groupInput) {
-        groupInput.addEventListener('keypress', function(e) {
+        groupInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 addGroupToList();
             }
         });
-        groupInput.addEventListener('input', function() {
+        groupInput.addEventListener('input', function () {
             forceUppercase(this);
         });
-        groupInput.addEventListener('paste', function() {
+        groupInput.addEventListener('paste', function () {
             setTimeout(() => forceUppercase(this), 0);
         });
     }
 
     refreshDomainFeeSummaryFromApi();
-
-    // 点击 companies box 外部时，关闭所有 join-group-panel 下拉
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.join-group-wrap')) {
-            document.querySelectorAll('.join-group-panel').forEach(function(p) {
-                p.style.display = 'none';
-            });
-        }
-    });
 });
 
 /** 展示用：固定两位小数 */
@@ -1846,20 +1729,20 @@ function showAlert(message, type = 'success') {
             }
         }, 300);
     }
-    
+
     // 创建新通知
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
-    
+
     // 添加到容器
     container.appendChild(notification);
-    
+
     // 触发显示动画
     setTimeout(() => {
         notification.classList.add('show');
     }, 10);
-    
+
     // 1.5秒后开始消失动画
     setTimeout(() => {
         notification.classList.remove('show');
@@ -1880,13 +1763,13 @@ function openAddModal() {
     document.getElementById('password').required = true;
     document.getElementById('passwordGroup').style.display = 'block';
     document.getElementById('owner_code').disabled = false;
-    
+
     // 添加模式：二级密码必填
     const secondaryPasswordInput = document.getElementById('secondary_password');
     secondaryPasswordInput.required = true;
     secondaryPasswordInput.disabled = false;
     document.getElementById('secondaryPasswordGroup').style.display = 'block';
-    
+
     // 重置companies
     selectedCompanies = [];
     tempCompanies = [];
@@ -1896,7 +1779,7 @@ function openAddModal() {
     document.getElementById('companies').value = '';
     updateGroupPills();
     updateCompanyDisplay();
-    
+
     // 清空 inputs
     const companyInput = document.getElementById('companyInput');
     if (companyInput) companyInput.value = '';
@@ -1904,7 +1787,7 @@ function openAddModal() {
     if (groupInput) groupInput.value = '';
     // 重置 multiple choice 按钮
     resetMultipleChoiceBtn();
-    
+
     document.getElementById('domainModal').style.display = 'block';
     // 设置输入格式化
     setupInputFormatting();
@@ -1915,7 +1798,7 @@ function editDomain(id) {
     document.getElementById('modalTitle').textContent = 'EDIT DOMAIN';
     document.getElementById('password').required = false;
     document.getElementById('passwordGroup').style.display = 'block';
-    
+
     // 编辑模式：只有C168的owner/admin可以修改二级密码
     const secondaryPasswordInput = document.getElementById('secondary_password');
     if (hasC168Context && isOwnerOrAdmin) {
@@ -1929,7 +1812,7 @@ function editDomain(id) {
         secondaryPasswordInput.value = '';
         document.getElementById('secondaryPasswordGroup').style.display = 'none';
     }
-    
+
     // Get domain data from domain card
     const card = document.querySelector(`.domain-card[data-id="${id}"]`);
     const items = card.querySelectorAll('.card-item');
@@ -1939,11 +1822,11 @@ function editDomain(id) {
     document.getElementById('owner_code').disabled = true;
     document.getElementById('name').value = items[2].textContent;
     document.getElementById('email').value = items[3].textContent;
-    
+
     // 清空 company input
     const companyInput = document.getElementById('companyInput');
     if (companyInput) companyInput.value = '';
-    
+
     // 从 API 获取完整的公司信息（包括到期日期）
     fetch(`api/domain/domain_api.php`, {
         method: 'POST',
@@ -1961,7 +1844,7 @@ function editDomain(id) {
             if (data.success && data.data && data.data.companies) {
                 const validCompanies = [];
                 const allGroups = new Set();
-                
+
                 data.data.companies.forEach(c => {
                     if (c.group_id) allGroups.add(c.group_id);
                     if (c.company_id) {
@@ -1987,7 +1870,7 @@ function editDomain(id) {
             selectedCompanies = [];
             initTempCompanies();
         });
-    
+
     document.getElementById('domainModal').style.display = 'block';
     setupInputFormatting();
 }
@@ -2015,22 +1898,22 @@ function toggleDeleteMode() {
     const deleteBtn = document.getElementById('deleteSelectedBtn');
     const checkboxes = document.querySelectorAll('.domain-checkbox');
     const tableContainer = document.querySelector('.table-container');
-    
+
     if (!isDeleteMode) {
         // 进入删除模式
         isDeleteMode = true;
         deleteBtn.textContent = 'Confirm Delete';
         deleteBtn.onclick = deleteSelected;
         deleteBtn.classList.add('active');
-        
+
         // 给表格容器添加删除模式class
         tableContainer.classList.add('delete-mode');
-        
+
         // 显示所有勾选框
         checkboxes.forEach(cb => {
             cb.classList.add('show');
         });
-        
+
         // 添加取消按钮
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'btn btn-cancel';
@@ -2041,7 +1924,7 @@ function toggleDeleteMode() {
         cancelBtn.style.height = '';
         cancelBtn.onclick = exitDeleteMode;
         deleteBtn.parentNode.insertBefore(cancelBtn, deleteBtn.nextSibling);
-        
+
     } else {
         // 执行删除
         deleteSelected();
@@ -2054,22 +1937,22 @@ function exitDeleteMode() {
     const cancelBtn = document.getElementById('cancelDeleteBtn');
     const checkboxes = document.querySelectorAll('.domain-checkbox');
     const tableContainer = document.querySelector('.table-container');
-    
+
     isDeleteMode = false;
     deleteBtn.textContent = 'Delete';
     deleteBtn.onclick = toggleDeleteMode;
     deleteBtn.classList.remove('active');
     deleteBtn.disabled = false;
-    
+
     // 移除删除模式class
     tableContainer.classList.remove('delete-mode');
-    
+
     // 隐藏所有勾选框并取消选中
     checkboxes.forEach(cb => {
         cb.classList.remove('show');
         cb.checked = false;
     });
-    
+
     // 移除取消按钮
     if (cancelBtn) {
         cancelBtn.remove();
@@ -2080,7 +1963,7 @@ function exitDeleteMode() {
 function updateDeleteButton() {
     const selectedCheckboxes = document.querySelectorAll('.domain-checkbox:checked');
     const deleteBtn = document.getElementById('deleteSelectedBtn');
-    
+
     if (selectedCheckboxes.length > 0) {
         deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
         deleteBtn.disabled = false;
@@ -2095,7 +1978,7 @@ function cardHasProtectedCompany(card) {
     if (!card) return false;
     const companiesColumn = card.querySelector('.companies-column');
     if (!companiesColumn) return false;
-    
+
     // 优先从 data-companies 属性中解析 company_id
     try {
         const dataAttr = companiesColumn.getAttribute('data-companies');
@@ -2108,7 +1991,7 @@ function cardHasProtectedCompany(card) {
     } catch (err) {
         console.warn('Error parsing companies data for delete protection:', err);
     }
-    
+
     // 回退：从文本内容中解析 company 列（例如 "95, C168, KZ"）
     const text = (companiesColumn.textContent || '').toUpperCase();
     return text.split(',').some(id => id.trim() === 'C168');
@@ -2117,41 +2000,41 @@ function cardHasProtectedCompany(card) {
 // 删除选中的域
 function deleteSelected() {
     const selectedCheckboxes = document.querySelectorAll('.domain-checkbox:checked');
-    
+
     if (selectedCheckboxes.length === 0) {
         showAlert('Please select owners to delete first', 'danger');
         return;
     }
-    
+
     // 过滤掉包含受保护 Company ID（C168）的账号
     const invalidCheckboxes = Array.from(selectedCheckboxes).filter(cb => {
         const card = cb.closest('.domain-card');
         return cardHasProtectedCompany(card);
     });
-    
+
     const validCheckboxes = Array.from(selectedCheckboxes).filter(cb => {
         const card = cb.closest('.domain-card');
         return !cardHasProtectedCompany(card);
     });
-    
+
     if (invalidCheckboxes.length > 0 && validCheckboxes.length === 0) {
         showAlert('Cannot delete owners linked to company C168', 'danger');
         return;
     }
-    
+
     if (invalidCheckboxes.length > 0 && validCheckboxes.length > 0) {
         showAlert(`Owners linked to company C168 cannot be deleted. ${validCheckboxes.length} other owner(s) will be deleted.`, 'danger');
     }
-    
+
     const selectedIds = validCheckboxes.map(cb => cb.value);
     const selectedNames = validCheckboxes.map(cb => {
         const card = cb.closest('.domain-card');
         return card.querySelectorAll('.card-item')[2].textContent; // Name列（现在是第3列，索引2）
     });
-    
+
     const confirmMessage = `Are you sure you want to delete the following ${selectedIds.length} owner(s)?\n\n${selectedNames.join(', ')}`;
 
-    showConfirmModal(confirmMessage, function() {
+    showConfirmModal(confirmMessage, function () {
         // 批量删除
         Promise.all(selectedIds.map(id =>
             fetch('api/domain/domain_api.php', {
@@ -2167,16 +2050,16 @@ function deleteSelected() {
         )).then(results => {
             const successCount = results.filter(r => r.success).length;
             const failCount = results.length - successCount;
-            
+
             if (failCount === 0) {
-            showAlert(`Successfully deleted ${successCount} owners!`);
+                showAlert(`Successfully deleted ${successCount} owners!`);
             } else {
                 showAlert(`Deletion completed: ${successCount} succeeded, ${failCount} failed`, 'danger');
             }
 
             // 删除选中的卡片
             validCheckboxes.forEach(cb => {
-            const card = cb.closest('.domain-card');
+                const card = cb.closest('.domain-card');
                 card.remove();
             });
 
@@ -2191,29 +2074,29 @@ function deleteSelected() {
             console.error('Error:', error);
             showAlert('An error occurred during batch deletion', 'danger');
         });
-});
-    }
+    });
+}
 
 // 添加新域卡片到DOM
 function addDomainCard(domainData) {
     const domainCardsContainer = document.getElementById('domainTableBody');
-    
+
     // 创建新卡片
     const newCard = document.createElement('div');
     newCard.className = 'domain-card';
     newCard.setAttribute('data-id', domainData.id);
-    
+
     // 构建公司显示
     const companiesFull = domainData.companies_full || [];
     let companiesHTML = '-';
     if (domainData.companies && domainData.companies !== '-') {
         const companyList = domainData.companies.split(', ');
-        
+
         companiesHTML = renderChipsHTML(companyList, companiesFull);
     }
-    
+
     const companiesDataAttr = JSON.stringify(companiesFull);
-    
+
     // 判断该 owner 是否包含受保护的 Company ID（C168）
     let hasProtectedCompany = false;
     if (Array.isArray(companiesFull) && companiesFull.length > 0) {
@@ -2223,7 +2106,7 @@ function addDomainCard(domainData) {
             .split(',')
             .some(id => id.trim().toUpperCase() === 'C168');
     }
-    
+
     newCard.innerHTML = `
         <div class="card-item">1</div>
         <div class="card-item uppercase-text">${domainData.owner_code}</div>
@@ -2239,7 +2122,7 @@ function addDomainCard(domainData) {
             ${!hasProtectedCompany ? `<input type="checkbox" class="domain-checkbox" value="${domainData.id}" onchange="updateDeleteButton()">` : ''}
         </div>
     `;
-    
+
     domainCardsContainer.appendChild(newCard);
     initializePagination();
     initializeCompanyClickHandlers(); // 初始化新卡片的点击事件
@@ -2249,9 +2132,9 @@ function addDomainCard(domainData) {
 function updateDomainCard(domainData) {
     const card = document.querySelector(`.domain-card[data-id="${domainData.id}"]`);
     if (!card) return;
-    
+
     const items = card.querySelectorAll('.card-item');
-    
+
     // 构建公司显示
     let companiesHTML = '-';
     if (domainData.companies && domainData.companies !== '-') {
@@ -2259,21 +2142,21 @@ function updateDomainCard(domainData) {
         const companyList = domainData.companies.split(', ');
         companiesHTML = renderChipsHTML(companyList, companiesFull);
     }
-    
+
     // 更新各列数据（保持序号不变）
     items[1].textContent = domainData.owner_code;
     items[2].textContent = domainData.name;
     items[3].textContent = domainData.email;
     items[4].textContent = domainData.group_ids || '-';
     items[4].classList.remove('companies-column');
-    
+
     items[5].innerHTML = companiesHTML;
     items[5].classList.add('companies-column');
     const companiesFull = domainData.companies_full || [];
     items[5].setAttribute('data-companies', JSON.stringify(companiesFull));
-    
+
     items[6].textContent = (domainData.created_by || '-').toUpperCase();
-    
+
     // 重新初始化点击事件
     initializeCompanyClickHandlers();
 }
@@ -2282,19 +2165,19 @@ function updateDomainCard(domainData) {
 function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     const tableRows = document.querySelectorAll('#domainTableBody .domain-card');
-    
+
     if (!searchInput) return;
-    
+
     // 添加这段代码 - 强制大写和只允许字母数字
-    searchInput.addEventListener('input', function(e) {
+    searchInput.addEventListener('input', function (e) {
         const cursorPosition = this.selectionStart;
         // 只保留大写字母和数字
         const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
         this.value = filteredValue;
         this.setSelectionRange(cursorPosition, cursorPosition);
     });
-    
-    searchInput.addEventListener('paste', function(e) {
+
+    searchInput.addEventListener('paste', function (e) {
         setTimeout(() => {
             const cursorPosition = this.selectionStart;
             const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -2302,29 +2185,29 @@ function setupSearch() {
             this.setSelectionRange(cursorPosition, cursorPosition);
         }, 0);
     });
-    
-    searchInput.addEventListener('input', function() {
+
+    searchInput.addEventListener('input', function () {
         const searchTerm = this.value.toLowerCase().trim();
-        
+
         tableRows.forEach(row => {
             const items = row.querySelectorAll('.card-item');
             const ownerCode = items[1].textContent.toLowerCase();
             const name = items[2].textContent.toLowerCase();
             const email = items[3].textContent.toLowerCase();
             const companies = items[4].textContent.toLowerCase();
-            
+
             const matches = ownerCode.includes(searchTerm) ||
-                        name.includes(searchTerm) || 
-                        email.includes(searchTerm) ||
-                        companies.includes(searchTerm);
-            
+                name.includes(searchTerm) ||
+                email.includes(searchTerm) ||
+                companies.includes(searchTerm);
+
             if (matches || searchTerm === '') {
                 row.classList.remove('table-row-hidden');
             } else {
                 row.classList.add('table-row-hidden');
             }
         });
-        
+
         // 重新计算分页
         initializePagination();
     });
@@ -2342,10 +2225,10 @@ function syncDeleteCheckboxProtection() {
     cards.forEach(card => {
         const lastItem = card.querySelector('.card-item:last-child');
         if (!lastItem) return;
-        
+
         const existingCheckbox = lastItem.querySelector('.domain-checkbox');
         const protectedOwner = cardHasProtectedCompany(card);
-        
+
         if (protectedOwner) {
             // 受保护：移除任何已有的删除勾选框
             if (existingCheckbox) {
@@ -2387,14 +2270,14 @@ function initializeCompanyClickHandlers() {
     // 普通 chip（company-badge）
     document.querySelectorAll('.company-badge').forEach(badge => {
         if (badge.dataset.clickInitialized === 'true') return;
-        badge.addEventListener('click', function(e) { openModalFromColumn(badge, e); });
+        badge.addEventListener('click', function (e) { openModalFromColumn(badge, e); });
         badge.dataset.clickInitialized = 'true';
     });
 
     // +N chip（chip-more）—— 点击也弹出完整公司列表
     document.querySelectorAll('.chip-more').forEach(more => {
         if (more.dataset.clickInitialized === 'true') return;
-        more.addEventListener('click', function(e) { openModalFromColumn(more, e); });
+        more.addEventListener('click', function (e) { openModalFromColumn(more, e); });
         more.dataset.clickInitialized = 'true';
     });
 }
@@ -2402,7 +2285,7 @@ function initializeCompanyClickHandlers() {
 // 显示公司到期时间弹窗
 function showCompanyExpirationModal(companies) {
     const container = document.getElementById('companyExpirationList');
-    
+
     if (!companies || companies.length === 0) {
         container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 20px;">No companies found</div>';
     } else {
@@ -2410,10 +2293,10 @@ function showCompanyExpirationModal(companies) {
             const expDate = company.expiration_date || null;
             const countdown = expDate ? calculateCountdown(expDate) : null;
             const formattedDate = expDate ? formatDate(expDate) : 'No expiration date';
-            
+
             let statusClass = 'normal';
             let statusText = 'Valid';
-            
+
             if (countdown) {
                 statusClass = countdown.status;
                 statusText = countdown.text;
@@ -2421,7 +2304,7 @@ function showCompanyExpirationModal(companies) {
                 statusClass = 'warning';
                 statusText = 'No date set';
             }
-            
+
             return `
                 <div class="company-exp-item">
                     <div class="company-exp-item-left">
@@ -2433,7 +2316,7 @@ function showCompanyExpirationModal(companies) {
             `;
         }).join('');
     }
-    
+
     document.getElementById('companyExpirationModal').style.display = 'block';
 }
 
@@ -2443,7 +2326,7 @@ function closeCompanyExpirationModal() {
 }
 
 // 页面加载完成后初始化搜索功能及表单提交
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     setupSearch();
     initializePagination();
     // 确保现有列表的删除勾选框与受保护 Company 规则（如 C168）保持一致
@@ -2454,7 +2337,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 必须在 DOM 就绪后绑定，否则 #domainForm 可能为 null（脚本在 head 中加载）
     const domainForm = document.getElementById('domainForm');
     if (domainForm) {
-        domainForm.addEventListener('submit', function(e) {
+        domainForm.addEventListener('submit', function (e) {
             e.preventDefault();
 
             // 先同步 tempCompanies 到 selectedCompanies 和 hidden field
@@ -2484,31 +2367,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
-                    closeModal();
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
+                        closeModal();
 
-                    if (isEditMode) {
-                        updateDomainCard(data.data);
+                        if (isEditMode) {
+                            updateDomainCard(data.data);
+                        } else {
+                            addDomainCard(data.data);
+                        }
                     } else {
-                        addDomainCard(data.data);
+                        showAlert(data.message || 'Operation failed', 'danger');
                     }
-                } else {
-                    showAlert(data.message || 'Operation failed', 'danger');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('An error occurred while saving owner', 'danger');
-            });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('An error occurred while saving owner', 'danger');
+                });
         });
     }
 });
 
 // Close modal when clicking outside
-window.onclick = function(event) {
+window.onclick = function (event) {
     const companyExpModal = document.getElementById('companyExpirationModal');
     if (event.target === companyExpModal) {
         closeCompanyExpirationModal();
