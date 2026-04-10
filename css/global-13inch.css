@@ -225,6 +225,45 @@
     .account-card {
         grid-template-columns: 0.5fr 1.4fr 1.4fr 0.8fr 0.6fr 0.8fr 2fr 1.2fr 0.45fr !important;
     }
+
+    /* ----------------------------------------------------
+       8. Bank Process List Action Bar: Force single-row (override global label/checkbox/search sizes)
+       Bank 有 5 个 checkbox，label 14px + checkbox 16px + search 250px 导致换行
+       必须用 !important 覆盖上方的全局 !important 规则（高特异性选择器取胜）
+       ---------------------------------------------------- */
+    .process-page.process-page--bank .action-controls-row {
+        flex-wrap: nowrap !important;
+        gap: clamp(4px, 0.45vw, 8px) !important;
+    }
+
+    .process-page.process-page--bank .action-controls-row .checkbox-section {
+        gap: 3px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .process-page.process-page--bank .action-controls-row .checkbox-section label {
+        font-size: clamp(9px, 0.58vw, 11px) !important;
+        white-space: nowrap !important;
+    }
+
+    .process-page.process-page--bank .action-controls-row .checkbox-section input[type="checkbox"] {
+        width: clamp(11px, 0.73vw, 13px) !important;
+        height: clamp(11px, 0.73vw, 13px) !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Search 框：覆盖全局 max-width: 250px，给 checkbox 腾出空间 */
+    .process-page.process-page--bank #searchInput,
+    .process-page.process-page--bank .action-controls-row .search-input {
+        width: clamp(100px, 7.5vw, 150px) !important;
+        max-width: clamp(100px, 7.5vw, 150px) !important;
+    }
+
+    /* Add Process 按钮在 Bank 紧凑一点 */
+    .process-page.process-page--bank .action-controls-row .btn-add {
+        width: clamp(80px, 6vw, 110px) !important;
+        padding: 6px 10px !important;
+    }
 }
 
 /* ==========================================================================
