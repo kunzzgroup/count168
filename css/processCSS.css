@@ -691,11 +691,7 @@ body.process-page {
     overflow: hidden;
 }
 
-.process-page.process-page--bank .page-title {
-    font-size: clamp(20px, 1.72vw, 32px);
-    margin-top: 4px;
-    margin-bottom: 2px;
-}
+/* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
 
 .process-page.process-page--bank .separator-line {
     margin-top: 4px;
@@ -755,17 +751,14 @@ body.process-page {
     font-size: clamp(8px, 0.64vw, 12px);
 }
 
-.process-page.process-page--bank .content>div:first-child {
-    margin-top: 8px !important;
-    margin-bottom: 8px !important;
-}
+/* 标题行外层 div 的 margin 不再缩减，保持与 processlist.php 一致（inline margin: 20px 生效） */
 
 .process-page.process-page--bank .action-buttons-container {
-    margin-top: 8px;
+    margin-top: 2px;
 }
 
 .process-page.process-page--bank .action-buttons {
-    padding: 7px 16px;
+    padding: 5px 16px;
 }
 
 .process-page.process-page--bank .action-buttons-container .process-company-filter {
