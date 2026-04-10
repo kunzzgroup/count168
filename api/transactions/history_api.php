@@ -1487,6 +1487,7 @@ try {
         if ($smsText === '[DOMAIN_LIST_FEE]'
             || stripos($smsText, '[DOMAIN_LIST_FEE|') === 0
             || stripos($descText, 'Domain list fee FROM ') === 0
+            || stripos($descText, 'Pay Domain Fee') === 0
             || stripos($descText, 'Pay Domain Fee To ') === 0) {
             $isDomainListFee = true;
         }
@@ -1497,6 +1498,9 @@ try {
             }
             $roleLabel = historyResolveDomainShareRoleLabel((string)$description);
             $description = $roleLabel . ' Commission From ' . strtoupper($srcCompany);
+        }
+        if ($isDomainListFee) {
+            $description = 'Pay Domain Fee';
         }
         $productLabel = $isManualProfit ? 'PROFIT' : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']);
         
