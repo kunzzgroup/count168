@@ -20,6 +20,9 @@ let allGroupIds = []; // unique group IDs extracted from allCompaniesData
 let draggedRowIdx = null;
 let draggedCompanyId = null;
 
+// ── Multi-select state ────────────────────────────────────────────
+const selectedCompanyIds = new Set(); // IDs of checked independent companies
+
 // Template references (cached on first use)
 const tpl = {
     card: () => document.getElementById('tpl-company-card'),
@@ -79,6 +82,10 @@ function renderCompanyCards() {
     const container = document.getElementById('companyCardsContainer');
     container.innerHTML = '';
 
+    // Clear selection whenever cards re-render (data may have changed)
+    selectedCompanyIds.clear();
+    _updateBulkBar();
+
     if (companiesData.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'own-empty-state';
@@ -133,6 +140,39 @@ function renderCompanyCards() {
         $(card, 'warning-msg').id = `warning-msg-${id}`;
         $(card, 'footer-remain').id = `footer-remain-${id}`;
         $(card, 'confirm-btn').id = `confirm-btn-${id}`;
+
+        // ── Multi-select checkbox for independent companies ───────────
+        if (!groupId && allGroupIds.length > 0) {
+            const headerLeft = card.querySelector('.own-card-header-left');
+            if (headerLeft) {
+                const chkWrap = document.createElement('label');
+                chkWrap.className = 'own-multisel-checkbox-wrap';
+                chkWrap.title = 'Select to batch-assign to a group';
+                // Prevent click from bubbling up to the card toggle handler
+                chkWrap.addEventListener('click', e => e.stopPropagation());
+
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.className = 'own-multisel-checkbox';
+                chk.dataset.companyId = id;
+
+                chk.addEventListener('change', e => {
+                    e.stopPropagation();
+                    if (chk.checked) {
+                        selectedCompanyIds.add(id);
+                        card.classList.add('own-selected');
+                    } else {
+                        selectedCompanyIds.delete(id);
+                        card.classList.remove('own-selected');
+                    }
+                    _updateBulkBar();
+                });
+
+                chkWrap.appendChild(chk);
+                // Prepend before company name
+                headerLeft.insertBefore(chkWrap, headerLeft.firstChild);
+            }
+        }
 
         // ── Group management buttons in header-right ──────────────────
         const headerRight = card.querySelector('.own-card-header-right');
@@ -654,6 +694,115 @@ function showToast(message, type = 'success') {
 
     clearTimeout(toastTimeout);
     toastTimeout = setTimeout(() => { toast.className = 'own-toast'; }, 3000);
+}
+
+// ---------------------------------------------
+// Bulk Action Bar (multi-select)
+// ---------------------------------------------
+
+/** Render / update the floating bulk-action bar based on current selection. */
+function _updateBulkBar() {
+    let bar = document.getElementById('own-bulk-bar');
+
+    if (selectedCompanyIds.size === 0) {
+        if (bar) bar.classList.remove('own-bulk-bar-visible');
+        return;
+    }
+
+    // Create bar on first use
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'own-bulk-bar';
+        bar.className = 'own-bulk-bar';
+        bar.innerHTML = `
+            <div class="own-bulk-bar-left">
+                <span class="own-bulk-count" id="own-bulk-count"></span>
+                <span class="own-bulk-label">selected</span>
+            </div>
+            <div class="own-bulk-bar-right">
+                <div class="own-bulk-group-wrap">
+                    <select class="own-bulk-group-select" id="own-bulk-group-select">
+                        <option value="">-- Select Group --</option>
+                    </select>
+                </div>
+                <button class="own-bulk-join-btn" id="own-bulk-join-btn">Join Group</button>
+                <button class="own-bulk-cancel-btn" id="own-bulk-cancel-btn">✕ Cancel</button>
+            </div>
+        `;
+        document.body.appendChild(bar);
+
+        document.getElementById('own-bulk-join-btn').addEventListener('click', _bulkJoinGroup);
+        document.getElementById('own-bulk-cancel-btn').addEventListener('click', _clearSelection);
+    }
+
+    // Rebuild group options
+    const sel = document.getElementById('own-bulk-group-select');
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">-- Select Group --</option>';
+    allGroupIds.forEach(gid => {
+        const opt = document.createElement('option');
+        opt.value = gid;
+        opt.textContent = gid;
+        sel.appendChild(opt);
+    });
+    // Restore previous selection if still valid
+    if (prev && allGroupIds.includes(prev)) sel.value = prev;
+
+    document.getElementById('own-bulk-count').textContent = selectedCompanyIds.size;
+    bar.classList.add('own-bulk-bar-visible');
+}
+
+/** Clear all checkboxes and hide the bar. */
+function _clearSelection() {
+    selectedCompanyIds.clear();
+    document.querySelectorAll('.own-multisel-checkbox:checked').forEach(chk => {
+        chk.checked = false;
+        const card = document.getElementById(`card-${chk.dataset.companyId}`);
+        if (card) card.classList.remove('own-selected');
+    });
+    _updateBulkBar();
+}
+
+/** Batch-assign all selected companies to the chosen group. */
+function _bulkJoinGroup() {
+    const groupId = document.getElementById('own-bulk-group-select').value;
+    if (!groupId) {
+        showToast('Please select a group first', 'error');
+        return;
+    }
+
+    const ids = [...selectedCompanyIds];
+    if (ids.length === 0) return;
+
+    const btn = document.getElementById('own-bulk-join-btn');
+    btn.disabled = true;
+    btn.textContent = 'Joining...';
+
+    const requests = ids.map(companyId =>
+        fetch('api/ownership/update_company_group_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: companyId, group_id: groupId })
+        }).then(r => r.json())
+    );
+
+    Promise.all(requests)
+        .then(results => {
+            const failed = results.filter(r => r.status !== 'success');
+            if (failed.length === 0) {
+                showToast(`${ids.length} compan${ids.length > 1 ? 'ies' : 'y'} joined group "${groupId}"`, 'success');
+            } else {
+                showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, 'error');
+            }
+            _clearSelection();
+            fetchCompanies();
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Server error during batch join', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Join Group';
+        });
 }
 
 // ---------------------------------------------
