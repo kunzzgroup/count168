@@ -128,11 +128,20 @@ body.dashboard-page {
     padding: clamp(8px, 1vw, 12px) clamp(14px, 1.2vw, 24px);
 }
 
-/* KPI卡片网格 - 四列，大屏到1024px一致 */
+/* KPI卡片行容器 — 左侧 3居 KPI + 右侧独立 Earnings */
+.dashboard-kpi-row {
+    display: flex;
+    align-items: stretch;
+    gap: clamp(12px, 1.5vw, 20px);
+    flex-shrink: 0;
+}
+
+/* KPI卡片网格 - 三列（Profit / Expenses / NET PROFIT），占剩余空间 */
 .dashboard-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: clamp(12px, 1.5vw, 20px);
+    flex: 1;
     flex-shrink: 0;
 }
 
@@ -170,6 +179,19 @@ body.dashboard-page {
     font-weight: bold;
     color: #111827;
     font-family: 'Amaranth', sans-serif;
+}
+
+/* Earnings 独立卡片 — 自成一列放在 KPI Grid 右侧 */
+.dashboard-earnings-standalone {
+    flex-shrink: 0;
+    width: clamp(140px, 13vw, 220px);
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-color: #dbeafe;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
 }
 
 /* Earnings 卡片 — 与其他卡片统一圆角/阴影，仅调整强调色 */
@@ -297,6 +319,9 @@ body.dashboard-page {
         flex-wrap: wrap;
         gap: 6px;
     }
+    .dashboard-kpi-row {
+        gap: 10px;
+    }
     .dashboard-kpi-grid {
         gap: 10px;
     }
@@ -386,6 +411,10 @@ body.dashboard-page {
     }
     .transaction-company-buttons {
         gap: 4px;
+    }
+    .dashboard-kpi-row {
+        flex-shrink: 0;
+        gap: 8px;
     }
     .dashboard-kpi-grid {
         flex-shrink: 0;

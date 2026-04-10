@@ -484,6 +484,21 @@ function toggleCompanyGroup(companyId) {
     syncCompaniesHiddenField();
 }
 
+// 全选 / 取消全选：把所有可分配的公司（未归组 + 已在该 group）全部加入或移出 selectedGroupId
+function toggleSelectAllCompanies() {
+    if (!selectedGroupId) return;
+    const candidates = tempCompanies.filter(c => {
+        return c.company_id.toUpperCase() !== 'C168' && (!c.group_id || c.group_id === selectedGroupId);
+    });
+    const allInGroup = candidates.every(c => c.group_id === selectedGroupId);
+    candidates.forEach(c => {
+        c.group_id = allInGroup ? null : selectedGroupId;
+    });
+    updateGroupPills();
+    updateCompanyDisplay();
+    syncCompaniesHiddenField();
+}
+
 // openCompanyModal / closeCompanyModal are no longer used;
 // companies are managed inline in the domain modal.
 
@@ -1381,6 +1396,14 @@ function updateCompanyDisplay() {
                 return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
             });
 
+            if (sortedCandidates.length === 0) {
+                container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No ungrouped companies available</span>';
+                syncCompaniesHiddenField();
+                return;
+            }
+
+            const allInGroup = sortedCandidates.every(c => c.group_id === selectedGroupId);
+
             const itemsHtml = sortedCandidates.map(company => {
                 const isInGroup = company.group_id === selectedGroupId;
                 return `
@@ -1391,11 +1414,15 @@ function updateCompanyDisplay() {
                 `;
             }).join('');
 
-            container.innerHTML = `<div class="assign-grid">${itemsHtml}</div>`;
+            const selectAllLabel = allInGroup ? 'Deselect All' : 'Select All';
+            const selectAllHtml = `
+                <div class="assign-select-all-row">
+                    <button type="button" class="btn-select-all" onclick="toggleSelectAllCompanies()">${selectAllLabel}</button>
+                    <span class="assign-count-label">${sortedCandidates.filter(c => c.group_id === selectedGroupId).length} / ${sortedCandidates.length} selected</span>
+                </div>
+            `;
 
-            if (sortedCandidates.length === 0) {
-                container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">No ungrouped companies available</span>';
-            }
+            container.innerHTML = selectAllHtml + `<div class="assign-grid">${itemsHtml}</div>`;
             
             syncCompaniesHiddenField();
             return;

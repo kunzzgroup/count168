@@ -173,7 +173,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                         <div style="display: flex; flex-direction: column; gap: 4px;">
                             <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
                                 <i class="fas fa-calendar" style="color: #3b82f6;"></i>
-                                Select Year & Month
+                                Select Year &amp; Month
                             </label>
                             <div class="enhanced-date-picker month-only" id="month-date-picker">
                                 <div class="date-part" data-type="year" onclick="showDateDropdown('month', 'year')">
@@ -245,37 +245,40 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                 </div>
             </div>
 
-            <!-- KPI卡片区域 -->
-            <div class="dashboard-kpi-grid">
-                <!-- Capital (显示为 Profit) -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-blue">
-                        <i class="fas fa-wallet"></i>
+            <!-- KPI卡片区域 (3 cards) + standalone Earnings card -->
+            <div class="dashboard-kpi-row">
+                <!-- KPI grid: Profit / Expenses / NET PROFIT -->
+                <div class="dashboard-kpi-grid">
+                    <!-- Capital (显示为 Profit) -->
+                    <div class="dashboard-kpi-card">
+                        <div class="icon text-blue">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <div class="kpi-label">Profit</div>
+                        <div class="kpi-value" id="capital-value">0</div>
                     </div>
-                    <div class="kpi-label">Profit</div>
-                    <div class="kpi-value" id="capital-value">0</div>
+
+                    <!-- Expenses -->
+                    <div class="dashboard-kpi-card">
+                        <div class="icon text-red">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="kpi-label">Expenses</div>
+                        <div class="kpi-value" id="expenses-value">0</div>
+                    </div>
+
+                    <!-- Profit (显示为 NET PROFIT) -->
+                    <div class="dashboard-kpi-card">
+                        <div class="icon text-green">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="kpi-label">NET PROFIT</div>
+                        <div class="kpi-value" id="profit-value">0</div>
+                    </div>
                 </div>
 
-                <!-- Expenses -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-red">
-                        <i class="fas fa-arrow-down"></i>
-                    </div>
-                    <div class="kpi-label">Expenses</div>
-                    <div class="kpi-value" id="expenses-value">0</div>
-                </div>
-
-                <!-- Profit (显示为 NET PROFIT)：数值 = 所有 Role 为 PROFIT 的账户余额总和 -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-green">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <div class="kpi-label">NET PROFIT</div>
-                    <div class="kpi-value" id="profit-value">0</div>
-                </div>
-
-                <!-- Earnings: NET PROFIT × Ownership Percentage -->
-                <div class="dashboard-kpi-card dashboard-kpi-card--earnings">
+                <!-- Earnings: standalone card (top-right) -->
+                <div class="dashboard-kpi-card dashboard-kpi-card--earnings dashboard-earnings-standalone">
                     <div class="icon text-blue">
                         <i class="fas fa-hand-holding-usd"></i>
                     </div>
@@ -299,7 +302,6 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                 </div>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- 日历弹窗 -->
