@@ -535,8 +535,33 @@ function createDomainShareCommissionPayments(
 }
 
 /**
+ * 將帳號（account 表主鍵）與公司（company 表主鍵）建立 account_company 關聯，已存在則略過。
+ */
+function linkAccountToCompanyIfMissing(PDO $pdo, int $accountRowId, int $companyPk): void
+{
+    if ($accountRowId <= 0 || $companyPk <= 0) {
+        return;
+    }
+    $chk = $pdo->prepare('SELECT COUNT(*) FROM account_company WHERE account_id = ? AND company_id = ?');
+    $chk->execute([$accountRowId, $companyPk]);
+    if ((int) $chk->fetchColumn() > 0) {
+        return;
+    }
+    try {
+        $link = $pdo->prepare('INSERT INTO account_company (account_id, company_id) VALUES (?, ?)');
+        $link->execute([$accountRowId, $companyPk]);
+    } catch (PDOException $e) {
+        $code = (string) $e->getCode();
+        if ($code !== '23000') {
+            error_log('linkAccountToCompanyIfMissing: ' . $e->getMessage());
+        }
+    }
+}
+
+/**
  * Add Domain / 新增公司後：自動建立帳號 account_id = 公司代碼，name = Owner 姓名，role = MEMBER，password = 111。
- * 若全域已存在相同 account_id 則略過（避免誤綁既有帳號）。
+ * 帳號會同時掛到該公司與 C168 公司（若資料庫存在 company_id = C168）。
+ * 若全域已存在相同 account_id，則不新建帳號，但會補上與該公司及 C168 的關聯（若尚未關聯）。
  */
 function ensureDefaultMemberAccountForCompany(PDO $pdo, int $companyPk, string $companyCode, string $ownerDisplayName): void
 {
@@ -548,9 +573,18 @@ function ensureDefaultMemberAccountForCompany(PDO $pdo, int $companyPk, string $
         return;
     }
 
+    $c168Pk = getC168CompanyPk($pdo);
+
     $stmtDup = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = ? LIMIT 1');
     $stmtDup->execute([$accountId]);
-    if ($stmtDup->fetchColumn() !== false) {
+    $existingAccountRowId = $stmtDup->fetchColumn();
+    if ($existingAccountRowId !== false && $existingAccountRowId !== null && (string) $existingAccountRowId !== '') {
+        $aid = (int) $existingAccountRowId;
+        linkAccountToCompanyIfMissing($pdo, $aid, $companyPk);
+        if ($c168Pk !== null && $c168Pk > 0) {
+            linkAccountToCompanyIfMissing($pdo, $aid, $c168Pk);
+        }
+
         return;
     }
 
@@ -583,14 +617,9 @@ function ensureDefaultMemberAccountForCompany(PDO $pdo, int $companyPk, string $
         return;
     }
 
-    try {
-        $link = $pdo->prepare('INSERT INTO account_company (account_id, company_id) VALUES (?, ?)');
-        $link->execute([$newAccountId, $companyPk]);
-    } catch (PDOException $e) {
-        $code = (string) $e->getCode();
-        if ($code !== '23000') {
-            error_log('ensureDefaultMemberAccountForCompany link: ' . $e->getMessage());
-        }
+    linkAccountToCompanyIfMissing($pdo, $newAccountId, $companyPk);
+    if ($c168Pk !== null && $c168Pk > 0) {
+        linkAccountToCompanyIfMissing($pdo, $newAccountId, $c168Pk);
     }
 }
 
