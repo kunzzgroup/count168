@@ -2251,35 +2251,33 @@ function syncDeleteCheckboxProtection() {
 
 // 初始化公司点击事件
 function initializeCompanyClickHandlers() {
-    // 选择所有 company-badge
-    const companyBadges = document.querySelectorAll('.company-badge');
-    
-    companyBadges.forEach(badge => {
-        // 检查是否已经绑定过事件
-        if (badge.dataset.clickInitialized === 'true') {
-            return;
+    // 辅助函数：从 companies-column 解析并打开弹窗
+    function openModalFromColumn(el, e) {
+        e.stopPropagation();
+        const companiesColumn = el.closest('.companies-column');
+        if (!companiesColumn) return;
+        const companiesData = companiesColumn.getAttribute('data-companies');
+        if (!companiesData) return;
+        try {
+            const companies = JSON.parse(companiesData);
+            showCompanyExpirationModal(companies);
+        } catch (err) {
+            console.error('Error parsing companies data:', err);
         }
-        
-        // 添加点击事件
-        badge.addEventListener('click', function(e) {
-            e.stopPropagation();
-            // 找到包含所有公司数据的父元素
-            const companiesColumn = badge.closest('.companies-column');
-            if (companiesColumn) {
-                const companiesData = companiesColumn.getAttribute('data-companies');
-                if (companiesData) {
-                    try {
-                        const companies = JSON.parse(companiesData);
-                        showCompanyExpirationModal(companies);
-                    } catch (err) {
-                        console.error('Error parsing companies data:', err);
-                    }
-                }
-            }
-        });
-        
-        // 标记为已初始化
+    }
+
+    // 普通 chip（company-badge）
+    document.querySelectorAll('.company-badge').forEach(badge => {
+        if (badge.dataset.clickInitialized === 'true') return;
+        badge.addEventListener('click', function(e) { openModalFromColumn(badge, e); });
         badge.dataset.clickInitialized = 'true';
+    });
+
+    // +N chip（chip-more）—— 点击也弹出完整公司列表
+    document.querySelectorAll('.chip-more').forEach(more => {
+        if (more.dataset.clickInitialized === 'true') return;
+        more.addEventListener('click', function(e) { openModalFromColumn(more, e); });
+        more.dataset.clickInitialized = 'true';
     });
 }
 
