@@ -185,6 +185,7 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
  */
 function rowToItem(array $row, $is_deleted = 0) {
     $isDomainShareCommission = false;
+    $isDomainListFee = false;
     $descriptionRaw = (string)($row['description'] ?? '');
     $remarkRaw = (string)($row['remark'] ?? '');
     $remarkTrim = trim($remarkRaw);
@@ -194,22 +195,31 @@ function rowToItem(array $row, $is_deleted = 0) {
         || stripos($remarkTrim, '[DOMAIN_SHARE_COMMISSION|') === 0) {
         $isDomainShareCommission = true;
     }
+    if (stripos(trim($descriptionRaw), 'Pay Domain Fee To ') === 0
+        || $remarkTrim === '[DOMAIN_LIST_FEE]'
+        || stripos($remarkTrim, '[DOMAIN_LIST_FEE|') === 0) {
+        $isDomainListFee = true;
+    }
 
     $description = $row['description'] ?? '';
     if (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
+    }
+    $displayAccount = $row['account_code'] ?? '-';
+    if ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee\s+To\s+([A-Za-z0-9_-]+)/i', trim((string)$description), $m)) {
+        $displayAccount = strtoupper(trim((string)$m[1]));
     }
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
     $deletedBy = !empty($row['deleted_by_login']) ? $row['deleted_by_login'] : ($row['deleted_by_owner'] ?? null);
     return [
         'transaction_id' => (int) $row['id'],
         'date' => $row['transaction_date'],
-        'account' => $row['account_code'] ?? '-',
+        'account' => $displayAccount,
         'from_account' => $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-'),
         'currency' => $row['currency_code'] ?? '-',
         'amount' => (float) $row['amount'],
         'description' => $description,
-        'remark' => $isDomainShareCommission ? '' : ($row['remark'] ?? ''),
+        'remark' => ($isDomainShareCommission || $isDomainListFee) ? '' : ($row['remark'] ?? ''),
         'dts_created' => $row['dts_created'] ?? '',
         'created_by' => $createdBy,
         'transaction_type' => $row['transaction_type'],
