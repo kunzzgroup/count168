@@ -217,13 +217,33 @@ h1 {
 }
 
 /* Keep column spacing consistent between header/body */
-.domain-ad-col-select { width: 5%; }
-.domain-ad-col-no { width: 8%; }
-.domain-ad-col-account { width: 18%; }
-.domain-ad-col-companies { width: 13%; }
-.domain-ad-col-breakdown { width: 22%; }
-.domain-ad-col-due { width: 22%; }
-.domain-ad-col-delete { width: 12%; }
+.domain-ad-col-select {
+    width: 5%;
+}
+
+.domain-ad-col-no {
+    width: 8%;
+}
+
+.domain-ad-col-account {
+    width: 18%;
+}
+
+.domain-ad-col-companies {
+    width: 13%;
+}
+
+.domain-ad-col-breakdown {
+    width: 22%;
+}
+
+.domain-ad-col-due {
+    width: 22%;
+}
+
+.domain-ad-col-delete {
+    width: 12%;
+}
 
 .domain-accounting-due-table thead th {
     position: sticky;
@@ -273,7 +293,8 @@ h1 {
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: clip; /* no "..." */
+    text-overflow: clip;
+    /* no "..." */
 }
 
 .domain-accounting-breakdown-role {
@@ -488,16 +509,16 @@ h1 {
     transition: transform 0.2s ease;
 }
 
-.company-share-charge-switch__input:focus-visible + .company-share-charge-switch__track {
+.company-share-charge-switch__input:focus-visible+.company-share-charge-switch__track {
     outline: 2px solid #0F61FF;
     outline-offset: 2px;
 }
 
-.company-share-charge-switch__input:checked + .company-share-charge-switch__track {
+.company-share-charge-switch__input:checked+.company-share-charge-switch__track {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
 }
 
-.company-share-charge-switch__input:checked + .company-share-charge-switch__track .company-share-charge-switch__thumb {
+.company-share-charge-switch__input:checked+.company-share-charge-switch__track .company-share-charge-switch__thumb {
     transform: translateX(18px);
 }
 
@@ -2415,40 +2436,6 @@ h1 {
     font-weight: 600;
     cursor: pointer;
     margin: 0;
-}
-
-/* Select All / Deselect All row in Multiple Choice mode */
-.assign-select-all-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 2px 8px;
-    border-bottom: 1px solid #e5e7eb;
-    margin-bottom: 6px;
-}
-
-.btn-select-all {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 5px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
-
-.btn-select-all:hover {
-    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
-    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.3);
-}
-
-.assign-count-label {
-    font-size: 12px;
-    color: #64748b;
-    font-weight: 500;
 }
 
 /* Input with inline button */
