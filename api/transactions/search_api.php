@@ -155,7 +155,6 @@ function searchApiAppendVirtualDomainListFeeRows(
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
-              AND t.currency_id IS NOT NULL
               AND t.sms LIKE '[DOMAIN_LIST_FEE|%'";
     $par = [$company_id, $date_from_db, $date_to_db];
     if (!empty($currencyFilterIds)) {
@@ -166,10 +165,25 @@ function searchApiAppendVirtualDomainListFeeRows(
 
     $st = $pdo->prepare($sql);
     $st->execute($par);
+    $fallbackCur = '';
+    if (!empty($filter_currency_codes)) {
+        // 若用户筛选了币别，用筛选的第一个作为虚拟行币别
+        $fallbackCur = strtoupper((string)$filter_currency_codes[0]);
+    } else {
+        // 否则尽量用公司默认的 MYR
+        foreach ($currency_id_map as $cc) {
+            if (strtoupper((string)$cc) === 'MYR') { $fallbackCur = 'MYR'; break; }
+        }
+    }
     while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $cid = (int)($row['currency_id'] ?? 0);
-        $cur = strtoupper((string)($currency_id_map[$cid] ?? ''));
+        $cidRaw = $row['currency_id'] ?? null;
+        $cid = $cidRaw !== null ? (int)$cidRaw : 0;
+        $cur = $cid > 0 ? strtoupper((string)($currency_id_map[$cid] ?? '')) : '';
         if ($cur === '') {
+            $cur = $fallbackCur;
+        }
+        if ($cur === '') {
+            // 无法推断币别时不展示
             continue;
         }
         $src = searchApiParseDomainListFeeCompanyCode((string)($row['sms'] ?? ''));
