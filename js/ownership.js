@@ -887,6 +887,10 @@ function _renderGroupFilterBar() {
         btn.addEventListener('click', () => _selectGroupFilter(gid));
         btnContainer.appendChild(btn);
     });
+
+    // Select button: only visible when showing independent companies (no active group)
+    const selectBtn = document.getElementById('own-select-mode-btn');
+    if (selectBtn) selectBtn.style.display = activeGroupFilter === null ? '' : 'none';
 }
 
 /** Sets the active group filter. Clicking the already-active group toggles it off (→ independent view). */
@@ -897,7 +901,10 @@ function _selectGroupFilter(groupId) {
     document.querySelectorAll('.own-gfb-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.group === (activeGroupFilter ?? ''));
     });
-    _clearSelection();   // reset multi-select when switching tab
+    // Show Select button only when in independent view
+    const selectBtn = document.getElementById('own-select-mode-btn');
+    if (selectBtn) selectBtn.style.display = activeGroupFilter === null ? '' : 'none';
+    _clearSelection();   // also exits selection mode if active
     _applyGroupFilter();
 }
 
