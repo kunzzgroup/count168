@@ -498,6 +498,34 @@ function resolveC168DomainFeePoolAccountId(PDO $pdo, int $c168Pk, int $excludeAc
 }
 
 /**
+ * 回退：在 C168 下按公司代码匹配同名 member 账户（例如 LAG -> account.account_id='LAG'）。
+ */
+function resolveC168CompanyCodeAccountId(PDO $pdo, int $c168Pk, string $companyCode, int $excludeAccountId = 0): ?int
+{
+    $code = strtoupper(trim($companyCode));
+    if ($c168Pk <= 0 || $code === '') {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND UPPER(TRIM(a.account_id)) = ?
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk, $code, (int)$excludeAccountId]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? (int)$v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+/**
  * Transaction Payment / search_api 按 currency_id 汇总 Cr/Dr，且忽略 currency_id IS NULL 的 PAYMENT。
  * Domain 入账必须写入 C168 公司下的币种，优先 MYR，否则取该公司第一条 currency。
  */
@@ -648,8 +676,13 @@ function createDomainListFeePayment(
         $out['skipped_no_accounts'] = true;
         return $out;
     }
-    if ($fromCustomer && $fromCustomer === $toC168Pool) {
-        $fromCustomer = null;
+    if (!$fromCustomer) {
+        // 回退到 C168 下自动创建的同名账号（确保 PAYMENT 有 From Account）
+        $fromCustomer = resolveC168CompanyCodeAccountId($pdo, $c168Pk, $customerCompanyCode, (int)$toC168Pool);
+    }
+    if (!$fromCustomer || $fromCustomer === $toC168Pool) {
+        $out['skipped_no_accounts'] = true;
+        return $out;
     }
     $ownerLabel = getCompanyOwnerDisplayLabel($pdo, $customerPk);
     $codeU = strtoupper(trim($customerCompanyCode));
@@ -670,7 +703,7 @@ function createDomainListFeePayment(
         'company_id' => $c168Pk,
         'transaction_type' => 'PAYMENT',
         'account_id' => $toC168Pool,
-        'from_account_id' => $fromCustomer ?: null,
+        'from_account_id' => $fromCustomer,
         'amount' => $out['amount'],
         'transaction_date' => $today,
         'description' => $desc,
