@@ -248,12 +248,12 @@ function getCompanyPkByCode(PDO $pdo, string $companyCode): ?int {
 }
 
 /**
- * Share % 下拉数据：仅绑定目标公司的 Account，且 account.role 只能是 staff/agent。
+ * Share % 下拉数据：始终仅列出 C168 旗下的 Account（与当前编辑的公司无关），且 role 只能是 staff/agent。
  */
-function fetchFeeSharePickerAccounts(PDO $pdo, string $companyCode): array {
+function fetchFeeSharePickerAccounts(PDO $pdo): array {
     $rows = [];
-    $targetCompanyPk = getCompanyPkByCode($pdo, $companyCode);
-    if ($targetCompanyPk) {
+    $c168Pk = getC168CompanyPk($pdo);
+    if ($c168Pk) {
         $accStmt = $pdo->prepare("
             SELECT DISTINCT a.id, a.account_id, a.name
             FROM account a
@@ -262,7 +262,7 @@ function fetchFeeSharePickerAccounts(PDO $pdo, string $companyCode): array {
               AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
             ORDER BY a.account_id ASC
         ");
-        $accStmt->execute([$targetCompanyPk]);
+        $accStmt->execute([$c168Pk]);
         foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $rows[] = [
                 'id' => (int) $r['id'],
@@ -275,8 +275,8 @@ function fetchFeeSharePickerAccounts(PDO $pdo, string $companyCode): array {
     return $rows;
 }
 
-/** 校验：仅允许目标公司的 account，且 role 必须是 staff/agent */
-function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized, string $companyCode): bool {
+/** 校验：仅允许 C168 旗下的 account，且 role 必须是 staff/agent（与保存到哪一家公司无关） */
+function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     $uniqueIds = collectUniqueAccountIdsFromFeeShare($normalized);
     if (empty($uniqueIds)) {
         return true;
@@ -290,9 +290,9 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized, string $co
         $accountIds[] = $id;
     }
     $accountIds = array_values(array_unique($accountIds));
-    $targetCompanyPk = getCompanyPkByCode($pdo, $companyCode);
+    $c168Pk = getC168CompanyPk($pdo);
     if (!empty($accountIds)) {
-        if (!$targetCompanyPk) {
+        if (!$c168Pk) {
             return false;
         }
         $placeholders = buildInPlaceholders(count($accountIds));
@@ -305,7 +305,7 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized, string $co
               AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
         ";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute(array_merge([$targetCompanyPk], $accountIds));
+        $stmt->execute(array_merge([$c168Pk], $accountIds));
         if ((int) $stmt->fetchColumn() !== count($accountIds)) {
             return false;
         }
@@ -1678,12 +1678,12 @@ try {
                 if (!$shareRow) {
                     jsonResponse(true, 'OK', [
                         'allocations' => normalizeFeeShareAllocationsInput(null),
-                        'accounts' => fetchFeeSharePickerAccounts($pdo, $shareCompanyCode),
+                        'accounts' => fetchFeeSharePickerAccounts($pdo),
                         'company_exists' => false,
                     ]);
                     break;
                 }
-                $shareAccounts = fetchFeeSharePickerAccounts($pdo, $shareCompanyCode);
+                $shareAccounts = fetchFeeSharePickerAccounts($pdo);
                 jsonResponse(true, 'OK', [
                     'allocations' => normalizeFeeShareAllocationsInput($shareRow['fee_share_allocations'] ?? null),
                     'accounts' => $shareAccounts,
@@ -1715,8 +1715,8 @@ try {
                     exit;
                 }
                 $saveCompanyPk = (int) $saveRow['id'];
-                if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized, $saveShareCode)) {
-                    jsonResponse(false, 'Each entry must be a staff/agent account in the selected company.', null);
+                if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized)) {
+                    jsonResponse(false, 'Each entry must be a staff/agent account under company C168.', null);
                     exit;
                 }
                 $saveJson = feeShareAllocationsToJson($saveNormalized);
