@@ -121,6 +121,111 @@ function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
     return null;
 }
 
+/** 追加 Domain list fee 的来源公司虚拟行：显示为负数（如 LGA -2400） */
+function searchApiAppendVirtualDomainListFeeRows(
+    PDO $pdo,
+    array &$results,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    array $filter_currency_codes,
+    array $currency_id_map
+): void {
+    $existing = [];
+    foreach ($results as $r) {
+        $existing[$r['account_db_id'] . '_' . strtoupper((string)($r['currency'] ?? ''))] = true;
+    }
+
+    $currencyFilterIds = [];
+    if (!empty($filter_currency_codes)) {
+        $want = array_unique(array_map('strtoupper', $filter_currency_codes));
+        foreach ($currency_id_map as $cid => $code) {
+            if (in_array(strtoupper((string)$code), $want, true)) {
+                $currencyFilterIds[] = (int)$cid;
+            }
+        }
+        $currencyFilterIds = array_values(array_unique(array_filter($currencyFilterIds)));
+        if (empty($currencyFilterIds)) {
+            return;
+        }
+    }
+
+    $sql = "SELECT t.id, t.amount, t.currency_id, t.sms
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              AND t.currency_id IS NOT NULL
+              AND t.sms LIKE '[DOMAIN_LIST_FEE|%'";
+    $par = [$company_id, $date_from_db, $date_to_db];
+    if (!empty($currencyFilterIds)) {
+        $sql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($currencyFilterIds), '?')) . ')';
+        $par = array_merge($par, $currencyFilterIds);
+    }
+    $sql .= ' ORDER BY t.transaction_date ASC, t.id ASC';
+
+    $st = $pdo->prepare($sql);
+    $st->execute($par);
+    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+        $cid = (int)($row['currency_id'] ?? 0);
+        $cur = strtoupper((string)($currency_id_map[$cid] ?? ''));
+        if ($cur === '') {
+            continue;
+        }
+        $src = searchApiParseDomainListFeeCompanyCode((string)($row['sms'] ?? ''));
+        if ($src === null || $src === '') {
+            continue;
+        }
+        $amt = round((float)($row['amount'] ?? 0), 2);
+        if (abs($amt) < 0.00001) {
+            continue;
+        }
+        $tid = (int)($row['id'] ?? 0);
+        if ($tid <= 0) {
+            continue;
+        }
+        $vid = -$tid; // 负数 id：前端点开历史时走 virtual_company_code
+        $k = $vid . '_' . $cur;
+        if (isset($existing[$k])) {
+            continue;
+        }
+        $existing[$k] = true;
+
+        $name = $src;
+        try {
+            $sto = $pdo->prepare("
+                SELECT TRIM(COALESCE(o.name, '')) AS n
+                FROM company c
+                INNER JOIN owner o ON o.id = c.owner_id
+                WHERE UPPER(TRIM(c.company_id)) = ? OR UPPER(TRIM(IFNULL(c.group_id, ''))) = ?
+                ORDER BY c.id ASC
+                LIMIT 1
+            ");
+            $sto->execute([strtoupper($src), strtoupper($src)]);
+            $n = trim((string)($sto->fetchColumn() ?: ''));
+            if ($n !== '') {
+                $name = $n;
+            }
+        } catch (PDOException $e) {}
+
+        $results[] = [
+            'account_id' => strtoupper($src),
+            'account_name' => $name,
+            'account_db_id' => $vid,
+            'role' => 'DOMAIN',
+            'currency' => $cur,
+            'currency_id_debug' => $cid,
+            'bf' => 0.0,
+            'win_loss' => 0.0,
+            'cr_dr' => -$amt,
+            'balance' => -$amt,
+            'has_crdr_transactions' => 1,
+            'is_alert' => 0,
+            'is_rate_middleman' => 0,
+        ];
+    }
+}
+
 /** 当前查询公司在库中的 owner_code（用于标注「入账 C168」等） */
 function searchApiResolveCompanyOwnerCodeByPk(PDO $pdo, int $companyPk): string
 {
@@ -1067,6 +1172,12 @@ if (!empty($target_account_ids)) {
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        -- Domain Share Commission：收款方显示正数（commission 归属到收款账户）
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        -- Domain list fee：不计入池子账户（会单开来源公司虚拟行 LGA -2400）
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_LIST_FEE|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_LIST_FEE|%' THEN 0
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0 
                     END
@@ -1076,6 +1187,10 @@ if (!empty($target_account_ids)) {
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_LIST_FEE|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_LIST_FEE|%' THEN 0
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0 
                     END
@@ -1119,6 +1234,8 @@ if (!empty($target_account_ids)) {
                 WHERE t.company_id = ? AND t.from_account_id IS NOT NULL
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   AND t.currency_id IS NOT NULL 
+                  -- Domain Share Commission 不计入 from_account（否则会出现池子/右表重复）
+                  AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
                   $contra_where_t
                 GROUP BY t.from_account_id, t.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
@@ -1333,7 +1450,8 @@ if (!empty($target_account_ids)) {
     }
     $results = $deduplicated_results;
 
-    searchApiApplyDomainSourceCompanyRows(
+    // Domain list fee：单开来源公司虚拟行（如 LGA -2400）
+    searchApiAppendVirtualDomainListFeeRows(
         $pdo,
         $results,
         $company_id,
@@ -1725,6 +1843,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        -- Domain Share Commission：收款方显示正数
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
@@ -1802,6 +1922,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
+                  . " AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'" 
                   . contraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
@@ -2083,9 +2204,14 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
+                        -- Domain Share Commission：收款方显示正数
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_LIST_FEE|%' THEN 0
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
 
                         -- 作为 From Account（支付 / 收到）；CONTRA 时 FROM 显示正数
+                        -- Domain Share Commission：不计入 from_account（避免重复显示池子/右表）
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN ROUND(t.amount, 2)
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
