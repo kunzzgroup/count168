@@ -223,7 +223,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
-<body>
+<body class="account-page">
     <div class="container">
         <div class="content">
             <h1 class="account-page-title">Account List</h1>

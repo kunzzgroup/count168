@@ -179,7 +179,7 @@ try {
     <link rel="stylesheet" href="css/userlist.css?v=<?php echo $assetVer('css/userlist.css'); ?>">
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
-<body>
+<body class="user-page">
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
         <h1>User List</h1>
