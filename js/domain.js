@@ -1463,11 +1463,10 @@ function companyToDomainPayloadEntry(c) {
         expiration_date: c.expiration_date,
         permissions: Array.isArray(c.permissions) ? c.permissions : [],
         group_id: c.group_id || null,
-        fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations)
+        fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations),
+        // 明确传递开关状态：Off 时也传 false，确保后端不会因缺字段而误判
+        apply_commission_payments_on_domain_save: !!c.apply_commission_payments_on_domain_save
     };
-    if (c.apply_commission_payments_on_domain_save) {
-        o.apply_commission_payments_on_domain_save = true;
-    }
     return o;
 }
 
