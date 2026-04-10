@@ -237,6 +237,7 @@ body.dashboard-page {
 .dashboard-kpi-card--red .kpi-value {
     color: #ef4444;
 }
+
 .dashboard-kpi-card--red .kpi-icon {
     background: #fee2e2;
     color: #ef4444;
@@ -251,7 +252,7 @@ body.dashboard-page {
 /* Earnings 卡片 — 右上角独立 (top-row 内) */
 #earnings-card-wrapper {
     flex-shrink: 0;
-    min-width: clamp(180px, 14vw, 280px);
+    min-width: clamp(180px, 10vw, 280px);
 }
 
 /* 图表区域 - 占满剩余高度 */
