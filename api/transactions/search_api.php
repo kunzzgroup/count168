@@ -115,10 +115,137 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
 /** @return string|null 客户公司代码，如 LGA */
 function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
 {
-    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^\]]+)\]/i', trim($sms), $m)) {
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^|\]]+)/i', trim($sms), $m)) {
         return strtoupper(trim($m[1]));
     }
     return null;
+}
+
+function searchApiParseDomainListFeeCompanyCodeFromDescription(string $description): ?string
+{
+    $d = trim($description);
+    if ($d === '') return null;
+    if (preg_match('/^Domain\s+list\s+fee\s+FROM\s+.*\(([A-Za-z0-9_-]+)\)\s*$/i', $d, $m)) {
+        return strtoupper(trim($m[1]));
+    }
+    if (preg_match('/^Domain\s+list\s+fee\s+FROM\s+([A-Za-z0-9_-]+)\s*$/i', $d, $m)) {
+        return strtoupper(trim($m[1]));
+    }
+    return null;
+}
+
+/**
+ * 追加 Domain List Fee 的公司虚拟行（例如 LGA），用于展示“客户支付给 C168”的第一笔账单。
+ * 注意：该行仅用于展示，不影响既有 Commission 计算。
+ */
+function searchApiAppendDomainListFeeVirtualRows(
+    PDO $pdo,
+    array &$results,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    array $filter_currency_codes,
+    array $currency_id_map
+): void {
+    $seen = [];
+    foreach ($results as $r) {
+        $seen[$r['account_db_id'] . '_' . strtoupper((string)($r['currency'] ?? ''))] = true;
+    }
+
+    $currencyFilterIds = [];
+    if (!empty($filter_currency_codes)) {
+        $want = array_unique(array_map('strtoupper', $filter_currency_codes));
+        foreach ($currency_id_map as $cid => $code) {
+            if (in_array(strtoupper((string)$code), $want, true)) {
+                $currencyFilterIds[] = (int)$cid;
+            }
+        }
+        $currencyFilterIds = array_values(array_unique(array_filter($currencyFilterIds)));
+    }
+
+    $sql = "SELECT t.id, t.amount, t.currency_id, t.sms, t.description
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              AND (
+                    t.sms LIKE '[DOMAIN_LIST_FEE|%'
+                    OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
+              )";
+    $par = [$company_id, $date_from_db, $date_to_db];
+    if (!empty($currencyFilterIds)) {
+        $sql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($currencyFilterIds), '?')) . ')';
+        $par = array_merge($par, $currencyFilterIds);
+    }
+    $sql .= ' ORDER BY t.id ASC';
+
+    $fallbackCur = '';
+    if (!empty($filter_currency_codes)) {
+        $fallbackCur = strtoupper((string)$filter_currency_codes[0]);
+    } else {
+        foreach ($currency_id_map as $cc) {
+            if (strtoupper((string)$cc) === 'MYR') { $fallbackCur = 'MYR'; break; }
+        }
+    }
+
+    $st = $pdo->prepare($sql);
+    $st->execute($par);
+    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+        $src = searchApiParseDomainListFeeCompanyCode((string)($row['sms'] ?? ''));
+        if ($src === null || $src === '') {
+            $src = searchApiParseDomainListFeeCompanyCodeFromDescription((string)($row['description'] ?? ''));
+        }
+        if ($src === null || $src === '') {
+            continue;
+        }
+
+        $cidRaw = $row['currency_id'] ?? null;
+        $cid = $cidRaw !== null ? (int)$cidRaw : 0;
+        $cur = $cid > 0 ? strtoupper((string)($currency_id_map[$cid] ?? '')) : '';
+        if ($cur === '') $cur = $fallbackCur;
+        if ($cur === '') continue;
+
+        $amt = round((float)($row['amount'] ?? 0), 2);
+        if (abs($amt) < 0.00001) continue;
+
+        $txId = (int)($row['id'] ?? 0);
+        if ($txId <= 0) continue;
+        $virtualId = -$txId;
+        $k = $virtualId . '_' . $cur;
+        if (isset($seen[$k])) continue;
+        $seen[$k] = true;
+
+        $name = $src;
+        try {
+            $sto = $pdo->prepare("
+                SELECT TRIM(COALESCE(o.name, '')) AS n
+                FROM company c
+                INNER JOIN owner o ON o.id = c.owner_id
+                WHERE UPPER(TRIM(c.company_id)) = ? OR UPPER(TRIM(IFNULL(c.group_id, ''))) = ?
+                ORDER BY c.id ASC
+                LIMIT 1
+            ");
+            $sto->execute([$src, $src]);
+            $n = trim((string)($sto->fetchColumn() ?: ''));
+            if ($n !== '') $name = $n;
+        } catch (PDOException $e) {}
+
+        $results[] = [
+            'account_id' => $src,
+            'account_name' => $name,
+            'account_db_id' => $virtualId,
+            'role' => 'DOMAIN',
+            'currency' => $cur,
+            'currency_id_debug' => $cid,
+            'bf' => 0.0,
+            'win_loss' => 0.0,
+            'cr_dr' => -$amt,
+            'balance' => -$amt,
+            'has_crdr_transactions' => 1,
+            'is_alert' => 0,
+            'is_rate_middleman' => 0
+        ];
+    }
 }
 
 /** 当前查询公司在库中的 owner_code（用于标注「入账 C168」等） */
@@ -1336,6 +1463,17 @@ if (!empty($target_account_ids)) {
         }
     }
     $results = $deduplicated_results;
+
+    // 第一笔 Domain List Fee：以客户公司（如 LGA）展示在 Transaction Payment
+    searchApiAppendDomainListFeeVirtualRows(
+        $pdo,
+        $results,
+        $company_id,
+        $date_from_db,
+        $date_to_db,
+        $filter_currency_codes,
+        $currency_id_map
+    );
 
     // 按 currency 和 account_id 排序
     usort($results, function($a, $b) {

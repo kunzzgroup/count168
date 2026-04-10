@@ -498,6 +498,34 @@ function resolveC168DomainFeePoolAccountId(PDO $pdo, int $c168Pk, int $excludeAc
 }
 
 /**
+ * 回退：在 C168 下按公司代码匹配同名 member 账户（例如 LAG -> account.account_id='LAG'）。
+ */
+function resolveC168CompanyCodeAccountId(PDO $pdo, int $c168Pk, string $companyCode, int $excludeAccountId = 0): ?int
+{
+    $code = strtoupper(trim($companyCode));
+    if ($c168Pk <= 0 || $code === '') {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND UPPER(TRIM(a.account_id)) = ?
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk, $code, (int)$excludeAccountId]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? (int)$v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+/**
  * Transaction Payment / search_api 按 currency_id 汇总 Cr/Dr，且忽略 currency_id IS NULL 的 PAYMENT。
  * Domain 入账必须写入 C168 公司下的币种，优先 MYR，否则取该公司第一条 currency。
  */
@@ -629,7 +657,9 @@ function createDomainListFeePayment(
     if ($poolEarly) {
         $out['pool_account_id'] = $poolEarly;
     }
-    $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . ']';
+    $today = date('Y-m-d');
+    $todayTag = date('Ymd', strtotime($today));
+    $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . '|D:' . $todayTag . ']';
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
         WHERE company_id = ? AND transaction_type = 'PAYMENT' AND sms = ?
@@ -642,7 +672,15 @@ function createDomainListFeePayment(
     }
     $fromCustomer = resolvePayerAccountInCompany($pdo, $customerPk, 0);
     $toC168Pool = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
-    if (!$fromCustomer || !$toC168Pool || $fromCustomer === $toC168Pool) {
+    if (!$toC168Pool) {
+        $out['skipped_no_accounts'] = true;
+        return $out;
+    }
+    if (!$fromCustomer) {
+        // 回退到 C168 下自动创建的同名账号（确保 PAYMENT 有 From Account）
+        $fromCustomer = resolveC168CompanyCodeAccountId($pdo, $c168Pk, $customerCompanyCode, (int)$toC168Pool);
+    }
+    if (!$fromCustomer || $fromCustomer === $toC168Pool) {
         $out['skipped_no_accounts'] = true;
         return $out;
     }
@@ -652,7 +690,6 @@ function createDomainListFeePayment(
         ? ('Domain list fee FROM ' . $ownerLabel . ' (' . $codeU . ')')
         : ('Domain list fee FROM ' . $codeU);
 
-    $today = date('Y-m-d');
     $now = date('Y-m-d H:i:s');
     $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
     $hasApprovalStatus = tableHasColumn($pdo, 'transactions', 'approval_status');
@@ -750,6 +787,7 @@ function createDomainShareCommissionPayments(
     $defaultTxnCurrencyId = $hasCurrencyId ? resolveC168DefaultTransactionCurrencyId($pdo, $c168Pk) : null;
 
     $today = date('Y-m-d');
+    $todayTag = date('Ymd', strtotime($today));
     $now = date('Y-m-d H:i:s');
     $c168OwnerCode = getCompanyOwnerCodeByPk($pdo, $c168Pk);
     if ($c168OwnerCode === '') {
@@ -799,7 +837,7 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
-            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|AID:' . $aid . ']';
+            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|AID:' . $aid . '|D:' . $todayTag . ']';
             $dupStmt = $pdo->prepare("
                 SELECT id
                 FROM transactions
