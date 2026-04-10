@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-let companiesData = [];     // session-filtered list (what's visible)
-let allCompaniesData = [];  // full unfiltered list (used for allGroupIds only)
+let companiesData = [];     // currently-filtered list (what's visible)
+let allCompaniesData = [];  // full unfiltered list (all companies)
 let companyStates = {};
 let currentlyExpandedId = null;
 let allGroupIds = []; // unique group IDs extracted from allCompaniesData
@@ -22,6 +22,10 @@ let draggedCompanyId = null;
 
 // ── Multi-select state ────────────────────────────────────────────
 const selectedCompanyIds = new Set(); // IDs of checked independent companies
+
+// ── Group filter state ────────────────────────────────────────────
+// null = show independent companies; string = show that group's companies
+let activeGroupFilter = null;
 
 // Template references (cached on first use)
 const tpl = {
@@ -46,32 +50,24 @@ function fetchCompanies() {
     loaderWrap.appendChild(document.createElement('div')).className = 'own-loader';
     container.appendChild(loaderWrap);
 
-
-    // Fetch session-filtered companies (respects dashboard group/independent context) AND
-    // all companies in parallel to extract available group IDs for the dropdown.
-    Promise.all([
-        fetch('api/ownership/get_companies_api.php').then(r => r.json()),
-        fetch('api/transactions/get_owner_companies_api.php?all=1').then(r => r.json())
-    ])
-    .then(([filteredRes, allRes]) => {
-        if (filteredRes.status === 'success') {
-            companiesData = filteredRes.data;
-        } else {
-            showToast(filteredRes.message, 'error');
-            container.innerHTML = '';
-            return;
-        }
-
-        // Store full unfiltered list and derive group IDs from it
-        allCompaniesData = (allRes.success && Array.isArray(allRes.data)) ? allRes.data : [];
-        _rebuildGroupIds();
-
-        renderCompanyCards();
-    })
-    .catch(err => {
-        console.error(err);
-        showToast('Failed to fetch companies', 'error');
-    });
+    // Always fetch the full unfiltered list — we filter client-side via the group bar
+    // Use ownership API (includes allocated_percentage) with all=1 to bypass session filter
+    fetch('api/ownership/get_companies_api.php?all=1')
+        .then(r => r.json())
+        .then(res => {
+            if (res.status !== 'success') {
+                showToast(res.message || 'Failed to load companies', 'error');
+                return;
+            }
+            allCompaniesData = res.data;
+            _rebuildGroupIds();
+            _applyGroupFilter();   // sets companiesData then renders
+            _renderGroupFilterBar();
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Failed to fetch companies', 'error');
+        });
 }
 
 // ---------------------------------------------
@@ -816,6 +812,80 @@ function _rebuildGroupIds() {
             .map(c => c.group_id)
             .filter(g => g && g.trim() !== '')
     )].sort();
+}
+
+/**
+ * Applies the activeGroupFilter to allCompaniesData, sets companiesData,
+ * then triggers a card render.
+ *  activeGroupFilter === null  → show independent companies (no group_id)
+ *  activeGroupFilter === 'G1'  → show companies in group G1
+ */
+function _applyGroupFilter() {
+    if (activeGroupFilter === null) {
+        // Independent: companies with no group
+        companiesData = allCompaniesData.filter(c => !c.group_id || c.group_id.trim() === '');
+    } else {
+        companiesData = allCompaniesData.filter(c =>
+            c.group_id && c.group_id.toLowerCase() === activeGroupFilter.toLowerCase()
+        );
+    }
+    renderCompanyCards();
+}
+
+/**
+ * Builds/refreshes the Group filter bar.
+ * Shows pill buttons: each group ID + an "Independent" button.
+ */
+function _renderGroupFilterBar() {
+    const bar = document.getElementById('own-group-filter-bar');
+    const btnContainer = document.getElementById('own-gfb-buttons');
+    if (!bar || !btnContainer) return;
+
+    // Only show the bar if there is at least one group
+    if (allGroupIds.length === 0) {
+        bar.style.display = 'none';
+        return;
+    }
+    bar.style.display = 'flex';
+
+    btnContainer.innerHTML = '';
+
+    // "Independent" button (null filter)
+    const indepBtn = document.createElement('button');
+    indepBtn.className = 'own-gfb-btn' + (activeGroupFilter === null ? ' active' : '');
+    indepBtn.textContent = 'Independent';
+    indepBtn.dataset.group = '';
+    indepBtn.addEventListener('click', () => _selectGroupFilter(null));
+    btnContainer.appendChild(indepBtn);
+
+    // One button per group ID
+    allGroupIds.forEach(gid => {
+        const btn = document.createElement('button');
+        btn.className = 'own-gfb-btn' + (activeGroupFilter === gid ? ' active' : '');
+        btn.dataset.group = gid;
+
+        // Count companies in this group
+        const count = allCompaniesData.filter(c =>
+            c.group_id && c.group_id.toLowerCase() === gid.toLowerCase()
+        ).length;
+
+        btn.innerHTML = `${gid}<span class="own-gfb-count">${count}</span>`;
+        btn.addEventListener('click', () => _selectGroupFilter(gid));
+        btnContainer.appendChild(btn);
+    });
+}
+
+/** Sets the active group filter, refreshes bar active state and re-renders cards. */
+function _selectGroupFilter(groupId) {
+    activeGroupFilter = groupId;
+    // Update button active states without full bar rebuild
+    document.querySelectorAll('.own-gfb-btn').forEach(btn => {
+        const isNull = groupId === null;
+        const matches = isNull ? btn.dataset.group === '' : btn.dataset.group === groupId;
+        btn.classList.toggle('active', matches);
+    });
+    _clearSelection();   // reset multi-select when switching tab
+    _applyGroupFilter();
 }
 
 function joinCompanyGroup(companyId, groupId, companyName) {

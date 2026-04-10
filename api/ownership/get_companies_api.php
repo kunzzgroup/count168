@@ -11,6 +11,8 @@ if (!isset($_SESSION['user_id'])) {
 
 $current_user_id = $_SESSION['user_id'];
 $current_user_role = $_SESSION['role'] ?? '';
+// ?all=1 → bypass session group filter (used by ownership page's local group filter bar)
+$fetchAll = isset($_GET['all']) && $_GET['all'] === '1';
 
 try {
     // Check if the table exists first (to prevent fatals if SQL wasn't run)
@@ -24,8 +26,7 @@ try {
         // when the user selects an external company (e.g. LOL selects JK's company TT).
         // Without this, we'd return JK's companies instead of LOL's.
         $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id);
-        // fetchAll=false → respects session group filter (same as dashboard)
-        $fetched = getCompaniesByOwner($pdo, $owner_id, false);
+        $fetched = getCompaniesByOwner($pdo, $owner_id, $fetchAll);
         foreach ($fetched as $c) {
             $companies[] = [
                 'id'              => $c['id'],
@@ -35,8 +36,7 @@ try {
             ];
         }
     } else {
-        // fetchAll=false → same scoping logic
-        $fetched = getCompaniesByUser($pdo, $current_user_id, false);
+        $fetched = getCompaniesByUser($pdo, $current_user_id, $fetchAll);
         foreach ($fetched as $c) {
             $companies[] = [
                 'id'              => $c['id'],
@@ -46,7 +46,7 @@ try {
             ];
         }
     }
-    
+
     // Get total ownership assigned for each company
     if ($tableExists && count($companies) > 0) {
         $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;

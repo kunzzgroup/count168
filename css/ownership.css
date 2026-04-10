@@ -69,9 +69,89 @@ body {
 }
 
 #companyCardsContainer {
-    margin-top: 20px;
+    margin-top: 16px;
     padding-bottom: 60px;
     width: 100%;
+}
+
+/* ── Group Filter Bar ─────────────────────────────────────────── */
+.own-group-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.own-gfb-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    font-family: 'Amaranth', sans-serif;
+    white-space: nowrap;
+    min-width: 52px;
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.own-gfb-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+/* Pill button — matches dashboard .transaction-company-btn style */
+.own-gfb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    background: #f1f5f9;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    height: 32px;
+}
+
+.own-gfb-btn:hover {
+    background: #e2e8f0;
+    border-color: #a5b4fc;
+}
+
+.own-gfb-btn.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.35);
+}
+
+/* Company count badge inside group buttons */
+.own-gfb-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    color: inherit;
+    transition: background 0.2s;
+}
+
+.own-gfb-btn:not(.active) .own-gfb-count {
+    background: rgba(0, 0, 0, 0.06);
+    color: #64748b;
 }
 
 /* Card Container */

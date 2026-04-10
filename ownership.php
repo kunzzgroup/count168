@@ -37,6 +37,14 @@ $assetVer = function ($file) {
         <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
+        <!-- Group Filter Bar -->
+        <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
+            <span class="own-gfb-label">Group</span>
+            <div class="own-gfb-buttons" id="own-gfb-buttons">
+                <!-- Injected by JS -->
+            </div>
+        </div>
+
         <!-- Companies will be injected here via JS -->
         <div id="companyCardsContainer">
             <!-- Loader -->
