@@ -6214,6 +6214,44 @@ window.addEventListener('resize', function () {
     }
 });
 
+// 浏览器后退/前进时还原 category 状态（配合 history.pushState 实现的无刷新切换）
+window.addEventListener('popstate', function (e) {
+    try {
+        const pageName = window.location.pathname.replace(/.*\//, '');
+        const permission = (pageName === 'bank_process_list.php') ? 'Bank' : 'Games';
+        if (permission !== selectedPermission) {
+            // 直接执行原地切换（不再 pushState，避免递归）
+            selectedPermission = permission;
+            updateProcessListPageTitle(permission);
+            if (permission === 'Bank') {
+                document.body.classList.add('process-page--bank');
+            } else {
+                document.body.classList.remove('process-page--bank');
+            }
+            const buttons = document.querySelectorAll('#process-list-permission-buttons .process-company-btn');
+            buttons.forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.permission === permission);
+            });
+            const processTableWrapperEl = document.getElementById('processTableWrapper');
+            const bankTableWrapperEl = document.getElementById('bankTableWrapper');
+            if (permission === 'Bank') {
+                if (processTableWrapperEl) processTableWrapperEl.style.display = 'none';
+                if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'block';
+            } else {
+                if (processTableWrapperEl) processTableWrapperEl.style.display = 'grid';
+                if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
+            }
+            updateProcessListDateFilterVisibility();
+            updateBankListScrollMode();
+            currentPage = 1;
+            fetchProcesses();
+        }
+    } catch (err) {
+        // 降级：刷新页面
+        window.location.reload();
+    }
+});
+
 // 加载权限按钮
 async function loadPermissionButtons() {
     const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -6283,8 +6321,14 @@ async function loadPermissionButtons() {
 // 切换权限
 function switchPermission(permission) {
     const targetPage = getProcessListPageByPermission(permission);
-    if (redirectToProcessListPage(targetPage, permission)) {
-        return;
+    // 使用 history.pushState 无刷新更新 URL（替代全页跳转，消除白屏卡顿）
+    // 注：processlist.php 已包含所有 Bank HTML，下方的 6290-6374 行代码已完整实现在页面内切换
+    if (targetPage && targetPage !== currentProcessListPage) {
+        try {
+            const _pUrl = new URL(window.location.href);
+            _pUrl.pathname = _pUrl.pathname.replace(/[^/]*$/, targetPage);
+            history.pushState({ permission: permission, page: targetPage }, '', _pUrl.toString());
+        } catch (e) { /* 降级：正常跳转 */ window.location.href = window.location.href.replace(/[^/]*$/, targetPage); return; }
     }
 
     selectedPermission = permission;
