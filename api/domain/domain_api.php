@@ -705,7 +705,7 @@ try {
                             }
                         }
                     } else {
-                        // 旧格式：逗号分隔的字符串（向后兼容）
+                        // 旧格式 逗号分隔的字符串（向后兼容）
                         $company_ids = array_map('trim', explode(',', $companies));
                         $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date) VALUES (?, ?, ?, ?)");
                         
