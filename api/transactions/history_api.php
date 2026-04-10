@@ -1225,6 +1225,7 @@ try {
         // Id Product：手动 PROFIT（WIN/LOSE，非 Bank Process）统一显示为 PROFIT；
         // Domain Share% 自动生成的 Commission Payment（sms 标记或固定描述前缀）显示为 Commission。
         $isDomainShareCommission = false;
+        $isDomainListFee = false;
         $smsText = trim((string)($t['sms'] ?? ''));
         $descText = trim((string)($t['description'] ?? ''));
         if ($smsText === '[DOMAIN_SHARE_COMMISSION]'
@@ -1232,6 +1233,12 @@ try {
             || stripos($descText, 'Commision FROM ') === 0
             || stripos($descText, 'Commision for ') === 0) {
             $isDomainShareCommission = true;
+        }
+        if ($smsText === '[DOMAIN_LIST_FEE]'
+            || stripos($smsText, '[DOMAIN_LIST_FEE|') === 0
+            || stripos($descText, 'Domain list fee FROM ') === 0
+            || stripos($descText, 'Pay Domain Fee To ') === 0) {
+            $isDomainListFee = true;
         }
         $productLabel = $isManualProfit ? 'PROFIT' : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']);
         
@@ -1252,7 +1259,7 @@ try {
             'percent' => '-',
             'rate' => '-',
             'description' => $description,
-            'sms' => $isDomainShareCommission ? '-' : ($t['sms'] ?: '-'),
+            'sms' => ($isDomainShareCommission || $isDomainListFee) ? '-' : ($t['sms'] ?: '-'),
             'created_by' => $transactionCreatedBy
         ];
     }
