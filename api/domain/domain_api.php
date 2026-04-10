@@ -129,8 +129,25 @@ function deleteByIds(PDO $pdo, string $table, string $column, array $ids): void
  */
 /**
  * Domain 列表页：全局 Price（单行 id=1）
+ * 注意：MySQL/MariaDB 中任意 CREATE TABLE 都会隐式提交并结束当前事务。
+ * 表已存在时必须跳过 CREATE，否则在 beginTransaction 之后的入账逻辑里再调用会触发
+ * “There is no active transaction”。
  */
 function ensureDomainListFeeSettingsTable(PDO $pdo): void {
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    try {
+        $stmt = $pdo->query("SHOW TABLES LIKE 'domain_list_fee_settings'");
+        if ($stmt && $stmt->fetch(PDO::FETCH_NUM) !== false) {
+            $pdo->exec("INSERT IGNORE INTO `domain_list_fee_settings` (`id`, `price`) VALUES (1, NULL)");
+            $ensured = true;
+            return;
+        }
+    } catch (Exception $e) {
+        // 继续尝试建表
+    }
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `domain_list_fee_settings` (
             `id` TINYINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -139,6 +156,7 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
     $pdo->exec("INSERT IGNORE INTO `domain_list_fee_settings` (`id`, `price`) VALUES (1, NULL)");
+    $ensured = true;
 }
 
 /**
