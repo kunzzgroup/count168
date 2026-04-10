@@ -77,12 +77,13 @@ body {
 /* Card Container */
 .own-card {
     border: 1px solid var(--own-gray-border);
-    border-radius: 16px; /* Softer, larger radius */
-    margin-bottom: 24px; /* More spacing between cards */
+    border-radius: 16px;
+    margin-bottom: 24px;
     background-color: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02); /* More premium shadow */
-    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+    overflow: visible; /* allow group dropdown to escape card boundary */
     transition: box-shadow 0.3s ease, transform 0.3s ease;
+    position: relative; /* stacking context for inner absolute elements */
 }
 
 .own-card:hover {
@@ -90,14 +91,15 @@ body {
     border-color: #cbd5e1;
 }
 
-/* Card Header */    
 .own-card-header {
-    padding: 24px 32px; /* Bigger padding */
+    padding: 24px 32px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     background-color: #fff;
     min-height: 90px;
+    border-radius: 16px; /* match card — clips top corners even without overflow:hidden */
+    transition: border-radius 0.25s ease;
 }
 
 .own-card-header-left {
@@ -105,11 +107,16 @@ body {
 }
 
 .own-company-name {
-    font-size: 24px; /* Larger company names */
-    font-weight: 800; /* Bolder */
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 24px;
+    font-weight: 800;
     margin-bottom: 6px;
     color: var(--own-dark-text);
     letter-spacing: 0.2px;
+    line-height: 1.2;
 }
 
 .own-company-date {
@@ -215,6 +222,7 @@ body {
 /* Expanded Card Specifics */
 .own-card.expanded .own-card-header {
     border-bottom: 1px solid var(--own-gray-border);
+    border-radius: 16px 16px 0 0; /* only top corners rounded when expanded */
 }
 
 /* Card Body (Account Rows) */
@@ -437,8 +445,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom-left-radius: 16px;
-    border-bottom-right-radius: 16px;
+    border-radius: 0 0 16px 16px; /* round the bottom corners explicitly */
 }
 
 .own-footer-left {
@@ -791,11 +798,11 @@ body {
 
 /* ── Group Management Buttons ─────────────────────────────── */
 
-/* Group badge shown next to company name in grouped cards */
+/* Group badge shown inline inside company name */
 .own-group-badge {
     display: inline-flex;
     align-items: center;
-    padding: 3px 10px;
+    padding: 2px 9px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 700;
@@ -803,9 +810,9 @@ body {
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     color: #1d4ed8;
     border: 1px solid #bfdbfe;
-    margin-left: 10px;
-    vertical-align: middle;
     white-space: nowrap;
+    vertical-align: middle;
+    /* no margin-left — gap on parent handles spacing */
 }
 
 /* "+ Group" button wrapper — parent of button + dropdown */

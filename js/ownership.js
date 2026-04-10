@@ -172,12 +172,12 @@ function renderCompanyCards() {
                 });
                 headerRight.insertBefore(ungroupBtn, headerRight.firstChild);
 
-                // Show group badge next to company name
+                // Show group badge INSIDE .own-company-name (flex row) — not after it
                 const nameEl = $(card, 'name');
                 const badge = document.createElement('span');
                 badge.className = 'own-group-badge';
                 badge.textContent = groupId;
-                nameEl.after(badge);
+                nameEl.appendChild(badge);
             }
         }
         // ──────────────────────────────────────────────────────────────
