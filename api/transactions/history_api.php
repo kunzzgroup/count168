@@ -1005,7 +1005,13 @@ try {
                         $cr_dr = -$t['amount'];
                     }
                 } else {
-                    $cr_dr = $t['amount'];
+                    // Domain List Fee：客户(from)侧在历史中显示负数（与主表 LAG -2400 一致）
+                    if (stripos((string)($t['sms'] ?? ''), '[DOMAIN_LIST_FEE|') === 0
+                        || stripos((string)$rawDescription, 'Domain list fee FROM ') === 0) {
+                        $cr_dr = -(float)$t['amount'];
+                    } else {
+                        $cr_dr = $t['amount'];
+                    }
                 }
                 break;
                 

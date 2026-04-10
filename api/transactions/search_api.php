@@ -208,10 +208,23 @@ function searchApiAppendDomainListFeeVirtualRows(
         $amt = round((float)($row['amount'] ?? 0), 2);
         if (abs($amt) < 0.00001) continue;
 
-        $txId = (int)($row['id'] ?? 0);
-        if ($txId <= 0) continue;
-        $virtualId = -$txId;
-        $k = $virtualId . '_' . $cur;
+        $realAccountId = 0;
+        try {
+            $sta = $pdo->prepare("
+                SELECT a.id
+                FROM account a
+                INNER JOIN account_company ac ON ac.account_id = a.id
+                WHERE ac.company_id = ?
+                  AND UPPER(TRIM(a.account_id)) = ?
+                LIMIT 1
+            ");
+            $sta->execute([$company_id, $src]);
+            $realAccountId = (int)($sta->fetchColumn() ?: 0);
+        } catch (PDOException $e) {}
+
+        $rowAccountId = $realAccountId > 0 ? $realAccountId : (-(int)($row['id'] ?? 0));
+        if ($rowAccountId === 0) continue;
+        $k = $rowAccountId . '_' . $cur;
         if (isset($seen[$k])) continue;
         $seen[$k] = true;
 
@@ -233,7 +246,7 @@ function searchApiAppendDomainListFeeVirtualRows(
         $results[] = [
             'account_id' => $src,
             'account_name' => $name,
-            'account_db_id' => $virtualId,
+            'account_db_id' => $rowAccountId,
             'role' => 'DOMAIN',
             'currency' => $cur,
             'currency_id_debug' => $cid,
