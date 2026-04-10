@@ -195,7 +195,7 @@ function rowToItem(array $row, $is_deleted = 0) {
         || stripos($remarkTrim, '[DOMAIN_SHARE_COMMISSION|') === 0) {
         $isDomainShareCommission = true;
     }
-    if (stripos(trim($descriptionRaw), 'Pay Domain Fee To ') === 0
+    if (stripos(trim($descriptionRaw), 'Pay Domain Fee') === 0
         || $remarkTrim === '[DOMAIN_LIST_FEE]'
         || stripos($remarkTrim, '[DOMAIN_LIST_FEE|') === 0) {
         $isDomainListFee = true;
@@ -227,8 +227,15 @@ function rowToItem(array $row, $is_deleted = 0) {
         }
         $description = $roleLabel . ' Commission From ' . $sourceCompany;
     }
+    if ($isDomainListFee) {
+        $description = 'Pay Domain Fee';
+    }
     $displayAccount = $row['account_code'] ?? '-';
-    if ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee\s+To\s+([A-Za-z0-9_-]+)/i', trim((string)$description), $m)) {
+    if ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee(?:\s+To\s+([A-Za-z0-9_-]+))?/i', trim((string)($row['description'] ?? '')), $m)) {
+        if (!empty($m[1])) {
+            $displayAccount = strtoupper(trim((string)$m[1]));
+        }
+    } elseif ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee\s+To\s+([A-Za-z0-9_-]+)/i', trim((string)$description), $m)) {
         $displayAccount = strtoupper(trim((string)$m[1]));
     }
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');

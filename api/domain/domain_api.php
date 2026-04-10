@@ -824,7 +824,7 @@ function createDomainListFeePayment(
     if ($c168OwnerCode === '') {
         $c168OwnerCode = 'C168';
     }
-    $desc = 'Pay Domain Fee To ' . $c168OwnerCode;
+    $desc = 'Pay Domain Fee';
 
     $now = date('Y-m-d H:i:s');
     $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
