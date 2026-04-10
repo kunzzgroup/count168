@@ -693,10 +693,7 @@ body.process-page {
 
 /* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
 
-.process-page.process-page--bank .separator-line {
-    margin-top: 4px;
-    margin-bottom: 0;
-}
+/* separator-line 不再 override，与 Games 完全一致（margin: 5px 0 -10px 0） */
 
 .process-page.process-page--bank .bank-table-wrapper {
     flex: 0 1 auto;
