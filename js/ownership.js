@@ -11,10 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-let companiesData = [];
+let companiesData = [];     // session-filtered list (what's visible)
+let allCompaniesData = [];  // full unfiltered list (used for allGroupIds only)
 let companyStates = {};
 let currentlyExpandedId = null;
-let allGroupIds = []; // unique group IDs across all companies
+let allGroupIds = []; // unique group IDs extracted from allCompaniesData
 
 let draggedRowIdx = null;
 let draggedCompanyId = null;
@@ -58,14 +59,9 @@ function fetchCompanies() {
             return;
         }
 
-        // Extract unique group_ids from FULL list so "+ Group" dropdown shows all options,
-        // even when currently viewing the independent (ungrouped) view.
-        const allCompanies = (allRes.success && Array.isArray(allRes.data)) ? allRes.data : [];
-        allGroupIds = [...new Set(
-            allCompanies
-                .map(c => c.group_id)
-                .filter(g => g && g.trim() !== '')
-        )].sort();
+        // Store full unfiltered list and derive group IDs from it
+        allCompaniesData = (allRes.success && Array.isArray(allRes.data)) ? allRes.data : [];
+        _rebuildGroupIds();
 
         renderCompanyCards();
     })
@@ -664,6 +660,15 @@ function showToast(message, type = 'success') {
 // Group Management (Join / Ungroup)
 // ---------------------------------------------
 
+/** Recalculates allGroupIds from the full (unfiltered) company list. */
+function _rebuildGroupIds() {
+    allGroupIds = [...new Set(
+        allCompaniesData
+            .map(c => c.group_id)
+            .filter(g => g && g.trim() !== '')
+    )].sort();
+}
+
 function joinCompanyGroup(companyId, groupId, companyName) {
     fetch('api/ownership/update_company_group_api.php', {
         method: 'POST',
@@ -674,13 +679,12 @@ function joinCompanyGroup(companyId, groupId, companyName) {
     .then(res => {
         if (res.status === 'success') {
             showToast(`"${companyName}" joined group "${groupId}"`, 'success');
-            // Update local data and re-render
+            // Update both filtered list and full list
             const comp = companiesData.find(c => parseInt(c.id) === companyId);
             if (comp) comp.group_id = groupId;
-            if (!allGroupIds.includes(groupId)) {
-                allGroupIds.push(groupId);
-                allGroupIds.sort();
-            }
+            const fullComp = allCompaniesData.find(c => parseInt(c.id) === companyId);
+            if (fullComp) fullComp.group_id = groupId;
+            _rebuildGroupIds();
             renderCompanyCards();
         } else {
             showToast(res.message, 'error');
@@ -702,12 +706,12 @@ function ungroupCompany(companyId, companyName) {
     .then(res => {
         if (res.status === 'success') {
             showToast(`"${companyName}" removed from group`, 'success');
+            // Update both filtered list and full list
             const comp = companiesData.find(c => parseInt(c.id) === companyId);
             if (comp) comp.group_id = null;
-            // Recalculate all group IDs in case none remain
-            allGroupIds = [...new Set(
-                companiesData.map(c => c.group_id).filter(g => g && g.trim() !== '')
-            )].sort();
+            const fullComp = allCompaniesData.find(c => parseInt(c.id) === companyId);
+            if (fullComp) fullComp.group_id = null;
+            _rebuildGroupIds();
             renderCompanyCards();
         } else {
             showToast(res.message, 'error');
