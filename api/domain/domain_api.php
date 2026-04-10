@@ -559,12 +559,16 @@ function createDomainNetProfitPayment(
         return $out;
     }
 
-    $ownerAccId = resolveC168OwnerAccountId($pdo, $c168Pk);
     $poolId = $fromPoolAccountId;
     if (!$poolId || $poolId <= 0) {
         $poolId = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
     }
-    if (!$ownerAccId || !$poolId || $ownerAccId === $poolId) {
+    $ownerAccId = resolveC168OwnerAccountId($pdo, $c168Pk);
+    // 回退：若没有 K(owner_code) 账号，则利润记到资金池账号，确保第三笔一定生成
+    if (!$ownerAccId || $ownerAccId <= 0) {
+        $ownerAccId = $poolId;
+    }
+    if (!$ownerAccId || !$poolId) {
         return $out;
     }
 
