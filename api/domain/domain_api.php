@@ -629,7 +629,9 @@ function createDomainListFeePayment(
     if ($poolEarly) {
         $out['pool_account_id'] = $poolEarly;
     }
-    $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . ']';
+    $today = date('Y-m-d');
+    $todayTag = date('Ymd', strtotime($today));
+    $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . '|D:' . $todayTag . ']';
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
         WHERE company_id = ? AND transaction_type = 'PAYMENT' AND sms = ?
@@ -642,9 +644,12 @@ function createDomainListFeePayment(
     }
     $fromCustomer = resolvePayerAccountInCompany($pdo, $customerPk, 0);
     $toC168Pool = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
-    if (!$fromCustomer || !$toC168Pool || $fromCustomer === $toC168Pool) {
+    if (!$toC168Pool) {
         $out['skipped_no_accounts'] = true;
         return $out;
+    }
+    if ($fromCustomer && $fromCustomer === $toC168Pool) {
+        $fromCustomer = null;
     }
     $ownerLabel = getCompanyOwnerDisplayLabel($pdo, $customerPk);
     $codeU = strtoupper(trim($customerCompanyCode));
@@ -652,7 +657,6 @@ function createDomainListFeePayment(
         ? ('Domain list fee FROM ' . $ownerLabel . ' (' . $codeU . ')')
         : ('Domain list fee FROM ' . $codeU);
 
-    $today = date('Y-m-d');
     $now = date('Y-m-d H:i:s');
     $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
     $hasApprovalStatus = tableHasColumn($pdo, 'transactions', 'approval_status');
@@ -666,7 +670,7 @@ function createDomainListFeePayment(
         'company_id' => $c168Pk,
         'transaction_type' => 'PAYMENT',
         'account_id' => $toC168Pool,
-        'from_account_id' => $fromCustomer,
+        'from_account_id' => $fromCustomer ?: null,
         'amount' => $out['amount'],
         'transaction_date' => $today,
         'description' => $desc,
@@ -750,6 +754,7 @@ function createDomainShareCommissionPayments(
     $defaultTxnCurrencyId = $hasCurrencyId ? resolveC168DefaultTransactionCurrencyId($pdo, $c168Pk) : null;
 
     $today = date('Y-m-d');
+    $todayTag = date('Ymd', strtotime($today));
     $now = date('Y-m-d H:i:s');
     $c168OwnerCode = getCompanyOwnerCodeByPk($pdo, $c168Pk);
     if ($c168OwnerCode === '') {
@@ -799,7 +804,7 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
-            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|AID:' . $aid . ']';
+            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|AID:' . $aid . '|D:' . $todayTag . ']';
             $dupStmt = $pdo->prepare("
                 SELECT id
                 FROM transactions
