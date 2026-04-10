@@ -190,6 +190,7 @@ function rowToItem(array $row, $is_deleted = 0) {
     $remarkRaw = (string)($row['remark'] ?? '');
     $remarkTrim = trim($remarkRaw);
     if (stripos(trim($descriptionRaw), 'Commision FROM ') === 0
+        || stripos(trim($descriptionRaw), 'Commision for ') === 0
         || $remarkTrim === '[DOMAIN_SHARE_COMMISSION]'
         || stripos($remarkTrim, '[DOMAIN_SHARE_COMMISSION|') === 0) {
         $isDomainShareCommission = true;
@@ -209,7 +210,7 @@ function rowToItem(array $row, $is_deleted = 0) {
         'currency' => $row['currency_code'] ?? '-',
         'amount' => (float) $row['amount'],
         'description' => $description,
-        'remark' => $row['remark'] ?? '',
+        'remark' => $isDomainShareCommission ? '' : ($row['remark'] ?? ''),
         'dts_created' => $row['dts_created'] ?? '',
         'created_by' => $createdBy,
         'transaction_type' => $row['transaction_type'],

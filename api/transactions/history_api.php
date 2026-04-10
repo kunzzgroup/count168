@@ -1069,7 +1069,8 @@ try {
         $descText = trim((string)($t['description'] ?? ''));
         if ($smsText === '[DOMAIN_SHARE_COMMISSION]'
             || stripos($smsText, '[DOMAIN_SHARE_COMMISSION|') === 0
-            || stripos($descText, 'Commision FROM ') === 0) {
+            || stripos($descText, 'Commision FROM ') === 0
+            || stripos($descText, 'Commision for ') === 0) {
             $isDomainShareCommission = true;
         }
         $productLabel = $isManualProfit ? 'PROFIT' : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']);
@@ -1091,7 +1092,7 @@ try {
             'percent' => '-',
             'rate' => '-',
             'description' => $description,
-            'sms' => $t['sms'] ?: '-',
+            'sms' => $isDomainShareCommission ? '-' : ($t['sms'] ?: '-'),
             'created_by' => $transactionCreatedBy
         ];
     }
