@@ -758,6 +758,40 @@ body.process-page {
     margin-bottom: max(5px, env(safe-area-inset-bottom, 0px));
 }
 
+/* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
+.process-page.process-page--bank .action-buttons > div:first-child {
+    flex-wrap: nowrap;
+    gap: clamp(4px, 0.5vw, 10px);
+}
+
+.process-page.process-page--bank .checkbox-section {
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.process-page.process-page--bank .checkbox-section label {
+    font-size: clamp(9px, 0.6vw, 11px);
+    white-space: nowrap;
+}
+
+.process-page.process-page--bank .checkbox-section input[type="checkbox"] {
+    width: clamp(11px, 0.75vw, 14px);
+    height: clamp(11px, 0.75vw, 14px);
+    flex-shrink: 0;
+}
+
+/* Bank 搜索框宽度稍窄，给 checkbox 留空间 */
+.process-page.process-page--bank .search-input {
+    width: clamp(110px, 8.5vw, 200px);
+}
+
+/* Bank 日期选择器宽度稍窄 */
+.process-page.process-page--bank .process-list-date-filter,
+.process-page.process-page--bank .process-list-date-filter .date-range-picker {
+    min-width: clamp(140px, 11vw, 200px);
+    width: clamp(140px, 11vw, 200px);
+}
+
 @media (max-height: 820px) {
 
     .process-page.process-page--bank .bank-data-table {
