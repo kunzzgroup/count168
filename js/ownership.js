@@ -834,7 +834,7 @@ function _applyGroupFilter() {
 
 /**
  * Builds/refreshes the Group filter bar.
- * Shows pill buttons: each group ID + an "Independent" button.
+ * Shows pill buttons for each group ID only (Independent is the implicit default).
  */
 function _renderGroupFilterBar() {
     const bar = document.getElementById('own-group-filter-bar');
@@ -850,15 +850,7 @@ function _renderGroupFilterBar() {
 
     btnContainer.innerHTML = '';
 
-    // "Independent" button (null filter)
-    const indepBtn = document.createElement('button');
-    indepBtn.className = 'own-gfb-btn' + (activeGroupFilter === null ? ' active' : '');
-    indepBtn.textContent = 'Independent';
-    indepBtn.dataset.group = '';
-    indepBtn.addEventListener('click', () => _selectGroupFilter(null));
-    btnContainer.appendChild(indepBtn);
-
-    // One button per group ID
+    // One button per group ID — no "Independent" button
     allGroupIds.forEach(gid => {
         const btn = document.createElement('button');
         btn.className = 'own-gfb-btn' + (activeGroupFilter === gid ? ' active' : '');
@@ -875,14 +867,13 @@ function _renderGroupFilterBar() {
     });
 }
 
-/** Sets the active group filter, refreshes bar active state and re-renders cards. */
+/** Sets the active group filter. Clicking the already-active group toggles it off (→ independent view). */
 function _selectGroupFilter(groupId) {
-    activeGroupFilter = groupId;
-    // Update button active states without full bar rebuild
+    // Toggle: clicking an active group returns to independent (null)
+    activeGroupFilter = (activeGroupFilter === groupId) ? null : groupId;
+    // Update button active states
     document.querySelectorAll('.own-gfb-btn').forEach(btn => {
-        const isNull = groupId === null;
-        const matches = isNull ? btn.dataset.group === '' : btn.dataset.group === groupId;
-        btn.classList.toggle('active', matches);
+        btn.classList.toggle('active', btn.dataset.group === (activeGroupFilter ?? ''));
     });
     _clearSelection();   // reset multi-select when switching tab
     _applyGroupFilter();
