@@ -250,12 +250,12 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
 
                 <!-- Earnings 卡片 (右上角独立显示) -->
                 <div class="dashboard-kpi-card dashboard-kpi-card--blue" id="earnings-card-wrapper" style="display: none;">
+                    <div class="kpi-icon">
+                        <i class="fas fa-hand-holding-usd"></i>
+                    </div>
                     <div class="kpi-text">
                         <div class="kpi-label">Earnings</div>
                         <div class="kpi-value" id="earnings-value">0</div>
-                    </div>
-                    <div class="kpi-icon">
-                        <i class="fas fa-hand-holding-usd"></i>
                     </div>
                 </div>
             </div>
