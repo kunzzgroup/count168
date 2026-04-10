@@ -110,7 +110,22 @@ function renderCompanyCards() {
         if (dateEl) {
             if (comp.expiration_date) {
                 const expStr = comp.expiration_date.split(' ')[0];
-                dateEl.textContent = `Exp: ${expStr}`;
+                const expDate = new Date(expStr);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+                // Color coding: expired = red, ≤30 days = amber, else = gray
+                let cls = '';
+                if (daysLeft < 0) cls = 'own-date-expired';
+                else if (daysLeft <= 30) cls = 'own-date-warning';
+
+                dateEl.innerHTML = `
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    ${expStr}`;
+                if (cls) dateEl.classList.add(cls);
             } else {
                 dateEl.textContent = '';
             }
