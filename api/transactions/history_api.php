@@ -233,6 +233,34 @@ function historyResolveCompanyOwnerCode(PDO $pdo, int $companyId): string
     }
 }
 
+function historyResolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
+{
+    try {
+        $st = $pdo->prepare("
+            SELECT COALESCE(u.login_id, o.owner_code, '-') AS submitter
+            FROM transactions t
+            LEFT JOIN user u ON t.created_by = u.id
+            LEFT JOIN owner o ON t.created_by_owner = o.id
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              AND (
+                    t.sms LIKE '[DOMAIN_NET_PROFIT|%'
+                    OR t.sms LIKE '[DOMAIN_LIST_FEE|%'
+                    OR t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                    OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROFIT BY %'
+              )
+            ORDER BY t.created_at DESC, t.id DESC
+            LIMIT 1
+        ");
+        $st->execute([$companyId, $dateFromDb, $dateToDb]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null && trim((string)$v) !== '') ? trim((string)$v) : '-';
+    } catch (PDOException $e) {
+        return '-';
+    }
+}
+
 function buildVirtualDomainListFeeHistory(
     PDO $pdo,
     int $companyId,
@@ -253,8 +281,12 @@ function buildVirtualDomainListFeeHistory(
         $currencyById[(int)$r['id']] = strtoupper((string)$r['code']);
     }
 
-    $sql = "SELECT t.id, t.amount, t.currency_id, t.transaction_date, t.description, t.sms
+    $fallbackSubmitter = historyResolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
+    $sql = "SELECT t.id, t.amount, t.currency_id, t.transaction_date, t.description, t.sms,
+                   COALESCE(u.login_id, o.owner_code, '') AS created_by
             FROM transactions t
+            LEFT JOIN user u ON t.created_by = u.id
+            LEFT JOIN owner o ON t.created_by_owner = o.id
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
@@ -429,7 +461,8 @@ function buildVirtualDomainNetProfitHistory(
                 'currency_id' => $cid,
                 'transaction_date' => $dateToDb,
                 'description' => 'Profit By ' . $owner,
-                'sms' => '[DOMAIN_NET_PROFIT|DYNAMIC]'
+                'sms' => '[DOMAIN_NET_PROFIT|DYNAMIC]',
+                'created_by' => $fallbackSubmitter
             ];
         }
     }
@@ -483,7 +516,7 @@ function buildVirtualDomainNetProfitHistory(
             'description' => 'Profit By ' . $owner,
             'sms' => '-',
             'remark' => '-',
-            'created_by' => '-',
+            'created_by' => (trim((string)($r['created_by'] ?? '')) !== '' ? trim((string)$r['created_by']) : $fallbackSubmitter),
             'transaction_type' => 'PAYMENT',
             'row_type' => 'txn'
         ];
