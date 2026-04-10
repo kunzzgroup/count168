@@ -214,7 +214,7 @@ try {
                   AND a.status = 'active'";
         
         // 应用权限过滤
-        list($sql, $params) = filterAccountsByPermissions($pdo, $sql, []);
+        list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $company_id);
         $sql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $sql);
         $sql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $sql);
         

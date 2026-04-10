@@ -112,6 +112,163 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
     ];
 }
 
+/** @return string|null 客户公司代码，如 LGA */
+function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
+{
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^\]]+)\]/i', trim($sms), $m)) {
+        return strtoupper(trim($m[1]));
+    }
+    return null;
+}
+
+/** 当前查询公司在库中的 owner_code（用于标注「入账 C168」等） */
+function searchApiResolveCompanyOwnerCodeByPk(PDO $pdo, int $companyPk): string
+{
+    if ($companyPk <= 0) {
+        return '';
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT TRIM(COALESCE(o.owner_code, '')) AS oc
+            FROM company c
+            INNER JOIN owner o ON o.id = c.owner_id
+            WHERE c.id = ?
+            LIMIT 1
+        ");
+        $st->execute([$companyPk]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? trim((string)$v) : '';
+    } catch (PDOException $e) {
+        return '';
+    }
+}
+
+/**
+ * Domain list fee（PAYMENT + [DOMAIN_LIST_FEE|客户公司]）：若付方行仍未出现（付方被删、或 from 为空等），
+ * 用客户公司所属 owner_code / 名称补一行左侧展示；名称后缀带当前查询公司 owner_code 标明入账对象。
+ */
+function searchApiAppendSyntheticDomainListFeePayers(
+    PDO $pdo,
+    array &$results,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    array $filter_currency_codes,
+    array $currency_id_map
+): void {
+    $seen = [];
+    foreach ($results as $r) {
+        $seen[$r['account_db_id'] . '_' . strtoupper((string)($r['currency'] ?? ''))] = true;
+    }
+    $receiverOwner = searchApiResolveCompanyOwnerCodeByPk($pdo, $company_id);
+    $receiverCompanyCode = '';
+    try {
+        $stLab = $pdo->prepare("SELECT UPPER(TRIM(company_id)) FROM company WHERE id = ? LIMIT 1");
+        $stLab->execute([$company_id]);
+        $receiverCompanyCode = trim((string)($stLab->fetchColumn() ?: ''));
+    } catch (PDOException $e) {
+    }
+    if ($receiverCompanyCode === '') {
+        $receiverCompanyCode = 'COMPANY';
+    }
+
+    $sql = "SELECT t.id, t.from_account_id, t.amount, t.currency_id, t.sms, t.description
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date BETWEEN ? AND ?
+              AND t.sms LIKE '[DOMAIN_LIST_FEE|%'
+              AND t.currency_id IS NOT NULL";
+    $par = [$company_id, $date_from_db, $date_to_db];
+    if (!empty($filter_currency_codes)) {
+        $want = array_map('strtoupper', $filter_currency_codes);
+        $cids = [];
+        foreach ($currency_id_map as $cid => $code) {
+            if (in_array(strtoupper((string)$code), $want, true)) {
+                $cids[] = (int)$cid;
+            }
+        }
+        $cids = array_values(array_unique(array_filter($cids)));
+        if (empty($cids)) {
+            return;
+        }
+        $sql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($cids), '?')) . ')';
+        $par = array_merge($par, $cids);
+    }
+
+    $st = $pdo->prepare($sql);
+    $st->execute($par);
+    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+        $cid = (int)$row['currency_id'];
+        $curCode = strtoupper((string)($currency_id_map[$cid] ?? ''));
+        if ($curCode === '') {
+            continue;
+        }
+        $fid = isset($row['from_account_id']) ? (int)$row['from_account_id'] : 0;
+        if ($fid > 0 && isset($seen[$fid . '_' . $curCode])) {
+            continue;
+        }
+        $custCode = searchApiParseDomainListFeeCompanyCode((string)($row['sms'] ?? ''));
+        if ($custCode === null || $custCode === '') {
+            continue;
+        }
+        $oc = '';
+        $oname = '';
+        try {
+            $stc = $pdo->prepare("
+                SELECT TRIM(COALESCE(o.owner_code, '')) AS oc, TRIM(COALESCE(o.name, '')) AS oname
+                FROM company c
+                INNER JOIN owner o ON o.id = c.owner_id
+                WHERE UPPER(TRIM(c.company_id)) = ?
+                   OR UPPER(TRIM(IFNULL(c.group_id, ''))) = ?
+                ORDER BY c.id ASC
+                LIMIT 1
+            ");
+            $stc->execute([$custCode, $custCode]);
+            $cr = $stc->fetch(PDO::FETCH_ASSOC);
+            if ($cr) {
+                $oc = trim((string)($cr['oc'] ?? ''));
+                $oname = trim((string)($cr['oname'] ?? ''));
+            }
+        } catch (PDOException $e) {
+        }
+        if ($oc === '') {
+            $oc = $custCode;
+        }
+        $displayName = $oname !== '' ? $oname : $oc;
+        if ($receiverOwner !== '') {
+            $displayName .= ' (→ ' . $receiverCompanyCode . ' owner: ' . $receiverOwner . ')';
+        } else {
+            $displayName .= ' (→ ' . $receiverCompanyCode . ' domain list fee)';
+        }
+        $amt = round((float)($row['amount'] ?? 0), 2);
+        if (abs($amt) < 0.00001) {
+            continue;
+        }
+        $tid = (int)$row['id'];
+        $synthKey = (-$tid) . '_' . $curCode;
+        if (isset($seen[$synthKey])) {
+            continue;
+        }
+        $seen[$synthKey] = true;
+        $results[] = [
+            'account_id' => $oc,
+            'account_name' => $displayName,
+            'account_db_id' => -$tid,
+            'role' => 'DOMAIN',
+            'currency' => $curCode,
+            'currency_id_debug' => $cid,
+            'bf' => 0.0,
+            'win_loss' => 0.0,
+            'cr_dr' => $amt,
+            'balance' => $amt,
+            'has_crdr_transactions' => 1,
+            'is_alert' => 0,
+            'is_rate_middleman' => 0,
+        ];
+    }
+}
+
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -370,8 +527,8 @@ if (!empty($target_account_ids)) {
             INNER JOIN account_company ac ON a.id = ac.account_id
             $where_sql";
     
-    // 应用账户权限过滤（使用 permissions.php 中的 filterAccountsByPermissions 函数）
-    list($baseSql, $params) = filterAccountsByPermissions($pdo, $baseSql, $params);
+    // 应用账户权限过滤：按当前查询的 company_id 读权限（避免 session 公司 A、筛选公司 B 时错用白名单）
+    list($baseSql, $params) = filterAccountsByPermissions($pdo, $baseSql, $params, $company_id);
     
     // 由于 filterAccountsByPermissions 添加的是 "AND id IN (...)"，需要替换为 "a.id" 以匹配表别名
     $baseSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $baseSql);
@@ -504,11 +661,7 @@ if (!empty($target_account_ids)) {
                 if (!empty($extraBits)) {
                     $extraSql .= ' AND ' . implode(' AND ', $extraBits);
                 }
-                list($extraSql, $extraParams) = filterAccountsByPermissions($pdo, $extraSql, $extraParams);
-                $extraSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $extraSql);
-                $extraSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $extraSql);
-                $extraSql = preg_replace('/\bAND 1=0\b/i', 'AND 1=0', $extraSql);
-                $extraSql = preg_replace('/\bWHERE 1=0\b/i', 'WHERE 1=0', $extraSql);
+                // 付方账户在外部公司，不可能出现在「当前公司」的 account_permissions 白名单里，不得再套 filterAccountsByPermissions，否则会整批被 AND id IN 掉。
                 $exSt = $pdo->prepare($extraSql);
                 $exSt->execute($extraParams);
                 $extraAcc = $exSt->fetchAll(PDO::FETCH_ASSOC);
@@ -1109,6 +1262,16 @@ if (!empty($target_account_ids)) {
         }
     }
     $results = $deduplicated_results;
+
+    searchApiAppendSyntheticDomainListFeePayers(
+        $pdo,
+        $results,
+        $company_id,
+        $date_from_db,
+        $date_to_db,
+        $filter_currency_codes,
+        $currency_id_map
+    );
     
     // 按 currency 和 account_id 排序
     usort($results, function($a, $b) {
