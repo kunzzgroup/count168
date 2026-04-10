@@ -1969,9 +1969,8 @@ function renderCompanyButtons(companies) {
             } else {
                 // 激活 All 模式
                 isDashboardGroupAllMode = true;
-                // 移除其他公司按钮的 active 状态
-                container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
-                allBtn.classList.add('active');
+                // 让所有按钮（含 All 和各公司）都亮起
+                container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.add('active'));
                 lastRequestParams = null;
                 await loadData(true);
             }
@@ -1991,8 +1990,8 @@ function renderCompanyButtons(companies) {
 
         btn.dataset.companyId = company.id;
         
-        // 只有在非全选模式下才高亮当前公司
-        if (!isDashboardGroupAllMode && parseInt(company.id) === parseInt(window.companyId)) {
+        // 全选模式下所有公司按钮都高亮；否则只高亮当前公司
+        if (isDashboardGroupAllMode || parseInt(company.id) === parseInt(window.companyId)) {
             btn.classList.add('active');
         }
 
