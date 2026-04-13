@@ -174,7 +174,8 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
 
                             <!-- 月份选择器 -->
                             <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
+                                <label class="form-label"
+                                    style="margin: 0; display: flex; align-items: center; gap: 4px;">
                                     <i class="fas fa-calendar" style="color: #3b82f6;"></i>
                                     Select Year & Month
                                 </label>
@@ -183,7 +184,8 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                                         <span id="month-year-display">--</span>
                                     </div>
                                     <span class="date-separator">Year</span>
-                                    <div class="date-part" data-type="month" onclick="showDateDropdown('month', 'month')">
+                                    <div class="date-part" data-type="month"
+                                        onclick="showDateDropdown('month', 'month')">
                                         <span id="month-month-display">--</span>
                                     </div>
                                     <span class="date-separator">Month</span>
@@ -193,12 +195,14 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                             </div>
 
                             <div style="display: flex; flex-direction: column; gap: clamp(0px, 0.21vw, 4px);">
-                                <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
+                                <label class="form-label"
+                                    style="margin: 0; display: flex; align-items: center; gap: 4px;">
                                     <i class="fas fa-clock" style="color: #3b82f6;"></i>
                                     Quick Select
                                 </label>
                                 <div class="dropdown">
-                                    <button class="btn btn-secondary dropdown-toggle" onclick="toggleQuickSelectDropdown()">
+                                    <button class="btn btn-secondary dropdown-toggle"
+                                        onclick="toggleQuickSelectDropdown()">
                                         <i class="fas fa-calendar-alt"></i>
                                         <span id="quick-select-text">Period</span>
                                         <i class="fas fa-chevron-down"></i>
@@ -249,7 +253,8 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                 </div>
 
                 <!-- Earnings 卡片 (右上角独立显示) -->
-                <div class="dashboard-kpi-card dashboard-kpi-card--blue" id="earnings-card-wrapper" style="display: none;">
+                <div class="dashboard-kpi-card dashboard-kpi-card--blue" id="earnings-card-wrapper"
+                    style="display: none;">
                     <div class="kpi-icon">
                         <i class="fas fa-hand-holding-usd"></i>
                     </div>
@@ -298,7 +303,8 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
 
             <!-- 图表区域 -->
             <div class="dashboard-chart-section">
-                <div class="dashboard-chart-header" style="display: flex; justify-content: space-between; align-items: start;">
+                <div class="dashboard-chart-header"
+                    style="display: flex; justify-content: space-between; align-items: start;">
                     <div>
                         <div class="dashboard-chart-title">Trend Chart</div>
                         <div class="dashboard-date-info" id="chart-date-range"
@@ -307,10 +313,14 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                     </div>
                     <!-- 新增图表控制按钮 (图例开关) -->
                     <div class="dashboard-chart-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="chart-toggle-btn active" data-dataset="0" style="--btn-color: #3b82f6;">Profit</button>
-                        <button class="chart-toggle-btn active" data-dataset="1" style="--btn-color: #ef4444;">Expenses</button>
-                        <button class="chart-toggle-btn active" data-dataset="2" style="--btn-color: #10b981;">NET PROFIT</button>
-                        <button class="chart-toggle-btn active" data-dataset="3" style="--btn-color: #f59e0b;">Earnings</button>
+                        <button class="chart-toggle-btn active" data-dataset="0"
+                            style="--btn-color: #3b82f6;">Profit</button>
+                        <button class="chart-toggle-btn active" data-dataset="1"
+                            style="--btn-color: #ef4444;">Expenses</button>
+                        <button class="chart-toggle-btn active" data-dataset="2" style="--btn-color: #10b981;">Net
+                            Profit</button>
+                        <button class="chart-toggle-btn active" data-dataset="3"
+                            style="--btn-color: #f59e0b;">Earnings</button>
                     </div>
                 </div>
                 <div class="dashboard-chart-container">
