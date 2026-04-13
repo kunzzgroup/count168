@@ -1319,6 +1319,9 @@ body.transaction-page .expiration-countdown-text {
     font-size: clamp(9px, 0.73vw, 14px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
+    min-width: 65px;
+    display: inline-block;
+    text-align: right;
 }
 .transaction-company-buttons {
     display: inline-flex;
