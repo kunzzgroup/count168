@@ -1408,13 +1408,8 @@ async function updateChart(data) {
                 const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
 
                 // 按天图表显示“当日增量”，无数据日为 0（不做累计）
-                const hasStrictProfitDelta = strictProfitDailyFlow
-                    && Object.prototype.hasOwnProperty.call(strictProfitDailyFlow, date)
-                const strictProfitDelta = hasStrictProfitDelta
-                    ? (parseFloat(strictProfitDailyFlow[date]) || 0)
-                    : profitDelta
-                const displayProfit = strictProfitDelta
-                const displayExpenses = (expensesDelta > 0 ? -expensesDelta : expensesDelta)
+                const displayProfit = profitDelta;
+                const displayExpenses = (expensesDelta > 0 ? -expensesDelta : expensesDelta);
                 profitData.push(displayProfit);
                 expensesData.push(displayExpenses);
                 
