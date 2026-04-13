@@ -824,7 +824,7 @@ try {
             $profit = $tail['profit'];
         }
 
-        // monthly：与 Inbox 一致；出现/推断用创建日门槛，金额仍按当期 dueYmd（与 day_start 对齐），不用创建日摊分。
+        // monthly：与 Inbox 一致；1st_of_every_month 新建在创建日晚于当月1号时从创建日摊到月末；Resend 仍从 dueYmd（1号）起算比例。
         if ($periodType === 'monthly' && $resolvedMonthlyBm !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', $resolvedMonthlyBm, $m)) {
             $billY = (int) $m[1];
             $billMo = (int) $m[2];
@@ -867,15 +867,20 @@ try {
                         }
                     }
                     if ($dueYmd !== null && $createdYmd > $dueYmd) {
-                        $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($dueYmd);
-                        $pr = prorateToMonthEndFromStart($dueYmd, $cost, $price, $profit);
+                        $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
+                        $prorateFrom = $dueYmd;
+                        if ($frequency === '1st_of_every_month' && !$resendRelax) {
+                            $prorateFrom = $createdYmd;
+                        }
+                        $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
+                        $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
                         $cost = $pr['cost'];
                         $price = $pr['price'];
                         $profit = $pr['profit'];
-                        $tDue = strtotime($dueYmd);
-                        if ($tDue !== false) {
-                            $dim = (int) date('t', $tDue);
-                            $dj = (int) date('j', $tDue);
+                        $tPrFrom = strtotime($prorateFrom);
+                        if ($tPrFrom !== false) {
+                            $dim = (int) date('t', $tPrFrom);
+                            $dj = (int) date('j', $tPrFrom);
                             if ($dim > 0) {
                                 $monthlyProrationPsRatio = ($dim - $dj + 1) / $dim;
                             }

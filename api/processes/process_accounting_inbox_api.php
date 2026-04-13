@@ -3,7 +3,7 @@
  * Process Accounting Inbox API
  * 返回「当天需要算账」的 Bank Process 列表（用于 Process List 标题旁的“需要算账”Inbox）
  * 规则：
- * - 1st of Every Month：首笔整月账单起，「何时出现在待算账」取 max(当月1号, dts_created)，避免 day_start 早于创建日时提前出现（旧数据不拿）；金额仍按当期应付日（1号）起算整月或比例，不用创建日摊分。
+ * - 1st of Every Month：首笔整月账单起，「何时出现在待算账」取 max(当月1号, dts_created)，避免 day_start 早于创建日时提前出现（旧数据不拿）；新建流程在「创建月」内且创建日晚于当月1号时，金额从创建日比例摊到当月末（忽略早于创建日的整月锚点）。Resend（accounting_resend_relax_created_floor）仍按应付日（1号）起算比例，与旧版一致。
  * - Maintenance 删交易后 Resend 成功：bank_process.accounting_resend_relax_created_floor=1 期间，上述「创建日门槛」与 day_start 取较早者，便于用户修正 day_start 后仍进 Accounting Due；从 Accounting Due 入账成功后清零。
  * - 同上 Resend 标记期间：regular monthly 段对「截至今日所有未结清账期」逐月各列一行（含 1st of Every Month 与 Monthly prepaid），便于一次勾选、按 billing_month 多笔入账；非 Resend 流程仍只展示下一笔待结清账期。
  * - Day start 为当月1号且与创建同月：仍自 day_start 当日起可入账（与上条后续整月不同）。
@@ -419,8 +419,12 @@ function inboxAppendMonthlyNeedToday(
                     }
                 }
                 if ($dueYmd !== null && $createdYmd > $dueYmd) {
-                    $prorationRatio = ratioRemainingDaysInMonthFromStartYmd($dueYmd);
-                    $pr = prorateToMonthEndFromStart($dueYmd, $cost, $price, $profit);
+                    $prorateFrom = $dueYmd;
+                    if ($frequency === '1st_of_every_month' && empty($r['accounting_resend_relax_created_floor'])) {
+                        $prorateFrom = $createdYmd;
+                    }
+                    $prorationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
+                    $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
                     $cost = $pr['cost'];
                     $price = $pr['price'];
                     $profit = $pr['profit'];
