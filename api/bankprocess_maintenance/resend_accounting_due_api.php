@@ -11,6 +11,34 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/maintenance_accounting_resend_lib.php';
 
 /** 与 processlist / 前端 isBankInactiveLike：Official、E-INVOICE、Block 不可 Resend（这些在 DB 里常为 status=active） */
+/**
+ * 已设 day_start 时：每个自然月中与锚定日「同号」之日（月末按较短月对齐，Asia/Kuala_Lumpur）不可 Resend。
+ */
+function bank_resend_is_day_start_blackout(?string $dayStartRaw): bool
+{
+    if ($dayStartRaw === null || trim((string) $dayStartRaw) === '') {
+        return false;
+    }
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})/', trim((string) $dayStartRaw), $m)) {
+        return false;
+    }
+    $anchorYmd = $m[1] . '-' . $m[2] . '-' . $m[3];
+    $anchorDom = (int) $m[3];
+    if ($anchorDom < 1) {
+        return false;
+    }
+    $tz = new DateTimeZone('Asia/Kuala_Lumpur');
+    $today = new DateTime('now', $tz);
+    $todayYmd = $today->format('Y-m-d');
+    if ($todayYmd < $anchorYmd) {
+        return false;
+    }
+    $lastDay = (int) $today->format('t');
+    $effectiveDom = min($anchorDom, $lastDay);
+    $todayDom = (int) $today->format('j');
+    return $todayDom === $effectiveDom;
+}
+
 function bank_resend_blocking_issue_flag_from_row(array $bpRow): ?string
 {
     $combined = '';
@@ -95,6 +123,9 @@ try {
     }
 
     $selectCols = ['id', 'status'];
+    if (bmp_resend_tableHasColumn($pdo, 'bank_process', 'day_start')) {
+        $selectCols[] = 'day_start';
+    }
     if (bmp_resend_tableHasColumn($pdo, 'bank_process', 'issue_flag')) {
         $selectCols[] = 'issue_flag';
     }
@@ -112,6 +143,11 @@ try {
     }
     if (bank_resend_blocking_issue_flag_from_row($bpRow) !== null) {
         throw new Exception('Official、E-INVOICE、Block 状态的 Process 不可使用 Resend');
+    }
+
+    $dayStartForBlackout = isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : '';
+    if (bank_resend_is_day_start_blackout($dayStartForBlackout !== '' ? $dayStartForBlackout : null)) {
+        throw new Exception('今日为该流程 Day start 对应之自然日（马来西亚时间），暂不可 Resend，请改日再试。');
     }
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
