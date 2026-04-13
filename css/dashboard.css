@@ -182,7 +182,7 @@ body.dashboard-page {
 
 /* Grid中的卡片加长 */
 .dashboard-kpi-grid .dashboard-kpi-card {
-    min-height: 150px;
+    min-height: 90px;
 }
 
 /* 左侧文本区 */
@@ -257,7 +257,7 @@ body.dashboard-page {
 /* 图表区域 - 占满剩余高度，保证最小可视高度 */
 .dashboard-chart-section {
     flex: 1;
-    min-height: 480px;
+    min-height: 380px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
