@@ -309,31 +309,20 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 }
 
 /**
- * Buy/Sell/Profit（及 Profit Sharing）入账行：与 process_post_to_transaction_api 写入的 description 一致，维护页直接沿用库内原文
+ * 成本/售价/利润等入账行：与 history_api / search_api 一致，以 description 是否以 Process: 或 Auto: 开头区分
+ * （账单类 WIN/LOSE 的 description 不为 Process:/Auto: 前缀，应继续展示 Remaining days bill 等合成描述）
  */
-function bankProcessMaintenanceIsBuySellProfitLedgerRow(?string $rawDesc): bool {
+function bankProcessMaintenanceUseRawProcessDescription(?string $rawDesc): bool {
     $d = trim((string) $rawDesc);
     if ($d === '') {
         return false;
     }
-    if (preg_match('/^Process:\s*Buy Price\b/i', $d) || preg_match('/^Auto:\s*Buy Price\b/i', $d)) {
-        return true;
-    }
-    if (preg_match('/^Process:\s*Sell Price\b/i', $d) || preg_match('/^Auto:\s*Sell Price\b/i', $d)) {
-        return true;
-    }
-    if (preg_match('/^Process:\s*Profit Sharing\b/i', $d)) {
-        return true;
-    }
-    if (preg_match('/^Process:\s*Profit for\b/i', $d) || preg_match('/^Auto:\s*Profit for\b/i', $d)) {
-        return true;
-    }
-    return false;
+    return (bool) preg_match('/^(Process:|Auto:)\s*/i', $d);
 }
 
 /**
  * 将一行转换为统一输出项
- * Description：账单类 WIN/LOSE 与 history 一致；Buy/Sell/Profit 等行与 Payment 一致使用数据库原文
+ * Description：账单类 WIN/LOSE 与 history 一致（Remaining/Monthly bill + 金额）；Process:/Auto: 行沿用库内原文
  */
 function rowToItem(array $row) {
     $rawDescription = trim((string) ($row['description'] ?? ''));
@@ -341,7 +330,7 @@ function rowToItem(array $row) {
 
     // WIN/LOSE（Bank process 入账）：与 history_api 一致，账单行 Description 金额用本笔实际入账 amount
     if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'], true)) {
-        if (bankProcessMaintenanceIsBuySellProfitLedgerRow($rawDescription)) {
+        if (bankProcessMaintenanceUseRawProcessDescription($rawDescription)) {
             $description = (string) ($row['description'] ?? '');
         } else {
             $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
