@@ -18,9 +18,9 @@ try {
     if ($current_user_id) {
         if ($current_user_role === 'owner') {
             $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
-            $user_companies = getCompaniesByOwner($pdo, $owner_id, false);
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
         } else {
-            $user_companies = getCompaniesByUser($pdo, $current_user_id);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
         }
     }
 } catch(PDOException $e) {
@@ -251,23 +251,15 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     </div>
                     <button class="account-btn account-btn-delete" id="accountDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive accounts can be deleted">Delete</button>
                 </div>
-                
-                <!-- Company Buttons (显示多个 company 时) -->
-                <?php if (count($user_companies) > 1): ?>
-                <div id="account-list-company-filter" class="account-company-filter" style="display: flex; padding: 0 20px 10px 20px;">
-                    <span class="account-company-label">Company:</span>
-                    <div id="account-list-company-buttons" class="account-company-buttons">
-                        <?php foreach($user_companies as $comp): ?>
-                            <button type="button" 
-                                    class="account-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                    data-company-id="<?php echo $comp['id']; ?>"
-                                    onclick="switchAccountListCompany(<?php echo $comp['id']; ?>, '<?php echo htmlspecialchars($comp['company_id']); ?>')">
-                                <?php echo htmlspecialchars($comp['company_id']); ?>
-                            </button>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
+                <!-- Shared Group & Company Filter (SSR) -->
+                <?php include 'includes/company_filter.php'; ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchAccountListCompany === 'function') {
+                            switchAccountListCompany(companyId, companyCode);
+                        }
+                    };
+                </script>
             </div>
             
             <!-- Table Header -->

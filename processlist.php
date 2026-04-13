@@ -171,9 +171,9 @@ try {
     if ($current_user_id) {
         if ($current_user_role === 'owner') {
             $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
-            $user_companies = getCompaniesByOwner($pdo, $owner_id, false);
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
         } else {
-            $user_companies = getCompaniesByUser($pdo, $current_user_id);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
         }
     }
 } catch (PDOException $e) {
@@ -304,22 +304,18 @@ if ($current_user_id && count($user_companies) > 0) {
                         title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
 
-                <?php if (count($user_companies) > 1): ?>
-                    <div id="process-list-company-filter" class="process-company-filter"
-                        style="display: flex; margin-top: 10px;">
-                        <span class="process-company-label">Company:</span>
-                        <div id="process-list-company-buttons" class="process-company-buttons">
-                            <?php foreach ($user_companies as $comp): ?>
-                                <button type="button"
-                                    class="process-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>"
-                                    data-company-id="<?php echo $comp['id']; ?>"
-                                    onclick="switchProcessListCompany(<?php echo $comp['id']; ?>)">
-                                    <?php echo htmlspecialchars($comp['company_id']); ?>
-                                </button>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
+                <!-- Shared Group & Company Filter (SSR) -->
+                <?php
+                $filter_prefix = 'process'; 
+                include 'includes/company_filter.php'; 
+                ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchProcessListCompany === 'function') {
+                            switchProcessListCompany(companyId);
+                        }
+                    };
+                </script>
             </div>
 
             <!-- σîàΦúàσÖ¿Σ┐¥Φ»ü th Σ╕Äµò░µì«σî║σÉîσ«╜∩╝îσêùσ»╣Θ╜É -->
