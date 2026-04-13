@@ -321,8 +321,28 @@ function bankProcessMaintenanceUseRawProcessDescription(?string $rawDesc): bool 
 }
 
 /**
+ * 去掉 Process:/Auto: 前缀，并转为标题大小写（如 Buy Price For Test M20 (Partial First Month)）
+ */
+function bankProcessMaintenanceFormatLedgerDescription(?string $rawFromDb): string {
+    $s = trim((string) $rawFromDb);
+    if ($s === '') {
+        return '';
+    }
+    $s = preg_replace('/^(Process:|Auto:)\s*/i', '', $s);
+    $s = trim($s);
+    if ($s === '') {
+        return '';
+    }
+    if (function_exists('mb_strtolower') && function_exists('mb_convert_case')) {
+        $lower = mb_strtolower($s, 'UTF-8');
+        return mb_convert_case($lower, MB_CASE_TITLE, 'UTF-8');
+    }
+    return ucwords(strtolower($s));
+}
+
+/**
  * 将一行转换为统一输出项
- * Description：账单类 WIN/LOSE 与 history 一致（Remaining/Monthly bill + 金额）；Process:/Auto: 行沿用库内原文
+ * Description：账单类 WIN/LOSE 与 history 一致（Remaining/Monthly bill + 金额）；Process:/Auto: 行去前缀并以标题大小写展示
  */
 function rowToItem(array $row) {
     $rawDescription = trim((string) ($row['description'] ?? ''));
@@ -331,7 +351,7 @@ function rowToItem(array $row) {
     // WIN/LOSE（Bank process 入账）：与 history_api 一致，账单行 Description 金额用本笔实际入账 amount
     if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'], true)) {
         if (bankProcessMaintenanceUseRawProcessDescription($rawDescription)) {
-            $description = (string) ($row['description'] ?? '');
+            $description = bankProcessMaintenanceFormatLedgerDescription($rawDescription);
         } else {
             $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
             if ($periodType === 'partial_first_month') {
