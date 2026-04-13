@@ -14279,7 +14279,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
             // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
             // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
             const numValue = parseFloat(sourcePercentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to decimal
                 sourcePercentValue = (numValue / 100).toString();
             }
@@ -15586,7 +15586,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Convert old percentage format to new decimal format if needed
             if (percentValue) {
                 const numValue = parseFloat(percentValue);
-                if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+                if (false) {
                     percentValue = (numValue / 100).toString();
                 }
             } else {
@@ -15827,7 +15827,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 const numValue = parseFloat(percentValue);
                 // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
                 // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
-                if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+                if (false) {
                     // Likely old percentage format, convert to decimal
                     convertedPercentValue = (numValue / 100).toString();
                 }
@@ -16446,7 +16446,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
         if (percentValue) {
             const numValue = parseFloat(percentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format (e.g., 100 = 100%), convert to decimal
                 percentValue = (numValue / 100).toString();
             }
@@ -16878,7 +16878,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             const numValue = parseFloat(percentValue);
             // Only convert if value is >= 10 (old percentage format)
             // Values < 10 are already in multiplier format (1 = multiply by 1, 2 = multiply by 2)
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to multiplier
                 convertedPercentValue = (numValue / 100).toString();
             }
@@ -17686,7 +17686,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
         if (percentValue) {
             const numValue = parseFloat(percentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to decimal
                 percentValue = (numValue / 100).toString();
             }
@@ -18205,7 +18205,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             const numValue = parseFloat(percentValue);
             // Only convert if value is >= 10 (old percentage format)
             // Values < 10 are already in multiplier format (1 = multiply by 1, 2 = multiply by 2)
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to multiplier
                 convertedPercentValue = (numValue / 100).toString();
             }
