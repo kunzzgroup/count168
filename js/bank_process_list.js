@@ -881,6 +881,7 @@ function openAddProcessForSelectedPermission() {
         document.getElementById('addBankModal').style.display = 'block';
         setBankModalLoadingState(true, 'Add Process');
         ensureAddBankProcessDataLoaded().then(async () => {
+            setBankProcessEditLockedFields(false);
             setBankProcessBillingScheduleLocked(false);
             const countryEl = document.getElementById('bank_country');
             if (countryEl) countryEl.value = '';
@@ -948,6 +949,35 @@ function isBankProcessBillingScheduleLocked() {
     return !!(form && form.getAttribute('data-billing-schedule-locked') === '1');
 }
 
+function setBankProcessEditLockedFields(locked) {
+    const form = document.getElementById('addBankProcessForm');
+    if (form) {
+        if (locked) {
+            form.setAttribute('data-edit-locked', '1');
+        } else {
+            form.removeAttribute('data-edit-locked');
+        }
+    }
+    ['bank_country', 'bank_bank', 'bank_type', 'bank_name'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'SELECT') {
+            el.disabled = !!locked;
+        } else {
+            el.readOnly = !!locked;
+        }
+        el.style.backgroundColor = locked ? '#f5f5f5' : '';
+        el.style.cursor = locked ? 'not-allowed' : '';
+    });
+    ['button[onclick="showAddCountryModal()"]', 'button[onclick="showAddBankModal()"]'].forEach(function (selector) {
+        const btn = document.querySelector(selector);
+        if (!btn) return;
+        btn.disabled = !!locked;
+        btn.style.opacity = locked ? '0.6' : '';
+        btn.style.cursor = locked ? 'not-allowed' : '';
+    });
+}
+
 function setBankProcessBillingScheduleLocked(locked) {
     const form = document.getElementById('addBankProcessForm');
     if (form) {
@@ -971,6 +1001,7 @@ function setBankProcessBillingScheduleLocked(locked) {
 }
 
 function closeAddBankModal() {
+    setBankProcessEditLockedFields(false);
     setBankProcessBillingScheduleLocked(false);
     document.getElementById('addBankModal').style.display = 'none';
     document.getElementById('bank_edit_id').value = '';
@@ -1095,7 +1126,10 @@ async function openBankEditModal(id) {
     document.getElementById('addBankModal').style.display = 'block';
     setBankModalLoadingState(true, 'Edit Process');
     try {
-        const processRequest = fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
+        const processRequest = fetch(
+            buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank&_=${Date.now()}`),
+            { method: 'GET', cache: 'no-store' }
+        );
         const bankDataRequest = ensureAddBankProcessDataLoaded();
         const response = await processRequest;
         const result = await response.json();
@@ -1244,6 +1278,7 @@ async function openBankEditModal(id) {
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
+        setBankProcessEditLockedFields(true);
         setBankProcessBillingScheduleLocked(true);
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
@@ -1903,6 +1938,11 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
         const formData = new FormData(this);
+        if (editId) {
+            ['country', 'bank', 'type', 'name', 'day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
+                formData.delete(key);
+            });
+        }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
         formData.set('profit', grossProfit.toFixed(2));
