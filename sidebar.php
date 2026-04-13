@@ -522,11 +522,13 @@ if ($companyId) {
                                         <span>Data Capture</span>
                                     </a>
                                 <?php endif; ?>
+                                <?php /* Transaction link hidden – Maintenance shows only Payment & Process
                                 <?php if (!$isCurrentCompanyC168): ?>
                                     <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
                                         <span>Transaction</span>
                                     </a>
                                 <?php endif; ?>
+                                */ ?>
                                 <?php if ($hasMaintenance): ?>
                                     <a href="payment_maintenance.php" class="submenu-item">
                                         <span>Payment</span>
