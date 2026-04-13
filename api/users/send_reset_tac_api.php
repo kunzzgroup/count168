@@ -89,31 +89,27 @@ try {
     $company_id_upper = strtoupper($company_id_raw);
     $email_lower = strtolower($email);
 
-    // 1) 先按 Company ID 查公司
-    $stmt = $pdo->prepare("SELECT id FROM company WHERE UPPER(company_id) = ?");
-    $stmt->execute([$company_id_upper]);
-    $company_numeric_id = (int) $stmt->fetchColumn();
+    // 1) 检查是否为普通用户（支持 Company ID 或 Group ID）
+    $stmt = $pdo->prepare("
+        SELECT u.id, u.name, u.email, c.id AS company_numeric_id
+        FROM user u
+        INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+        INNER JOIN company c ON ucm.company_id = c.id
+        WHERE u.email = ? AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?) AND u.status = 'active'
+        ORDER BY c.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$email, $company_id_upper, $company_id_upper]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     $is_owner_reset = false;
     $owner_id = null;
+    $company_numeric_id = null;
 
-    if ($company_numeric_id) {
-        // 公司存在：查找该公司下该邮箱对应用户（user + user_company_map）
-        $stmt = $pdo->prepare("
-            SELECT u.id, u.name, u.email
-            FROM user u
-            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-            WHERE u.email = ? AND ucm.company_id = ? AND u.status = 'active'
-            LIMIT 1
-        ");
-        $stmt->execute([$email, $company_numeric_id]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$user) {
-            echo json_encode(['success' => false, 'message' => 'No active user found for this email in the selected company']);
-            exit;
-        }
+    if ($user) {
+        $company_numeric_id = (int) $user['company_numeric_id'];
     } else {
-        // 2) 公司不存在：将输入视为 Owner Code，按 owner_code + email 查 owner（重置 owner 密码时在 Company ID 填 owner code）
+        // 2) 如果不是普通用户，将输入视为 Owner Code，按 owner_code + email 查 owner
         $stmt = $pdo->prepare("
             SELECT id, name, email FROM owner
             WHERE UPPER(owner_code) = ? AND LOWER(TRIM(email)) = ?
@@ -122,7 +118,7 @@ try {
         $stmt->execute([$company_id_upper, $email_lower]);
         $owner = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$owner) {
-            echo json_encode(['success' => false, 'message' => 'No active user found for this email in the selected company. For owner reset, enter your Owner Code in the Company ID field.']);
+            echo json_encode(['success' => false, 'message' => 'No active user found for this email in the selected company/group. For owner reset, enter your Owner Code in the Company ID field.']);
             exit;
         }
         $is_owner_reset = true;
