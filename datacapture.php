@@ -71,12 +71,6 @@ try {
 
 $user_companies_all = $user_companies;
 
-// Data Capture 页面不显示 C168 公司按钮（切换条用过滤后列表；校验 session 须用完整列表以免误把当前 C168 切到其他公司）
-if (!empty($user_companies)) {
-    $user_companies = array_values(array_filter($user_companies, function($comp) {
-        return strtoupper(trim((string)($comp['company_id'] ?? ''))) !== 'C168';
-    }));
-}
 
 // If company_id parameter exists in URL, use it (for switching company)
 $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
