@@ -150,6 +150,7 @@ if ($current_user_id && count($user_companies_all) > 0) {
                         <!-- Shared Group & Company Filter (SSR) -->
                         <?php
                         $filter_prefix = 'data-capture'; 
+                        $hide_group_filter = true;
                         include 'includes/company_filter.php'; 
                         ?>
                         <script>

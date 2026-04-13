@@ -8,6 +8,7 @@
  */
 
 $filter_prefix = $filter_prefix ?? 'account'; 
+$hide_group_filter = $hide_group_filter ?? false;
 
 // Group companies by group_id
 $shared_groups = [];
@@ -39,7 +40,7 @@ foreach ($user_companies as $comp) {
 ?>
 
 <!-- Group Buttons (above Company) -->
-<?php if (count($shared_groups) > 0): ?>
+<?php if (count($shared_groups) > 0 && !$hide_group_filter): ?>
 <div id="group-buttons-wrapper" class="<?php echo $filter_prefix; ?>-company-filter shared-group-wrapper" style="display: flex; padding: 0 20px 10px 20px;">
     <span class="<?php echo $filter_prefix; ?>-company-label">GroupID:</span>
     <div id="group-buttons-container" class="<?php echo $filter_prefix; ?>-company-buttons">
@@ -61,12 +62,15 @@ foreach ($user_companies as $comp) {
     <div id="company-buttons-container" class="<?php echo $filter_prefix; ?>-company-buttons">
         <?php foreach ($user_companies as $comp): 
             $c_gid = strtoupper(trim($comp['group_id'] ?? ''));
-            // Initially displaying companies that match active group or are independent if no active group
             $display_style = '';
-            if (!empty($active_group_id)) {
-                $display_style = ($c_gid === $active_group_id) ? '' : 'display: none;';
+            if ($hide_group_filter) {
+                $display_style = '';
             } else {
-                $display_style = empty($c_gid) ? '' : 'display: none;';
+                if (!empty($active_group_id)) {
+                    $display_style = ($c_gid === $active_group_id) ? '' : 'display: none;';
+                } else {
+                    $display_style = empty($c_gid) ? '' : 'display: none;';
+                }
             }
         ?>
             <button type="button" 
