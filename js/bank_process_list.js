@@ -309,6 +309,7 @@ window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
 async function executeAccountingDueResend(processId, scheduleOpts) {
     const id = parseInt(processId, 10);
     if (!id) return;
+    await persistOpenBankEditBeforeResend(id);
     const procGuard = processes.find(function (p) { return p.id === id; });
     if (procGuard) {
         const st = String(procGuard.status || '').trim().toLowerCase();
@@ -390,6 +391,69 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
     } catch (err) {
         console.error('executeAccountingDueResend:', err);
         showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
+    }
+}
+
+async function persistOpenBankEditBeforeResend(targetProcessId) {
+    const modal = document.getElementById('addBankModal');
+    const editIdEl = document.getElementById('bank_edit_id');
+    const formEl = document.getElementById('addBankProcessForm');
+    if (!modal || !editIdEl || !formEl) return true;
+    if (modal.style.display !== 'block') return true;
+    const editId = parseInt(editIdEl.value || '', 10);
+    if (!editId || editId !== targetProcessId) return true;
+    if (bankProcessSubmitInFlight) {
+        // Do not block resend while another save is in flight.
+        return true;
+    }
+    if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+    // Resend must remain available even when Edit form is incomplete.
+    if (typeof markBankRequiredErrors === 'function') markBankRequiredErrors();
+    if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
+
+    const formData = new FormData(formEl);
+    ['country', 'bank', 'type', 'name', 'day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
+        formData.delete(key);
+    });
+    const cost = parseFloat(document.getElementById('bank_cost')?.value || '0') || 0;
+    const price = parseFloat(document.getElementById('bank_price')?.value || '0') || 0;
+    formData.set('profit', (price - cost).toFixed(2));
+    formData.append('permission', 'Bank');
+    formData.set('id', String(editId));
+
+    const cardMerchantBtn = document.getElementById('bank_card_merchant');
+    const customerBtn = document.getElementById('bank_customer');
+    const profitAccountBtn = document.getElementById('bank_profit_account');
+    if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
+        formData.set('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
+    }
+    if (customerBtn && customerBtn.getAttribute('data-value')) {
+        formData.set('customer_id', customerBtn.getAttribute('data-value'));
+    }
+    if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
+        formData.set('profit_account_id', profitAccountBtn.getAttribute('data-value'));
+    }
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    formData.set('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+
+    try {
+        bankProcessSubmitInFlight = true;
+        const response = await fetch(buildApiUrl('api/processes/processlist_api.php?action=update_process'), {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!result.success) {
+            // Non-blocking: continue resend even if edit auto-save fails.
+            return true;
+        }
+        return true;
+    } catch (error) {
+        console.error('persistOpenBankEditBeforeResend failed:', error);
+        // Non-blocking: continue resend even if edit auto-save fails.
+        return true;
+    } finally {
+        bankProcessSubmitInFlight = false;
     }
 }
 
