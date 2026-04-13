@@ -345,6 +345,16 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
                     proc.day_start = payload.day_start || null;
                     proc.day_end = payload.day_end || null;
                     proc.day_start_frequency = payload.day_start_frequency;
+                    const editIdEl = document.getElementById('bank_edit_id');
+                    if (editIdEl && String(editIdEl.value || '') === String(id)) {
+                        const dayStartEl = document.getElementById('bank_day_start');
+                        const dayEndEl = document.getElementById('bank_day_end');
+                        const freqEl = document.getElementById('bank_day_start_frequency');
+                        if (dayStartEl) dayStartEl.value = payload.day_start || '';
+                        if (dayEndEl) dayEndEl.value = payload.day_end || '';
+                        if (freqEl) freqEl.value = payload.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+                        if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
+                    }
                 }
             }
             showNotification(result.message || 'You can post from Accounting Due again', 'success');
@@ -881,6 +891,7 @@ function openAddProcessForSelectedPermission() {
         document.getElementById('addBankModal').style.display = 'block';
         setBankModalLoadingState(true, 'Add Process');
         ensureAddBankProcessDataLoaded().then(async () => {
+            setBankProcessEditLockedFields(false);
             setBankProcessBillingScheduleLocked(false);
             const countryEl = document.getElementById('bank_country');
             if (countryEl) countryEl.value = '';
@@ -948,6 +959,28 @@ function isBankProcessBillingScheduleLocked() {
     return !!(form && form.getAttribute('data-billing-schedule-locked') === '1');
 }
 
+function setBankProcessEditLockedFields(locked) {
+    const lockableFieldIds = ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_day_start', 'bank_day_end', 'bank_day_start_frequency'];
+    lockableFieldIds.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'SELECT') {
+            el.disabled = !!locked;
+        } else {
+            el.readOnly = !!locked;
+        }
+        el.style.backgroundColor = locked ? '#f5f5f5' : '';
+        el.style.cursor = locked ? 'not-allowed' : '';
+    });
+    ['button[onclick="showAddCountryModal()"]', 'button[onclick="showAddBankModal()"]'].forEach(function (selector) {
+        const btn = document.querySelector(selector);
+        if (!btn) return;
+        btn.disabled = !!locked;
+        btn.style.opacity = locked ? '0.6' : '';
+        btn.style.cursor = locked ? 'not-allowed' : '';
+    });
+}
+
 function setBankProcessBillingScheduleLocked(locked) {
     const form = document.getElementById('addBankProcessForm');
     if (form) {
@@ -971,6 +1004,7 @@ function setBankProcessBillingScheduleLocked(locked) {
 }
 
 function closeAddBankModal() {
+    setBankProcessEditLockedFields(false);
     setBankProcessBillingScheduleLocked(false);
     document.getElementById('addBankModal').style.display = 'none';
     document.getElementById('bank_edit_id').value = '';
@@ -1095,7 +1129,10 @@ async function openBankEditModal(id) {
     document.getElementById('addBankModal').style.display = 'block';
     setBankModalLoadingState(true, 'Edit Process');
     try {
-        const processRequest = fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
+        const processRequest = fetch(
+            buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank&_=${Date.now()}`),
+            { method: 'GET', cache: 'no-store' }
+        );
         const bankDataRequest = ensureAddBankProcessDataLoaded();
         const response = await processRequest;
         const result = await response.json();
@@ -1244,6 +1281,7 @@ async function openBankEditModal(id) {
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
+        setBankProcessEditLockedFields(true);
         setBankProcessBillingScheduleLocked(true);
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
@@ -1903,6 +1941,11 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
         const formData = new FormData(this);
+        if (editId) {
+            ['country', 'bank', 'type', 'name', 'day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
+                formData.delete(key);
+            });
+        }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
         formData.set('profit', grossProfit.toFixed(2));

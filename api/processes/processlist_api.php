@@ -926,16 +926,17 @@ function updateBankProcess() {
             jsonResponse(false, 'Process ID is required', null);
             return;
         }
-        $checkStmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ?");
+        $checkStmt = $pdo->prepare("SELECT id, country, bank, type, name FROM bank_process WHERE id = ? AND company_id = ?");
         $checkStmt->execute([$id, $currentCompanyId]);
-        if (!$checkStmt->fetch()) {
+        $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) {
             jsonResponse(false, 'Process not found or no permission', null);
             return;
         }
-        $country = $_POST['country'] ?? null;
-        $bank = $_POST['bank'] ?? null;
-        $type = $_POST['type'] ?? null;
-        $name = $_POST['name'] ?? null;
+        $country = $existing['country'] ?? null;
+        $bank = $existing['bank'] ?? null;
+        $type = $existing['type'] ?? null;
+        $name = $existing['name'] ?? null;
         $card_merchant_id = !empty($_POST['card_merchant_id']) ? (int)$_POST['card_merchant_id'] : null;
         $customer_id = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
         $profit_account_id = !empty($_POST['profit_account_id']) ? (int)$_POST['profit_account_id'] : null;
