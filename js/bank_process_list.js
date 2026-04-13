@@ -2698,7 +2698,16 @@ const addAccountFormEl = document.getElementById('addAccountForm');
 if (addAccountFormEl) {
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
-        if (!validatePaymentAlertForAddBank()) return;
+        // Guard against double-submit (double click / Enter key repeat / duplicated trigger)
+        if (this.dataset.submitting === '1') return;
+        this.dataset.submitting = '1';
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        if (!validatePaymentAlertForAddBank()) {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+        }
         const formData = new FormData(this);
         const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
         if (paymentAlert) {
@@ -2784,6 +2793,9 @@ if (addAccountFormEl) {
         } catch (err) {
             console.error('Add account error', err);
             showNotification('Failed to add account', 'danger');
+        } finally {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
         }
     });
 }
