@@ -3931,4 +3931,5 @@ function showNotification(message, type = 'success') {
 
     window.approveContra = approveContra;
     window.rejectContra = rejectContra;
+    window.switchCompany = switchCompany;
 })();
