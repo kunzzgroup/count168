@@ -366,6 +366,10 @@ function showFormulaInitialEmptyState() {
     setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_INITIAL)
     const emptyState = document.getElementById('emptyState')
     if (emptyState) emptyState.style.display = 'block'
+
+    if (typeof updateClearFiltersButtonVisibility === 'function') {
+        updateClearFiltersButtonVisibility();
+    }
 }
 
 
@@ -464,9 +468,21 @@ async function switchCompany(companyId, companyCode) {
             : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
         window.updateSidebarDataCaptureVisibility(hg);
     }
+
+    // Clear filters when switching company
+    const searchFilter = document.getElementById('search_filter');
+    if (searchFilter) searchFilter.value = '';
+    const processButton = document.getElementById('filter_process');
+    if (processButton) {
+        processButton.removeAttribute('data-value');
+        processButton.textContent = processButton.getAttribute('data-placeholder') || '--Select All--';
+    }
+
     loadPermissionButtons();
     loadProcesses();
-    searchData();
+    
+    // Instead of auto-searching, reset to initial state
+    showFormulaInitialEmptyState();
 }
 
 
@@ -474,8 +490,45 @@ async function switchCompany(companyId, companyCode) {
 // Search function
 function searchData() {
     hasSearched = true;
+    updateClearFiltersButtonVisibility();
     // 直接加载数据捕获列表
     loadDataCaptureList();
+}
+
+function clearFormulaFilters() {
+    const searchFilter = document.getElementById('search_filter');
+    if (searchFilter) searchFilter.value = '';
+    
+    const processButton = document.getElementById('filter_process');
+    if (processButton) {
+        processButton.removeAttribute('data-value');
+        processButton.textContent = processButton.getAttribute('data-placeholder') || '--Select All--';
+        
+        const dropdown = document.getElementById('filter_process_dropdown');
+        if (dropdown) {
+            dropdown.querySelectorAll('.custom-select-option').forEach(opt => {
+                opt.classList.remove('selected');
+                if (!opt.getAttribute('data-value')) {
+                    opt.classList.add('selected');
+                }
+            });
+        }
+    }
+    
+    showFormulaInitialEmptyState();
+}
+
+function updateClearFiltersButtonVisibility() {
+    const btn = document.getElementById('clear_filters_btn');
+    if (!btn) return;
+    
+    if (hasSearched) {
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+    } else {
+        btn.style.opacity = '0';
+        btn.style.pointerEvents = 'none';
+    }
 }
 
 function initAutoSearchFilters() {

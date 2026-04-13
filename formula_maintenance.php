@@ -93,14 +93,23 @@ if (!empty($session_company_id)) {
             <div class="maintenance-filters">
                 <div class="maintenance-form-group">
                     <label class="maintenance-label">Process</label>
-                    <div class="custom-select-wrapper">
-                        <button type="button" class="custom-select-button" id="filter_process" data-placeholder="--Select All--">--Select All--</button>
-                        <div class="custom-select-dropdown" id="filter_process_dropdown">
-                            <div class="custom-select-search">
-                                <input type="text" placeholder="Search process..." autocomplete="off">
+                    <div class="custom-select-wrapper" style="display: flex; gap: 8px; align-items: center;">
+                        <div style="position: relative; flex: 1;">
+                            <button type="button" class="custom-select-button" id="filter_process" data-placeholder="--Select All--">--Select All--</button>
+                            <div class="custom-select-dropdown" id="filter_process_dropdown">
+                                <div class="custom-select-search">
+                                    <input type="text" placeholder="Search process..." autocomplete="off">
+                                </div>
+                                <div class="custom-select-options"></div>
                             </div>
-                            <div class="custom-select-options"></div>
                         </div>
+                        <button type="button" id="clear_filters_btn" title="Clear Filters" onclick="clearFormulaFilters()" style="display: flex; align-items: center; justify-content: center; background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <div class="maintenance-form-group">
