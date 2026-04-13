@@ -935,6 +935,7 @@ function removeCompanyShareRow(role, index) {
 
 function loadCompanyShareDataForModal(companyCode) {
     fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get_company_share_settings', company_id: companyCode })
@@ -1100,6 +1101,7 @@ function updateExpDateDisplay() {
 function loadCompanyPermissions(companyId) {
     // 从数据库获取公司权限
     fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1254,6 +1256,7 @@ function saveCompanyExpDate() {
     company.apply_commission_payments_on_domain_save = chargeOnSave;
 
     const permReq = fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1266,6 +1269,7 @@ function saveCompanyExpDate() {
     }).then(response => response.json());
 
     const shareReq = fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1660,6 +1664,7 @@ function refreshDomainFeeSummaryFromApi() {
         return;
     }
     fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get_domain_fee_settings' })
@@ -1679,6 +1684,7 @@ function openDomainFeeSettingsModal() {
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get_domain_fee_settings' })
@@ -1707,6 +1713,7 @@ function saveDomainFeeSettings() {
     var priceEl = document.getElementById('domainFeePrice');
     var price = priceEl ? String(priceEl.value).trim() : '';
     fetch('api/domain/domain_api.php', {
+        cache: 'no-cache',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1851,6 +1858,7 @@ function editDomain(id) {
 
     // 从 API 获取完整的公司信息（包括到期日期）
     fetch(`api/domain/domain_api.php`, {
+        cache: 'no-cache',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -2060,6 +2068,7 @@ function deleteSelected() {
         // 批量删除
         Promise.all(selectedIds.map(id =>
             fetch('api/domain/domain_api.php', {
+                cache: 'no-cache',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
