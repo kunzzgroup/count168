@@ -17130,7 +17130,7 @@ function reorderSummaryRowsByRowIndex() {
         // To fix this, force all items of the same normalizeMain to adopt the minimum dataCapturePosition of that group.
         const groupPositions = new Map();
         rowData.forEach(item => {
-            if (item.normalizedMain && item.dataCapturePosition !== null && item.dataCapturePosition !== undefined && item.dataCapturePosition < 999999) {
+            if (item.productType !== 'sub' && item.normalizedMain && item.dataCapturePosition !== null && item.dataCapturePosition !== undefined && item.dataCapturePosition < 999999) {
                 if (!groupPositions.has(item.normalizedMain)) {
                     groupPositions.set(item.normalizedMain, item.dataCapturePosition);
                 } else {
