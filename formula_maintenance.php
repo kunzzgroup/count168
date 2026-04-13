@@ -165,6 +165,13 @@ if (!empty($session_company_id)) {
                 <!-- Cards will be populated dynamically -->
             </div>
         </div>
+
+        <!-- Pagination Container -->
+        <div class="account-pagination-container" id="paginationContainer" style="display: none; margin-bottom: 20px;">
+            <button class="account-pagination-btn" id="prevBtn" onclick="changePage(currentPage - 1)">◀</button>
+            <span class="account-pagination-info" id="paginationInfo">1 of 1</span>
+            <button class="account-pagination-btn" id="nextBtn" onclick="changePage(currentPage + 1)">▶</button>
+        </div>
     </div>
 
     <!-- Notification Container -->

@@ -347,6 +347,45 @@ const FORMULA_EMPTY_STATE_INITIAL = 'Use search or filters to view data.'
 const FORMULA_EMPTY_STATE_NO_RESULTS =
     'No data found. Please adjust your search criteria and try again.'
 
+let allFilteredData = [];
+let currentPage = 1;
+const itemsPerPage = 20;
+
+function changePage(newPage) {
+    const totalPages = Math.ceil(allFilteredData.length / itemsPerPage);
+    if (newPage < 1 || Math.ceil(allFilteredData.length / itemsPerPage) === 0 || newPage > totalPages) return;
+    currentPage = newPage;
+    renderPage(currentPage);
+}
+
+function updatePaginationUI() {
+    const totalPages = Math.ceil(allFilteredData.length / itemsPerPage) || 1;
+    const paginationInfo = document.getElementById('paginationInfo');
+    if (paginationInfo) paginationInfo.textContent = `${currentPage} of ${totalPages}`;
+    
+    const prevBtn = document.getElementById('prevBtn');
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    
+    const nextBtn = document.getElementById('nextBtn');
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+    
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) {
+        paginationContainer.style.display = allFilteredData.length > 0 ? 'flex' : 'none';
+        paginationContainer.style.justifyContent = 'center';
+        paginationContainer.style.alignItems = 'center';
+    }
+}
+
+function renderPage(page) {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageData = allFilteredData.slice(startIndex, endIndex);
+    renderDataCaptureTable(pageData);
+    updatePaginationUI();
+}
+
+
 function setFormulaEmptyStateMessage(text) {
     const emptyState = document.getElementById('emptyState')
     const emptyP = emptyState && emptyState.querySelector('p')
@@ -359,6 +398,8 @@ function showFormulaInitialEmptyState() {
     if (tbody) tbody.innerHTML = ''
     const container = document.getElementById('dataCaptureTableContainer')
     if (container) container.style.display = 'none'
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) paginationContainer.style.display = 'none';
     setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_INITIAL)
     const emptyState = document.getElementById('emptyState')
     if (emptyState) emptyState.style.display = 'block'
@@ -601,9 +642,13 @@ function loadDataCaptureList() {
                     if (container) {
                         container.style.display = 'none';
                     }
+                    const paginationContainer = document.getElementById('paginationContainer');
+                    if (paginationContainer) paginationContainer.style.display = 'none';
                     showNotification('No data found', 'info');
                 } else {
-                    renderDataCaptureTable(filteredData);
+                    allFilteredData = filteredData;
+                    currentPage = 1;
+                    renderPage(currentPage);
                     showNotification(`Found ${filteredData.length} record(s)`, 'success');
                 }
             } else {
