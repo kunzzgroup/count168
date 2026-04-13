@@ -60,9 +60,9 @@ try {
     if ($current_user_id) {
         if ($current_user_role === 'owner') {
             $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
-            $user_companies = getCompaniesByOwner($pdo, $owner_id, false);
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
         } else {
-            $user_companies = getCompaniesByUser($pdo, $current_user_id);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
         }
     }
 } catch(PDOException $e) {
@@ -147,21 +147,18 @@ if ($current_user_id && count($user_companies_all) > 0) {
                 <!-- Left Column - Data Capture Form -->
                 <div class="form-column">
                     <div class="form-container">
-                        <?php if (count($user_companies) > 1): ?>
-                        <div id="data-capture-company-filter" class="data-capture-company-filter" style="display: flex; margin-bottom: clamp(10px, 1.04vw, 20px);">
-                            <span class="data-capture-company-label">Company:</span>
-                            <div id="data-capture-company-buttons" class="data-capture-company-buttons">
-                                <?php foreach($user_companies as $comp): ?>
-                                    <button type="button" 
-                                            class="data-capture-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                            data-company-id="<?php echo $comp['id']; ?>"
-                                            onclick="switchDataCaptureCompany(<?php echo $comp['id']; ?>)">
-                                        <?php echo htmlspecialchars($comp['company_id']); ?>
-                                    </button>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
+                        <!-- Shared Group & Company Filter (SSR) -->
+                        <?php
+                        $filter_prefix = 'data-capture'; 
+                        include 'includes/company_filter.php'; 
+                        ?>
+                        <script>
+                            window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                                if (typeof switchDataCaptureCompany === 'function') {
+                                    switchDataCaptureCompany(companyId);
+                                }
+                            };
+                        </script>
                         <form id="dataCaptureForm" class="process-form" method="POST">
                             <div class="form-group">
                                 <label for="capture_date">Date</label>

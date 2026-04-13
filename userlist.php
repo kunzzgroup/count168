@@ -206,22 +206,20 @@ try {
                 </div>
             </div>
             
-            <!-- Company Buttons (显示多个 company 时) -->
-            <?php if (count($user_companies) > 1): ?>
-            <div id="user-list-company-filter" class="transaction-company-filter" style="display: flex; padding: 0 20px 15px 20px;">
-                <span class="transaction-company-label">Company:</span>
-                <div id="user-list-company-buttons" class="transaction-company-buttons">
-                    <?php foreach($user_companies as $comp): ?>
-                        <button type="button" 
-                                class="transaction-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                data-company-id="<?php echo $comp['id']; ?>"
-                                onclick="switchUserListCompany(<?php echo $comp['id']; ?>, '<?php echo htmlspecialchars($comp['company_id']); ?>')">
-                            <?php echo htmlspecialchars($comp['company_id']); ?>
-                        </button>
-                    <?php endforeach; ?>
-                </div>
+            <!-- Shared Group & Company Filter (SSR) -->
+            <div id="user-list-company-filter-wrapper" style="padding: 0 20px 15px 20px; width: 100%; overflow-x: auto; box-sizing: border-box;">
+                <?php
+                $filter_prefix = 'transaction'; 
+                include 'includes/company_filter.php'; 
+                ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchUserListCompany === 'function') {
+                            switchUserListCompany(companyId, companyCode);
+                        }
+                    };
+                </script>
             </div>
-            <?php endif; ?>
         </div>    
         
         <!-- 表头 -->

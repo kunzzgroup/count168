@@ -451,10 +451,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 🆕 加载分类列表和 company 列表 → 先加载 currency（再搜，保证带 currency 参数）→ 账户与搜索
     Promise.all([
-        loadCategories(),
-        loadOwnerCompanies()
+        loadCategories()
     ]).then(() => {
-        console.log('🔍 loadOwnerCompanies 完成后，currentCompanyId:', currentCompanyId);
+        console.log('🔍 init 完成，currentCompanyId:', currentCompanyId);
         ensureDefaultDates();
 
         if (!currentCompanyId) {
@@ -1165,96 +1164,6 @@ function getAccountId(buttonElement) {
     return buttonElement.getAttribute('data-value') || '';
 }
 
-// ==================== 加载 Owner Companies ====================
-function loadOwnerCompanies() {
-    return fetch('/api/transactions/get_owner_companies_api.php')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.data.length > 0) {
-                ownerCompanies = data.data;
-                
-                // 过滤掉只作为 group 占位符的面值为空的 company
-                const validCompanies = data.data.filter(c => c.company_id && c.company_id.trim() !== '');
-
-                // 如果有多个 company，显示按钮
-                if (validCompanies.length > 1) {
-                    const wrapper = document.getElementById('company-buttons-wrapper');
-                    const container = document.getElementById('company-buttons-container');
-                    container.innerHTML = '';
-                    
-                    validCompanies.forEach(company => {
-                        const btn = document.createElement('button');
-                        btn.className = 'transaction-company-btn';
-                        btn.textContent = company.company_id;
-                        btn.dataset.companyId = company.id;
-                        btn.addEventListener('click', function() {
-                            switchCompany(company.id, company.company_id);
-                        });
-                        container.appendChild(btn);
-                    });
-                    
-                    wrapper.style.display = 'flex';
-                    
-                    // 如果 session 中有 company_id，优先使用它；否则使用第一个
-                    if (!currentCompanyId) {
-                        // 没有 session company_id，使用第一个
-                        if (validCompanies.length > 0) {
-                            const firstCompany = validCompanies[0];
-                            currentCompanyId = firstCompany.id;
-                            // 设置第一个按钮为 active（使用 data-company-id 属性）
-                            const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
-                            if (firstBtn) {
-                                firstBtn.classList.add('active');
-                            }
-                        }
-                    } else {
-                        // 验证 session 中的 company_id 是否在列表中
-                        const exists = validCompanies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                        if (exists) {
-                            // session 中的 company_id 在列表中，使用它
-                            const sessionCompany = validCompanies.find(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                            if (sessionCompany) {
-                                const sessionBtn = container.querySelector(`button[data-company-id="${sessionCompany.id}"]`);
-                                if (sessionBtn) {
-                                    sessionBtn.classList.add('active');
-                                }
-                            }
-                        } else {
-                            // session 中的 company_id 不在列表中，使用第一个
-                            if (validCompanies.length > 0) {
-                                const firstCompany = validCompanies[0];
-                                currentCompanyId = firstCompany.id;
-                                const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
-                                if (firstBtn) {
-                                    firstBtn.classList.add('active');
-                                }
-                            }
-                        }
-                    }
-                    
-                    console.log('✅ Company 按钮加载成功:', validCompanies, '当前选中的 company_id:', currentCompanyId);
-                } else if (validCompanies.length === 1) {
-                    // 只有一个 company，直接设置（不显示按钮）
-                    currentCompanyId = validCompanies[0].id;
-                    console.log('✅ 单个 Company 已设置:', validCompanies[0]);
-                }
-            } else {
-                // 没有 company 数据，使用 session 中的 company_id
-                // 注意：这里无法直接获取 session 中的 company_id，需要从后端获取
-                // 暂时保持 currentCompanyId 为 null，让 API 使用 session 中的 company_id
-                console.log('⚠️ 没有 company 数据，API 将使用 session company_id');
-            }
-            
-            // 确保返回时 currentCompanyId 已设置（用于调试）
-            console.log('✅ loadOwnerCompanies 完成，currentCompanyId:', currentCompanyId);
-            return data;
-        })
-        .catch(error => {
-            console.error('❌ 加载 Company 列表失败:', error);
-            // 不显示错误通知，因为非 owner 用户可能没有 company 列表
-            return { success: true, data: [] };
-        });
-}
 
 // ==================== 切换 Company ====================
 async function switchCompany(companyId, companyCode) {

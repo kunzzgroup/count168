@@ -113,64 +113,7 @@ let ownerCompanies = [];
             }
         });
 
-        function loadOwnerCompanies() {
-            return fetch('api/transactions/get_owner_companies_api.php')
-                .then(response => response.json())
-                .then(data => {
-                    const wrapper = document.getElementById('companyButtonsWrapper');
-                    const container = document.getElementById('companyButtonsContainer');
-                    
-                    const companies = data.success && Array.isArray(data.data)
-                        ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
-                        : []
-                    if (companies.length > 0 && wrapper && container) {
-                        ownerCompanies = companies;
-                        container.innerHTML = '';
-                        
-                        companies.forEach(company => {
-                            const btn = document.createElement('button');
-                            btn.type = 'button';
-                            btn.className = 'maintenance-company-btn';
-                            btn.textContent = company.company_id;
-                            btn.dataset.companyId = company.id;
-                            btn.addEventListener('click', () => switchCompany(company.id));
-                            container.appendChild(btn);
-                        });
-                        
-                        // 如果 session 中有 company_id，优先使用它；否则使用第一个
-                        if (!currentCompanyId) {
-                            currentCompanyId = companies[0].id;
-                        } else {
-                            // 验证 session 中的 company_id 是否在列表中
-                            const exists = companies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                            if (!exists && companies.length > 0) {
-                                currentCompanyId = companies[0].id;
-                            }
-                        }
-                        
-                        updateCompanyButtonsState();
-                        wrapper.style.display = companies.length > 1 ? 'flex' : 'none';
-                        const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
-                        currentCompanyCode = cur ? (cur.company_id || '') : (currentCompanyCode || '');
-                        loadPermissionButtons();
-                    } else if (wrapper) {
-                        wrapper.style.display = 'none';
-                        ownerCompanies = [];
-                        currentCompanyId = null;
-                        loadPermissionButtons();
-                    }
-                })
-                .catch(error => {
-                    console.warn('❌ 加载Company列表失败:', error);
-                    const wrapper = document.getElementById('companyButtonsWrapper');
-                    if (wrapper) {
-                        wrapper.style.display = 'none';
-                    }
-                    ownerCompanies = [];
-                    currentCompanyId = null;
-                    loadPermissionButtons();
-                });
-        }
+
 
         async function loadPermissionButtons() {
             const filterEl = document.getElementById('maintenance-permission-filter');
@@ -236,7 +179,7 @@ let ownerCompanies = [];
             }
         }
 
-        async function switchCompany(companyId) {
+        async function switchCompany(companyId, companyCode) {
             if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
             let hasGamblingFromSession = undefined;
             try {
@@ -251,8 +194,7 @@ let ownerCompanies = [];
                 console.error('更新 session 时出错:', error);
             }
             currentCompanyId = companyId;
-            const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(companyId, 10));
-            currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
+            currentCompanyCode = companyCode || '';
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
@@ -262,7 +204,6 @@ let ownerCompanies = [];
                     : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
                 window.updateSidebarDataCaptureVisibility(hg);
             }
-            updateCompanyButtonsState();
             loadPermissionButtons();
             loadProcesses();
             if (hasSearched) {
@@ -270,16 +211,7 @@ let ownerCompanies = [];
             }
         }
 
-        function updateCompanyButtonsState() {
-            const buttons = document.querySelectorAll('#companyButtonsContainer .maintenance-company-btn');
-            buttons.forEach(btn => {
-                if (parseInt(btn.dataset.companyId, 10) === parseInt(currentCompanyId, 10)) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-        }
+
 
         // Load Process list
         function loadProcesses() {
@@ -804,10 +736,10 @@ let ownerCompanies = [];
             
             initAutoSearchFilters();
 
-            loadOwnerCompanies()
-                .catch(() => {})
-                .finally(() => {
-                    loadProcesses()
+            Promise.resolve()
+                .then(() => {
+                    loadPermissionButtons();
+                    return loadProcesses()
                         .catch(() => {})
                         .finally(() => {
                             // Initialize custom select

@@ -77,70 +77,9 @@
         let selectedCurrency = null;
         let selectedPermission = null;
 
-        function loadOwnerCompanies() {
-            const container = document.getElementById('company-buttons-container');
-            const wrapper = document.getElementById('company-buttons-wrapper');
-            return fetch('api/transactions/get_owner_companies_api.php')
-                .then(response => response.json())
-                .then(data => {
-                    const companies = data.success && Array.isArray(data.data)
-                        ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
-                        : []
-                    if (companies.length > 0) {
-                        ownerCompanies = companies;
-                        if (companies.length > 1) {
-                            container.innerHTML = '';
-                            companies.forEach((company) => {
-                                const btn = document.createElement('button');
-                                btn.className = 'maintenance-company-btn';
-                                btn.textContent = company.company_id;
-                                btn.dataset.companyId = company.id;
-                                btn.addEventListener('click', () => switchCompany(company.id));
-                                container.appendChild(btn);
-                            });
-                            if (!currentCompanyId) {
-                                currentCompanyId = companies[0].id;
-                            } else {
-                                const exists = companies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                                if (!exists && companies.length > 0) {
-                                    currentCompanyId = companies[0].id;
-                                }
-                            }
-                            const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
-                            currentCompanyCode = cur ? (cur.company_id || '') : '';
-                            wrapper.style.display = 'flex';
-                            activateCompanyButton(currentCompanyId);
-                        } else {
-                            currentCompanyId = companies[0].id;
-                            const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
-                            currentCompanyCode = cur ? (cur.company_id || '') : '';
-                            wrapper.style.display = 'none';
-                        }
-                    } else {
-                        ownerCompanies = [];
-                        currentCompanyCode = '';
-                        wrapper.style.display = 'none';
-                    }
-                })
-                .catch(error => {
-                    console.warn('加载公司列表失败或非 Owner 用户:', error);
-                    ownerCompanies = [];
-                    wrapper.style.display = 'none';
-                });
-        }
 
-        function activateCompanyButton(companyId) {
-            const buttons = document.querySelectorAll('#company-buttons-container .maintenance-company-btn');
-            buttons.forEach(btn => {
-                if (parseInt(btn.dataset.companyId, 10) === parseInt(companyId, 10)) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-        }
 
-        async function switchCompany(companyId) {
+        async function switchCompany(companyId, companyCode) {
             const newCompanyId = parseInt(companyId, 10);
             if (currentCompanyId === newCompanyId) return;
             let hasGamblingFromSession = undefined;
@@ -156,8 +95,7 @@
                 console.error('更新 session 时出错:', error);
             }
             currentCompanyId = newCompanyId;
-            const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(newCompanyId, 10));
-            currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
+            currentCompanyCode = companyCode || '';
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
@@ -167,7 +105,6 @@
                     : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
                 window.updateSidebarDataCaptureVisibility(hg);
             }
-            activateCompanyButton(currentCompanyId);
             loadPermissionButtons();
             loadCompanyCurrencies()
                 .then(() => {
@@ -561,13 +498,11 @@
             initDatePickers();
             bindFromSearchControls();
             updateDeleteButtonState();
-            loadOwnerCompanies()
-                .catch(() => {})
+            Promise.resolve()
                 .then(() => {
                     loadPermissionButtons();
                     return loadCompanyCurrencies();
                 })
-                .catch(() => {})
                 .then(() => {
                     const dateFrom = document.getElementById('date_from').value.trim();
                     const dateTo = document.getElementById('date_to').value.trim();

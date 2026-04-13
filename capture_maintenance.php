@@ -23,6 +23,23 @@ if ($session_company_id) {
     exit;
 }
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_id) {
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+        }
+    }
+} catch (Exception $e) { }
+
+$company_id = $session_company_id;
+
 // Get URL parameters for notifications
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
@@ -121,12 +138,18 @@ if (!empty($session_company_id)) {
             
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
-                    <div class="maintenance-company-filter" id="companyButtonsWrapper" style="display: none;">
-                        <span class="maintenance-company-label">Company:</span>
-                        <div class="maintenance-company-buttons" id="companyButtonsContainer">
-                            <!-- Company buttons injected here -->
-                        </div>
-                    </div>
+                    <!-- Shared Group & Company Filter (SSR) -->
+                    <?php
+                    $filter_prefix = 'maintenance'; 
+                    include 'includes/company_filter.php'; 
+                    ?>
+                    <script>
+                        window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                            if (typeof switchCompany === 'function') {
+                                switchCompany(companyId, companyCode);
+                            }
+                        };
+                    </script>
                 </div>
                 
                 <div class="maintenance-actions">
