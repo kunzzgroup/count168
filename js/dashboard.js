@@ -1639,6 +1639,7 @@ async function updateChart(data) {
                     const dateKey = dates[i];
                     if (pointMap.has(dateKey)) {
                         const p = pointMap.get(dateKey);
+                        profitData[i] = parseFloat(p.profit || 0) || 0;
                         expensesData[i] = parseFloat(p.expenses || 0) || 0;
                         netProfitData[i] = profitData[i] + expensesData[i];
                         earningsData[i] = netProfitData[i] * (ownershipPercentage / 100);
