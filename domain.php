@@ -299,23 +299,23 @@ try {
                     <label style="margin-bottom: 2px;">Permissions (for Process List & Data Capture)</label>
                     <div class="permission-toggle-row">
                         <label class="permission-toggle-btn" id="permissionLabelGambling">
-                            <input type="checkbox" value="Games" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Games" id="permissionGambling" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Games</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelBank">
-                            <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Bank</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelLoan">
-                            <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Loan</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelRate">
-                            <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Rate</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelMoney">
-                            <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Money</span>
                         </label>
                     </div>

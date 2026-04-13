@@ -2,6 +2,12 @@
 var hasC168Context = typeof window.DOMAIN_HAS_C168_CONTEXT !== 'undefined' ? window.DOMAIN_HAS_C168_CONTEXT : false;
 var isOwnerOrAdmin = typeof window.DOMAIN_IS_OWNER_OR_ADMIN !== 'undefined' ? window.DOMAIN_IS_OWNER_OR_ADMIN : false;
 
+// ★★★ SINGLE_CATEGORY_MODE ★★★
+// 设为 true 时：Company Settings 弹窗中 Permissions 只能选择一个分类（互斥），
+// 选中新分类会自动取消之前的选中项。
+// 恢复原状只需将此值改为 false。
+var SINGLE_CATEGORY_MODE = true;
+
 // 分页相关变量
 let currentPage = 1;
 let rowsPerPage = 20;
@@ -1128,6 +1134,20 @@ function loadCompanyPermissions(companyId) {
         });
 }
 
+// ★★★ SINGLE_CATEGORY_MODE — 互斥选择逻辑 ★★★
+// 当 SINGLE_CATEGORY_MODE === true 时，点击某个分类复选框会取消其他所有分类。
+// 删除此函数并将 domain.php 中 onchange 还原为 updatePermissionDisplay() 即可恢复原状。
+function onPermissionCheckboxChange(clickedEl) {
+    if (SINGLE_CATEGORY_MODE && clickedEl && clickedEl.checked) {
+        // 取消勾选除 clickedEl 以外的所有 permission-checkbox
+        var allBoxes = document.querySelectorAll('.permission-checkbox');
+        allBoxes.forEach(function (cb) {
+            if (cb !== clickedEl) cb.checked = false;
+        });
+    }
+    updatePermissionDisplay();
+}
+
 // 更新权限显示（勾选/取消 permission 时保持 Expiration Date 区域可见且内容不丢失）
 function updatePermissionDisplay() {
     if (!currentEditingCompanyId) return;
@@ -1213,6 +1233,19 @@ function saveCompanyExpDate() {
     if (document.getElementById('permissionLoan').checked) permissions.push('Loan');
     if (document.getElementById('permissionRate').checked) permissions.push('Rate');
     if (document.getElementById('permissionMoney').checked) permissions.push('Money');
+
+    // ★★★ SINGLE_CATEGORY_MODE — 保存时校验 ★★★
+    if (SINGLE_CATEGORY_MODE) {
+        if (permissions.length === 0) {
+            showAlert('Please select one category', 'danger');
+            return;
+        }
+        if (permissions.length > 1) {
+            showAlert('Only one category can be selected at a time', 'danger');
+            return;
+        }
+    }
+
     // 存入当前公司，再次打开 Set 时优先用此显示
     company.permissions = permissions.slice();
     syncFeeShareFromDomToCompany(company);
@@ -1302,12 +1335,20 @@ function resetCompanyExpDateInModal() {
     document.getElementById('expDateDisplay').textContent = 'Not set';
     document.getElementById('expDateDisplay').style.color = '#94a3b8';
 
-    // 重置权限为全选
-    document.getElementById('permissionGambling').checked = true;
-    document.getElementById('permissionBank').checked = true;
-    document.getElementById('permissionLoan').checked = true;
-    document.getElementById('permissionRate').checked = true;
-    document.getElementById('permissionMoney').checked = true;
+    // 重置权限（SINGLE_CATEGORY_MODE 时仅选第一个 Games）
+    if (SINGLE_CATEGORY_MODE) {
+        document.getElementById('permissionGambling').checked = true;
+        document.getElementById('permissionBank').checked = false;
+        document.getElementById('permissionLoan').checked = false;
+        document.getElementById('permissionRate').checked = false;
+        document.getElementById('permissionMoney').checked = false;
+    } else {
+        document.getElementById('permissionGambling').checked = true;
+        document.getElementById('permissionBank').checked = true;
+        document.getElementById('permissionLoan').checked = true;
+        document.getElementById('permissionRate').checked = true;
+        document.getElementById('permissionMoney').checked = true;
+    }
     updatePermissionDisplay();
 
     company.fee_share_allocations = defaultFeeShareAllocations();

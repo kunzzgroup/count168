@@ -11,7 +11,11 @@ const pageSize = 20;
 let selectedPermission = null;
 const currentProcessListPage = (typeof window.PROCESSLIST_PAGE_FILE === 'string' ? window.PROCESSLIST_PAGE_FILE.trim() : '');
 const forcedPermission = (typeof window.PROCESSLIST_FORCED_PERMISSION === 'string' ? window.PROCESSLIST_FORCED_PERMISSION.trim() : '');
-const hidePermissionFilter = !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
+// ★★★ SINGLE_CATEGORY_MODE ★★★
+// 设为 true 时：Process List 页面隐藏 Category 筛选按钮（Games/Bank/…）。
+// 恢复原状只需将此值改为 false。
+const SINGLE_CATEGORY_MODE = true;
+const hidePermissionFilter = SINGLE_CATEGORY_MODE || !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
 function getBankProcessModule() {
     return (typeof window !== 'undefined' && window.BankProcessList) ? window.BankProcessList : null;
 }
