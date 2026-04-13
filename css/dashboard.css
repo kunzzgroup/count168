@@ -317,6 +317,32 @@ body.dashboard-page {
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
+/* 图表自定义图例开关按钮 (类图二设计) */
+.chart-toggle-btn {
+    padding: clamp(4px, 0.5vw, 6px) clamp(10px, 1vw, 16px);
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: clamp(11px, 0.9vw, 14px);
+    font-weight: 500;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    /* Custom property --btn-color is set inline */
+}
+
+.chart-toggle-btn:hover {
+    background-color: #f3f4f6;
+}
+
+.chart-toggle-btn.active {
+    background-color: var(--btn-color, #3b82f6);
+    color: #ffffff;
+    border-color: var(--btn-color, #3b82f6);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .dashboard-chart-container {
     flex: 1;
     min-height: 0;

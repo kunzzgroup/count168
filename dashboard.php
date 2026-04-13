@@ -298,12 +298,19 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
 
             <!-- 图表区域 -->
             <div class="dashboard-chart-section">
-                <div class="dashboard-chart-header">
+                <div class="dashboard-chart-header" style="display: flex; justify-content: space-between; align-items: start;">
                     <div>
                         <div class="dashboard-chart-title">Trend Chart</div>
                         <div class="dashboard-date-info" id="chart-date-range"
                             style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">
                             Loading data...</div>
+                    </div>
+                    <!-- 新增图表控制按钮 (图例开关) -->
+                    <div class="dashboard-chart-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="chart-toggle-btn active" data-dataset="0" style="--btn-color: #3b82f6;">Profit</button>
+                        <button class="chart-toggle-btn active" data-dataset="1" style="--btn-color: #ef4444;">Expenses</button>
+                        <button class="chart-toggle-btn active" data-dataset="2" style="--btn-color: #10b981;">NET PROFIT</button>
+                        <button class="chart-toggle-btn active" data-dataset="3" style="--btn-color: #f59e0b;">Earnings</button>
                     </div>
                 </div>
                 <div class="dashboard-chart-container">
