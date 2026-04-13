@@ -958,8 +958,13 @@ function escapeHtml(text) {
 }
 
 // Notification functions
-function showNotification(message, type = 'success') {
+/** @param {{ durationMs?: number, prominent?: boolean }} [options] — prominent 仅用于 Resend / Day start 校验等需强提示的场景 */
+function showNotification(message, type = 'success', options = null) {
     const container = document.getElementById('processNotificationContainer');
+    if (!container) return;
+
+    const durationMs = options && options.durationMs != null ? Math.max(800, options.durationMs) : 1500;
+    const prominent = !!(options && options.prominent);
 
     // 检查现有通知数量，最多保留2个
     const existingNotifications = container.querySelectorAll('.process-notification');
@@ -976,7 +981,8 @@ function showNotification(message, type = 'success') {
 
     // 创建新通知
     const notification = document.createElement('div');
-    notification.className = `process-notification process-notification-${type}`;
+    const extra = prominent ? ' process-notification--bank-resend-day-start' : '';
+    notification.className = ('process-notification process-notification-' + type + extra).trim();
     notification.textContent = message;
 
     // 添加到容器
@@ -987,16 +993,14 @@ function showNotification(message, type = 'success') {
         notification.classList.add('show');
     }, 10);
 
-    // 1.5秒后开始消失动画
     setTimeout(() => {
         notification.classList.remove('show');
-        // 0.3秒后完全移除
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
             }
         }, 300);
-    }, 1500);
+    }, durationMs);
 }
 
 function updateProcessListPageTitle(permission) {
@@ -1985,6 +1989,20 @@ function bindBankResendModalFrequencySyncOnce() {
     dayEnd.addEventListener('input', syncResendFreq);
 }
 
+function bindBankResendDayStartClearInlineErrorOnce() {
+    const el = document.getElementById('bank_resend_day_start');
+    if (!el || el._bankResendInlineErrorClearBound) return;
+    el._bankResendInlineErrorClearBound = true;
+    function tryClear() {
+        const bm = getBankProcessModule();
+        if (bm && typeof bm.clearBankResendDayStartInlineError === 'function') {
+            bm.clearBankResendDayStartInlineError();
+        }
+    }
+    el.addEventListener('change', tryClear);
+    el.addEventListener('input', tryClear);
+}
+
 function showConfirmBankResendModal(processId) {
     const id = parseInt(processId, 10);
     if (!id) return;
@@ -2009,6 +2027,11 @@ function showConfirmBankResendModal(processId) {
             'This clears posted markers so the process can appear in Accounting Due again. Change Day start below if it matches the current contract date.';
     }
     bindBankResendModalFrequencySyncOnce();
+    const bmClear = getBankProcessModule();
+    if (bmClear && typeof bmClear.clearBankResendDayStartInlineError === 'function') {
+        bmClear.clearBankResendDayStartInlineError();
+    }
+    bindBankResendDayStartClearInlineErrorOnce();
     const dsEl = document.getElementById('bank_resend_day_start');
     const deEl = document.getElementById('bank_resend_day_end');
     const fqEl = document.getElementById('bank_resend_frequency');
@@ -2048,6 +2071,10 @@ function showConfirmBankResendModal(processId) {
 }
 
 function closeConfirmBankResendModal() {
+    const bm = getBankProcessModule();
+    if (bm && typeof bm.clearBankResendDayStartInlineError === 'function') {
+        bm.clearBankResendDayStartInlineError();
+    }
     const modal = document.getElementById('confirmBankResendModal');
     if (modal) modal.style.display = 'none';
     pendingBankResendProcessId = null;
@@ -2090,7 +2117,12 @@ async function confirmBankResendFromModal() {
         ? bankModule.bankResendScheduleDayStartForbiddenMessage(scheduleOpts ? scheduleOpts.day_start : '', proc ? proc.day_start : null)
         : null;
     if (forbidMsg) {
-        showNotification(forbidMsg, 'warning');
+        const bm = getBankProcessModule();
+        if (bm && typeof bm.presentBankResendDayStartValidationError === 'function') {
+            bm.presentBankResendDayStartValidationError(forbidMsg);
+        } else if (typeof showNotification === 'function') {
+            showNotification(forbidMsg, 'danger', { durationMs: 14500, prominent: true });
+        }
         return;
     }
     if (confirmBtn) {

@@ -790,7 +790,8 @@ if (!function_exists('renderBankProcessModals')) {
                         <div class="bank-resend-field">
                             <label class="bank-resend-field__label" for="bank_resend_day_start">Day start</label>
                             <input type="date" id="bank_resend_day_start" class="bank-resend-control" autocomplete="off">
-                            <p class="bank-resend-field__note">Use a Day start date that is not the same as the current contract Day start. Native date pickers cannot gray out a single day; choose another date before Resend.</p>
+                            <p class="bank-resend-field__note">The system's built-in date picker cannot be used; please select a different date.</p>
+                            <div id="bankResendDayStartInlineError" class="bank-resend-inline-alert" hidden></div>
                         </div>
                         <div class="bank-resend-field">
                             <label class="bank-resend-field__label" for="bank_resend_day_end">Day end</label>

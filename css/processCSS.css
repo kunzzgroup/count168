@@ -2906,6 +2906,28 @@ body.process-page {
     color: #64748b;
 }
 
+#confirmBankResendModal .bank-resend-inline-alert {
+    margin-top: 12px;
+    padding: 14px 16px;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.45;
+    color: #450a0a;
+    background: linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%);
+    border: 2px solid #e11d48;
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(190, 18, 60, 0.35);
+}
+
+#confirmBankResendModal .bank-resend-inline-alert[hidden] {
+    display: none !important;
+}
+
+#confirmBankResendModal .bank-resend-control.bank-resend-control--error {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.35) !important;
+}
+
 #confirmBankResendModal .bank-resend-control {
     width: 100%;
     box-sizing: border-box;
@@ -2966,7 +2988,7 @@ body.process-page {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 10000;
+    z-index: 10050;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -3002,6 +3024,21 @@ body.process-page {
     background-color: #fef2f2;
     color: #991b1b;
     border-left-color: #ef4444;
+}
+
+/* Resend：Day start 与合约同日 — 仅此场景使用 showNotification(..., { prominent: true }) */
+.process-notification.process-notification--bank-resend-day-start {
+    max-width: min(100vw - 32px, 480px);
+    min-width: min(100vw - 32px, 320px);
+    padding: 20px 22px;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.45;
+    color: #450a0a;
+    background: linear-gradient(180deg, #fff1f2 0%, #fecdd3 100%);
+    border: 3px solid #be123c;
+    border-left: 8px solid #9f1239;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
 }
 
 @media (max-width: 1024px) {

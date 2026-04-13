@@ -120,6 +120,55 @@ function bankResendScheduleDayStartForbiddenMessage(chosenTrim, anchorRaw) {
     return null;
 }
 
+function isBankResendDayStartBackendErrorMessage(text) {
+    const s = String(text || '');
+    return s.indexOf('不可与合约当前 Day start 为同一日') !== -1
+        || s.indexOf('Resend 所填 Day start') !== -1
+        || s.indexOf('same calendar date as the current contract Day start') !== -1;
+}
+
+function clearBankResendDayStartInlineError() {
+    const box = document.getElementById('bankResendDayStartInlineError');
+    const input = document.getElementById('bank_resend_day_start');
+    if (box) {
+        box.textContent = '';
+        box.hidden = true;
+    }
+    if (input) {
+        input.classList.remove('bank-resend-control--error');
+        input.removeAttribute('aria-invalid');
+    }
+}
+
+/** 弹窗打开时：在表单项旁显示醒目错误；无弹窗时：仅走右上角强提示 toast（仅此业务） */
+function presentBankResendDayStartValidationError(message) {
+    const msg = String(message || '').trim();
+    if (!msg) return;
+    const modal = document.getElementById('confirmBankResendModal');
+    const modalOpen = modal && modal.style.display === 'block';
+    const box = document.getElementById('bankResendDayStartInlineError');
+    const input = document.getElementById('bank_resend_day_start');
+    if (modalOpen && box) {
+        box.textContent = msg;
+        box.hidden = false;
+        box.setAttribute('role', 'alert');
+        if (input) {
+            input.classList.add('bank-resend-control--error');
+            input.setAttribute('aria-invalid', 'true');
+            try {
+                input.focus();
+            } catch (e) { /* ignore */ }
+        }
+        try {
+            box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (e2) { /* ignore */ }
+        return;
+    }
+    if (typeof showNotification === 'function') {
+        showNotification(msg, 'danger', { durationMs: 14500, prominent: true });
+    }
+}
+
 function isBankProcessInactiveLike(process) {
     if (!process) return false;
     return isBankInactiveLike(process.status, process.issue_flag);
@@ -277,7 +326,7 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
         payload.day_start_frequency = (scheduleOpts.day_start_frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
         const forbidMsg = bankResendScheduleDayStartForbiddenMessage(payload.day_start, procGuard ? procGuard.day_start : null);
         if (forbidMsg) {
-            showNotification(forbidMsg, 'warning');
+            presentBankResendDayStartValidationError(forbidMsg);
             return;
         }
     }
@@ -321,7 +370,12 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
                 }
             }
         } else {
-            showNotification(result.message || 'Resend failed', 'danger');
+            const failMsg = result.message || 'Resend failed';
+            if (isBankResendDayStartBackendErrorMessage(failMsg) && typeof showNotification === 'function') {
+                showNotification(failMsg, 'danger', { durationMs: 14500, prominent: true });
+            } else {
+                showNotification(failMsg, 'danger');
+            }
         }
     } catch (err) {
         console.error('executeAccountingDueResend:', err);
@@ -4307,6 +4361,8 @@ return {
     renderAfterStatusChange: function () { renderBankTable(); renderPagination(); },
     isRealBankInactive: isRealBankInactive,
     executeAccountingDueResend: executeAccountingDueResend,
-    bankResendScheduleDayStartForbiddenMessage: bankResendScheduleDayStartForbiddenMessage
+    bankResendScheduleDayStartForbiddenMessage: bankResendScheduleDayStartForbiddenMessage,
+    presentBankResendDayStartValidationError: presentBankResendDayStartValidationError,
+    clearBankResendDayStartInlineError: clearBankResendDayStartInlineError
 };
 })();
