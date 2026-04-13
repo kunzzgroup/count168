@@ -54,7 +54,7 @@ body.dashboard-page {
     font-size: clamp(9px, 0.82vw, 15px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
-    min-width: clamp(60px, 5vw, 80px);
+    min-width: 0px;
     display: inline-block;
     text-align: right;
 }

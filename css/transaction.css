@@ -159,18 +159,22 @@ body.transaction-page {
     gap: 0;
     flex-wrap: wrap;
 }
+
 .transaction-page .transaction-date-quick-row .transaction-capture-date-label {
     flex-shrink: 0;
     width: clamp(60px, 5.5vw, 105px);
     margin: 0;
 }
+
 .transaction-page .transaction-date-quick-row .transaction-date-range-group {
     margin-right: clamp(8px, 1vw, 16px);
 }
+
 .transaction-page .transaction-date-range-group {
     min-width: clamp(150px, 12.5vw, 240px);
     flex: 0 0 auto;
 }
+
 .transaction-page .transaction-date-quick-row .quick-select-dropdown {
     flex: 0 0 auto;
 }
@@ -200,6 +204,7 @@ body.transaction-page {
 
 /* 在较窄屏幕下限制 Account 两个下拉的最大宽度，避免与 Reverse 按钮冲突 */
 @media (max-width: 1280px) {
+
     .transaction-page .transaction-account-select,
     .transaction-page .custom-select-wrapper {
         flex: 1 1 calc(50% - 8px);
@@ -253,7 +258,7 @@ body.transaction-page {
     background: #f3f3f3;
     border: 1px solid #ddd;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     display: none;
     max-height: 300px;
@@ -389,7 +394,8 @@ body.transaction-page {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-top: auto; /* 将整个确认区域推到底部 */
+    margin-top: auto;
+    /* 将整个确认区域推到底部 */
 }
 
 .transaction-page .transaction-confirm-label {
@@ -494,6 +500,7 @@ body.transaction-page {
     color: #6b7280;
     font-size: clamp(9px, 0.73vw, 14px);
 }
+
 .transaction-page .transaction-tables-loading::before {
     content: '';
     width: 24px;
@@ -504,8 +511,11 @@ body.transaction-page {
     border-radius: 50%;
     animation: transaction-loading-spin 0.7s linear infinite;
 }
+
 @keyframes transaction-loading-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .transaction-page .transaction-table-wrapper {
@@ -717,6 +727,7 @@ body.transaction-page {
         transform: translateY(-80px) scale(0.95);
         opacity: 0;
     }
+
     to {
         transform: translateY(0) scale(1);
         opacity: 1;
@@ -1008,6 +1019,7 @@ body.transaction-page,
 body.transaction-page * {
     font-weight: 700;
 }
+
 /* 恢复 sidebar 中关键元素的原始 font-weight（与 sidebar.php 保持一致） */
 body.transaction-page .informationmenu .user-name,
 body.transaction-page .informationmenu .informationmenu-section-title,
@@ -1015,24 +1027,29 @@ body.transaction-page .informationmenu .language-text,
 body.transaction-page .informationmenu .language-option span {
     font-weight: 600;
 }
+
 body.transaction-page .informationmenu .user-role,
 body.transaction-page .informationmenu .informationmenu-item {
     font-weight: 500;
 }
+
 body.transaction-page .informationmenu .user-avatar,
 body.transaction-page .informationmenu .informationmenu-logo,
 body.transaction-page .informationmenu .submenu-item,
 body.transaction-page .informationmenu .submenu-item::after {
     font-weight: bold;
 }
+
 body.transaction-page .informationmenu .options-title,
 body.transaction-page .informationmenu .gender-btn {
     font-weight: 600;
 }
+
 /* 恢复 logout 和 expiration date 的原始 font-weight */
 body.transaction-page .logout-btn {
     font-weight: normal;
 }
+
 body.transaction-page .expiration-countdown-text {
     font-weight: 500;
 }
@@ -1044,6 +1061,7 @@ body.transaction-page .expiration-countdown-text {
     justify-content: flex-start;
     gap: 12px;
 }
+
 .transaction-header-left {
     display: flex;
     align-items: center;
@@ -1051,9 +1069,11 @@ body.transaction-page .expiration-countdown-text {
     min-width: 0;
     flex-wrap: wrap;
 }
+
 .contra-inbox-wrap {
     position: relative;
 }
+
 .contra-inbox-badge {
     display: inline-flex;
     align-items: center;
@@ -1067,6 +1087,7 @@ body.transaction-page .expiration-countdown-text {
     font-size: clamp(9px, 0.73vw, 14px);
     font-weight: 800;
 }
+
 .contra-inbox-btn {
     padding: 6px 10px;
     border: 1px solid #d0d7de;
@@ -1078,10 +1099,12 @@ body.transaction-page .expiration-countdown-text {
     color: #111827;
     transition: all 0.15s ease;
 }
+
 .contra-inbox-btn:hover {
     background: #eef2ff;
     border-color: #a5b4fc;
 }
+
 .contra-inbox-btn.contra-inbox-main {
     display: inline-flex;
     align-items: center;
@@ -1092,11 +1115,13 @@ body.transaction-page .expiration-countdown-text {
     font-weight: 800;
     color: #0f172a;
 }
+
 .contra-inbox-icon {
     width: 16px;
     height: 16px;
     display: inline-block;
 }
+
 .contra-inbox-popover {
     position: absolute;
     left: 0;
@@ -1113,6 +1138,7 @@ body.transaction-page .expiration-countdown-text {
     z-index: 1200;
     display: none;
 }
+
 .contra-inbox-popover-header {
     display: flex;
     align-items: center;
@@ -1122,22 +1148,27 @@ body.transaction-page .expiration-countdown-text {
     border-bottom: 1px solid #e5e7eb;
     background: #f8fafc;
 }
+
 .contra-inbox-popover-title {
     font-weight: 900;
     color: #0f172a;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: clamp(11px, 0.94vw, 18px); /* 与其他标题保持一致比例 */
+    font-size: clamp(11px, 0.94vw, 18px);
+    /* 与其他标题保持一致比例 */
 }
+
 .contra-inbox-popover-body {
     max-height: 360px;
     overflow: auto;
 }
+
 .contra-inbox-table {
     width: 100%;
     border-collapse: collapse;
 }
+
 .contra-inbox-table th,
 .contra-inbox-table td {
     padding: 6px 8px;
@@ -1147,68 +1178,83 @@ body.transaction-page .expiration-countdown-text {
     text-align: left;
     vertical-align: top;
 }
+
 .contra-inbox-approve {
     background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
     border-color: transparent;
     color: #fff;
 }
+
 .contra-inbox-approve:hover {
     background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
     border-color: transparent;
 }
+
 .contra-inbox-reject {
     background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
     border-color: transparent;
     color: #fff;
     margin-left: 6px;
 }
+
 .contra-inbox-reject:hover {
     background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
     border-color: transparent;
 }
+
 /* 表格自然展开，页面整体滚动 */
 .transaction-table-wrapper {
     position: relative !important;
     overflow-x: auto !important;
 }
+
 .transaction-table {
     width: 100%;
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
 }
+
 .transaction-table thead th {
     position: relative !important;
     z-index: 10 !important;
 }
+
 .transaction-table tfoot tr {
     position: relative !important;
     z-index: 10 !important;
 }
+
 .transaction-table tfoot td {
     background-color: #f6f8fa !important;
 }
-.transaction-table th, .transaction-table td {
+
+.transaction-table th,
+.transaction-table td {
     padding: clamp(2px, 0.21vw, 4px) 8px;
     line-height: 1.1;
     font-weight: 600;
     font-size: clamp(9px, 0.73vw, 14px);
 }
+
 .transaction-table td {
     font-weight: 800;
 }
+
 /* Account 列宽度 - 更宽 */
 .transaction-table th:first-child,
 .transaction-table td:first-child {
     width: 22.5%;
     min-width: 150px;
 }
+
 /* Name 列宽度 - 与 Account 列一样宽 */
 .transaction-table th.transaction-name-column,
 .transaction-table td.transaction-name-column {
     width: 22.5%;
     min-width: 150px;
 }
+
 /* 其他列（B/F, Win/Loss, Cr/Dr, Balance）保持较小宽度，平均分配剩余空间 */
 .transaction-table th:nth-child(3),
 .transaction-table td:nth-child(3),
@@ -1222,22 +1268,27 @@ body.transaction-page .expiration-countdown-text {
 .transaction-table td:nth-child(7) {
     width: auto;
 }
+
 .transaction-table tbody tr {
     height: auto;
 }
+
 .transaction-table tbody tr:nth-child(odd),
 .transaction-table tbody tr:nth-child(odd) td {
     background-color: #f9fbff;
 }
+
 .transaction-table tbody tr:nth-child(even),
 .transaction-table tbody tr:nth-child(even) td {
     background-color: rgb(228, 235, 255);
 }
+
 .transaction-summary-table tbody tr:nth-child(odd),
 .transaction-summary-table tbody tr:nth-child(odd) td {
     background-color: #f9fbff;
     font-weight: 800;
 }
+
 .transaction-summary-table tbody tr:nth-child(even),
 .transaction-summary-table tbody tr:nth-child(even) td {
     background-color: rgb(228, 235, 255);
@@ -1251,10 +1302,12 @@ body.transaction-page .expiration-countdown-text {
     gap: 5px;
     flex: 1;
 }
+
 .transaction-date-inputs input {
     flex: 1;
     min-width: 0;
 }
+
 .transaction-date-inputs span {
     color: #666;
     font-size: clamp(9px, 0.73vw, 14px);
@@ -1264,15 +1317,18 @@ body.transaction-page .expiration-countdown-text {
 /* Flatpickr 自定义样式 */
 .flatpickr-calendar {
     font-family: 'Amaranth', sans-serif;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .flatpickr-day.selected {
     background: #4a90e2;
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today {
     border-color: #4a90e2;
 }
+
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
     background: #e6f2ff;
@@ -1296,13 +1352,13 @@ body.transaction-page .expiration-countdown-text {
     color: white;
     font-size: 20px;
     font-weight: bold;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: all 0.3s ease;
 }
 
 #user-avatar:hover {
     transform: scale(1.1);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
 }
 
 /* Company & Currency Buttons */
@@ -1312,24 +1368,27 @@ body.transaction-page .expiration-countdown-text {
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
     margin-top: clamp(0px, 0.52vw, 10px);
-    padding: 0 20px 10px 20px;
+    padding: 0 20px 10px 0px;
 }
+
 .transaction-company-label {
     font-weight: bold;
     color: #374151;
     font-size: clamp(9px, 0.73vw, 14px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
-    min-width: 65px;
+    min-width: 0px;
     display: inline-block;
     text-align: right;
 }
+
 .transaction-company-buttons {
     display: inline-flex;
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
 }
+
 .transaction-company-btn {
     padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
     background: #f1f5f9;
@@ -1341,24 +1400,29 @@ body.transaction-page .expiration-countdown-text {
     color: #1f2937;
     font-weight: 600;
 }
+
 .transaction-company-btn:hover {
     background: #e2e8f0;
     border-color: #a5b4fc;
 }
+
 .transaction-company-btn.active {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: #fff;
     border-color: transparent;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
+
 /* Currency 拖动（与 Member Win/Loss 一致） */
 #currency-buttons-container .transaction-company-btn.transaction-currency-dragging {
     opacity: 0.6;
 }
+
 #currency-buttons-container .transaction-company-btn.transaction-currency-drag-over {
     outline: 2px dashed #3b82f6;
     outline-offset: 2px;
 }
+
 .text-uppercase {
     text-transform: uppercase;
 }
@@ -1367,31 +1431,38 @@ body.transaction-page .expiration-countdown-text {
 .transaction-balance-cell {
     position: relative;
 }
+
 .transaction-add-section .transaction-form-group {
     flex-wrap: nowrap;
 }
+
 .transaction-add-section .transaction-form-group .transaction-label {
     width: clamp(80px, 6vw, 110px);
     flex: 0 0 clamp(60px, 6vw, 105px);
 }
-.transaction-add-section .transaction-form-group > *:not(.transaction-label) {
+
+.transaction-add-section .transaction-form-group>*:not(.transaction-label) {
     flex: 1 1 auto;
     min-width: 0;
     gap: 5px;
 }
+
 .transaction-account-inputs {
     width: 100%;
 }
+
 .transaction-select {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
 }
+
 .transaction-win-lose-row {
     display: flex;
     align-items: center;
     gap: 16px;
 }
+
 .transaction-radio-label {
     display: inline-flex;
     align-items: center;
@@ -1404,20 +1475,24 @@ body.transaction-page .expiration-countdown-text {
     display: flex;
     flex-direction: column;
 }
+
 .rate-section {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
     margin-bottom: 5px;
 }
-.rate-section > .transaction-label {
+
+.rate-section>.transaction-label {
     white-space: nowrap;
 }
-.rate-section > .transaction-input,
-.rate-section > .transaction-select {
+
+.rate-section>.transaction-input,
+.rate-section>.transaction-select {
     flex: 1;
     min-width: 0;
 }
+
 .rate-row {
     display: flex;
     flex-wrap: nowrap;
@@ -1425,31 +1500,37 @@ body.transaction-page .expiration-countdown-text {
     width: 100%;
     gap: 5px;
 }
-.rate-row-two-cols > .transaction-select,
-.rate-row-two-cols > .transaction-input {
+
+.rate-row-two-cols>.transaction-select,
+.rate-row-two-cols>.transaction-input {
     flex: 1 1 calc(50% - 10px);
     min-width: 140px;
 }
+
 .rate-row-five-cols {
     display: grid;
     grid-template-columns: minmax(70px, 0.9fr) minmax(70px, 1fr) minmax(60px, 0.8fr) minmax(70px, 0.9fr) minmax(70px, 1fr);
     width: 100%;
 }
+
 .rate-row-three-cols {
     display: grid;
     grid-template-columns: minmax(90px, 1fr) minmax(80px, 0.8fr) minmax(90px, 1fr);
     width: 100%;
 }
+
 .rate-row-three-cols {
     display: grid;
     grid-template-columns: repeat(3, minmax(70px, 1fr));
     width: 100%;
 }
+
 .rate-row-five-cols select,
 .rate-row-five-cols input {
     width: 100%;
     min-width: 0;
 }
+
 .rate-reverse-btn {
     flex: 0 0 auto;
     align-self: stretch;
