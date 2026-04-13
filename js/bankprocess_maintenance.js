@@ -341,7 +341,9 @@
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = escapeHtml(toUpperDisplay(row.from_account));
                 const currencyAmountDisplay = formatCurrencyAmountCell(row.currency, row.amount);
-                const descriptionDisplay = escapeHtml(toUpperDisplay(row.description));
+                const descriptionDisplay = escapeHtml(
+                    row.description != null && String(row.description).trim() !== '' ? String(row.description) : '-'
+                );
                 const remarkDisplay = escapeHtml(toUpperDisplay(row.remark));
                 const submitterDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
                 const rowCheckboxHtml = isDeleted
@@ -355,7 +357,7 @@
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-currency-amount">${currencyAmountDisplay}</td>
-                    <td class="maintenance-table-cell text-uppercase">${descriptionDisplay}</td>
+                    <td class="maintenance-table-cell">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell text-uppercase">${remarkDisplay}</td>
                     <td class="maintenance-table-cell">${submitterDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-checkbox">
