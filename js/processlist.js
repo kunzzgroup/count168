@@ -2006,7 +2006,7 @@ function showConfirmBankResendModal(processId) {
     if (msgEl) {
         msgEl.textContent =
             'Resend "' + label + '" to Accounting Due?\n\n' +
-            'This clears the "already posted" after the bank posting was removed in Maintenance (Bank or Payment).';
+            'This clears posted markers so the process can appear in Accounting Due again. Change Day start below if it matches the current contract date.';
     }
     bindBankResendModalFrequencySyncOnce();
     const dsEl = document.getElementById('bank_resend_day_start');
@@ -2076,11 +2076,6 @@ async function confirmBankResendFromModal() {
     const modal = document.getElementById('confirmBankResendModal');
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     const cancelBtn = modal ? modal.querySelector('.confirm-bank-resend-cancel') : null;
-    if (confirmBtn) {
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Resending...';
-    }
-    if (cancelBtn) cancelBtn.disabled = true;
     const dsEl = document.getElementById('bank_resend_day_start');
     const deEl = document.getElementById('bank_resend_day_end');
     const fqEl = document.getElementById('bank_resend_frequency');
@@ -2089,8 +2084,21 @@ async function confirmBankResendFromModal() {
         day_end: (deEl.value || '').trim(),
         day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : '1st_of_every_month'
     } : null;
+    const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
+    const bankModule = getBankProcessModule();
+    const forbidMsg = bankModule && typeof bankModule.bankResendScheduleDayStartForbiddenMessage === 'function'
+        ? bankModule.bankResendScheduleDayStartForbiddenMessage(scheduleOpts ? scheduleOpts.day_start : '', proc ? proc.day_start : null)
+        : null;
+    if (forbidMsg) {
+        showNotification(forbidMsg, 'warning');
+        return;
+    }
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Resending...';
+    }
+    if (cancelBtn) cancelBtn.disabled = true;
     try {
-        const bankModule = getBankProcessModule();
         if (bankModule && typeof bankModule.executeAccountingDueResend === 'function') {
             await bankModule.executeAccountingDueResend(id, scheduleOpts);
         }

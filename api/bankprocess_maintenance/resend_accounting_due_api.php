@@ -11,32 +11,30 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/maintenance_accounting_resend_lib.php';
 
 /** 与 processlist / 前端 isBankInactiveLike：Official、E-INVOICE、Block 不可 Resend（这些在 DB 里常为 status=active） */
-/**
- * 已设 day_start 时：每个自然月中与锚定日「同号」之日（月末按较短月对齐，Asia/Kuala_Lumpur）不可 Resend。
- */
-function bank_resend_is_day_start_blackout(?string $dayStartRaw): bool
+
+/** @return string|null Y-m-d */
+function bank_resend_anchor_ymd_from_raw(?string $raw): ?string
 {
-    if ($dayStartRaw === null || trim((string) $dayStartRaw) === '') {
+    if ($raw === null || trim((string) $raw) === '') {
+        return null;
+    }
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})/', trim((string) $raw), $m)) {
+        return null;
+    }
+    return $m[1] . '-' . $m[2] . '-' . $m[3];
+}
+
+/** Resend 所填 day_start 不可与合约当前 Day start 为同一日历日（与「灰掉该日」语义一致） */
+function bank_resend_schedule_day_equals_anchor_ymd(string $candidateYmd, ?string $anchorRaw): bool
+{
+    $anchorYmd = bank_resend_anchor_ymd_from_raw($anchorRaw);
+    if ($anchorYmd === null) {
         return false;
     }
-    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})/', trim((string) $dayStartRaw), $m)) {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($candidateYmd))) {
         return false;
     }
-    $anchorYmd = $m[1] . '-' . $m[2] . '-' . $m[3];
-    $anchorDom = (int) $m[3];
-    if ($anchorDom < 1) {
-        return false;
-    }
-    $tz = new DateTimeZone('Asia/Kuala_Lumpur');
-    $today = new DateTime('now', $tz);
-    $todayYmd = $today->format('Y-m-d');
-    if ($todayYmd < $anchorYmd) {
-        return false;
-    }
-    $lastDay = (int) $today->format('t');
-    $effectiveDom = min($anchorDom, $lastDay);
-    $todayDom = (int) $today->format('j');
-    return $todayDom === $effectiveDom;
+    return trim($candidateYmd) === $anchorYmd;
 }
 
 function bank_resend_blocking_issue_flag_from_row(array $bpRow): ?string
@@ -145,46 +143,14 @@ try {
         throw new Exception('Official、E-INVOICE、Block 状态的 Process 不可使用 Resend');
     }
 
-    $dayStartForBlackout = isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : '';
-    if (bank_resend_is_day_start_blackout($dayStartForBlackout !== '' ? $dayStartForBlackout : null)) {
-        throw new Exception('今日为该流程 Day start 对应之自然日（马来西亚时间），暂不可 Resend，请改日再试。');
+    $anchorDayStartRaw = isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : '';
+    if ($scheduleFromClient && $newDayStart !== null
+        && bank_resend_schedule_day_equals_anchor_ymd($newDayStart, $anchorDayStartRaw !== '' ? $anchorDayStartRaw : null)) {
+        throw new Exception('Resend 所填 Day start 不可与合约当前 Day start 为同一日，请另选日期。');
     }
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
     bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
-
-    $stmt = $pdo->prepare(
-        'SELECT id, process_accounting_posted_id, period_type, transaction_date
-         FROM bank_process_maintenance_resend_pending
-         WHERE company_id = ? AND bank_process_id = ?'
-    );
-    $stmt->execute([$company_id, $bankProcessId]);
-    $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (empty($pending)) {
-        $hasSourceCol = bmp_resend_tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
-        if (!$hasSourceCol) {
-            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
-        }
-        $cntStmt = $pdo->prepare(
-            'SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = ? AND t.company_id = ?'
-        );
-        $cntStmt->execute([$bankProcessId, $company_id]);
-        if ((int) $cntStmt->fetchColumn() > 0) {
-            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
-        }
-        $papCh = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
-        if (!$papCh || $papCh->rowCount() === 0) {
-            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
-        }
-        $papCntStmt = $pdo->prepare(
-            'SELECT COUNT(*) FROM process_accounting_posted WHERE company_id = ? AND process_id = ?'
-        );
-        $papCntStmt->execute([$company_id, $bankProcessId]);
-        if ((int) $papCntStmt->fetchColumn() === 0) {
-            throw new Exception('没有待 Resend 的记录。请先在 Maintenance（Bank Process 或 Payment）中删除对应的 Bank process 入账交易，或从 Accounting Due 移除该行。');
-        }
-    }
 
     $pdo->beginTransaction();
     // 一律清除该 Process 的全部入账标记：Maintenance 常只删部分 period 的交易，若仅删 monthly 会残留 partial 等 PAP，Inbox 会少「首月按比例」等行。
