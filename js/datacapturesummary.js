@@ -17123,6 +17123,29 @@ function reorderSummaryRowsByRowIndex() {
             };
         });
 
+        // IMPORTANT FIX: Guarantee elements of the same group stay contiguous!
+        // Array.prototype.sort() pairwise comparisons cannot logically group separate items
+        // if their primary sort keys (dataCapturePosition) are vastly different.
+        // E.g. Main is pos 0, Sub is pos 9 (from DB history). A new item pos 1 will be inserted between them.
+        // To fix this, force all items of the same normalizeMain to adopt the minimum dataCapturePosition of that group.
+        const groupPositions = new Map();
+        rowData.forEach(item => {
+            if (item.normalizedMain && item.dataCapturePosition !== null && item.dataCapturePosition !== undefined && item.dataCapturePosition < 999999) {
+                if (!groupPositions.has(item.normalizedMain)) {
+                    groupPositions.set(item.normalizedMain, item.dataCapturePosition);
+                } else {
+                    groupPositions.set(item.normalizedMain, Math.min(groupPositions.get(item.normalizedMain), item.dataCapturePosition));
+                }
+            }
+        });
+
+        // Apply unified group position to all rows (Main and Sub) of that group
+        rowData.forEach(item => {
+            if (item.normalizedMain && groupPositions.has(item.normalizedMain)) {
+                item.dataCapturePosition = groupPositions.get(item.normalizedMain);
+            }
+        });
+
         // IMPORTANT: 全局排序逻辑说明（以 Data Capture 行顺序为绝对基准）：
         // 1. Primary Key：dataCapturePosition（来自 Data Capture Table 行号，基于完整 Id Product 去空格）
         //    ——保证 Summary 中不同 Id Product 之间的顺序，与 Data Capture Table 完全一致
