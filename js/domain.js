@@ -2378,6 +2378,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const data = Object.fromEntries(formData.entries());
             data.action = isEditMode ? 'update' : 'create';
 
+            // Email validation: only allow @gmail.com
+            if (data.email && !data.email.toLowerCase().endsWith('@gmail.com')) {
+                showAlert('Only @gmail.com addresses are allowed', 'danger');
+                return;
+            }
+
             // Remove password if empty during edit
             if (isEditMode && !data.password) {
                 delete data.password;

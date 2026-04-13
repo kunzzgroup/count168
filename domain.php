@@ -483,7 +483,7 @@ try {
                             </div>
                             <div class="form-group">
                                 <label for="email">Email *</label>
-                                <input type="email" id="email" name="email" required>
+                                <input type="email" id="email" name="email" required pattern=".*@gmail\.com$" title="Only @gmail.com addresses are allowed">
                             </div>
                             <div class="form-group" id="passwordGroup">
                                 <label for="password">Password *</label>
