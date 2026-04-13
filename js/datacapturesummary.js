@@ -7392,13 +7392,17 @@ function extractRowDataForTemplate(row, formData) {
 // options.skipResequence: true 时不触发同组 sub_order 重排（用于内部调用避免递归）
 async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
     try {
-        // Account、Currency、Formula 必填：任一项空则不保存到后端
+        // Account、Currency 必填。Formula 对 sub 必填，对 main 可选
         const hasAccount = rowData.account_id != null && String(rowData.account_id).trim() !== '';
         const hasCurrency = rowData.currency_id != null && String(rowData.currency_id).trim() !== '';
         const hasFormula = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
             (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
-        if (hasAccount && (!hasCurrency || !hasFormula)) {
-            return { success: false, message: 'Currency and Formula are required.' };
+        
+        if (hasAccount && !hasCurrency) {
+            return { success: false, message: 'Currency is required.' };
+        }
+        if (hasAccount && rowData.product_type === 'sub' && !hasFormula) {
+            return { success: false, message: 'Formula is required for sub rows.' };
         }
 
         const processId = getCurrentProcessId();
@@ -7604,11 +7608,13 @@ async function autoSaveTemplateFromRow(row) {
             // Skip auto-save if row has no bound account yet
             return;
         }
-        // Account、Currency、Formula 必填：任一项空则不自动保存
+        // Account、Currency 必填。对于 sub 行，Formula 也必填。对于 main 行，Formula 可选。
         const currencyEmpty = !formData.currencyValue || (typeof formData.currencyValue === 'string' && !formData.currencyValue.trim());
         const currencyPlaceholder = (formData.currencyName || '').trim() && /^select\s*curren/i.test(String(formData.currencyName).trim());
         const formulaEmpty = !formData.formulaValue || (typeof formData.formulaValue === 'string' && !formData.formulaValue.trim());
-        if (currencyEmpty || currencyPlaceholder || formulaEmpty) {
+        const productType = row.getAttribute('data-product-type') || 'main';
+        
+        if (currencyEmpty || currencyPlaceholder || (productType === 'sub' && formulaEmpty)) {
             return;
         }
 
