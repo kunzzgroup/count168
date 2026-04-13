@@ -502,7 +502,7 @@ function addCompanyToList() {
         return;
     }
 
-    // 添加新公司，C168不需要设置到期日期
+    // 添加新公司（C168 是永久公司，无到期日）
     const isC168 = companyId === 'C168';
     const today = new Date().toISOString().split('T')[0]; // 今天的日期 YYYY-MM-DD
     const newExpirationDate = isC168 ? null : calculateExpirationDate('1month', today);
@@ -525,19 +525,11 @@ function addCompanyToList() {
 }
 
 function removeCompanyFromList(companyId) {
-    // 不允许删除C168
-    if (companyId.toUpperCase() === 'C168') {
-        return;
-    }
     tempCompanies = tempCompanies.filter(c => c.company_id !== companyId);
     updateCompanyDisplay();
 }
 
 function updateCompanyExpiration(companyId, period) {
-    // C168不需要设置到期日期
-    if (companyId.toUpperCase() === 'C168') {
-        return;
-    }
     // 如果选择的是占位符选项，不执行更新
     if (!period || period === '') {
         return;
@@ -1378,7 +1370,7 @@ function updateCompanyDisplay() {
         if (isMultipleChoiceMode && selectedGroupId) {
             // 显示所有未归组的公司(group_id=null) + 已在该 group 的公司
             const assignableCandidates = tempCompanies.filter(c => {
-                return c.company_id.toUpperCase() !== 'C168' && (!c.group_id || c.group_id === selectedGroupId);
+                return !c.group_id || c.group_id === selectedGroupId;
             });
 
             const sortedCandidates = [...assignableCandidates].sort((a, b) => {
@@ -1405,13 +1397,9 @@ function updateCompanyDisplay() {
             return;
         }
 
-        // 排序：C168放在第一个，其他按字母顺序
+        // 按字母顺序排序
         const sortedCompanies = [...filteredCompanies].sort((a, b) => {
-            const aId = a.company_id.toUpperCase();
-            const bId = b.company_id.toUpperCase();
-            if (aId === 'C168') return -1;
-            if (bId === 'C168') return 1;
-            return aId.localeCompare(bId);
+            return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
         });
 
         if (sortedCompanies.length === 0) {
@@ -1424,19 +1412,14 @@ function updateCompanyDisplay() {
         }
 
         container.innerHTML = sortedCompanies.map(company => {
-            const isC168 = company.company_id.toUpperCase() === 'C168';
-            const removeButton = isC168 ? '' : `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
+            const removeButton = `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
 
-            // C168不显示到期日期设置按钮
-            let expirationControls = '';
-            if (!isC168) {
-                // 显示到期日期和设置按钮
-                const expDateText = company.expiration_date ? formatDate(company.expiration_date) : 'Not set';
-                expirationControls = `
-                    <span class="exp-date-display" style="margin-right: 8px;">${expDateText}</span>
-                    <button type="button" class="company-reset-btn" onclick="openCompanyExpDateModal('${company.company_id}')" title="Set expiration date" style="background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);">Set</button>
-                `;
-            }
+            // 显示到期日期和设置按钮
+            const expDateText = company.expiration_date ? formatDate(company.expiration_date) : 'Not set';
+            const expirationControls = `
+                <span class="exp-date-display" style="margin-right: 8px;">${expDateText}</span>
+                <button type="button" class="company-reset-btn" onclick="openCompanyExpDateModal('${company.company_id}')" title="Set expiration date" style="background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);">Set</button>
+            `;
 
             return `
                 <div class="company-item">
@@ -1473,11 +1456,7 @@ function companyToDomainPayloadEntry(c) {
 // 同步 selectedCompanies 和 hidden field（表单提交前调用）
 function syncCompaniesFromTemp() {
     const sortedCompanies = [...tempCompanies].sort((a, b) => {
-        const aId = a.company_id.toUpperCase();
-        const bId = b.company_id.toUpperCase();
-        if (aId === 'C168') return -1;
-        if (bId === 'C168') return 1;
-        return aId.localeCompare(bId);
+        return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
     });
     selectedCompanies = sortedCompanies.map(c => companyToDomainPayloadEntry(c));
 
@@ -1501,11 +1480,7 @@ function syncCompaniesFromTemp() {
 // 实时同步 hidden 字段
 function syncCompaniesHiddenField() {
     const sortedCompanies = [...tempCompanies].sort((a, b) => {
-        const aId = a.company_id.toUpperCase();
-        const bId = b.company_id.toUpperCase();
-        if (aId === 'C168') return -1;
-        if (bId === 'C168') return 1;
-        return aId.localeCompare(bId);
+        return a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase());
     });
     const cleaned = sortedCompanies.map(c => companyToDomainPayloadEntry(c));
 
