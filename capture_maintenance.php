@@ -140,7 +140,7 @@ if (!empty($session_company_id)) {
                 <div class="maintenance-filter-left">
                     <!-- Shared Group & Company Filter (SSR) -->
                     <?php
-                    $filter_prefix = 'transaction'; 
+                    $filter_prefix = 'maintenance'; 
                     include 'includes/company_filter.php'; 
                     ?>
                     <script>
