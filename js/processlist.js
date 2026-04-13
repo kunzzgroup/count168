@@ -4238,10 +4238,22 @@ async function addCurrencyFromInputBank(type) {
 
 // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
 const addAccountFormEl = document.getElementById('addAccountForm');
-if (addAccountFormEl) {
+if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
+    window.__globalAddAccountSubmitHandlerBound = true;
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
-        if (!validatePaymentAlertForAddBank()) return;
+        if (window.__globalAddAccountSubmitInFlight) return;
+        if (this.dataset.submitting === '1') return;
+        window.__globalAddAccountSubmitInFlight = true;
+        this.dataset.submitting = '1';
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        if (!validatePaymentAlertForAddBank()) {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
+            return;
+        }
         const formData = new FormData(this);
         const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
         if (paymentAlert) {
@@ -4327,6 +4339,10 @@ if (addAccountFormEl) {
         } catch (err) {
             console.error('Add account error', err);
             showNotification('Failed to add account', 'danger');
+        } finally {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
         }
     });
 }
