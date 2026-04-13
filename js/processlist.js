@@ -2003,38 +2003,6 @@ function bindBankResendDayStartClearInlineErrorOnce() {
     el.addEventListener('input', tryClear);
 }
 
-function normalizeBankResendYmd(value) {
-    const s = String(value || '').trim();
-    if (!s) return '';
-    const head = s.length >= 10 ? s.substring(0, 10) : String(s.split(' ')[0] || '').trim();
-    return /^\d{4}-\d{2}-\d{2}$/.test(head) ? head : '';
-}
-
-function enforceBankResendForbiddenDayStartSelection() {
-    const dsEl = document.getElementById('bank_resend_day_start');
-    if (!dsEl) return;
-    const forbiddenYmd = String(dsEl.dataset.forbiddenYmd || '').trim();
-    if (!forbiddenYmd) return;
-    const chosenYmd = normalizeBankResendYmd(dsEl.value);
-    if (!chosenYmd || chosenYmd !== forbiddenYmd) return;
-    dsEl.value = '';
-    const bm = getBankProcessModule();
-    const msg = 'Day start cannot be the same calendar date as the current contract Day start. Pick another date.';
-    if (bm && typeof bm.presentBankResendDayStartValidationError === 'function') {
-        bm.presentBankResendDayStartValidationError(msg);
-    } else if (typeof showNotification === 'function') {
-        showNotification(msg, 'danger', { durationMs: 14500, prominent: true });
-    }
-}
-
-function bindBankResendDayStartForbiddenRuleOnce() {
-    const dsEl = document.getElementById('bank_resend_day_start');
-    if (!dsEl || dsEl._bankResendForbiddenRuleBound) return;
-    dsEl._bankResendForbiddenRuleBound = true;
-    dsEl.addEventListener('change', enforceBankResendForbiddenDayStartSelection);
-    dsEl.addEventListener('input', enforceBankResendForbiddenDayStartSelection);
-}
-
 function showConfirmBankResendModal(processId) {
     const id = parseInt(processId, 10);
     if (!id) return;
@@ -2064,19 +2032,12 @@ function showConfirmBankResendModal(processId) {
         bmClear.clearBankResendDayStartInlineError();
     }
     bindBankResendDayStartClearInlineErrorOnce();
-    bindBankResendDayStartForbiddenRuleOnce();
     const dsEl = document.getElementById('bank_resend_day_start');
     const deEl = document.getElementById('bank_resend_day_end');
     const fqEl = document.getElementById('bank_resend_frequency');
     if (dsEl) {
         const d1 = proc ? (proc.day_start || '') : '';
         dsEl.value = d1 ? (d1.length === 10 ? d1 : String(d1).split(' ')[0]) : '';
-        const anchorYmd = normalizeBankResendYmd(proc ? (proc.day_start || '') : '');
-        if (anchorYmd) {
-            dsEl.dataset.forbiddenYmd = anchorYmd;
-        } else {
-            delete dsEl.dataset.forbiddenYmd;
-        }
     }
     if (deEl) {
         const d2 = proc ? (proc.day_end || '') : '';
