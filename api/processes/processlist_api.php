@@ -933,7 +933,6 @@ function updateBankProcess() {
             jsonResponse(false, 'Process not found or no permission', null);
             return;
         }
-        // Edit Process does not allow changing Bank Information fields.
         $country = $existing['country'] ?? null;
         $bank = $existing['bank'] ?? null;
         $type = $existing['type'] ?? null;

@@ -345,6 +345,16 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
                     proc.day_start = payload.day_start || null;
                     proc.day_end = payload.day_end || null;
                     proc.day_start_frequency = payload.day_start_frequency;
+                    const editIdEl = document.getElementById('bank_edit_id');
+                    if (editIdEl && String(editIdEl.value || '') === String(id)) {
+                        const dayStartEl = document.getElementById('bank_day_start');
+                        const dayEndEl = document.getElementById('bank_day_end');
+                        const freqEl = document.getElementById('bank_day_start_frequency');
+                        if (dayStartEl) dayStartEl.value = payload.day_start || '';
+                        if (dayEndEl) dayEndEl.value = payload.day_end || '';
+                        if (freqEl) freqEl.value = payload.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+                        if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
+                    }
                 }
             }
             showNotification(result.message || 'You can post from Accounting Due again', 'success');
@@ -950,15 +960,8 @@ function isBankProcessBillingScheduleLocked() {
 }
 
 function setBankProcessEditLockedFields(locked) {
-    const form = document.getElementById('addBankProcessForm');
-    if (form) {
-        if (locked) {
-            form.setAttribute('data-edit-locked', '1');
-        } else {
-            form.removeAttribute('data-edit-locked');
-        }
-    }
-    ['bank_country', 'bank_bank', 'bank_type', 'bank_name'].forEach(function (id) {
+    const lockableFieldIds = ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_day_start', 'bank_day_end', 'bank_day_start_frequency'];
+    lockableFieldIds.forEach(function (id) {
         const el = document.getElementById(id);
         if (!el) return;
         if (el.tagName === 'SELECT') {
