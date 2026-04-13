@@ -95,6 +95,50 @@ function isBankInactiveLike(status, issueFlag) {
     return normalizedStatus === 'inactive' || normalizedIssueFlag === 'official' || normalizedIssueFlag === 'e_invoice' || normalizedIssueFlag === 'block';
 }
 
+/** 与 config.php date_default_timezone_set('Asia/Kuala_Lumpur') 一致，供 Resend 日切判断 */
+function bankResendTodayYmdKualaLumpur() {
+    try {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kuala_Lumpur',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(new Date());
+    } catch (e) {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+    }
+}
+
+function bankProcessNormalizeDayStartYmd(dayStartField) {
+    if (dayStartField == null) return null;
+    const s = String(dayStartField).trim();
+    if (!s) return null;
+    const head = s.length >= 10 ? s.substring(0, 10) : String(s.split(' ')[0] || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(head) ? head : null;
+}
+
+/** 已设 Day start 时：每个自然月中与锚定日「同号」之日（月末按较短月对齐）不可 Resend */
+function isBankResendBlockedOnDayStart(dayStartField) {
+    const anchorYmd = bankProcessNormalizeDayStartYmd(dayStartField);
+    if (!anchorYmd) return false;
+    const todayYmd = bankResendTodayYmdKualaLumpur();
+    if (todayYmd < anchorYmd) return false;
+    const ap = anchorYmd.split('-');
+    const anchorDom = parseInt(ap[2], 10);
+    if (!anchorDom || anchorDom < 1) return false;
+    const tp = todayYmd.split('-');
+    const y = parseInt(tp[0], 10);
+    const mo = parseInt(tp[1], 10);
+    const lastDay = new Date(y, mo, 0).getDate();
+    const effectiveDom = Math.min(anchorDom, lastDay);
+    const todayDom = parseInt(tp[2], 10);
+    return todayDom === effectiveDom;
+}
+
 function isBankProcessInactiveLike(process) {
     if (!process) return false;
     return isBankInactiveLike(process.status, process.issue_flag);
@@ -190,10 +234,10 @@ function initProcessListDateFilter() {
     }
 }
 
-function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending) {
+function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, dayStartField) {
     const isBankStatusActive = String(status || '').trim().toLowerCase() === 'active';
-    // Official / E-INVOICE / Block 仍为 status=active，须与列表「inactive-like」一致，否则 Resend 会误显
-    const showResend = !!maintenanceResendPending && isBankStatusActive && !isBankInactiveLike(status, issueFlag);
+    // Official / E-INVOICE / Block 仍为 status=active；Resend 不再依赖 Maintenance 待办表，仅排除 Day start 对应自然日（MY）
+    const showResend = isBankStatusActive && !isBankInactiveLike(status, issueFlag) && !isBankResendBlockedOnDayStart(dayStartField);
     const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
     const actionButtons =
         '<span class="bank-action-tools">' +
@@ -220,6 +264,10 @@ function resendBankProcessAccountingDue(processId) {
                 showNotification('Resend is only available for Active processes (not Inactive, Official, E-INVOICE, or Block).', 'warning');
                 return;
             }
+            if (isBankResendBlockedOnDayStart(proc.day_start)) {
+                showNotification('Resend is not available on the Day start cycle date for this process (Malaysia time). Please try again on another date.', 'warning');
+                return;
+            }
         }
     }
     if (typeof window.showConfirmBankResendModal === 'function') {
@@ -240,6 +288,10 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
         const st = String(procGuard.status || '').trim().toLowerCase();
         if (st !== 'active' || isBankInactiveLike(procGuard.status, procGuard.issue_flag)) {
             showNotification('Resend is only available for Active processes (not Inactive, Official, E-INVOICE, or Block).', 'warning');
+            return;
+        }
+        if (isBankResendBlockedOnDayStart(procGuard.day_start)) {
+            showNotification('Resend is not available on the Day start cycle date for this process (Malaysia time). Please try again on another date.', 'warning');
             return;
         }
     }
@@ -286,7 +338,7 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
                             rowB.getAttribute('data-status') || '',
                             rowB.getAttribute('data-has-transactions') === '1',
                             normalizeBankIssueFlag(p ? p.issue_flag : rowB.getAttribute('data-issue-flag')),
-                            false
+                            p ? p.day_start : null
                         );
                     }
                 }
@@ -585,7 +637,7 @@ async function updateBankIssueFlag(processId, newValue, options) {
             row.setAttribute('data-issue-flag', normalizedNewValue);
             const actionCell = row.querySelector('.bank-td-action');
             if (actionCell) {
-                actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue, !!(process && process.maintenance_resend_pending));
+                actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue, process ? process.day_start : null);
             }
         }
 
@@ -747,7 +799,7 @@ function renderBankTable() {
         const price = dashIfEmpty(process.price);
         const profit = dashIfEmpty(process.profit);
         const statusSelect = renderBankStatusSelect(process.id, process);
-        const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag, !!process.maintenance_resend_pending);
+        const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag, process.day_start);
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', process.id);
         tr.setAttribute('data-status', process.status || '');
@@ -1554,7 +1606,7 @@ async function performToggleStatus(processId) {
             if (selectedPermission === 'Bank') {
                 const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                 const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '', !!(process && process.maintenance_resend_pending));
+                const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '', process ? process.day_start : null);
                 if (row) {
                     row.setAttribute('data-status', newStatus || '');
                     row.setAttribute('data-issue-flag', normalizeBankIssueFlag(process ? process.issue_flag : ''));
