@@ -513,7 +513,7 @@ function loadDataCaptureList() {
     // 显示加载状态
     const tbody = document.getElementById('dataCaptureTableBody');
     if (tbody) {
-        tbody.innerHTML = '<div class="maintenance-list-card"><div class="maintenance-list-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">Loading...</div></div>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
     }
     document.getElementById('emptyState').style.display = 'none';
     const container = document.getElementById('dataCaptureTableContainer');
@@ -666,7 +666,7 @@ function renderDataCaptureTable(data) {
             formula: row.formula || '',
             description: row.description || ''
         };
-        card.setAttribute('data-row-data', JSON.stringify(rowData));
+        tr.setAttribute('data-row-data', JSON.stringify(rowData));
         
         // 创建所有列的内容
         
@@ -780,7 +780,7 @@ function toUpperDisplay(value) {
 
 // ==================== 编辑数据捕获行 ====================
 function editDataCaptureRow(rowId, editBtn) {
-    const row = editBtn.closest('.maintenance-list-card');
+    const row = editBtn.closest('tr');
     const accountCell = row.querySelector('.account-cell');
     const sourceCell = row.querySelector('.source-cell');
     const inputMethodCell = row.querySelector('.input-method-cell');
@@ -889,7 +889,7 @@ function loadAccountList(selectElement, currentAccountId) {
 
 // ==================== 取消编辑数据捕获行 ====================
 function cancelEditDataCaptureRow(rowId, cancelBtn) {
-    const row = cancelBtn.closest('.maintenance-list-card');
+    const row = cancelBtn.closest('tr');
     const accountCell = row.querySelector('.account-cell');
     const sourceCell = row.querySelector('.source-cell');
     const inputMethodCell = row.querySelector('.input-method-cell');
@@ -958,7 +958,7 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
 
 // ==================== 保存数据捕获行 ====================
 function saveDataCaptureRow(rowId, saveBtn) {
-    const row = saveBtn.closest('.maintenance-list-card');
+    const row = saveBtn.closest('tr');
     const accountCell = row.querySelector('.account-cell');
     const sourceCell = row.querySelector('.source-cell');
     const inputMethodCell = row.querySelector('.input-method-cell');
