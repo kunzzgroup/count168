@@ -32,8 +32,7 @@ try {
             $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
         }
     }
-} catch (Exception $e) {
-}
+} catch (Exception $e) { }
 
 $company_id = $session_company_id;
 
@@ -44,88 +43,79 @@ $default_date_to = $today_dt->format('d/m/Y');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Transaction Payment</title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
-    <link rel="stylesheet"
-        href="css/transaction.css?v=<?php echo file_exists('css/transaction.css') ? filemtime('css/transaction.css') : time(); ?>">
+    <link rel="stylesheet" href="css/transaction.css?v=<?php echo file_exists('css/transaction.css') ? filemtime('css/transaction.css') : time(); ?>">
     <!-- Shared Date Range Picker (same UI/UX as dashboard) -->
-    <link rel="stylesheet"
-        href="css/date-range-picker.css?v=<?php echo file_exists('css/date-range-picker.css') ? filemtime('css/date-range-picker.css') : time(); ?>">
+    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo file_exists('css/date-range-picker.css') ? filemtime('css/date-range-picker.css') : time(); ?>">
     <!-- Flatpickr CSS（用于单日日期选择） -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet"
-        href="css/sidebar.css?v=<?php echo file_exists('css/sidebar.css') ? filemtime('css/sidebar.css') : time(); ?>">
-    <script src="js/sidebar.js?v=<?php echo file_exists('js/sidebar.js') ? filemtime('js/sidebar.js') : time(); ?>"
-        defer></script>
-    <link rel="stylesheet"
-        href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo file_exists('css/sidebar.css') ? filemtime('css/sidebar.css') : time(); ?>">
+    <script src="js/sidebar.js?v=<?php echo file_exists('js/sidebar.js') ? filemtime('js/sidebar.js') : time(); ?>" defer></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
-
 <body class="transaction-page">
     <?php include 'sidebar.php'; ?>
-
+    
     <!-- User Avatar Button -->
     <div id="user-avatar">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path
-                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
         </svg>
     </div>
-
+    
     <div class="transaction-container">
         <div class="transaction-header-bar">
             <div class="transaction-header-left">
                 <h1 class="transaction-title">Transaction List</h1>
                 <?php if ($canApproveContra): ?>
-                    <div class="contra-inbox-wrap" id="contraInboxWrap">
-                        <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
-                            <svg class="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path
-                                    d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
-                            </svg>
-                            Contra Inbox
-                            <span class="contra-inbox-badge" id="contraInboxCount">0</span>
-                        </button>
-                        <div class="contra-inbox-popover" id="contraInboxPopover">
-                            <div class="contra-inbox-popover-header">
-                                <div class="contra-inbox-popover-title">
-                                    Contra Inbox
-                                    <span class="contra-inbox-badge" id="contraInboxCount2">0</span>
-                                </div>
-                                <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
+                <div class="contra-inbox-wrap" id="contraInboxWrap">
+                    <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
+                        <svg class="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                        </svg>
+                        Contra Inbox
+                        <span class="contra-inbox-badge" id="contraInboxCount">0</span>
+                    </button>
+                    <div class="contra-inbox-popover" id="contraInboxPopover">
+                        <div class="contra-inbox-popover-header">
+                            <div class="contra-inbox-popover-title">
+                                Contra Inbox
+                                <span class="contra-inbox-badge" id="contraInboxCount2">0</span>
                             </div>
-                            <div class="contra-inbox-popover-body">
-                                <table class="contra-inbox-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>From</th>
-                                            <th>To</th>
-                                            <th>Currency</th>
-                                            <th>Amount</th>
-                                            <th>Submitted By</th>
-                                            <th>Description</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="contraInboxTbody"></tbody>
-                                </table>
-                            </div>
+                            <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
+                        </div>
+                        <div class="contra-inbox-popover-body">
+                            <table class="contra-inbox-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th>Currency</th>
+                                        <th>Amount</th>
+                                        <th>Submitted By</th>
+                                        <th>Description</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contraInboxTbody"></tbody>
+                            </table>
                         </div>
                     </div>
+                </div>
                 <?php endif; ?>
             </div>
         </div>
 
         <!-- Separator line -->
         <div class="transaction-separator-line"></div>
-
+        
         <div class="transaction-main-content">
             <!-- Left Search Form -->
             <div class="transaction-search-section">
@@ -153,47 +143,37 @@ $default_date_to = $today_dt->format('d/m/Y');
                         </div>
                     </div>
                 </div>
-
+                
                 <!-- Capture Date：标签在左，select bar + Period 在右（不显示 Quick Select 字眼） -->
                 <div class="transaction-date-quick-row">
                     <label class="transaction-label transaction-capture-date-label">Capture Date</label>
                     <div class="transaction-date-range-group">
                         <div class="date-range-picker" id="date-range-picker">
                             <i class="fas fa-calendar-alt"></i>
-                            <span
-                                id="date-range-display"><?php echo $default_date_from . ' - ' . $default_date_to; ?></span>
+                            <span id="date-range-display"><?php echo $default_date_from . ' - ' . $default_date_to; ?></span>
                         </div>
                         <input type="hidden" id="date_from" value="<?php echo $default_date_from; ?>">
                         <input type="hidden" id="date_to" value="<?php echo $default_date_to; ?>">
                     </div>
                     <div class="quick-select-dropdown quick-select-dropdown-toggle">
-                        <button type="button" class="dropdown-toggle"
-                            onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
+                        <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
                             <i class="fas fa-calendar-alt"></i>
                             <span id="quick-select-text">Period</span>
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="dropdown-menu" id="quick-select-dropdown">
-                            <button type="button" class="dropdown-item"
-                                onclick="selectQuickRange('today')">Today</button>
-                            <button type="button" class="dropdown-item"
-                                onclick="selectQuickRange('yesterday')">Yesterday</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This
-                                Week</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last
-                                Week</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This
-                                Month</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last
-                                Month</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This
-                                Year</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last
-                                Year</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
                         </div>
                     </div>
                 </div>
-
+                
                 <div class="transaction-checkboxes">
                     <label class="transaction-checkbox-label">
                         <input type="checkbox" id="show_name" class="transaction-checkbox">
@@ -212,329 +192,308 @@ $default_date_to = $today_dt->format('d/m/Y');
                         Show 0 balance
                     </label>
                 </div>
-
+                
                 <div class="transaction-bottom-filters">
                     <!-- Shared Group & Company Filter (SSR) -->
                     <?php
-                    $filter_prefix = 'transaction';
-                    include 'includes/company_filter.php';
+                    $filter_prefix = 'transaction'; 
+                    include 'includes/company_filter.php'; 
                     ?>
                     <script>
-                        window.onSharedCompanyFilterChanged = function (companyId, companyCode) {
+                        window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
                             if (typeof switchCompany === 'function') {
                                 switchCompany(companyId, companyCode);
                             }
                         };
                     </script>
                     <!-- Currency Buttons -->
-                    <span class="transaction-company-label">Currency:</span>
-                    <div id="currency-buttons-container" class="transaction-company-buttons">
-                        <!-- Currency buttons will be dynamically added here -->
+                    <div id="currency-buttons-wrapper" class="transaction-company-filter">
+                        <span class="transaction-company-label">Currency:</span>
+                        <div id="currency-buttons-container" class="transaction-company-buttons">
+                            <!-- Currency buttons will be dynamically added here -->
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Right Add Form -->
-        <div class="transaction-add-section">
-            <div class="transaction-form-group">
-                <label class="transaction-label">Type</label>
-                <select id="transaction_type" class="transaction-select">
-                    <option value="CONTRA" selected>CONTRA</option>
-                    <option value="PAYMENT">PAYMENT</option>
-                    <option value="RECEIVE">RECEIVE</option>
-                    <option value="CLAIM">CLAIM</option>
-                    <option value="PROFIT">PROFIT</option>
-                    <option value="RATE">RATE</option>
-                    <option value="CLEAR">CLEAR</option>
-                </select>
-            </div>
-
-            <div id="standard-transaction-fields">
+            
+            <!-- Right Add Form -->
+            <div class="transaction-add-section">
                 <div class="transaction-form-group">
-                    <label class="transaction-label">Date</label>
-                    <input type="text" id="transaction_date" class="transaction-input"
-                        value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
-                </div>
-
-                <div class="transaction-form-group transaction-inline-row">
-                    <label class="transaction-label">Account</label>
-                    <div class="transaction-account-inputs">
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="action_account_from"
-                                data-placeholder="--Select To Account--">--Select To Account--</button>
-                            <div class="custom-select-dropdown" id="action_account_from_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="action_account_id"
-                                data-placeholder="--Select From Account--">--Select From Account--</button>
-                            <div class="custom-select-dropdown" id="action_account_id_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                        <button type="button" id="account_reverse_btn" class="transaction-account-reverse-btn"
-                            title="Reverse accounts" aria-label="Reverse accounts">
-                            Reverse
-                        </button>
-                    </div>
-                </div>
-
-                <div class="transaction-form-group transaction-inline-row">
-                    <label class="transaction-label">Currency</label>
-                    <select id="transaction_currency" class="transaction-select">
-                        <option value="">--Select Currency--</option>
+                    <label class="transaction-label">Type</label>
+                    <select id="transaction_type" class="transaction-select">
+                        <option value="CONTRA" selected>CONTRA</option>
+                        <option value="PAYMENT">PAYMENT</option>
+                        <option value="RECEIVE">RECEIVE</option>
+                        <option value="CLAIM">CLAIM</option>
+                        <option value="PROFIT">PROFIT</option>
+                        <option value="RATE">RATE</option>
+                        <option value="CLEAR">CLEAR</option>
                     </select>
                 </div>
-
-                <div class="transaction-form-group">
-                    <label class="transaction-label">Amount</label>
-                    <input type="number" step="0.01" id="action_amount" class="transaction-input">
-                </div>
-
-            </div>
-
-            <div id="rate-transaction-fields" class="rate-fields" style="display: none;">
-                <div class="rate-section">
-                    <label class="transaction-label">Date</label>
-                    <input type="text" id="rate_transaction_date" class="transaction-input"
-                        value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
-                </div>
-
-                <div class="rate-section">
-                    <label class="transaction-label">Account</label>
-                    <div class="rate-row rate-row-two-cols">
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="rate_account_from"
-                                data-placeholder="--Select To Account--">--Select To Account--</button>
-                            <div class="custom-select-dropdown" id="rate_account_from_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="rate_account_to"
-                                data-placeholder="--Select From Account--">--Select From Account--</button>
-                            <div class="custom-select-dropdown" id="rate_account_to_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                        <button type="button" id="rate_account_reverse_btn"
-                            class="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts"
-                            aria-label="Reverse accounts">
-                            Reverse
-                        </button>
+                
+                <div id="standard-transaction-fields">
+                    <div class="transaction-form-group">
+                        <label class="transaction-label">Date</label>
+                        <input type="text" id="transaction_date" class="transaction-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
                     </div>
-                </div>
-
-                <div class="rate-section">
-                    <label class="transaction-label">Currency</label>
-                    <div class="rate-row rate-row-five-cols">
-                        <select id="rate_currency_from" class="transaction-select">
-                            <option value="">Currency</option>
+                    
+                    <div class="transaction-form-group transaction-inline-row">
+                        <label class="transaction-label">Account</label>
+                        <div class="transaction-account-inputs">
+                            <div class="custom-select-wrapper">
+                                <button type="button" class="custom-select-button" id="action_account_from" data-placeholder="--Select To Account--">--Select To Account--</button>
+                                <div class="custom-select-dropdown" id="action_account_from_dropdown">
+                                    <div class="custom-select-search">
+                                        <input type="text" placeholder="Search account..." autocomplete="off">
+                                    </div>
+                                    <div class="custom-select-options"></div>
+                                </div>
+                            </div>
+                            <div class="custom-select-wrapper">
+                                <button type="button" class="custom-select-button" id="action_account_id" data-placeholder="--Select From Account--">--Select From Account--</button>
+                                <div class="custom-select-dropdown" id="action_account_id_dropdown">
+                                    <div class="custom-select-search">
+                                        <input type="text" placeholder="Search account..." autocomplete="off">
+                                    </div>
+                                    <div class="custom-select-options"></div>
+                                </div>
+                            </div>
+                            <button type="button" id="account_reverse_btn" class="transaction-account-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts">
+                                Reverse
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="transaction-form-group transaction-inline-row">
+                        <label class="transaction-label">Currency</label>
+                        <select id="transaction_currency" class="transaction-select">
+                            <option value="">--Select Currency--</option>
                         </select>
-                        <input type="number" step="0.01" id="rate_currency_from_amount" class="transaction-input"
-                            placeholder="Amount">
-                        <input type="text" inputmode="decimal" id="rate_exchange_rate" class="transaction-input"
-                            placeholder="Rate">
-                        <select id="rate_currency_to" class="transaction-select">
-                            <option value="">Currency</option>
-                        </select>
-                        <input type="number" step="0.01" id="rate_currency_to_amount" class="transaction-input"
-                            placeholder="Amount" readonly>
+                    </div>
+                    
+                    <div class="transaction-form-group">
+                        <label class="transaction-label">Amount</label>
+                        <input type="number" step="0.01" id="action_amount" class="transaction-input">
+                    </div>
+                    
+                </div>
+                
+                <div id="rate-transaction-fields" class="rate-fields" style="display: none;">
+                    <div class="rate-section">
+                        <label class="transaction-label">Date</label>
+                        <input type="text" id="rate_transaction_date" class="transaction-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                    </div>
+                    
+                    <div class="rate-section">
+                        <label class="transaction-label">Account</label>
+                        <div class="rate-row rate-row-two-cols">
+                            <div class="custom-select-wrapper">
+                                <button type="button" class="custom-select-button" id="rate_account_from" data-placeholder="--Select To Account--">--Select To Account--</button>
+                                <div class="custom-select-dropdown" id="rate_account_from_dropdown">
+                                    <div class="custom-select-search">
+                                        <input type="text" placeholder="Search account..." autocomplete="off">
+                                    </div>
+                                    <div class="custom-select-options"></div>
+                                </div>
+                            </div>
+                            <div class="custom-select-wrapper">
+                                <button type="button" class="custom-select-button" id="rate_account_to" data-placeholder="--Select From Account--">--Select From Account--</button>
+                                <div class="custom-select-dropdown" id="rate_account_to_dropdown">
+                                    <div class="custom-select-search">
+                                        <input type="text" placeholder="Search account..." autocomplete="off">
+                                    </div>
+                                    <div class="custom-select-options"></div>
+                                </div>
+                            </div>
+                            <button type="button" id="rate_account_reverse_btn" class="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts">
+                                Reverse
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="rate-section">
+                        <label class="transaction-label">Currency</label>
+                        <div class="rate-row rate-row-five-cols">
+                            <select id="rate_currency_from" class="transaction-select">
+                                <option value="">Currency</option>
+                            </select>
+                            <input type="number" step="0.01" id="rate_currency_from_amount" class="transaction-input" placeholder="Amount">
+                            <input type="text" inputmode="decimal" id="rate_exchange_rate" class="transaction-input" placeholder="Rate">
+                            <select id="rate_currency_to" class="transaction-select">
+                                <option value="">Currency</option>
+                            </select>
+                            <input type="number" step="0.01" id="rate_currency_to_amount" class="transaction-input" placeholder="Amount" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="rate-section">
+                        <label class="transaction-label">Account</label>
+                        <div class="rate-row rate-row-two-cols">
+                            <div class="custom-select-wrapper">
+                                <button type="button" class="custom-select-button" id="rate_transfer_from_account" data-placeholder="--Select To Account--">--Select To Account--</button>
+                                <div class="custom-select-dropdown" id="rate_transfer_from_account_dropdown">
+                                    <div class="custom-select-search">
+                                        <input type="text" placeholder="Search account..." autocomplete="off">
+                                    </div>
+                                    <div class="custom-select-options"></div>
+                                </div>
+                            </div>
+                            <div class="custom-select-wrapper">
+                                <button type="button" class="custom-select-button" id="rate_transfer_to_account" data-placeholder="--Select From Account--">--Select From Account--</button>
+                                <div class="custom-select-dropdown" id="rate_transfer_to_account_dropdown">
+                                    <div class="custom-select-search">
+                                        <input type="text" placeholder="Search account..." autocomplete="off">
+                                    </div>
+                                    <div class="custom-select-options"></div>
+                                </div>
+                            </div>
+                            <button type="button" id="rate_transfer_reverse_btn" class="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts">
+                                Reverse
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="rate-section">
+                        <label class="transaction-label">Middle-Man</label>
+                        <div class="rate-row rate-row-three-cols">
+                            <div class="custom-select-wrapper">
+                                <button type="button" class="custom-select-button" id="rate_middleman_account" data-placeholder="--Select Account--">--Select Account--</button>
+                                <div class="custom-select-dropdown" id="rate_middleman_account_dropdown">
+                                    <div class="custom-select-search">
+                                        <input type="text" placeholder="Search account..." autocomplete="off">
+                                    </div>
+                                    <div class="custom-select-options"></div>
+                                </div>
+                            </div>
+                            <input type="number" step="0.0001" id="rate_middleman_rate" class="transaction-input" placeholder="Rate multiplier">
+                            <input type="number" step="0.01" id="rate_middleman_amount" class="transaction-input" placeholder="Amount" readonly>
+                        </div>
                     </div>
                 </div>
-
-                <div class="rate-section">
-                    <label class="transaction-label">Account</label>
-                    <div class="rate-row rate-row-two-cols">
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="rate_transfer_from_account"
-                                data-placeholder="--Select To Account--">--Select To Account--</button>
-                            <div class="custom-select-dropdown" id="rate_transfer_from_account_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="rate_transfer_to_account"
-                                data-placeholder="--Select From Account--">--Select From Account--</button>
-                            <div class="custom-select-dropdown" id="rate_transfer_to_account_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                        <button type="button" id="rate_transfer_reverse_btn"
-                            class="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts"
-                            aria-label="Reverse accounts">
-                            Reverse
-                        </button>
+                
+                <div class="transaction-two-col">
+                    <div class="transaction-form-group" style="display: none;">
+                        <label class="transaction-label">Description</label>
+                        <input type="text" id="action_description" class="transaction-input text-uppercase">
+                    </div>
+                    <div class="transaction-form-group" id="remark_form_group">
+                        <label class="transaction-label">Remark</label>
+                        <input type="text" id="action_sms" class="transaction-input text-uppercase">
                     </div>
                 </div>
-
-                <div class="rate-section">
-                    <label class="transaction-label">Middle-Man</label>
-                    <div class="rate-row rate-row-three-cols">
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="rate_middleman_account"
-                                data-placeholder="--Select Account--">--Select Account--</button>
-                            <div class="custom-select-dropdown" id="rate_middleman_account_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                        <input type="number" step="0.0001" id="rate_middleman_rate" class="transaction-input"
-                            placeholder="Rate multiplier">
-                        <input type="number" step="0.01" id="rate_middleman_amount" class="transaction-input"
-                            placeholder="Amount" readonly>
+                
+                <div class="transaction-confirm-actions">
+                    <label class="transaction-checkbox-label transaction-confirm-label">
+                        <input type="checkbox" id="confirm_submit" class="transaction-checkbox">
+                        Confirm Submit
+                    </label>
+                    
+                        <div class="transaction-action-btns">
+                        <button type="button" id="submit_btn" class="transaction-submit-btn" disabled>Submit</button>
+                            <button id="action_search_btn" class="transaction-search-btn">Search</button>
                     </div>
-                </div>
-            </div>
-
-            <div class="transaction-two-col">
-                <div class="transaction-form-group" style="display: none;">
-                    <label class="transaction-label">Description</label>
-                    <input type="text" id="action_description" class="transaction-input text-uppercase">
-                </div>
-                <div class="transaction-form-group" id="remark_form_group">
-                    <label class="transaction-label">Remark</label>
-                    <input type="text" id="action_sms" class="transaction-input text-uppercase">
-                </div>
-            </div>
-
-            <div class="transaction-confirm-actions">
-                <label class="transaction-checkbox-label transaction-confirm-label">
-                    <input type="checkbox" id="confirm_submit" class="transaction-checkbox">
-                    Confirm Submit
-                </label>
-
-                <div class="transaction-action-btns">
-                    <button type="button" id="submit_btn" class="transaction-submit-btn" disabled>Submit</button>
-                    <button id="action_search_btn" class="transaction-search-btn">Search</button>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Tables Section -->
-    <div class="transaction-tables-section" style="display: none;">
-        <div id="transaction-tables-loading" class="transaction-tables-loading" style="display: none;"
-            aria-live="polite">Loading...</div>
-        <!-- Default Tables (for specific currency selection) -->
-        <div id="default-tables-container" style="display: flex; flex-direction: column; width: 100%;">
-            <!-- Currency Title -->
-            <h3 id="default-currency-title"
-                style="margin: 10px 0 10px 0; font-size: clamp(14px, 1.2vw, 18px); font-weight: bold; color: #1f2937; display: none;">
-                Currency: </h3>
-            <!-- Tables Wrapper -->
-            <div style="display: flex; gap: 20px; width: 100%;">
-                <!-- Left Table -->
-                <div class="transaction-table-wrapper" style="flex: 1 1 0; min-width: 0;">
-                    <table class="transaction-table" id="table_left">
-                        <thead>
-                            <tr class="transaction-table-header">
-                                <th>Account</th>
-                                <th class="transaction-name-column" style="display: none;">Name</th>
-                                <th>B/F</th>
-                                <th>Win/Loss</th>
-                                <th>Cr/Dr</th>
-                                <th>Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody_left"></tbody>
-                        <tfoot>
-                            <tr class="transaction-table-footer">
-                                <td>Total</td>
-                                <td class="transaction-name-column" style="display: none;"></td>
-                                <td id="left_total_bf">0.00</td>
-                                <td id="left_total_winloss">0.00</td>
-                                <td id="left_total_crdr">0.00</td>
-                                <td id="left_total_balance">0.00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                <!-- Right Table -->
-                <div class="transaction-table-wrapper" style="flex: 1 1 0; min-width: 0;">
-                    <table class="transaction-table" id="table_right">
-                        <thead>
-                            <tr class="transaction-table-header">
-                                <th>Account</th>
-                                <th class="transaction-name-column" style="display: none;">Name</th>
-                                <th>B/F</th>
-                                <th>Win/Loss</th>
-                                <th>Cr/Dr</th>
-                                <th>Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody_right"></tbody>
-                        <tfoot>
-                            <tr class="transaction-table-footer">
-                                <td>Total</td>
-                                <td class="transaction-name-column" style="display: none;"></td>
-                                <td id="right_total_bf">0.00</td>
-                                <td id="right_total_winloss">0.00</td>
-                                <td id="right_total_crdr">0.00</td>
-                                <td id="right_total_balance">0.00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+        
+        <!-- Tables Section -->
+        <div class="transaction-tables-section" style="display: none;">
+            <div id="transaction-tables-loading" class="transaction-tables-loading" style="display: none;" aria-live="polite">Loading...</div>
+            <!-- Default Tables (for specific currency selection) -->
+            <div id="default-tables-container" style="display: flex; flex-direction: column; width: 100%;">
+                <!-- Currency Title -->
+                <h3 id="default-currency-title" style="margin: 10px 0 10px 0; font-size: clamp(14px, 1.2vw, 18px); font-weight: bold; color: #1f2937; display: none;">Currency: </h3>
+                <!-- Tables Wrapper -->
+                <div style="display: flex; gap: 20px; width: 100%;">
+                    <!-- Left Table -->
+                    <div class="transaction-table-wrapper" style="flex: 1 1 0; min-width: 0;">
+                        <table class="transaction-table" id="table_left">
+                            <thead>
+                                <tr class="transaction-table-header">
+                                    <th>Account</th>
+                                    <th class="transaction-name-column" style="display: none;">Name</th>
+                                    <th>B/F</th>
+                                    <th>Win/Loss</th>
+                                    <th>Cr/Dr</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody_left"></tbody>
+                            <tfoot>
+                                <tr class="transaction-table-footer">
+                                    <td>Total</td>
+                                    <td class="transaction-name-column" style="display: none;"></td>
+                                    <td id="left_total_bf">0.00</td>
+                                    <td id="left_total_winloss">0.00</td>
+                                    <td id="left_total_crdr">0.00</td>
+                                    <td id="left_total_balance">0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <!-- Right Table -->
+                    <div class="transaction-table-wrapper" style="flex: 1 1 0; min-width: 0;">
+                        <table class="transaction-table" id="table_right">
+                            <thead>
+                                <tr class="transaction-table-header">
+                                    <th>Account</th>
+                                    <th class="transaction-name-column" style="display: none;">Name</th>
+                                    <th>B/F</th>
+                                    <th>Win/Loss</th>
+                                    <th>Cr/Dr</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody_right"></tbody>
+                            <tfoot>
+                                <tr class="transaction-table-footer">
+                                    <td>Total</td>
+                                    <td class="transaction-name-column" style="display: none;"></td>
+                                    <td id="right_total_bf">0.00</td>
+                                    <td id="right_total_winloss">0.00</td>
+                                    <td id="right_total_crdr">0.00</td>
+                                    <td id="right_total_balance">0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             </div>
+            
+            <!-- Currency Grouped Tables (for All currencies) -->
+            <div id="currency-grouped-tables-container" style="display: none;"></div>
         </div>
-
-        <!-- Currency Grouped Tables (for All currencies) -->
-        <div id="currency-grouped-tables-container" style="display: none;"></div>
-    </div>
-
-    <!-- Summary Table -->
-    <div class="transaction-summary-section" style="display: none;">
-        <table class="transaction-summary-table">
-            <thead>
-                <tr class="transaction-table-header">
-                    <th colspan="2">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="transaction-table-row">
-                    <td class="transaction-summary-label">B/F</td>
-                    <td id="sum_total_bf">0.00</td>
-                </tr>
-                <tr class="transaction-table-row">
-                    <td class="transaction-summary-label">Win/Loss</td>
-                    <td id="sum_total_winloss">0.00</td>
-                </tr>
-                <tr class="transaction-table-row">
-                    <td class="transaction-summary-label">Cr/Dr</td>
-                    <td id="sum_total_crdr">0.00</td>
-                </tr>
-                <tr class="transaction-table-row">
-                    <td class="transaction-summary-label">Balance</td>
-                    <td id="sum_total_balance">0.00</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
+        
+        <!-- Summary Table -->
+        <div class="transaction-summary-section" style="display: none;">
+            <table class="transaction-summary-table">
+                <thead>
+                    <tr class="transaction-table-header">
+                        <th colspan="2">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="transaction-table-row">
+                        <td class="transaction-summary-label">B/F</td>
+                        <td id="sum_total_bf">0.00</td>
+                    </tr>
+                    <tr class="transaction-table-row">
+                        <td class="transaction-summary-label">Win/Loss</td>
+                        <td id="sum_total_winloss">0.00</td>
+                    </tr>
+                    <tr class="transaction-table-row">
+                        <td class="transaction-summary-label">Cr/Dr</td>
+                        <td id="sum_total_crdr">0.00</td>
+                    </tr>
+                    <tr class="transaction-table-row">
+                        <td class="transaction-summary-label">Balance</td>
+                        <td id="sum_total_balance">0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
     </div>
 
     <!-- Calendar popup (same as dashboard) -->
@@ -624,10 +583,7 @@ $default_date_to = $today_dt->format('d/m/Y');
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script
-        src="js/date-range-picker.js?v=<?php echo file_exists('js/date-range-picker.js') ? filemtime('js/date-range-picker.js') : time(); ?>"></script>
-    <script
-        src="js/transaction.js?v=<?php echo file_exists('js/transaction.js') ? filemtime('js/transaction.js') : time(); ?>"></script>
+    <script src="js/date-range-picker.js?v=<?php echo file_exists('js/date-range-picker.js') ? filemtime('js/date-range-picker.js') : time(); ?>"></script>
+    <script src="js/transaction.js?v=<?php echo file_exists('js/transaction.js') ? filemtime('js/transaction.js') : time(); ?>"></script>
 </body>
-
 </html>
