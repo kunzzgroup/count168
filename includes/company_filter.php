@@ -41,7 +41,7 @@ foreach ($user_companies as $comp) {
 
 <!-- Group Buttons (above Company) -->
 <?php if (count($shared_groups) > 0 && !$hide_group_filter): ?>
-<div id="group-buttons-wrapper" class="<?php echo $filter_prefix; ?>-company-filter shared-group-wrapper" style="display: flex; padding: 0 20px 10px 20px;">
+<div id="group-buttons-wrapper" class="<?php echo $filter_prefix; ?>-company-filter shared-group-wrapper">
     <span class="<?php echo $filter_prefix; ?>-company-label">GroupID:</span>
     <div id="group-buttons-container" class="<?php echo $filter_prefix; ?>-company-buttons">
         <?php foreach ($shared_groups as $gid): ?>
@@ -57,7 +57,7 @@ foreach ($user_companies as $comp) {
 
 <!-- Company Buttons -->
 <?php if (count($user_companies) > 0): ?>
-<div id="company-buttons-wrapper" class="<?php echo $filter_prefix; ?>-company-filter shared-company-wrapper" style="display: flex; padding: 0 20px 10px 20px;">
+<div id="company-buttons-wrapper" class="<?php echo $filter_prefix; ?>-company-filter shared-company-wrapper">
     <span class="<?php echo $filter_prefix; ?>-company-label">Company:</span>
     <div id="company-buttons-container" class="<?php echo $filter_prefix; ?>-company-buttons">
         <?php foreach ($user_companies as $comp): 

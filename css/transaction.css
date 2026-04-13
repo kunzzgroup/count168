@@ -1307,11 +1307,12 @@ body.transaction-page .expiration-countdown-text {
 
 /* Company & Currency Buttons */
 .transaction-company-filter {
-    display: none;
+    display: flex;
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
     margin-top: clamp(0px, 0.52vw, 10px);
+    padding: 0 20px 10px 20px;
 }
 .transaction-company-label {
     font-weight: bold;

@@ -207,7 +207,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                         };
                     </script>
                     <!-- Currency Buttons -->
-                    <div id="currency-buttons-wrapper" class="transaction-company-filter" style="display: flex; padding: 0 20px 10px 20px;">
+                    <div id="currency-buttons-wrapper" class="transaction-company-filter">
                         <span class="transaction-company-label">Currency:</span>
                         <div id="currency-buttons-container" class="transaction-company-buttons">
                             <!-- Currency buttons will be dynamically added here -->
