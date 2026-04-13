@@ -309,29 +309,57 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 }
 
 /**
+ * Buy/Sell/Profit（及 Profit Sharing）入账行：与 process_post_to_transaction_api 写入的 description 一致，维护页直接沿用库内原文
+ */
+function bankProcessMaintenanceIsBuySellProfitLedgerRow(?string $rawDesc): bool {
+    $d = trim((string) $rawDesc);
+    if ($d === '') {
+        return false;
+    }
+    if (preg_match('/^Process:\s*Buy Price\b/i', $d) || preg_match('/^Auto:\s*Buy Price\b/i', $d)) {
+        return true;
+    }
+    if (preg_match('/^Process:\s*Sell Price\b/i', $d) || preg_match('/^Auto:\s*Sell Price\b/i', $d)) {
+        return true;
+    }
+    if (preg_match('/^Process:\s*Profit Sharing\b/i', $d)) {
+        return true;
+    }
+    if (preg_match('/^Process:\s*Profit for\b/i', $d) || preg_match('/^Auto:\s*Profit for\b/i', $d)) {
+        return true;
+    }
+    return false;
+}
+
+/**
  * 将一行转换为统一输出项
- * Description 与 transaction history 一致：WIN/LOSE（Bank process）按 period_type 显示 Remaining days bill / Inactive bill / Monthly bill
+ * Description：账单类 WIN/LOSE 与 history 一致；Buy/Sell/Profit 等行与 Payment 一致使用数据库原文
  */
 function rowToItem(array $row) {
+    $rawDescription = trim((string) ($row['description'] ?? ''));
     $description = $row['description'] ?? '';
 
-    // WIN/LOSE（Bank process 入账）：与 history_api 一致，Description 金额用本笔实际入账 amount
-    if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'])) {
-        $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
-        if ($periodType === 'partial_first_month') {
-            $description = 'Remaining days bill';
-        } elseif ($periodType === 'day_end_tail') {
-            $description = 'Day end tail bill';
-        } elseif ($periodType === 'manual_inactive') {
-            $description = 'Inactive bill';
-        } elseif ($periodType === 'monthly' || $periodType === '') {
-            $description = 'Monthly bill';
+    // WIN/LOSE（Bank process 入账）：与 history_api 一致，账单行 Description 金额用本笔实际入账 amount
+    if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'], true)) {
+        if (bankProcessMaintenanceIsBuySellProfitLedgerRow($rawDescription)) {
+            $description = (string) ($row['description'] ?? '');
         } else {
-            $description = 'Monthly bill';
+            $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
+            if ($periodType === 'partial_first_month') {
+                $description = 'Remaining days bill';
+            } elseif ($periodType === 'day_end_tail') {
+                $description = 'Day end tail bill';
+            } elseif ($periodType === 'manual_inactive') {
+                $description = 'Inactive bill';
+            } elseif ($periodType === 'monthly' || $periodType === '') {
+                $description = 'Monthly bill';
+            } else {
+                $description = 'Monthly bill';
+            }
+            $amt = isset($row['amount']) ? (float) $row['amount'] : 0.0;
+            $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+            $description = $description . ' ' . $billAmount;
         }
-        $amt = isset($row['amount']) ? (float) $row['amount'] : 0;
-        $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
-        $description = $description . ' ' . $billAmount;
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
     }

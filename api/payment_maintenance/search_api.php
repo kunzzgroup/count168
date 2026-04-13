@@ -1,7 +1,8 @@
 <?php
 /**
  * Payment Maintenance Search API
- * 返回指定日期范围内的交易记录（仅显示收款方）
+ * 返回指定日期范围内「Transaction Payment」相关流水（CONTRA / PAYMENT / RATE 等），
+ * 不含由 Bank Process 入账的行（source_bank_process_id 或 Process:/Auto: 成本售价利润描述）。
  * 路径: api/payment_maintenance/search_api.php
  */
 
@@ -144,8 +145,9 @@ function getCurrencySchema(PDO $pdo) {
 
 /**
  * 查询主表 transactions（非 RATE）及可选 transactions_deleted
+ * $exclude_bank_process_rows：为 true 时排除由 Bank Process 入账的行（source_bank_process_id），仅保留 Transaction Payment 等手工流水
  */
-function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema) {
+function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false) {
     $sql = "SELECT
                 t.id,
                 DATE_FORMAT(t.transaction_date, '%d/%m/%Y') AS transaction_date,
@@ -165,6 +167,19 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
             LEFT JOIN owner o ON t.created_by_owner = o.id
             WHERE t.company_id = ? AND t.transaction_date BETWEEN ? AND ?";
     $params = [$company_id, $date_from_db, $date_to_db];
+    if ($exclude_bank_process_rows) {
+        $sql .= " AND (t.source_bank_process_id IS NULL OR t.source_bank_process_id = 0)";
+    }
+    // 无 source_bank_process_id 的旧数据：仍排除 Bank Process 自动入账的典型描述
+    $sql .= " AND NOT (
+        UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: BUY PRICE%'
+        OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: SELL PRICE%'
+        OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: PROFIT FOR%'
+        OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: PROFIT SHARING%'
+        OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'AUTO: BUY PRICE%'
+        OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'AUTO: SELL PRICE%'
+        OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'AUTO: PROFIT FOR%'
+    )";
     if (!empty($transaction_type)) {
         $sql .= " AND t.transaction_type = ?";
         $params[] = $transaction_type;
@@ -529,7 +544,7 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
 /**
  * 查询 transactions_deleted 表
  */
-function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema) {
+function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false, $deleted_has_source_bank_process = false) {
     $sql = "SELECT td.transaction_id AS id,
                 DATE_FORMAT(td.transaction_date, '%d/%m/%Y') AS transaction_date,
                 td.transaction_type, td.amount, td.description, COALESCE(td.sms, '') AS remark,
@@ -548,6 +563,18 @@ function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to
             LEFT JOIN user du ON td.deleted_by_user_id = du.id LEFT JOIN owner do ON td.deleted_by_owner_id = do.id
             WHERE td.company_id = ? AND td.transaction_date BETWEEN ? AND ?";
     $params = [$company_id, $date_from_db, $date_to_db];
+    if ($exclude_bank_process_rows && $deleted_has_source_bank_process) {
+        $sql .= " AND (td.source_bank_process_id IS NULL OR td.source_bank_process_id = 0)";
+    }
+    $sql .= " AND NOT (
+        UPPER(TRIM(COALESCE(td.description, ''))) LIKE 'PROCESS: BUY PRICE%'
+        OR UPPER(TRIM(COALESCE(td.description, ''))) LIKE 'PROCESS: SELL PRICE%'
+        OR UPPER(TRIM(COALESCE(td.description, ''))) LIKE 'PROCESS: PROFIT FOR%'
+        OR UPPER(TRIM(COALESCE(td.description, ''))) LIKE 'PROCESS: PROFIT SHARING%'
+        OR UPPER(TRIM(COALESCE(td.description, ''))) LIKE 'AUTO: BUY PRICE%'
+        OR UPPER(TRIM(COALESCE(td.description, ''))) LIKE 'AUTO: SELL PRICE%'
+        OR UPPER(TRIM(COALESCE(td.description, ''))) LIKE 'AUTO: PROFIT FOR%'
+    )";
     if (!empty($transaction_type)) {
         $sql .= " AND td.transaction_type = ?";
         $params[] = $transaction_type;
@@ -596,8 +623,27 @@ try {
         throw new Exception('系统缺少货币信息，无法按货币筛选，请联系管理员');
     }
 
+    $has_source_bank_process_id = false;
+    try {
+        $colSrc = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+        $has_source_bank_process_id = $colSrc && $colSrc->rowCount() > 0;
+    } catch (PDOException $e) {
+        $has_source_bank_process_id = false;
+    }
+    $exclude_bank_process_rows = $has_source_bank_process_id;
+
+    $deleted_has_source_bank_process = false;
+    if ($exclude_bank_process_rows && !empty($schema['has_deleted_table'])) {
+        try {
+            $cd = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'source_bank_process_id'");
+            $deleted_has_source_bank_process = $cd && $cd->rowCount() > 0;
+        } catch (PDOException $e) {
+            $deleted_has_source_bank_process = false;
+        }
+    }
+
     $data = [];
-    $mainRows = fetchMainTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema);
+    $mainRows = fetchMainTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows);
     foreach ($mainRows as $row) {
         $data[] = rowToItem($row, 0);
     }
@@ -614,7 +660,7 @@ try {
         if (!empty($currency_filters) && $schema['deletedCurrencyFilterField'] === null) {
             throw new Exception('系统缺少货币信息，无法按货币筛选，请联系管理员');
         }
-        $deletedRows = fetchDeletedTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema);
+        $deletedRows = fetchDeletedTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows, $deleted_has_source_bank_process);
         foreach ($deletedRows as $row) {
             $data[] = rowToItem($row, 1);
         }
