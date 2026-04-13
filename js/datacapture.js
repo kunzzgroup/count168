@@ -24799,3 +24799,4 @@ function addUppercaseConversion(inputId) {
         }, 0);
     });
 }
+window.switchDataCaptureCompany = switchDataCaptureCompany;

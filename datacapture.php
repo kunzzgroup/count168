@@ -133,11 +133,29 @@ if ($current_user_id && count($user_companies_all) > 0) {
     <div class="container">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
             <h1 style="margin: 0;">Data Capture</h1>
-            <!-- Permission Filter -->
-            <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
-                <span class="data-capture-company-label">Category:</span>
-                <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
-                    <!-- Permission buttons will be loaded dynamically -->
+            
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <!-- Shared Group & Company Filter (SSR) -->
+                <?php
+                $filter_prefix = 'data-capture'; 
+                include 'includes/company_filter.php'; 
+                ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchDataCaptureCompany === 'function') {
+                            switchDataCaptureCompany(companyId);
+                        } else if (typeof window.switchDataCaptureCompany === 'function') {
+                            window.switchDataCaptureCompany(companyId);
+                        }
+                    };
+                </script>
+
+                <!-- Permission Filter -->
+                <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
+                    <span class="data-capture-company-label">Category:</span>
+                    <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
+                        <!-- Permission buttons will be loaded dynamically -->
+                    </div>
                 </div>
             </div>
         </div>
