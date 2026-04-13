@@ -129,21 +129,6 @@ if ($current_user_id && count($user_companies_all) > 0) {
             <h1 style="margin: 0;">Data Capture</h1>
             
             <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-                <!-- Shared Group & Company Filter (SSR) -->
-                <?php
-                $filter_prefix = 'data-capture'; 
-                include 'includes/company_filter.php'; 
-                ?>
-                <script>
-                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
-                        if (typeof switchDataCaptureCompany === 'function') {
-                            switchDataCaptureCompany(companyId);
-                        } else if (typeof window.switchDataCaptureCompany === 'function') {
-                            window.switchDataCaptureCompany(companyId);
-                        }
-                    };
-                </script>
-
                 <!-- Permission Filter -->
                 <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
                     <span class="data-capture-company-label">Category:</span>
@@ -161,6 +146,21 @@ if ($current_user_id && count($user_companies_all) > 0) {
                     <div class="form-container">
 
                         <form id="dataCaptureForm" class="process-form" method="POST">
+                            <!-- Shared Group & Company Filter (SSR) -->
+                            <?php
+                            $filter_prefix = 'data-capture';
+                            include 'includes/company_filter.php';
+                            ?>
+                            <script>
+                                window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                                    if (typeof switchDataCaptureCompany === 'function') {
+                                        switchDataCaptureCompany(companyId);
+                                    } else if (typeof window.switchDataCaptureCompany === 'function') {
+                                        window.switchDataCaptureCompany(companyId);
+                                    }
+                                };
+                            </script>
+
                             <div class="form-group">
                                 <label for="capture_date">Date</label>
                                 <select style id="capture_date" name="capture_date" required>
