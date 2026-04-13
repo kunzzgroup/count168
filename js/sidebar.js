@@ -317,7 +317,7 @@
         }
 
         var maintTransaction = document.getElementById('maintenance-transaction-link');
-        if (maintTransaction) maintTransaction.style.display = isBankCategory ? 'none' : '';
+        if (maintTransaction) maintTransaction.style.display = 'none';
 
         var maintFormula = document.getElementById('maintenance-formula-link');
         if (maintFormula) {
