@@ -147,19 +147,7 @@ if ($current_user_id && count($user_companies_all) > 0) {
                 <!-- Left Column - Data Capture Form -->
                 <div class="form-column">
                     <div class="form-container">
-                        <!-- Shared Group & Company Filter (SSR) -->
-                        <?php
-                        $filter_prefix = 'data-capture'; 
-                        $hide_group_filter = true;
-                        include 'includes/company_filter.php'; 
-                        ?>
-                        <script>
-                            window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
-                                if (typeof switchDataCaptureCompany === 'function') {
-                                    switchDataCaptureCompany(companyId);
-                                }
-                            };
-                        </script>
+
                         <form id="dataCaptureForm" class="process-form" method="POST">
                             <div class="form-group">
                                 <label for="capture_date">Date</label>
