@@ -309,65 +309,33 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 }
 
 /**
- * 成本/售价/利润等入账行：与 history_api / search_api 一致，以 description 是否以 Process: 或 Auto: 开头区分
- * （账单类 WIN/LOSE 的 description 不为 Process:/Auto: 前缀，应继续展示 Remaining days bill 等合成描述）
- */
-function bankProcessMaintenanceUseRawProcessDescription(?string $rawDesc): bool {
-    $d = trim((string) $rawDesc);
-    if ($d === '') {
-        return false;
-    }
-    return (bool) preg_match('/^(Process:|Auto:)\s*/i', $d);
-}
-
-/**
- * 去掉 Process:/Auto: 前缀，并转为标题大小写（如 Buy Price For Test M20 (Partial First Month)）
- */
-function bankProcessMaintenanceFormatLedgerDescription(?string $rawFromDb): string {
-    $s = trim((string) $rawFromDb);
-    if ($s === '') {
-        return '';
-    }
-    $s = preg_replace('/^(Process:|Auto:)\s*/i', '', $s);
-    $s = trim($s);
-    if ($s === '') {
-        return '';
-    }
-    if (function_exists('mb_strtolower') && function_exists('mb_convert_case')) {
-        $lower = mb_strtolower($s, 'UTF-8');
-        return mb_convert_case($lower, MB_CASE_TITLE, 'UTF-8');
-    }
-    return ucwords(strtolower($s));
-}
-
-/**
  * 将一行转换为统一输出项
- * Description：账单类 WIN/LOSE 与 history 一致（Remaining/Monthly bill + 金额）；Process:/Auto: 行去前缀并以标题大小写展示
+ * Description：WIN/LOSE 与 history_api（Payment History）完全一致——按 period_type 显示 Remaining/Monthly bill 等 + 本笔金额 + (银行)，
+ * 不区分库内是否为 Process: Buy/Sell/Profit（与流水弹窗一致）
  */
 function rowToItem(array $row) {
-    $rawDescription = trim((string) ($row['description'] ?? ''));
     $description = $row['description'] ?? '';
+    $bankNameForSuffix = isset($row['process_bank']) ? trim((string) $row['process_bank']) : '';
 
-    // WIN/LOSE（Bank process 入账）：与 history_api 一致，账单行 Description 金额用本笔实际入账 amount
+    // WIN/LOSE（Bank process 入账）：与 history_api 1290-1309 行一致
     if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'], true)) {
-        if (bankProcessMaintenanceUseRawProcessDescription($rawDescription)) {
-            $description = bankProcessMaintenanceFormatLedgerDescription($rawDescription);
+        $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
+        if ($periodType === 'partial_first_month') {
+            $description = 'Remaining days bill';
+        } elseif ($periodType === 'day_end_tail') {
+            $description = 'Day end tail bill';
+        } elseif ($periodType === 'manual_inactive') {
+            $description = 'Inactive bill';
+        } elseif ($periodType === 'monthly' || $periodType === '') {
+            $description = 'Monthly bill';
         } else {
-            $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
-            if ($periodType === 'partial_first_month') {
-                $description = 'Remaining days bill';
-            } elseif ($periodType === 'day_end_tail') {
-                $description = 'Day end tail bill';
-            } elseif ($periodType === 'manual_inactive') {
-                $description = 'Inactive bill';
-            } elseif ($periodType === 'monthly' || $periodType === '') {
-                $description = 'Monthly bill';
-            } else {
-                $description = 'Monthly bill';
-            }
-            $amt = isset($row['amount']) ? (float) $row['amount'] : 0.0;
-            $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
-            $description = $description . ' ' . $billAmount;
+            $description = 'Monthly bill';
+        }
+        $amt = isset($row['amount']) ? (float) $row['amount'] : 0.0;
+        $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+        $description = $description . ' ' . $billAmount;
+        if ($bankNameForSuffix !== '') {
+            $description .= ' (' . $bankNameForSuffix . ')';
         }
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
@@ -378,7 +346,7 @@ function rowToItem(array $row) {
     $bankProcessName = isset($row['bank_process_name']) ? trim((string) $row['bank_process_name']) : '';
     $cardOwnerName = isset($row['card_owner_name']) ? trim((string) $row['card_owner_name']) : '';
     $fromLabel = $bankProcessName !== '' ? $bankProcessName : ($cardOwnerName !== '' ? $cardOwnerName : '-');
-    $processBank = isset($row['process_bank']) ? trim((string) $row['process_bank']) : '';
+    $processBank = $bankNameForSuffix;
     if ($fromLabel !== '-' && $processBank !== '') {
         $fromLabel .= '(' . $processBank . ')';
     }
