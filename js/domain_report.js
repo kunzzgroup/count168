@@ -44,72 +44,7 @@ function formatAmount(amount) {
 let currentCompanyId = typeof window.DOMAIN_REPORT_COMPANY_ID !== 'undefined' ? window.DOMAIN_REPORT_COMPANY_ID : null;
 let loadReportTimeout;
 
-// 加载当前用户可用的公司（owner 和普通 user 通用）
-async function loadOwnerCompanies() {
-    try {
-        const response = await fetch('api/transactions/get_owner_companies_api.php');
-        const data = await response.json();
-
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-            const wrapper = document.getElementById('company-buttons-wrapper');
-            const container = document.getElementById('company-buttons-container');
-            container.innerHTML = '';
-
-            data.data.forEach(company => {
-                const btn = document.createElement('button');
-                btn.className = 'transaction-company-btn';
-                btn.textContent = company.company_id;
-                btn.dataset.companyId = company.id;
-                btn.addEventListener('click', () => switchCompany(company.id, company.company_id));
-                container.appendChild(btn);
-            });
-
-            // 多家公司时显示按钮，只有一家公司时隐藏按钮但仍设置 currentCompanyId
-            wrapper.style.display = data.data.length > 1 ? 'flex' : 'none';
-
-            if (!currentCompanyId) {
-                if (data.data.length > 0) {
-                    const firstCompany = data.data[0];
-                    currentCompanyId = firstCompany.id;
-                    const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
-                    if (firstBtn) {
-                        firstBtn.classList.add('active');
-                    }
-                }
-            } else {
-                const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                if (exists) {
-                    const sessionCompany = data.data.find(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                    if (sessionCompany) {
-                        const sessionBtn = container.querySelector(`button[data-company-id="${sessionCompany.id}"]`);
-                        if (sessionBtn) {
-                            sessionBtn.classList.add('active');
-                        }
-                    }
-                } else if (data.data.length > 0) {
-                    const firstCompany = data.data[0];
-                    currentCompanyId = firstCompany.id;
-                    const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
-                    if (firstBtn) {
-                        firstBtn.classList.add('active');
-                    }
-                }
-            }
-
-            console.log('✅ Domain Report Company 按钮加载成功:', data.data, '当前选中的 company_id:', currentCompanyId);
-        } else {
-            console.log('⚠️ Domain Report 没有 company 数据，API 将使用 session company_id');
-        }
-
-        console.log('✅ Domain Report loadOwnerCompanies 完成，currentCompanyId:', currentCompanyId);
-        return data;
-    } catch (error) {
-        console.error('❌ Domain Report 加载 Company 列表失败:', error);
-        // 普通 user 可能只有一个或零家公司，这里不弹错误
-        return { success: true, data: [] };
-    }
-}
-
+// Company filtering is now handled by SSR includes/company_filter.php
 async function switchCompany(companyId, companyCode) {
     // 先更新 session
     try {
@@ -524,7 +459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     initDomainReportDateRange();
-    await loadOwnerCompanies();
+    // Company filter loaded via SSR
     await loadProcesses();
     
     // Initialize custom select

@@ -13,6 +13,20 @@ if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
 
 $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
 $isOwner = ($userRole === 'owner');
+
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    if ($current_user_id) {
+        if ($isOwner) {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+        }
+    }
+} catch (Exception $e) { }
 ?>
 
 <!DOCTYPE html>
@@ -89,10 +103,18 @@ $isOwner = ($userRole === 'owner');
                     </div>
                 </div>
 
-                <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                    <span class="transaction-company-label">Company:</span>
-                    <div id="company-buttons-container" class="transaction-company-buttons"></div>
-                </div>
+                <!-- Shared Group & Company Filter (SSR) -->
+                <?php
+                $filter_prefix = 'transaction'; 
+                include 'includes/company_filter.php'; 
+                ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchCompany === 'function') {
+                            switchCompany(companyId, companyCode);
+                        }
+                    };
+                </script>
             </div>
 
             <div class="domain-report-list-container">
