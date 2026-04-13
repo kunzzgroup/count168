@@ -53,6 +53,7 @@ $error = isset($_GET['error']) ? true : false;
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <title>Process Maintenance</title>
     <link rel="stylesheet" href="css/bankprocess_maintenance.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
