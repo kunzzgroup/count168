@@ -2695,17 +2695,21 @@ async function addCurrencyFromInputBank(type) {
 
 // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
 const addAccountFormEl = document.getElementById('addAccountForm');
-if (addAccountFormEl) {
+if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
+    window.__globalAddAccountSubmitHandlerBound = true;
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
+        if (window.__globalAddAccountSubmitInFlight) return;
         // Guard against double-submit (double click / Enter key repeat / duplicated trigger)
         if (this.dataset.submitting === '1') return;
+        window.__globalAddAccountSubmitInFlight = true;
         this.dataset.submitting = '1';
         const submitBtn = this.querySelector('button[type="submit"]');
         if (submitBtn) submitBtn.disabled = true;
         if (!validatePaymentAlertForAddBank()) {
             this.dataset.submitting = '0';
             if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
             return;
         }
         const formData = new FormData(this);
@@ -2796,6 +2800,7 @@ if (addAccountFormEl) {
         } finally {
             this.dataset.submitting = '0';
             if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
         }
     });
 }
