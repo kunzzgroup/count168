@@ -967,7 +967,10 @@ function setBankProcessEditLockedFields(locked) {
         // Edit mode: lock as disabled so user cannot type or open picker.
         el.disabled = !!locked;
         if ('readOnly' in el) el.readOnly = !!locked;
+        // Match Profit field visual style (gray but not faded).
         el.style.backgroundColor = locked ? '#f5f5f5' : '';
+        el.style.color = locked ? '#495057' : '';
+        el.style.opacity = locked ? '1' : '';
         el.style.cursor = locked ? 'not-allowed' : '';
     });
     ['button[onclick="showAddCountryModal()"]', 'button[onclick="showAddBankModal()"]'].forEach(function (selector) {
