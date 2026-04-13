@@ -143,34 +143,30 @@ if (!empty($session_company_id)) {
         </div>
         
         <!-- Data Capture List -->
-        <div class="maintenance-list-container" id="dataCaptureTableContainer" style="display: none;">
-            <!-- List Header -->
-            <div class="maintenance-list-header">
-                <div>No</div>
-                <div>Process</div>
-                <div>Account</div>
-                <div>Currency</div>
-                <div>Source</div>
-                <div>Product</div>
-                <div>Input Method</div>
-                <div>Formula</div>
-                <div>Description</div>
-                <div class="maintenance-select-all-header" style="text-align: center;">
-                    <input type="checkbox" id="select_all_data_capture" class="maintenance-checkbox" title="Select All" onchange="toggleSelectAllRows(this)">
-                </div>
+        <div class="maintenance-list-container" id="dataCaptureTableContainer" style="display: none; padding-bottom: 20px;">
+            <div style="overflow-x: auto;">
+                <table class="maintenance-table" style="width: 100%; border-collapse: collapse; min-width: 1000px;">
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th style="width: 5%;">No</th>
+                            <th style="width: 10%;">Process</th>
+                            <th style="width: 10%;">Account</th>
+                            <th style="width: 5%;">Currency</th>
+                            <th style="width: 10%;">Source</th>
+                            <th style="width: 10%;">Product</th>
+                            <th style="width: 15%;">Input Method</th>
+                            <th style="width: 15%;">Formula</th>
+                            <th style="width: 12%;">Description</th>
+                            <th style="width: 8%; text-align: center;">
+                                <input type="checkbox" id="select_all_data_capture" class="maintenance-checkbox" title="Select All" onchange="toggleSelectAllRows(this)">
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataCaptureTableBody">
+                        <!-- Table rows will be populated dynamically -->
+                    </tbody>
+                </table>
             </div>
-            
-            <!-- List Cards -->
-            <div class="maintenance-list-cards" id="dataCaptureTableBody">
-                <!-- Cards will be populated dynamically -->
-            </div>
-        </div>
-
-        <!-- Pagination Container -->
-        <div class="account-pagination-container" id="paginationContainer" style="display: none; margin-bottom: 20px;">
-            <button class="account-pagination-btn" id="prevBtn" onclick="changePage(currentPage - 1)">◀</button>
-            <span class="account-pagination-info" id="paginationInfo">1 of 1</span>
-            <button class="account-pagination-btn" id="nextBtn" onclick="changePage(currentPage + 1)">▶</button>
         </div>
     </div>
 

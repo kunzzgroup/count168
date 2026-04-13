@@ -347,43 +347,7 @@ const FORMULA_EMPTY_STATE_INITIAL = 'Use search or filters to view data.'
 const FORMULA_EMPTY_STATE_NO_RESULTS =
     'No data found. Please adjust your search criteria and try again.'
 
-let allFilteredData = [];
-let currentPage = 1;
-const itemsPerPage = 20;
 
-function changePage(newPage) {
-    const totalPages = Math.ceil(allFilteredData.length / itemsPerPage);
-    if (newPage < 1 || Math.ceil(allFilteredData.length / itemsPerPage) === 0 || newPage > totalPages) return;
-    currentPage = newPage;
-    renderPage(currentPage);
-}
-
-function updatePaginationUI() {
-    const totalPages = Math.ceil(allFilteredData.length / itemsPerPage) || 1;
-    const paginationInfo = document.getElementById('paginationInfo');
-    if (paginationInfo) paginationInfo.textContent = `${currentPage} of ${totalPages}`;
-    
-    const prevBtn = document.getElementById('prevBtn');
-    if (prevBtn) prevBtn.disabled = currentPage === 1;
-    
-    const nextBtn = document.getElementById('nextBtn');
-    if (nextBtn) nextBtn.disabled = currentPage === totalPages;
-    
-    const paginationContainer = document.getElementById('paginationContainer');
-    if (paginationContainer) {
-        paginationContainer.style.display = allFilteredData.length > 0 ? 'flex' : 'none';
-        paginationContainer.style.justifyContent = 'center';
-        paginationContainer.style.alignItems = 'center';
-    }
-}
-
-function renderPage(page) {
-    const startIndex = (page - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageData = allFilteredData.slice(startIndex, endIndex);
-    renderDataCaptureTable(pageData);
-    updatePaginationUI();
-}
 
 
 function setFormulaEmptyStateMessage(text) {
@@ -398,8 +362,7 @@ function showFormulaInitialEmptyState() {
     if (tbody) tbody.innerHTML = ''
     const container = document.getElementById('dataCaptureTableContainer')
     if (container) container.style.display = 'none'
-    const paginationContainer = document.getElementById('paginationContainer');
-    if (paginationContainer) paginationContainer.style.display = 'none';
+    
     setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_INITIAL)
     const emptyState = document.getElementById('emptyState')
     if (emptyState) emptyState.style.display = 'block'
@@ -642,13 +605,10 @@ function loadDataCaptureList() {
                     if (container) {
                         container.style.display = 'none';
                     }
-                    const paginationContainer = document.getElementById('paginationContainer');
-                    if (paginationContainer) paginationContainer.style.display = 'none';
+                    
                     showNotification('No data found', 'info');
                 } else {
-                    allFilteredData = filteredData;
-                    currentPage = 1;
-                    renderPage(currentPage);
+                    renderDataCaptureTable(filteredData);
                     showNotification(`Found ${filteredData.length} record(s)`, 'success');
                 }
             } else {
@@ -693,9 +653,8 @@ function renderDataCaptureTable(data) {
     
     // 渲染每一行
     data.forEach((row, index) => {
-        const card = document.createElement('div');
-        card.className = 'maintenance-list-card';
-        card.setAttribute('data-row-id', row.id);
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-row-id', row.id);
         
         // 保存原始数据
         const rowData = {
@@ -729,49 +688,51 @@ function renderDataCaptureTable(data) {
             inputMethodOptionsHtml += `<option value="${option.value}" ${selected}>${option.text}</option>`;
         });
         
-        card.innerHTML = `
-            <div class="maintenance-list-card-item">${row.no}</div>
-            <div class="maintenance-list-card-item">${toUpperDisplay(row.process)}</div>
-            <div class="maintenance-list-card-item account-cell" data-original-account="${escapeHtml(row.account || '')}" data-original-account-id="${row.account_id || ''}">
+        tr.innerHTML = `
+            <td>${row.no}</td>
+            <td>${toUpperDisplay(row.process)}</td>
+            <td class="account-cell" data-original-account="${escapeHtml(row.account || '')}" data-original-account-id="${row.account_id || ''}">
                 <span class="account-display">${toUpperDisplay(row.account)}</span>
                 <select class="account-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);"></select>
-            </div>
-            <div class="maintenance-list-card-item currency-cell">${toUpperDisplay(row.currency)}</div>
-            <div class="maintenance-list-card-item source-cell" data-original-source="${escapeHtml(row.source || '')}">
+            </td>
+            <td class="currency-cell">${toUpperDisplay(row.currency)}</td>
+            <td class="source-cell" data-original-source="${escapeHtml(row.source || '')}">
                 <span class="source-display" title="${escapeHtml(row.source || '')}">${toUpperDisplay(row.source)}</span>
                 <input type="text" class="source-input" value="${escapeHtml(row.source || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
-            </div>
-            <div class="maintenance-list-card-item">${toUpperDisplay(row.product)}</div>
-            <div class="maintenance-list-card-item input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
+            </td>
+            <td>${toUpperDisplay(row.product)}</td>
+            <td class="input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
                 <span class="input-method-display" title="${escapeHtml(row.input_method || '')}">${toUpperDisplay(row.input_method)}</span>
                 <select class="input-method-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">${inputMethodOptionsHtml}</select>
-            </div>
-            <div class="maintenance-list-card-item formula-cell" data-original-formula="${escapeHtml(row.formula || '')}">
+            </td>
+            <td class="formula-cell" data-original-formula="${escapeHtml(row.formula || '')}">
                 <span class="formula-display" style="word-break: break-word;" title="${escapeHtml(row.formula || '')}">${toUpperDisplay(row.formula)}</span>
                 <input type="text" class="formula-input" value="${escapeHtml(row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
-            </div>
-            <div class="maintenance-list-card-item description-cell" data-original-description="${escapeHtml(row.description || '')}">
+            </td>
+            <td class="description-cell" data-original-description="${escapeHtml(row.description || '')}">
                 <span class="description-display" style="word-break: break-word;">${toUpperDisplay(row.description)}</span>
                 <input type="text" class="description-input" value="${escapeHtml(row.description || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
-            </div>
-            <div class="maintenance-list-card-item" style="display: flex; align-items: center; justify-content: center; gap: clamp(8px, 0.73vw, 12px);">
-                <button class="maintenance-edit-btn" onclick="editDataCaptureRow(${row.id}, this)" aria-label="Edit" title="Edit">
-                    <img src="images/edit.svg" alt="Edit" class="edit-icon" />
-                    <svg class="save-icon" style="display: none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                </button>
-                <button class="maintenance-cancel-btn" onclick="cancelEditDataCaptureRow(${row.id}, this)" aria-label="Cancel" title="Cancel" style="display: none;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-                <input type="checkbox" class="data-capture-row-checkbox" data-id="${row.id}" onchange="updateDeleteButtonState()">
-            </div>
+            </td>
+            <td style="text-align: center; vertical-align: middle;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: clamp(8px, 0.73vw, 12px);">
+                    <button class="maintenance-edit-btn" onclick="editDataCaptureRow(${row.id}, this)" aria-label="Edit" title="Edit">
+                        <img src="images/edit.svg" alt="Edit" class="edit-icon" />
+                        <svg class="save-icon" style="display: none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                    <button class="maintenance-cancel-btn" onclick="cancelEditDataCaptureRow(${row.id}, this)" aria-label="Cancel" title="Cancel" style="display: none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                    <input type="checkbox" class="data-capture-row-checkbox" data-id="${row.id}" onchange="updateDeleteButtonState()">
+                </div>
+            </td>
         `;
         
-        container.appendChild(card);
+        container.appendChild(tr);
     });
     
     console.log(`✅ 数据捕获列表渲染完成，共 ${data.length} 条记录`);
