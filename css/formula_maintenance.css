@@ -201,6 +201,7 @@ h1 {
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
+    padding: 0px 20px 10px 0px;
 }
 
 /* Category 权限区域（右上角，与 bankprocess_maintenance 一致） */
@@ -314,7 +315,8 @@ h1 {
     border-radius: 8px 8px 0 0;
     font-weight: bold;
     color: white;
-    font-size: clamp(10px, 0.89vw, 17px); /* 与其它 maintenance 表头保持一致 */
+    font-size: clamp(10px, 0.89vw, 17px);
+    /* 与其它 maintenance 表头保持一致 */
     text-align: center;
     min-width: 0;
     align-items: center;
@@ -364,7 +366,8 @@ h1 {
 }
 
 .maintenance-list-card-item {
-    font-size: clamp(9px, 0.82vw, 15px); /* 与 payment/capture maintenance-table-cell 一致 */
+    font-size: clamp(9px, 0.82vw, 15px);
+    /* 与 payment/capture maintenance-table-cell 一致 */
     font-weight: bold;
     color: #374151;
     display: flex;
@@ -458,12 +461,15 @@ h1 {
     margin-bottom: 15px;
     font-family: 'Amaranth', sans-serif;
 }
+
 #select_all_data_capture {
     cursor: pointer;
 }
+
 .data-capture-row-checkbox {
     cursor: pointer;
 }
+
 .account-edit-btn {
     background-color: transparent;
     color: black;
@@ -472,10 +478,12 @@ h1 {
     border: transparent;
     cursor: pointer;
 }
+
 .account-edit-btn:hover {
     background-color: transparent;
     box-shadow: none;
 }
+
 .account-edit-btn img {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
@@ -778,7 +786,7 @@ h1 {
     background: white;
     border: 1px solid #ddd;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     display: none;
     max-height: 300px;
@@ -840,8 +848,7 @@ h1 {
     font-size: 14px;
 }
 
-.empty-state-container{
-    position:relative;
+.empty-state-container {
+    position: relative;
     top: 10px;
 }
-
