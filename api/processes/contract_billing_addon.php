@@ -1,8 +1,8 @@
 <?php
 /**
- * 1+N 合同（1+1 / 1+2 / 1+3）：按 1 个月单价乘以 N 计算（不再做「原金额 + N」叠加）。
- * 例：Buy 1000、合同 1+2，则金额 = 1000 × 2 = 2000；1+1 则 1000 × 1 = 1000。
- * 仅 ratio&lt;1 时生效；manual_inactive 仍单独整笔乘 N。
+ * 1+N 合同规则：
+ * - active：统一按 1 个月价格计算；
+ * - manual_inactive：仅在 inactive 赔付时，按 +N 月数放大（由 getManualInactiveMultiplierFromContract 控制）。
  */
 
 declare(strict_types=1);
@@ -20,9 +20,7 @@ function getManualInactiveMultiplierFromContract(?string $contract): int
     return 1;
 }
 
-/**
- * 合同里「+」后面的 N：1+2 → 2 个整月加价；1+1 → 1。支持值如 "1+2 MONTHS"（前缀匹配）。
- */
+/** @deprecated active 场景不再使用 1+N 放大，仅保留兼容。 */
 function getContractOnePlusExtraFullMonths(?string $contract): int
 {
     if ($contract === null || trim($contract) === '') {
@@ -68,14 +66,7 @@ function applyOnePlusXRemainingDaysBuySellAddon(
     float &$profit,
     ?float $prorationRatio
 ): void {
-    if ($prorationRatio === null || $prorationRatio >= 1.0 - 1e-9) {
-        return;
-    }
-    $n = getContractOnePlusExtraFullMonths($contract);
-    if ($n < 1) {
-        return;
-    }
-    $price = round($origPrice * $n, 2);
-    $cost = round($origCost * $n, 2);
-    $profit = round($origProfit * $n, 2);
+    // New rule: active billing always keeps 1-month amounts.
+    // 1+N compensation is handled only in manual_inactive flow.
+    return;
 }

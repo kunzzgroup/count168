@@ -892,12 +892,7 @@ try {
             }
         }
 
-        $origCostRow = (float) ($p['cost'] ?? 0);
-        $origPriceRow = (float) ($p['price'] ?? 0);
-        $origProfitRow = (float) ($p['profit'] ?? 0);
-        applyOnePlusXRemainingDaysBuySellAddon($p['contract'] ?? null, $origCostRow, $origPriceRow, $origProfitRow, $cost, $price, $profit, $lastProrationRatio);
-
-        // manual_inactive：1+X 合约时 Buy/Sell/Profit 乘 X 再入账（1+1→1，1+2→2）
+        // 1+1/1+2/1+3：active 期间统一按 1 个月价格入账；仅 manual_inactive 才按赔付月数放大。
         if ($periodType === 'manual_inactive') {
             $mult = getManualInactiveMultiplierFromContract($p['contract'] ?? null);
             $cost = round($cost * $mult, 2);
@@ -938,7 +933,9 @@ try {
             $transactionDate = $dayStartYmd;
             $postedDateForInbox = $dayStartYmd;
         } elseif ($periodType === 'manual_inactive') {
-            $transactionDate = $dayStartYmd ?: $fallbackDate;
+            // 1+1 / 1+2 / 1+3 的赔款（manual_inactive）按执行当天入账，
+            // 不回写到原 process day_start；首月正常合同入账仍走 monthly/partial 逻辑。
+            $transactionDate = $fallbackDate;
             $postedDateForInbox = $fallbackDate;
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
             // 流水/ Payment History 与 monthly 一致锚定在 Day start；PAP.posted_date 仍用合同自然结束次日，避免与首期 monthly 同日期冲突
