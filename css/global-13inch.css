@@ -331,7 +331,7 @@
     .modal-content,
     .transaction-modal-content,
     .notification-popup {
-        max-height: 90vh !important;
+        max-height: 100% !important;
         display: flex;
         flex-direction: column;
     }
