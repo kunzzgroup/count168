@@ -3838,7 +3838,8 @@ if (addBankFormEl && !window.__processlistModalAddBankFormBound) {
             availableBanksList.push(bankName);
             availableBanksList.sort((a, b) => a.localeCompare(b));
         }
-        loadExistingBanks();
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
+        loadExistingBanks(currentBankModalCountry);
         if (nameInput) nameInput.value = '';
         showNotification('Bank added to available list', 'success');
     });
@@ -5211,7 +5212,31 @@ async function confirmCountries() {
 
 // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 company + Country 分别存储）
 const DEFAULT_BANKS = [];
+let currentBankModalCountry = '';
 let availableBanksList = [];
+let availableBanksByCountry = {};
+
+function normalizeBankCountryKey(country) {
+    return String(country || '').trim();
+}
+
+function getAvailableBanksForCountry(country) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return [];
+    if (!availableBanksByCountry[key] || !Array.isArray(availableBanksByCountry[key])) {
+        availableBanksByCountry[key] = [];
+    }
+    return availableBanksByCountry[key];
+}
+
+function setAvailableBanksForCountry(country, list) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return;
+    const normalized = Array.isArray(list)
+        ? [...new Set(list.map(function (n) { return (n || '').trim(); }).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+        : [];
+    availableBanksByCountry[key] = normalized;
+}
 
 function getSelectedBanksByCountryStorageKey() {
     const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -5287,6 +5312,8 @@ async function showAddBankModal() {
         showNotification('Please select Country first', 'danger');
         return;
     }
+    currentBankModalCountry = country;
+    availableBanksList = getAvailableBanksForCountry(country).slice();
     // Selected Banks 从当前 Country 的已选列表恢复；Available 由 loadExistingBanks 按接口拉取
     window.selectedBanks = (window.selectedBanksByCountry && window.selectedBanksByCountry[country]) ? window.selectedBanksByCountry[country].slice() : [];
     await loadExistingBanks(country);
@@ -5299,18 +5326,20 @@ async function showAddBankModal() {
 }
 
 async function loadExistingBanks(countryForApi) {
+    const country = normalizeBankCountryKey(countryForApi || currentBankModalCountry || ((document.getElementById('bank_country') && document.getElementById('bank_country').value) ? document.getElementById('bank_country').value : ''));
+    const countryAvailable = getAvailableBanksForCountry(country);
     let all = [];
-    if (countryForApi) {
+    if (country) {
         try {
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
             if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
             const res = await fetch(url);
             const result = await res.json();
             all = (result.success && result.data) ? result.data : [];
-            all = [...new Set([...all, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+            all = [...new Set([...all, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
         } catch (e) {
-            all = [...(availableBanksList || [])].sort((a, b) => a.localeCompare(b));
+            all = [...countryAvailable].sort((a, b) => a.localeCompare(b));
         }
     } else {
         const select = document.getElementById('bank_bank');
@@ -5321,11 +5350,12 @@ async function loadExistingBanks(countryForApi) {
                 if (v) existingOptions.push(v);
             }
         }
-        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
     }
     const selectedSet = new Set(window.selectedBanks || []);
     const combined = all.filter(name => !selectedSet.has(name));
-    availableBanksList = combined;
+    availableBanksList = combined.slice();
+    setAvailableBanksForCountry(country, combined);
 
     const listEl = document.getElementById('existingBanks');
     if (!listEl) return;
@@ -5484,6 +5514,7 @@ function removeBankFromAvailable(bankName, itemEl) {
         const n = String(bankName).trim();
         const idx = availableBanksList.indexOf(n);
         if (idx > -1) availableBanksList.splice(idx, 1);
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
     }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
@@ -5499,6 +5530,7 @@ function closeBankSelectionModal() {
     const search = document.getElementById('bankSearch');
     if (search) search.value = '';
     document.querySelectorAll('input[name="available_banks"]').forEach(cb => cb.checked = false);
+    currentBankModalCountry = '';
 }
 
 async function confirmBanks() {
