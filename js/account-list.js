@@ -1,4 +1,4 @@
-/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
+﻿/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
 (function () {
     if (typeof window.ACCOUNT_LIST_SHOW_INACTIVE === 'undefined') window.ACCOUNT_LIST_SHOW_INACTIVE = false;
     if (typeof window.ACCOUNT_LIST_SHOW_ALL === 'undefined') window.ACCOUNT_LIST_SHOW_ALL = false;
@@ -146,22 +146,15 @@ function renderTable() {
         return;
     }
 
-    // 濡傛灉 showAll 涓?true锛屾樉绀烘墍鏈夎处鎴凤紝涓嶅垎椤?
+    // 始终按分页渲染（showAll 只影响 API 拉取范围，不影响前端分页显示）
     let pageItems;
     let startIndex;
 
-    if (showAll) {
-        // 鏄剧ず鎵€鏈夎处鎴凤紝涓嶅垎椤?
-        pageItems = accounts;
-        startIndex = 0;
-    } else {
-        // 姝ｅ父鍒嗛〉閫昏緫
-        const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
-        if (currentPage > totalPages) currentPage = totalPages;
-        startIndex = (currentPage - 1) * PAGE_SIZE;
-        const endIndex = Math.min(startIndex + PAGE_SIZE, accounts.length);
-        pageItems = accounts.slice(startIndex, endIndex);
-    }
+    const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    startIndex = (currentPage - 1) * PAGE_SIZE;
+    const endIndex = Math.min(startIndex + PAGE_SIZE, accounts.length);
+    pageItems = accounts.slice(startIndex, endIndex);
 
     pageItems.forEach((account, idx) => {
         const card = document.createElement('div');
@@ -222,11 +215,6 @@ function renderTable() {
 function renderPagination() {
     const paginationContainer = document.getElementById('paginationContainer');
 
-    // 濡傛灉 showAll 涓?true锛岄殣钘忓垎椤垫帶浠?
-    if (showAll) {
-        paginationContainer.style.display = 'none';
-        return;
-    }
 
     const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
 
@@ -1712,10 +1700,8 @@ document.getElementById('showAll').addEventListener('change', function () {
         document.getElementById('showInactive').checked = false;
         showInactive = false;
     }
-    // 閲嶇疆鍒扮涓€椤碉紙褰撳垏鎹㈠洖鍒嗛〉妯″紡鏃讹級
-    if (!showAll) {
-        currentPage = 1;
-    }
+    // 切换 showAll 时始终回到第一页
+    currentPage = 1;
     fetchAccounts(); // 瀹炴椂鑾峰彇鏁版嵁
 });
 
