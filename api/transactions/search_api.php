@@ -1604,16 +1604,6 @@ if (!empty($target_account_ids)) {
     }
     $results = $deduplicated_results;
 
-    // 第一笔 Domain List Fee：以客户公司（如 LGA）展示在 Transaction Payment
-    searchApiAppendDomainListFeeVirtualRows(
-        $pdo,
-        $results,
-        $company_id,
-        $date_from_db,
-        $date_to_db,
-        $filter_currency_codes,
-        $currency_id_map
-    );
     // 按 currency 和 account_id 排序
     usort($results, function($a, $b) {
         if ($a['currency'] !== $b['currency']) {

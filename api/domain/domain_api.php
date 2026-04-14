@@ -664,6 +664,93 @@ function resolveC168DomainFeePoolAccountId(PDO $pdo, int $c168Pk, int $excludeAc
     return resolvePayerAccountInCompany($pdo, $c168Pk, $excludeAccountId);
 }
 
+function resolveC168DomainFeeReceiverAccountId(PDO $pdo, int $c168Pk, int $excludeAccountId = 0): ?int
+{
+    if ($c168Pk <= 0) {
+        return null;
+    }
+    $ownerId = resolveC168OwnerAccountId($pdo, $c168Pk);
+    if ($ownerId && $ownerId > 0 && $ownerId !== $excludeAccountId) {
+        return $ownerId;
+    }
+    try {
+        $stC168 = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND UPPER(TRIM(COALESCE(a.account_id, ''))) = 'C168'
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            LIMIT 1
+        ");
+        $stC168->execute([$c168Pk, (int)$excludeAccountId]);
+        $c168Id = $stC168->fetchColumn();
+        if ($c168Id !== false && $c168Id !== null) {
+            return (int)$c168Id;
+        }
+    } catch (PDOException $e) {
+    }
+    try {
+        $stAny = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+              AND LOWER(TRIM(COALESCE(a.role, ''))) <> 'profit'
+              AND UPPER(TRIM(COALESCE(a.account_id, ''))) <> 'PROFIT'
+            ORDER BY a.id ASC
+            LIMIT 1
+        ");
+        $stAny->execute([$c168Pk, (int)$excludeAccountId]);
+        $v = $stAny->fetchColumn();
+        return ($v !== false && $v !== null) ? (int)$v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customerCompanyCode, int $excludeAccountId = 0): ?int
+{
+    $srcCode = strtoupper(trim($customerCompanyCode));
+    if ($srcCode === '') {
+        return null;
+    }
+
+    $fromC168CompanyCode = resolveC168CompanyCodeAccountId($pdo, $c168Pk, $srcCode, $excludeAccountId);
+    if ($fromC168CompanyCode && $fromC168CompanyCode > 0) {
+        return $fromC168CompanyCode;
+    }
+
+    $customerPk = getCompanyPkByCode($pdo, $srcCode);
+    if ($customerPk) {
+        $fromOwner = resolveCompanyOwnerAccountId($pdo, (int)$customerPk);
+        if ($fromOwner && $fromOwner > 0 && $fromOwner !== $excludeAccountId) {
+            return $fromOwner;
+        }
+        $fromAny = resolvePayerAccountInCompany($pdo, (int)$customerPk, $excludeAccountId);
+        if ($fromAny && $fromAny > 0) {
+            try {
+                $chk = $pdo->prepare("SELECT LOWER(TRIM(COALESCE(role,''))) FROM account WHERE id = ? LIMIT 1");
+                $chk->execute([(int)$fromAny]);
+                $role = strtolower(trim((string)($chk->fetchColumn() ?: '')));
+                $chk2 = $pdo->prepare("SELECT UPPER(TRIM(COALESCE(account_id,''))) FROM account WHERE id = ? LIMIT 1");
+                $chk2->execute([(int)$fromAny]);
+                $code = strtoupper(trim((string)($chk2->fetchColumn() ?: '')));
+                if ($role !== 'profit' && $code !== 'PROFIT') {
+                    return (int)$fromAny;
+                }
+            } catch (PDOException $e) {
+                return (int)$fromAny;
+            }
+        }
+    }
+
+    return null;
+}
+
 /**
  * 回退：在 C168 下按公司代码匹配同名 member 账户（例如 LAG -> account.account_id='LAG'）。
  */
@@ -840,23 +927,13 @@ function createDomainListFeePayment(
         $out['skipped_duplicate'] = true;
         return $out;
     }
-    // 第一笔 Domain Fee：优先固定为「客户 owner_code -> C168 owner_code(K)」
-    $fromCustomer = resolveCompanyOwnerAccountId($pdo, $customerPk);
-    if (!$fromCustomer) {
-        $fromCustomer = resolvePayerAccountInCompany($pdo, $customerPk, 0);
-    }
-    $toC168Pool = resolveC168OwnerAccountId($pdo, $c168Pk);
-    if (!$toC168Pool) {
-        $toC168Pool = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
-    }
+    // 第一笔 Domain Fee：From=Domain company 对应账号；To=C168 owner/K（无则 C168，且避开 PROFIT）
+    $toC168Pool = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
     if (!$toC168Pool) {
         $out['skipped_no_accounts'] = true;
         return $out;
     }
-    if (!$fromCustomer) {
-        // 回退到 C168 下自动创建的同名账号（确保 PAYMENT 有 From Account）
-        $fromCustomer = resolveC168CompanyCodeAccountId($pdo, $c168Pk, $customerCompanyCode, (int)$toC168Pool);
-    }
+    $fromCustomer = resolveDomainFeeSourceAccountId($pdo, $c168Pk, $customerCompanyCode, (int)$toC168Pool);
     if (!$fromCustomer || $fromCustomer === $toC168Pool) {
         $out['skipped_no_accounts'] = true;
         return $out;
@@ -1192,8 +1269,8 @@ function normalizeDomainListFeeTransactionParties(PDO $pdo, string $sourceCompan
     if (!$c168Pk || !$customerPk) {
         return false;
     }
-    $toOwner = resolveC168OwnerAccountId($pdo, (int)$c168Pk);
-    $fromOwner = resolveCompanyOwnerAccountId($pdo, (int)$customerPk);
+    $toOwner = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, 0);
+    $fromOwner = resolveDomainFeeSourceAccountId($pdo, (int)$c168Pk, $srcU, (int)$toOwner);
     if (!$toOwner || !$fromOwner || (int)$toOwner === (int)$fromOwner) {
         return false;
     }
