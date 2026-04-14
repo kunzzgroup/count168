@@ -887,7 +887,23 @@ try {
                         $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
                         $prorateFrom = $dueYmd;
                         if ($frequency === '1st_of_every_month' && !$resendRelax) {
-                            $prorateFrom = $createdYmd;
+                            $useCreatedAsProrationStart = true;
+                            // day_start 非 1 号时，首个可入账自然月应按整月计费（例如 3/12 -> 4/1~4/30），
+                            // 不按创建日/今日截断；仅在合同窗口内才会进入该账期候选。
+                            if ($dayStartYmd) {
+                                try {
+                                    $startDt = new DateTimeImmutable($dayStartYmd);
+                                    $firstBillMonthYn = $startDt->modify('first day of next month')->format('Y-n');
+                                    if ((int) $startDt->format('j') !== 1 && $billYm === $firstBillMonthYn) {
+                                        $useCreatedAsProrationStart = false;
+                                    }
+                                } catch (Throwable $e) {
+                                    // keep default behavior
+                                }
+                            }
+                            if ($useCreatedAsProrationStart) {
+                                $prorateFrom = $createdYmd;
+                            }
                         }
                         $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
                         $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
