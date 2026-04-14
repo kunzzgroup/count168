@@ -697,6 +697,7 @@ try {
     }
 
     $billingMonths = isset($_POST['billing_months']) && is_array($_POST['billing_months']) ? $_POST['billing_months'] : [];
+    $allowFutureMonthly = !empty($_POST['allow_future_monthly']);
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
@@ -1006,7 +1007,7 @@ try {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
                     $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
-                    if (!$resendRelax && $dueTx > $fallbackDate) {
+                    if (!$allowFutureMonthly && !$resendRelax && $dueTx > $fallbackDate) {
                         $skipCurrentPair = true;
                         $skippedFutureMonthlyDueCount++;
                     }

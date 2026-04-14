@@ -1725,6 +1725,9 @@
             return;
         }
 
+        // 测试开关：URL 带上 ?test_future_monthly_view=1 时，搜索层不回锚 day_start，允许按 transaction_date 查看未来月账单。
+        const testFutureMonthlyView = new URLSearchParams(window.location.search).get('test_future_monthly_view') === '1';
+
         // 构建 URL，处理多选分类
         let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
 
@@ -1739,6 +1742,9 @@
         // 如果选择了具体 currency，则添加参数；如果选择 All，则不添加（显示全部）
         if (!showAllCurrencies && selectedCurrencies.length > 0) {
             url += `&currency=${selectedCurrencies.join(',')}`;
+        }
+        if (testFutureMonthlyView) {
+            url += '&test_future_monthly_view=1';
         }
 
         console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
@@ -1846,6 +1852,9 @@
                         if (currentCompanyId) {
                             fallbackUrl += `&company_id=${currentCompanyId}`;
                         }
+                        if (testFutureMonthlyView) {
+                            fallbackUrl += '&test_future_monthly_view=1';
+                        }
                         fallbackUrl += '&_t=' + Date.now();
                         if (loadingEl && !silent) {
                             loadingEl.textContent = 'Loading data';
@@ -1903,6 +1912,9 @@
                         }
                         if (!showAllCurrencies && selectedCurrencies.length > 0) {
                             fallbackUrl += `&currency=${selectedCurrencies.join(',')}`;
+                        }
+                        if (testFutureMonthlyView) {
+                            fallbackUrl += '&test_future_monthly_view=1';
                         }
                         fallbackUrl += '&_t=' + Date.now();
 

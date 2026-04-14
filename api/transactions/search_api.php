@@ -694,6 +694,8 @@ try {
     $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
     $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
     $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
+    $test_future_monthly_view = isset($_GET['test_future_monthly_view']) && $_GET['test_future_monthly_view'] === '1';
+    $GLOBALS['tx_search_test_future_monthly_view'] = $test_future_monthly_view;
 
     // 解析目标账户：优先使用请求中的 target_account_id（保证 member 切换账户后显示所选账户数据），否则 member 用 session
     $target_account_ids = [];
@@ -789,7 +791,7 @@ try {
         $cache_version . '|' .
         ($_SESSION['user_id'] ?? '') . '|' . $company_id . '|' . $date_from_db . '|' . $date_to_db . '|' .
         implode(',', $currency_filters) . '|' . implode(',', $category_filters) . '|' . ($show_inactive ? '1' : '0') . '|' .
-        ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' .
+        ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' . ($test_future_monthly_view ? '1' : '0') . '|' .
         implode(',', $target_account_ids)
     );
     $cache_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
@@ -1344,7 +1346,7 @@ try {
         $wlJoinSql = '';
         $wlDateExpr = "DATE(t.transaction_date)";
         $wlFutureGuard = '';
-        if ($has_source_bank_process_id) {
+        if ($has_source_bank_process_id && !$test_future_monthly_view) {
             $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
             $bpDayStartSql = "CASE
                 WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
@@ -2022,7 +2024,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $wlJoinSql = '';
     $wlDateExpr = "DATE(t.transaction_date)";
     $wlFutureGuard = '';
-    if ($has_source_bank_process_id) {
+    $test_future_monthly_view = !empty($GLOBALS['tx_search_test_future_monthly_view']);
+    if ($has_source_bank_process_id && !$test_future_monthly_view) {
         $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
         $bpDayStartSql = "CASE
             WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
@@ -2298,7 +2301,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $wlJoinSql = '';
     $wlDateExpr = "DATE(t.transaction_date)";
     $wlFutureGuard = '';
-    if ($has_source_bank_process_id) {
+    $test_future_monthly_view = !empty($GLOBALS['tx_search_test_future_monthly_view']);
+    if ($has_source_bank_process_id && !$test_future_monthly_view) {
         $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
         $bpDayStartSql = "CASE
             WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
