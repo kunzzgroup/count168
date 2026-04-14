@@ -784,15 +784,10 @@ try {
         }
     }
 
-    // 注意：member 用户查询时，show_inactive=1 表示显示所有状态（包括 inactive）
-    // 但这里的逻辑是：如果 show_inactive=1，只显示 inactive；否则只显示 active
-    // 这可能导致 member 用户看不到 active 账户
-    // 修复：如果 show_inactive=1，不添加状态过滤（显示所有状态）
-    if (!$show_inactive) {
-        // 默认只显示 active 账号
-        $where_conditions[] = "a.status = 'active'";
-    }
-    // 如果 show_inactive=1，不添加状态过滤，显示所有状态的账户
+    // 账目准确性要求：transaction 列表必须包含 active 和 inactive 账户，
+    // 因为 inactive 账户可能仍有历史交易数据，排除它们会造成账目对不上。
+    // account-list.php 有独立的 inactive 过滤逻辑，不受此影响。
+    // （show_inactive 参数对应前端 "Show Payment Only" 复选框，与账户状态过滤无关）
 
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
     // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
@@ -981,9 +976,7 @@ try {
                 $cpPh = implode(',', array_fill(0, count($cpNewIds), '?'));
                 $extraBits = [];
                 $extraParams = $cpNewIds;
-                if (!$show_inactive) {
-                    $extraBits[] = "a.status = 'active'";
-                }
+                // 不按账户状态过滤：inactive 账户的历史交易数据仍需计入，保证账目准确
                 if (!empty($category_filters)) {
                     if (count($category_filters) === 1) {
                         $extraBits[] = 'a.role = ?';
