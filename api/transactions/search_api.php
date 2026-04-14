@@ -158,6 +158,43 @@ function searchApiAppendDomainNetProfitVirtualRows(
     if ($ownerCode === '') {
         $ownerCode = 'C168';
     }
+    $seenIndex = [];
+    foreach ($results as $idx => $r) {
+        $key = $r['account_db_id'] . '_' . strtoupper((string)($r['currency'] ?? ''));
+        $seen[$key] = true;
+        $seenIndex[$key] = $idx;
+    }
+    $profitRowCode = 'PROFIT';
+    $profitRowName = 'PROFIT';
+    $profitAccountDbId = 0;
+    try {
+        $stProfit = $pdo->prepare("
+            SELECT a.id, TRIM(COALESCE(a.account_id, '')) AS account_code, TRIM(COALESCE(a.name, '')) AS account_name
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND (
+                    LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+                    OR UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT'
+              )
+            ORDER BY CASE WHEN UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT' THEN 0 ELSE 1 END, a.id ASC
+            LIMIT 1
+        ");
+        $stProfit->execute([$company_id]);
+        $acc = $stProfit->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($acc) {
+            $profitAccountDbId = (int)($acc['id'] ?? 0);
+            $profitRowCode = strtoupper(trim((string)($acc['account_code'] ?? '')));
+            if ($profitRowCode === '') {
+                $profitRowCode = 'PROFIT';
+            }
+            $profitRowName = strtoupper(trim((string)($acc['account_name'] ?? '')));
+            if ($profitRowName === '') {
+                $profitRowName = $profitRowCode;
+            }
+        }
+    } catch (PDOException $e) {
+    }
 
     $currencyFilterIds = [];
     if (!empty($filter_currency_codes)) {
@@ -239,8 +276,19 @@ function searchApiAppendDomainNetProfitVirtualRows(
             continue;
         $vid = -2000000 - (int) ($row['id'] ?? 0);
         $k = $vid . '_' . $cur;
-        if (isset($seen[$k]))
+        if (isset($seen[$k])) {
+            $idx = $seenIndex[$k] ?? null;
+            if ($idx !== null && isset($results[$idx])) {
+                // 若同账户同币种已存在（常见为0值占位行），直接升级为净利润展示行
+                $results[$idx]['account_id'] = $profitRowCode;
+                $results[$idx]['account_name'] = $profitRowName;
+                $results[$idx]['role'] = 'PROFIT';
+                $results[$idx]['cr_dr'] = $amt;
+                $results[$idx]['balance'] = $amt;
+                $results[$idx]['has_crdr_transactions'] = 1;
+            }
             continue;
+        }
         $seen[$k] = true;
         $results[] = [
             'account_id' => $ownerCode,
