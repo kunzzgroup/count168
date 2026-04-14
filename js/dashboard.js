@@ -2436,13 +2436,14 @@ document.addEventListener('DOMContentLoaded', async function () {
         initDatePickers();
         initChartDataButtons();
         await loadCompaniesPromise;
-        // 并行执行：loadCurrencies 设置币别按钮，loadData 加载仪表盘数据
-        // 两者无互相依赖，并行可节省 250~350ms 首屏等待
+        // 串行执行：loadCurrencies 先完成后再 loadData，确保 window.dashboardCurrency 就绪
         if (dateRange.startDate && dateRange.endDate && window.companyId) {
-            await Promise.all([
-                loadCurrencies(),
-                loadData(true)
-            ]);
+            // loadCurrencies 必须先完成，以确保 window.dashboardCurrency 被正确设置后，
+            // loadData 才带上正确的 currency 参数发起 API 请求；
+            // 否则两者并行时 loadData 会在 dashboardCurrency 尚未赋值时就发出请求，
+            // 导致不同货币（MYR / SGD）的数据混合在一起显示。
+            await loadCurrencies();
+            await loadData(true);
         } else {
             await loadCurrencies();
             showError('Missing required parameters, please refresh the page');
