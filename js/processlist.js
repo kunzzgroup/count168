@@ -1917,6 +1917,8 @@ async function postAccountingInboxToTransaction() {
             formData.append('period_types[]', p.periodType);
             formData.append('billing_months[]', p.billingMonth || '');
         });
+        // Testing toggle: allow posting monthly rows before due date from Accounting Due flow.
+        formData.append('allow_future_monthly', '1');
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
