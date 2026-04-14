@@ -249,7 +249,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             <label for="showAll">Show All</label>
                         </div>
                     </div>
-                    <button class="account-btn account-btn-delete" id="accountDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive accounts can be deleted">Delete</button>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <button class="account-btn account-btn-setting" onclick="openCurrencySettingModal()" style="display: flex; align-items: center; justify-content: center; height: 35px; min-width: 120px; padding: 0 15px; border-radius: 6px; font-weight: 500; font-size: 13px; cursor: pointer; transition: all 0.2s; background: linear-gradient(180deg, #AAB8C2 0%, #657786 100%); color: #fff; border: 1px solid #657786; box-shadow: 0 2px 4px rgba(101, 119, 134, 0.15);">Currency Setting</button>
+                        <button class="account-btn account-btn-delete" id="accountDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive accounts can be deleted">Delete</button>
+                    </div>
                 </div>
                 <!-- Shared Group & Company Filter (SSR) -->
                 <?php include 'includes/company_filter.php'; ?>
@@ -591,6 +594,70 @@ $showAll = isset($_GET['showAll']) ? true : false;
             <div class="account-form-actions link-account-form-actions">
                 <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()">Save</button>
                 <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currency Setting Modal -->
+    <div id="currencySettingModal" class="account-modal" style="display: none;">
+        <div class="account-modal-content" style="max-width: 800px; width: 90%;">
+            <div class="account-modal-header" style="border-bottom: 2px solid #1a237e; padding-bottom: 12px; margin-bottom: 15px;">
+                <h2 style="color: #003366; font-size: 24px; font-weight: 600; margin: 0;">Currency Setting</h2>
+                <span class="account-close" onclick="closeCurrencySettingModal()" style="font-size: 28px; color: #555;">&times;</span>
+            </div>
+            
+            <div class="account-modal-body currency-setting-modal-body" style="padding: 0 20px;">
+                <!-- Top section: Add new currency & Currency List -->
+                <div class="currency-setting-top-section" style="border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <div class="currency-setting-add-row" style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
+                        <label for="currencySettingAddInput" style="font-weight: 600; font-size: 16px; color: #000; min-width: 120px;">Add Currency :</label>
+                        <input type="text" id="currencySettingAddInput" class="currency-setting-input" placeholder="Please enter new currency" style="flex: 1; max-width: 300px; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        <button type="button" class="account-btn account-btn-save" style="border-radius: 6px; padding: 8px 24px; font-weight: 500; height: auto;" onclick="addCurrencyFromSettingModal()">Add</button>
+                        
+                        <div style="flex: 1; display: flex; justify-content: flex-end;">
+                            <button type="button" class="account-btn account-btn-save" style="background: linear-gradient(180deg, #60A5FA 0%, #3B82F6 100%); border-radius: 6px; padding: 8px 24px; border: none; font-weight: 500; height: auto;" onclick="closeCurrencySettingModal()">Done</button>
+                        </div>
+                    </div>
+                    
+                    <div style="height: 1px; background-color: #ddd; margin: 0 -20px 20px -20px;"></div>
+                    
+                    <div class="currency-setting-list-row" style="display: flex; align-items: center; gap: 15px;">
+                        <label style="font-weight: 600; font-size: 16px; color: #000; min-width: 120px; margin: 0; align-self: flex-start; padding-top: 5px;">Currency :</label>
+                        <div class="currency-setting-pill-list" id="currencySettingPillList" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            <!-- Currency pills will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom section: Search, Filter, and Account list -->
+                <div class="currency-setting-bottom-section" style="border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
+                    <div class="currency-setting-filter-row" style="display: flex; gap: 15px; margin-bottom: 20px;">
+                        <div class="currency-setting-search-wrap" style="position: relative; width: 250px;">
+                            <svg class="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px;">
+                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <input type="text" id="currencySettingSearchInput" class="currency-setting-search-input" placeholder="Search Bar" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px 12px 8px 36px; border: 1px solid #ddd; border-radius: 20px; font-size: 13px; color: #555; background: #fff;">
+                        </div>
+                        <div class="currency-setting-role-filter">
+                            <select id="currencySettingRoleSelect" class="currency-setting-select" style="padding: 8px 30px 8px 15px; border: 1px solid #ddd; border-radius: 20px; font-size: 13px; color: #999; appearance: none; background: #fff; border-radius: 20px; min-width: 150px; background-image: url('data:image/svg+xml;utf8,<svg width=\"10\" height=\"6\" viewBox=\"0 0 10 6\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M1 1L5 5L9 1\" stroke=\"%23ccc\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center;">
+                                <option value="">Filter Row</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="height: 1px; background-color: #eee; margin: 0 -20px 20px -20px;"></div>
+                    
+                    <div class="currency-setting-account-list" id="currencySettingAccountList" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px;">
+                        <!-- Account items like in Image 2 will be loaded here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div style="height: 1px; background-color: #ddd; margin: 20px 0;"></div>
+            
+            <div class="account-form-actions" style="margin-bottom: 10px; justify-content: flex-end; gap: 15px; padding-right: 20px;">
+                <button type="button" class="account-btn account-btn-save" style="border-radius: 8px; padding: 10px 40px; font-size: 14px; font-weight: normal; background: linear-gradient(180deg, #60A5FA 0%, #3B82F6 100%);" onclick="saveCurrencySetting()">Save</button>
+                <button type="button" class="account-btn account-btn-cancel" style="border-radius: 8px; padding: 10px 30px; font-size: 14px; font-weight: normal; background: linear-gradient(180deg, #9CA3AF 0%, #6B7280 100%); border: none; color: white;" onclick="closeCurrencySettingModal()">Cancel</button>
             </div>
         </div>
     </div>

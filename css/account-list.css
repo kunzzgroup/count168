@@ -173,3 +173,72 @@
 .link-account-search-input::placeholder {
     color: #9ca3af;
 }
+
+/* Currency Setting Modal */
+.currency-setting-pill {
+    padding: 6px 30px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background-color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+.currency-setting-pill.selected {
+    background: linear-gradient(180deg, #60A5FA 0%, #3B82F6 100%);
+    color: #fff;
+    border-color: #3B82F6;
+}
+.currency-setting-pill:hover:not(.selected) {
+    background-color: #f3f4f6;
+}
+
+.currency-setting-account-item {
+    padding: 10px 15px;
+    background-color: #e0e0e0;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    min-height: 40px;
+}
+.currency-setting-account-item:hover {
+    background-color: #d1d1d1;
+}
+.currency-setting-account-item.selected {
+    background-color: #3B82F6;
+    color: #fff;
+    border-color: #2563eb;
+    font-weight: 500;
+}
+
+.currency-setting-select:focus,
+.currency-setting-search-input:focus,
+.currency-setting-input:focus {
+    outline: none;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* scrollbar styling for account list */
+.currency-setting-account-list::-webkit-scrollbar {
+    width: 10px;
+}
+.currency-setting-account-list::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+    border-radius: 5px;
+}
+.currency-setting-account-list::-webkit-scrollbar-thumb {
+    background: #d1d5db; 
+    border-radius: 5px;
+}
+.currency-setting-account-list::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af; 
+}
