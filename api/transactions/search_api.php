@@ -1487,8 +1487,8 @@ try {
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   AND t.currency_id IS NOT NULL 
                   -- Domain Share Commission / Net Profit 不计入 from_account（避免重复）
-                  AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
-                  AND t.sms NOT LIKE '[DOMAIN_NET_PROFIT|%'
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'
                   $contra_where_t
                 GROUP BY t.from_account_id, t.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
@@ -2191,7 +2191,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
-            . " AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'"
+            . " AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'"
             . contraApprovedWhere($pdo, 't');
 
         $stmt = $pdo->prepare($sql);
