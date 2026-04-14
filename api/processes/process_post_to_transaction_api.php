@@ -897,7 +897,7 @@ try {
         $origProfitRow = (float) ($p['profit'] ?? 0);
         applyOnePlusXRemainingDaysBuySellAddon($p['contract'] ?? null, $origCostRow, $origPriceRow, $origProfitRow, $cost, $price, $profit, $lastProrationRatio);
 
-        // manual_inactive：1+X 合约时 Buy/Sell/Profit 乘 (1+X) 再入账
+        // manual_inactive：1+X 合约时 Buy/Sell/Profit 乘 X 再入账（1+1→1，1+2→2）
         if ($periodType === 'manual_inactive') {
             $mult = getManualInactiveMultiplierFromContract($p['contract'] ?? null);
             $cost = round($cost * $mult, 2);
