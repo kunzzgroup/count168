@@ -1297,6 +1297,97 @@ function normalizeDomainListFeeTransactionParties(PDO $pdo, string $sourceCompan
     }
 }
 
+function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode): bool
+{
+    $srcU = strtoupper(trim($sourceCompanyCode));
+    if ($srcU === '') {
+        return false;
+    }
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return false;
+    }
+
+    $totals = getDomainFeeAndCommissionTotalsBySource($pdo, $srcU);
+    $net = round((float)$totals['fee'] - (float)$totals['commission'], 2);
+    if ($net <= 0) {
+        return false;
+    }
+
+    $profitAccId = resolveC168ProfitRoleAccountId($pdo, (int)$c168Pk, 0);
+    if (!$profitAccId || $profitAccId <= 0) {
+        return false;
+    }
+    $fromAccId = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, (int)$profitAccId);
+    if (!$fromAccId || $fromAccId <= 0 || (int)$fromAccId === (int)$profitAccId) {
+        return false;
+    }
+
+    $ownerCode = getCompanyOwnerCodeByPk($pdo, (int)$c168Pk);
+    if ($ownerCode === '') {
+        $ownerCode = 'C168';
+    }
+    $desc = 'Profit By ' . $ownerCode;
+    $changed = false;
+
+    try {
+        $st = $pdo->prepare("
+            UPDATE transactions t
+            SET t.account_id = ?,
+                t.from_account_id = ?,
+                t.amount = ?,
+                t.description = ?
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.sms LIKE ?
+              AND (
+                    t.account_id <> ?
+                    OR COALESCE(t.from_account_id, 0) <> ?
+                    OR ROUND(t.amount, 2) <> ?
+                    OR COALESCE(t.description, '') <> ?
+              )
+        ");
+        $st->execute([
+            (int)$profitAccId,
+            (int)$fromAccId,
+            $net,
+            $desc,
+            (int)$c168Pk,
+            '[DOMAIN_NET_PROFIT|' . $srcU . '%',
+            (int)$profitAccId,
+            (int)$fromAccId,
+            $net,
+            $desc,
+        ]);
+        $changed = ($st->rowCount() > 0);
+    } catch (PDOException $e) {
+        return false;
+    }
+
+    if (!hasDomainNetProfitTransactionExecuted($pdo, $srcU)) {
+        $createdByUser = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+            ? null
+            : (int) ($_SESSION['user_id'] ?? 0);
+        $createdByOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+            ? (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0)
+            : null;
+        $created = createDomainNetProfitPayment(
+            $pdo,
+            $srcU,
+            (float)$totals['fee'],
+            (float)$totals['commission'],
+            (int)$fromAccId,
+            $createdByUser > 0 ? $createdByUser : null,
+            $createdByOwner > 0 ? $createdByOwner : null
+        );
+        if (!empty($created['created'])) {
+            $changed = true;
+        }
+    }
+
+    return $changed;
+}
+
 /**
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
@@ -1322,6 +1413,9 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
         }
         if (hasDomainOneTimeTransactionExecuted($pdo, $cid)) {
             if (normalizeDomainListFeeTransactionParties($pdo, $cid)) {
+                $any = true;
+            }
+            if (normalizeDomainNetProfitTransaction($pdo, $cid)) {
                 $any = true;
             }
             // 兼容旧数据：若 fee/commission 已有但 net profit 仍是“虚拟展示”，补写一次真实 DOMAIN_NET_PROFIT。
@@ -2621,6 +2715,7 @@ try {
                     if ($applyCommissionPayments) {
                         if (hasDomainOneTimeTransactionExecuted($pdo, $saveShareCode)) {
                             normalizeDomainListFeeTransactionParties($pdo, $saveShareCode);
+                            normalizeDomainNetProfitTransaction($pdo, $saveShareCode);
                             $skippedOneTime = true;
                             $feeResult = [
                                 'created' => false,
