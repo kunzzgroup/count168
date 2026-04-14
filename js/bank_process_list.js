@@ -4081,6 +4081,11 @@ function moveBankToAvailable(checkbox) {
 }
 
 function removeBankFromAvailable(bankName, itemEl) {
+    if (availableBanksList && bankName != null && bankName !== '') {
+        const n = String(bankName).trim();
+        const idx = availableBanksList.indexOf(n);
+        if (idx > -1) availableBanksList.splice(idx, 1);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
