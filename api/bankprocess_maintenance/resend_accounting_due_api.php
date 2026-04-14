@@ -24,17 +24,43 @@ function bank_resend_anchor_ymd_from_raw(?string $raw): ?string
     return $m[1] . '-' . $m[2] . '-' . $m[3];
 }
 
-/** Resend 所填 day_start 不可与合约当前 Day start 为同一日历日（与「灰掉该日」语义一致） */
-function bank_resend_schedule_day_equals_anchor_ymd(string $candidateYmd, ?string $anchorRaw): bool
+/** @return string|null Y-m-d（优先 d/m/Y，其次 yyyy-mm-dd） */
+function bank_resend_parse_ymd_from_any_raw(?string $raw): ?string
 {
-    $anchorYmd = bank_resend_anchor_ymd_from_raw($anchorRaw);
-    if ($anchorYmd === null) {
-        return false;
+    if ($raw === null) {
+        return null;
     }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if (checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if (checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    return null;
+}
+
+/** Resend 所填 day_start 不可为今天（仅禁止今日） */
+function bank_resend_schedule_day_is_today(string $candidateYmd): bool
+{
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($candidateYmd))) {
         return false;
     }
-    return trim($candidateYmd) === $anchorYmd;
+    $todayYmd = date('Y-m-d');
+    return trim($candidateYmd) === $todayYmd;
 }
 
 function bank_resend_blocking_issue_flag_from_row(array $bpRow): ?string
@@ -143,20 +169,37 @@ try {
         throw new Exception('Official、E-INVOICE、Block 状态的 Process 不可使用 Resend');
     }
 
-    $anchorDayStartRaw = isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : '';
     if ($scheduleFromClient && $newDayStart !== null
-        && bank_resend_schedule_day_equals_anchor_ymd($newDayStart, $anchorDayStartRaw !== '' ? $anchorDayStartRaw : null)) {
-        throw new Exception('Resend 所填 Day start 不可与合约当前 Day start 为同一日，请另选日期。');
+        && bank_resend_schedule_day_is_today($newDayStart)) {
+        throw new Exception('Resend 所填 Day start 不可与今天相同，请另选日期。');
     }
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
     bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
 
     $pdo->beginTransaction();
-    // 一律清除该 Process 的全部入账标记：Maintenance 常只删部分 period 的交易，若仅删 monthly 会残留 partial 等 PAP，Inbox 会少「首月按比例」等行。
-    $delAllPap = $pdo->prepare('DELETE FROM process_accounting_posted WHERE company_id = ? AND process_id = ?');
-    $delAllPap->execute([$company_id, $bankProcessId]);
-    $removedPap = $delAllPap->rowCount();
+    // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
+    $effectiveDayStartYmd = $scheduleFromClient && $newDayStart !== null
+        ? $newDayStart
+        : bank_resend_parse_ymd_from_any_raw(isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : null);
+    if ($effectiveDayStartYmd === null) {
+        throw new Exception('无法识别 Day start，Resend 仅支持按 Day start 当月补单月记录。');
+    }
+    $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
+    $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
+    // 兜底：
+    // 1) 当月全部 posted 标记（含 maintenance 产生的 *_skipped）都清除，避免残留记录继续拦截 Accounting Due；
+    // 2) partial_first_month(_skipped) 在 Inbox 中按「是否存在」判定，非按月份判定，因此也要一并清除。
+    $delMonthPap = $pdo->prepare(
+        "DELETE FROM process_accounting_posted
+         WHERE company_id = ? AND process_id = ?
+           AND (
+               (YEAR(posted_date) = ? AND MONTH(posted_date) = ?)
+               OR period_type IN ('partial_first_month','partial_first_month_skipped')
+           )"
+    );
+    $delMonthPap->execute([$company_id, $bankProcessId, $targetYear, $targetMonth]);
+    $removedPap = $delMonthPap->rowCount();
 
     $delPend = $pdo->prepare(
         'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'

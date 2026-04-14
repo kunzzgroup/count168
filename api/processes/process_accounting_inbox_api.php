@@ -732,7 +732,8 @@ try {
     foreach ($rows as $r) {
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
-        $resendMulti = !empty($r['accounting_resend_relax_created_floor']);
+        // Resend 仅回补 day_start 所在当月：不再一次展开多账期；但保留 relax 标记用于创建日门槛与比例算法。
+        $resendMulti = false;
         $need = false;
         $monthlyBillingMonth = null;
         $queuedMonthlyBillingMonths = [];

@@ -105,25 +105,29 @@ function bankProcessNormalizeDayStartYmd(dayStartField) {
 }
 
 /**
- * Resend 弹窗中所选 Day start 不可与合约当前 Day start 为同一日历日（与后端一致）。
+ * Resend 弹窗中所选 Day start 不可为今天（与后端一致）。
  * @returns {string|null} 错误提示文案；null 表示可提交
  */
 function bankResendScheduleDayStartForbiddenMessage(chosenTrim, anchorRaw) {
+    void anchorRaw; // kept for call-site compatibility
     const v = chosenTrim != null ? String(chosenTrim).trim() : '';
     if (!v) return null;
     const chosenYmd = bankProcessNormalizeDayStartYmd(v);
     if (!chosenYmd) return null;
-    const anchorYmd = bankProcessNormalizeDayStartYmd(anchorRaw);
-    if (!anchorYmd) return null;
-    if (chosenYmd === anchorYmd) {
-        return 'Day start cannot be the same calendar date as the current contract Day start. Pick another date.';
+    const today = new Date();
+    const todayYmd = today.getFullYear()
+        + '-' + String(today.getMonth() + 1).padStart(2, '0')
+        + '-' + String(today.getDate()).padStart(2, '0');
+    if (chosenYmd === todayYmd) {
+        return 'Day start cannot be today. Pick another date.';
     }
     return null;
 }
 
 function isBankResendDayStartBackendErrorMessage(text) {
     const s = String(text || '');
-    return s.indexOf('不可与合约当前 Day start 为同一日') !== -1
+    return s.indexOf('不可与今天相同') !== -1
+        || s.indexOf('Day start cannot be today') !== -1
         || s.indexOf('Resend 所填 Day start') !== -1
         || s.indexOf('same calendar date as the current contract Day start') !== -1;
 }
