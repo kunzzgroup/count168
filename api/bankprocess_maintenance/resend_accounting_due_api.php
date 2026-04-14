@@ -53,17 +53,14 @@ function bank_resend_parse_ymd_from_any_raw(?string $raw): ?string
     return null;
 }
 
-/** Resend 所填 day_start 不可与合约当前 Day start 为同一日历日（与「灰掉该日」语义一致） */
-function bank_resend_schedule_day_equals_anchor_ymd(string $candidateYmd, ?string $anchorRaw): bool
+/** Resend 所填 day_start 不可为今天（仅禁止今日） */
+function bank_resend_schedule_day_is_today(string $candidateYmd): bool
 {
-    $anchorYmd = bank_resend_anchor_ymd_from_raw($anchorRaw);
-    if ($anchorYmd === null) {
-        return false;
-    }
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($candidateYmd))) {
         return false;
     }
-    return trim($candidateYmd) === $anchorYmd;
+    $todayYmd = date('Y-m-d');
+    return trim($candidateYmd) === $todayYmd;
 }
 
 function bank_resend_blocking_issue_flag_from_row(array $bpRow): ?string
@@ -172,10 +169,9 @@ try {
         throw new Exception('Official、E-INVOICE、Block 状态的 Process 不可使用 Resend');
     }
 
-    $anchorDayStartRaw = isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : '';
     if ($scheduleFromClient && $newDayStart !== null
-        && bank_resend_schedule_day_equals_anchor_ymd($newDayStart, $anchorDayStartRaw !== '' ? $anchorDayStartRaw : null)) {
-        throw new Exception('Resend 所填 Day start 不可与合约当前 Day start 为同一日，请另选日期。');
+        && bank_resend_schedule_day_is_today($newDayStart)) {
+        throw new Exception('Resend 所填 Day start 不可与今天相同，请另选日期。');
     }
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
