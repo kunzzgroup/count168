@@ -1287,7 +1287,8 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（Bank process 入账）：按入账类型显示；Description 金额用本笔交易实际入账 amount（含首月比例、1+X 加价、inactive 乘数等），与 Win/Loss 一致
+        // WIN/LOSE（Bank process 入账）：按入账类型显示；
+        // Description 金额展示 process 原始 Buy/Sell/Profit（不显示本笔 total amount）。
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
@@ -1302,11 +1303,21 @@ try {
                 $description = 'Monthly bill';
             }
             $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
+            if ($isBankProcessTransaction && $is_to_account) {
+                $txAccountId = (int) ($t['account_id'] ?? 0);
+                $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+                $customerId = (int) ($t['customer_id'] ?? 0);
+                $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+                if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+                    $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
+                } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
+                    $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
+                } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+                    $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
+                }
+            }
             $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
             $description = $description . ' ' . $billAmount;
-            if ($isBankProcessTransaction && !empty($t['bank_name'])) {
-                $description = $description . ' (' . trim($t['bank_name']) . ')';
-            }
         }
         
         // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前账户在 Win/Loss 的正负来决定 FROM / TO
