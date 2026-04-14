@@ -3477,9 +3477,6 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
         }
         const formData = new FormData(this);
         if (editId) {
-            ['day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
-                formData.delete(key);
-            });
             const bankModule = getBankProcessModule();
             if (bankModule && typeof bankModule.setPendingResendScheduleForProcess === 'function') {
                 bankModule.setPendingResendScheduleForProcess(editId, {
@@ -3503,9 +3500,7 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
-        if (!editId) {
-            formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
-        }
+        formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
         try {
             if (editId) {
                 formData.append('id', editId);
