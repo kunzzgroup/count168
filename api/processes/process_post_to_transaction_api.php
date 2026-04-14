@@ -444,6 +444,12 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     break;
                 }
                 $billYm = $iter->format('Y-n');
+                // 非 resend：旧数据不拿，仅允许当前自然月进入候选（例如 today=4月，只可出4月）。
+                if (!$resendRelax && $billYm !== $todayYm) {
+                    $anchorSlotIndex++;
+                    $iter = $iter->modify('+1 month');
+                    continue;
+                }
                 // 非 resend：旧月（创建月之前）直接跳过，不补历史账。
                 if (!$resendRelax) {
                     $billYmInt = $y * 100 + $mo;
