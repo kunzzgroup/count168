@@ -434,6 +434,23 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 if ($exclusiveEnd !== null && $firstOfThis >= $exclusiveEnd) {
                     break;
                 }
+                // 非 resend 场景下，创建日之前的自然月不补历史账；
+                // 仅允许「创建当月」进入候选，避免 1+1/1+2/1+3 等合同回捞旧数据。
+                if ($firstOfThis < $createdYmd) {
+                    try {
+                        $billYm = $iter->format('Y-n');
+                        $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                        if ($billYm !== $createdYmOnly) {
+                            $anchorSlotIndex++;
+                            $iter = $iter->modify('+1 month');
+                            continue;
+                        }
+                    } catch (Throwable $e) {
+                        $anchorSlotIndex++;
+                        $iter = $iter->modify('+1 month');
+                        continue;
+                    }
+                }
                 $effectiveDue = maxYmd($firstOfThis, $createdYmd);
                 if ($today >= $effectiveDue
                     && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
