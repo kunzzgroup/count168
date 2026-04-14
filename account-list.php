@@ -647,7 +647,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     
                     <div style="height: 1px; background-color: #eee; margin: 0 -20px 20px -20px;"></div>
                     
-                    <div class="currency-setting-account-list" id="currencySettingAccountList" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px;">
+                    <div class="currency-setting-account-list" id="currencySettingAccountList" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; height: 350px; overflow-y: auto; padding-right: 5px; align-content: start;">
                         <!-- Account items like in Image 2 will be loaded here -->
                     </div>
                 </div>
