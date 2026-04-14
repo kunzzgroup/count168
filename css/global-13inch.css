@@ -564,18 +564,23 @@
 
 /* ==========================================================================
    UNIVERSAL LAYOUT UNLOCK — All screen sizes, all monitors
-   Destroy nested scrolls, use Native Window Scroll everywhere.
-   This MUST be outside all media queries to apply globally.
+   Priority: Show ALL data > aesthetics. No internal scroll. No clipping.
    ========================================================================== */
 
-/* 1. Body + Containers: stretch naturally, no fixed height clipping */
+/* 1. Body: always auto-height, never clipped */
 html,
+body,
 body.user-page,
 body.account-page,
 body.transaction-page,
 body.datacapture-page,
 body.dashboard-page,
-body {
+body.process-page,
+body.domain-page,
+body.member-page,
+body.ownership-page,
+body.report-page,
+body.maintenance-page {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
@@ -584,11 +589,17 @@ body {
     background-attachment: fixed !important;
 }
 
+/* 2. Main containers: stretch to content, never clip */
 .container,
 .content,
 .transaction-container,
 .datacapture-container,
-.dashboard-container {
+.dashboard-container,
+.domain-container,
+.member-container,
+.ownership-container,
+.report-container,
+.process-page .container {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
@@ -596,7 +607,7 @@ body {
     padding-bottom: 40px !important;
 }
 
-/* 2. Table wrappers: full data render, no nested scroll */
+/* 3. Table / card wrappers: full render, zero nested scroll */
 .table-container,
 .account-cards,
 .process-cards,
@@ -604,28 +615,51 @@ body {
 .dashboard-content,
 .transaction-main-content,
 .transaction-table-wrapper,
-.datacapture-table-wrapper {
+.datacapture-table-wrapper,
+.member-cards,
+.ownership-cards,
+.domain-cards,
+.user-cards {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
     overflow: visible !important;
 }
 
-/* 3. Pagination: static below table, never float over data */
+/* 4. Pagination — ALWAYS static, RIGHT-ALIGNED below content
+      Structure: container (flex-col) > ... > .pagination-row (flex, end) > pagination
+      All known pagination class names covered below */
 .pagination-container,
-.account-pagination-container {
+.account-pagination-container,
+.member-pagination-container,
+.ownership-pagination-container,
+.domain-pagination-container,
+[class$="-pagination-container"],
+[class*="pagination-container"] {
+    /* ❌ Never fixed/absolute — always inline after data */
     position: static !important;
     bottom: auto !important;
     right: auto !important;
     left: auto !important;
     top: auto !important;
     z-index: auto !important;
+
+    /* ✅ Right-aligned pill below table */
     display: flex !important;
     align-items: center !important;
     justify-content: flex-end !important;
     margin-top: 10px !important;
     margin-bottom: 16px !important;
     margin-left: auto !important;
+    margin-right: 0 !important;
     width: fit-content !important;
     padding: 4px 8px !important;
-}
+
+    /* Keep the pill style */
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+}
+
