@@ -598,39 +598,44 @@ $showAll = isset($_GET['showAll']) ? true : false;
         </div>
     </div>
 
-    <!-- Currency Setting Modal -->
-    <div id="currencySettingModal" class="account-modal" style="display: none;">
-        <div class="account-modal-content currency-setting-modal-content">
-            <div class="account-modal-header currency-setting-modal-header">
+    <!-- Currency Setting Fullscreen Modal -->
+    <div id="currencySettingModal" class="currency-fullscreen-modal" style="display: none;">
+        <div class="currency-fullscreen-modal-content">
+            <!-- Top Header Bar -->
+            <div class="currency-fullscreen-modal-header-bar">
                 <h2>Currency Setting</h2>
-                <span class="account-close currency-setting-close" onclick="closeCurrencySettingModal()">&times;</span>
+                <button type="button" class="currency-btn-back" onclick="closeCurrencySettingModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    Back
+                </button>
             </div>
             
-            <div class="account-modal-body currency-setting-modal-body">
-                <!-- Top section: Add new currency & Currency List -->
-                <div class="currency-setting-top-section">
-                    <div class="currency-setting-add-row">
+            <!-- Body -->
+            <div class="currency-fullscreen-modal-body">
+                <!-- Left Panel: Currency Management -->
+                <div class="currency-left-panel">
+                    <h3>Currency Management</h3>
+                    
+                    <div class="currency-setting-add-row-stacked">
                         <label for="currencySettingAddInput">Add Currency :</label>
                         <input type="text" id="currencySettingAddInput" class="currency-setting-input" placeholder="Please enter new currency">
                         <button type="button" class="account-btn account-btn-save currency-setting-add-btn" onclick="addCurrencyFromSettingModal()">Add</button>
-                        
-                        <div class="currency-setting-done-wrap">
-                            <button type="button" class="account-btn account-btn-save currency-setting-done-btn" onclick="closeCurrencySettingModal()">Done</button>
-                        </div>
                     </div>
                     
                     <div class="currency-setting-divider"></div>
                     
-                    <div class="currency-setting-list-row">
+                    <div class="currency-setting-list-row-stacked">
                         <label>Currency :</label>
                         <div class="currency-setting-pill-list" id="currencySettingPillList">
                             <!-- Currency pills will be loaded here -->
                         </div>
                     </div>
                 </div>
-
-                <!-- Bottom section: Search, Filter, and Account list -->
-                <div class="currency-setting-bottom-section">
+                
+                <!-- Right Panel: Accounts -->
+                <div class="currency-right-panel">
+                    <h3>Account Association</h3>
+                    
                     <div class="currency-setting-filter-row">
                         <div class="currency-setting-search-wrap">
                             <svg class="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2">
@@ -645,17 +650,14 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         </div>
                     </div>
                     
-                    <div class="currency-setting-divider-light"></div>
-                    
                     <div class="currency-setting-account-list" id="currencySettingAccountList">
                         <!-- Account items like in Image 2 will be loaded here -->
                     </div>
                 </div>
             </div>
             
-            <div class="currency-setting-divider-main"></div>
-            
-            <div class="account-form-actions currency-setting-actions">
+            <!-- Fixed Bottom Bar -->
+            <div class="currency-fullscreen-bottom-bar">
                 <button type="button" class="account-btn account-btn-save currency-setting-submit-btn" onclick="saveCurrencySetting()">Save</button>
                 <button type="button" class="account-btn account-btn-cancel currency-setting-cancel-btn" onclick="closeCurrencySettingModal()">Cancel</button>
             </div>
