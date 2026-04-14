@@ -238,6 +238,31 @@ function historyResolveCompanyOwnerCode(PDO $pdo, int $companyId): string
     }
 }
 
+function historyResolveProfitDisplayCode(PDO $pdo, int $companyId): string
+{
+    try {
+        $st = $pdo->prepare("
+            SELECT UPPER(TRIM(COALESCE(a.account_id, ''))) AS account_code
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND (
+                    LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+                    OR UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT'
+              )
+            ORDER BY CASE WHEN UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT' THEN 0 ELSE 1 END, a.id ASC
+            LIMIT 1
+        ");
+        $st->execute([$companyId]);
+        $v = $st->fetchColumn();
+        if ($v !== false && $v !== null && trim((string)$v) !== '') {
+            return strtoupper(trim((string)$v));
+        }
+    } catch (PDOException $e) {
+    }
+    return 'PROFIT';
+}
+
 function historyResolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
 {
     try {
@@ -445,13 +470,20 @@ function buildVirtualDomainNetProfitHistory(
     string $dateToDb,
     ?int $currencyId = null
 ): array {
-    $owner = strtoupper(trim($ownerCode));
+    $companyOwnerCode = strtoupper(trim(historyResolveCompanyOwnerCode($pdo, $companyId)));
+    $profitDisplayCode = strtoupper(trim(historyResolveProfitDisplayCode($pdo, $companyId)));
+    $owner = $companyOwnerCode;
+    // virtual_company_code 现在可能传的是 PROFIT 账户代码；BY 后缀要显示公司 owner code（如 K）。
     if ($owner === '') {
-        $owner = historyResolveCompanyOwnerCode($pdo, $companyId);
+        $owner = strtoupper(trim($ownerCode));
+    }
+    if ($owner !== '' && $profitDisplayCode !== '' && $owner === $profitDisplayCode && $companyOwnerCode !== '') {
+        $owner = $companyOwnerCode;
     }
     if ($owner === '') {
         $owner = 'C168';
     }
+    $fallbackSubmitter = historyResolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
 
     $currencyById = [];
     $stCur = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?");
@@ -517,7 +549,7 @@ function buildVirtualDomainNetProfitHistory(
                 'amount' => $net,
                 'currency_id' => $cid,
                 'transaction_date' => $dateToDb,
-                'description' => 'Profit By ' . $owner,
+                'description' => 'PROFIT BY ' . $owner,
                 'sms' => '[DOMAIN_NET_PROFIT|DYNAMIC]',
                 'created_by' => $fallbackSubmitter
             ];
@@ -561,7 +593,7 @@ function buildVirtualDomainNetProfitHistory(
         $running = round($running + $cr, 2);
         $history[] = [
             'date' => date('d/m/Y', strtotime((string)$r['transaction_date'])),
-            'product' => 'PAYMENT',
+            'product' => 'PROFIT',
             'card_owner' => '-',
             'is_bank_process_transaction' => false,
             'currency' => $cur,
@@ -570,7 +602,7 @@ function buildVirtualDomainNetProfitHistory(
             'win_loss' => number_format(0, 2),
             'cr_dr' => number_format($cr, 2),
             'balance' => number_format($running, 2),
-            'description' => 'Profit By ' . $owner,
+            'description' => 'PROFIT BY ' . $owner,
             'sms' => '-',
             'remark' => '-',
             'created_by' => (trim((string)($r['created_by'] ?? '')) !== '' ? trim((string)$r['created_by']) : $fallbackSubmitter),

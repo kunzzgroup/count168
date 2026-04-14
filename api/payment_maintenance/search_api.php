@@ -257,11 +257,21 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
     $fromDisplay = $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-');
     $fromDisplay = remapPaymentMaintenanceAccountCode((string)$fromDisplay, $ownerCode, $profitCode);
     if (is_string($description) && $description !== '') {
-        $ownerPattern = preg_quote(strtoupper(trim($ownerCode)), '/');
-        if ($ownerPattern !== '') {
-            $description = preg_replace('/\b' . $ownerPattern . '\b/i', $profitCode, $description);
+        $ownerCodeUpper = strtoupper(trim($ownerCode));
+        // 净利润描述固定显示为 "PROFIT BY {ownerCode}"（如 PROFIT BY K），不替换成 PROFIT。
+        if (preg_match('/^\s*PROFIT\s+BY\b/i', $description)) {
+            if ($ownerCodeUpper !== '') {
+                $description = 'PROFIT BY ' . $ownerCodeUpper;
+            } else {
+                $description = strtoupper(trim($description));
+            }
+        } else {
+            $ownerPattern = preg_quote($ownerCodeUpper, '/');
+            if ($ownerPattern !== '') {
+                $description = preg_replace('/\b' . $ownerPattern . '\b/i', $profitCode, $description);
+            }
+            $description = preg_replace('/\bC168\b/i', $profitCode, $description);
         }
-        $description = preg_replace('/\bC168\b/i', $profitCode, $description);
     }
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
     $deletedBy = !empty($row['deleted_by_login']) ? $row['deleted_by_login'] : ($row['deleted_by_owner'] ?? null);
@@ -401,7 +411,8 @@ function appendVirtualDomainNetProfitItem(
     int $companyId,
     string $dateFromDb,
     string $dateToDb,
-    array $currencyFilters
+    array $currencyFilters,
+    string $ownerCode
 ): void {
     foreach ($data as $item) {
         $desc = strtoupper(trim((string)($item['description'] ?? '')));
@@ -457,7 +468,7 @@ function appendVirtualDomainNetProfitItem(
             'from_account' => '-',
             'currency' => $currencyCode,
             'amount' => $net,
-            'description' => 'Profit By ' . $profitCode,
+            'description' => 'PROFIT BY ' . (strtoupper(trim($ownerCode)) !== '' ? strtoupper(trim($ownerCode)) : $profitCode),
             'remark' => '',
             'dts_created' => date('d/m/Y H:i:s'),
             'created_by' => $submitter,
@@ -696,7 +707,7 @@ try {
         $data[] = rowToItem($row, 0, $companyOwnerCode, $profitDisplayCode);
     }
     if (empty($transaction_type) || $transaction_type === 'PAYMENT') {
-        appendVirtualDomainNetProfitItem($pdo, $data, $company_id, $date_from_db, $date_to_db, $currency_filters);
+        appendVirtualDomainNetProfitItem($pdo, $data, $company_id, $date_from_db, $date_to_db, $currency_filters, $companyOwnerCode);
     }
 
     if (empty($transaction_type) || $transaction_type === 'RATE') {
