@@ -1170,7 +1170,7 @@ try {
         // 关联账户间内部转账：to 和 from 都在聚合列表内时，对聚合视图 Cr/Dr 为 0
         $is_internal_transfer = $is_to_account && $is_from_account;
         $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
-        $isInactiveCompensationSell = stripos(trim((string)$rawDescription), 'Inactive Compensation Sell Price for ') === 0;
+        $isInactiveCompensationSell = stripos(trim((string)$rawDescription), 'Inactive Compensation Sell Price') === 0;
         // 手动 PROFIT：WIN/LOSE 且非 Bank Process，且不是系统生成的 Process/Auto/赔款文案
         $isManualProfit = in_array($t['transaction_type'], ['WIN', 'LOSE'], true)
             && !$isBankProcessTransaction
