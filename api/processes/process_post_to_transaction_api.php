@@ -892,8 +892,22 @@ try {
                 }
                 if (!$firstMonthOnFirstHandled && $createdYm === $billYm) {
                     $dueYmd = null;
+                    $shouldProrateMonthlyByCreatedFloor = true;
                     if ($frequency === '1st_of_every_month') {
                         $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
+                        // day_start 非 1 号时，后续 monthly 期应整月计费（例如 3/12 -> 4/1~4/30），
+                        // 不允许按 created/today 再次截断。
+                        if ($dayStartYmd !== null && $dayStartYmd !== '') {
+                            try {
+                                $startDt = new DateTimeImmutable($dayStartYmd);
+                                $startYmForBill = $startDt->format('Y-n');
+                                if ((int) $startDt->format('j') !== 1 || $billYm !== $startYmForBill) {
+                                    $shouldProrateMonthlyByCreatedFloor = false;
+                                }
+                            } catch (Throwable $e) {
+                                $shouldProrateMonthlyByCreatedFloor = false;
+                            }
+                        }
                     } else {
                         if ($dayStartYmd) {
                             $startDay = (int) date('j', strtotime($dayStartYmd));
@@ -903,7 +917,7 @@ try {
                             }
                         }
                     }
-                    if ($dueYmd !== null && $createdYmd > $dueYmd) {
+                    if ($dueYmd !== null && $createdYmd > $dueYmd && $shouldProrateMonthlyByCreatedFloor) {
                         $prorateFrom = $dueYmd;
                         if ($frequency === '1st_of_every_month' && !$resendRelax) {
                             // 仅在「首月=day_start 所在月且 day_start 为 1 号」时，允许从创建日截断；
