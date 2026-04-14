@@ -489,9 +489,9 @@ function getCompanyOwnerCodeByPk(PDO $pdo, int $companyPk): string
     }
 }
 
-function resolveC168OwnerAccountId(PDO $pdo, int $c168Pk): ?int
+function resolveCompanyOwnerAccountId(PDO $pdo, int $companyPk): ?int
 {
-    if ($c168Pk <= 0) {
+    if ($companyPk <= 0) {
         return null;
     }
     try {
@@ -506,12 +506,17 @@ function resolveC168OwnerAccountId(PDO $pdo, int $c168Pk): ?int
               AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
             LIMIT 1
         ");
-        $st->execute([$c168Pk]);
+        $st->execute([$companyPk]);
         $v = $st->fetchColumn();
         return ($v !== false && $v !== null) ? (int)$v : null;
     } catch (PDOException $e) {
         return null;
     }
+}
+
+function resolveC168OwnerAccountId(PDO $pdo, int $c168Pk): ?int
+{
+    return resolveCompanyOwnerAccountId($pdo, $c168Pk);
 }
 
 function resolveC168ProfitRoleAccountId(PDO $pdo, int $c168Pk, int $excludeAccountId = 0): ?int
@@ -835,8 +840,15 @@ function createDomainListFeePayment(
         $out['skipped_duplicate'] = true;
         return $out;
     }
-    $fromCustomer = resolvePayerAccountInCompany($pdo, $customerPk, 0);
-    $toC168Pool = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
+    // 第一笔 Domain Fee：优先固定为「客户 owner_code -> C168 owner_code(K)」
+    $fromCustomer = resolveCompanyOwnerAccountId($pdo, $customerPk);
+    if (!$fromCustomer) {
+        $fromCustomer = resolvePayerAccountInCompany($pdo, $customerPk, 0);
+    }
+    $toC168Pool = resolveC168OwnerAccountId($pdo, $c168Pk);
+    if (!$toC168Pool) {
+        $toC168Pool = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
+    }
     if (!$toC168Pool) {
         $out['skipped_no_accounts'] = true;
         return $out;
@@ -1169,6 +1181,45 @@ function getDomainFeeAndCommissionTotalsBySource(PDO $pdo, string $sourceCompany
     return $out;
 }
 
+function normalizeDomainListFeeTransactionParties(PDO $pdo, string $sourceCompanyCode): bool
+{
+    $srcU = strtoupper(trim($sourceCompanyCode));
+    if ($srcU === '') {
+        return false;
+    }
+    $c168Pk = getC168CompanyPk($pdo);
+    $customerPk = getCompanyPkByCode($pdo, $srcU);
+    if (!$c168Pk || !$customerPk) {
+        return false;
+    }
+    $toOwner = resolveC168OwnerAccountId($pdo, (int)$c168Pk);
+    $fromOwner = resolveCompanyOwnerAccountId($pdo, (int)$customerPk);
+    if (!$toOwner || !$fromOwner || (int)$toOwner === (int)$fromOwner) {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare("
+            UPDATE transactions t
+            SET t.account_id = ?, t.from_account_id = ?
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.sms LIKE ?
+              AND (t.account_id <> ? OR t.from_account_id <> ?)
+        ");
+        $st->execute([
+            (int)$toOwner,
+            (int)$fromOwner,
+            (int)$c168Pk,
+            '[DOMAIN_LIST_FEE|' . $srcU . '%',
+            (int)$toOwner,
+            (int)$fromOwner,
+        ]);
+        return $st->rowCount() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
 /**
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
@@ -1193,6 +1244,9 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
             continue;
         }
         if (hasDomainOneTimeTransactionExecuted($pdo, $cid)) {
+            if (normalizeDomainListFeeTransactionParties($pdo, $cid)) {
+                $any = true;
+            }
             // 兼容旧数据：若 fee/commission 已有但 net profit 仍是“虚拟展示”，补写一次真实 DOMAIN_NET_PROFIT。
             if (!hasDomainNetProfitTransactionExecuted($pdo, $cid)) {
                 $c168Pk = getC168CompanyPk($pdo);
@@ -2489,6 +2543,7 @@ try {
 
                     if ($applyCommissionPayments) {
                         if (hasDomainOneTimeTransactionExecuted($pdo, $saveShareCode)) {
+                            normalizeDomainListFeeTransactionParties($pdo, $saveShareCode);
                             $skippedOneTime = true;
                             $feeResult = [
                                 'created' => false,
