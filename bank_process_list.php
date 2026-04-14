@@ -784,7 +784,7 @@ if (!function_exists('renderBankProcessModals')) {
                 <div id="confirmBankResendScheduleFields" class="bank-resend-schedule-card">
                     <div class="bank-resend-schedule-card__head">
                         <span class="bank-resend-schedule-card__label">Billing schedule</span>
-                        <p class="bank-resend-schedule-card__hint">Edit here only — these fields are read-only in Edit Process.</p>
+                        <p class="bank-resend-schedule-card__hint">Changes from Edit Process sync here. Schedule is applied only after clicking Resend.</p>
                     </div>
                     <div class="bank-resend-schedule-grid">
                         <div class="bank-resend-field">

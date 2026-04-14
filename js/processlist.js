@@ -2035,16 +2035,44 @@ function showConfirmBankResendModal(processId) {
     const dsEl = document.getElementById('bank_resend_day_start');
     const deEl = document.getElementById('bank_resend_day_end');
     const fqEl = document.getElementById('bank_resend_frequency');
+    let scheduleSeed = {
+        day_start: proc ? (proc.day_start || '') : '',
+        day_end: proc ? (proc.day_end || '') : '',
+        day_start_frequency: proc && proc.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
+    const bankModule = getBankProcessModule();
+    if (bankModule && typeof bankModule.getPendingResendScheduleForProcess === 'function') {
+        const pendingSchedule = bankModule.getPendingResendScheduleForProcess(id);
+        if (pendingSchedule) {
+            scheduleSeed = {
+                day_start: pendingSchedule.day_start || '',
+                day_end: pendingSchedule.day_end || '',
+                day_start_frequency: pendingSchedule.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+            };
+        }
+    }
+    const editIdEl = document.getElementById('bank_edit_id');
+    const isSameOpenEdit = editIdEl && String(editIdEl.value || '') === String(id);
+    if (isSameOpenEdit) {
+        scheduleSeed = {
+            day_start: (document.getElementById('bank_day_start')?.value || '').trim(),
+            day_end: (document.getElementById('bank_day_end')?.value || '').trim(),
+            day_start_frequency: document.getElementById('bank_day_start_frequency')?.value === 'monthly' ? 'monthly' : '1st_of_every_month'
+        };
+        if (bankModule && typeof bankModule.setPendingResendScheduleForProcess === 'function') {
+            bankModule.setPendingResendScheduleForProcess(id, scheduleSeed);
+        }
+    }
     if (dsEl) {
-        const d1 = proc ? (proc.day_start || '') : '';
+        const d1 = scheduleSeed.day_start || '';
         dsEl.value = d1 ? (d1.length === 10 ? d1 : String(d1).split(' ')[0]) : '';
     }
     if (deEl) {
-        const d2 = proc ? (proc.day_end || '') : '';
+        const d2 = scheduleSeed.day_end || '';
         deEl.value = d2 ? (d2.length === 10 ? d2 : String(d2).split(' ')[0]) : '';
     }
     if (fqEl) {
-        fqEl.value = proc && proc.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+        fqEl.value = scheduleSeed.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
     }
     const dayEndSync = document.getElementById('bank_resend_day_end');
     const freqSync = document.getElementById('bank_resend_frequency');
@@ -3448,6 +3476,19 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
         const formData = new FormData(this);
+        if (editId) {
+            ['day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
+                formData.delete(key);
+            });
+            const bankModule = getBankProcessModule();
+            if (bankModule && typeof bankModule.setPendingResendScheduleForProcess === 'function') {
+                bankModule.setPendingResendScheduleForProcess(editId, {
+                    day_start: (document.getElementById('bank_day_start')?.value || '').trim(),
+                    day_end: (document.getElementById('bank_day_end')?.value || '').trim(),
+                    day_start_frequency: document.getElementById('bank_day_start_frequency')?.value === 'monthly' ? 'monthly' : '1st_of_every_month'
+                });
+            }
+        }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
         formData.set('profit', grossProfit.toFixed(2));
@@ -3462,7 +3503,9 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
-        formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        if (!editId) {
+            formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        }
         try {
             if (editId) {
                 formData.append('id', editId);
