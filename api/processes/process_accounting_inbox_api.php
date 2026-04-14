@@ -408,8 +408,22 @@ function inboxAppendMonthlyNeedToday(
             $billYm = sprintf('%04d-%d', $billY, $billMo);
             if ($createdYm === $billYm) {
                 $dueYmd = null;
+                $shouldProrateMonthlyByCreatedFloor = true;
                 if ($frequency === '1st_of_every_month') {
                     $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
+                    if ($startDate !== '') {
+                        try {
+                            $startDt = new DateTimeImmutable($startDate);
+                            $startYm = $startDt->format('Y-n');
+                            if ((int) $startDt->format('j') !== 1 || $billYm !== $startYm) {
+                                $shouldProrateMonthlyByCreatedFloor = false;
+                            }
+                        } catch (Throwable $e) {
+                            $shouldProrateMonthlyByCreatedFloor = false;
+                        }
+                    } else {
+                        $shouldProrateMonthlyByCreatedFloor = false;
+                    }
                 } else {
                     if ($startTs !== false) {
                         $dueYmd = calendarMonthDueYmd($billY, $billMo, (int) date('j', $startTs));
@@ -418,7 +432,7 @@ function inboxAppendMonthlyNeedToday(
                         }
                     }
                 }
-                if ($dueYmd !== null && $createdYmd > $dueYmd) {
+                if ($dueYmd !== null && $createdYmd > $dueYmd && $shouldProrateMonthlyByCreatedFloor) {
                     $prorateFrom = $dueYmd;
                     if ($frequency === '1st_of_every_month' && empty($r['accounting_resend_relax_created_floor'])) {
                         $prorateFrom = $createdYmd;
@@ -635,7 +649,7 @@ try {
     }
 
     $today = date('Y-m-d');
-    //$today = '2026-08-01';
+    //$today = '2026-06-01';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -828,10 +842,19 @@ try {
                         if ($exclusiveEnd !== null && $firstOfThis >= $exclusiveEnd) {
                             break;
                         }
+                        $billYm = $iter->format('Y-n');
+                        $todayYm = (new DateTimeImmutable($today))->format('Y-n');
+                        $resendRelax = !empty($r['accounting_resend_relax_created_floor']);
+                        // 非 resend：旧数据不拿，仅当月账单进入 Accounting Due。
+                        if (!$resendRelax && $billYm !== $todayYm) {
+                            $anchorSlotIndex++;
+                            $iter = $iter->modify('+1 month');
+                            continue;
+                        }
                         $effectiveDue = maxYmd($firstOfThis, $createdYmd);
                         if ($today >= $effectiveDue
                             && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
-                            $bm = $iter->format('Y-n');
+                            $bm = $billYm;
                             if ($resendMulti) {
                                 $queuedMonthlyBillingMonths[] = $bm;
                             } else {
