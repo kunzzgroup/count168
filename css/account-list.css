@@ -392,12 +392,6 @@
     box-sizing: border-box;
 }
 
-.currency-setting-add-btn {
-    border-radius: 6px;
-    padding: 8px 24px;
-    font-weight: 500;
-}
-
 .currency-setting-divider {
     height: 1px;
     background-color: #ddd;
@@ -512,22 +506,4 @@
     background: #ffffff;
     border-top: 2px solid #e2e8f0;
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.currency-setting-submit-btn {
-    border-radius: 6px;
-    padding: 8px 32px;
-    font-size: 14px;
-    font-weight: 500;
-    background: linear-gradient(180deg, #60A5FA 0%, #3B82F6 100%);
-}
-
-.currency-setting-cancel-btn {
-    border-radius: 6px;
-    padding: 8px 24px;
-    font-size: 14px;
-    font-weight: 500;
-    background: linear-gradient(180deg, #9CA3AF 0%, #6B7280 100%);
-    border: none;
-    color: white;
 }

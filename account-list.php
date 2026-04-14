@@ -618,7 +618,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         <label for="currencySettingAddInput">Add Currency :</label>
                         <div style="display: flex; gap: 10px; width: 100%;">
                             <input type="text" id="currencySettingAddInput" class="currency-setting-input" placeholder="Please enter new currency" style="flex: 1;">
-                            <button type="button" class="account-btn account-btn-save currency-setting-add-btn" onclick="addCurrencyFromSettingModal()">Add</button>
+                            <button type="button" class="account-btn account-btn-add currency-setting-add-btn" onclick="addCurrencyFromSettingModal()">Add</button>
                         </div>
                     </div>
                     
