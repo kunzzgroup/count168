@@ -291,10 +291,10 @@ function searchApiAppendDomainNetProfitVirtualRows(
         }
         $seen[$k] = true;
         $results[] = [
-            'account_id' => $ownerCode,
-            'account_name' => $ownerCode,
+            'account_id' => $profitRowCode,
+            'account_name' => $profitRowName,
             'account_db_id' => $vid,
-            'role' => 'DOMAIN',
+            'role' => 'PROFIT',
             'currency' => $cur,
             'currency_id_debug' => $cid,
             'bf' => 0.0,
