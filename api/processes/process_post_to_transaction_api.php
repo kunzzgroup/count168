@@ -768,6 +768,7 @@ try {
     $has_resend_relax_col = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
     $fallbackDate = date('Y-m-d');
     $createdCount = 0;
+    $skippedFutureMonthlyDueCount = 0;
     $currencyCache = [];
 
     foreach ($pairs as $pair) {
@@ -999,21 +1000,19 @@ try {
                 }
             }
         } elseif ($periodType === 'monthly') {
-            // posted_date：账单应付日（如 1st → 当月 1 号），供 Inbox / PAP 按自然月去重。
-            // transaction_date：流程 Day start（合同起算日），与 Capture / Payment History 筛选一致；可与 posted_date 不同月。
+            // monthly：Payment History 归档日固定为该期应付日（dueYmd），
+            // 非 resend 场景未到应付日不允许提前入账；resend 维持可回补旧期能力。
             if ($resolvedMonthlyBm !== '' && $dayStartYmd) {
                 $dueTx = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, $frequency);
                 if ($dueTx !== null) {
-                    // 防止未来账单被提前提交：仅对「未显式指定 billing_month」的场景生效（例如列表页直接批量 Transaction）。
-                    // Accounting Due 提交会带 billing_month，表示该期已在 inbox 判定为可入账，不在此二次拦截。
-                    if ($resolvedMonthlyBm === '' && $dueTx > $fallbackDate) {
+                    $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
+                    if (!$resendRelax && $dueTx > $fallbackDate) {
                         $skipCurrentPair = true;
+                        $skippedFutureMonthlyDueCount++;
                     }
+                    $transactionDate = $dueTx;
                     $postedDateForInbox = $dueTx;
                 }
-            }
-            if ($dayStartYmd) {
-                $transactionDate = $dayStartYmd;
             }
         }
 
@@ -1146,6 +1145,14 @@ try {
                 }
             }
         }
+    }
+
+    if ($createdCount === 0 && $skippedFutureMonthlyDueCount > 0) {
+        jsonResponse(true, "未到应付日，暂不生成交易记录（Resend 除外）。", [
+            'created_count' => 0,
+            'skipped_future_monthly_due_count' => $skippedFutureMonthlyDueCount
+        ]);
+        exit;
     }
 
     jsonResponse(true, "已入账，共生成 $createdCount 条交易记录。", ['created_count' => $createdCount]);
