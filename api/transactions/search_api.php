@@ -1120,6 +1120,29 @@ try {
                 $exSt = $pdo->prepare($extraSql);
                 $exSt->execute($extraParams);
                 $extraAcc = $exSt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Also create fallback entries for from_account_ids that no longer exist in the account table
+                $foundIds = [];
+                foreach ($extraAcc as $ea) {
+                    $foundIds[(int)$ea['id']] = true;
+                }
+                foreach ($cpNewIds as $reqId) {
+                    if (!isset($foundIds[(int)$reqId])) {
+                        $extraAcc[] = [
+                            'id' => (int)$reqId,
+                            'account_id' => 'DeletedAccount_' . $reqId,
+                            'name' => 'Deleted Account',
+                            'role' => 'none',
+                            'status' => 0,
+                            'payment_alert' => 0,
+                            'alert_day' => 0,
+                            'alert_specific_date' => null,
+                            'alert_amount' => 0,
+                            'account_id_debug' => 'FROM_MERGE_DELETED'
+                        ];
+                    }
+                }
+
                 if (!empty($extraAcc)) {
                     $accounts = array_merge($accounts, $extraAcc);
                     usort($accounts, function ($x, $y) {
@@ -1531,8 +1554,8 @@ try {
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   AND t.currency_id IS NOT NULL 
                   -- Domain Share Commission / Net Profit 不计入 from_account（避免重复）
-                  AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
-                  AND t.sms NOT LIKE '[DOMAIN_NET_PROFIT|%'
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'
                   $contra_where_t
                 GROUP BY t.from_account_id, t.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
@@ -2235,7 +2258,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
-            . " AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'"
+            . " AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'"
             . contraApprovedWhere($pdo, 't');
 
         $stmt = $pdo->prepare($sql);
