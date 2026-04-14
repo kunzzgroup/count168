@@ -207,85 +207,120 @@ function searchApiAppendDomainNetProfitVirtualRows(
         $currencyFilterIds = array_values(array_unique(array_filter($currencyFilterIds)));
     }
 
-    $sql = "SELECT t.id, t.amount, t.currency_id
+    $sql = "SELECT t.id, t.amount, t.currency_id, t.transaction_date
             FROM transactions t
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
-              AND t.transaction_date BETWEEN ? AND ?
+              AND t.transaction_date <= ?
               AND (
                     t.sms LIKE '[DOMAIN_NET_PROFIT|%'
                     OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROFIT BY %'
               )";
-    $par = [$company_id, $date_from_db, $date_to_db];
+    $par = [$company_id, $date_to_db];
     if (!empty($currencyFilterIds)) {
         $sql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($currencyFilterIds), '?')) . ')';
         $par = array_merge($par, $currencyFilterIds);
     }
     $st = $pdo->prepare($sql);
     $st->execute($par);
-    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+    $dbRows = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    $virtualRows = [];
 
     // 若尚未落库 DOMAIN_NET_PROFIT，动态按「Fee - Commission」计算一条利润行，确保交易页可见
-    if (empty($rows)) {
+    if (empty($dbRows)) {
         $aggSql = "SELECT
                      t.currency_id,
                      SUM(CASE
-                           WHEN t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
-                           THEN ROUND(t.amount, 2)
-                           ELSE 0
-                         END) AS fee_total,
+                           WHEN t.transaction_date < ? AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %')
+                           THEN ROUND(t.amount, 2) ELSE 0 END) AS bf_fee_total,
                      SUM(CASE
-                           WHEN t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
-                           THEN ROUND(t.amount, 2)
-                           ELSE 0
-                         END) AS comm_total
+                           WHEN t.transaction_date < ? AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %')
+                           THEN ROUND(t.amount, 2) ELSE 0 END) AS bf_comm_total,
+                     SUM(CASE
+                           WHEN t.transaction_date >= ? AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %')
+                           THEN ROUND(t.amount, 2) ELSE 0 END) AS crdr_fee_total,
+                     SUM(CASE
+                           WHEN t.transaction_date >= ? AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %')
+                           THEN ROUND(t.amount, 2) ELSE 0 END) AS crdr_comm_total
                    FROM transactions t
                    WHERE t.company_id = ?
                      AND t.transaction_type = 'PAYMENT'
-                     AND t.transaction_date BETWEEN ? AND ?
+                     AND t.transaction_date <= ?
                    GROUP BY t.currency_id";
         $aggSt = $pdo->prepare($aggSql);
-        $aggSt->execute([$company_id, $date_from_db, $date_to_db]);
+        $aggSt->execute([$date_from_db, $date_from_db, $date_from_db, $date_from_db, $company_id, $date_to_db]);
         while ($ar = $aggSt->fetch(PDO::FETCH_ASSOC)) {
             $cid = (int) ($ar['currency_id'] ?? 0);
-            if ($cid <= 0)
-                continue;
-            $fee = round((float) ($ar['fee_total'] ?? 0), 2);
-            $comm = round((float) ($ar['comm_total'] ?? 0), 2);
-            $net = round($fee - $comm, 2);
-            if ($net <= 0)
-                continue;
-            if (!empty($currencyFilterIds) && !in_array($cid, $currencyFilterIds, true)) {
-                continue;
-            }
-            $rows[] = [
-                'id' => 0,
-                'amount' => $net,
+            if ($cid <= 0) continue;
+
+            $bf_fee = round((float) ($ar['bf_fee_total'] ?? 0), 2);
+            $bf_comm = round((float) ($ar['bf_comm_total'] ?? 0), 2);
+            $bf_net = round($bf_fee - $bf_comm, 2);
+
+            $crdr_fee = round((float) ($ar['crdr_fee_total'] ?? 0), 2);
+            $crdr_comm = round((float) ($ar['crdr_comm_total'] ?? 0), 2);
+            $crdr_net = round($crdr_fee - $crdr_comm, 2);
+
+            if (abs($bf_net) <= 0.00001 && abs($crdr_net) <= 0.00001) continue;
+            if (!empty($currencyFilterIds) && !in_array($cid, $currencyFilterIds, true)) continue;
+
+            $virtualRows[] = [
                 'currency_id' => $cid,
+                'bf' => $bf_net,
+                'cr_dr' => $crdr_net,
+                'has_crdr' => abs($crdr_net) > 0.00001 ? 1 : 0
+            ];
+        }
+    } else {
+        $agg = [];
+        foreach ($dbRows as $row) {
+            $cid = (int) ($row['currency_id'] ?? 0);
+            $amt = round((float) ($row['amount'] ?? 0), 2);
+            if ($cid <= 0 || abs($amt) <= 0.00001) continue;
+            if (!isset($agg[$cid])) {
+                $agg[$cid] = ['bf' => 0.0, 'crdr' => 0.0, 'count' => 0];
+            }
+            if ($row['transaction_date'] < $date_from_db) {
+                $agg[$cid]['bf'] += $amt;
+            } else {
+                $agg[$cid]['crdr'] += $amt;
+                $agg[$cid]['count']++;
+            }
+        }
+        foreach ($agg as $cid => $v) {
+            if (abs($v['bf']) <= 0.00001 && abs($v['crdr']) <= 0.00001) continue;
+            $virtualRows[] = [
+                'currency_id' => $cid,
+                'bf' => round($v['bf'], 2),
+                'cr_dr' => round($v['crdr'], 2),
+                'has_crdr' => $v['count'] > 0 ? 1 : 0
             ];
         }
     }
 
-    while ($row = (is_array($rows) ? array_shift($rows) : null)) {
-        $amt = round((float) ($row['amount'] ?? 0), 2);
-        if (abs($amt) < 0.00001)
-            continue;
-        $cid = (int) ($row['currency_id'] ?? 0);
+    foreach ($virtualRows as $vRow) {
+        $cid = $vRow['currency_id'];
         $cur = strtoupper((string) ($currency_id_map[$cid] ?? ''));
-        if ($cur === '')
-            continue;
-        $vid = -2000000 - (int) ($row['id'] ?? 0);
+        if ($cur === '') continue;
+        
+        $bf = $vRow['bf'];
+        $crdr = $vRow['cr_dr'];
+        $balance = round($bf + $crdr, 2);
+        
+        $vid = -2000000 - $cid; // use negative cid to keep it unique per currency
         $k = $vid . '_' . $cur;
+        
         if (isset($seen[$k])) {
             $idx = $seenIndex[$k] ?? null;
             if ($idx !== null && isset($results[$idx])) {
-                // 若同账户同币种已存在（常见为0值占位行），直接升级为净利润展示行
                 $results[$idx]['account_id'] = $profitRowCode;
                 $results[$idx]['account_name'] = $profitRowName;
                 $results[$idx]['role'] = 'PROFIT';
-                $results[$idx]['cr_dr'] = $amt;
-                $results[$idx]['balance'] = $amt;
-                $results[$idx]['has_crdr_transactions'] = 1;
+                $results[$idx]['bf'] = $bf;
+                $results[$idx]['cr_dr'] = $crdr;
+                $results[$idx]['balance'] = $balance;
+                if ($vRow['has_crdr']) $results[$idx]['has_crdr_transactions'] = 1;
             }
             continue;
         }
@@ -297,11 +332,11 @@ function searchApiAppendDomainNetProfitVirtualRows(
             'role' => 'PROFIT',
             'currency' => $cur,
             'currency_id_debug' => $cid,
-            'bf' => 0.0,
+            'bf' => $bf,
             'win_loss' => 0.0,
-            'cr_dr' => $amt,
-            'balance' => $amt,
-            'has_crdr_transactions' => 1,
+            'cr_dr' => $crdr,
+            'balance' => $balance,
+            'has_crdr_transactions' => $vRow['has_crdr'],
             'is_alert' => 0,
             'is_rate_middleman' => 0
         ];
@@ -337,16 +372,16 @@ function searchApiAppendDomainListFeeVirtualRows(
         $currencyFilterIds = array_values(array_unique(array_filter($currencyFilterIds)));
     }
 
-    $sql = "SELECT t.id, t.amount, t.currency_id, t.sms, t.description
+    $sql = "SELECT t.id, t.amount, t.currency_id, t.sms, t.description, t.transaction_date
             FROM transactions t
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
-              AND t.transaction_date BETWEEN ? AND ?
+              AND t.transaction_date <= ?
               AND (
                     t.sms LIKE '[DOMAIN_LIST_FEE|%'
                     OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
               )";
-    $par = [$company_id, $date_from_db, $date_to_db];
+    $par = [$company_id, $date_to_db];
     if (!empty($currencyFilterIds)) {
         $sql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($currencyFilterIds), '?')) . ')';
         $par = array_merge($par, $currencyFilterIds);
@@ -367,6 +402,9 @@ function searchApiAppendDomainListFeeVirtualRows(
 
     $st = $pdo->prepare($sql);
     $st->execute($par);
+    
+    $aggRows = [];
+    
     while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
         $src = searchApiParseDomainListFeeCompanyCode((string) ($row['sms'] ?? ''));
         if ($src === null || $src === '') {
@@ -385,9 +423,37 @@ function searchApiAppendDomainListFeeVirtualRows(
             continue;
 
         $amt = round((float) ($row['amount'] ?? 0), 2);
-        if (abs($amt) < 0.00001)
+        if (abs($amt) <= 0.00001)
             continue;
 
+        $key = $src . '_' . $cur;
+        if (!isset($aggRows[$key])) {
+            $aggRows[$key] = [
+                'src' => $src,
+                'cid' => $cid,
+                'cur' => $cur,
+                'bf' => 0.0,
+                'crdr' => 0.0,
+                'count' => 0
+            ];
+        }
+
+        if ($row['transaction_date'] < $date_from_db) {
+            $aggRows[$key]['bf'] += $amt;
+        } else {
+            $aggRows[$key]['crdr'] += $amt;
+            $aggRows[$key]['count']++;
+        }
+    }
+
+    foreach ($aggRows as $key => $agg) {
+        $bf = -$agg['bf'];
+        $crdr = -$agg['crdr'];
+        
+        if (abs($bf) <= 0.00001 && abs($crdr) <= 0.00001) continue;
+
+        $src = $agg['src'];
+        
         $realAccountId = 0;
         try {
             $sta = $pdo->prepare("
@@ -403,12 +469,11 @@ function searchApiAppendDomainListFeeVirtualRows(
         } catch (PDOException $e) {
         }
 
-        $rowAccountId = $realAccountId > 0 ? $realAccountId : (-(int) ($row['id'] ?? 0));
-        if ($rowAccountId === 0)
-            continue;
-        $k = $rowAccountId . '_' . $cur;
-        if (isset($seen[$k]))
-            continue;
+        $rowAccountId = $realAccountId > 0 ? $realAccountId : (-1000000 - abs((int) crc32($src)));
+        if ($rowAccountId === 0) continue;
+        
+        $k = $rowAccountId . '_' . $agg['cur'];
+        if (isset($seen[$k])) continue;
         $seen[$k] = true;
 
         $name = $src;
@@ -428,18 +493,20 @@ function searchApiAppendDomainListFeeVirtualRows(
         } catch (PDOException $e) {
         }
 
+        $balance = round($bf + $crdr, 2);
+        
         $results[] = [
             'account_id' => $src,
             'account_name' => $name,
             'account_db_id' => $rowAccountId,
             'role' => 'DOMAIN',
-            'currency' => $cur,
-            'currency_id_debug' => $cid,
-            'bf' => 0.0,
+            'currency' => $agg['cur'],
+            'currency_id_debug' => $agg['cid'],
+            'bf' => $bf,
             'win_loss' => 0.0,
-            'cr_dr' => -$amt,
-            'balance' => -$amt,
-            'has_crdr_transactions' => 1,
+            'cr_dr' => $crdr,
+            'balance' => $balance,
+            'has_crdr_transactions' => $agg['count'] > 0 ? 1 : 0,
             'is_alert' => 0,
             'is_rate_middleman' => 0
         ];
@@ -988,11 +1055,11 @@ try {
                   FROM transactions t
                   WHERE t.company_id = ?
                     AND t.from_account_id IS NOT NULL
-                    AND t.transaction_date BETWEEN ? AND ?
+                    AND t.transaction_date <= ?
                     AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                     AND t.currency_id IS NOT NULL
                     $cpContra";
-        $cpParams = [$company_id, $date_from_db, $date_to_db];
+        $cpParams = [$company_id, $date_to_db];
         $cpCurrencyOk = true;
         if (!empty($filter_currency_codes)) {
             $cpCids = [];
