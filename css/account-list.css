@@ -10,7 +10,7 @@
 #editCurrencyInput,
 #currencyCodeInput {
     text-transform: uppercase;
-    font-size: clamp(9px,0.85vw,14px);
+    font-size: clamp(9px, 0.85vw, 14px);
 }
 
 #addCurrencyInput,
@@ -20,6 +20,7 @@
     border: 1px solid #ddd;
     border-radius: 4px;
 }
+
 /* 注意：searchInput 不使用 CSS text-transform，保持实际值的显示 */
 
 /* Account item compact hover styles (for linked accounts modal) */
@@ -28,10 +29,11 @@
     border-color: #1a237e !important;
 }
 
-#linkAccountList .account-item-compact input[type="checkbox"]:checked + label {
+#linkAccountList .account-item-compact input[type="checkbox"]:checked+label {
     color: #1a237e;
     font-weight: bold;
 }
+
 /* Link Account 模态：底部按钮固定，列表区无独立滚动条 */
 #linkAccountModal .account-modal-content {
     display: flex;
@@ -39,6 +41,7 @@
     max-height: 70vh;
     overflow: hidden;
 }
+
 #linkAccountModal .link-account-modal-body {
     flex: 1;
     min-height: 0;
@@ -46,6 +49,7 @@
     padding-left: 2.1875rem;
     padding-right: 1.25rem;
 }
+
 /* 红框区域固定：标题、药丸、说明、搜索不随列表滚动；搜索栏在蓝框位置、与下方列表右对齐 */
 #linkAccountModal .link-account-fixed-area {
     flex-shrink: 0;
@@ -57,10 +61,12 @@
     padding-right: 1.25rem;
     padding-bottom: 8px;
 }
+
 #linkAccountModal .link-account-form-actions {
     flex-shrink: 0;
     border-top: 1px solid #e2e8f0;
 }
+
 /* 蓝框内账号列表：固定 3 列、间距一致、视觉舒适 */
 .link-account-list {
     display: grid;
@@ -71,17 +77,20 @@
     background-color: #ffffff;
     padding: 12px 14px;
 }
+
 /* Link Account: pill buttons + description (comfortable spacing & size) */
 .link-type-section {
     margin-top: 14px;
     margin-bottom: 14px;
 }
+
 .link-type-pills {
     display: flex;
     gap: 10px;
     justify-content: flex-start;
     flex-wrap: wrap;
 }
+
 .link-type-pill {
     display: inline-flex;
     align-items: center;
@@ -96,6 +105,7 @@
     font-size: 13px;
     font-weight: 600;
 }
+
 .link-type-pill .link-type-radio {
     position: absolute;
     width: 0;
@@ -103,25 +113,30 @@
     opacity: 0;
     pointer-events: none;
 }
+
 .link-type-pill-check {
     opacity: 0;
     color: #fff;
     font-size: 13px;
     font-weight: bold;
 }
+
 .link-type-pill:has(.link-type-radio:checked) .link-type-pill-check {
     opacity: 1;
 }
+
 .link-type-pill:hover {
     background: #e5e7eb;
     border-color: #9ca3af;
 }
+
 .link-type-pill:has(.link-type-radio:checked) {
     background: linear-gradient(180deg, #7eb8ff 0%, #2563eb 100%);
     border-color: #2563eb;
     color: #fff;
     box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
 }
+
 .link-type-desc {
     margin: 8px 0 0 0;
     font-size: 12px;
@@ -129,6 +144,7 @@
     line-height: 1.5;
     text-align: left;
 }
+
 /* 蓝框位置：搜索栏区域 */
 .link-account-search-wrap {
     display: flex;
@@ -140,11 +156,13 @@
     margin-right: 20px;
     margin-top: 32px;
 }
+
 .link-account-search-inner {
     position: relative;
     width: 100%;
     max-width: 280px;
 }
+
 .link-account-search-icon {
     position: absolute;
     left: 12px;
@@ -155,6 +173,7 @@
     color: #9ca3af;
     pointer-events: none;
 }
+
 .link-account-search-input {
     width: 100%;
     box-sizing: border-box;
@@ -165,11 +184,13 @@
     font-family: inherit;
     background: #fff;
 }
+
 .link-account-search-input:focus {
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
+
 .link-account-search-input::placeholder {
     color: #9ca3af;
 }
@@ -186,11 +207,13 @@
     transition: all 0.2s;
     font-weight: 500;
 }
+
 .currency-setting-pill.selected {
     background: linear-gradient(180deg, #60A5FA 0%, #3B82F6 100%);
     color: #fff;
     border-color: #3B82F6;
 }
+
 .currency-setting-pill:hover:not(.selected) {
     background-color: #f3f4f6;
 }
@@ -207,11 +230,12 @@
     cursor: pointer;
     border: 1px solid transparent;
     transition: all 0.2s;
-    min-height: 40px;
 }
+
 .currency-setting-account-item:hover {
     background-color: #d1d1d1;
 }
+
 .currency-setting-account-item.selected {
     background-color: #3B82F6;
     color: #fff;
@@ -231,16 +255,19 @@
 .currency-setting-account-list::-webkit-scrollbar {
     width: 10px;
 }
+
 .currency-setting-account-list::-webkit-scrollbar-track {
-    background: #f1f1f1; 
+    background: #f1f1f1;
     border-radius: 5px;
 }
+
 .currency-setting-account-list::-webkit-scrollbar-thumb {
-    background: #d1d5db; 
+    background: #d1d5db;
     border-radius: 5px;
 }
+
 .currency-setting-account-list::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af; 
+    background: #9ca3af;
 }
 
 /* ==========================================
