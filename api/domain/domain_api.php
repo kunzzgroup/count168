@@ -514,6 +514,31 @@ function resolveC168OwnerAccountId(PDO $pdo, int $c168Pk): ?int
     }
 }
 
+function resolveC168ProfitRoleAccountId(PDO $pdo, int $c168Pk, int $excludeAccountId = 0): ?int
+{
+    if ($c168Pk <= 0) {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            ORDER BY CASE WHEN UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT' THEN 0 ELSE 1 END, a.id ASC
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk, (int)$excludeAccountId]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? (int)$v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
 /**
  * 第三笔：C168 最终净利润（fee - commissions）。
  * 用独立标记避免重复写入，同一天同来源公司只写一笔。
@@ -566,12 +591,16 @@ function createDomainNetProfitPayment(
     if (!$poolId || $poolId <= 0) {
         $poolId = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
     }
-    $ownerAccId = resolveC168OwnerAccountId($pdo, $c168Pk);
-    // 回退：若没有 K(owner_code) 账号，则利润记到资金池账号，确保第三笔一定生成
-    if (!$ownerAccId || $ownerAccId <= 0) {
-        $ownerAccId = $poolId;
+    // 目标优先使用 Account List 里的 PROFIT role（满足“第三笔利润不再走 K”）
+    $profitAccId = resolveC168ProfitRoleAccountId($pdo, $c168Pk, (int)$poolId);
+    // 回退：若无 PROFIT role，再回退 owner_code 账号，最后回退资金池
+    if (!$profitAccId || $profitAccId <= 0) {
+        $profitAccId = resolveC168OwnerAccountId($pdo, $c168Pk);
     }
-    if (!$ownerAccId || !$poolId) {
+    if (!$profitAccId || $profitAccId <= 0) {
+        $profitAccId = $poolId;
+    }
+    if (!$profitAccId || !$poolId || (int)$profitAccId === (int)$poolId) {
         return $out;
     }
 
@@ -592,7 +621,7 @@ function createDomainNetProfitPayment(
     $insertCols = [
         'company_id' => $c168Pk,
         'transaction_type' => 'PAYMENT',
-        'account_id' => $ownerAccId,
+        'account_id' => $profitAccId,
         'from_account_id' => $poolId,
         'amount' => $net,
         'transaction_date' => $today,
@@ -1077,6 +1106,69 @@ function hasDomainOneTimeTransactionExecuted(PDO $pdo, string $sourceCompanyCode
     }
 }
 
+function hasDomainNetProfitTransactionExecuted(PDO $pdo, string $sourceCompanyCode): bool
+{
+    $srcU = strtoupper(trim($sourceCompanyCode));
+    if ($srcU === '') {
+        return false;
+    }
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT 1
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.sms LIKE ?
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk, '[DOMAIN_NET_PROFIT|' . $srcU . '%']);
+        return $st->fetchColumn() !== false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+function getDomainFeeAndCommissionTotalsBySource(PDO $pdo, string $sourceCompanyCode): array
+{
+    $out = ['fee' => 0.0, 'commission' => 0.0];
+    $srcU = strtoupper(trim($sourceCompanyCode));
+    if ($srcU === '') {
+        return $out;
+    }
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return $out;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT
+                SUM(CASE WHEN t.sms LIKE ? THEN ROUND(t.amount, 2) ELSE 0 END) AS fee_total,
+                SUM(CASE WHEN t.sms LIKE ? THEN ROUND(t.amount, 2) ELSE 0 END) AS comm_total
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND (t.sms LIKE ? OR t.sms LIKE ?)
+        ");
+        $st->execute([
+            '[DOMAIN_LIST_FEE|' . $srcU . '%',
+            '[DOMAIN_SHARE_COMMISSION|' . $srcU . '%',
+            $c168Pk,
+            '[DOMAIN_LIST_FEE|' . $srcU . '%',
+            '[DOMAIN_SHARE_COMMISSION|' . $srcU . '%',
+        ]);
+        $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+        $out['fee'] = round((float)($row['fee_total'] ?? 0), 2);
+        $out['commission'] = round((float)($row['comm_total'] ?? 0), 2);
+    } catch (PDOException $e) {
+        return $out;
+    }
+    return $out;
+}
+
 /**
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
@@ -1101,6 +1193,27 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
             continue;
         }
         if (hasDomainOneTimeTransactionExecuted($pdo, $cid)) {
+            // 兼容旧数据：若 fee/commission 已有但 net profit 仍是“虚拟展示”，补写一次真实 DOMAIN_NET_PROFIT。
+            if (!hasDomainNetProfitTransactionExecuted($pdo, $cid)) {
+                $c168Pk = getC168CompanyPk($pdo);
+                $poolId = $c168Pk ? resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0) : null;
+                if ($poolId <= 0) {
+                    $poolId = null;
+                }
+                $totals = getDomainFeeAndCommissionTotalsBySource($pdo, $cid);
+                $profitBackfill = createDomainNetProfitPayment(
+                    $pdo,
+                    $cid,
+                    (float)$totals['fee'],
+                    (float)$totals['commission'],
+                    $poolId,
+                    $u,
+                    $o
+                );
+                if (!empty($profitBackfill['created'])) {
+                    $any = true;
+                }
+            }
             continue;
         }
         $apply = filter_var($row['apply_commission_payments_on_domain_save'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -1127,7 +1240,22 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
             $poolId = null;
         }
         $commissionResult = createDomainShareCommissionPayments($pdo, $cid, $normalized, $poolId, $u, $o);
-        if (!empty($feeResult['created']) || (($commissionResult['created_count'] ?? 0) > 0)) {
+        $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
+        $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
+        $profitResult = createDomainNetProfitPayment(
+            $pdo,
+            $cid,
+            $feeAmtForNet,
+            $commTotalForNet,
+            $poolId,
+            $u,
+            $o
+        );
+        if (
+            !empty($feeResult['created'])
+            || (($commissionResult['created_count'] ?? 0) > 0)
+            || !empty($profitResult['created'])
+        ) {
             $any = true;
         }
     }

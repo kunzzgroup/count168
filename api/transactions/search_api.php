@@ -1614,16 +1614,6 @@ if (!empty($target_account_ids)) {
         $filter_currency_codes,
         $currency_id_map
     );
-    searchApiAppendDomainNetProfitVirtualRows(
-        $pdo,
-        $results,
-        $company_id,
-        $date_from_db,
-        $date_to_db,
-        $filter_currency_codes,
-        $currency_id_map
-    );
-
     // 按 currency 和 account_id 排序
     usort($results, function($a, $b) {
         if ($a['currency'] !== $b['currency']) {
