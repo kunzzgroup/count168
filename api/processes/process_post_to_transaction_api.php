@@ -878,10 +878,8 @@ try {
                     $startYmForBill = (new DateTimeImmutable($dayStartYmd))->format('Y-n');
                     $sdTs = strtotime($dayStartYmd);
                     if ($startYmForBill === $billYm && $sdTs !== false && (int) date('j', $sdTs) === 1) {
+                        // 1st_of_every_month + 首月(day_start=1号)统一按1号起算，不按创建日截断。
                         $prorateFrom = $dayStartYmd;
-                        if (!$resendRelax && $createdYm === $billYm && $createdYmd > $prorateFrom) {
-                            $prorateFrom = $createdYmd;
-                        }
                         $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
                         $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
                         $cost = $pr['cost'];
@@ -928,23 +926,7 @@ try {
                     if ($dueYmd !== null && $createdYmd > $dueYmd && $shouldProrateMonthlyByCreatedFloor) {
                         $prorateFrom = $dueYmd;
                         if ($frequency === '1st_of_every_month' && !$resendRelax) {
-                            // 仅在「首月=day_start 所在月且 day_start 为 1 号」时，允许从创建日截断；
-                            // 其它 monthly（例如 day_start 非 1 号后的整月）一律按整月（dueYmd）计算。
-                            $useCreatedAsProrationStart = false;
-                            if ($dayStartYmd !== null && $dayStartYmd !== '') {
-                                try {
-                                    $startDt = new DateTimeImmutable($dayStartYmd);
-                                    $startYmForBill = $startDt->format('Y-n');
-                                    if ((int) $startDt->format('j') === 1 && $billYm === $startYmForBill) {
-                                        $useCreatedAsProrationStart = true;
-                                    }
-                                } catch (Throwable $e) {
-                                    // keep full-month behavior
-                                }
-                            }
-                            if ($useCreatedAsProrationStart) {
-                                $prorateFrom = $createdYmd;
-                            }
+                            // 1st_of_every_month 一律按该月1号(dueYmd)起算，不按创建日截断。
                         }
                         $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
                         $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
