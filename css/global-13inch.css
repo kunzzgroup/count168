@@ -591,7 +591,6 @@ body.maintenance-page {
 
 /* 2. Main containers: stretch to content, never clip */
 .container,
-.content,
 .transaction-container,
 .datacapture-container,
 .dashboard-container,
@@ -606,6 +605,19 @@ body.maintenance-page {
     overflow: visible !important;
     padding-bottom: 40px !important;
 }
+
+/* .content wraps the table + pagination — must be flex column
+   so that align-self: flex-end works on the pagination child */
+.content {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
 
 /* 3. Table / card wrappers: full render, zero nested scroll */
 .table-container,
@@ -627,7 +639,9 @@ body.maintenance-page {
 }
 
 /* 4. Pagination — ALWAYS static, RIGHT-ALIGNED below content
-      Structure: container (flex-col) > ... > .pagination-row (flex, end) > pagination
+      Works via:
+        - align-self: flex-end  →  when .content is flex column (processlist, userlist, accountlist)
+        - margin-left: auto     →  fallback for block containers
       All known pagination class names covered below */
 .pagination-container,
 .account-pagination-container,
@@ -644,13 +658,14 @@ body.maintenance-page {
     top: auto !important;
     z-index: auto !important;
 
-    /* ✅ Right-aligned pill below table */
+    /* ✅ Right-aligned pill below table — works in BOTH block and flex parents */
     display: flex !important;
     align-items: center !important;
+    align-self: flex-end !important;   /* pushes right in flex-column parent (.content) */
     justify-content: flex-end !important;
     margin-top: 10px !important;
     margin-bottom: 16px !important;
-    margin-left: auto !important;
+    margin-left: auto !important;      /* fallback: pushes right in block parent */
     margin-right: 0 !important;
     width: fit-content !important;
     padding: 4px 8px !important;
