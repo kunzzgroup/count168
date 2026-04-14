@@ -282,6 +282,8 @@ try {
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         WHEN transaction_type = 'CONTRA' THEN -amount
                         WHEN transaction_type = 'CLEAR' THEN -amount
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
@@ -299,14 +301,18 @@ try {
 
             // From Account
             $sql = "SELECT COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR') THEN amount
                         WHEN transaction_type = 'CONTRA' THEN amount
+                        WHEN transaction_type = 'CLEAR' THEN amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
                         ELSE 0
                     END), 0)
                     FROM transactions t
                     WHERE t.company_id = ?
                       AND t.from_account_id IN ($ids_placeholder)
-                      AND t.transaction_date < ?" . $currency_filter_t_from . $clearFilter . $contraApproval;
+                      AND t.transaction_date < ?
+                      AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                      AND t.sms NOT LIKE '[DOMAIN_NET_PROFIT|%'" . $currency_filter_t_from . $clearFilter . $contraApproval;
             $bf_stmt = $pdo->prepare($sql);
             $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_from));
             $total_bf += (float)$bf_stmt->fetchColumn();
@@ -358,9 +364,11 @@ try {
             // To Account
             $sql = "SELECT DATE(t.transaction_date) as date,
                            COALESCE(SUM(CASE 
-                               WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
+                               WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                                WHEN transaction_type = 'CONTRA' THEN -t.amount
                                WHEN transaction_type = 'CLEAR' THEN -t.amount
+                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
                                WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
                                WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
@@ -372,11 +380,11 @@ try {
                     WHERE t.company_id = ?
                       AND t.account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
-                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')" 
+                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE')" 
                       . $currency_filter_t_to . $clearFilter . $contraApproval . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
-        $daily_stmt = $pdo->prepare($sql);
+            $daily_stmt = $pdo->prepare($sql);
             $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_to));
             foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $daily_data[$row['date']] = ($daily_data[$row['date']] ?? 0) + (float)$row['cr_dr'];
@@ -387,15 +395,17 @@ try {
                            COALESCE(SUM(CASE 
                                WHEN transaction_type = 'CONTRA' THEN t.amount
                                WHEN transaction_type = 'CLEAR' THEN t.amount
-                               WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
+                               WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                                ELSE 0
                            END), 0) as cr_dr
                     FROM transactions t
                     WHERE t.company_id = ?
                       AND t.from_account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
-                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
-                      . $currency_filter_t_from . $clearFilter . $contraApproval . "
+                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                      AND t.sms NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                      AND t.sms NOT LIKE '[DOMAIN_NET_PROFIT|%'" . $currency_filter_t_from . $clearFilter . $contraApproval . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
             $daily_stmt = $pdo->prepare($sql);
