@@ -1,13 +1,13 @@
 <?php
 /**
- * 1+N 合同（1+1 / 1+2 / 1+3）：首自然月若按「剩余天数」partial 入账，则在 partial 金额之上再叠加 N 个「整月」的 buy/sell/profit（全额，不再摊分；不含 insurance）。
- * 例 1+2、Sell 2000、4/9 起：首月 partial sell 1466.67 + 2×整月 2000 = 5466.67；Buy/Profit 同理按整月价叠加。
- * 仅 ratio&lt;1 时生效；manual_inactive 仍单独整笔乘 (1+N)。
+ * 1+N 合同（1+1 / 1+2 / 1+3）：按 1 个月单价乘以 N 计算（不再做「原金额 + N」叠加）。
+ * 例：Buy 1000、合同 1+2，则金额 = 1000 × 2 = 2000；1+1 则 1000 × 1 = 1000。
+ * 仅 ratio&lt;1 时生效；manual_inactive 仍单独整笔乘 N。
  */
 
 declare(strict_types=1);
 
-/** 与 manual_inactive 相同：1+1/1+2/1+3 → (1+N)，其余 → 1 */
+/** 与 manual_inactive 相同：1+1/1+2/1+3 → N，其余 → 1 */
 function getManualInactiveMultiplierFromContract(?string $contract): int
 {
     if ($contract === null || $contract === '') {
@@ -15,7 +15,7 @@ function getManualInactiveMultiplierFromContract(?string $contract): int
     }
     $c = trim($contract);
     if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
-        return 1 + (int) $m[1];
+        return max(1, (int) $m[1]);
     }
     return 1;
 }
@@ -75,7 +75,7 @@ function applyOnePlusXRemainingDaysBuySellAddon(
     if ($n < 1) {
         return;
     }
-    $price = round($price + $n * $origPrice, 2);
-    $cost = round($cost + $n * $origCost, 2);
-    $profit = round($profit + $n * $origProfit, 2);
+    $price = round($origPrice * $n, 2);
+    $cost = round($origCost * $n, 2);
+    $profit = round($origProfit * $n, 2);
 }
