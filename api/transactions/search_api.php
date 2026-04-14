@@ -1690,6 +1690,16 @@ try {
         $filter_currency_codes,
         $currency_id_map
     );
+    // 追加 Domain 净利润行：以公司 owner_code（如 C168）展示最终 PROFIT 口径
+    searchApiAppendDomainNetProfitVirtualRows(
+        $pdo,
+        $results,
+        $company_id,
+        $date_from_db,
+        $date_to_db,
+        $filter_currency_codes,
+        $currency_id_map
+    );
     // 按 currency 和 account_id 排序
     usort($results, function ($a, $b) {
         if ($a['currency'] !== $b['currency']) {
