@@ -282,10 +282,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <div class="account-header-item">Last Login</div>
                 <div class="account-header-item">Remark</div>
                 <div class="account-header-item">Action
-                    <span id="selectAllAccountsWrapper" style="display: none; margin-left: 10px; align-items: center; gap: 4px; white-space: nowrap;">
-                        <input type="checkbox" id="selectAllAccounts" title="Select all" style="cursor: pointer;" onchange="toggleSelectAllAccounts()">
-                        <label for="selectAllAccounts" style="cursor: pointer; font-size: 12px; font-weight: 500; color: #555;">All</label>
-                    </span>
+                    <input type="checkbox" id="selectAllAccounts" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
                 </div>
             </div>
             
@@ -649,6 +646,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
                                 <option value="">Filter Row</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="currency-setting-selectall-row">
+                        <button type="button" id="currencySettingSelectAllBtn" class="account-btn currency-setting-selectall-btn" onclick="toggleSelectAllCurrencyAccounts()">Select All</button>
+                        <span id="currencySettingSelectedCount" class="currency-setting-selected-count">0 selected</span>
                     </div>
                     
                     <div class="currency-setting-account-list" id="currencySettingAccountList">

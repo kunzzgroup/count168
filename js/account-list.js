@@ -1,4 +1,4 @@
-﻿/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
+/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
 (function () {
     if (typeof window.ACCOUNT_LIST_SHOW_INACTIVE === 'undefined') window.ACCOUNT_LIST_SHOW_INACTIVE = false;
     if (typeof window.ACCOUNT_LIST_SHOW_ALL === 'undefined') window.ACCOUNT_LIST_SHOW_ALL = false;
@@ -1566,16 +1566,11 @@ function toggleSelectAllAccounts() {
 
 // 鏍规嵁褰撳墠椤甸潰鏄惁鏈夊彲鍒犻櫎椤癸紝鏄剧ず/闅愯棌鍏ㄩ€夋
 function updateSelectAllAccountsVisibility() {
-    const wrapper = document.getElementById('selectAllAccountsWrapper');
     const selectAllCheckbox = document.getElementById('selectAllAccounts');
     if (!selectAllCheckbox) return;
 
     const anyRowCheckbox = document.querySelectorAll('.account-row-checkbox').length > 0;
-    if (wrapper) {
-        wrapper.style.display = anyRowCheckbox ? 'inline-flex' : 'none';
-    } else {
-        selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
-    }
+    selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
     if (!anyRowCheckbox) {
         selectAllCheckbox.checked = false;
     }
@@ -2576,6 +2571,72 @@ function renderCurrencySettingAccounts() {
 
         container.appendChild(item);
     });
+
+    // Update Select All UI after rendering
+    updateCurrencySettingSelectAllUI(filtered);
+}
+
+function updateCurrencySettingSelectAllUI(filteredAccounts) {
+    const btn = document.getElementById('currencySettingSelectAllBtn');
+    const countSpan = document.getElementById('currencySettingSelectedCount');
+    if (!btn || !countSpan) return;
+
+    const list = filteredAccounts || [];
+    const totalVisible = list.length;
+    const selectedVisible = list.filter(acc => currencySettingLinkedAccounts.has(Number(acc.id))).length;
+
+    // Update count badge (total linked across all, not just filtered)
+    const totalLinked = currencySettingLinkedAccounts.size;
+    countSpan.textContent = totalLinked + ' selected';
+
+    // Toggle button label based on filter-visible state
+    if (totalVisible > 0 && selectedVisible === totalVisible) {
+        btn.textContent = 'Deselect All';
+        btn.classList.add('active');
+    } else {
+        btn.textContent = 'Select All';
+        btn.classList.remove('active');
+    }
+}
+
+function toggleSelectAllCurrencyAccounts() {
+    if (!currencySettingCurrentCurrencyId) {
+        showNotification('Please select a Currency first', 'info');
+        return;
+    }
+
+    const searchTerm = document.getElementById('currencySettingSearchInput').value.toLowerCase().trim();
+    const roleFilter = document.getElementById('currencySettingRoleSelect').value.toLowerCase().trim();
+
+    // Determine currently visible (filtered) accounts
+    const filtered = accounts.filter(acc => {
+        let matchesSearch = true;
+        let matchesRole = true;
+        if (searchTerm) {
+            const accStr = (acc.account_id || '') + ' ' + (acc.name || '');
+            matchesSearch = accStr.toLowerCase().includes(searchTerm);
+        }
+        if (roleFilter) {
+            let accRole = (acc.role || '').toLowerCase().trim();
+            if (accRole === 'upline') accRole = 'supplier';
+            let filterRole = roleFilter === 'upline' ? 'supplier' : roleFilter;
+            matchesRole = (accRole === filterRole);
+        }
+        return matchesSearch && matchesRole;
+    });
+
+    const allSelected = filtered.every(acc => currencySettingLinkedAccounts.has(Number(acc.id)));
+
+    if (allSelected) {
+        // Deselect all visible
+        filtered.forEach(acc => currencySettingLinkedAccounts.delete(Number(acc.id)));
+    } else {
+        // Select all visible
+        filtered.forEach(acc => currencySettingLinkedAccounts.add(Number(acc.id)));
+    }
+
+    // Re-render to reflect changes
+    renderCurrencySettingAccounts();
 }
 
 async function saveCurrencySetting() {
