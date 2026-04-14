@@ -182,7 +182,8 @@ try {
 <body class="user-page">
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
-        <h1>User List</h1>
+        <div class="content">
+            <h1>User List</h1>
         
         <div class="separator-line"></div>
 
@@ -378,6 +379,7 @@ try {
             <button class="pagination-btn" id="prevBtn" onclick="changePage(-1)">◀</button>
             <span class="pagination-info" id="paginationInfo">1 of 10</span>
             <button class="pagination-btn" id="nextBtn" onclick="changePage(1)">▶</button>
+        </div>
         </div>
     </div>
 

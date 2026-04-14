@@ -77,7 +77,7 @@ h1 {
     border-radius: 8px;
     padding: clamp(10px, 1.04vw, 20px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: clamp(208px, 18.23vw, 350px);
+    height: clamp(208px, 24.23vw, 350px);
     display: flex;
     flex-direction: column;
 }
@@ -87,7 +87,7 @@ h1 {
     border-radius: 8px;
     padding: clamp(10px, 1.04vw, 20px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: clamp(208px, 18.23vw, 350px);
+    height: clamp(208px, 24.23vw, 350px);
     display: flex;
     flex-direction: column;
 }

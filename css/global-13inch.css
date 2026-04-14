@@ -226,6 +226,11 @@
         grid-template-columns: 0.5fr 1.4fr 1.4fr 0.8fr 0.6fr 0.8fr 2fr 1.2fr 0.45fr !important;
     }
 
+    .table-header,
+    .user-card {
+        grid-template-columns: 0.5fr 1.6fr 1.8fr 2.5fr 1.8fr 1.2fr 1.8fr 1.5fr 0.8fr !important;
+    }
+
     /* ----------------------------------------------------
        8. Bank Process List Action Bar: Force single-row (override global label/checkbox/search sizes)
        Bank 有 5 个 checkbox，label 14px + checkbox 16px + search 250px 导致换行
@@ -331,7 +336,7 @@
         flex-direction: column;
     }
 
-    .modal-body,
+    /*.modal-body,
     .transaction-modal-body,
     .form-container {
         padding-bottom: 90px !important;
@@ -339,332 +344,332 @@
 }
 
 /* 3. Interactive Polish (Micro-animations) */
-/* Checkbox snap animation */
-input[type="checkbox"] {
-    cursor: pointer;
-    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-}
+    /* Checkbox snap animation */
+    input[type="checkbox"] {
+        cursor: pointer;
+        transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
 
-input[type="checkbox"]:active {
-    transform: scale(0.85);
-}
+    input[type="checkbox"]:active {
+        transform: scale(0.85);
+    }
 
-/* Buttons click effect */
-.btn:active,
-.transaction-search-btn:active,
-.transaction-submit-btn:active,
-button:not(.fc-button):active {
-    transform: translateY(1px) scale(0.98) !important;
-    transition: all 0.1s;
-}
+    /* Buttons click effect */
+    .btn:active,
+    .transaction-search-btn:active,
+    .transaction-submit-btn:active,
+    button:not(.fc-button):active {
+        transform: translateY(1px) scale(0.98) !important;
+        transition: all 0.1s;
+    }
 
-/* Better glowing focus ring for inputs */
-input:focus,
-select:focus,
-textarea:focus,
-.search-input:focus {
-    box-shadow: 0 0 0 3px rgba(15, 97, 255, 0.15) !important;
-    border-color: #0F61FF !important;
-    transition: all 0.2s ease-in-out;
-}
+    /* Better glowing focus ring for inputs */
+    input:focus,
+    select:focus,
+    textarea:focus,
+    .search-input:focus {
+        box-shadow: 0 0 0 3px rgba(15, 97, 255, 0.15) !important;
+        border-color: #0F61FF !important;
+        transition: all 0.2s ease-in-out;
+    }
 
-/* Smooth HTML scroll */
-html {
-    scroll-behavior: smooth;
-}
+    /* Smooth HTML scroll */
+    html {
+        scroll-behavior: smooth;
+    }
 
-/* ==========================================================================
+    /* ==========================================================================
    Global "WOW Factor" Final Polish
    ========================================================================== */
 
-/* 4. SPA-like Entrance Animation (Makes PHP page loads feel modern) */
-@keyframes premiumEntrance {
-    from {
-        opacity: 0;
-        transform: translateY(12px);
+    /* 4. SPA-like Entrance Animation (Makes PHP page loads feel modern) */
+    @keyframes premiumEntrance {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
+    .container,
+    .transaction-container,
+    .modal-content,
+    .datacapture-container {
+        animation: premiumEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-}
 
-.container,
-.transaction-container,
-.modal-content,
-.datacapture-container {
-    animation: premiumEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+    /* 5. Custom Brand Text Selection */
+    ::selection {
+        background-color: rgba(15, 97, 255, 0.25) !important;
+        color: #001f3f !important;
+        text-shadow: none !important;
+    }
 
-/* 5. Custom Brand Text Selection */
-::selection {
-    background-color: rgba(15, 97, 255, 0.25) !important;
-    color: #001f3f !important;
-    text-shadow: none !important;
-}
+    /* 6. Glowing Action Buttons on Hover */
+    .btn-save:hover,
+    .btn-add:hover,
+    .transaction-submit-btn:hover {
+        box-shadow: 0 0 15px rgba(15, 97, 255, 0.4) !important;
+        -webkit-filter: brightness(1.05);
+        filter: brightness(1.05);
+    }
 
-/* 6. Glowing Action Buttons on Hover */
-.btn-save:hover,
-.btn-add:hover,
-.transaction-submit-btn:hover {
-    box-shadow: 0 0 15px rgba(15, 97, 255, 0.4) !important;
-    -webkit-filter: brightness(1.05);
-    filter: brightness(1.05);
-}
+    .btn-delete:hover {
+        box-shadow: 0 0 15px rgba(220, 53, 69, 0.3) !important;
+        -webkit-filter: brightness(1.05);
+        filter: brightness(1.05);
+    }
 
-.btn-delete:hover {
-    box-shadow: 0 0 15px rgba(220, 53, 69, 0.3) !important;
-    -webkit-filter: brightness(1.05);
-    filter: brightness(1.05);
-}
+    /* 7. Chrome Autofill Premium Override (Removes the ugly yellow background) */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 30px white inset !important;
+        -webkit-text-fill-color: #333 !important;
+        transition: background-color 5000s ease-in-out 0s;
+    }
 
-/* 7. Chrome Autofill Premium Override (Removes the ugly yellow background) */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px white inset !important;
-    -webkit-text-fill-color: #333 !important;
-    transition: background-color 5000s ease-in-out 0s;
-}
+    /* 8. Table Headers Sticky Drop-Shadow for 13-inch scrolling */
+    .table-header,
+    .account-table-header,
+    .datacapture-table-header {
+        position: sticky !important;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    }
 
-/* 8. Table Headers Sticky Drop-Shadow for 13-inch scrolling */
-.table-header,
-.account-table-header,
-.datacapture-table-header {
-    position: sticky !important;
-    top: 0;
-    z-index: 10;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
-}
+    /* 9. Smart Text Truncation for Responsive Data Rows */
+    /* Prevents long unspaced text (like emails or hashes) from blowing out the table width */
+    td,
+    .card-item,
+    .account-card-item,
+    .contract-card-item,
+    .member-card-item {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
 
-/* 9. Smart Text Truncation for Responsive Data Rows */
-/* Prevents long unspaced text (like emails or hashes) from blowing out the table width */
-td,
-.card-item,
-.account-card-item,
-.contract-card-item,
-.member-card-item {
-    word-break: break-word;
-    overflow-wrap: anywhere;
-}
+    /* 10. Forms / Textareas Max-Height Constraints */
+    textarea {
+        max-height: 120px !important;
+    }
 
-/* 10. Forms / Textareas Max-Height Constraints */
-textarea {
-    max-height: 120px !important;
-}
-
-/* ==========================================================================
+    /* ==========================================================================
    Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
    ========================================================================== */
-/* 1. Unlock the main bounding containers so they stretch infinitely downwards */
-html,
-body.user-page,
-body.account-page,
-body.transaction-page,
-body.datacapture-page,
-body.dashboard-page,
-body {
-    height: auto !important;
-    min-height: 100vh !important;
-    max-height: none !important;
-    overflow-y: visible !important;
-    overflow-x: hidden !important;
-}
+    /* 1. Unlock the main bounding containers so they stretch infinitely downwards */
+    html,
+    body.user-page,
+    body.account-page,
+    body.transaction-page,
+    body.datacapture-page,
+    body.dashboard-page,
+    body {
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+        overflow-x: hidden !important;
+    }
 
-.container,
-.content,
-.transaction-container,
-.datacapture-container,
-.dashboard-container {
-    height: auto !important;
-    min-height: 100vh !important;
-    max-height: none !important;
-    overflow: visible !important;
-    padding-bottom: 20px !important;
-    /* Absolute guarantee we never cut off the bottom element */
-}
+    .container,
+    .content,
+    .transaction-container,
+    .datacapture-container,
+    .dashboard-container {
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding-bottom: 20px !important;
+        /* Absolute guarantee we never cut off the bottom element */
+    }
 
-/* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
-.table-container,
-.account-cards,
-.process-cards,
-.process-table-wrapper,
-.dashboard-content,
-.transaction-main-content,
-.transaction-table-wrapper,
-.datacapture-table-wrapper {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-    /* This forces the data to completely render out, triggering the global browser scrollbar */
-}
+    /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
+    .table-container,
+    .account-cards,
+    .process-cards,
+    .process-table-wrapper,
+    .dashboard-content,
+    .transaction-main-content,
+    .transaction-table-wrapper,
+    .datacapture-table-wrapper {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        /* This forces the data to completely render out, triggering the global browser scrollbar */
+    }
 
-/* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
-body {
-    background-attachment: fixed !important;
-    background-size: cover !important;
-}
+    /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
+    body {
+        background-attachment: fixed !important;
+        background-size: cover !important;
+    }
 
-/* ==========================================================================
+    /* ==========================================================================
    Chips with Overflow Component Styles
    ========================================================================== */
-.chip-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: nowrap;
-    overflow: hidden;
-}
+    .chip-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+        overflow: hidden;
+    }
 
-.chip,
-.chip-more {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px 8px !important;
-    /* Force override for table cell */
-    font-size: 12px !important;
-    /* Slightly smaller to fit UI scale */
-    font-family: inherit;
-    border-radius: 4px;
-    line-height: 1.4;
-    white-space: nowrap;
-    box-sizing: border-box;
-}
+    .chip,
+    .chip-more {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 8px !important;
+        /* Force override for table cell */
+        font-size: 12px !important;
+        /* Slightly smaller to fit UI scale */
+        font-family: inherit;
+        border-radius: 4px;
+        line-height: 1.4;
+        white-space: nowrap;
+        box-sizing: border-box;
+    }
 
-.chip {
-    background-color: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    color: #374151;
-}
+    .chip {
+        background-color: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+    }
 
-.chip-more {
-    background-color: #e0f2fe;
-    border: 1px solid transparent;
-    color: #0284c7;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
+    .chip-more {
+        background-color: #e0f2fe;
+        border: 1px solid transparent;
+        color: #0284c7;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
 
-.chip-more:hover {
-    background-color: #bae6fd;
-    color: #0369a1;
-}
+    .chip-more:hover {
+        background-color: #bae6fd;
+        color: #0369a1;
+    }
 
-/* ==========================================================================
+    /* ==========================================================================
    Paginated Lists: 20-Row Exact Fit Layout (Strict 100vh No-Overflow)
    Applies ONLY to modules with strict 20 items per page pagination
    ========================================================================== */
 
-/* 1. Enforce strict 100vh bounds on main containers to prevent native scroll */
-body.user-page,
-body.account-page,
-body.process-page {
-    height: 100vh !important;
-    min-height: 100vh !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
-}
+    /* 1. Enforce strict 100vh bounds on main containers to prevent native scroll */
+    body.user-page,
+    body.account-page,
+    body.process-page {
+        height: 100vh !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+    }
 
-body.user-page .container,
-body.account-page .container,
-body.process-page .container {
-    height: 100vh !important;
-    min-height: 100vh !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 0px !important;
-}
+    body.user-page .container,
+    body.account-page .container,
+    body.process-page .container {
+        height: 100vh !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 0px !important;
+    }
 
-body.user-page .content,
-body.account-page .content,
-body.process-page .content {
-    flex: 1 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    padding-bottom: 0 !important;
-}
+    body.user-page .content,
+    body.account-page .content,
+    body.process-page .content {
+        flex: 1 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        padding-bottom: 0 !important;
+    }
 
-body.user-page .table-container,
-body.account-page .account-cards,
-body.process-page .process-table-wrapper {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    max-height: none !important;
-    display: flex;
-    /* NO !important (Allows JS to hide it) */
-    flex-direction: column !important;
+    body.user-page .table-container,
+    body.account-page .account-cards,
+    body.process-page .process-table-wrapper {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: none !important;
+        display: flex;
+        /* NO !important (Allows JS to hide it) */
+        flex-direction: column !important;
 
-    /* Support for JS forced 'display: grid' */
-    grid-template-rows: auto 1fr;
-    grid-template-columns: 1fr;
+        /* Support for JS forced 'display: grid' */
+        grid-template-rows: auto 1fr;
+        grid-template-columns: 1fr;
 
-    overflow: hidden !important;
-    padding-bottom: 74px !important;
-    /* Reserve pagination space */
-}
+        overflow: hidden !important;
+        padding-bottom: 74px !important;
+        /* Reserve pagination space */
+    }
 
-/* Bank table wrapper：flex + overflow-y:auto，20条时在wrapper内滚动，分页条固定在底部 */
-body.process-page.process-page--bank .bank-table-wrapper {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow-x: auto !important;
-    overflow-y: auto !important;
-    /* 允许内滚动，不再 overflow:hidden */
-    padding-bottom: 0 !important;
-    /* 分页条在 flex 流中，不需要 padding 占位 */
-}
+    /* Bank table wrapper：flex + overflow-y:auto，20条时在wrapper内滚动，分页条固定在底部 */
+    body.process-page.process-page--bank .bank-table-wrapper {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        /* 允许内滚动，不再 overflow:hidden */
+        padding-bottom: 0 !important;
+        /* 分页条在 flex 流中，不需要 padding 占位 */
+    }
 
-body.user-page .user-cards,
-body.process-page .process-cards {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    /* Extremely important for calc(100% / 20) to work on children! */
-    max-height: none !important;
-    display: flex;
-    /* NO !important (Allows JS to hide it) */
-    flex-direction: column !important;
-    overflow: hidden !important;
-    padding-bottom: 0 !important;
-}
+    body.user-page .user-cards,
+    body.process-page .process-cards {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        /* Extremely important for calc(100% / 20) to work on children! */
+        max-height: none !important;
+        display: flex;
+        /* NO !important (Allows JS to hide it) */
+        flex-direction: column !important;
+        overflow: hidden !important;
+        padding-bottom: 0 !important;
+    }
 
-/* 3. Distribute the 20 items perfectly inside the available flex vertical space */
-body.account-page .account-card,
-body.user-page .user-card,
-body.process-page:not(.process-page--bank) .process-card {
-    box-sizing: border-box !important;
-    flex: 0 0 calc(100% / 20) !important;
-    /* Explicitly sizes 20 items to 100% */
-    min-height: 0 !important;
-    height: auto !important;
-    max-height: none !important;
-    align-content: center !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
+    /* 3. Distribute the 20 items perfectly inside the available flex vertical space */
+    body.account-page .account-card,
+    body.user-page .user-card,
+    body.process-page:not(.process-page--bank) .process-card {
+        box-sizing: border-box !important;
+        flex: 0 0 calc(100% / 20) !important;
+        /* Explicitly sizes 20 items to 100% */
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+        align-content: center !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
 
-/* Bank 改用内滚动，行高不再固定（旧 calc 基于 280px 偏移已不适用） */
-body.process-page--bank .bank-data-table tbody tr {
-    height: auto !important;
-    box-sizing: border-box !important;
-}
+    /* Bank 改用内滚动，行高不再固定（旧 calc 基于 280px 偏移已不适用） */
+    body.process-page--bank .bank-data-table tbody tr {
+        height: auto !important;
+        box-sizing: border-box !important;
+    }
 
-/* 4. Ensure headers don't compress */
-body.account-page .account-table-header,
-body.user-page .table-header,
-body.process-page .table-header {
-    flex-shrink: 0 !important;
-}
+    /* 4. Ensure headers don't compress */
+    body.account-page .account-table-header,
+    body.user-page .table-header,
+    body.process-page .table-header {
+        flex-shrink: 0 !important;
+    }
