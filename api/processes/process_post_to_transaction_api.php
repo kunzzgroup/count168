@@ -1015,7 +1015,9 @@ try {
             $txn['transaction_type'] = 'LOSE';
             $txn['account_id'] = (int) $p['customer_id'];
             $txn['amount'] = round($price, 2);
-            $txn['description'] = "Process: Sell Price for $processLabel" . $suffix;
+            $txn['description'] = $manualInactiveCompensationOnlySell
+                ? "Inactive Compensation Sell Price for $processLabel"
+                : ("Process: Sell Price for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }

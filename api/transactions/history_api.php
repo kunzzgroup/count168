@@ -1165,13 +1165,18 @@ try {
         $win_loss = 0;
         $cr_dr = 0;
         $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
-        // 原始 description，用于判断是否为手动 PROFIT（WIN/LOSE 且 description 不以 "Process: " 开头）
+        // 原始 description，用于判断显示文案/手动 PROFIT
         $rawDescription = $t['description'] ?? '';
         // 关联账户间内部转账：to 和 from 都在聚合列表内时，对聚合视图 Cr/Dr 为 0
         $is_internal_transfer = $is_to_account && $is_from_account;
-        // 手动 PROFIT：WIN/LOSE 且非 Bank Process，description 不以 "Process: " 开头
+        $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
+        $isInactiveCompensationSell = stripos(trim((string)$rawDescription), 'Inactive Compensation Sell Price for ') === 0;
+        // 手动 PROFIT：WIN/LOSE 且非 Bank Process，且不是系统生成的 Process/Auto/赔款文案
         $isManualProfit = in_array($t['transaction_type'], ['WIN', 'LOSE'], true)
-            && stripos((string)$rawDescription, 'Process: ') !== 0;
+            && !$isBankProcessTransaction
+            && stripos((string)$rawDescription, 'Process: ') !== 0
+            && stripos((string)$rawDescription, 'Auto: ') !== 0
+            && !$isInactiveCompensationSell;
 
         // 为手动 PROFIT 尝试找出对应的对手账户（另一条相反类型、相同日期和金额的交易）
         $otherAccountCodeForManualProfit = null;
@@ -1310,7 +1315,6 @@ try {
         
         // Bank process 的 WIN/LOSE + 手动 PROFIT：
         // History 中金额统一显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
-        $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
         if (($isBankProcessTransaction || $isManualProfit) && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
             $win_loss = $cr_dr;
             $cr_dr = 0;
@@ -1323,33 +1327,38 @@ try {
         // Description 金额展示 process 原始 Buy/Sell/Profit（不显示本笔 total amount）。
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
-            if ($periodType === 'partial_first_month') {
-                $description = 'Remaining days bill';
-            } elseif ($periodType === 'day_end_tail') {
-                $description = 'Day end tail bill';
-            } elseif ($periodType === 'manual_inactive') {
-                $description = 'Inactive bill';
-            } elseif ($periodType === 'monthly' || $periodType === '') {
-                $description = 'Monthly bill';
+            if ($isInactiveCompensationSell) {
+                // 赔款 Sell Price 保持原始文案，不再改写成 Inactive bill / PROFIT FROM
+                $description = trim((string)$rawDescription);
             } else {
-                $description = 'Monthly bill';
-            }
-            $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
-            if ($isBankProcessTransaction && $is_to_account) {
-                $txAccountId = (int) ($t['account_id'] ?? 0);
-                $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
-                $customerId = (int) ($t['customer_id'] ?? 0);
-                $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
-                if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
-                    $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
-                } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
-                    $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
-                } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
-                    $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
+                if ($periodType === 'partial_first_month') {
+                    $description = 'Remaining days bill';
+                } elseif ($periodType === 'day_end_tail') {
+                    $description = 'Day end tail bill';
+                } elseif ($periodType === 'manual_inactive') {
+                    $description = 'Inactive bill';
+                } elseif ($periodType === 'monthly' || $periodType === '') {
+                    $description = 'Monthly bill';
+                } else {
+                    $description = 'Monthly bill';
                 }
+                $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
+                if ($isBankProcessTransaction && $is_to_account) {
+                    $txAccountId = (int) ($t['account_id'] ?? 0);
+                    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+                    $customerId = (int) ($t['customer_id'] ?? 0);
+                    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+                    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+                        $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
+                    } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
+                        $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
+                    } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+                        $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
+                    }
+                }
+                $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+                $description = $description . ' ' . $billAmount;
             }
-            $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
-            $description = $description . ' ' . $billAmount;
         }
         
         // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前账户在 Win/Loss 的正负来决定 FROM / TO
