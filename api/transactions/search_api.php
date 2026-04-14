@@ -1356,14 +1356,14 @@ try {
             if ($has_source_bank_process_period_type) {
                 $wlDateExpr = "(CASE
                     WHEN t.source_bank_process_id IS NOT NULL
-                         AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                         AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
                          AND DATE(t.transaction_date) <= CURDATE()
                     THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                     ELSE DATE(t.transaction_date)
                 END)";
                 $wlFutureGuard = " AND (
                     t.source_bank_process_id IS NULL
-                    OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                    OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
                     OR DATE(t.transaction_date) <= CURDATE()
                 )";
             } else {
@@ -2033,14 +2033,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         if ($has_source_bank_process_period_type) {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
-                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                     AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
                      AND DATE(t.transaction_date) <= CURDATE()
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
             $wlFutureGuard = " AND (
                 t.source_bank_process_id IS NULL
-                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
                 OR DATE(t.transaction_date) <= CURDATE()
             )";
         } else {
@@ -2309,14 +2309,14 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         if ($has_source_bank_process_period_type) {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
-                     AND t.source_bank_process_period_type IN ('monthly', 'partial_first_month', 'day_end_tail')
+                     AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
                      AND DATE(t.transaction_date) <= CURDATE()
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
             $wlFutureGuard = " AND (
                 t.source_bank_process_id IS NULL
-                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
+                OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
                 OR DATE(t.transaction_date) <= CURDATE()
             )";
         } else {
