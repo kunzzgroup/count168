@@ -892,12 +892,7 @@ try {
             }
         }
 
-        $origCostRow = (float) ($p['cost'] ?? 0);
-        $origPriceRow = (float) ($p['price'] ?? 0);
-        $origProfitRow = (float) ($p['profit'] ?? 0);
-        applyOnePlusXRemainingDaysBuySellAddon($p['contract'] ?? null, $origCostRow, $origPriceRow, $origProfitRow, $cost, $price, $profit, $lastProrationRatio);
-
-        // manual_inactive：1+X 合约时 Buy/Sell/Profit 乘 X 再入账（1+1→1，1+2→2）
+        // 1+1/1+2/1+3：active 期间统一按 1 个月价格入账；仅 manual_inactive 才按赔付月数放大。
         if ($periodType === 'manual_inactive') {
             $mult = getManualInactiveMultiplierFromContract($p['contract'] ?? null);
             $cost = round($cost * $mult, 2);
