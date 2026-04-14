@@ -198,7 +198,7 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
 /**
  * 将主表/删除表的一行转换为统一输出项
  */
-function rowToItem(array $row, $is_deleted = 0) {
+function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $profitCode = 'PROFIT') {
     $isDomainShareCommission = false;
     $isDomainListFee = false;
     $descriptionRaw = (string)($row['description'] ?? '');
@@ -253,13 +253,23 @@ function rowToItem(array $row, $is_deleted = 0) {
     } elseif ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee\s+To\s+([A-Za-z0-9_-]+)/i', trim((string)$description), $m)) {
         $displayAccount = strtoupper(trim((string)$m[1]));
     }
+    $displayAccount = remapPaymentMaintenanceAccountCode((string)$displayAccount, $ownerCode, $profitCode);
+    $fromDisplay = $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-');
+    $fromDisplay = remapPaymentMaintenanceAccountCode((string)$fromDisplay, $ownerCode, $profitCode);
+    if (is_string($description) && $description !== '') {
+        $ownerPattern = preg_quote(strtoupper(trim($ownerCode)), '/');
+        if ($ownerPattern !== '') {
+            $description = preg_replace('/\b' . $ownerPattern . '\b/i', $profitCode, $description);
+        }
+        $description = preg_replace('/\bC168\b/i', $profitCode, $description);
+    }
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
     $deletedBy = !empty($row['deleted_by_login']) ? $row['deleted_by_login'] : ($row['deleted_by_owner'] ?? null);
     return [
         'transaction_id' => (int) $row['id'],
         'date' => $row['transaction_date'],
         'account' => $displayAccount,
-        'from_account' => $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-'),
+        'from_account' => $fromDisplay,
         'currency' => $row['currency_code'] ?? '-',
         'amount' => (float) $row['amount'],
         'description' => $description,
@@ -288,6 +298,45 @@ function resolveCompanyOwnerCode(PDO $pdo, int $companyId): string {
     } catch (PDOException $e) {
         return '';
     }
+}
+
+function resolveProfitDisplayCode(PDO $pdo, int $companyId): string
+{
+    try {
+        $st = $pdo->prepare("
+            SELECT UPPER(TRIM(COALESCE(a.account_id, ''))) AS account_code
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND (
+                    LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+                    OR UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT'
+              )
+            ORDER BY CASE WHEN UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT' THEN 0 ELSE 1 END, a.id ASC
+            LIMIT 1
+        ");
+        $st->execute([$companyId]);
+        $v = $st->fetchColumn();
+        if ($v !== false && $v !== null && trim((string)$v) !== '') {
+            return strtoupper(trim((string)$v));
+        }
+    } catch (PDOException $e) {
+    }
+    return 'PROFIT';
+}
+
+function remapPaymentMaintenanceAccountCode(?string $code, string $ownerCode, string $profitCode): string
+{
+    $v = strtoupper(trim((string)$code));
+    if ($v === '') {
+        return '-';
+    }
+    $ownerU = strtoupper(trim($ownerCode));
+    $profitU = strtoupper(trim($profitCode));
+    if ($v === 'C168' || ($ownerU !== '' && $v === $ownerU)) {
+        return $profitU !== '' ? $profitU : 'PROFIT';
+    }
+    return $v;
 }
 
 function resolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
@@ -362,10 +411,7 @@ function appendVirtualDomainNetProfitItem(
         }
     }
 
-    $ownerCode = resolveCompanyOwnerCode($pdo, $companyId);
-    if ($ownerCode === '') {
-        $ownerCode = 'C168';
-    }
+    $profitCode = resolveProfitDisplayCode($pdo, $companyId);
     $submitter = resolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
 
     $sql = "SELECT
@@ -407,11 +453,11 @@ function appendVirtualDomainNetProfitItem(
         $data[] = [
             'transaction_id' => 0,
             'date' => date('d/m/Y', strtotime($dateToDb)),
-            'account' => $ownerCode,
+            'account' => $profitCode,
             'from_account' => '-',
             'currency' => $currencyCode,
             'amount' => $net,
-            'description' => 'Profit By ' . $ownerCode,
+            'description' => 'Profit By ' . $profitCode,
             'remark' => '',
             'dts_created' => date('d/m/Y H:i:s'),
             'created_by' => $submitter,
@@ -426,7 +472,7 @@ function appendVirtualDomainNetProfitItem(
 /**
  * 查询 RATE 类型交易（transaction_entry）并返回输出项数组
  */
-function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_to_db, array $currency_filters) {
+function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_to_db, array $currency_filters, string $ownerCode = '', string $profitCode = 'PROFIT') {
     $rateCurrencyFilter = '';
     $rateParams = [$company_id, $company_id, $date_from_db, $date_to_db];
     if (!empty($currency_filters)) {
@@ -524,8 +570,8 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
         $items[] = [
             'transaction_id' => (int) $rateRow['header_id'],
             'date' => $rateRow['transaction_date'],
-            'account' => $rateRow['account_code'] ?? '-',
-            'from_account' => $fromAccountCode ?? '-',
+            'account' => remapPaymentMaintenanceAccountCode((string)($rateRow['account_code'] ?? '-'), $ownerCode, $profitCode),
+            'from_account' => remapPaymentMaintenanceAccountCode((string)($fromAccountCode ?? '-'), $ownerCode, $profitCode),
             'currency' => $rateRow['currency_code'] ?? '-',
             'amount' => $displayAmount,
             'description' => $description,
@@ -597,6 +643,8 @@ try {
     }
 
     $company_id = resolveCompanyId($pdo);
+    $companyOwnerCode = resolveCompanyOwnerCode($pdo, (int)$company_id);
+    $profitDisplayCode = resolveProfitDisplayCode($pdo, (int)$company_id);
 
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
@@ -645,14 +693,14 @@ try {
     $data = [];
     $mainRows = fetchMainTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows);
     foreach ($mainRows as $row) {
-        $data[] = rowToItem($row, 0);
+        $data[] = rowToItem($row, 0, $companyOwnerCode, $profitDisplayCode);
     }
     if (empty($transaction_type) || $transaction_type === 'PAYMENT') {
         appendVirtualDomainNetProfitItem($pdo, $data, $company_id, $date_from_db, $date_to_db, $currency_filters);
     }
 
     if (empty($transaction_type) || $transaction_type === 'RATE') {
-        $rateItems = fetchRateTransactionItems($pdo, $company_id, $date_from_db, $date_to_db, $currency_filters);
+        $rateItems = fetchRateTransactionItems($pdo, $company_id, $date_from_db, $date_to_db, $currency_filters, $companyOwnerCode, $profitDisplayCode);
         $data = array_merge($data, $rateItems);
     }
 
@@ -662,7 +710,7 @@ try {
         }
         $deletedRows = fetchDeletedTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows, $deleted_has_source_bank_process);
         foreach ($deletedRows as $row) {
-            $data[] = rowToItem($row, 1);
+            $data[] = rowToItem($row, 1, $companyOwnerCode, $profitDisplayCode);
         }
     }
 
