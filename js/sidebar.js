@@ -317,7 +317,13 @@
         }
 
         var maintTransaction = document.getElementById('maintenance-transaction-link');
-        if (maintTransaction) maintTransaction.style.display = 'none';
+        if (maintTransaction) {
+            if (isBankCategory) {
+                maintTransaction.style.display = 'none';
+            } else {
+                maintTransaction.style.display = hasGambling ? '' : 'none';
+            }
+        }
 
         var maintFormula = document.getElementById('maintenance-formula-link');
         if (maintFormula) {
