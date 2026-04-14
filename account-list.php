@@ -614,12 +614,12 @@ $showAll = isset($_GET['showAll']) ? true : false;
             <div class="currency-fullscreen-modal-body">
                 <!-- Left Panel: Currency Management -->
                 <div class="currency-left-panel">
-                    <h3>Currency Management</h3>
-                    
-                    <div class="currency-setting-add-row-stacked">
+                    <div class="currency-setting-add-row-stacked" style="margin-top: 10px;">
                         <label for="currencySettingAddInput">Add Currency :</label>
-                        <input type="text" id="currencySettingAddInput" class="currency-setting-input" placeholder="Please enter new currency">
-                        <button type="button" class="account-btn account-btn-save currency-setting-add-btn" onclick="addCurrencyFromSettingModal()">Add</button>
+                        <div style="display: flex; gap: 10px; width: 100%;">
+                            <input type="text" id="currencySettingAddInput" class="currency-setting-input" placeholder="Please enter new currency" style="flex: 1;">
+                            <button type="button" class="account-btn account-btn-save currency-setting-add-btn" onclick="addCurrencyFromSettingModal()">Add</button>
+                        </div>
                     </div>
                     
                     <div class="currency-setting-divider"></div>
@@ -633,9 +633,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 </div>
                 
                 <!-- Right Panel: Accounts -->
-                <div class="currency-right-panel">
-                    <h3>Account Association</h3>
-                    
+                <div class="currency-right-panel" style="padding-top: 24px;">
                     <div class="currency-setting-filter-row">
                         <div class="currency-setting-search-wrap">
                             <svg class="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2">
