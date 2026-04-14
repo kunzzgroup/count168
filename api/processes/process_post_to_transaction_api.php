@@ -395,23 +395,17 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
     if ($frequency === '1st_of_every_month') {
         // 规则：
         // 1) 非 resend：旧月份不补（仅保留创建当月及之后）；
-        // 2) day_start 在 1 号时，且首月就是创建当月，首笔可按创建日截断；
+        // 2) day_start 在 1 号时，首月按 day_start(1号) 锚定，不按创建日截断；
         // 3) day_start 非 1 号时，monthly 从次月起按整月（1号）判断，不受创建日当月日影响。
         try {
             $startDayOfMonth = (int) date('j', $startTs);
             $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
             $todayYm = (new DateTimeImmutable($today))->format('Y-n');
-            $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
-            $resendRelax = !empty($r['accounting_resend_relax_created_floor']);
             $billYear = (int) date('Y', $startTs);
             $billMonth = (int) date('n', $startTs);
-            $effectiveFirstDue = $startDate;
-            if (!$resendRelax && $createdYmOnly === $startYm && $createdYmd > $effectiveFirstDue) {
-                $effectiveFirstDue = $createdYmd;
-            }
             if ($startDayOfMonth === 1
                 && $todayYm === $startYm
-                && $today >= $effectiveFirstDue
+                && $today >= $startDate
                 && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $billYear, $billMonth)
                 && isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month')) {
                 return $startYm;
@@ -878,10 +872,8 @@ try {
                     $startYmForBill = (new DateTimeImmutable($dayStartYmd))->format('Y-n');
                     $sdTs = strtotime($dayStartYmd);
                     if ($startYmForBill === $billYm && $sdTs !== false && (int) date('j', $sdTs) === 1) {
+                        // 1st_of_every_month + 首月(day_start=1号)统一按1号起算，不按创建日截断。
                         $prorateFrom = $dayStartYmd;
-                        if (!$resendRelax && $createdYm === $billYm && $createdYmd > $prorateFrom) {
-                            $prorateFrom = $createdYmd;
-                        }
                         $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
                         $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
                         $cost = $pr['cost'];
@@ -928,23 +920,7 @@ try {
                     if ($dueYmd !== null && $createdYmd > $dueYmd && $shouldProrateMonthlyByCreatedFloor) {
                         $prorateFrom = $dueYmd;
                         if ($frequency === '1st_of_every_month' && !$resendRelax) {
-                            // 仅在「首月=day_start 所在月且 day_start 为 1 号」时，允许从创建日截断；
-                            // 其它 monthly（例如 day_start 非 1 号后的整月）一律按整月（dueYmd）计算。
-                            $useCreatedAsProrationStart = false;
-                            if ($dayStartYmd !== null && $dayStartYmd !== '') {
-                                try {
-                                    $startDt = new DateTimeImmutable($dayStartYmd);
-                                    $startYmForBill = $startDt->format('Y-n');
-                                    if ((int) $startDt->format('j') === 1 && $billYm === $startYmForBill) {
-                                        $useCreatedAsProrationStart = true;
-                                    }
-                                } catch (Throwable $e) {
-                                    // keep full-month behavior
-                                }
-                            }
-                            if ($useCreatedAsProrationStart) {
-                                $prorateFrom = $createdYmd;
-                            }
+                            // 1st_of_every_month 一律按该月1号(dueYmd)起算，不按创建日截断。
                         }
                         $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
                         $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
