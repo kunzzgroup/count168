@@ -2693,17 +2693,15 @@ function applyZeroBalanceFilterAndRender() {
     }
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
     const showPaymentOnly = document.getElementById('show_inactive')?.checked || false;
-    const showInactiveAccounts = document.getElementById('show_inactive')?.checked || false;
     const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
     const rawLeft = lastSearchData.left_table || [];
     const rawRight = lastSearchData.right_table || [];
 
-    // 如果未勾选 show_inactive，过滤掉 inactive 账户行（仅隐藏显示，不影响计算）
-    const isInactive = row => (row.status || 'active').toLowerCase() === 'inactive';
-    let filteredLeft = showInactiveAccounts ? rawLeft : rawLeft.filter(row => !isInactive(row));
-    let filteredRight = showInactiveAccounts ? rawRight : rawRight.filter(row => !isInactive(row));
+    // inactive 账户始终显示（不做任何状态过滤），用户需要看到所有账户的账目
+    let filteredLeft = rawLeft;
+    let filteredRight = rawRight;
 
-    // 再应用 Show Payment Only / Show Win/Loss 过滤（如有）
+    // 应用 Show Payment Only / Show Win/Loss 过滤（如有）
     // 双勾选时：显示有 Cr/Dr 或有 Win/Loss 的行；仅勾选 Show Payment：只显示有 Cr/Dr 的行
     if (showPaymentOnly) {
         const hasCrdr = row => {
