@@ -988,11 +988,11 @@ try {
                   FROM transactions t
                   WHERE t.company_id = ?
                     AND t.from_account_id IS NOT NULL
-                    AND t.transaction_date BETWEEN ? AND ?
+                    AND t.transaction_date <= ?
                     AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                     AND t.currency_id IS NOT NULL
                     $cpContra";
-        $cpParams = [$company_id, $date_from_db, $date_to_db];
+        $cpParams = [$company_id, $date_to_db];
         $cpCurrencyOk = true;
         if (!empty($filter_currency_codes)) {
             $cpCids = [];
@@ -1053,6 +1053,29 @@ try {
                 $exSt = $pdo->prepare($extraSql);
                 $exSt->execute($extraParams);
                 $extraAcc = $exSt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Fallback for completely deleted from_account_ids
+                $foundIds = [];
+                foreach ($extraAcc as $ea) {
+                    $foundIds[(int)$ea['id']] = true;
+                }
+                foreach ($cpNewIds as $reqId) {
+                    if (!isset($foundIds[(int)$reqId])) {
+                        $extraAcc[] = [
+                            'id' => (int)$reqId,
+                            'account_id' => 'Deleted_Acc_' . $reqId,
+                            'name' => 'Deleted Account',
+                            'role' => 'none',
+                            'status' => 0,
+                            'payment_alert' => 0,
+                            'alert_day' => 0,
+                            'alert_specific_date' => null,
+                            'alert_amount' => 0,
+                            'account_id_debug' => 'FROM_MERGE_DELETED'
+                        ];
+                    }
+                }
+
                 if (!empty($extraAcc)) {
                     $accounts = array_merge($accounts, $extraAcc);
                     usort($accounts, function ($x, $y) {
@@ -1200,9 +1223,9 @@ try {
                     $account_currency_ids[(int) $ac['currency_id']] = true;
                 }
             }
-            // 补充：本期有交易的货币（确保有 PROFIT 的账户能显示）
+            // 补充：本期有交易的货币（确保有 PROFIT 的账户能显示）以及全历史交易货币（确保不活跃账号的历史 B/F 能显示）
             if (searchApiTxnHasCurrencyId($pdo)) {
-                foreach ($bulk_txn_cur_prd[$account_id] ?? [] as $cid => $code) {
+                foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                 }
             } elseif (!empty($filter_currency_codes)) {
