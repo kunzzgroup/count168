@@ -948,7 +948,18 @@ function updateBankProcess() {
         $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : null;
         $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
         $profit_sharing = $_POST['profit_sharing'] ?? null;
-        // day_start / day_end / day_start_frequency：仅能通过 Resend 弹窗或维护流程更新，Edit Process 不再写入
+        $day_start = isset($_POST['day_start']) ? trim((string)$_POST['day_start']) : '';
+        $day_end = isset($_POST['day_end']) ? trim((string)$_POST['day_end']) : '';
+        $day_start_frequency = isset($_POST['day_start_frequency']) ? trim((string)$_POST['day_start_frequency']) : '1st_of_every_month';
+        if ($day_start_frequency !== 'monthly') {
+            $day_start_frequency = '1st_of_every_month';
+        }
+        if ($day_start === '') {
+            $day_start = null;
+        }
+        if ($day_end === '') {
+            $day_end = null;
+        }
         $status = $_POST['status'] ?? 'active';
         if (!in_array($status, ['active', 'inactive', 'waiting'], true)) {
             $status = 'active';
@@ -969,12 +980,12 @@ function updateBankProcess() {
             $sql .= "sop=?, ";
             $params[] = $sop;
         }
-        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, status=?,
+        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?, status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?";
         array_push(
             $params,
-            $remark, $cost, $price, $profit, $profit_sharing, $status,
+            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency, $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         );
         $stmt = $pdo->prepare($sql);
