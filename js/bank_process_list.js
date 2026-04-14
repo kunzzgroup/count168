@@ -17,6 +17,7 @@ let bankAddProcessDataLoaded = false;
 let currentQuickRemarkProcessId = null;
 let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
+const pendingResendScheduleByProcessId = {};
 
 function sortBankProcessesBySupplier() {
     if (!Array.isArray(processes) || processes.length === 0) return;
@@ -203,6 +204,49 @@ function parseIsoDate(value) {
     return date;
 }
 
+function normalizeBankScheduleValue(value) {
+    return value == null ? '' : String(value).trim();
+}
+
+function getPendingResendScheduleForProcess(processId) {
+    const id = parseInt(processId, 10);
+    if (!id) return null;
+    const row = pendingResendScheduleByProcessId[id];
+    if (!row || typeof row !== 'object') return null;
+    return {
+        day_start: normalizeBankScheduleValue(row.day_start),
+        day_end: normalizeBankScheduleValue(row.day_end),
+        day_start_frequency: row.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
+}
+
+function setPendingResendScheduleForProcess(processId, schedule) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
+    if (!schedule || typeof schedule !== 'object') {
+        delete pendingResendScheduleByProcessId[id];
+        return;
+    }
+    pendingResendScheduleByProcessId[id] = {
+        day_start: normalizeBankScheduleValue(schedule.day_start),
+        day_end: normalizeBankScheduleValue(schedule.day_end),
+        day_start_frequency: schedule.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
+}
+
+function syncPendingResendScheduleFromEditForm() {
+    const editId = parseInt((document.getElementById('bank_edit_id')?.value || '').trim(), 10);
+    if (!editId) return;
+    const dayStartEl = document.getElementById('bank_day_start');
+    const dayEndEl = document.getElementById('bank_day_end');
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    setPendingResendScheduleForProcess(editId, {
+        day_start: dayStartEl ? dayStartEl.value : '',
+        day_end: dayEndEl ? dayEndEl.value : '',
+        day_start_frequency: (freqEl && freqEl.value === 'monthly') ? 'monthly' : '1st_of_every_month'
+    });
+}
+
 function getProcessListDateRange() {
     const fromInput = document.getElementById('date_from');
     const toInput = document.getElementById('date_to');
@@ -358,6 +402,7 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
                     }
                 }
             }
+            setPendingResendScheduleForProcess(id, null);
             showNotification(result.message || 'You can post from Accounting Due again', 'success');
             if (typeof loadAccountingInbox === 'function') {
                 await loadAccountingInbox();
@@ -433,9 +478,6 @@ async function persistOpenBankEditBeforeResend(targetProcessId) {
     if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
         formData.set('profit_account_id', profitAccountBtn.getAttribute('data-value'));
     }
-    const freqEl = document.getElementById('bank_day_start_frequency');
-    formData.set('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
-
     try {
         bankProcessSubmitInFlight = true;
         const response = await fetch(buildApiUrl('api/processes/processlist_api.php?action=update_process'), {
@@ -1024,7 +1066,7 @@ function isBankProcessBillingScheduleLocked() {
 }
 
 function setBankProcessEditLockedFields(locked) {
-    const lockableFieldIds = ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_day_start', 'bank_day_end', 'bank_day_start_frequency'];
+    const lockableFieldIds = ['bank_country', 'bank_bank', 'bank_type', 'bank_name'];
     lockableFieldIds.forEach(function (id) {
         const el = document.getElementById(id);
         if (!el) return;
@@ -1318,6 +1360,18 @@ async function openBankEditModal(id) {
         } else {
             bankSelect.value = '';
         }
+        const pendingSchedule = getPendingResendScheduleForProcess(process.id);
+        if (pendingSchedule) {
+            const dayStartPendingEl = document.getElementById('bank_day_start');
+            const dayEndPendingEl = document.getElementById('bank_day_end');
+            const freqPendingEl = document.getElementById('bank_day_start_frequency');
+            if (dayStartPendingEl) dayStartPendingEl.value = pendingSchedule.day_start;
+            if (dayEndPendingEl) dayEndPendingEl.value = pendingSchedule.day_end;
+            if (freqPendingEl) freqPendingEl.value = pendingSchedule.day_start_frequency;
+            if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
+        } else {
+            syncPendingResendScheduleFromEditForm();
+        }
         const cardMerchantBtn = document.getElementById('bank_card_merchant');
         const customerBtn = document.getElementById('bank_customer');
         if (cardMerchantBtn && process.card_merchant_id) {
@@ -1347,7 +1401,7 @@ async function openBankEditModal(id) {
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
         setBankProcessEditLockedFields(true);
-        setBankProcessBillingScheduleLocked(true);
+        setBankProcessBillingScheduleLocked(false);
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
         closeAddBankModal();
@@ -2010,6 +2064,7 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             ['country', 'bank', 'type', 'name', 'day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
                 formData.delete(key);
             });
+            syncPendingResendScheduleFromEditForm();
         }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
@@ -2025,7 +2080,9 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
         }
         const freqEl = document.getElementById('bank_day_start_frequency');
-        formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        if (!editId) {
+            formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
+        }
         try {
             if (editId) {
                 formData.append('id', editId);
@@ -4493,6 +4550,12 @@ function initBankProcessModule() {
             el.addEventListener('change', updateBankSubmitButtonState);
         }
     });
+    ['bank_day_start', 'bank_day_end', 'bank_day_start_frequency'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', syncPendingResendScheduleFromEditForm);
+        el.addEventListener('change', syncPendingResendScheduleFromEditForm);
+    });
     const accountingInboxBtn = document.getElementById('processAccountingInboxBtn');
     if (accountingInboxBtn) {
         accountingInboxBtn.addEventListener('click', function () {
@@ -4525,6 +4588,8 @@ return {
     renderAfterStatusChange: function () { renderBankTable(); renderPagination(); },
     isRealBankInactive: isRealBankInactive,
     executeAccountingDueResend: executeAccountingDueResend,
+    getPendingResendScheduleForProcess: getPendingResendScheduleForProcess,
+    setPendingResendScheduleForProcess: setPendingResendScheduleForProcess,
     bankResendScheduleDayStartForbiddenMessage: bankResendScheduleDayStartForbiddenMessage,
     presentBankResendDayStartValidationError: presentBankResendDayStartValidationError,
     clearBankResendDayStartInlineError: clearBankResendDayStartInlineError
