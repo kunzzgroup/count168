@@ -761,9 +761,15 @@ if (!empty($target_account_ids)) {
         }
     }
     
-    // 无论 show_inactive 是否勾选，始终查询所有状态的账户（active + inactive）
-    // inactive 账户的交易数据同样需要被正确计算（BF/Win-Loss/Cr-Dr/Balance 不能漏掉）
-    // show_inactive 参数由前端用于控制是否「显示」inactive 账户行，后端不再用于过滤账户
+    // 注意：member 用户查询时，show_inactive=1 表示显示所有状态（包括 inactive）
+    // 但这里的逻辑是：如果 show_inactive=1，只显示 inactive；否则只显示 active
+    // 这可能导致 member 用户看不到 active 账户
+    // 修复：如果 show_inactive=1，不添加状态过滤（显示所有状态）
+    if (!$show_inactive) {
+        // 默认只显示 active 账号
+        $where_conditions[] = "a.status = 'active'";
+    }
+    // 如果 show_inactive=1，不添加状态过滤，显示所有状态的账户
     
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
     // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
@@ -952,7 +958,9 @@ if (!empty($target_account_ids)) {
                 $cpPh = implode(',', array_fill(0, count($cpNewIds), '?'));
                 $extraBits = [];
                 $extraParams = $cpNewIds;
-                // 不按 status 过滤：inactive 账户的 from_account 数据同样需要计入
+                if (!$show_inactive) {
+                    $extraBits[] = "a.status = 'active'";
+                }
                 if (!empty($category_filters)) {
                     if (count($category_filters) === 1) {
                         $extraBits[] = 'a.role = ?';
@@ -1567,7 +1575,6 @@ if (!empty($target_account_ids)) {
             'account_name' => $account['name'],
             'account_db_id' => $account_id,
             'role' => $account['role'],
-            'status' => $account['status'] ?? 'active', // 返回账户状态，供前端控制显示/隐藏
             'currency' => $currency_code,
             'currency_id_debug' => $currency_id,
             // 与 history_api 显示口径保持一致：统一在后端保留 2 位小数再返回

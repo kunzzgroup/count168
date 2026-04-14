@@ -402,10 +402,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const showInactiveCk = document.getElementById('show_inactive');
     if (showInactiveCk) {
-        // show_inactive 勾选/取消只需前端重新渲染，无需重新请求后端
-        // inactive 账户的金融数据始终会被后端计算，前端仅控制是否显示这些行
+        // Show Payment Only 改为每次勾选/取消都重新搜索，
+        // 由后端 + applyZeroBalanceFilterAndRender 一起决定最终显示的数据
         showInactiveCk.addEventListener('change', () => {
-            applyZeroBalanceFilterAndRender();
+            const dateFrom = document.getElementById('date_from').value;
+            const dateTo = document.getElementById('date_to').value;
+            if (dateFrom && dateTo) {
+                searchTransactions();
+            }
         });
     }
     
@@ -2697,12 +2701,11 @@ function applyZeroBalanceFilterAndRender() {
     const rawLeft = lastSearchData.left_table || [];
     const rawRight = lastSearchData.right_table || [];
 
-    // inactive 账户始终显示（不做任何状态过滤），用户需要看到所有账户的账目
+    // 先应用 Show Payment Only / Show Win/Loss 过滤（如有）
+    // 双勾选时：显示有 Cr/Dr 或有 Win/Loss 的行；仅勾选 Show Payment：只显示有 Cr/Dr 的行
     let filteredLeft = rawLeft;
     let filteredRight = rawRight;
-
-    // 应用 Show Payment Only / Show Win/Loss 过滤（如有）
-    // 双勾选时：显示有 Cr/Dr 或有 Win/Loss 的行；仅勾选 Show Payment：只显示有 Cr/Dr 的行
+    
     if (showPaymentOnly) {
         const hasCrdr = row => {
             if (typeof row.has_crdr_transactions === 'boolean') return row.has_crdr_transactions;
@@ -2716,8 +2719,8 @@ function applyZeroBalanceFilterAndRender() {
         const shouldShow = showWinLossOnly
             ? (row) => hasCrdr(row) || hasWinLoss(row)
             : hasCrdr;
-        filteredLeft = filteredLeft.filter(shouldShow);
-        filteredRight = filteredRight.filter(shouldShow);
+        filteredLeft = rawLeft.filter(shouldShow);
+        filteredRight = rawRight.filter(shouldShow);
 
         // 不做回退：Show Payment Only 为空时应保持空结果，避免误判为筛选失效
     }
