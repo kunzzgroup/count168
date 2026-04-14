@@ -103,8 +103,12 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
  */
 function dashboardTxnCurrencyFilter(string $accountColumn): string
 {
-    // 参数不再需要 accountColumn，但为了保持方法签名兼容暂时保留
-    return " AND t.currency_id = ?";
+    // 强制使用 transactions.currency_id，若为 NULL 则兜底使用 data_capture_details 的 currency_id
+    // 此处移除了旧版基于 account_currency 的模糊兜底（会导致跨币种数据乱入）
+    return " AND (t.currency_id = ? OR (t.currency_id IS NULL AND EXISTS (
+        SELECT 1 FROM data_capture_details dcd 
+        WHERE dcd.id = t.capture_detail_id AND dcd.currency_id = ?
+    )))";
 }
 
 // 引入 search_api.php 中的函数（通过定义函数的方式）
@@ -240,8 +244,8 @@ try {
                 $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
                 $currency_filter_e = " AND e.currency_id = ?";
                 $currency_params_dcd = [$curr_id];
-                $currency_params_t_to = [$curr_id];
-                $currency_params_t_from = [$curr_id];
+                $currency_params_t_to = [$curr_id, $curr_id];
+                $currency_params_t_from = [$curr_id, $curr_id];
                 $currency_params_e = [$curr_id];
             } else {
                 // If the specified currency doesn't exist for this company, return empty for this role
@@ -576,9 +580,10 @@ function calculateProfitPaymentDailyFlow(
             LEFT JOIN account_company from_ac
               ON from_ac.account_id = from_acc.id
              AND from_ac.company_id = t.company_id
+            LEFT JOIN data_capture_details dcd
+              ON dcd.id = t.capture_detail_id
             INNER JOIN currency c
-              ON c.id = t.currency_id
-             AND c.company_id = t.company_id
+              ON c.id = COALESCE(t.currency_id, dcd.currency_id)
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
