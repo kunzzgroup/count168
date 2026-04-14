@@ -187,11 +187,16 @@ try {
     }
     $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
     $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
-    // 兜底：当月全部 posted 标记（含 maintenance 产生的 *_skipped）都清除，避免残留记录继续拦截 Accounting Due。
+    // 兜底：
+    // 1) 当月全部 posted 标记（含 maintenance 产生的 *_skipped）都清除，避免残留记录继续拦截 Accounting Due；
+    // 2) partial_first_month(_skipped) 在 Inbox 中按「是否存在」判定，非按月份判定，因此也要一并清除。
     $delMonthPap = $pdo->prepare(
         "DELETE FROM process_accounting_posted
          WHERE company_id = ? AND process_id = ?
-           AND YEAR(posted_date) = ? AND MONTH(posted_date) = ?"
+           AND (
+               (YEAR(posted_date) = ? AND MONTH(posted_date) = ?)
+               OR period_type IN ('partial_first_month','partial_first_month_skipped')
+           )"
     );
     $delMonthPap->execute([$company_id, $bankProcessId, $targetYear, $targetMonth]);
     $removedPap = $delMonthPap->rowCount();
