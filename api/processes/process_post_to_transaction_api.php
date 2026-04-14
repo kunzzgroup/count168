@@ -161,7 +161,9 @@ function getBillingTermMonthsFromContract(?string $contract): ?int
     }
     $c = trim($contract);
     if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
-        return 1 + (int) $m[1];
+        // 1+N 在 active regular billing 仅计 1 个月；
+        // 额外 N 个月仅在 manual_inactive 赔付逻辑中处理（见 getExtraMonthsFromContract / multiplier）。
+        return 1;
     }
     if (preg_match('/^(\d+)\s*MONTHS?$/i', $c, $m)) {
         return max(1, (int) $m[1]);

@@ -145,7 +145,7 @@ function normalizedBankIssueFlagSql(string $columnRef): string
     return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
 }
 
-/** 合同总月数：1+2→3 个月；未知则 null（不截断） */
+/** active regular billing 的合同月数：1+N 仅计 1 个月（N 月走 manual_inactive 赔付）；未知则 null（不截断） */
 function getBillingTermMonthsFromContract(?string $contract): ?int
 {
     if ($contract === null || trim($contract) === '') {
@@ -153,7 +153,7 @@ function getBillingTermMonthsFromContract(?string $contract): ?int
     }
     $c = trim($contract);
     if (preg_match('/^1\+(\d+)$/i', $c, $m)) {
-        return 1 + (int) $m[1];
+        return 1;
     }
     if (preg_match('/^(\d+)\s*MONTHS?$/i', $c, $m)) {
         return max(1, (int) $m[1]);
@@ -649,7 +649,7 @@ try {
     }
 
     $today = date('Y-m-d');
-    //$today = '2026-06-01';
+    //$today = '2026-05-01';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
