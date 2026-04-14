@@ -1297,25 +1297,9 @@ body.process-page {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: 100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* Games list: pagination fixed to viewport bottom-right (does not move with row count / list scroll) */
-.process-page:not(.process-page--bank) .pagination-container {
-    position: fixed;
-    right: max(40px, env(safe-area-inset-right, 0px));
-    bottom: max(20px, env(safe-area-inset-bottom, 0px));
-    margin: 0 !important;
-    left: auto;
-    top: auto;
-    z-index: 120;
-}
-
-/* Reserve space inside the scrollable list so the last row is not hidden under fixed pagination */
-.process-page:not(.process-page--bank) #processTableBody.process-cards {
-    padding-bottom: 48px;
-}
 
 .process-page .pagination-btn {
     background: transparent;

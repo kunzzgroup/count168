@@ -3,7 +3,6 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    height: 100vh;
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -12,9 +11,9 @@ body {
         radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
         linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
     background-blend-mode: screen, screen, multiply, screen, normal;
+    background-attachment: fixed;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: hidden;
     font-size: clamp(0.875rem, 2.5vw, 1rem);
     position: relative;
 }
@@ -22,11 +21,10 @@ body {
 .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    padding: 1px 40px 40px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    height: 100vh;
+    min-height: 100vh;
     box-sizing: border-box;
-    overflow: hidden;
 }
 
 .page-header {
@@ -324,8 +322,6 @@ body {
 .account-cards {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
 }
 
 .account-card {
@@ -1531,19 +1527,20 @@ body {
 
 /* Pagination Button Styles */
 .account-pagination-container {
-    position: fixed;
-    bottom: clamp(15px, 1.56vw, 30px);
-    right: 40px;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 0;
+    margin-top: 10px;
+    margin-bottom: 16px;
     background: rgba(255, 255, 255, 0.95);
-    padding: 0px;
+    padding: 4px 8px;
     border-radius: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: 100;
+    width: fit-content;
+    align-self: flex-end;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 

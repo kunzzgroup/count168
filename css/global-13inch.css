@@ -561,3 +561,71 @@
     }
 
 }
+
+/* ==========================================================================
+   UNIVERSAL LAYOUT UNLOCK — All screen sizes, all monitors
+   Destroy nested scrolls, use Native Window Scroll everywhere.
+   This MUST be outside all media queries to apply globally.
+   ========================================================================== */
+
+/* 1. Body + Containers: stretch naturally, no fixed height clipping */
+html,
+body.user-page,
+body.account-page,
+body.transaction-page,
+body.datacapture-page,
+body.dashboard-page,
+body {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background-attachment: fixed !important;
+}
+
+.container,
+.content,
+.transaction-container,
+.datacapture-container,
+.dashboard-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding-bottom: 40px !important;
+}
+
+/* 2. Table wrappers: full data render, no nested scroll */
+.table-container,
+.account-cards,
+.process-cards,
+.process-table-wrapper,
+.dashboard-content,
+.transaction-main-content,
+.transaction-table-wrapper,
+.datacapture-table-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* 3. Pagination: static below table, never float over data */
+.pagination-container,
+.account-pagination-container {
+    position: static !important;
+    bottom: auto !important;
+    right: auto !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    margin-top: 10px !important;
+    margin-bottom: 16px !important;
+    margin-left: auto !important;
+    width: fit-content !important;
+    padding: 4px 8px !important;
+}
