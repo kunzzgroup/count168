@@ -482,7 +482,7 @@ body {
     min-height: 100vh !important;
     max-height: none !important;
     overflow: visible !important;
-    padding-bottom: 0px !important;
+    padding-bottom: 20px !important;
     /* Absolute guarantee we never cut off the bottom element */
 }
 
