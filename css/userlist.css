@@ -578,6 +578,10 @@ h1 {
     overflow-y: auto;
     background: transparent;
     padding: clamp(6px, 0.52vw, 10px);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: clamp(4px, 0.42vw, 8px);
+    align-content: start;
 }
 
 /* Fixed buttons at bottom of account/process */

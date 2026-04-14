@@ -531,18 +531,13 @@ try {
                             <label class="acc-proc-label">Account</label>
                             <div class="account-grid" id="accountGrid">
                                 <?php
-                                $colCount = 0;
                                 foreach($accounts as $account):
-                                    if ($colCount % 3 == 0) {
-                                        if ($colCount > 0) echo '</div>';
-                                        echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
-                                    }
                                 ?>
                                     <div class="account-item-compact" data-search="<?php echo strtolower($account['account_id']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); border-radius: 4px; background-color: white; border: 1px solid #eee;">
                                         <input type="checkbox" id="account_<?php echo $account['id']; ?>" value="<?php echo $account['id']; ?>" data-account-id="<?php echo htmlspecialchars($account['account_id']); ?>" onchange="updateAccountSelection()" style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
                                         <label for="account_<?php echo $account['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;"><?php echo htmlspecialchars($account['account_id']); ?></label>
                                     </div>
-                                <?php $colCount++; endforeach; if ($colCount > 0) echo '</div>'; ?>
+                                <?php endforeach; ?>
                             </div>
                             <!-- Fixed buttons at bottom of account section -->
                             <div class="account-control-buttons">
@@ -556,18 +551,13 @@ try {
                             <label class="acc-proc-label">Process</label>
                             <div class="account-grid" id="processGrid">
                                 <?php
-                                $colCount = 0;
                                 foreach($processes as $process):
-                                    if ($colCount % 3 == 0) {
-                                        if ($colCount > 0) echo '</div>';
-                                        echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
-                                    }
                                 ?>
                                     <div class="account-item-compact" data-search="<?php echo strtolower($process['process_id'] . ' ' . $process['description']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); border-radius: 4px; background-color: white; border: 1px solid #eee;">
                                         <input type="checkbox" id="process_<?php echo $process['id']; ?>" value="<?php echo $process['id']; ?>" data-process-name="<?php echo htmlspecialchars($process['process_id']); ?>" data-process-description="<?php echo htmlspecialchars($process['description']); ?>" onchange="updateProcessSelection()" style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
                                         <label for="process_<?php echo $process['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;"><?php echo htmlspecialchars($process['process_id']); ?><?php if (!empty($process['description'])): ?><br><?php echo htmlspecialchars($process['description']); ?><?php endif; ?></label>
                                     </div>
-                                <?php $colCount++; endforeach; if ($colCount > 0) echo '</div>'; ?>
+                                <?php endforeach; ?>
                             </div>
                             <!-- Fixed buttons at bottom of process section -->
                             <div class="account-control-buttons">
