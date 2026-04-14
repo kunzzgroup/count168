@@ -411,19 +411,8 @@ function inboxAppendMonthlyNeedToday(
                 $shouldProrateMonthlyByCreatedFloor = true;
                 if ($frequency === '1st_of_every_month') {
                     $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
-                    if ($startDate !== '') {
-                        try {
-                            $startDt = new DateTimeImmutable($startDate);
-                            $startYm = $startDt->format('Y-n');
-                            if ((int) $startDt->format('j') !== 1 || $billYm !== $startYm) {
-                                $shouldProrateMonthlyByCreatedFloor = false;
-                            }
-                        } catch (Throwable $e) {
-                            $shouldProrateMonthlyByCreatedFloor = false;
-                        }
-                    } else {
-                        $shouldProrateMonthlyByCreatedFloor = false;
-                    }
+                    // 1st_of_every_month：始终按自然月1号起算，不按创建日截断。
+                    $shouldProrateMonthlyByCreatedFloor = false;
                 } else {
                     if ($startTs !== false) {
                         $dueYmd = calendarMonthDueYmd($billY, $billMo, (int) date('j', $startTs));
