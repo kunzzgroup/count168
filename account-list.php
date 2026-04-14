@@ -282,7 +282,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <div class="account-header-item">Last Login</div>
                 <div class="account-header-item">Remark</div>
                 <div class="account-header-item">Action
-                    <input type="checkbox" id="selectAllAccounts" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
+                    <span id="selectAllAccountsWrapper" style="display: none; margin-left: 10px; align-items: center; gap: 4px; white-space: nowrap;">
+                        <input type="checkbox" id="selectAllAccounts" title="Select all" style="cursor: pointer;" onchange="toggleSelectAllAccounts()">
+                        <label for="selectAllAccounts" style="cursor: pointer; font-size: 12px; font-weight: 500; color: #555;">All</label>
+                    </span>
                 </div>
             </div>
             

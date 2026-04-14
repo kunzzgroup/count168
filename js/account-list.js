@@ -1,4 +1,4 @@
-/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
+﻿/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
 (function () {
     if (typeof window.ACCOUNT_LIST_SHOW_INACTIVE === 'undefined') window.ACCOUNT_LIST_SHOW_INACTIVE = false;
     if (typeof window.ACCOUNT_LIST_SHOW_ALL === 'undefined') window.ACCOUNT_LIST_SHOW_ALL = false;
@@ -1566,11 +1566,16 @@ function toggleSelectAllAccounts() {
 
 // 鏍规嵁褰撳墠椤甸潰鏄惁鏈夊彲鍒犻櫎椤癸紝鏄剧ず/闅愯棌鍏ㄩ€夋
 function updateSelectAllAccountsVisibility() {
+    const wrapper = document.getElementById('selectAllAccountsWrapper');
     const selectAllCheckbox = document.getElementById('selectAllAccounts');
     if (!selectAllCheckbox) return;
 
     const anyRowCheckbox = document.querySelectorAll('.account-row-checkbox').length > 0;
-    selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
+    if (wrapper) {
+        wrapper.style.display = anyRowCheckbox ? 'inline-flex' : 'none';
+    } else {
+        selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
+    }
     if (!anyRowCheckbox) {
         selectAllCheckbox.checked = false;
     }
