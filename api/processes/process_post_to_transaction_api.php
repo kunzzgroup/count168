@@ -933,7 +933,9 @@ try {
             $transactionDate = $dayStartYmd;
             $postedDateForInbox = $dayStartYmd;
         } elseif ($periodType === 'manual_inactive') {
-            $transactionDate = $dayStartYmd ?: $fallbackDate;
+            // 1+1 / 1+2 / 1+3 的赔款（manual_inactive）按执行当天入账，
+            // 不回写到原 process day_start；首月正常合同入账仍走 monthly/partial 逻辑。
+            $transactionDate = $fallbackDate;
             $postedDateForInbox = $fallbackDate;
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
             // 流水/ Payment History 与 monthly 一致锚定在 Day start；PAP.posted_date 仍用合同自然结束次日，避免与首期 monthly 同日期冲突
