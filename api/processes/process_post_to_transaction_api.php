@@ -848,6 +848,15 @@ try {
             $billYm = sprintf('%04d-%d', $billY, $billMo);
             try {
                 $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
+                if (!$resendRelax) {
+                    $billYmInt = $billY * 100 + $billMo;
+                    $createdDt = new DateTimeImmutable($createdYmd);
+                    $createdYmInt = ((int) $createdDt->format('Y')) * 100 + ((int) $createdDt->format('n'));
+                    if ($billYmInt < $createdYmInt) {
+                        $skipCurrentPair = true;
+                    }
+                }
                 $firstMonthOnFirstHandled = false;
                 if ($frequency === '1st_of_every_month' && $dayStartYmd) {
                     $startYmForBill = (new DateTimeImmutable($dayStartYmd))->format('Y-n');
@@ -884,21 +893,22 @@ try {
                         }
                     }
                     if ($dueYmd !== null && $createdYmd > $dueYmd) {
-                        $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
                         $prorateFrom = $dueYmd;
                         if ($frequency === '1st_of_every_month' && !$resendRelax) {
-                            $useCreatedAsProrationStart = true;
-                            // day_start 非 1 号时，首个可入账自然月应按整月计费（例如 3/12 -> 4/1~4/30），
-                            // 不按创建日/今日截断；仅在合同窗口内才会进入该账期候选。
-                            if ($dayStartYmd) {
+                            // 仅在「第一条 monthly 账单且 day_start 非 1 号」时，允许按创建日截断到月末；
+                            // 其它 monthly 一律按整月（dueYmd）计算。
+                            $useCreatedAsProrationStart = false;
+                            if ($dayStartYmd !== null && $dayStartYmd !== '') {
                                 try {
                                     $startDt = new DateTimeImmutable($dayStartYmd);
-                                    $firstBillMonthYn = $startDt->modify('first day of next month')->format('Y-n');
-                                    if ((int) $startDt->format('j') !== 1 && $billYm === $firstBillMonthYn) {
-                                        $useCreatedAsProrationStart = false;
+                                    if ((int) $startDt->format('j') !== 1) {
+                                        $firstBillMonthYn = $startDt->modify('first day of next month')->format('Y-n');
+                                        if ($billYm === $firstBillMonthYn) {
+                                            $useCreatedAsProrationStart = true;
+                                        }
                                     }
                                 } catch (Throwable $e) {
-                                    // keep default behavior
+                                    // keep full-month behavior
                                 }
                             }
                             if ($useCreatedAsProrationStart) {
