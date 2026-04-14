@@ -3786,7 +3786,8 @@ if (addDescriptionForm) {
 
 // Add Country form submit (in modal: save to DB via API, then add to Available; user selects to move to Selected)
 const addCountryForm = document.getElementById('addCountryForm');
-if (addCountryForm) {
+if (addCountryForm && !window.__processlistModalAddCountryFormBound) {
+    window.__processlistModalAddCountryFormBound = true;
     addCountryForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_country_name');
@@ -3823,7 +3824,8 @@ if (addCountryForm) {
 
 // Add Bank form submit (in modal: add new bank to Available only; user selects it to move to Selected)
 const addBankFormEl = document.getElementById('addBankForm');
-if (addBankFormEl) {
+if (addBankFormEl && !window.__processlistModalAddBankFormBound) {
+    window.__processlistModalAddBankFormBound = true;
     addBankFormEl.addEventListener('submit', function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_bank_name');
