@@ -768,6 +768,7 @@ try {
     $has_resend_relax_col = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
     $fallbackDate = date('Y-m-d');
     $createdCount = 0;
+    $skippedFutureMonthlyDueCount = 0;
     $currencyCache = [];
 
     foreach ($pairs as $pair) {
@@ -1007,6 +1008,7 @@ try {
                     $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
                     if (!$resendRelax && $dueTx > $fallbackDate) {
                         $skipCurrentPair = true;
+                        $skippedFutureMonthlyDueCount++;
                     }
                     $transactionDate = $dueTx;
                     $postedDateForInbox = $dueTx;
@@ -1143,6 +1145,14 @@ try {
                 }
             }
         }
+    }
+
+    if ($createdCount === 0 && $skippedFutureMonthlyDueCount > 0) {
+        jsonResponse(true, "未到应付日，暂不生成交易记录（Resend 除外）。", [
+            'created_count' => 0,
+            'skipped_future_monthly_due_count' => $skippedFutureMonthlyDueCount
+        ]);
+        exit;
     }
 
     jsonResponse(true, "已入账，共生成 $createdCount 条交易记录。", ['created_count' => $createdCount]);
