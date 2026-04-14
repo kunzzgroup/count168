@@ -99,28 +99,12 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
 
 /**
  * Dashboard 交易币别过滤（与 search_api 对齐）：
- * - 优先使用 transactions.currency_id
- * - 若 currency_id 为空，则用 data_capture_details 的 account + currency 映射兜底
+ * - 仅使用 transactions.currency_id（移除旧版 dcd 兜底，避免账户跨币种时数据互相乱入）
  */
 function dashboardTxnCurrencyFilter(string $accountColumn): string
 {
-    if ($accountColumn !== 'account_id' && $accountColumn !== 'from_account_id') {
-        $accountColumn = 'account_id';
-    }
-    return " AND (
-        t.currency_id = ?
-        OR (
-            t.currency_id IS NULL
-            AND EXISTS (
-                SELECT 1
-                FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ? AND dc.company_id = ?
-                  AND CAST(dcd.account_id AS CHAR) = CAST(t.`{$accountColumn}` AS CHAR)
-                  AND dcd.currency_id = ?
-            )
-        )
-    )";
+    // 参数不再需要 accountColumn，但为了保持方法签名兼容暂时保留
+    return " AND t.currency_id = ?";
 }
 
 // 引入 search_api.php 中的函数（通过定义函数的方式）
@@ -256,8 +240,8 @@ try {
                 $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
                 $currency_filter_e = " AND e.currency_id = ?";
                 $currency_params_dcd = [$curr_id];
-                $currency_params_t_to = [$curr_id, $company_id, $company_id, $curr_id];
-                $currency_params_t_from = [$curr_id, $company_id, $company_id, $curr_id];
+                $currency_params_t_to = [$curr_id];
+                $currency_params_t_from = [$curr_id];
                 $currency_params_e = [$curr_id];
             } else {
                 // If the specified currency doesn't exist for this company, return empty for this role
