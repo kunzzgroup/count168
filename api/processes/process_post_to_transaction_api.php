@@ -899,6 +899,7 @@ try {
             $price = round($price * $mult, 2);
             $profit = round($profit * $mult, 2);
         }
+        $manualInactiveCompensationOnlySell = ($periodType === 'manual_inactive' && getExtraMonthsFromContract($p['contract'] ?? null) > 0);
 
         $processLabel = $p['name'] ?: ($p['bank'] . ' #' . $p['id']);
         $companyId = (int) $p['company_id'];
@@ -1000,7 +1001,7 @@ try {
 
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : '');
         // Cost → Supplier(card_merchant)，Price → Customer，Profit → Company；首月按比例时三笔均用折算后的 cost/price/profit
-        if (!empty($p['card_merchant_id']) && $cost > 0) {
+        if (!$manualInactiveCompensationOnlySell && !empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['card_merchant_id'];
             $txn['amount'] = $cost;
@@ -1018,55 +1019,57 @@ try {
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
-        // Profit：先扣 Profit Sharing 再入 Company；Profit Sharing 每笔入对应 account（均记 Win/Loss）
-        // 1st of every month 首月按比例时，Profit Sharing 金额也按「剩余天数/当月天数」折算，再分给各 account
-        $psRatio = 1.0;
-        if ($periodType === 'partial_first_month') {
-            $ts = strtotime($ledgerDate);
-            if ($ts !== false) {
-                $daysInMonth = (int) date('t', $ts);
-                $dayOfMonth = (int) date('j', $ts);
-                $daysRemaining = $daysInMonth - $dayOfMonth + 1;
-                if ($daysInMonth > 0) {
-                    $psRatio = $daysRemaining / $daysInMonth;
+        if (!$manualInactiveCompensationOnlySell) {
+            // Profit：先扣 Profit Sharing 再入 Company；Profit Sharing 每笔入对应 account（均记 Win/Loss）
+            // 1st of every month 首月按比例时，Profit Sharing 金额也按「剩余天数/当月天数」折算，再分给各 account
+            $psRatio = 1.0;
+            if ($periodType === 'partial_first_month') {
+                $ts = strtotime($ledgerDate);
+                if ($ts !== false) {
+                    $daysInMonth = (int) date('t', $ts);
+                    $dayOfMonth = (int) date('j', $ts);
+                    $daysRemaining = $daysInMonth - $dayOfMonth + 1;
+                    if ($daysInMonth > 0) {
+                        $psRatio = $daysRemaining / $daysInMonth;
+                    }
+                }
+            } elseif ($monthlyProrationPsRatio !== null) {
+                $psRatio = $monthlyProrationPsRatio;
+            } elseif ($periodType === 'day_end_tail') {
+                $fp = (float) ($p['profit'] ?? 0);
+                $psRatio = ($fp > 0) ? ($profit / $fp) : 0.0;
+            }
+            $profitSharingEntries = parseProfitSharingString($p['profit_sharing'] ?? '');
+            $profitSharingResolved = [];
+            $totalPs = 0;
+            $psMult = ($periodType === 'manual_inactive') ? getManualInactiveMultiplierFromContract($p['contract'] ?? null) : 1;
+            foreach ($profitSharingEntries as $entry) {
+                $accId = resolveAccountIdByText($pdo, $companyId, $entry['account_text']);
+                if ($accId !== null && $entry['amount'] > 0) {
+                    $proratedAmount = round($entry['amount'] * $psRatio * $psMult, 2);
+                    if ($proratedAmount > 0) {
+                        $profitSharingResolved[] = ['account_id' => $accId, 'amount' => $proratedAmount, 'account_text' => $entry['account_text']];
+                        $totalPs += $proratedAmount;
+                    }
                 }
             }
-        } elseif ($monthlyProrationPsRatio !== null) {
-            $psRatio = $monthlyProrationPsRatio;
-        } elseif ($periodType === 'day_end_tail') {
-            $fp = (float) ($p['profit'] ?? 0);
-            $psRatio = ($fp > 0) ? ($profit / $fp) : 0.0;
-        }
-        $profitSharingEntries = parseProfitSharingString($p['profit_sharing'] ?? '');
-        $profitSharingResolved = [];
-        $totalPs = 0;
-        $psMult = ($periodType === 'manual_inactive') ? getManualInactiveMultiplierFromContract($p['contract'] ?? null) : 1;
-        foreach ($profitSharingEntries as $entry) {
-            $accId = resolveAccountIdByText($pdo, $companyId, $entry['account_text']);
-            if ($accId !== null && $entry['amount'] > 0) {
-                $proratedAmount = round($entry['amount'] * $psRatio * $psMult, 2);
-                if ($proratedAmount > 0) {
-                    $profitSharingResolved[] = ['account_id' => $accId, 'amount' => $proratedAmount, 'account_text' => $entry['account_text']];
-                    $totalPs += $proratedAmount;
-                }
+            $companyProfit = $profit - $totalPs;
+            if (!empty($p['profit_account_id']) && $companyProfit > 0) {
+                $txn = $baseTxn;
+                $txn['account_id'] = (int) $p['profit_account_id'];
+                $txn['amount'] = round($companyProfit, 2);
+                $txn['description'] = "Process: Profit for $processLabel" . $suffix;
+                insertTransactionRow($pdo, $txn);
+                $createdCount++;
             }
-        }
-        $companyProfit = $profit - $totalPs;
-        if (!empty($p['profit_account_id']) && $companyProfit > 0) {
-            $txn = $baseTxn;
-            $txn['account_id'] = (int) $p['profit_account_id'];
-            $txn['amount'] = round($companyProfit, 2);
-            $txn['description'] = "Process: Profit for $processLabel" . $suffix;
-            insertTransactionRow($pdo, $txn);
-            $createdCount++;
-        }
-        foreach ($profitSharingResolved as $ps) {
-            $txn = $baseTxn;
-            $txn['account_id'] = (int) $ps['account_id'];
-            $txn['amount'] = $ps['amount'];
-            $txn['description'] = "Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix;
-            insertTransactionRow($pdo, $txn);
-            $createdCount++;
+            foreach ($profitSharingResolved as $ps) {
+                $txn = $baseTxn;
+                $txn['account_id'] = (int) $ps['account_id'];
+                $txn['amount'] = $ps['amount'];
+                $txn['description'] = "Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix;
+                insertTransactionRow($pdo, $txn);
+                $createdCount++;
+            }
         }
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
