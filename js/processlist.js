@@ -2300,9 +2300,15 @@ async function performToggleStatus(processId) {
             : (showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active'));
 
         if (!shouldShow) {
-            const processIndex = processes.findIndex(p => String(p.id) === String(processId));
-            if (processIndex > -1) processes.splice(processIndex, 1);
-            renderTable();
+            if (selectedPermission === 'Bank') {
+                // Keep the full Bank dataset in memory so toggling Show Inactive can reveal rows immediately.
+                renderTable();
+                renderPagination();
+            } else {
+                const processIndex = processes.findIndex(p => String(p.id) === String(processId));
+                if (processIndex > -1) processes.splice(processIndex, 1);
+                renderTable();
+            }
         } else if (newDayEnd) {
             renderTable();
         } else {
