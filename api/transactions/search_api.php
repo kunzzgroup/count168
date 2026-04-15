@@ -1357,13 +1357,8 @@ try {
             END";
 
             if ($has_source_bank_process_period_type) {
-                $wlDateExpr = "(CASE
-                    WHEN t.source_bank_process_id IS NOT NULL
-                         AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
-                         AND DATE(t.transaction_date) <= CURDATE()
-                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                    ELSE DATE(t.transaction_date)
-                END)";
+                // partial / tail 与 monthly 均按 transaction_date 汇总；入账 API 已写入经济归属日，避免 bp.day_start 与 Resend 锚点不一致
+                $wlDateExpr = "DATE(t.transaction_date)";
                 $wlFutureGuard = " AND (
                     t.source_bank_process_id IS NULL
                     OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
@@ -2014,7 +2009,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
     $has_transaction_currency = searchApiTxnHasCurrencyId($pdo);
 
-    // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
+    // Bank WIN/LOSE：partial_first_month / day_end_tail 按 transaction_date 与 Payment History 一致；旧库无 period_type 时仍可按 bp.day_start 兜底
     $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存，跨函数共享
     $has_source_bank_process_period_type = searchApiHasSourceBankProcessPeriodType($pdo); // static 缓存
     $wlJoinSql = '';
@@ -2029,13 +2024,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             ELSE NULL
         END";
         if ($has_source_bank_process_period_type) {
-            $wlDateExpr = "(CASE
-                WHEN t.source_bank_process_id IS NOT NULL
-                     AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
-                     AND DATE(t.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                ELSE DATE(t.transaction_date)
-            END)";
+            $wlDateExpr = "DATE(t.transaction_date)";
             $wlFutureGuard = " AND (
                 t.source_bank_process_id IS NULL
                 OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
@@ -2290,7 +2279,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss = 0;
     $has_rate_middleman = false;
 
-    // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
+    // Bank WIN/LOSE：有 period_type 时按 transaction_date 与 Payment History 一致；旧库无 period_type 时仍可按 bp.day_start 兜底
     $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存，跨函数共享
     $has_source_bank_process_period_type = searchApiHasSourceBankProcessPeriodType($pdo); // static 缓存
     $wlJoinSql = '';
@@ -2305,13 +2294,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             ELSE NULL
         END";
         if ($has_source_bank_process_period_type) {
-            $wlDateExpr = "(CASE
-                WHEN t.source_bank_process_id IS NOT NULL
-                     AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
-                     AND DATE(t.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                ELSE DATE(t.transaction_date)
-            END)";
+            $wlDateExpr = "DATE(t.transaction_date)";
             $wlFutureGuard = " AND (
                 t.source_bank_process_id IS NULL
                 OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
