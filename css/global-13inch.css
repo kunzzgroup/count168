@@ -597,13 +597,10 @@
 }
 
 /* ==========================================================================
-   GLOBAL VIEWPORT LOCK — No browser scrollbar. No page scroll. Ever.
-   Body and all main containers are capped at 100vh.
-   Data fits because rows are compressed (see GLOBAL EXTREME COMPRESSION above).
-   Pagination is fixed so it never occupies document flow.
+   GLOBAL VIEWPORT LOCK — No browser scrollbar. No page scroll.
+   Only specific page body classes are locked.
+   html stays at browser default so transaction.php can scroll freely.
    ========================================================================== */
-html,
-body,
 body.user-page,
 body.account-page,
 body.datacapture-page,
@@ -620,7 +617,8 @@ body.maintenance-page {
     overflow-x: hidden !important;
 }
 
-/* transaction-page: allowed to scroll — too many rows to fit one screen */
+/* transaction-page: always scrollable — financial data can be many rows */
+html:has(body.transaction-page),
 body.transaction-page {
     height: auto !important;
     max-height: none !important;
