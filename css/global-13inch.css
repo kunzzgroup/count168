@@ -468,8 +468,6 @@
     .member-cards,
     .ownership-cards,
     .domain-cards,
-    .transaction-main-content,
-    .transaction-table-wrapper,
     .datacapture-table-wrapper,
     .dashboard-content {
         max-height: none !important;
@@ -608,7 +606,6 @@ html,
 body,
 body.user-page,
 body.account-page,
-body.transaction-page,
 body.datacapture-page,
 body.dashboard-page,
 body.process-page,
@@ -623,9 +620,16 @@ body.maintenance-page {
     overflow-x: hidden !important;
 }
 
+/* transaction-page: allowed to scroll — too many rows to fit one screen */
+body.transaction-page {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
 .container,
 .process-page .container,
-.transaction-container,
 .datacapture-container,
 .dashboard-container,
 .domain-container,
@@ -637,5 +641,15 @@ body.maintenance-page {
     overflow: hidden !important;
     /* padding-bottom keeps data clear of the fixed pagination bar */
     padding-bottom: 50px !important;
+    box-sizing: border-box !important;
+}
+
+/* transaction-container: allowed scroll */
+.transaction-container {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    min-height: 100vh !important;
+    padding-bottom: 60px !important;
     box-sizing: border-box !important;
 }
