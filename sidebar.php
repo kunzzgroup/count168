@@ -347,8 +347,8 @@ if ($companyId) {
                 </div>
             <?php endif; ?>
 
-            <!-- Domain Section -->
-            <?php if (empty($permissions) || in_array('domain', $permissions)): ?>
+            <!-- Domain Section - 只有与 c168 相关且角色为 owner/admin 的用户可见 -->
+            <?php if ((empty($permissions) || in_array('domain', $permissions)) && $hasC168Access): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="domain.php"
                         onclick="window.location.href='domain.php'">
@@ -361,8 +361,9 @@ if ($companyId) {
                 </div>
             <?php endif; ?>
 
-            <!-- Announcement Section -->
-            <?php if (empty($permissions) || in_array('announcement', $permissions)): ?>
+            <!-- Announcement Section - Only C168 owner/admin can see and access (to publish/manage announcements) -->
+            <!-- All users can view announcements in dashboard, but only C168 can publish/manage -->
+            <?php if ($hasC168Access): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="announcement.php"
                         onclick="window.location.href='announcement.php'">
@@ -426,7 +427,7 @@ if ($companyId) {
             <?php endif; ?>
 
             <!-- Process Section -->
-            <?php if (empty($permissions) || in_array('process', $permissions)): ?>
+            <?php if ((empty($permissions) || in_array('process', $permissions)) && !$isCurrentCompanyC168): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="processlist.php"
                         onclick="window.location.href='processlist.php'">
@@ -438,9 +439,9 @@ if ($companyId) {
                 </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section -->
+            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
             <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
-                <div class="informationmenu-section" id="sidebar-datacapture-section">
+                <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="informationmenu-section-title" data-page="datacapture.php"
                         onclick="window.location.href='datacapture.php'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -466,9 +467,9 @@ if ($companyId) {
                 </div>
             <?php endif; ?>
 
-            <!-- Report Section -->
-            <?php if (empty($permissions) || in_array('report', $permissions)): ?>
-                <div class="informationmenu-section" id="sidebar-report-section">
+            <!-- Report Section（仅当前公司有 Games 权限时显示） -->
+            <?php if ((empty($permissions) || in_array('report', $permissions)) && !$isCurrentCompanyC168): ?>
+                <div class="informationmenu-section" id="sidebar-report-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="menu-item-wrapper">
                         <div class="informationmenu-section-title" data-section="report">
                             <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -492,47 +493,58 @@ if ($companyId) {
                 </div>
             <?php endif; ?>
 
-            <!-- Maintenance Section -->
+            <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
             <?php $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions)); ?>
             <div class="informationmenu-section">
                 <div class="menu-item-wrapper">
-                    <div class="informationmenu-section-title" data-section="maintenance">
-                        <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                            <path
-                                d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-                        </svg>
-                        Maintenance
-                        <span class="section-arrow">▶</span>
-                    </div>
-                    <div class="submenu" id="maintenance-submenu">
-                        <div class="submenu-content">
-                            <?php if ($hasMaintenance): ?>
-                                <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
-                                    <span>Data Capture</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ($hasMaintenance): ?>
-                                <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
-                                    <span>Transaction</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ($hasMaintenance): ?>
-                                <a href="payment_maintenance.php" class="submenu-item">
-                                    <span>Payment</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ($hasMaintenance): ?>
-                                <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
-                                    <span>Formula</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ($hasMaintenance): ?>
-                                <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link">
-                                    <span>Process</span>
-                                </a>
-                            <?php endif; ?>
+                    <?php if ($isCurrentCompanyC168 && $hasMaintenance): ?>
+                        <div class="informationmenu-section-title account-direct" data-page="payment_maintenance.php"
+                            onclick="window.location.href='payment_maintenance.php'">
+                            <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                            </svg>
+                            Maintenance Payment
                         </div>
-                    </div>
+                    <?php else: ?>
+                        <div class="informationmenu-section-title" data-section="maintenance">
+                            <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                            </svg>
+                            Maintenance
+                            <span class="section-arrow">▶</span>
+                        </div>
+                        <div class="submenu" id="maintenance-submenu">
+                            <div class="submenu-content">
+                                <?php if (!$isCurrentCompanyC168 && $companyHasGambling && $hasMaintenance): ?>
+                                    <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
+                                        <span>Data Capture</span>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if (!$isCurrentCompanyC168 && $companyHasGambling && $hasMaintenance): ?>
+                                    <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
+                                        <span>Transaction</span>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if ($hasMaintenance): ?>
+                                    <a href="payment_maintenance.php" class="submenu-item">
+                                        <span>Payment</span>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if (!$isCurrentCompanyC168 && $companyHasGambling): ?>
+                                    <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
+                                        <span>Formula</span>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if (!$isCurrentCompanyC168 && $hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
+                                    <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link">
+                                        <span>Process</span>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>
