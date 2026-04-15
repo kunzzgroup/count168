@@ -23,6 +23,23 @@ if ($session_company_id) {
     exit;
 }
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_id) {
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+        }
+    }
+} catch (Exception $e) { }
+
+$company_id = $session_company_id;
+
 // Get URL parameters for notifications
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
@@ -56,6 +73,7 @@ if (!empty($session_company_id)) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">
@@ -75,14 +93,23 @@ if (!empty($session_company_id)) {
             <div class="maintenance-filters">
                 <div class="maintenance-form-group">
                     <label class="maintenance-label">Process</label>
-                    <div class="custom-select-wrapper">
-                        <button type="button" class="custom-select-button" id="filter_process" data-placeholder="--Select All--">--Select All--</button>
-                        <div class="custom-select-dropdown" id="filter_process_dropdown">
-                            <div class="custom-select-search">
-                                <input type="text" placeholder="Search process..." autocomplete="off">
+                    <div class="custom-select-wrapper" style="display: flex; gap: 8px; align-items: center;">
+                        <div style="position: relative; flex: 1;">
+                            <button type="button" class="custom-select-button" id="filter_process" data-placeholder="--Select All--">--Select All--</button>
+                            <div class="custom-select-dropdown" id="filter_process_dropdown">
+                                <div class="custom-select-search">
+                                    <input type="text" placeholder="Search process..." autocomplete="off">
+                                </div>
+                                <div class="custom-select-options"></div>
                             </div>
-                            <div class="custom-select-options"></div>
                         </div>
+                        <button type="button" id="clear_filters_btn" title="Clear Filters" onclick="clearFormulaFilters()" style="display: flex; align-items: center; justify-content: center; background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <div class="maintenance-form-group">
@@ -92,12 +119,20 @@ if (!empty($session_company_id)) {
             </div>
             
             <div class="maintenance-filter-row">
-                <div class="maintenance-company-filter" id="companyButtonsWrapper" style="display: none;">
-                    <span class="maintenance-company-label">Company:</span>
-                    <div class="maintenance-company-buttons" id="companyButtonsContainer">
-                        <!-- Company buttons injected here -->
-                    </div>
+                <!-- Shared Group & Company Filter (SSR) -->
+                <div class="maintenance-filter-left">
+                    <?php
+                    $filter_prefix = 'maintenance'; 
+                    include 'includes/company_filter.php'; 
+                    ?>
                 </div>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchCompany === 'function') {
+                            switchCompany(companyId, companyCode);
+                        }
+                    };
+                </script>
                 
                 <div class="maintenance-actions">
                     <button type="button" class="maintenance-delete-btn" id="deleteBtn" onclick="deleteData()" disabled>Delete</button>
@@ -117,26 +152,29 @@ if (!empty($session_company_id)) {
         </div>
         
         <!-- Data Capture List -->
-        <div class="maintenance-list-container" id="dataCaptureTableContainer" style="display: none;">
-            <!-- List Header -->
-            <div class="maintenance-list-header">
-                <div>No</div>
-                <div>Process</div>
-                <div>Account</div>
-                <div>Currency</div>
-                <div>Source</div>
-                <div>Product</div>
-                <div>Input Method</div>
-                <div>Formula</div>
-                <div>Description</div>
-                <div class="maintenance-select-all-header" style="text-align: center;">
-                    <input type="checkbox" id="select_all_data_capture" class="maintenance-checkbox" title="Select All" onchange="toggleSelectAllRows(this)">
-                </div>
-            </div>
-            
-            <!-- List Cards -->
-            <div class="maintenance-list-cards" id="dataCaptureTableBody">
-                <!-- Cards will be populated dynamically -->
+        <div class="maintenance-list-container" id="dataCaptureTableContainer" style="display: none; padding-bottom: 20px;">
+            <div style="overflow-x: auto;">
+                <table class="maintenance-table" style="width: 100%; border-collapse: collapse; min-width: 1000px;">
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th style="width: 5%;">No</th>
+                            <th style="width: 10%;">Process</th>
+                            <th style="width: 10%;">Account</th>
+                            <th style="width: 5%;">Currency</th>
+                            <th style="width: 10%;">Source</th>
+                            <th style="width: 10%;">Product</th>
+                            <th style="width: 15%;">Input Method</th>
+                            <th style="width: 15%;">Formula</th>
+                            <th style="width: 12%;">Description</th>
+                            <th style="width: 8%; text-align: center;">
+                                <input type="checkbox" id="select_all_data_capture" class="maintenance-checkbox" title="Select All" onchange="toggleSelectAllRows(this)">
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataCaptureTableBody">
+                        <!-- Table rows will be populated dynamically -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -165,6 +203,6 @@ if (!empty($session_company_id)) {
         window.FORMULA_MAINTENANCE_COMPANY_ID = <?php echo json_encode($session_company_id); ?>;
         window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>;
     </script>
-    <script src="js/formula_maintenance.js?v=<?php echo time(); ?>"></script>
+    <script src="js/formula_maintenance_v2.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

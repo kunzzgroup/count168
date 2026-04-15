@@ -170,6 +170,11 @@ body.process-page {
     font-size: clamp(10px, 0.73vw, 14px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    align-self: center;
+    transform: translateY(1px);
+    /* optical alignment with buttons */
 }
 
 .process-page .process-company-buttons {
@@ -323,7 +328,7 @@ body.process-page {
 /* Separator line */
 .process-page .separator-line {
     width: 100vw;
-    height: 2px;
+    height: 1px;
     background-color: #939393;
     margin: 5px 0 -10px 0;
     position: relative;
@@ -686,35 +691,24 @@ body.process-page {
     overflow: hidden;
 }
 
-.process-page.process-page--bank .page-title {
-    font-size: clamp(20px, 1.72vw, 32px);
-    margin-top: 4px;
-    margin-bottom: 2px;
-}
+/* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
 
-.process-page.process-page--bank .separator-line {
-    margin-top: 4px;
-    margin-bottom: 0;
-}
+/* separator-line 不再 override，与 Games 完全一致（margin: 5px 0 -10px 0） */
 
 .process-page.process-page--bank .bank-table-wrapper {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
+    /* 填满剩余垂直空间，分页条始终在 flex 末尾不遮挡数据 */
     min-height: 0;
     align-self: stretch;
     margin-top: 6px;
     max-height: none;
     overflow-x: auto;
-    overflow-y: hidden;
-}
-
-/* 仅 Show All：Bank 表格区域占满剩余高度并可纵向滚动 */
-.process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper {
-    flex: 1 1 auto;
-    min-height: 0;
     overflow-y: auto;
-    overflow-x: auto;
+    /* 20 条以上在 wrapper 内滚动，而非溢出到分页条后面 */
     -webkit-overflow-scrolling: touch;
 }
+
+/* Show All 模式：与普通模式相同（wrapper 已 flex:1，overflow-y:auto，无需额外规则） */
 
 /* 勿设 height:100%：否则行数少时浏览器会把行高均分撑满 flex 区，出现「两行占满一屏」 */
 .process-page.process-page--bank .bank-data-table {
@@ -729,7 +723,7 @@ body.process-page {
 
 .process-page.process-page--bank .bank-data-table td {
     line-height: 1.13;
-    padding: 1px 4px;
+    padding: 2px 4px;
 }
 
 .process-page.process-page--bank .bank-data-table th {
@@ -750,18 +744,9 @@ body.process-page {
     font-size: clamp(8px, 0.64vw, 12px);
 }
 
-.process-page.process-page--bank .content > div:first-child {
-    margin-top: 8px !important;
-    margin-bottom: 8px !important;
-}
+/* 标题行外层 div 的 margin 不再缩减，保持与 processlist.php 一致（inline margin: 20px 生效） */
 
-.process-page.process-page--bank .action-buttons-container {
-    margin-top: 8px;
-}
-
-.process-page.process-page--bank .action-buttons {
-    padding: 7px 16px;
-}
+/* action-buttons-container 和 action-buttons 不再 override，与 Games 完全统一（margin-top: 20px, padding: 10px 20px）使 separator line 正确显示 */
 
 .process-page.process-page--bank .action-buttons-container .process-company-filter {
     padding: 0 16px 8px 16px;
@@ -771,6 +756,41 @@ body.process-page {
     flex-shrink: 0;
     margin-top: 3px;
     margin-bottom: max(5px, env(safe-area-inset-bottom, 0px));
+}
+
+/* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
+/* !important 必须：inline style="flex-wrap:wrap" 优先级高于 CSS，需强制覆盖 */
+.process-page.process-page--bank .action-controls-row {
+    flex-wrap: nowrap !important;
+    gap: clamp(4px, 0.5vw, 10px) !important;
+}
+
+.process-page.process-page--bank .checkbox-section {
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.process-page.process-page--bank .checkbox-section label {
+    font-size: clamp(9px, 0.6vw, 11px);
+    white-space: nowrap;
+}
+
+.process-page.process-page--bank .checkbox-section input[type="checkbox"] {
+    width: clamp(11px, 0.75vw, 14px);
+    height: clamp(11px, 0.75vw, 14px);
+    flex-shrink: 0;
+}
+
+/* Bank 搜索框宽度稍窄，给 checkbox 留空间 */
+.process-page.process-page--bank .search-input {
+    width: clamp(110px, 8.5vw, 200px);
+}
+
+/* Bank 日期选择器宽度稍窄 */
+.process-page.process-page--bank .process-list-date-filter,
+.process-page.process-page--bank .process-list-date-filter .date-range-picker {
+    min-width: clamp(140px, 11vw, 200px);
+    width: clamp(140px, 11vw, 200px);
 }
 
 @media (max-height: 820px) {
@@ -792,9 +812,8 @@ body.process-page {
         padding: 1px 4px;
     }
 
-    .process-page.process-page--bank .content > div:first-child {
+    .process-page.process-page--bank .content>div:first-child {
         margin-top: 6px !important;
-        margin-bottom: 8px !important;
     }
 
     .process-page.process-page--bank .action-buttons {
@@ -820,7 +839,7 @@ body.process-page {
     }
 
     .process-page.process-page--bank .separator-line {
-        margin-top: 4px;
+        margin-bottom: 0px;
     }
 
     .process-page.process-page--bank .pagination-container {
@@ -845,7 +864,7 @@ body.process-page {
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;
-    grid-template-columns: 0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1fr 0.3fr;
+    grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
     padding: 0px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -859,6 +878,7 @@ body.process-page {
 
 .process-page .table-header .header-item {
     padding: 2px 4px;
+    /* Default CSS padding, overridden by global-13inch on small screens */
     white-space: nowrap;
     min-width: 0;
 }
@@ -874,6 +894,24 @@ body.process-page {
     flex-shrink: 0;
 }
 
+/* Games Show All 模式：允许页面纵向滚动，一页展示所有数据 */
+body.process-page.process-page--show-all {
+    overflow-y: auto !important;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.process-page.process-page--show-all .container {
+    overflow-y: visible;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.process-page.process-page--show-all .process-cards {
+    max-height: none;
+    overflow-y: visible;
+}
+
 /* Process Cards - copied from accountCSS.css */
 .process-page .process-cards {
     display: flex;
@@ -884,9 +922,9 @@ body.process-page {
 
 .process-page .process-card {
     display: grid;
-    grid-template-columns: 0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr;
+    grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
-    padding: 0px 20px;
+    padding: 4px 20px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -2879,6 +2917,35 @@ body.process-page {
     letter-spacing: 0.01em;
 }
 
+#confirmBankResendModal .bank-resend-field__note {
+    margin: 6px 0 0;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: #64748b;
+}
+
+#confirmBankResendModal .bank-resend-inline-alert {
+    margin-top: 12px;
+    padding: 14px 16px;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.45;
+    color: #450a0a;
+    background: linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%);
+    border: 2px solid #e11d48;
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(190, 18, 60, 0.35);
+}
+
+#confirmBankResendModal .bank-resend-inline-alert[hidden] {
+    display: none !important;
+}
+
+#confirmBankResendModal .bank-resend-control.bank-resend-control--error {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.35) !important;
+}
+
 #confirmBankResendModal .bank-resend-control {
     width: 100%;
     box-sizing: border-box;
@@ -2939,7 +3006,7 @@ body.process-page {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 10000;
+    z-index: 10050;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -2975,6 +3042,21 @@ body.process-page {
     background-color: #fef2f2;
     color: #991b1b;
     border-left-color: #ef4444;
+}
+
+/* Resend：Day start 与合约同日 — 仅此场景使用 showNotification(..., { prominent: true }) */
+.process-notification.process-notification--bank-resend-day-start {
+    max-width: min(100vw - 32px, 480px);
+    min-width: min(100vw - 32px, 320px);
+    padding: 20px 22px;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.45;
+    color: #450a0a;
+    background: linear-gradient(180deg, #fff1f2 0%, #fecdd3 100%);
+    border: 3px solid #be123c;
+    border-left: 8px solid #9f1239;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
 }
 
 @media (max-width: 1024px) {

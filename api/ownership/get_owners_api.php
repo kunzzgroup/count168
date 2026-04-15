@@ -53,7 +53,7 @@ try {
                    co.partner_group_id,
                    CASE WHEN co.owner_type = 'user' THEN co.account_id ELSE NULL END as user_raw_id,
                    CASE
-                       WHEN co.owner_type = 'user'  THEN u.read_only
+                       WHEN co.owner_type = 'user'  THEN co.read_only
                        WHEN co.owner_type = 'owner' AND comp.owner_id != co.account_id THEN co.read_only
                        ELSE NULL
                    END as read_only,

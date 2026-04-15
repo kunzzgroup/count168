@@ -1,11 +1,32 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once 'permissions.php';
 
 // 获取 company_id（session_check.php已确保用户已登录）
 $company_id = $_SESSION['company_id'];
+
+if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+    header('Location: index.php?error=unauthorized_category');
+    exit;
+}
+
 $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
 $isOwner = ($userRole === 'owner');
+
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    if ($current_user_id) {
+        if ($isOwner) {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+        }
+    }
+} catch (Exception $e) { }
 ?>
 
 <!DOCTYPE html>
@@ -26,6 +47,7 @@ $isOwner = ($userRole === 'owner');
     <link rel="stylesheet" href="css/customer_report.css?v=<?php echo time(); ?>">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body class="report-page">
     <div class="container">
@@ -92,13 +114,18 @@ $isOwner = ($userRole === 'owner');
                     </div>
                 </div>
                 
-                <!-- Company Buttons (for owner) -->
-                <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                    <span class="transaction-company-label">Company:</span>
-                    <div id="company-buttons-container" class="transaction-company-buttons">
-                        <!-- Company buttons will be dynamically added here -->
-                    </div>
-                </div>
+                <!-- Shared Group & Company Filter (SSR) -->
+                <?php
+                $filter_prefix = 'transaction'; 
+                include 'includes/company_filter.php'; 
+                ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchCompany === 'function') {
+                            switchCompany(companyId, companyCode);
+                        }
+                    };
+                </script>
                 
                 <!-- Currency Buttons -->
                 <div id="currency-buttons-wrapper" class="transaction-company-filter" style="display: none;">

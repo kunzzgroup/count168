@@ -3,7 +3,7 @@
  * 依赖：主页面需先引入 css/sidebar.css；包含 sidebar 的页面需在引入本脚本前或后执行 sidebar 的 PHP 初始化脚本（设置 window.SIDEBAR_*）。
  */
 
-(function() {
+(function () {
     'use strict';
 
     var sidebar = null;
@@ -27,10 +27,10 @@
         if (!overlay) overlay = document.querySelector('.informationmenu-overlay');
         if (sidebar) sidebar.classList.remove('show');
         if (overlay) overlay.classList.remove('show');
-        document.querySelectorAll('.dropdown-menu-items').forEach(function(dropdown) {
+        document.querySelectorAll('.dropdown-menu-items').forEach(function (dropdown) {
             dropdown.classList.remove('show');
         });
-        document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
+        document.querySelectorAll('.informationmenu-section-title').forEach(function (title) {
             title.classList.remove('active');
         });
     }
@@ -42,10 +42,10 @@
 
     function setCurrentPageHighlight() {
         var currentPage = getCurrentPageName();
-        document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
+        document.querySelectorAll('.informationmenu-section-title').forEach(function (title) {
             title.classList.remove('current-page');
         });
-        document.querySelectorAll('.submenu-item').forEach(function(item) {
+        document.querySelectorAll('.submenu-item').forEach(function (item) {
             item.classList.remove('current-page');
         });
         var maintenancePages = ['capture_maintenance.php', 'transaction_maintenance.php', 'payment_maintenance.php', 'formula_maintenance.php'];
@@ -63,11 +63,11 @@
             var processTitle = document.querySelector('.informationmenu-section-title[data-page="processlist.php"]');
             if (processTitle) processTitle.classList.add('current-page');
         }
-        document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
+        document.querySelectorAll('.informationmenu-section-title').forEach(function (title) {
             var pageName = title.getAttribute('data-page');
             if (pageName === currentPage) title.classList.add('current-page');
         });
-        document.querySelectorAll('.submenu-item').forEach(function(item) {
+        document.querySelectorAll('.submenu-item').forEach(function (item) {
             var pageName = item.getAttribute('data-page');
             if (pageName === currentPage) item.classList.add('current-page');
         });
@@ -97,7 +97,7 @@
         var maleList = document.getElementById('maleAvatarList');
         var femaleList = document.getElementById('femaleAvatarList');
         var genderBtns = document.querySelectorAll('.gender-btn');
-        genderBtns.forEach(function(btn) {
+        genderBtns.forEach(function (btn) {
             btn.classList.remove('active');
             if (btn.textContent.toLowerCase() === gender) btn.classList.add('active');
         });
@@ -114,7 +114,7 @@
         var maleList = document.getElementById('maleAvatarList');
         var femaleList = document.getElementById('femaleAvatarList');
         var genderBtns = document.querySelectorAll('.gender-btn');
-        genderBtns.forEach(function(btn) {
+        genderBtns.forEach(function (btn) {
             btn.classList.remove('active');
             if (btn.textContent.toLowerCase() === 'male') btn.classList.add('active');
         });
@@ -134,13 +134,13 @@
         if (options) options.classList.remove('show');
         try {
             localStorage.setItem('selectedAvatar', avatarId);
-        } catch (e) {}
+        } catch (e) { }
         document.cookie = 'selectedAvatar=' + encodeURIComponent(avatarId) + '; path=/; max-age=31536000; SameSite=Lax';
         updateSelectedAvatar();
     }
 
     function updateSelectedAvatar() {
-        document.querySelectorAll('.avatar-option').forEach(function(option) {
+        document.querySelectorAll('.avatar-option').forEach(function (option) {
             option.classList.remove('selected');
         });
         var selectedOption = document.querySelector('.avatar-option[data-avatar-id="' + currentAvatarId + '"]');
@@ -174,7 +174,7 @@
         }
         if (dropdown) dropdown.classList.remove('show');
         if (button) button.classList.remove('active');
-        try { localStorage.setItem('selectedLanguage', lang); } catch (e) {}
+        try { localStorage.setItem('selectedLanguage', lang); } catch (e) { }
     }
 
     function toggleNotificationPanel(event) {
@@ -208,18 +208,18 @@
     function loadAnnouncements() {
         var contentContainer = document.getElementById('notificationContent');
         if (!contentContainer) return;
-        fetch('/api/announcements/announcement_get_dashboard_api.php').then(function(response) {
+        fetch('/api/announcements/announcement_get_dashboard_api.php').then(function (response) {
             return response.json();
-        }).then(function(result) {
+        }).then(function (result) {
             if (result.success && result.data && result.data.length > 0) {
-                contentContainer.innerHTML = result.data.map(function(announcement) {
+                contentContainer.innerHTML = result.data.map(function (announcement) {
                     return '<div class="notification-item unread">' +
                         '<div class="notification-title">' + escapeHtml(announcement.title) + '</div>' +
                         '<div class="notification-message">' + escapeHtml(announcement.content) + '</div>' +
                         '<div class="notification-time">' + escapeHtml(announcement.created_at) + '</div></div>';
                 }).join('');
-                contentContainer.querySelectorAll('.notification-item').forEach(function(item) {
-                    item.addEventListener('click', function() { this.classList.remove('unread'); });
+                contentContainer.querySelectorAll('.notification-item').forEach(function (item) {
+                    item.addEventListener('click', function () { this.classList.remove('unread'); });
                 });
             } else {
                 contentContainer.innerHTML = '<div class="notification-empty">' +
@@ -227,7 +227,7 @@
                     '<path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>' +
                     '</svg><p>No announcements</p></div>';
             }
-        }).catch(function(error) {
+        }).catch(function (error) {
             console.error('Failed to load announcements:', error);
             contentContainer.innerHTML = '<div class="notification-empty"><p>Failed to load announcements</p></div>';
         });
@@ -317,7 +317,13 @@
         }
 
         var maintTransaction = document.getElementById('maintenance-transaction-link');
-        if (maintTransaction) maintTransaction.style.display = isBankCategory ? 'none' : '';
+        if (maintTransaction) {
+            if (isBankCategory) {
+                maintTransaction.style.display = 'none';
+            } else {
+                maintTransaction.style.display = hasGambling ? '' : 'none';
+            }
+        }
 
         var maintFormula = document.getElementById('maintenance-formula-link');
         if (maintFormula) {
@@ -338,7 +344,13 @@
         }
 
         var reportSection = document.getElementById('sidebar-report-section');
-        if (reportSection) reportSection.style.display = hasGambling ? '' : 'none';
+        if (reportSection) {
+            if (isBankCategory) {
+                reportSection.style.display = 'none';
+            } else {
+                reportSection.style.display = hasGambling ? '' : 'none';
+            }
+        }
     }
 
     // 暴露给 HTML onclick 和 PHP 初始化脚本
@@ -362,21 +374,21 @@
         sidebarToggle = document.getElementById('sidebarToggle');
 
         if (userAvatar) {
-            userAvatar.addEventListener('click', function() {
+            userAvatar.addEventListener('click', function () {
                 sidebar.classList.add('show');
                 overlay.classList.add('show');
             });
         }
         if (overlay) overlay.addEventListener('click', closeSidebar);
 
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') closeSidebar();
         });
 
-        document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
+        document.querySelectorAll('.informationmenu-section-title').forEach(function (title) {
             var middleClickHandled = false;
             var ctrlClickHandled = false;
-            title.addEventListener('mousedown', function(e) {
+            title.addEventListener('mousedown', function (e) {
                 var isMiddleClick = e.button === 1 || e.which === 2;
                 var isCtrlClick = e.ctrlKey || e.metaKey;
                 var pageUrl = this.getAttribute('data-page');
@@ -387,7 +399,7 @@
                     var originalOnclick = this.onclick;
                     this.onclick = null;
                     window.open(pageUrl, '_blank');
-                    setTimeout(function() { this.onclick = originalOnclick; middleClickHandled = false; }.bind(this), 100);
+                    setTimeout(function () { this.onclick = originalOnclick; middleClickHandled = false; }.bind(this), 100);
                     return false;
                 }
                 if (pageUrl && isCtrlClick && (e.button === 0 || e.button === 2)) {
@@ -397,14 +409,14 @@
                     var orig = this.onclick;
                     this.onclick = null;
                     window.open(pageUrl, '_blank');
-                    setTimeout(function() { this.onclick = orig; ctrlClickHandled = false; }.bind(this), 100);
+                    setTimeout(function () { this.onclick = orig; ctrlClickHandled = false; }.bind(this), 100);
                     return false;
                 }
                 middleClickHandled = false;
                 ctrlClickHandled = false;
             }, true);
 
-            title.addEventListener('click', function(e) {
+            title.addEventListener('click', function (e) {
                 if (middleClickHandled || ctrlClickHandled) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -418,7 +430,7 @@
                     var orig = this.onclick;
                     this.onclick = null;
                     window.open(pageUrl, '_blank');
-                    setTimeout(function() { this.onclick = orig; }.bind(this), 100);
+                    setTimeout(function () { this.onclick = orig; }.bind(this), 100);
                     return false;
                 }
                 var isMiddleClick = e.button === 1 || e.which === 2;
@@ -437,10 +449,10 @@
                 var section = this.getAttribute('data-section');
                 if (section === 'report' || section === 'maintenance') return;
                 var targetDropdown = document.getElementById(targetId);
-                document.querySelectorAll('.dropdown-menu-items').forEach(function(dropdown) {
+                document.querySelectorAll('.dropdown-menu-items').forEach(function (dropdown) {
                     if (dropdown.id !== targetId) dropdown.classList.remove('show');
                 });
-                document.querySelectorAll('.informationmenu-section-title').forEach(function(t) {
+                document.querySelectorAll('.informationmenu-section-title').forEach(function (t) {
                     if (t !== title) t.classList.remove('active');
                 });
                 this.classList.toggle('active');
@@ -448,8 +460,8 @@
             });
         });
 
-        document.querySelectorAll('.submenu-item').forEach(function(item) {
-            item.addEventListener('click', function(e) {
+        document.querySelectorAll('.submenu-item').forEach(function (item) {
+            item.addEventListener('click', function (e) {
                 var href = this.getAttribute('href');
                 var isCtrlClick = e.ctrlKey || e.metaKey;
                 if (isCtrlClick && href && href !== '#' && href.indexOf('javascript:') !== 0) {
@@ -468,9 +480,9 @@
             });
         });
 
-        document.querySelectorAll('.informationmenu-item').forEach(function(item) {
+        document.querySelectorAll('.informationmenu-item').forEach(function (item) {
             var middleClickHandled = false;
-            item.addEventListener('mousedown', function(e) {
+            item.addEventListener('mousedown', function (e) {
                 var isMiddleClick = e.button === 1 || e.which === 2;
                 var href = this.getAttribute('href');
                 if (isMiddleClick && href && href !== '#' && href.indexOf('javascript:') !== 0) {
@@ -482,7 +494,7 @@
                 }
                 middleClickHandled = false;
             }, true);
-            item.addEventListener('click', function(e) {
+            item.addEventListener('click', function (e) {
                 if (middleClickHandled) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -508,12 +520,12 @@
                     return;
                 }
                 e.preventDefault();
-                document.querySelectorAll('.informationmenu-item').forEach(function(i) { i.classList.remove('active'); });
+                document.querySelectorAll('.informationmenu-item').forEach(function (i) { i.classList.remove('active'); });
                 this.classList.add('active');
             });
         });
 
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             var languageDropdown = document.querySelector('.language-dropdown');
             var dropdown = document.getElementById('languageDropdown');
             var button = document.querySelector('.language-btn');
@@ -533,10 +545,10 @@
             if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
             if (currentLangText) currentLangText.textContent = 'English';
         }
-        try { localStorage.setItem('selectedLanguage', currentLang); } catch (e) {}
+        try { localStorage.setItem('selectedLanguage', currentLang); } catch (e) { }
 
         var savedAvatar = null;
-        try { savedAvatar = localStorage.getItem('selectedAvatar'); } catch (e) {}
+        try { savedAvatar = localStorage.getItem('selectedAvatar'); } catch (e) { }
         var currentAvatarImg = document.getElementById('currentAvatarImg');
         if (savedAvatar && avatarImages[savedAvatar]) {
             currentAvatarId = savedAvatar;
@@ -555,7 +567,7 @@
         if (currentAvatarId.indexOf('female') === 0) selectGender('female');
         else selectGender('male');
 
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             var avatarContainer = document.querySelector('.avatar-selector-container');
             var avatarOptions = document.getElementById('avatarOptions');
             if (avatarContainer && avatarOptions && !avatarContainer.contains(e.target) && !avatarOptions.contains(e.target)) {
@@ -565,7 +577,7 @@
 
         setCurrentPageHighlight();
 
-        document.querySelectorAll('.menu-item-wrapper').forEach(function(wrapper) {
+        document.querySelectorAll('.menu-item-wrapper').forEach(function (wrapper) {
             var submenu = wrapper.querySelector('.submenu');
             if (!submenu) return;
             var hideTimeout = null;
@@ -582,7 +594,7 @@
             }
             function hideSubmenu() {
                 clearHideTimeout();
-                hideTimeout = setTimeout(function() {
+                hideTimeout = setTimeout(function () {
                     submenu.style.opacity = '0';
                     submenu.style.visibility = 'hidden';
                     submenu.style.transform = 'translateX(-10px)';
@@ -593,10 +605,10 @@
             wrapper.addEventListener('mouseleave', hideSubmenu);
             submenu.addEventListener('mouseenter', showSubmenu);
             submenu.addEventListener('mouseleave', hideSubmenu);
-            wrapper.addEventListener('mousemove', function() { positionSubmenu(wrapper); });
+            wrapper.addEventListener('mousemove', function () { positionSubmenu(wrapper); });
         });
 
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             var bell = document.querySelector('.notification-bell');
             var panel = document.getElementById('notificationPanel');
             var overlayN = document.getElementById('notificationOverlay');

@@ -27,13 +27,31 @@ $assetVer = function ($file) {
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <link rel="stylesheet" href="css/ownership.css?v=<?php echo $assetVer('css/ownership.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
 <body>
     <?php include 'sidebar.php'; ?>
 
     <div class="own-container">
-        <h1 class="own-page-title">ACCOUNT OWNERSHIP</h1>
+        <h1 class="own-page-title">Account Ownership</h1>
+        <div class="own-separator-line"></div>
+
+        <!-- Group Filter Bar + Select Mode Button (same row) -->
+        <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
+            <span class="own-gfb-label">Group</span>
+            <div class="own-gfb-buttons" id="own-gfb-buttons">
+                <!-- Injected by JS -->
+            </div>
+            <div class="own-gfb-spacer"></div>
+            <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v7"/>
+                </svg>
+                Select
+            </button>
+        </div>
 
         <!-- Companies will be injected here via JS -->
         <div id="companyCardsContainer">
@@ -52,6 +70,7 @@ $assetVer = function ($file) {
             <div class="own-card-header" data-action="toggle">
                 <div class="own-card-header-left">
                     <div class="own-company-name" data-bind="name"></div>
+                    <div class="own-company-date" data-bind="date"></div>
                 </div>
                 <div class="own-card-header-middle">
                     <div class="own-allocation-info">
@@ -90,14 +109,16 @@ $assetVer = function ($file) {
 
                     <div class="own-partner-section">
                         <div class="own-partner-info">
-                            <span class="own-partner-title">External Partner</span>
+                            <div class="own-partner-title-row">
+                                <span class="own-partner-title">External Partner</span>
+                                <div class="own-partner-actions">
+                                    <input type="text" class="own-partner-input" data-bind="partner-input"
+                                        placeholder="Login ID/Group ID" autocomplete="off">
+                                    <button class="own-partner-link-btn" data-action="link-partner">Link Partner</button>
+                                </div>
+                            </div>
                             <span class="own-partner-desc">Share this company's read-only dashboard visibility with
                                 another independent owner.</span>
-                        </div>
-                        <div class="own-partner-actions">
-                            <input type="text" class="own-partner-input" data-bind="partner-input"
-                                placeholder="Login ID/Group ID" autocomplete="off">
-                            <button class="own-partner-link-btn" data-action="link-partner">Link Partner</button>
                         </div>
                     </div>
 

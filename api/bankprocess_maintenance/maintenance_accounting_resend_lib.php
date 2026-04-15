@@ -52,11 +52,97 @@ if (!function_exists('bmp_ensureBankProcessAccountingResendRelaxColumn')) {
     }
 }
 
+if (!function_exists('bmp_ensureBankProcessAccountingResendScheduleColumns')) {
+    /**
+     * Resend 弹窗中的 day_start / day_end / frequency 不写入「编辑流程」字段，但入账与 Inbox 须与弹窗一致：
+     * 在 accounting_resend_relax_created_floor=1 期间用下列暂存列覆盖计算；入账成功后与 relax 一并清空。
+     */
+    function bmp_ensureBankProcessAccountingResendScheduleColumns(PDO $pdo): void
+    {
+        $defs = [
+            'accounting_resend_schedule_day_start' => "DATE NULL COMMENT 'Resend 弹窗 day_start，仅 relax 期间'",
+            'accounting_resend_schedule_day_end' => "DATE NULL COMMENT 'Resend 弹窗 day_end，仅 relax 期间'",
+            'accounting_resend_schedule_frequency' => "VARCHAR(40) NULL COMMENT 'monthly 或 1st_of_every_month，仅 relax 期间'",
+        ];
+        foreach ($defs as $col => $ddlTail) {
+            if (bmp_resend_tableHasColumn($pdo, 'bank_process', $col)) {
+                continue;
+            }
+            try {
+                $pdo->exec("ALTER TABLE bank_process ADD COLUMN `$col` $ddlTail");
+            } catch (Throwable $e) {
+                // ignore
+            }
+        }
+    }
+}
+
+if (!function_exists('bmp_bankProcessHasResendScheduleColumns')) {
+    function bmp_bankProcessHasResendScheduleColumns(PDO $pdo): bool
+    {
+        return bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_schedule_day_start');
+    }
+}
+
+/**
+ * Resend 成功后 relax=1 时，用暂存列覆盖 day_start / day_end / day_start_frequency 供 Inbox 与入账推断（不改编辑表单里的持久字段）。
+ *
+ * @param array<string,mixed> $row
+ * @return array<string,mixed>
+ */
+if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) {
+    function bmp_mergeResendScheduleIntoBankProcessRowForAccounting(array $row): array
+    {
+        if (empty($row['accounting_resend_relax_created_floor'])) {
+            unset(
+                $row['accounting_resend_schedule_day_start'],
+                $row['accounting_resend_schedule_day_end'],
+                $row['accounting_resend_schedule_frequency'],
+                $row['accounting_resend_single_period_from_schedule'],
+                $row['accounting_resend_consolidated_range'],
+                $row['bank_process_stored_day_start']
+            );
+            return $row;
+        }
+        // 入账 API 在清除 Resend 覆盖前可比对「编辑里持久化的 day_start」与弹窗锚点，避免补历史整月后仍排队真实锚点的首月 partial。
+        $row['bank_process_stored_day_start'] = $row['day_start'] ?? null;
+        $ds = $row['accounting_resend_schedule_day_start'] ?? null;
+        $hadScheduleStart = $ds !== null && trim((string) $ds) !== '';
+        if ($hadScheduleStart) {
+            // 弹窗指定了 day_start：只补该锚点所在那一期（如 1/13→2/13），不按合同把后续月全部列进 Accounting Due。
+            $row['accounting_resend_single_period_from_schedule'] = 1;
+        }
+        if ($hadScheduleStart) {
+            $row['day_start'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $ds, $m) ? $m[1] : $ds;
+        }
+        $de = $row['accounting_resend_schedule_day_end'] ?? null;
+        $hadScheduleEnd = $de !== null && trim((string) $de) !== '';
+        if ($hadScheduleEnd) {
+            $row['day_end'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $de, $m) ? $m[1] : $de;
+        }
+        // Resend 弹窗同时填 day_start + day_end：按自然月切段合并为一笔（仅 relax 期间；不入库为独立列）
+        if ($hadScheduleStart && $hadScheduleEnd) {
+            $row['accounting_resend_consolidated_range'] = 1;
+        }
+        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
+        if ($fq === 'monthly' || $fq === '1st_of_every_month') {
+            $row['day_start_frequency'] = $fq;
+        }
+        unset(
+            $row['accounting_resend_schedule_day_start'],
+            $row['accounting_resend_schedule_day_end'],
+            $row['accounting_resend_schedule_frequency']
+        );
+        // bank_process_stored_day_start 仅内存字段，供入账 API 使用，不入库
+        return $row;
+    }
+}
+
 if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {
         $t = strtolower(trim((string) $raw));
-        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail') {
+        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range') {
             return $t;
         }
         return 'monthly';
@@ -117,6 +203,7 @@ if (!function_exists('bmp_resolveProcessAccountingPostedId')) {
             'monthly' => ['monthly', 'monthly_skipped'],
             'day_end_tail' => ['day_end_tail', 'day_end_tail_skipped'],
             'partial_first_month' => ['partial_first_month', 'partial_first_month_skipped'],
+            'resend_consolidated_range' => ['resend_consolidated_range', 'resend_consolidated_range_skipped'],
         ];
         $types = $typeSets[$pt] ?? ['monthly', 'monthly_skipped'];
         $in = implode(',', array_fill(0, count($types), '?'));
@@ -131,7 +218,7 @@ if (!function_exists('bmp_resolveProcessAccountingPostedId')) {
             return (int) $id;
         }
 
-        if ($pt === 'monthly' || $pt === 'day_end_tail') {
+        if ($pt === 'monthly' || $pt === 'day_end_tail' || $pt === 'resend_consolidated_range') {
             $sql2 = "SELECT id FROM process_accounting_posted
                      WHERE company_id = ? AND process_id = ?
                      AND period_type IN ($in)
@@ -173,6 +260,7 @@ if (!function_exists('bmp_deletePapFallback')) {
             'monthly' => ['monthly', 'monthly_skipped'],
             'day_end_tail' => ['day_end_tail', 'day_end_tail_skipped'],
             'partial_first_month' => ['partial_first_month', 'partial_first_month_skipped'],
+            'resend_consolidated_range' => ['resend_consolidated_range', 'resend_consolidated_range_skipped'],
         ];
         $types = $typeSets[$pt] ?? ['monthly', 'monthly_skipped'];
         $in = implode(',', array_fill(0, count($types), '?'));
@@ -182,7 +270,7 @@ if (!function_exists('bmp_deletePapFallback')) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute(array_merge([$companyId, $bankProcessId], $types, [$transactionDateYmd]));
         $n = $stmt->rowCount();
-        if ($n > 0 || ($pt !== 'monthly' && $pt !== 'day_end_tail')) {
+        if ($n > 0 || ($pt !== 'monthly' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range')) {
             return $n;
         }
         $sql2 = "DELETE FROM process_accounting_posted

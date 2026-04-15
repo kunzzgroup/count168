@@ -114,6 +114,12 @@ try {
                     }
                 }
                 $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid, $roVal]);
+                
+                // 同步 read_only 到 user 表的全局设置作为默认回退
+                if ($owner_type === 'user') {
+                    $uStmt = $pdo->prepare("UPDATE user SET read_only = ? WHERE id = ?");
+                    $uStmt->execute([$roVal, (int)$real_id]);
+                }
             } else {
                 // If migration hasn't run, we must drop Users so it doesn't crash, or attempt.
                 // In a perfect world, migration is run first. If not, only save numbers.

@@ -142,24 +142,25 @@ function renderTable() {
                         </div>
                     </div>
                 `;
+        renderPagination();
         return;
     }
 
-    // 濡傛灉 showAll 涓?true锛屾樉绀烘墍鏈夎处鎴凤紝涓嶅垎椤?
     let pageItems;
     let startIndex;
 
+    // showAll 模式：只显示 active 账户，一页展示所有数据
+    let displayAccounts = accounts;
     if (showAll) {
-        // 鏄剧ず鎵€鏈夎处鎴凤紝涓嶅垎椤?
-        pageItems = accounts;
+        displayAccounts = accounts.filter(acc => acc.status === 'active');
         startIndex = 0;
+        pageItems = displayAccounts;
     } else {
-        // 姝ｅ父鍒嗛〉閫昏緫
-        const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
+        const totalPages = Math.max(1, Math.ceil(displayAccounts.length / PAGE_SIZE));
         if (currentPage > totalPages) currentPage = totalPages;
         startIndex = (currentPage - 1) * PAGE_SIZE;
-        const endIndex = Math.min(startIndex + PAGE_SIZE, accounts.length);
-        pageItems = accounts.slice(startIndex, endIndex);
+        const endIndex = Math.min(startIndex + PAGE_SIZE, displayAccounts.length);
+        pageItems = displayAccounts.slice(startIndex, endIndex);
     }
 
     pageItems.forEach((account, idx) => {
@@ -221,7 +222,7 @@ function renderTable() {
 function renderPagination() {
     const paginationContainer = document.getElementById('paginationContainer');
 
-    // 濡傛灉 showAll 涓?true锛岄殣钘忓垎椤垫帶浠?
+    // showAll 模式：隐藏分页控件
     if (showAll) {
         paginationContainer.style.display = 'none';
         return;
@@ -240,7 +241,7 @@ function renderPagination() {
     document.getElementById('nextBtn').disabled = isNextDisabled;
 
     // 濡傛灉鍙湁涓€椤垫垨娌℃湁鏁版嵁锛岄殣钘忓垎椤垫帶浠?
-    if (totalPages <= 1) {
+    if (accounts.length === 0) {
         paginationContainer.style.display = 'none';
     } else {
         paginationContainer.style.display = 'flex';
@@ -1711,12 +1712,21 @@ document.getElementById('showAll').addEventListener('change', function () {
         document.getElementById('showInactive').checked = false;
         showInactive = false;
     }
-    // 閲嶇疆鍒扮涓€椤碉紙褰撳垏鎹㈠洖鍒嗛〉妯″紡鏃讹級
-    if (!showAll) {
-        currentPage = 1;
-    }
+    // 切换 showAll 时始终回到第一页
+    currentPage = 1;
+    updateAccountListScrollMode();
     fetchAccounts(); // 瀹炴椂鑾峰彇鏁版嵁
 });
+
+/** showAll 时允许页面纵向滚动；否则恢复 overflow hidden */
+function updateAccountListScrollMode() {
+    if (!document.body) return;
+    if (showAll) {
+        document.body.classList.add('account-page--show-all');
+    } else {
+        document.body.classList.remove('account-page--show-all');
+    }
+}
 
 // Toggle alert fields visibility
 function toggleAlertFields(type) {
@@ -2134,7 +2144,8 @@ async function switchAccountListCompany(companyId, companyCode) {
 
 // 椤甸潰鍔犺浇鏃惰幏鍙栨暟鎹?
 document.addEventListener('DOMContentLoaded', function () {
-    loadEditData(); // Load currencies and roles for edit modal (闇€瑕佸湪鎺掑簭鍓嶅姞杞?
+    loadEditData(); // Load currencies and roles for edit modal
+    updateAccountListScrollMode(); // 初始化滚动模式
     fetchAccounts();
 
     // 缁熶竴绠＄悊闇€瑕佸ぇ鍐欑殑杈撳叆妗?
@@ -2341,5 +2352,351 @@ document.addEventListener('DOMContentLoaded', function () {
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
-
 });
+
+// ==========================================
+// Currency Setting Modal Logic
+// ==========================================
+let currencySettingCurrentCurrencyId = null;
+let currencySettingLinkedAccounts = new Set();
+let currencySettingInitialLinkedAccounts = new Set();
+
+function openCurrencySettingModal() {
+    document.getElementById('currencySettingModal').style.display = 'block';
+    currencySettingCurrentCurrencyId = null;
+    currencySettingLinkedAccounts.clear();
+    currencySettingInitialLinkedAccounts.clear();
+    
+    // Populate Role filter
+    const roleSelect = document.getElementById('currencySettingRoleSelect');
+    populateRoleSelect(roleSelect, '', false);
+    const options = roleSelect.options;
+    if(options.length > 0 && options[0].value === "") {
+        options[0].textContent = "Filter Row";
+    }
+
+    // Load pills and accounts
+    loadCurrencySettingPills();
+    renderCurrencySettingAccounts();
+
+    // Setup event listeners for search and filter
+    const searchInput = document.getElementById('currencySettingSearchInput');
+    const roleFilter = document.getElementById('currencySettingRoleSelect');
+    
+    // Clear old listeners by cloning
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+    newSearchInput.addEventListener('input', renderCurrencySettingAccounts);
+    
+    const newRoleFilter = roleFilter.cloneNode(true);
+    roleFilter.parentNode.replaceChild(newRoleFilter, roleFilter);
+    newRoleFilter.addEventListener('change', renderCurrencySettingAccounts);
+}
+
+function closeCurrencySettingModal() {
+    document.getElementById('currencySettingModal').style.display = 'none';
+    document.getElementById('currencySettingAddInput').value = '';
+    document.getElementById('currencySettingSearchInput').value = '';
+    document.getElementById('currencySettingRoleSelect').value = '';
+    currencySettingCurrentCurrencyId = null;
+    currencySettingLinkedAccounts.clear();
+    currencySettingInitialLinkedAccounts.clear();
+}
+
+async function addCurrencyFromSettingModal() {
+    const input = document.getElementById('currencySettingAddInput');
+    const currencyCode = input.value.trim().toUpperCase();
+
+    if (!currencyCode) {
+        showNotification('Please enter currency code', 'danger');
+        input.focus();
+        return;
+    }
+
+    let currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
+    if (!currentCompanyId) {
+        showNotification('Please select a company first', 'danger');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/accounts/create_currency_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId })
+        });
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            showNotification(`Currency ${currencyCode} added`, 'success');
+            input.value = '';
+            // Refresh pills
+            await loadCurrencySettingPills();
+            
+            // Auto click the new currency
+            const pills = document.querySelectorAll('.currency-setting-pill');
+            for (let pill of pills) {
+                if (pill.textContent.trim() === currencyCode) {
+                    toggleSettingCurrency(result.data.id, pill);
+                    break;
+                }
+            }
+        } else {
+            showNotification(result.message || result.error || 'Failed to add currency', 'danger');
+        }
+    } catch (e) {
+        console.error(e);
+        showNotification('Network error adding currency', 'danger');
+    }
+}
+
+async function loadCurrencySettingPills() {
+    const container = document.getElementById('currencySettingPillList');
+    container.innerHTML = 'Loading...';
+
+    try {
+        const response = await fetch('/api/accounts/account_currency_api.php?action=get_available_currencies');
+        const result = await response.json();
+
+        container.innerHTML = '';
+        if (!result.success || !Array.isArray(result.data)) {
+            container.innerHTML = 'No currencies found.';
+            return;
+        }
+
+        result.data.forEach(currency => {
+            const pill = document.createElement('div');
+            pill.className = 'currency-setting-pill';
+            if (currencySettingCurrentCurrencyId === currency.id) {
+                pill.classList.add('selected');
+            }
+            pill.textContent = currency.code.toUpperCase();
+            pill.onclick = () => toggleSettingCurrency(currency.id, pill);
+            container.appendChild(pill);
+        });
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = 'Error loading currencies.';
+    }
+}
+
+async function toggleSettingCurrency(currencyId, pillElement) {
+    if (currencySettingCurrentCurrencyId === currencyId) {
+         // Unselect
+         currencySettingCurrentCurrencyId = null;
+         currencySettingLinkedAccounts.clear();
+         currencySettingInitialLinkedAccounts.clear();
+         document.querySelectorAll('.currency-setting-pill').forEach(p => p.classList.remove('selected'));
+         renderCurrencySettingAccounts();
+         return;
+    }
+
+    // Select new
+    currencySettingCurrentCurrencyId = currencyId;
+    document.querySelectorAll('.currency-setting-pill').forEach(p => p.classList.remove('selected'));
+    if (pillElement) {
+        pillElement.classList.add('selected');
+    }
+
+    // Fetch account relations for this currency
+    try {
+        const response = await fetch(`/api/accounts/bulk_account_currency_api.php?action=get_linked_accounts_by_currency&currency_id=${currencyId}`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+        
+        currencySettingLinkedAccounts.clear();
+        currencySettingInitialLinkedAccounts.clear();
+        
+        if (result.success && result.data && result.data.linked_account_ids) {
+            result.data.linked_account_ids.forEach(id => {
+                currencySettingLinkedAccounts.add(Number(id));
+                currencySettingInitialLinkedAccounts.add(Number(id));
+            });
+        }
+        renderCurrencySettingAccounts();
+    } catch (e) {
+         console.error(e);
+         showNotification('Error fetching linked accounts', 'danger');
+    }
+}
+
+function renderCurrencySettingAccounts() {
+    const container = document.getElementById('currencySettingAccountList');
+    container.innerHTML = '';
+
+    const searchTerm = document.getElementById('currencySettingSearchInput').value.toLowerCase().trim();
+    const roleFilter = document.getElementById('currencySettingRoleSelect').value.toLowerCase().trim();
+
+    // Use global 'accounts' array loaded by fetchAccounts()
+    let filtered = accounts.filter(acc => {
+        let matchesSearch = true;
+        let matchesRole = true;
+
+        if (searchTerm) {
+            const accStr = (acc.account_id || '') + ' ' + (acc.name || '');
+            matchesSearch = accStr.toLowerCase().includes(searchTerm);
+        }
+
+        if (roleFilter) {
+            let accRole = (acc.role || '').toLowerCase().trim();
+            if (accRole === 'upline') accRole = 'supplier'; // compatibility
+            let filterRole = roleFilter === 'upline' ? 'supplier' : roleFilter;
+            matchesRole = (accRole === filterRole);
+        }
+
+        return matchesSearch && matchesRole;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; padding: 20px; text-align: center; color: #666;">No accounts found.</div>';
+        return;
+    }
+
+    filtered.forEach(acc => {
+        const item = document.createElement('div');
+        item.className = 'currency-setting-account-item';
+        
+        const isSelected = currencySettingLinkedAccounts.has(Number(acc.id));
+        if (isSelected) {
+            item.classList.add('selected');
+        }
+        
+        item.textContent = (acc.account_id || '').toUpperCase();
+        
+        item.onclick = () => {
+            if (!currencySettingCurrentCurrencyId) {
+                showNotification('Please select a Currency first', 'info');
+                return;
+            }
+            if (currencySettingLinkedAccounts.has(Number(acc.id))) {
+                currencySettingLinkedAccounts.delete(Number(acc.id));
+                item.classList.remove('selected');
+            } else {
+                currencySettingLinkedAccounts.add(Number(acc.id));
+                item.classList.add('selected');
+            }
+        };
+
+        container.appendChild(item);
+    });
+
+    // Update Select All UI after rendering
+    updateCurrencySettingSelectAllUI(filtered);
+}
+
+function updateCurrencySettingSelectAllUI(filteredAccounts) {
+    const btn = document.getElementById('currencySettingSelectAllBtn');
+    const countSpan = document.getElementById('currencySettingSelectedCount');
+    if (!btn || !countSpan) return;
+
+    const list = filteredAccounts || [];
+    const totalVisible = list.length;
+    const selectedVisible = list.filter(acc => currencySettingLinkedAccounts.has(Number(acc.id))).length;
+
+    // Update count badge (total linked across all, not just filtered)
+    const totalLinked = currencySettingLinkedAccounts.size;
+    countSpan.textContent = totalLinked + ' selected';
+
+    // Toggle button label based on filter-visible state
+    if (totalVisible > 0 && selectedVisible === totalVisible) {
+        btn.textContent = 'Deselect All';
+        btn.classList.add('active');
+    } else {
+        btn.textContent = 'Select All';
+        btn.classList.remove('active');
+    }
+}
+
+function toggleSelectAllCurrencyAccounts() {
+    if (!currencySettingCurrentCurrencyId) {
+        showNotification('Please select a Currency first', 'info');
+        return;
+    }
+
+    const searchTerm = document.getElementById('currencySettingSearchInput').value.toLowerCase().trim();
+    const roleFilter = document.getElementById('currencySettingRoleSelect').value.toLowerCase().trim();
+
+    // Determine currently visible (filtered) accounts
+    const filtered = accounts.filter(acc => {
+        let matchesSearch = true;
+        let matchesRole = true;
+        if (searchTerm) {
+            const accStr = (acc.account_id || '') + ' ' + (acc.name || '');
+            matchesSearch = accStr.toLowerCase().includes(searchTerm);
+        }
+        if (roleFilter) {
+            let accRole = (acc.role || '').toLowerCase().trim();
+            if (accRole === 'upline') accRole = 'supplier';
+            let filterRole = roleFilter === 'upline' ? 'supplier' : roleFilter;
+            matchesRole = (accRole === filterRole);
+        }
+        return matchesSearch && matchesRole;
+    });
+
+    const allSelected = filtered.every(acc => currencySettingLinkedAccounts.has(Number(acc.id)));
+
+    if (allSelected) {
+        // Deselect all visible
+        filtered.forEach(acc => currencySettingLinkedAccounts.delete(Number(acc.id)));
+    } else {
+        // Select all visible
+        filtered.forEach(acc => currencySettingLinkedAccounts.add(Number(acc.id)));
+    }
+
+    // Re-render to reflect changes
+    renderCurrencySettingAccounts();
+}
+
+async function saveCurrencySetting() {
+    if (!currencySettingCurrentCurrencyId) {
+        showNotification('No currency selected to save', 'info');
+        return;
+    }
+    
+    const linked = [];
+    const unlinked = [];
+    
+    accounts.forEach(acc => {
+        let accId = Number(acc.id);
+        const originallyLinked = currencySettingInitialLinkedAccounts.has(accId);
+        const currentlyLinked = currencySettingLinkedAccounts.has(accId);
+        
+        if (currentlyLinked && !originallyLinked) {
+            linked.push(accId);
+        } else if (!currentlyLinked && originallyLinked) {
+            unlinked.push(accId);
+        }
+    });
+
+    if (linked.length === 0 && unlinked.length === 0) {
+        showNotification('No changes detected', 'info');
+        closeCurrencySettingModal();
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/accounts/bulk_account_currency_api.php?action=bulk_update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                currency_id: currencySettingCurrentCurrencyId,
+                linked_account_ids: linked,
+                unlinked_account_ids: unlinked
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showNotification('Currency settings saved successfully', 'success');
+            closeCurrencySettingModal();
+            fetchAccounts();
+        } else {
+            showNotification(result.message || 'Error saving settings', 'danger');
+        }
+    } catch (e) {
+        console.error(e);
+        showNotification('Network error saving settings', 'danger');
+    }
+}

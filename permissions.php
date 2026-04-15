@@ -38,7 +38,11 @@ function getCurrentUserAccountPermissions($pdo) {
     return [];
 }
 
-function filterAccountsByPermissions($pdo, $baseQuery, $params = []) {
+/**
+ * @param int|null $permissionCompanyId 查询「指定公司」账户时传入该公司主键，用于读取 user_company_permissions；
+ *                                        为 null 时用 $_SESSION['company_id']（与旧行为一致）。
+ */
+function filterAccountsByPermissions($pdo, $baseQuery, $params = [], $permissionCompanyId = null) {
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
@@ -54,7 +58,9 @@ function filterAccountsByPermissions($pdo, $baseQuery, $params = []) {
 
     // 获取当前用户ID和公司ID
     $currentUserId = $_SESSION['user_id'] ?? $_SESSION['login_id'] ?? null;
-    $companyId = $_SESSION['company_id'] ?? null;
+    $companyId = ($permissionCompanyId !== null && (int)$permissionCompanyId > 0)
+        ? (int)$permissionCompanyId
+        : (int)($_SESSION['company_id'] ?? 0);
 
     if (!$currentUserId || !$companyId) {
         // 如果没有用户ID或公司ID，不添加过滤条件，显示所有账户
@@ -248,5 +254,42 @@ function filterProcessesByPermissions($pdo, $baseQuery, $params = []) {
     }
 
     return [$baseQuery, $params];
+}
+
+if (!function_exists('checkCompanyCategoryPermission')) {
+    /**
+     * Helper to verify if a company has access to a specific UI category (Data-Level Access Control).
+     *
+     * @param PDO $pdo
+     * @param int|string $companyId
+     * @param string $category (e.g., 'Games', 'Bank', 'Loan', 'Rate', 'Money')
+     * @return bool
+     */
+    function checkCompanyCategoryPermission(PDO $pdo, $companyId, $category) {
+        if (empty($companyId)) return false;
+        try {
+            $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+            // If companyId is string like 'C168', ensure we handle it, but table 'id' is int.
+            // Assuming companyId here is the `id` column. If it's the string code, caller must provide `id`.
+            $stmt->execute([$companyId]);
+            $permsJson = $stmt->fetchColumn();
+            
+            if ($permsJson === false || $permsJson === null || $permsJson === '') {
+                return false;
+            }
+
+            $perms = json_decode($permsJson, true);
+            if (!is_array($perms)) return false;
+
+            // Handle "Games" vs "Gambling" backward compatibility
+            if ($category === 'Games' || $category === 'Gambling') {
+                return in_array('Games', $perms) || in_array('Gambling', $perms);
+            }
+
+            return in_array($category, $perms);
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
 }
 ?>

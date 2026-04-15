@@ -6,6 +6,7 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/maintenance_accounting_resend_lib.php';
@@ -156,6 +157,101 @@ function deleteTransactions(PDO $pdo, array $ids, $company_id) {
     return $stmt->rowCount();
 }
 
+/**
+ * 删除「Inactive Compensation Sell Price」后，立即清掉对应 manual_inactive posted 标记，
+ * 让 Transaction Payment / Accounting Due 无需切状态即可实时出现。
+ *
+ * @return array{pap_removed:int,pending_removed:int}
+ */
+function clearManualInactiveMarkersAfterDelete(PDO $pdo, array $ids, int $company_id): array
+{
+    if (empty($ids)) {
+        return ['pap_removed' => 0, 'pending_removed' => 0];
+    }
+
+    $hasSourceBpIdCol = false;
+    $hasSourcePtCol = false;
+    try {
+        $hasSourceBpIdCol = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasSourceBpIdCol = false;
+    }
+    try {
+        $hasSourcePtCol = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasSourcePtCol = false;
+    }
+    if (!$hasSourceBpIdCol) {
+        return ['pap_removed' => 0, 'pending_removed' => 0];
+    }
+
+    $hasPendingTable = false;
+    try {
+        $hasPendingTable = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasPendingTable = false;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $periodSelect = $hasSourcePtCol ? "COALESCE(t.source_bank_process_period_type, '')" : "''";
+    $sql = "SELECT
+                t.id,
+                t.source_bank_process_id,
+                DATE(t.transaction_date) AS txd,
+                t.transaction_type,
+                t.description,
+                $periodSelect AS source_period_type
+            FROM transactions t
+            INNER JOIN account a ON t.account_id = a.id
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE t.id IN ($placeholders)
+              AND ac.company_id = ?
+              AND t.source_bank_process_id IS NOT NULL";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge($ids, [$company_id]));
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $seen = [];
+    $papRemoved = 0;
+    $pendingRemoved = 0;
+    $delPendingStmt = null;
+    if ($hasPendingTable) {
+        $delPendingStmt = $pdo->prepare(
+            "DELETE FROM bank_process_maintenance_resend_pending
+             WHERE company_id = ? AND bank_process_id = ? AND period_type = 'manual_inactive'
+               AND (transaction_date = ? OR transaction_date IS NULL)"
+        );
+    }
+
+    foreach ($rows as $r) {
+        $bpId = (int) ($r['source_bank_process_id'] ?? 0);
+        $txd = trim((string) ($r['txd'] ?? ''));
+        if ($bpId <= 0 || $txd === '') {
+            continue;
+        }
+        $pt = strtolower(trim((string) ($r['source_period_type'] ?? '')));
+        $desc = trim((string) ($r['description'] ?? ''));
+        $isManualInactiveCompensation = ($pt === 'manual_inactive')
+            || (stripos($desc, 'Inactive Compensation Sell Price') === 0);
+        if (!$isManualInactiveCompensation) {
+            continue;
+        }
+        $dedupeKey = $bpId . '|' . $txd;
+        if (isset($seen[$dedupeKey])) {
+            continue;
+        }
+        $seen[$dedupeKey] = true;
+
+        $papRemoved += bmp_deletePapFallback($pdo, $company_id, $bpId, 'manual_inactive', $txd);
+        if ($delPendingStmt) {
+            $delPendingStmt->execute([$company_id, $bpId, $txd]);
+            $pendingRemoved += $delPendingStmt->rowCount();
+        }
+    }
+
+    return ['pap_removed' => $papRemoved, 'pending_removed' => $pendingRemoved];
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('请先登录');
@@ -208,12 +304,17 @@ try {
     $pdo->beginTransaction();
 
     bmp_recordResendPendingForTransactionIds($pdo, $company_id, $allowedIds);
+    $manualInactiveSync = clearManualInactiveMarkersAfterDelete($pdo, $allowedIds, $company_id);
     backupTransactionsToDeleted($pdo, $allowedIds, $company_id, $deletedByUserId, $deletedByOwnerId);
     deleteTransactionEntries($pdo, $allowedIds);
     $deleted = deleteTransactions($pdo, $allowedIds, $company_id);
 
     $pdo->commit();
-    jsonResponse(true, "已删除 {$deleted} 条 Bank process 交易记录", ['deleted' => $deleted]);
+    jsonResponse(true, "已删除 {$deleted} 条 Bank process 交易记录", [
+        'deleted' => $deleted,
+        'manual_inactive_posted_removed' => (int) ($manualInactiveSync['pap_removed'] ?? 0),
+        'manual_inactive_pending_removed' => (int) ($manualInactiveSync['pending_removed'] ?? 0),
+    ]);
 } catch (Exception $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();

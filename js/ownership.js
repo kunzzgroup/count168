@@ -1,10 +1,32 @@
 document.addEventListener('DOMContentLoaded', () => {
     fetchCompanies();
+
+    // Close group dropdowns when clicking anywhere outside the button wrap.
+    // Bubble phase (no capture) so the button's own stopPropagation works correctly.
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.own-group-btn-wrap')) {
+            document.querySelectorAll('.own-group-panel.open')
+                .forEach(p => p.classList.remove('open'));
+        }
+    });
 });
 
-let companiesData = [];
+let companiesData = [];     // currently-filtered list (what's visible)
+let allCompaniesData = [];  // full unfiltered list (all companies)
 let companyStates = {};
 let currentlyExpandedId = null;
+let allGroupIds = []; // unique group IDs extracted from allCompaniesData
+
+let draggedRowIdx = null;
+let draggedCompanyId = null;
+
+// ── Multi-select state ────────────────────────────────────────────
+const selectedCompanyIds = new Set(); // IDs of checked independent companies
+let selectionMode = false;            // true = clicking a card selects it
+
+// ── Group filter state ────────────────────────────────────────────
+// null = show independent companies; string = show that group's companies
+let activeGroupFilter = null;
 
 // Template references (cached on first use)
 const tpl = {
@@ -29,15 +51,19 @@ function fetchCompanies() {
     loaderWrap.appendChild(document.createElement('div')).className = 'own-loader';
     container.appendChild(loaderWrap);
 
-    fetch('api/ownership/get_companies_api.php')
-        .then(res => res.json())
+    // Always fetch the full unfiltered list — we filter client-side via the group bar
+    // Use ownership API (includes allocated_percentage) with all=1 to bypass session filter
+    fetch('api/ownership/get_companies_api.php?all=1')
+        .then(r => r.json())
         .then(res => {
-            if (res.status === 'success') {
-                companiesData = res.data;
-                renderCompanyCards();
-            } else {
-                showToast(res.message, 'error');
+            if (res.status !== 'success') {
+                showToast(res.message || 'Failed to load companies', 'error');
+                return;
             }
+            allCompaniesData = res.data;
+            _rebuildGroupIds();
+            _applyGroupFilter();   // sets companiesData then renders
+            _renderGroupFilterBar();
         })
         .catch(err => {
             console.error(err);
@@ -53,6 +79,10 @@ function renderCompanyCards() {
     const container = document.getElementById('companyCardsContainer');
     container.innerHTML = '';
 
+    // Clear selection whenever cards re-render (data may have changed)
+    selectedCompanyIds.clear();
+    _updateBulkBar();
+
     if (companiesData.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'own-empty-state';
@@ -65,15 +95,41 @@ function renderCompanyCards() {
         const alloc = parseFloat(comp.allocated_percentage) || 0;
         const remaining = Math.max(0, 100 - alloc);
         const id = comp.id;
+        const groupId = comp.group_id || null;
 
         // Clone card template
         const frag = tpl.card().content.cloneNode(true);
         const card = frag.querySelector('.own-card');
         card.id = `card-${id}`;
+        if (groupId) card.dataset.groupId = groupId;
 
         // Fill data bindings
         $(card, 'name').textContent = comp.name;
+        
+        const dateEl = $(card, 'date');
+        if (dateEl) {
+            if (comp.expiration_date) {
+                const expStr = comp.expiration_date.split(' ')[0];
+                const expDate = new Date(expStr);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
 
+                // Color coding: expired = red, ≤30 days = amber, else = gray
+                let cls = '';
+                if (daysLeft < 0) cls = 'own-date-expired';
+                else if (daysLeft <= 30) cls = 'own-date-warning';
+
+                dateEl.innerHTML = `
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    ${expStr}`;
+                if (cls) dateEl.classList.add(cls);
+            } else {
+                dateEl.textContent = '';
+            }
+        }
         const pctEl = $(card, 'percent');
         pctEl.textContent = `${alloc}%`;
         pctEl.id = `header-percent-${id}`;
@@ -97,8 +153,99 @@ function renderCompanyCards() {
         $(card, 'footer-remain').id = `footer-remain-${id}`;
         $(card, 'confirm-btn').id = `confirm-btn-${id}`;
 
+        // ── In selection mode: mark selectable cards ─────────────────
+        // Independent cards selectable for grouping; grouped cards selectable for ungrouping
+        if (allGroupIds.length > 0) {
+            if (!groupId || activeGroupFilter !== null) {
+                card.dataset.selectable = 'true';
+            }
+        }
+
+        // ── Group management buttons in header-right ──────────────────
+        const headerRight = card.querySelector('.own-card-header-right');
+        if (headerRight && allGroupIds.length > 0) {
+            if (!groupId) {
+                // Feature 1: Independent company → "+ Group" button with dropdown
+                const wrap = document.createElement('div');
+                wrap.className = 'own-group-btn-wrap';
+
+                const joinBtn = document.createElement('button');
+                joinBtn.className = 'own-group-join-btn';
+                joinBtn.textContent = '+ Group';
+                joinBtn.title = 'Assign this company to a group';
+                joinBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    // Toggle dropdown
+                    const panel = wrap.querySelector('.own-group-panel');
+                    // Close all other open panels first
+                    document.querySelectorAll('.own-group-panel.open').forEach(p => {
+                        if (p !== panel) p.classList.remove('open');
+                    });
+                    panel.classList.toggle('open');
+                });
+
+                const panel = document.createElement('div');
+                panel.className = 'own-group-panel';
+
+                allGroupIds.forEach(gid => {
+                    const opt = document.createElement('div');
+                    opt.className = 'own-group-option';
+                    opt.textContent = gid;
+                    opt.addEventListener('click', e => {
+                        e.stopPropagation();
+                        panel.classList.remove('open');
+                        joinCompanyGroup(id, gid, comp.name);
+                    });
+                    panel.appendChild(opt);
+                });
+
+                wrap.appendChild(joinBtn);
+                wrap.appendChild(panel);
+                // Insert before the Manage button
+                headerRight.insertBefore(wrap, headerRight.firstChild);
+            } else {
+                // Feature 2: Grouped company → "Ungroup" button
+                const ungroupBtn = document.createElement('button');
+                ungroupBtn.className = 'own-group-ungroup-btn';
+                ungroupBtn.textContent = 'Ungroup';
+                ungroupBtn.title = `Remove from group "${groupId}"`;
+                ungroupBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    ungroupCompany(id, comp.name);
+                });
+                headerRight.insertBefore(ungroupBtn, headerRight.firstChild);
+
+                // Show group badge INSIDE .own-company-name (flex row) — not after it
+                const nameEl = $(card, 'name');
+                const badge = document.createElement('span');
+                badge.className = 'own-group-badge';
+                badge.textContent = groupId;
+                nameEl.appendChild(badge);
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
+
         // Bind actions via event delegation
         card.addEventListener('click', (e) => {
+            // Selection mode: clicking anywhere on a selectable card toggles it
+            if (selectionMode && card.dataset.selectable === 'true') {
+                // Allow buttons inside (+ Group, Ungroup, Manage) to still work normally
+                if (e.target.closest('button, .own-group-panel')) return;
+                e.stopPropagation();
+                const isSelected = selectedCompanyIds.has(id);
+                if (isSelected) {
+                    selectedCompanyIds.delete(id);
+                    card.classList.remove('own-selected', 'own-ungroup-select');
+                } else {
+                    selectedCompanyIds.add(id);
+                    card.classList.add('own-selected');
+                    // Red tint for ungroup selection
+                    if (activeGroupFilter !== null) card.classList.add('own-ungroup-select');
+                }
+                _updateBulkBar();
+                return;
+            }
+
             const action = e.target.closest('[data-action]')?.dataset.action;
             if (!action) return;
             e.stopPropagation();
@@ -210,7 +357,8 @@ function createRowElement(companyId, idx, rowData) {
     companyStates[companyId].accounts.forEach(acc => {
         const opt = document.createElement('option');
         opt.value = acc.id;
-        opt.textContent = `${acc.account_name} (${acc.name})`;
+        const mainStr = parseInt(acc.is_main_owner) === 1 ? ' - Main' : '';
+        opt.textContent = `${acc.account_name} (${acc.name})${mainStr}`;
         if (acc.id == rowData.account_id) opt.selected = true;
         select.appendChild(opt);
     });
@@ -260,6 +408,87 @@ function createRowElement(companyId, idx, rowData) {
 
     // Initialize slider gradient
     requestAnimationFrame(() => applySliderBackground(slider));
+
+    // Drag and drop logic
+    const dragHandle = div.querySelector('.own-drag-handle');
+    if (dragHandle) {
+        dragHandle.addEventListener('mousedown', () => div.setAttribute('draggable', 'true'));
+        dragHandle.addEventListener('mouseup', () => div.removeAttribute('draggable'));
+        dragHandle.addEventListener('mouseleave', () => div.removeAttribute('draggable'));
+    }
+
+    div.addEventListener('dragstart', (e) => {
+        draggedRowIdx = idx;
+        draggedCompanyId = companyId;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', idx);
+        setTimeout(() => div.classList.add('own-dragging'), 0);
+    });
+
+    div.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (draggedCompanyId !== companyId || draggedRowIdx === idx) return;
+
+        const bounding = div.getBoundingClientRect();
+        const offset = bounding.y + (bounding.height / 2);
+        if (e.clientY > offset) {
+            div.style.borderBottom = '2px solid var(--own-primary-blue)';
+            div.style.borderTop = '';
+            div.style.transform = 'translateY(-2px)';
+        } else {
+            div.style.borderTop = '2px solid var(--own-primary-blue)';
+            div.style.borderBottom = '';
+            div.style.transform = 'translateY(2px)';
+        }
+    });
+
+    div.addEventListener('dragleave', () => {
+        div.style.borderTop = '';
+        div.style.borderBottom = '';
+        div.style.transform = '';
+    });
+
+    div.addEventListener('drop', (e) => {
+        e.preventDefault();
+        div.style.borderTop = '';
+        div.style.borderBottom = '';
+        div.style.transform = '';
+        
+        if (draggedCompanyId !== companyId || draggedRowIdx === null) return;
+        if (draggedRowIdx === idx) return;
+
+        const bounding = div.getBoundingClientRect();
+        const offset = bounding.y + (bounding.height / 2);
+        const insertAfter = e.clientY > offset;
+
+        const rows = companyStates[companyId].rows;
+        const [movedRow] = rows.splice(draggedRowIdx, 1);
+        
+        let newIdx = idx;
+        if (draggedRowIdx < idx) {
+            newIdx = insertAfter ? idx : idx - 1;
+        } else {
+            newIdx = insertAfter ? idx + 1 : idx;
+        }
+        
+        rows.splice(newIdx, 0, movedRow);
+        renderCardBodyRows(companyId);
+    });
+
+    div.addEventListener('dragend', () => {
+        div.classList.remove('own-dragging');
+        div.removeAttribute('draggable');
+        draggedRowIdx = null;
+        draggedCompanyId = null;
+        
+        const allRows = document.querySelectorAll(`#rows-container-${companyId} .own-account-row`);
+        allRows.forEach(r => {
+            r.style.borderTop = '';
+            r.style.borderBottom = '';
+            r.style.transform = '';
+        });
+    });
 
     return frag;
 }
@@ -474,8 +703,323 @@ function showToast(message, type = 'success') {
 }
 
 // ---------------------------------------------
-// External Partner Linking
+// Bulk Action Bar (multi-select)
 // ---------------------------------------------
+
+/** Render / update the floating bulk-action bar based on current selection. */
+function _updateBulkBar() {
+    let bar = document.getElementById('own-bulk-bar');
+
+    if (selectedCompanyIds.size === 0) {
+        if (bar) bar.classList.remove('own-bulk-bar-visible');
+        return;
+    }
+
+    const isGroupView = activeGroupFilter !== null;
+
+    // Remove existing bar to rebuild with correct layout for context
+    if (bar) bar.remove();
+
+    bar = document.createElement('div');
+    bar.id = 'own-bulk-bar';
+    bar.className = 'own-bulk-bar' + (isGroupView ? ' own-bulk-bar-ungroup' : '');
+
+    if (isGroupView) {
+        // ── Group view: show Ungroup button ──────────────────
+        bar.innerHTML = `
+            <div class="own-bulk-bar-left">
+                <span class="own-bulk-count" id="own-bulk-count"></span>
+                <span class="own-bulk-label">selected</span>
+            </div>
+            <div class="own-bulk-bar-right">
+                <button class="own-bulk-ungroup-btn" id="own-bulk-ungroup-btn">Ungroup</button>
+                <button class="own-bulk-cancel-btn" id="own-bulk-cancel-btn">✕ Cancel</button>
+            </div>
+        `;
+        document.body.appendChild(bar);
+        document.getElementById('own-bulk-ungroup-btn').addEventListener('click', _bulkUngroupCompanies);
+    } else {
+        // ── Independent view: show group select + Join ───────
+        bar.innerHTML = `
+            <div class="own-bulk-bar-left">
+                <span class="own-bulk-count" id="own-bulk-count"></span>
+                <span class="own-bulk-label">selected</span>
+            </div>
+            <div class="own-bulk-bar-right">
+                <div class="own-bulk-group-wrap">
+                    <select class="own-bulk-group-select" id="own-bulk-group-select">
+                        <option value="">-- Select Group --</option>
+                    </select>
+                </div>
+                <button class="own-bulk-join-btn" id="own-bulk-join-btn">Join Group</button>
+                <button class="own-bulk-cancel-btn" id="own-bulk-cancel-btn">✕ Cancel</button>
+            </div>
+        `;
+        document.body.appendChild(bar);
+        document.getElementById('own-bulk-join-btn').addEventListener('click', _bulkJoinGroup);
+
+        // Rebuild group options
+        const sel = document.getElementById('own-bulk-group-select');
+        allGroupIds.forEach(gid => {
+            const opt = document.createElement('option');
+            opt.value = gid;
+            opt.textContent = gid;
+            sel.appendChild(opt);
+        });
+    }
+
+    document.getElementById('own-bulk-cancel-btn').addEventListener('click', _clearSelection);
+    document.getElementById('own-bulk-count').textContent = selectedCompanyIds.size;
+    bar.classList.add('own-bulk-bar-visible');
+}
+
+/** Clear all selections, deselect card highlights, and exit selection mode. */
+function _clearSelection() {
+    selectedCompanyIds.clear();
+    document.querySelectorAll('.own-card.own-selected').forEach(card => {
+        card.classList.remove('own-selected');
+    });
+    _updateBulkBar();
+    // Also exit selection mode when Cancel is pressed from the bulk bar
+    if (selectionMode) _exitSelectionMode();
+}
+
+/** Enter selection mode: cursor changes on selectable cards, button becomes "Cancel". */
+function _toggleSelectionMode() {
+    if (selectionMode) {
+        _exitSelectionMode();
+    } else {
+        selectionMode = true;
+        document.querySelectorAll('.own-card[data-selectable="true"]').forEach(c => {
+            c.classList.add('own-selection-mode');
+        });
+        const btn = document.getElementById('own-select-mode-btn');
+        if (btn) {
+            btn.classList.add('active');
+            btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg> Cancel`;
+        }
+    }
+}
+
+/** Exit selection mode cleanly. */
+function _exitSelectionMode() {
+    selectionMode = false;
+    selectedCompanyIds.clear();
+    document.querySelectorAll('.own-card').forEach(c => {
+        c.classList.remove('own-selection-mode', 'own-selected', 'own-ungroup-select');
+    });
+    _updateBulkBar();
+    const btn = document.getElementById('own-select-mode-btn');
+    if (btn) {
+        btn.classList.remove('active');
+        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v7"/></svg> Select`;
+    }
+}
+
+/** Batch-assign all selected companies to the chosen group. */
+function _bulkJoinGroup() {
+    const groupId = document.getElementById('own-bulk-group-select').value;
+    if (!groupId) {
+        showToast('Please select a group first', 'error');
+        return;
+    }
+
+    const ids = [...selectedCompanyIds];
+    if (ids.length === 0) return;
+
+    const btn = document.getElementById('own-bulk-join-btn');
+    btn.disabled = true;
+    btn.textContent = 'Joining...';
+
+    const requests = ids.map(companyId =>
+        fetch('api/ownership/update_company_group_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: companyId, group_id: groupId })
+        }).then(r => r.json())
+    );
+
+    Promise.all(requests)
+        .then(results => {
+            const failed = results.filter(r => r.status !== 'success');
+            if (failed.length === 0) {
+                showToast(`${ids.length} compan${ids.length > 1 ? 'ies' : 'y'} joined group "${groupId}"`, 'success');
+            } else {
+                showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, 'error');
+            }
+            _clearSelection();
+            fetchCompanies();
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Server error during batch join', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Join Group';
+        });
+}
+
+/** Batch-ungroup all selected companies from their current group. */
+function _bulkUngroupCompanies() {
+    const ids = [...selectedCompanyIds];
+    if (ids.length === 0) return;
+
+    const btn = document.getElementById('own-bulk-ungroup-btn');
+    btn.disabled = true;
+    btn.textContent = 'Ungrouping...';
+
+    const requests = ids.map(companyId =>
+        fetch('api/ownership/update_company_group_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: companyId, group_id: null })
+        }).then(r => r.json())
+    );
+
+    Promise.all(requests)
+        .then(results => {
+            const failed = results.filter(r => r.status !== 'success');
+            if (failed.length === 0) {
+                showToast(`${ids.length} compan${ids.length > 1 ? 'ies' : 'y'} removed from group`, 'success');
+            } else {
+                showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, 'error');
+            }
+            _clearSelection();
+            fetchCompanies();
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Server error during batch ungroup', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Ungroup';
+        });
+}
+
+// ---------------------------------------------
+// Group Management (Join / Ungroup)
+// ---------------------------------------------
+
+/** Recalculates allGroupIds from the full (unfiltered) company list. */
+function _rebuildGroupIds() {
+    allGroupIds = [...new Set(
+        allCompaniesData
+            .map(c => c.group_id)
+            .filter(g => g && g.trim() !== '')
+    )].sort();
+}
+
+/**
+ * Applies the activeGroupFilter to allCompaniesData, sets companiesData,
+ * then triggers a card render.
+ *  activeGroupFilter === null  → show independent companies (no group_id)
+ *  activeGroupFilter === 'G1'  → show companies in group G1
+ */
+function _applyGroupFilter() {
+    if (activeGroupFilter === null) {
+        // Independent: companies with no group
+        companiesData = allCompaniesData.filter(c => !c.group_id || c.group_id.trim() === '');
+    } else {
+        companiesData = allCompaniesData.filter(c =>
+            c.group_id && c.group_id.toLowerCase() === activeGroupFilter.toLowerCase()
+        );
+    }
+    renderCompanyCards();
+}
+
+/**
+ * Builds/refreshes the Group filter bar.
+ * Shows pill buttons for each group ID only (Independent is the implicit default).
+ */
+function _renderGroupFilterBar() {
+    const bar = document.getElementById('own-group-filter-bar');
+    const btnContainer = document.getElementById('own-gfb-buttons');
+    if (!bar || !btnContainer) return;
+
+    // Only show the bar if there is at least one group
+    if (allGroupIds.length === 0) {
+        bar.style.display = 'none';
+        return;
+    }
+    bar.style.display = 'flex';
+
+    btnContainer.innerHTML = '';
+
+    // One button per group ID — no "Independent" button
+    allGroupIds.forEach(gid => {
+        const btn = document.createElement('button');
+        btn.className = 'own-gfb-btn' + (activeGroupFilter === gid ? ' active' : '');
+        btn.dataset.group = gid;
+
+        // Count companies in this group
+        const count = allCompaniesData.filter(c =>
+            c.group_id && c.group_id.toLowerCase() === gid.toLowerCase()
+        ).length;
+
+        btn.innerHTML = `${gid}<span class="own-gfb-count">${count}</span>`;
+        btn.addEventListener('click', () => _selectGroupFilter(gid));
+        btnContainer.appendChild(btn);
+    });
+
+    // Select button: visible for both independent and group views
+    const selectBtn = document.getElementById('own-select-mode-btn');
+    if (selectBtn) selectBtn.style.display = '';
+}
+
+/** Sets the active group filter. Clicking the already-active group toggles it off (→ independent view). */
+function _selectGroupFilter(groupId) {
+    // Toggle: clicking an active group returns to independent (null)
+    activeGroupFilter = (activeGroupFilter === groupId) ? null : groupId;
+    // Update button active states
+    document.querySelectorAll('.own-gfb-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.group === (activeGroupFilter ?? ''));
+    });
+    // Select button is always visible when groups exist
+    _clearSelection();   // also exits selection mode if active
+    _applyGroupFilter();
+}
+
+function joinCompanyGroup(companyId, groupId, companyName) {
+    fetch('api/ownership/update_company_group_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: companyId, group_id: groupId })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.status === 'success') {
+            showToast(`"${companyName}" joined group "${groupId}"`, 'success');
+            // Re-fetch from server so the list immediately reflects the new group context
+            fetchCompanies();
+        } else {
+            showToast(res.message, 'error');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast('Server error', 'error');
+    });
+}
+
+function ungroupCompany(companyId, companyName) {
+    fetch('api/ownership/update_company_group_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: companyId, group_id: null })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.status === 'success') {
+            showToast(`"${companyName}" removed from group`, 'success');
+            // Re-fetch from server so the list immediately reflects the new group context
+            fetchCompanies();
+        } else {
+            showToast(res.message, 'error');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast('Server error', 'error');
+    });
+}
 
 function linkExternalPartner(companyId, event, forceType = '') {
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);

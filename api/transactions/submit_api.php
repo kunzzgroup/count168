@@ -13,6 +13,7 @@
  */
 
 session_start();
+// 注意：session_write_close() 将在读取完幂等缓存后调用，允许数据库操作期间并发执行
 header('Content-Type: application/json');
 
 try {
@@ -120,6 +121,10 @@ function getSubmitIdempotencyCache(string $key): ?array
 
 function putSubmitIdempotencyCache(string $key, array $response): void
 {
+    // 重新开启 session 以写入幂等缓存（之前已调用 session_write_close 释放锁）
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
     if (!isset($_SESSION['tx_submit_idempotency']) || !is_array($_SESSION['tx_submit_idempotency'])) {
         $_SESSION['tx_submit_idempotency'] = [];
     }
@@ -139,6 +144,8 @@ function putSubmitIdempotencyCache(string $key, array $response): void
             array_shift($_SESSION['tx_submit_idempotency']);
         }
     }
+    // 写完立即释放 session 锁
+    session_write_close();
 }
 
 try {
@@ -190,10 +197,14 @@ try {
         $idempotencyKey = (string)$company_id . ':' . $client_request_id;
         $cachedResponse = getSubmitIdempotencyCache($idempotencyKey);
         if ($cachedResponse !== null) {
+            session_write_close(); // 命中缓存，无需继续持有 session 锁
             echo json_encode($cachedResponse, JSON_UNESCAPED_UNICODE);
             exit;
         }
     }
+    // 读取完 session 基本信息和幂等缓存，立即释放 session 锁
+    // 后续数据库操作（可能耗时数百毫秒）将不再阻塞其他并发请求
+    session_write_close();
 
     // 获取表单数据
     $transaction_type = trim($_POST['transaction_type'] ?? '');

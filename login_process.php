@@ -59,20 +59,35 @@ try {
         // 从 account 表验证：验证公司、账号、密码、状态
         // 修改条件，允许匹配 company_id 或者 group_id
         $stmt = $pdo->prepare("
-            SELECT a.*, c.id AS company_numeric_id, c.company_id AS company_code 
+            SELECT a.*, c.id AS company_numeric_id, c.company_id AS company_code, c.expiration_date 
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             INNER JOIN company c ON ac.company_id = c.id
             WHERE UPPER(a.account_id) = UPPER(?) 
             AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?)
             AND a.status = 'active'
-            LIMIT 1
         ");
         $stmt->execute([$account_id, $company_id, $company_id]);
-        $account = $stmt->fetch(PDO::FETCH_ASSOC);
+        $matched_accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $account = null;
+        $has_expired = false;
+        $password_match = false;
+        
+        foreach ($matched_accounts as $row) {
+            if (!empty($row['password']) && $password === $row['password']) {
+                $password_match = true;
+                if (!empty($row['expiration_date']) && strtotime($row['expiration_date']) < strtotime(date('Y-m-d'))) {
+                    $has_expired = true;
+                } else {
+                    $account = $row;
+                    break;
+                }
+            }
+        }
         
         // 检查账户是否存在且密码匹配
-        if ($account && !empty($account['password']) && $password === $account['password']) {
+        if ($account) {
             // Member 登录成功（保留 member_login_account_id 供 Win/Loss 刷新后恢复所选被连接方）
             $_SESSION['member_login_account_id'] = $account['id'];
             $_SESSION['user_id'] = $account['id'];
@@ -92,7 +107,11 @@ try {
             echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
             exit;
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Account ID, Company ID or password is incorrect']);
+            if ($password_match && $has_expired) {
+                echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Account ID, Company ID or password is incorrect']);
+            }
             exit;
         }
     }
@@ -110,17 +129,33 @@ try {
         SELECT 
             u.*,
             c.id AS company_numeric_id,
-            c.company_id AS company_code
+            c.company_id AS company_code,
+            c.expiration_date
         FROM user u
         INNER JOIN user_company_map ucm ON u.id = ucm.user_id
         INNER JOIN company c ON ucm.company_id = c.id
         WHERE u.login_id = ? AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?) AND u.status = 'active'
-        LIMIT 1
     ");
     $stmt->execute([$login_id, $company_id, $company_id]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $matched_users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    if ($user && password_verify($password, $user['password'])) {
+    $user = null;
+    $user_has_expired = false;
+    $user_password_match = false;
+    
+    foreach ($matched_users as $row) {
+        if (password_verify($password, $row['password'])) {
+            $user_password_match = true;
+            if (!empty($row['expiration_date']) && strtotime($row['expiration_date']) < strtotime(date('Y-m-d'))) {
+                $user_has_expired = true;
+            } else {
+                $user = $row;
+                break;
+            }
+        }
+    }
+    
+    if ($user) {
         // User 登录成功
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['login_id'] = $user['login_id'];
@@ -172,36 +207,57 @@ try {
         exit;
         
     } else {
+        if ($user_password_match && $user_has_expired) {
+            echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);
+            exit;
+        }
         // User 表找不到，尝试从 owner 表验证
         // 通过 company 表关联查询 owner
         $stmt = $pdo->prepare("
-            SELECT o.*, c.id AS company_numeric_id, c.company_id AS company_code
+            SELECT o.*, c.id AS company_numeric_id, c.company_id AS company_code, c.expiration_date
             FROM owner o
             INNER JOIN company c ON c.owner_id = o.id
             WHERE UPPER(o.owner_code) = UPPER(?) AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?)
-            LIMIT 1
         ");
         $stmt->execute([$login_id, $company_id, $company_id]);
-        $owner = $stmt->fetch(PDO::FETCH_ASSOC);
+        $matched_owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // 密码验证：兼容哈希密码和明文密码
-        $password_valid = false;
-        if ($owner) {
+        $owner = null;
+        $owner_has_expired = false;
+        $owner_password_match = false;
+        $owner_record_to_update = null;
+        
+        foreach ($matched_owners as $row) {
+            $is_pwd_valid = false;
             // 先尝试哈希验证（标准方式）
-            if (password_verify($password, $owner['password'])) {
-                $password_valid = true;
+            if (password_verify($password, $row['password'])) {
+                $is_pwd_valid = true;
             } 
             // 如果哈希验证失败，检查是否是明文密码（兼容旧数据）
-            elseif ($password === $owner['password']) {
-                $password_valid = true;
-                // 如果使用明文密码验证成功，自动升级为哈希密码
+            elseif ($password === $row['password']) {
+                $is_pwd_valid = true;
+                $owner_record_to_update = $row;
+            }
+
+            if ($is_pwd_valid) {
+                $owner_password_match = true;
+                if (!empty($row['expiration_date']) && strtotime($row['expiration_date']) < strtotime(date('Y-m-d'))) {
+                    $owner_has_expired = true;
+                } else {
+                    $owner = $row;
+                    break;
+                }
+            }
+        }
+        
+        if ($owner) {
+            // 如果使用明文密码验证成功，自动升级为哈希密码
+            if ($owner_record_to_update && $owner['id'] == $owner_record_to_update['id']) {
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 $update_stmt = $pdo->prepare("UPDATE owner SET password = ? WHERE id = ?");
                 $update_stmt->execute([$hashed_password, $owner['id']]);
             }
-        }
-        
-        if ($owner && $password_valid) {
+
             $_SESSION['user_id'] = $owner['id'];
             $_SESSION['login_id'] = $owner['owner_code'];
             $_SESSION['name'] = $owner['name'];
@@ -218,12 +274,15 @@ try {
             $remember_me = isset($_POST['remember_me']) ? $_POST['remember_me'] : false;
             if ($remember_me) {
                 // Owner 的 remember me 可以存在 session 或另外处理
-                // 这里暂时不实现，因为 owner 表可能没有 remember_token 字段
             }
             
             echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Username or password is incorrect']);
+            if ($owner_password_match && $owner_has_expired) {
+                echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Username or password is incorrect']);
+            }
         }
     }
     } else {

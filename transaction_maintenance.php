@@ -6,8 +6,24 @@ require_once 'session_check.php';
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_id) {
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+        }
+    }
+} catch (Exception $e) { }
+
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
+$company_id = $session_company_id;
 
 // 当前 session 公司的 company_code（用于 Category 权限按钮）
 $session_company_code = '';
@@ -38,6 +54,7 @@ if (!empty($session_company_id)) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">
@@ -101,12 +118,18 @@ if (!empty($session_company_id)) {
             
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
-                    <div class="maintenance-company-filter" id="companyButtonsWrapper" style="display: none;">
-                        <span class="maintenance-company-label">Company:</span>
-                        <div class="maintenance-company-buttons" id="companyButtonsContainer">
-                            <!-- Company buttons injected here -->
-                        </div>
-                    </div>
+                    <!-- Shared Group & Company Filter (SSR) -->
+                    <?php
+                    $filter_prefix = 'maintenance'; 
+                    include 'includes/company_filter.php'; 
+                    ?>
+                    <script>
+                        window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                            if (typeof switchCompany === 'function') {
+                                switchCompany(companyId, companyCode);
+                            }
+                        };
+                    </script>
                 </div>
                 
                 <!-- No delete actions for transaction maintenance -->
@@ -299,55 +322,9 @@ if (!empty($session_company_id)) {
             }
         });
 
-        function loadOwnerCompanies() {
-            return fetch('api/transactions/get_owner_companies_api.php')
-                .then(response => response.json())
-                .then(data => {
-                    const wrapper = document.getElementById('companyButtonsWrapper');
-                    const container = document.getElementById('companyButtonsContainer');
-                    
-                    const companies = data.success && Array.isArray(data.data)
-                        ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
-                        : []
-                    if (companies.length > 0 && wrapper && container) {
-                        ownerCompanies = companies;
-                        container.innerHTML = '';
-                        
-                        companies.forEach(company => {
-                            const btn = document.createElement('button');
-                            btn.type = 'button';
-                            btn.className = 'maintenance-company-btn';
-                            btn.textContent = company.company_id;
-                            btn.dataset.companyId = company.id;
-                            btn.addEventListener('click', () => switchCompany(company.id));
-                            container.appendChild(btn);
-                        });
-                        
-                        // 仅在没有选中公司时使用第一个；在 TEST 公司时打开本页保持选 TEST，不自动选 C168
-                        if (!currentCompanyId && companies.length > 0) {
-                            currentCompanyId = companies[0].id;
-                        }
-                        
-                        updateCompanyButtonsState();
-                        wrapper.style.display = companies.length > 1 ? 'flex' : 'none';
-                    } else if (wrapper) {
-                        wrapper.style.display = 'none';
-                        ownerCompanies = [];
-                        currentCompanyId = null;
-                    }
-                })
-                .catch(error => {
-                    console.warn('❌ 加载Company列表失败:', error);
-                    const wrapper = document.getElementById('companyButtonsWrapper');
-                    if (wrapper) {
-                        wrapper.style.display = 'none';
-                    }
-                    ownerCompanies = [];
-                    currentCompanyId = null;
-                });
-        }
 
-        async function switchCompany(companyId) {
+
+        async function switchCompany(companyId, companyCode) {
             if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
             
             // 先更新 session
@@ -356,33 +333,25 @@ if (!empty($session_company_id)) {
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                    // 即使 API 失败，也继续更新前端状态
                 } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
                     window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
-                // 即使 API 失败，也继续更新前端状态
             }
             
             currentCompanyId = companyId;
-            updateCompanyButtonsState();
+            currentCompanyCode = companyCode || '';
+            if (typeof window !== 'undefined') {
+                window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+            }
             loadProcesses();
             if (hasSearched) {
                 searchData();
             }
         }
 
-        function updateCompanyButtonsState() {
-            const buttons = document.querySelectorAll('.maintenance-company-btn');
-            buttons.forEach(btn => {
-                if (parseInt(btn.dataset.companyId, 10) === parseInt(currentCompanyId, 10)) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-        }
+
 
         // Load Process list
         function loadProcesses() {
@@ -775,7 +744,7 @@ if (!empty($session_company_id)) {
             
             initAutoSearchFilters();
 
-            loadOwnerCompanies()
+            Promise.resolve()
                 .then(() => (typeof loadPermissionButtons === 'function' ? loadPermissionButtons() : Promise.resolve()))
                 .catch(() => {})
                 .then(() => loadProcesses())

@@ -75,6 +75,7 @@ $company_id = $_SESSION['company_id'] ?? null;
             }
         });
     </script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">

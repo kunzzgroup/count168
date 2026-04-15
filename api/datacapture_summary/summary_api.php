@@ -10,6 +10,7 @@ if (PHP_VERSION_ID >= 70300) {
     ]);
 }
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 
@@ -71,6 +72,19 @@ function resolveCompanyCurrencyId(PDO $pdo, int $companyId, $currencyId = null, 
     }
 
     return null;
+}
+
+/** data_capture_details.display_order 是否存在（请求内只查一次） */
+function summaryApiHasDisplayOrder(PDO $pdo): bool
+{
+    static $v = null;
+    if ($v === null) {
+        try {
+            $st = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
+            $v = $st && $st->fetch(PDO::FETCH_ASSOC) !== false;
+        } catch (Throwable $e) { $v = false; }
+    }
+    return $v;
 }
 
 function ensureTemplateSchema(PDO $pdo) {
@@ -1121,11 +1135,7 @@ function baseIdProductForKeyNormalized($text) {
  * 修复：data_capture_details 有该账目但 data_capture_templates 没有时，仍能在 Summary 中显示。
  */
 function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, array $ids, array $templates) {
-    $hasDisplayOrder = false;
-    try {
-        $colStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
-        $hasDisplayOrder = $colStmt && $colStmt->fetch(PDO::FETCH_ASSOC);
-    } catch (Exception $e) { /* ignore */ }
+    $hasDisplayOrder = summaryApiHasDisplayOrder($pdo); // static 缓存，不重复 SHOW
     $orderBy = $hasDisplayOrder ? "ORDER BY COALESCE(display_order, 999), id" : "ORDER BY id";
     $cols = $hasDisplayOrder ? "id_product_main, id_product_sub, product_type, account_id, display_order, rate" : "id_product_main, id_product_sub, product_type, account_id, rate";
     $detailStmt = $pdo->prepare("
@@ -2318,15 +2328,13 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             // 然后在下面的 INSERT 里一并写入。
             
             // Ensure display_order column exists to preserve row ordering
-            try {
-                $displayOrderColumnStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
-                $hasDisplayOrder = $displayOrderColumnStmt && $displayOrderColumnStmt->fetch(PDO::FETCH_ASSOC);
-                if (!$hasDisplayOrder) {
+            if (!summaryApiHasDisplayOrder($pdo)) { // static 缓存，不重复 SHOW
+                try {
                     $pdo->exec("ALTER TABLE data_capture_details ADD COLUMN display_order INT NULL AFTER rate");
                     error_log('Added display_order column to data_capture_details');
+                } catch (Exception $columnException) {
+                    error_log('display_order column check warning: ' . $columnException->getMessage());
                 }
-            } catch (Exception $columnException) {
-                error_log('display_order column check warning: ' . $columnException->getMessage());
             }
             
             $stmt = $pdo->prepare("

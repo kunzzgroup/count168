@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../permissions.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 }
 
 header('Content-Type: application/json');
@@ -23,13 +24,16 @@ function jsonResponse(bool $success, string $message = '', $data = null): void
 
 function bankProcessHasColumn(PDO $pdo, string $column): bool
 {
+    static $cache = [];
+    if (array_key_exists($column, $cache)) return $cache[$column];
     try {
         $stmt = $pdo->prepare("SHOW COLUMNS FROM bank_process LIKE ?");
         $stmt->execute([$column]);
-        return $stmt && $stmt->rowCount() > 0;
+        $cache[$column] = $stmt && $stmt->rowCount() > 0;
     } catch (Throwable $e) {
-        return false;
+        $cache[$column] = false;
     }
+    return $cache[$column];
 }
 
 function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn, bool $hasFlagColumn): string
@@ -184,6 +188,33 @@ function parseProfitSharingTotal(?string $profitSharing): float
 // Handle different actions
 $action = $_GET['action'] ?? '';
 
+// --- BEGIN DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
+$req_company_id = $_GET['company_id'] ?? $_POST['company_id'] ?? $_SESSION['company_id'] ?? null;
+if ($req_company_id) {
+    // Actions that are strictly for 'Bank' category
+    $bankOnlyActions = [
+        'get_banks_by_country', 'get_countries', 'add_country', 'remove_country',
+        'save_country_banks', 'get_selected_countries', 'save_selected_countries', 
+        'get_selected_banks', 'save_selected_banks', 'update_bank_process'
+    ];
+
+    $requiredCategory = 'Games'; // Default fallback
+    if (in_array($action, $bankOnlyActions)) {
+        $requiredCategory = 'Bank';
+    } else {
+        $reqPermission = $_GET['permission'] ?? $_POST['permission'] ?? '';
+        if ($reqPermission === 'Bank') {
+            $requiredCategory = 'Bank';
+        }
+    }
+
+    if (!checkCompanyCategoryPermission($pdo, $req_company_id, $requiredCategory)) {
+        jsonResponse(false, 'Unauthorized permission category');
+        exit;
+    }
+}
+// --- END DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
+
 switch ($action) {
     case 'get_process':
         getProcess();
@@ -199,6 +230,9 @@ switch ($action) {
         break;
     case 'add_country':
         addCountry();
+        break;
+    case 'remove_country':
+        removeCountry();
         break;
     case 'save_country_banks':
         saveCountryBanks();
@@ -636,22 +670,36 @@ function getBankProcesses() {
         $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showBlock = isset($_GET['showBlock']) && $_GET['showBlock'] == '1';
 
-        $hasSourceBankProcessId = false;
-        try {
-            $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
-            $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
-        } catch (PDOException $e) { /* ignore */ }
+        // static 缓存：每次请求只查一次 schema，避免重复 SHOW COLUMNS/TABLES
+        static $bankSchema = null;
+        if ($bankSchema === null) {
+            $hasSourceBankProcessId = false;
+            try {
+                $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+                $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+
+            $hasResendPendingTable = false;
+            try {
+                $rt = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'");
+                $hasResendPendingTable = $rt && $rt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+
+            $bankSchema = [
+                'has_source_bank_process_id' => $hasSourceBankProcessId,
+                'has_resend_pending_table'   => $hasResendPendingTable,
+            ];
+        }
+        $hasSourceBankProcessId = $bankSchema['has_source_bank_process_id'];
+        $hasResendPendingTable  = $bankSchema['has_resend_pending_table'];
+
+        // bankProcessHasColumn() 内部已有 static 缓存，两次调用只查一次 SHOW COLUMNS
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
         $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
-        $hasResendPendingTable = false;
-        try {
-            $rt = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'");
-            $hasResendPendingTable = $rt && $rt->rowCount() > 0;
-        } catch (PDOException $e) { /* ignore */ }
         $resendPendingSelect = $hasResendPendingTable
             ? "(EXISTS (SELECT 1 FROM bank_process_maintenance_resend_pending rp WHERE rp.company_id = bp.company_id AND rp.bank_process_id = bp.id)) AS maintenance_resend_pending"
             : "0 AS maintenance_resend_pending";
@@ -881,16 +929,17 @@ function updateBankProcess() {
             jsonResponse(false, 'Process ID is required', null);
             return;
         }
-        $checkStmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ?");
+        $checkStmt = $pdo->prepare("SELECT id, country, bank, type, name FROM bank_process WHERE id = ? AND company_id = ?");
         $checkStmt->execute([$id, $currentCompanyId]);
-        if (!$checkStmt->fetch()) {
+        $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) {
             jsonResponse(false, 'Process not found or no permission', null);
             return;
         }
-        $country = $_POST['country'] ?? null;
-        $bank = $_POST['bank'] ?? null;
-        $type = $_POST['type'] ?? null;
-        $name = $_POST['name'] ?? null;
+        $country = $existing['country'] ?? null;
+        $bank = $existing['bank'] ?? null;
+        $type = $existing['type'] ?? null;
+        $name = $existing['name'] ?? null;
         $card_merchant_id = !empty($_POST['card_merchant_id']) ? (int)$_POST['card_merchant_id'] : null;
         $customer_id = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
         $profit_account_id = !empty($_POST['profit_account_id']) ? (int)$_POST['profit_account_id'] : null;
@@ -902,7 +951,18 @@ function updateBankProcess() {
         $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : null;
         $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
         $profit_sharing = $_POST['profit_sharing'] ?? null;
-        // day_start / day_end / day_start_frequency：仅能通过 Resend 弹窗或维护流程更新，Edit Process 不再写入
+        $day_start = isset($_POST['day_start']) ? trim((string)$_POST['day_start']) : '';
+        $day_end = isset($_POST['day_end']) ? trim((string)$_POST['day_end']) : '';
+        $day_start_frequency = isset($_POST['day_start_frequency']) ? trim((string)$_POST['day_start_frequency']) : '1st_of_every_month';
+        if ($day_start_frequency !== 'monthly') {
+            $day_start_frequency = '1st_of_every_month';
+        }
+        if ($day_start === '') {
+            $day_start = null;
+        }
+        if ($day_end === '') {
+            $day_end = null;
+        }
         $status = $_POST['status'] ?? 'active';
         if (!in_array($status, ['active', 'inactive', 'waiting'], true)) {
             $status = 'active';
@@ -923,12 +983,12 @@ function updateBankProcess() {
             $sql .= "sop=?, ";
             $params[] = $sop;
         }
-        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, status=?,
+        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?, status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?";
         array_push(
             $params,
-            $remark, $cost, $price, $profit, $profit_sharing, $status,
+            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency, $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         );
         $stmt = $pdo->prepare($sql);
@@ -1011,6 +1071,41 @@ function addCountry() {
         jsonResponse(true, 'Saved', null);
     } catch (Exception $e) {
         error_log("addCountry: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), null);
+    }
+}
+
+/**
+ * Remove a user-added country row from company_countries (red X on Available list).
+ * Countries that only appear from country_bank or account currencies are unchanged in DB here;
+ * the client still drops them from the session list until the next full reload from those sources.
+ */
+function removeCountry() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'Method not allowed', null);
+        return;
+    }
+    try {
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
+        if ($country === '') {
+            jsonResponse(false, 'Country is required', null);
+            return;
+        }
+        $stmt = $pdo->prepare("DELETE FROM company_countries WHERE company_id = ? AND country = ?");
+        $stmt->execute([$companyId, $country]);
+        jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
+    } catch (Exception $e) {
+        error_log("removeCountry: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
     }
 }

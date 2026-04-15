@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/reset-password.css?v=<?php echo time(); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
 <body class="bg">
@@ -22,7 +23,7 @@
                 <form class="login-form" id="resetForm" method="POST">
                     <div class="input-group">
                         <i class="fas fa-building input-icon"></i>
-                        <input type="text" placeholder="Company Id (or Owner Code for owner)" id="company-id" name="company_id" required />
+                        <input type="text" placeholder="Company / Group ID (or Owner Code)" id="company-id" name="company_id" required />
                     </div>
                     
                     <div class="input-group">

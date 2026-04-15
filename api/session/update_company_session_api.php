@@ -4,6 +4,9 @@
  * 路径: api/session/update_company_session_api.php
  */
 
+// 此 API 需要写入 session（切换公司），不能让 session_check.php 提前关闭锁
+define('SESSION_KEEP_OPEN', true);
+
 require_once __DIR__ . '/../../session_check.php';
 
 header('Content-Type: application/json');
@@ -14,6 +17,7 @@ function translateApiMessage(string $message): string {
         '缺少 company_id 参数' => 'Missing company_id parameter',
         '获取公司列表失败' => 'Failed to load company list',
         '无权限访问该公司' => 'No permission to access this company',
+        'Company has expired' => 'Company has expired',
         'Company 已更新' => 'Company updated',
     ];
 
@@ -38,14 +42,14 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         // member 可能来自不同登录入口：有的用 account_company(account_id)，有的仍走 user_company_map(user_id)
         // 为避免切换 company 误判无权限，这里同时检查两种映射。
         $stmt = $pdo->prepare("
-            SELECT DISTINCT c.id, c.company_id
+            SELECT DISTINCT c.id, c.company_id, c.expiration_date
             FROM company c
             INNER JOIN account_company ac ON c.id = ac.company_id
             WHERE ac.account_id = ?
 
             UNION
 
-            SELECT DISTINCT c2.id, c2.company_id
+            SELECT DISTINCT c2.id, c2.company_id, c2.expiration_date
             FROM company c2
             INNER JOIN user_company_map ucm ON c2.id = ucm.company_id
             WHERE ucm.user_id = ?
@@ -59,7 +63,7 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         // Always use the REAL owner_id (never the swapped one) for listing companies
         $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $user_id;
         $stmt = $pdo->prepare("
-            SELECT DISTINCT c.id, c.company_id, IF(c.owner_id = ?, 0, 1) as is_external, c.owner_id as real_owner_id
+            SELECT DISTINCT c.id, c.company_id, c.expiration_date, IF(c.owner_id = ?, 0, 1) as is_external, c.owner_id as real_owner_id
             FROM company c
             LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner'
             WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
@@ -69,7 +73,7 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     $stmt = $pdo->prepare("
-        SELECT DISTINCT c.id, c.company_id
+        SELECT DISTINCT c.id, c.company_id, c.expiration_date
         FROM company c
         INNER JOIN user_company_map ucm ON c.id = ucm.company_id
         WHERE ucm.user_id = ?
@@ -111,9 +115,13 @@ try {
     $valid = false;
     $is_external_view = false;
     $real_owner_id = null;
+    $expired = false;
     foreach ($user_companies as $comp) {
         if ((int) $comp['id'] === $requested_company_id) {
             $valid = true;
+            if (!empty($comp['expiration_date']) && strtotime($comp['expiration_date']) < strtotime(date('Y-m-d'))) {
+                $expired = true;
+            }
             if (isset($comp['is_external']) && $comp['is_external'] == 1) {
                 $is_external_view = true;
             }
@@ -125,6 +133,10 @@ try {
     }
     if (!$valid) {
         jsonResponse(false, '无权限访问该公司', null, 403);
+        exit;
+    }
+    if ($expired) {
+        jsonResponse(false, 'Company has expired', null, 403);
         exit;
     }
 
@@ -168,11 +180,15 @@ try {
         $_SESSION['company_code'] = $company_code;
     }
 
+    // 写入完成，立即释放 session 锁
+    session_write_close();
+
     jsonResponse(true, 'Company 已更新', [
         'company_id'   => $requested_company_id,
         'company_code' => $company_code,
         'has_gambling' => $has_gambling
     ]);
 } catch (Exception $e) {
+    session_write_close();
     jsonResponse(false, $e->getMessage(), null, 500);
 }

@@ -8,7 +8,7 @@ function buildApiUrl(pathAndQuery) {
 
 // 分页相关变量
 let currentPage = 1;
-let rowsPerPage = 15;
+let rowsPerPage = 20;
 let filteredRows = [];
 let allRows = [];
 
@@ -359,7 +359,7 @@ function updatePagination() {
     // 如果只有一页或没有数据，隐藏分页控件
     const paginationContainer = document.getElementById('paginationContainer');
 
-    if (totalPages <= 1) {
+    if (filteredRows.length === 0) {
         paginationContainer.style.display = 'none';
     } else {
         paginationContainer.style.display = 'flex';
@@ -600,13 +600,13 @@ function openAddModal() {
         hiddenLoginId.remove();
     }
 
-    // 切换到添加模式 UI
+    // 切换到添加模式 UI (修正: 在新建用户时也展示 Right Panel 和 Bottom Bar，避免留白过大)
     const editModeRightPanel = document.getElementById('editModeRightPanel');
     const editModeBottomBar = document.getElementById('editModeBottomBar');
     const addModeActions = document.querySelector('.add-mode-actions');
-    if (editModeRightPanel) editModeRightPanel.style.display = 'none';
-    if (editModeBottomBar) editModeBottomBar.style.display = 'none';
-    if (addModeActions) addModeActions.style.display = 'flex';
+    if (editModeRightPanel) editModeRightPanel.style.display = 'flex';
+    if (editModeBottomBar) editModeBottomBar.style.display = 'flex';
+    if (addModeActions) addModeActions.style.display = 'none';
 
     // 根据当前用户角色更新可选择的角色选项
     const availableRoles = getAvailableRolesForCreation();
@@ -635,14 +635,15 @@ function openAddModal() {
     // 重置 company 选择
     selectedCompanyIds = [];
 
-    // 隐藏 Account 和 Process 权限区域（只在编辑模式显示）
-    document.getElementById('accountProcessPermissionsSection').style.display = 'none';
+    // 显示 Account 和 Process 权限区域（既然要像 Desktop 正常展示所有，就让它全程显示）
+    const accProcSection = document.getElementById('accountProcessPermissionsSection');
+    if (accProcSection) accProcSection.style.display = 'flex';
 
-    // 重置 Account 和 Process 选择
+    // 重置并默认全选 Account 和 Process（因为新建用户通常拥有所有可见权限）
     selectedAccounts = [];
     selectedProcesses = [];
-    clearAllAccounts();
-    clearAllProcesses();
+    selectAllAccounts();
+    selectAllProcesses();
 
     // 重置 Read Only toggle（创建模式默认隐藏，打开时 role 还未选，等 role change 时触发）
     updateReadOnlyToggleVisibility('');
@@ -2176,8 +2177,14 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
 
         // 权限数据处理
         if (!isEditMode) {
+            // 创建模式：在提交前更新选择，确保提交了用户分配的账号和进程
+            updateAccountSelection();
+            updateProcessSelection();
+            
             // 创建模式：合并默认权限和用户手动修改的权限
             data.permissions = getFinalPermissionsForCreation(data.role);
+            data.account_permissions = selectedAccounts;
+            data.process_permissions = selectedProcesses;
         } else {
             // 编辑模式：在提交前更新选择，确保数据是最新的
             updateAccountSelection();

@@ -17,6 +17,7 @@ let bankAddProcessDataLoaded = false;
 let currentQuickRemarkProcessId = null;
 let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
+const pendingResendScheduleByProcessId = {};
 
 function sortBankProcessesBySupplier() {
     if (!Array.isArray(processes) || processes.length === 0) return;
@@ -95,6 +96,74 @@ function isBankInactiveLike(status, issueFlag) {
     return normalizedStatus === 'inactive' || normalizedIssueFlag === 'official' || normalizedIssueFlag === 'e_invoice' || normalizedIssueFlag === 'block';
 }
 
+function bankProcessNormalizeDayStartYmd(dayStartField) {
+    if (dayStartField == null) return null;
+    const s = String(dayStartField).trim();
+    if (!s) return null;
+    const head = s.length >= 10 ? s.substring(0, 10) : String(s.split(' ')[0] || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(head) ? head : null;
+}
+
+/**
+ * Resend 弹窗 Day start 客户端校验（曾禁止等于今天，现已允许与后端一致）。
+ * @returns {string|null} 错误提示文案；null 表示可提交
+ */
+function bankResendScheduleDayStartForbiddenMessage(chosenTrim, anchorRaw) {
+    void anchorRaw;
+    void chosenTrim;
+    return null;
+}
+
+function isBankResendDayStartBackendErrorMessage(text) {
+    const s = String(text || '');
+    return s.indexOf('不可与今天相同') !== -1
+        || s.indexOf('Day start cannot be today') !== -1
+        || s.indexOf('Resend 所填 Day start') !== -1
+        || s.indexOf('same calendar date as the current contract Day start') !== -1;
+}
+
+function clearBankResendDayStartInlineError() {
+    const box = document.getElementById('bankResendDayStartInlineError');
+    const input = document.getElementById('bank_resend_day_start');
+    if (box) {
+        box.textContent = '';
+        box.hidden = true;
+    }
+    if (input) {
+        input.classList.remove('bank-resend-control--error');
+        input.removeAttribute('aria-invalid');
+    }
+}
+
+/** 弹窗打开时：在表单项旁显示醒目错误；无弹窗时：仅走右上角强提示 toast（仅此业务） */
+function presentBankResendDayStartValidationError(message) {
+    const msg = String(message || '').trim();
+    if (!msg) return;
+    const modal = document.getElementById('confirmBankResendModal');
+    const modalOpen = modal && modal.style.display === 'block';
+    const box = document.getElementById('bankResendDayStartInlineError');
+    const input = document.getElementById('bank_resend_day_start');
+    if (modalOpen && box) {
+        box.textContent = msg;
+        box.hidden = false;
+        box.setAttribute('role', 'alert');
+        if (input) {
+            input.classList.add('bank-resend-control--error');
+            input.setAttribute('aria-invalid', 'true');
+            try {
+                input.focus();
+            } catch (e) { /* ignore */ }
+        }
+        try {
+            box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (e2) { /* ignore */ }
+        return;
+    }
+    if (typeof showNotification === 'function') {
+        showNotification(msg, 'danger', { durationMs: 14500, prominent: true });
+    }
+}
+
 function isBankProcessInactiveLike(process) {
     if (!process) return false;
     return isBankInactiveLike(process.status, process.issue_flag);
@@ -127,6 +196,36 @@ function parseIsoDate(value) {
     if (isNaN(date.getTime())) return null;
     date.setHours(0, 0, 0, 0);
     return date;
+}
+
+function normalizeBankScheduleValue(value) {
+    return value == null ? '' : String(value).trim();
+}
+
+function getPendingResendScheduleForProcess(processId) {
+    const id = parseInt(processId, 10);
+    if (!id) return null;
+    const row = pendingResendScheduleByProcessId[id];
+    if (!row || typeof row !== 'object') return null;
+    return {
+        day_start: normalizeBankScheduleValue(row.day_start),
+        day_end: normalizeBankScheduleValue(row.day_end),
+        day_start_frequency: row.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
+}
+
+function setPendingResendScheduleForProcess(processId, schedule) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
+    if (!schedule || typeof schedule !== 'object') {
+        delete pendingResendScheduleByProcessId[id];
+        return;
+    }
+    pendingResendScheduleByProcessId[id] = {
+        day_start: normalizeBankScheduleValue(schedule.day_start),
+        day_end: normalizeBankScheduleValue(schedule.day_end),
+        day_start_frequency: schedule.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
 }
 
 function getProcessListDateRange() {
@@ -190,10 +289,10 @@ function initProcessListDateFilter() {
     }
 }
 
-function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag, maintenanceResendPending) {
+function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) {
     const isBankStatusActive = String(status || '').trim().toLowerCase() === 'active';
-    // Official / E-INVOICE / Block 仍为 status=active，须与列表「inactive-like」一致，否则 Resend 会误显
-    const showResend = !!maintenanceResendPending && isBankStatusActive && !isBankInactiveLike(status, issueFlag);
+    // Official / E-INVOICE / Block 仍为 status=active；Resend 不依赖 Maintenance 待办表
+    const showResend = isBankStatusActive && !isBankInactiveLike(status, issueFlag);
     const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
     const actionButtons =
         '<span class="bank-action-tools">' +
@@ -235,6 +334,7 @@ window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
 async function executeAccountingDueResend(processId, scheduleOpts) {
     const id = parseInt(processId, 10);
     if (!id) return;
+    await persistOpenBankEditBeforeResend(id);
     const procGuard = processes.find(function (p) { return p.id === id; });
     if (procGuard) {
         const st = String(procGuard.status || '').trim().toLowerCase();
@@ -250,6 +350,11 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
         payload.day_end = scheduleOpts.day_end != null && String(scheduleOpts.day_end).trim() !== ''
             ? String(scheduleOpts.day_end).trim() : '';
         payload.day_start_frequency = (scheduleOpts.day_start_frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
+        const forbidMsg = bankResendScheduleDayStartForbiddenMessage(payload.day_start, procGuard ? procGuard.day_start : null);
+        if (forbidMsg) {
+            presentBankResendDayStartValidationError(forbidMsg);
+            return;
+        }
     }
     try {
         const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
@@ -262,12 +367,8 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
             const proc = processes.find(function (p) { return p.id === id; });
             if (proc) {
                 proc.maintenance_resend_pending = false;
-                if (scheduleOpts && typeof scheduleOpts === 'object') {
-                    proc.day_start = payload.day_start || null;
-                    proc.day_end = payload.day_end || null;
-                    proc.day_start_frequency = payload.day_start_frequency;
-                }
             }
+            setPendingResendScheduleForProcess(id, null);
             showNotification(result.message || 'You can post from Accounting Due again', 'success');
             if (typeof loadAccountingInbox === 'function') {
                 await loadAccountingInbox();
@@ -285,18 +386,82 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
                             id,
                             rowB.getAttribute('data-status') || '',
                             rowB.getAttribute('data-has-transactions') === '1',
-                            normalizeBankIssueFlag(p ? p.issue_flag : rowB.getAttribute('data-issue-flag')),
-                            false
+                            normalizeBankIssueFlag(p ? p.issue_flag : rowB.getAttribute('data-issue-flag'))
                         );
                     }
                 }
             }
         } else {
-            showNotification(result.message || 'Resend failed', 'danger');
+            const failMsg = result.message || 'Resend failed';
+            if (isBankResendDayStartBackendErrorMessage(failMsg) && typeof showNotification === 'function') {
+                showNotification(failMsg, 'danger', { durationMs: 14500, prominent: true });
+            } else {
+                showNotification(failMsg, 'danger');
+            }
         }
     } catch (err) {
         console.error('executeAccountingDueResend:', err);
         showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
+    }
+}
+
+async function persistOpenBankEditBeforeResend(targetProcessId) {
+    const modal = document.getElementById('addBankModal');
+    const editIdEl = document.getElementById('bank_edit_id');
+    const formEl = document.getElementById('addBankProcessForm');
+    if (!modal || !editIdEl || !formEl) return true;
+    if (modal.style.display !== 'block') return true;
+    const editId = parseInt(editIdEl.value || '', 10);
+    if (!editId || editId !== targetProcessId) return true;
+    if (bankProcessSubmitInFlight) {
+        // Do not block resend while another save is in flight.
+        return true;
+    }
+    if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+    // Resend must remain available even when Edit form is incomplete.
+    if (typeof markBankRequiredErrors === 'function') markBankRequiredErrors();
+    if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
+
+    const formData = new FormData(formEl);
+    ['country', 'bank', 'type', 'name', 'day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
+        formData.delete(key);
+    });
+    const cost = parseFloat(document.getElementById('bank_cost')?.value || '0') || 0;
+    const price = parseFloat(document.getElementById('bank_price')?.value || '0') || 0;
+    formData.set('profit', (price - cost).toFixed(2));
+    formData.append('permission', 'Bank');
+    formData.set('id', String(editId));
+
+    const cardMerchantBtn = document.getElementById('bank_card_merchant');
+    const customerBtn = document.getElementById('bank_customer');
+    const profitAccountBtn = document.getElementById('bank_profit_account');
+    if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
+        formData.set('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
+    }
+    if (customerBtn && customerBtn.getAttribute('data-value')) {
+        formData.set('customer_id', customerBtn.getAttribute('data-value'));
+    }
+    if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
+        formData.set('profit_account_id', profitAccountBtn.getAttribute('data-value'));
+    }
+    try {
+        bankProcessSubmitInFlight = true;
+        const response = await fetch(buildApiUrl('api/processes/processlist_api.php?action=update_process'), {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!result.success) {
+            // Non-blocking: continue resend even if edit auto-save fails.
+            return true;
+        }
+        return true;
+    } catch (error) {
+        console.error('persistOpenBankEditBeforeResend failed:', error);
+        // Non-blocking: continue resend even if edit auto-save fails.
+        return true;
+    } finally {
+        bankProcessSubmitInFlight = false;
     }
 }
 
@@ -585,7 +750,7 @@ async function updateBankIssueFlag(processId, newValue, options) {
             row.setAttribute('data-issue-flag', normalizedNewValue);
             const actionCell = row.querySelector('.bank-td-action');
             if (actionCell) {
-                actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue, !!(process && process.maintenance_resend_pending));
+                actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue);
             }
         }
 
@@ -747,7 +912,7 @@ function renderBankTable() {
         const price = dashIfEmpty(process.price);
         const profit = dashIfEmpty(process.profit);
         const statusSelect = renderBankStatusSelect(process.id, process);
-        const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag, !!process.maintenance_resend_pending);
+        const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag);
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', process.id);
         tr.setAttribute('data-status', process.status || '');
@@ -798,6 +963,7 @@ function openAddProcessForSelectedPermission() {
         document.getElementById('addBankModal').style.display = 'block';
         setBankModalLoadingState(true, 'Add Process');
         ensureAddBankProcessDataLoaded().then(async () => {
+            setBankProcessEditLockedFields(false);
             setBankProcessBillingScheduleLocked(false);
             const countryEl = document.getElementById('bank_country');
             if (countryEl) countryEl.value = '';
@@ -865,6 +1031,29 @@ function isBankProcessBillingScheduleLocked() {
     return !!(form && form.getAttribute('data-billing-schedule-locked') === '1');
 }
 
+function setBankProcessEditLockedFields(locked) {
+    const lockableFieldIds = ['bank_country', 'bank_bank', 'bank_type', 'bank_name'];
+    lockableFieldIds.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Edit mode: lock as disabled so user cannot type or open picker.
+        el.disabled = !!locked;
+        if ('readOnly' in el) el.readOnly = !!locked;
+        // Match Profit field visual style (gray but not faded).
+        el.style.backgroundColor = locked ? '#f5f5f5' : '';
+        el.style.color = locked ? '#495057' : '';
+        el.style.opacity = locked ? '1' : '';
+        el.style.cursor = locked ? 'not-allowed' : '';
+    });
+    ['button[onclick="showAddCountryModal()"]', 'button[onclick="showAddBankModal()"]'].forEach(function (selector) {
+        const btn = document.querySelector(selector);
+        if (!btn) return;
+        btn.disabled = !!locked;
+        btn.style.opacity = locked ? '0.6' : '';
+        btn.style.cursor = locked ? 'not-allowed' : '';
+    });
+}
+
 function setBankProcessBillingScheduleLocked(locked) {
     const form = document.getElementById('addBankProcessForm');
     if (form) {
@@ -888,6 +1077,7 @@ function setBankProcessBillingScheduleLocked(locked) {
 }
 
 function closeAddBankModal() {
+    setBankProcessEditLockedFields(false);
     setBankProcessBillingScheduleLocked(false);
     document.getElementById('addBankModal').style.display = 'none';
     document.getElementById('bank_edit_id').value = '';
@@ -1012,7 +1202,10 @@ async function openBankEditModal(id) {
     document.getElementById('addBankModal').style.display = 'block';
     setBankModalLoadingState(true, 'Edit Process');
     try {
-        const processRequest = fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
+        const processRequest = fetch(
+            buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank&_=${Date.now()}`),
+            { method: 'GET', cache: 'no-store' }
+        );
         const bankDataRequest = ensureAddBankProcessDataLoaded();
         const response = await processRequest;
         const result = await response.json();
@@ -1161,7 +1354,8 @@ async function openBankEditModal(id) {
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
-        setBankProcessBillingScheduleLocked(true);
+        setBankProcessEditLockedFields(true);
+        setBankProcessBillingScheduleLocked(false);
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
         closeAddBankModal();
@@ -1245,7 +1439,7 @@ function renderAccountingInbox(items) {
         const cbDisabled = row.already_posted_today ? ' disabled' : '';
         const cbChecked = row.already_posted_today ? '' : ' checked';
         const cbClass = 'process-accounting-inbox-row-cb';
-        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'));
+        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_resend_consolidated_range ? 'resend_consolidated_range' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly')));
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
         const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
@@ -1554,7 +1748,7 @@ async function performToggleStatus(processId) {
             if (selectedPermission === 'Bank') {
                 const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                 const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '', !!(process && process.maintenance_resend_pending));
+                const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '');
                 if (row) {
                     row.setAttribute('data-status', newStatus || '');
                     row.setAttribute('data-issue-flag', normalizeBankIssueFlag(process ? process.issue_flag : ''));
@@ -1820,6 +2014,11 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
         const formData = new FormData(this);
+        if (editId) {
+            ['country', 'bank', 'type', 'name'].forEach(function (key) {
+                formData.delete(key);
+            });
+        }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
         formData.set('profit', grossProfit.toFixed(2));
@@ -2160,7 +2359,8 @@ if (addDescriptionForm) {
 
 // Add Country form submit (in modal: save to DB via API, then add to Available; user selects to move to Selected)
 const addCountryForm = document.getElementById('addCountryForm');
-if (addCountryForm) {
+if (addCountryForm && !window.__processlistModalAddCountryFormBound) {
+    window.__processlistModalAddCountryFormBound = true;
     addCountryForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_country_name');
@@ -2197,7 +2397,8 @@ if (addCountryForm) {
 
 // Add Bank form submit (in modal: add new bank to Available only; user selects it to move to Selected)
 const addBankFormEl = document.getElementById('addBankForm');
-if (addBankFormEl) {
+if (addBankFormEl && !window.__processlistModalAddBankFormBound) {
+    window.__processlistModalAddBankFormBound = true;
     addBankFormEl.addEventListener('submit', function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_bank_name');
@@ -2210,7 +2411,8 @@ if (addBankFormEl) {
             availableBanksList.push(bankName);
             availableBanksList.sort((a, b) => a.localeCompare(b));
         }
-        loadExistingBanks();
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
+        loadExistingBanks(currentBankModalCountry);
         if (nameInput) nameInput.value = '';
         showNotification('Bank added to available list', 'success');
     });
@@ -2612,10 +2814,23 @@ async function addCurrencyFromInputBank(type) {
 
 // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
 const addAccountFormEl = document.getElementById('addAccountForm');
-if (addAccountFormEl) {
+if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
+    window.__globalAddAccountSubmitHandlerBound = true;
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
-        if (!validatePaymentAlertForAddBank()) return;
+        if (window.__globalAddAccountSubmitInFlight) return;
+        // Guard against double-submit (double click / Enter key repeat / duplicated trigger)
+        if (this.dataset.submitting === '1') return;
+        window.__globalAddAccountSubmitInFlight = true;
+        this.dataset.submitting = '1';
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        if (!validatePaymentAlertForAddBank()) {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
+            return;
+        }
         const formData = new FormData(this);
         const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
         if (paymentAlert) {
@@ -2701,6 +2916,10 @@ if (addAccountFormEl) {
         } catch (err) {
             console.error('Add account error', err);
             showNotification('Failed to add account', 'danger');
+        } finally {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
         }
     });
 }
@@ -3364,15 +3583,21 @@ async function showAddCountryModal() {
     }
     let allCountries = [];
     try {
-        allCountries = await fetchCompanyCurrencyCodes();
-        if (allCountries.length === 0) {
-            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        const currencyCodes = await fetchCompanyCurrencyCodes();
+        let fromListApi = [];
+        const cid = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        try {
             let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-            if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+            if (cid) url += '&company_id=' + encodeURIComponent(cid);
             const res = await fetch(url);
             const result = await res.json();
-            allCountries = (result.success && result.data) ? result.data : [];
-        }
+            if (result.success && Array.isArray(result.data)) fromListApi = result.data;
+        } catch (e2) { console.warn('get_countries', e2); }
+        allCountries = [...new Set(
+            [...(currencyCodes || []), ...fromListApi]
+                .map(function (x) { return String(x || '').trim(); })
+                .filter(Boolean)
+        )].sort(function (a, b) { return a.localeCompare(b); });
     } catch (e) { console.warn('country list', e); }
     loadExistingCountries(allCountries);
     updateSelectedCountriesInModal();
@@ -3427,7 +3652,7 @@ function loadExistingCountries(allFromServer) {
         deleteBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            removeCountryFromAvailable(name, item);
+            void removeCountryFromAvailable(name, item);
         });
         item.appendChild(left);
         item.appendChild(deleteBtn);
@@ -3526,7 +3751,7 @@ function moveCountryBackToAvailable(countryName, countryId) {
     delBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        removeCountryFromAvailable(countryName, newItem);
+        void removeCountryFromAvailable(countryName, newItem);
     });
     newItem.appendChild(left);
     newItem.appendChild(delBtn);
@@ -3554,7 +3779,37 @@ function moveCountryToAvailable(checkbox) {
     }
 }
 
-function removeCountryFromAvailable(countryName, itemEl) {
+async function removeCountryFromAvailable(countryName, itemEl) {
+    const name = (countryName || '').trim();
+    if (!name) {
+        if (itemEl && itemEl.parentNode) itemEl.remove();
+        return;
+    }
+    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+    if (companyId) {
+        try {
+            const formData = new FormData();
+            formData.append('company_id', String(companyId));
+            formData.append('country', name);
+            const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=remove_country'), { method: 'POST', body: formData });
+            let result = { success: false, error: 'Invalid response' };
+            try {
+                result = await res.json();
+            } catch (parseErr) { /* use default */ }
+            if (!result.success) {
+                showNotification(result.error || result.message || 'Failed to remove country', 'danger');
+                return;
+            }
+        } catch (err) {
+            console.warn('remove_country', err);
+            showNotification('Failed to remove country', 'danger');
+            return;
+        }
+    }
+    if (Array.isArray(availableCountriesList)) {
+        const idx = availableCountriesList.indexOf(name);
+        if (idx > -1) availableCountriesList.splice(idx, 1);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
@@ -3604,7 +3859,31 @@ async function confirmCountries() {
 
 // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 company + Country 分别存储）
 const DEFAULT_BANKS = [];
+let currentBankModalCountry = '';
 let availableBanksList = [];
+let availableBanksByCountry = {};
+
+function normalizeBankCountryKey(country) {
+    return String(country || '').trim();
+}
+
+function getAvailableBanksForCountry(country) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return [];
+    if (!availableBanksByCountry[key] || !Array.isArray(availableBanksByCountry[key])) {
+        availableBanksByCountry[key] = [];
+    }
+    return availableBanksByCountry[key];
+}
+
+function setAvailableBanksForCountry(country, list) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return;
+    const normalized = Array.isArray(list)
+        ? [...new Set(list.map(function (n) { return (n || '').trim(); }).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+        : [];
+    availableBanksByCountry[key] = normalized;
+}
 
 function getSelectedBanksByCountryStorageKey() {
     const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -3680,6 +3959,8 @@ async function showAddBankModal() {
         showNotification('Please select Country first', 'danger');
         return;
     }
+    currentBankModalCountry = country;
+    availableBanksList = getAvailableBanksForCountry(country).slice();
     // Selected Banks 从当前 Country 的已选列表恢复；Available 由 loadExistingBanks 按接口拉取
     window.selectedBanks = (window.selectedBanksByCountry && window.selectedBanksByCountry[country]) ? window.selectedBanksByCountry[country].slice() : [];
     await loadExistingBanks(country);
@@ -3692,18 +3973,20 @@ async function showAddBankModal() {
 }
 
 async function loadExistingBanks(countryForApi) {
+    const country = normalizeBankCountryKey(countryForApi || currentBankModalCountry || ((document.getElementById('bank_country') && document.getElementById('bank_country').value) ? document.getElementById('bank_country').value : ''));
+    const countryAvailable = getAvailableBanksForCountry(country);
     let all = [];
-    if (countryForApi) {
+    if (country) {
         try {
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
             if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
             const res = await fetch(url);
             const result = await res.json();
             all = (result.success && result.data) ? result.data : [];
-            all = [...new Set([...all, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+            all = [...new Set([...all, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
         } catch (e) {
-            all = [...(availableBanksList || [])].sort((a, b) => a.localeCompare(b));
+            all = [...countryAvailable].sort((a, b) => a.localeCompare(b));
         }
     } else {
         const select = document.getElementById('bank_bank');
@@ -3714,11 +3997,12 @@ async function loadExistingBanks(countryForApi) {
                 if (v) existingOptions.push(v);
             }
         }
-        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
     }
     const selectedSet = new Set(window.selectedBanks || []);
     const combined = all.filter(name => !selectedSet.has(name));
-    availableBanksList = combined;
+    availableBanksList = combined.slice();
+    setAvailableBanksForCountry(country, combined);
 
     const listEl = document.getElementById('existingBanks');
     if (!listEl) return;
@@ -3873,6 +4157,12 @@ function moveBankToAvailable(checkbox) {
 }
 
 function removeBankFromAvailable(bankName, itemEl) {
+    if (availableBanksList && bankName != null && bankName !== '') {
+        const n = String(bankName).trim();
+        const idx = availableBanksList.indexOf(n);
+        if (idx > -1) availableBanksList.splice(idx, 1);
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
@@ -3887,6 +4177,7 @@ function closeBankSelectionModal() {
     const search = document.getElementById('bankSearch');
     if (search) search.value = '';
     document.querySelectorAll('input[name="available_banks"]').forEach(cb => cb.checked = false);
+    currentBankModalCountry = '';
 }
 
 async function confirmBanks() {
@@ -4277,6 +4568,11 @@ return {
     refreshAfterFetch: function () { sortBankProcessesBySupplier(); },
     renderAfterStatusChange: function () { renderBankTable(); renderPagination(); },
     isRealBankInactive: isRealBankInactive,
-    executeAccountingDueResend: executeAccountingDueResend
+    executeAccountingDueResend: executeAccountingDueResend,
+    getPendingResendScheduleForProcess: getPendingResendScheduleForProcess,
+    setPendingResendScheduleForProcess: setPendingResendScheduleForProcess,
+    bankResendScheduleDayStartForbiddenMessage: bankResendScheduleDayStartForbiddenMessage,
+    presentBankResendDayStartValidationError: presentBankResendDayStartValidationError,
+    clearBankResendDayStartInlineError: clearBankResendDayStartInlineError
 };
 })();

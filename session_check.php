@@ -184,7 +184,43 @@ if (isset($_SESSION['user_id'])) {
     }
     
     // 更新活动时间戳 - 每次页面访问都更新
+    // 注意：此行需在 session_write_close() 之前执行
     $_SESSION['last_activity'] = time();
+    
+    // 动态刷新 Partnership 账户的 read_only 状态（避免需要重新登录才能生效）
+    if (isset($_SESSION['user_type'], $_SESSION['role']) && 
+        $_SESSION['user_type'] === 'user' && 
+        strtolower($_SESSION['role']) === 'partnership') {
+        try {
+            $user_id = $_SESSION['user_id'];
+            $company_id = $_SESSION['company_id'] ?? null;
+            
+            $ro_updated = false;
+            if ($company_id) {
+                // 优先从 company_ownership 获取当前公司下的局部只读状态
+                $stmt = $pdo->prepare("SELECT read_only FROM company_ownership WHERE account_id = ? AND company_id = ? AND owner_type = 'user'");
+                $stmt->execute([$user_id, $company_id]);
+                $co_ro = $stmt->fetchColumn();
+                
+                if ($co_ro !== false) {
+                    $_SESSION['read_only'] = (int)$co_ro;
+                    $ro_updated = true;
+                }
+            }
+            
+            // 如果细分表里没有，则回退到 user 全局表
+            if (!$ro_updated) {
+                $stmt = $pdo->prepare("SELECT read_only FROM user WHERE id = ?");
+                $stmt->execute([$user_id]);
+                $user_ro = $stmt->fetchColumn();
+                if ($user_ro !== false) {
+                    $_SESSION['read_only'] = (int)$user_ro;
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Failed to refresh read_only status: " . $e->getMessage());
+        }
+    }
     
 } else {
     // 未登录
@@ -201,5 +237,16 @@ if (isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit();
 }
-?>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session 解锁优化（防止 PHP Session 排队阻塞并发 AJAX 请求）
+//
+// 默认：验证完登录状态后立即释放 session 文件锁，让多个并发 AJAX 请求排队变并发。
+// 例外：如果某个 API 文件需要在验证后继续写入 session（如切换公司/账户），
+//       则在 require session_check.php 之前定义常量 SESSION_KEEP_OPEN，
+//       然后在该文件内写完 session 后自己负责调用 session_write_close()。
+// ─────────────────────────────────────────────────────────────────────────────
+if (!defined('SESSION_KEEP_OPEN')) {
+    session_write_close();
+}
 

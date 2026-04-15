@@ -6,6 +6,7 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
@@ -39,6 +40,9 @@ function toSkippedPeriodType(string $periodType): string
     }
     if ($t === 'day_end_tail') {
         return 'day_end_tail_skipped';
+    }
+    if ($t === 'resend_consolidated_range') {
+        return 'resend_consolidated_range_skipped';
     }
     return 'monthly_skipped';
 }
@@ -86,7 +90,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -140,6 +144,20 @@ try {
         $postDate = $today;
         if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($p['billing_month'] ?? '') !== '') {
             $postDate = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
+        }
+        if ($periodType === 'resend_consolidated_range') {
+            $dsSql = bmp_bankProcessHasResendScheduleColumns($pdo)
+                ? 'COALESCE(accounting_resend_schedule_day_start, day_start) AS ds'
+                : 'day_start AS ds';
+            $stmtDs = $pdo->prepare("SELECT $dsSql FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1");
+            $stmtDs->execute([$processId, $companyId]);
+            $dsRaw = $stmtDs->fetchColumn();
+            if ($dsRaw !== false && $dsRaw !== null && trim((string) $dsRaw) !== '') {
+                $tsDs = strtotime((string) $dsRaw);
+                if ($tsDs !== false) {
+                    $postDate = date('Y-m-d', $tsDs);
+                }
+            }
         }
         $insPap->execute([$companyId, $processId, $postDate, $skippedType]);
         $papId = 0;

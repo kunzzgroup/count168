@@ -1,5 +1,6 @@
 <?php
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../api_response.php';
 

@@ -23,6 +23,7 @@ body {
         linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
     background-blend-mode: screen, screen, multiply, screen, normal;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 *, *::before, *::after {
@@ -30,11 +31,15 @@ body {
 }
 
 .own-container {
-    width: 100%;
+    max-width: none;
     margin: 0;
-    /* Top, Right, Bottom, Left. The large left padding clears the fixed sidebar! */
-    padding: clamp(20px, 3vw, 40px) clamp(20px, 4vw, 60px) 40px clamp(230px, 16vw, 300px);
+    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    width: 100%;
+    min-height: 100vh;
+    box-sizing: border-box;
     color: var(--own-dark-text);
+    display: flex;
+    flex-direction: column;
 }
 
 .own-page-title {
@@ -43,21 +48,189 @@ body {
     margin-top: clamp(12px, 1.04vw, 20px);
     margin-bottom: clamp(16px, 1.35vw, 26px);
     font-size: clamp(26px, 2.08vw, 40px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Amaranth';
     font-weight: 500;
     letter-spacing: -0.025em;
+    flex-shrink: 0;
+}
+
+/* Separator Line extending beyond container */
+.own-separator-line {
+    width: 100vw;
+    height: 2px;
+    background-color: #939393;
+    margin: 5px 0 0 0;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    flex-shrink: 0;
+}
+
+#companyCardsContainer {
+    margin-top: 16px;
+    padding-bottom: 60px;
+    width: 100%;
+}
+
+/* ── Group Filter Bar ─────────────────────────────────────────── */
+.own-group-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.own-gfb-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--own-dark-text);
+    font-family: 'Amaranth', sans-serif;
+    white-space: nowrap;
+    min-width: 52px;
+    text-align: right;
     text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.own-gfb-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+/* Pill button — matches dashboard .transaction-company-btn style */
+.own-gfb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    background: var(--own-gray-light);
+    border: 1px solid var(--own-gray-border);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--own-dark-text);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    height: 32px;
+}
+
+.own-gfb-btn:hover {
+    background: var(--own-gray-bg);
+    border-color: var(--own-primary-blue);
+}
+
+.own-gfb-btn.active {
+    background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 6px rgba(59, 142, 246, 0.35);
+}
+
+/* Company count badge inside group buttons */
+.own-gfb-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    color: inherit;
+    transition: background 0.2s;
+}
+
+.own-gfb-btn:not(.active) .own-gfb-count {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--own-gray-text);
+}
+
+/* Spacer pushes Select button to the right */
+.own-gfb-spacer {
+    flex: 1;
+}
+
+/* ── "Select" Mode Button (top-right of filter bar) ─────────── */
+.own-select-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    height: 32px;
+    background: var(--own-gray-light);
+    border: 1px solid var(--own-gray-border);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--own-dark-text);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.own-select-mode-btn:hover {
+    background: var(--own-gray-bg);
+    border-color: var(--own-primary-blue);
+}
+
+.own-select-mode-btn.active {
+    background: var(--own-primary-light);
+    border-color: var(--own-primary-blue);
+    color: var(--own-primary-blue-hover);
+}
+
+.own-select-mode-btn svg {
+    flex-shrink: 0;
+}
+
+/* ── Selection Mode Card Styles ─────────────────────────────── */
+/* In selection mode, selectable cards show a pointer + subtle hover ring */
+.own-card.own-selection-mode {
+    cursor: pointer;
+}
+
+.own-card.own-selection-mode:hover {
+    box-shadow: 0 0 0 2px var(--own-primary-blue),
+                0 4px 14px rgba(59, 142, 246, 0.10);
+    border-color: var(--own-primary-blue);
+}
+
+/* Selected card: solid blue ring */
+.own-card.own-selected {
+    box-shadow: 0 0 0 2.5px var(--own-primary-blue),
+                0 4px 14px rgba(59, 142, 246, 0.18);
+    border-color: var(--own-primary-blue);
+    background: var(--own-primary-light);
+}
+
+/* Selected card in ungroup mode: red ring */
+.own-card.own-selected.own-ungroup-select {
+    box-shadow: 0 0 0 2.5px #e11d48,
+                0 4px 14px rgba(225, 29, 72, 0.18);
+    border-color: #e11d48;
+    background: #fff1f2;
 }
 
 /* Card Container */
 .own-card {
     border: 1px solid var(--own-gray-border);
-    border-radius: 16px; /* Softer, larger radius */
-    margin-bottom: 24px; /* More spacing between cards */
+    border-radius: 16px;
+    margin-bottom: 24px;
     background-color: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02); /* More premium shadow */
-    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+    overflow: visible; /* allow group dropdown to escape card boundary */
     transition: box-shadow 0.3s ease, transform 0.3s ease;
+    position: relative; /* stacking context for inner absolute elements */
 }
 
 .own-card:hover {
@@ -65,31 +238,70 @@ body {
     border-color: #cbd5e1;
 }
 
-/* Card Header */    
 .own-card-header {
-    padding: 24px 32px; /* Bigger padding */
+    padding: 24px 32px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     background-color: #fff;
     min-height: 90px;
+    border-radius: 16px; /* match card — clips top corners even without overflow:hidden */
+    transition: border-radius 0.25s ease;
 }
 
 .own-card-header-left {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
 }
 
 .own-company-name {
-    font-size: 24px; /* Larger company names */
-    font-weight: 800; /* Bolder */
-    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 0;
     color: var(--own-dark-text);
     letter-spacing: 0.2px;
+    line-height: 1.2;
 }
 
 .own-company-date {
-    font-size: 14px; /* Slightly more readable */
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
     color: var(--own-gray-text);
+    letter-spacing: 0.2px;
+}
+
+.own-company-date svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+/* Expiry color states */
+.own-company-date.own-date-warning {
+    color: var(--own-warning-text);
+}
+
+.own-company-date.own-date-warning svg {
+    opacity: 1;
+}
+
+.own-company-date.own-date-expired {
+    color: var(--own-danger-red);
+}
+
+.own-company-date.own-date-expired svg {
+    opacity: 1;
 }
 
 .own-card-header-middle {
@@ -190,6 +402,7 @@ body {
 /* Expanded Card Specifics */
 .own-card.expanded .own-card-header {
     border-bottom: 1px solid var(--own-gray-border);
+    border-radius: 16px 16px 0 0; /* only top corners rounded when expanded */
 }
 
 /* Card Body (Account Rows) */
@@ -237,8 +450,19 @@ body {
     user-select: none;
     transition: color 0.2s;
 }
+.own-drag-handle:active {
+    cursor: grabbing;
+}
 .own-account-row:hover .own-drag-handle {
     color: #94a3b8;
+}
+
+.own-account-row.own-dragging {
+    opacity: 0.5;
+    background-color: var(--own-gray-light);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border-color: var(--own-primary-blue);
+    z-index: 10;
 }
 
 .own-account-select {
@@ -401,8 +625,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom-left-radius: 16px;
-    border-bottom-right-radius: 16px;
+    border-radius: 0 0 16px 16px; /* round the bottom corners explicitly */
 }
 
 .own-footer-left {
@@ -534,18 +757,24 @@ body {
 /* External Partner Section */
 .own-partner-section {
     margin: 0 32px 24px 32px;
-    padding: 16px;
+    padding: 16px 24px;
     border: 1px dashed var(--own-gray-border);
     border-radius: 12px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
     background: #f8fafc;
 }
 
 .own-partner-info {
     display: flex;
     flex-direction: column;
+    width: 100%;
+}
+
+.own-partner-title-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .own-partner-title {
@@ -557,7 +786,7 @@ body {
 .own-partner-desc {
     font-size: 12px;
     color: var(--own-gray-text);
-    margin-top: 2px;
+    margin-top: 6px;
 }
 
 .own-partner-actions {
@@ -745,4 +974,356 @@ body {
 
 .own-ro-toggle input:checked + .own-ro-slider::before {
     left: calc(100% - 17px);
+}
+
+/* ── Group Management Buttons ─────────────────────────────── */
+
+/* Group badge shown inline inside company name */
+.own-group-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    white-space: nowrap;
+    vertical-align: middle;
+    /* no margin-left — gap on parent handles spacing */
+}
+
+/* "+ Group" button wrapper — parent of button + dropdown */
+.own-group-btn-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* "+ Group" button */
+.own-group-join-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1.5px solid #059669;
+    background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%);
+    color: #065f46;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+}
+
+.own-group-join-btn:hover {
+    background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+    color: #fff;
+    border-color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(5, 150, 105, 0.3);
+}
+
+/* Dropdown panel for group options */
+.own-group-panel {
+    position: absolute;
+    right: 0;
+    top: 100%; /* flush directly below button — no gap */
+    z-index: 9999;
+    min-width: 100%; /* at least as wide as the button */
+    background: #fff;
+    border: 1.5px solid #059669;
+    border-top: none; /* merges with button bottom border */
+    border-radius: 0 0 8px 8px; /* only bottom corners rounded */
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10);
+    overflow: hidden;
+    display: none;
+}
+
+.own-group-panel.open {
+    display: block;
+    animation: own-panel-open 0.12s ease;
+}
+
+@keyframes own-panel-open {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* When panel is open, flatten the button's bottom corners to connect seamlessly */
+.own-group-btn-wrap:has(.own-group-panel.open) .own-group-join-btn {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent; /* hide bottom border so panel blends in */
+}
+
+/* Each group option inside dropdown */
+.own-group-option {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    transition: background 0.12s;
+    white-space: nowrap;
+}
+
+.own-group-option:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.own-group-option + .own-group-option {
+    border-top: 1px solid #f1f5f9;
+}
+
+/* "Ungroup" button for grouped companies */
+.own-group-ungroup-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1.5px solid #e11d48;
+    background: linear-gradient(180deg, #ffe4e6 0%, #fecdd3 100%);
+    color: #9f1239;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+}
+
+.own-group-ungroup-btn:hover {
+    background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+    color: #fff;
+    border-color: #e11d48;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(225, 29, 72, 0.3);
+}
+
+/* ── Multi-select Checkbox ──────────────────────────────────── */
+.own-multisel-checkbox-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 14px;
+    cursor: pointer;
+    /* Stop clicks bubbling to card toggle */
+    z-index: 2;
+}
+
+.own-multisel-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid #cbd5e1;
+    accent-color: var(--own-primary-blue);
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+    opacity: 0.45;
+}
+
+/* Always show on hover of the card or when checked */
+.own-card:hover .own-multisel-checkbox,
+.own-multisel-checkbox:checked {
+    opacity: 1;
+}
+
+.own-multisel-checkbox:checked {
+    transform: scale(1.1);
+}
+
+/* Selected card gets a blue ring */
+.own-card.own-selected {
+    box-shadow: 0 0 0 2.5px var(--own-primary-blue),
+                0 4px 14px rgba(59, 142, 246, 0.18);
+    border-color: var(--own-primary-blue);
+}
+
+/* ── Bulk Action Bar ────────────────────────────────────────── */
+.own-bulk-bar {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(120px);
+    opacity: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 12px 20px 12px 28px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1.5px solid var(--own-primary-blue);
+    box-shadow: 0 8px 32px rgba(59, 142, 246, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+    min-width: 480px;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity   0.30s ease;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.own-bulk-bar.own-bulk-bar-visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* Blue left accent stripe */
+.own-bulk-bar::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
+}
+
+/* Red accent stripe when bulk bar is in ungroup mode */
+.own-bulk-bar.own-bulk-bar-ungroup::before {
+    background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+}
+
+/* Red border when in ungroup mode */
+.own-bulk-bar.own-bulk-bar-ungroup {
+    border-color: #e11d48;
+}
+
+.own-bulk-bar-left {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-shrink: 0;
+    padding-left: 4px;
+}
+
+.own-bulk-count {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--own-primary-blue);
+    line-height: 1;
+}
+
+.own-bulk-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--own-gray-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.own-bulk-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 1px solid var(--own-gray-border);
+    padding-left: 20px;
+}
+
+.own-bulk-group-select {
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--own-gray-border);
+    background: var(--own-gray-bg);
+    color: var(--own-dark-text);
+    font-size: 14px;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+    min-width: 160px;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%2364748b" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    padding-right: 32px;
+}
+
+.own-bulk-group-select:focus {
+    border-color: var(--own-primary-blue);
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.12);
+}
+
+.own-bulk-group-select option {
+    background: #ffffff;
+    color: var(--own-dark-text);
+}
+
+.own-bulk-join-btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(59, 142, 246, 0.35);
+    transition: all 0.18s ease;
+}
+
+.own-bulk-join-btn:hover {
+    background: linear-gradient(180deg, #60a5fa 0%, var(--own-primary-blue) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(59, 142, 246, 0.45);
+}
+
+.own-bulk-join-btn:disabled {
+    background: var(--own-gray-border);
+    color: var(--own-gray-text);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.own-bulk-cancel-btn {
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--own-gray-border);
+    background: transparent;
+    color: var(--own-gray-text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+}
+
+.own-bulk-cancel-btn:hover {
+    border-color: #cbd5e1;
+    color: var(--own-dark-text);
+    background: var(--own-gray-light);
+}
+
+/* Bulk Ungroup button (group view) */
+.own-bulk-ungroup-btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35);
+    transition: all 0.18s ease;
+}
+
+.own-bulk-ungroup-btn:hover {
+    background: linear-gradient(180deg, #f43f5e 0%, #be123c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(225, 29, 72, 0.45);
+}
+
+.own-bulk-ungroup-btn:disabled {
+    background: var(--own-gray-border);
+    color: var(--own-gray-text);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
 }

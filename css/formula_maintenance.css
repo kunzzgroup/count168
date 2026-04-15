@@ -197,10 +197,11 @@ h1 {
 }
 
 .maintenance-company-filter {
-    display: none;
+    display: flex;
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
+    padding: 0px 20px 10px 0px;
 }
 
 /* Category 权限区域（右上角，与 bankprocess_maintenance 一致） */
@@ -304,75 +305,48 @@ h1 {
     margin-top: 20px;
 }
 
-/* List Header - 类似 customer_report-table-header */
-.maintenance-list-header {
-    display: grid;
-    grid-template-columns: 0.2fr 1.2fr 0.7fr 0.3fr 0.5fr 1fr 1.7fr 1.2fr 0.5fr 0.5fr;
-    gap: 12px;
+/* Table Styles */
+.maintenance-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.maintenance-table th {
     padding: clamp(4px, 0.6vw, 10px) 12px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
-    border-radius: 8px 8px 0 0;
-    font-weight: bold;
     color: white;
-    font-size: clamp(10px, 0.89vw, 17px); /* 与其它 maintenance 表头保持一致 */
-    text-align: center;
-    min-width: 0;
-    align-items: center;
+    font-weight: bold;
+    font-size: clamp(10px, 0.89vw, 17px);
+    text-align: left;
+    border: none;
 }
 
-.maintenance-select-all-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    text-align: center;
-}
-
-/* List Cards - 类似 customer-report-cards */
-.maintenance-list-cards {
-    display: flex;
-    flex-direction: column;
-}
-
-.maintenance-list-card {
-    display: grid;
-    grid-template-columns: 0.2fr 1.2fr 0.7fr 0.5fr 0.5fr 1fr 1.7fr 1.2fr 0.5fr 0.5fr;
-    gap: 12px;
+.maintenance-table td {
     padding: clamp(4px, 0.6vw, 10px) 12px;
-    background: #ffffff;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-    align-items: center;
-    transition: all 0.2s ease;
+    font-size: clamp(9px, 0.82vw, 15px);
+    color: #374151;
+    font-weight: bold;
+    vertical-align: middle;
 }
 
-.maintenance-list-card:hover {
+.maintenance-table tr:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
 }
 
-.maintenance-list-card:nth-child(even) {
+.maintenance-table tbody tr:nth-child(even) {
     background: #cceeff99;
 }
 
-.maintenance-list-card:nth-child(odd) {
+.maintenance-table tbody tr:nth-child(odd) {
     background: #ffffff;
 }
 
-.maintenance-list-card:last-child {
+.maintenance-table tr:last-child td {
     border-bottom: none;
-    border-radius: 0 0 8px 8px;
-}
-
-.maintenance-list-card-item {
-    font-size: clamp(9px, 0.82vw, 15px); /* 与 payment/capture maintenance-table-cell 一致 */
-    font-weight: bold;
-    color: #374151;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 /* Currency 列：居中 */
@@ -458,12 +432,15 @@ h1 {
     margin-bottom: 15px;
     font-family: 'Amaranth', sans-serif;
 }
+
 #select_all_data_capture {
     cursor: pointer;
 }
+
 .data-capture-row-checkbox {
     cursor: pointer;
 }
+
 .account-edit-btn {
     background-color: transparent;
     color: black;
@@ -472,10 +449,12 @@ h1 {
     border: transparent;
     cursor: pointer;
 }
+
 .account-edit-btn:hover {
     background-color: transparent;
     box-shadow: none;
 }
+
 .account-edit-btn img {
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
@@ -778,7 +757,7 @@ h1 {
     background: white;
     border: 1px solid #ddd;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     display: none;
     max-height: 300px;
@@ -840,8 +819,7 @@ h1 {
     font-size: 14px;
 }
 
-.empty-state-container{
-    position:relative;
+.empty-state-container {
+    position: relative;
     top: 10px;
 }
-

@@ -3945,7 +3945,7 @@ function updateFormulaDataGrid() {
 
     // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
     // 让重复 id_product 的底部灰色块只显示自己那一行。
-    if (currentActiveProductType !== 'sub' && currentActiveRow && capturedTableBody) {
+    if (currentActiveRow && capturedTableBody) {
         const currentRowIndexCandidates = [
             currentActiveRow.getAttribute('data-preserved-row-index'),
             currentActiveRow.getAttribute('data-row-index')
@@ -3965,7 +3965,7 @@ function updateFormulaDataGrid() {
     }
 
     // 兼容旧行为：若 process 本身带 row_label（如 "ABC:A"），仍可解析使用。
-    if (!rowLabel && currentActiveProductType !== 'sub') {
+    if (!rowLabel) {
         const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
         if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
             const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
@@ -7392,13 +7392,17 @@ function extractRowDataForTemplate(row, formData) {
 // options.skipResequence: true 时不触发同组 sub_order 重排（用于内部调用避免递归）
 async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
     try {
-        // Account、Currency、Formula 必填：任一项空则不保存到后端
+        // Account、Currency 必填。Formula 对 sub 必填，对 main 可选
         const hasAccount = rowData.account_id != null && String(rowData.account_id).trim() !== '';
         const hasCurrency = rowData.currency_id != null && String(rowData.currency_id).trim() !== '';
         const hasFormula = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
             (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
-        if (hasAccount && (!hasCurrency || !hasFormula)) {
-            return { success: false, message: 'Currency and Formula are required.' };
+        
+        if (hasAccount && !hasCurrency) {
+            return { success: false, message: 'Currency is required.' };
+        }
+        if (hasAccount && rowData.product_type === 'sub' && !hasFormula) {
+            return { success: false, message: 'Formula is required for sub rows.' };
         }
 
         const processId = getCurrentProcessId();
@@ -7604,11 +7608,13 @@ async function autoSaveTemplateFromRow(row) {
             // Skip auto-save if row has no bound account yet
             return;
         }
-        // Account、Currency、Formula 必填：任一项空则不自动保存
+        // Account、Currency 必填。对于 sub 行，Formula 也必填。对于 main 行，Formula 可选。
         const currencyEmpty = !formData.currencyValue || (typeof formData.currencyValue === 'string' && !formData.currencyValue.trim());
         const currencyPlaceholder = (formData.currencyName || '').trim() && /^select\s*curren/i.test(String(formData.currencyName).trim());
         const formulaEmpty = !formData.formulaValue || (typeof formData.formulaValue === 'string' && !formData.formulaValue.trim());
-        if (currencyEmpty || currencyPlaceholder || formulaEmpty) {
+        const productType = row.getAttribute('data-product-type') || 'main';
+        
+        if (currencyEmpty || currencyPlaceholder || (productType === 'sub' && formulaEmpty)) {
             return;
         }
 
@@ -14273,7 +14279,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
             // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
             // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
             const numValue = parseFloat(sourcePercentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to decimal
                 sourcePercentValue = (numValue / 100).toString();
             }
@@ -15580,7 +15586,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Convert old percentage format to new decimal format if needed
             if (percentValue) {
                 const numValue = parseFloat(percentValue);
-                if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+                if (false) {
                     percentValue = (numValue / 100).toString();
                 }
             } else {
@@ -15821,7 +15827,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 const numValue = parseFloat(percentValue);
                 // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
                 // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
-                if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+                if (false) {
                     // Likely old percentage format, convert to decimal
                     convertedPercentValue = (numValue / 100).toString();
                 }
@@ -16440,7 +16446,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
         if (percentValue) {
             const numValue = parseFloat(percentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format (e.g., 100 = 100%), convert to decimal
                 percentValue = (numValue / 100).toString();
             }
@@ -16872,7 +16878,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             const numValue = parseFloat(percentValue);
             // Only convert if value is >= 10 (old percentage format)
             // Values < 10 are already in multiplier format (1 = multiply by 1, 2 = multiply by 2)
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to multiplier
                 convertedPercentValue = (numValue / 100).toString();
             }
@@ -17115,6 +17121,29 @@ function reorderSummaryRowsByRowIndex() {
                 accountOrder,
                 dataCapturePosition
             };
+        });
+
+        // IMPORTANT FIX: Guarantee elements of the same group stay contiguous!
+        // Array.prototype.sort() pairwise comparisons cannot logically group separate items
+        // if their primary sort keys (dataCapturePosition) are vastly different.
+        // E.g. Main is pos 0, Sub is pos 9 (from DB history). A new item pos 1 will be inserted between them.
+        // To fix this, force all items of the same normalizeMain to adopt the minimum dataCapturePosition of that group.
+        const groupPositions = new Map();
+        rowData.forEach(item => {
+            if (item.productType !== 'sub' && item.normalizedMain && item.dataCapturePosition !== null && item.dataCapturePosition !== undefined && item.dataCapturePosition < 999999) {
+                if (!groupPositions.has(item.normalizedMain)) {
+                    groupPositions.set(item.normalizedMain, item.dataCapturePosition);
+                } else {
+                    groupPositions.set(item.normalizedMain, Math.min(groupPositions.get(item.normalizedMain), item.dataCapturePosition));
+                }
+            }
+        });
+
+        // Apply unified group position to all rows (Main and Sub) of that group
+        rowData.forEach(item => {
+            if (item.normalizedMain && groupPositions.has(item.normalizedMain)) {
+                item.dataCapturePosition = groupPositions.get(item.normalizedMain);
+            }
         });
 
         // IMPORTANT: 全局排序逻辑说明（以 Data Capture 行顺序为绝对基准）：
@@ -17680,7 +17709,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
         if (percentValue) {
             const numValue = parseFloat(percentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to decimal
                 percentValue = (numValue / 100).toString();
             }
@@ -18199,7 +18228,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             const numValue = parseFloat(percentValue);
             // Only convert if value is >= 10 (old percentage format)
             // Values < 10 are already in multiplier format (1 = multiply by 1, 2 = multiply by 2)
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to multiplier
                 convertedPercentValue = (numValue / 100).toString();
             }
@@ -20007,3 +20036,30 @@ function getCurrencyIdByCode(currencyCode) {
     }
     return null;
 }
+
+// Add Global Enter=Save Logic for Edit Formula Modal
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+        const modal = document.getElementById('editFormulaModal');
+        // Only trigger if modal is open (even if focus isn't strictly inside it yet)
+        if (modal && modal.style.display !== 'none') {
+            // Check if dropdown is active AND the user is interacting with it
+            const activeDropdown = modal.querySelector('.custom-select-dropdown.show');
+            if (activeDropdown && event.target.closest('.custom-select-wrapper')) {
+                return; // Let the dropdown handle the Select
+            }
+            
+            // Do not trigger if SweetAlert or another library's confirmation popup is open and focused
+            if (document.body.classList.contains('swal2-shown') || event.target.closest('.swal2-container')) {
+                return;
+            }
+
+            // Prevent default form submission or other Enter behaviors
+            event.preventDefault();
+            // Call saveFormula directly to ensure validation popups trigger even if button appears visually disabled
+            if (typeof saveFormula === 'function') {
+                saveFormula();
+            }
+        }
+    }
+});

@@ -6,8 +6,24 @@ require_once 'session_check.php';
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_id) {
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+        }
+    }
+} catch (Exception $e) { }
+
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
+$company_id = $session_company_id;
 
 // 当前 session 公司的 company_code（用于 Category 权限按钮）
 $session_company_code = '';
@@ -38,6 +54,7 @@ if (!empty($session_company_id)) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">
@@ -100,12 +117,18 @@ if (!empty($session_company_id)) {
             
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
-                    <div id="company-buttons-wrapper" class="maintenance-company-filter" style="display: none;">
-                        <span class="maintenance-company-label">Company:</span>
-                        <div class="maintenance-company-buttons" id="company-buttons-container">
-                            <!-- Company buttons injected here -->
-                        </div>
-                    </div>
+                    <!-- Shared Group & Company Filter (SSR) -->
+                    <?php
+                    $filter_prefix = 'maintenance'; 
+                    include 'includes/company_filter.php'; 
+                    ?>
+                    <script>
+                        window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                            if (typeof switchCompany === 'function') {
+                                switchCompany(companyId, companyCode);
+                            }
+                        };
+                    </script>
 
                     <div id="currency-buttons-wrapper" class="maintenance-company-filter" style="display: none;">
                         <span class="maintenance-company-label">Currency:</span>

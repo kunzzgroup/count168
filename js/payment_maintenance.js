@@ -67,56 +67,7 @@
         let selectedCurrency = null; // 单选，只保存一个货币代码
         let selectedPermission = null;
 
-        function loadOwnerCompanies() {
-            const container = document.getElementById('company-buttons-container');
-            const wrapper = document.getElementById('company-buttons-wrapper');
-            return fetch('api/transactions/get_owner_companies_api.php')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.data.length > 0) {
-                        ownerCompanies = data.data;
-                        if (data.data.length > 1) {
-                            container.innerHTML = '';
-                            data.data.forEach((company, index) => {
-                                const btn = document.createElement('button');
-                                btn.className = 'maintenance-company-btn';
-                                btn.textContent = company.company_id;
-                                btn.dataset.companyId = company.id;
-                                btn.addEventListener('click', () => switchCompany(company.id));
-                                container.appendChild(btn);
-                            });
-                            // 如果 session 中有 company_id，优先使用它；否则使用第一个
-                            if (!currentCompanyId) {
-                                currentCompanyId = data.data[0].id;
-                            } else {
-                                // 验证 session 中的 company_id 是否在列表中
-                                const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                                if (!exists && data.data.length > 0) {
-                                    currentCompanyId = data.data[0].id;
-                                }
-                            }
-                            wrapper.style.display = 'flex';
-                            activateCompanyButton(currentCompanyId);
-                        } else {
-                            currentCompanyId = data.data[0].id;
-                            wrapper.style.display = 'none';
-                        }
-                        const cur = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
-                        currentCompanyCode = cur ? (cur.company_id || '') : (currentCompanyCode || '');
-                        loadPermissionButtons();
-                    } else {
-                        ownerCompanies = [];
-                        wrapper.style.display = 'none';
-                        loadPermissionButtons();
-                    }
-                })
-                .catch(error => {
-                    console.warn('加载公司列表失败或非 Owner 用户:', error);
-                    ownerCompanies = [];
-                    wrapper.style.display = 'none';
-                    loadPermissionButtons();
-                });
-        }
+
 
         async function loadPermissionButtons() {
             const filterEl = document.getElementById('maintenance-permission-filter');
@@ -144,7 +95,7 @@
                     : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
                 containerEl.innerHTML = '';
                 if (permissions.length > 0) {
-                    filterEl.style.display = 'flex';
+                    filterEl.style.display = (permissions.length <= 1) ? 'none' : 'flex';
                     permissions.forEach(permission => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
@@ -187,29 +138,18 @@
             }
         }
 
-        function activateCompanyButton(companyId) {
-            const buttons = document.querySelectorAll('#company-buttons-container .maintenance-company-btn');
-            buttons.forEach(btn => {
-                if (parseInt(btn.dataset.companyId, 10) === parseInt(companyId, 10)) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-        }
 
-        async function switchCompany(companyId) {
+
+        async function switchCompany(companyId, companyCode) {
             const newCompanyId = parseInt(companyId, 10);
             if (currentCompanyId === newCompanyId) return;
             
             // 立即更新本地状态并清空表格，避免显示上一家公司的数据
             currentCompanyId = newCompanyId;
-            const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === newCompanyId);
-            currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
+            currentCompanyCode = companyCode || '';
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
-            activateCompanyButton(currentCompanyId);
             loadPermissionButtons();
             clearTableAndShowLoading();
             
@@ -719,7 +659,8 @@
             updateDeleteButtonState();
             
             
-            loadOwnerCompanies()
+            Promise.resolve()
+                .then(() => (typeof loadPermissionButtons === 'function' ? loadPermissionButtons() : Promise.resolve()))
                 .catch(() => {})
                 .then(() => loadCompanyCurrencies())
                 .catch(() => {})
@@ -751,3 +692,4 @@
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         });
+window.switchCompany = switchCompany;

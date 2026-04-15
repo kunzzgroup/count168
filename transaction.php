@@ -20,6 +20,22 @@ $canApproveContra = in_array($viewerRole, ['manager', 'admin', 'owner'], true);
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    if ($current_user_id) {
+        if ($viewerRole === 'owner') {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+        }
+    }
+} catch (Exception $e) { }
+
+$company_id = $session_company_id;
+
 // Capture Date 默认：当天
 $today_dt = new DateTime('today');
 $default_date_from = $today_dt->format('d/m/Y');
@@ -41,6 +57,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo file_exists('css/sidebar.css') ? filemtime('css/sidebar.css') : time(); ?>">
     <script src="js/sidebar.js?v=<?php echo file_exists('js/sidebar.js') ? filemtime('js/sidebar.js') : time(); ?>" defer></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body class="transaction-page">
     <?php include 'sidebar.php'; ?>
@@ -177,14 +194,18 @@ $default_date_to = $today_dt->format('d/m/Y');
                 </div>
                 
                 <div class="transaction-bottom-filters">
-                    <!-- Company Buttons (for owner) -->
-                    <div id="company-buttons-wrapper" class="transaction-company-filter">
-                        <span class="transaction-company-label">Company:</span>
-                        <div id="company-buttons-container" class="transaction-company-buttons">
-                            <!-- Company buttons will be dynamically added here -->
-                        </div>
-                    </div>
-                    
+                    <!-- Shared Group & Company Filter (SSR) -->
+                    <?php
+                    $filter_prefix = 'transaction'; 
+                    include 'includes/company_filter.php'; 
+                    ?>
+                    <script>
+                        window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                            if (typeof switchCompany === 'function') {
+                                switchCompany(companyId, companyCode);
+                            }
+                        };
+                    </script>
                     <!-- Currency Buttons -->
                     <div id="currency-buttons-wrapper" class="transaction-company-filter">
                         <span class="transaction-company-label">Currency:</span>

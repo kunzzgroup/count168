@@ -11,7 +11,11 @@ const pageSize = 20;
 let selectedPermission = null;
 const currentProcessListPage = (typeof window.PROCESSLIST_PAGE_FILE === 'string' ? window.PROCESSLIST_PAGE_FILE.trim() : '');
 const forcedPermission = (typeof window.PROCESSLIST_FORCED_PERMISSION === 'string' ? window.PROCESSLIST_FORCED_PERMISSION.trim() : '');
-const hidePermissionFilter = !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
+// ★★★ SINGLE_CATEGORY_MODE ★★★
+// 设为 true 时：Process List 页面隐藏 Category 筛选按钮（Games/Bank/…）。
+// 恢复原状只需将此值改为 false。
+const SINGLE_CATEGORY_MODE = true;
+const hidePermissionFilter = SINGLE_CATEGORY_MODE || !!window.PROCESSLIST_HIDE_PERMISSION_FILTER;
 function getBankProcessModule() {
     return (typeof window !== 'undefined' && window.BankProcessList) ? window.BankProcessList : null;
 }
@@ -85,6 +89,7 @@ function redirectToProcessListPage(targetPage, permission) {
             localStorage.setItem(`selectedPermission_${currentCompanyCode}`, normalizedPermission);
         }
     }
+    window._isRedirecting = true;
     window.location.href = url.toString();
     return true;
 }
@@ -233,7 +238,7 @@ function normalizeBankFilterState() {
     updateBankListScrollMode();
 }
 
-/** Bank + Show All：仅此时允许表格区域纵向滚动；否则保持原样（分页、表格外不滚） */
+/** Show All：允许页面纵向滚动（Games 和 Bank 统一行为）；否则保持原样 */
 function updateBankListScrollMode() {
     if (!document.body) return;
     const onBank = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
@@ -241,6 +246,12 @@ function updateBankListScrollMode() {
         document.body.classList.add('process-page--bank-show-all');
     } else {
         document.body.classList.remove('process-page--bank-show-all');
+    }
+    // Games Show All：允许页面纵向滚动
+    if (!onBank && showAll) {
+        document.body.classList.add('process-page--show-all');
+    } else {
+        document.body.classList.remove('process-page--show-all');
     }
 }
 
@@ -707,11 +718,19 @@ function renderTable() {
     }
 
     let pageItems, startIndex;
-    const totalPagesGames = Math.max(1, Math.ceil(processes.length / pageSize));
-    if (currentPage > totalPagesGames) currentPage = totalPagesGames;
-    startIndex = (currentPage - 1) * pageSize;
-    const endIndex = Math.min(startIndex + pageSize, processes.length);
-    pageItems = processes.slice(startIndex, endIndex);
+    // showAll 模式：只显示 active 的 process，一页展示所有数据
+    let displayProcesses = processes;
+    if (showAll) {
+        displayProcesses = processes.filter(p => p.status === 'active');
+        startIndex = 0;
+        pageItems = displayProcesses;
+    } else {
+        const totalPagesGames = Math.max(1, Math.ceil(displayProcesses.length / pageSize));
+        if (currentPage > totalPagesGames) currentPage = totalPagesGames;
+        startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, displayProcesses.length);
+        pageItems = displayProcesses.slice(startIndex, endIndex);
+    }
 
     // Games 类别的表格
     {
@@ -720,8 +739,8 @@ function renderTable() {
             const card = document.createElement('div');
             card.className = 'process-card';
             card.setAttribute('data-id', process.id);
-            // 恢复 Games 表格的列数（7列）
-            card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
+            // 恢复 Games 表格的列数（7列）并加宽 Status (0.35fr)，并统一前后数值保证严格对齐
+            card.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr';
 
             const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
 
@@ -892,13 +911,17 @@ function renderPagination() {
     const paginationContainer = document.getElementById('paginationContainer');
     if (!paginationContainer) return;
 
-    // Bank: Show All 时不分页且隐藏分页控件
-    if (selectedPermission === 'Bank' && showAll) {
+    // Show All 时不分页且隐藏分页控件（Games 和 Bank 统一行为）
+    if (showAll) {
         paginationContainer.style.display = 'none';
         return;
     }
 
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
+    if (totalCount === 0) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
     // 更新分页控件信息
@@ -916,7 +939,7 @@ function renderPagination() {
 }
 
 function goToPage(page) {
-    if (selectedPermission === 'Bank' && showAll) return;
+    if (showAll) return;
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const newPage = Math.min(Math.max(1, page), totalPages);
@@ -949,8 +972,13 @@ function escapeHtml(text) {
 }
 
 // Notification functions
-function showNotification(message, type = 'success') {
+/** @param {{ durationMs?: number, prominent?: boolean }} [options] — prominent 仅用于 Resend / Day start 校验等需强提示的场景 */
+function showNotification(message, type = 'success', options = null) {
     const container = document.getElementById('processNotificationContainer');
+    if (!container) return;
+
+    const durationMs = options && options.durationMs != null ? Math.max(800, options.durationMs) : 1500;
+    const prominent = !!(options && options.prominent);
 
     // 检查现有通知数量，最多保留2个
     const existingNotifications = container.querySelectorAll('.process-notification');
@@ -967,7 +995,8 @@ function showNotification(message, type = 'success') {
 
     // 创建新通知
     const notification = document.createElement('div');
-    notification.className = `process-notification process-notification-${type}`;
+    const extra = prominent ? ' process-notification--bank-resend-day-start' : '';
+    notification.className = ('process-notification process-notification-' + type + extra).trim();
     notification.textContent = message;
 
     // 添加到容器
@@ -978,16 +1007,14 @@ function showNotification(message, type = 'success') {
         notification.classList.add('show');
     }, 10);
 
-    // 1.5秒后开始消失动画
     setTimeout(() => {
         notification.classList.remove('show');
-        // 0.3秒后完全移除
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
             }
         }, 300);
-    }, 1500);
+    }, durationMs);
 }
 
 function updateProcessListPageTitle(permission) {
@@ -1788,7 +1815,7 @@ function renderAccountingInbox(items) {
         const cbDisabled = row.already_posted_today ? ' disabled' : '';
         const cbChecked = row.already_posted_today ? '' : ' checked';
         const cbClass = 'process-accounting-inbox-row-cb';
-        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'));
+        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_resend_consolidated_range ? 'resend_consolidated_range' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly')));
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
         const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
@@ -1904,6 +1931,8 @@ async function postAccountingInboxToTransaction() {
             formData.append('period_types[]', p.periodType);
             formData.append('billing_months[]', p.billingMonth || '');
         });
+        // Testing toggle: allow posting monthly rows before due date from Accounting Due flow.
+        formData.append('allow_future_monthly', '1');
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
@@ -1976,6 +2005,20 @@ function bindBankResendModalFrequencySyncOnce() {
     dayEnd.addEventListener('input', syncResendFreq);
 }
 
+function bindBankResendDayStartClearInlineErrorOnce() {
+    const el = document.getElementById('bank_resend_day_start');
+    if (!el || el._bankResendInlineErrorClearBound) return;
+    el._bankResendInlineErrorClearBound = true;
+    function tryClear() {
+        const bm = getBankProcessModule();
+        if (bm && typeof bm.clearBankResendDayStartInlineError === 'function') {
+            bm.clearBankResendDayStartInlineError();
+        }
+    }
+    el.addEventListener('change', tryClear);
+    el.addEventListener('input', tryClear);
+}
+
 function showConfirmBankResendModal(processId) {
     const id = parseInt(processId, 10);
     if (!id) return;
@@ -1997,22 +2040,43 @@ function showConfirmBankResendModal(processId) {
     if (msgEl) {
         msgEl.textContent =
             'Resend "' + label + '" to Accounting Due?\n\n' +
-            'This clears the "already posted" after the bank posting was removed in Maintenance (Bank or Payment).';
+            'This clears posted markers so the process can appear in Accounting Due again. The schedule below applies only to this Resend and does not change the Edit Process form.';
     }
     bindBankResendModalFrequencySyncOnce();
+    const bmClear = getBankProcessModule();
+    if (bmClear && typeof bmClear.clearBankResendDayStartInlineError === 'function') {
+        bmClear.clearBankResendDayStartInlineError();
+    }
+    bindBankResendDayStartClearInlineErrorOnce();
     const dsEl = document.getElementById('bank_resend_day_start');
     const deEl = document.getElementById('bank_resend_day_end');
     const fqEl = document.getElementById('bank_resend_frequency');
+    let scheduleSeed = {
+        day_start: proc ? (proc.day_start || '') : '',
+        day_end: proc ? (proc.day_end || '') : '',
+        day_start_frequency: proc && proc.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
+    const bankModule = getBankProcessModule();
+    if (bankModule && typeof bankModule.getPendingResendScheduleForProcess === 'function') {
+        const pendingSchedule = bankModule.getPendingResendScheduleForProcess(id);
+        if (pendingSchedule) {
+            scheduleSeed = {
+                day_start: pendingSchedule.day_start || '',
+                day_end: pendingSchedule.day_end || '',
+                day_start_frequency: pendingSchedule.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+            };
+        }
+    }
     if (dsEl) {
-        const d1 = proc ? (proc.day_start || '') : '';
+        const d1 = scheduleSeed.day_start || '';
         dsEl.value = d1 ? (d1.length === 10 ? d1 : String(d1).split(' ')[0]) : '';
     }
     if (deEl) {
-        const d2 = proc ? (proc.day_end || '') : '';
+        const d2 = scheduleSeed.day_end || '';
         deEl.value = d2 ? (d2.length === 10 ? d2 : String(d2).split(' ')[0]) : '';
     }
     if (fqEl) {
-        fqEl.value = proc && proc.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+        fqEl.value = scheduleSeed.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
     }
     const dayEndSync = document.getElementById('bank_resend_day_end');
     const freqSync = document.getElementById('bank_resend_frequency');
@@ -2039,6 +2103,10 @@ function showConfirmBankResendModal(processId) {
 }
 
 function closeConfirmBankResendModal() {
+    const bm = getBankProcessModule();
+    if (bm && typeof bm.clearBankResendDayStartInlineError === 'function') {
+        bm.clearBankResendDayStartInlineError();
+    }
     const modal = document.getElementById('confirmBankResendModal');
     if (modal) modal.style.display = 'none';
     pendingBankResendProcessId = null;
@@ -2067,11 +2135,6 @@ async function confirmBankResendFromModal() {
     const modal = document.getElementById('confirmBankResendModal');
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     const cancelBtn = modal ? modal.querySelector('.confirm-bank-resend-cancel') : null;
-    if (confirmBtn) {
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Resending...';
-    }
-    if (cancelBtn) cancelBtn.disabled = true;
     const dsEl = document.getElementById('bank_resend_day_start');
     const deEl = document.getElementById('bank_resend_day_end');
     const fqEl = document.getElementById('bank_resend_frequency');
@@ -2080,8 +2143,26 @@ async function confirmBankResendFromModal() {
         day_end: (deEl.value || '').trim(),
         day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : '1st_of_every_month'
     } : null;
+    const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
+    const bankModule = getBankProcessModule();
+    const forbidMsg = bankModule && typeof bankModule.bankResendScheduleDayStartForbiddenMessage === 'function'
+        ? bankModule.bankResendScheduleDayStartForbiddenMessage(scheduleOpts ? scheduleOpts.day_start : '', proc ? proc.day_start : null)
+        : null;
+    if (forbidMsg) {
+        const bm = getBankProcessModule();
+        if (bm && typeof bm.presentBankResendDayStartValidationError === 'function') {
+            bm.presentBankResendDayStartValidationError(forbidMsg);
+        } else if (typeof showNotification === 'function') {
+            showNotification(forbidMsg, 'danger', { durationMs: 14500, prominent: true });
+        }
+        return;
+    }
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Resending...';
+    }
+    if (cancelBtn) cancelBtn.disabled = true;
     try {
-        const bankModule = getBankProcessModule();
         if (bankModule && typeof bankModule.executeAccountingDueResend === 'function') {
             await bankModule.executeAccountingDueResend(id, scheduleOpts);
         }
@@ -2223,9 +2304,15 @@ async function performToggleStatus(processId) {
             : (showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active'));
 
         if (!shouldShow) {
-            const processIndex = processes.findIndex(p => String(p.id) === String(processId));
-            if (processIndex > -1) processes.splice(processIndex, 1);
-            renderTable();
+            if (selectedPermission === 'Bank') {
+                // Keep the full Bank dataset in memory so toggling Show Inactive can reveal rows immediately.
+                renderTable();
+                renderPagination();
+            } else {
+                const processIndex = processes.findIndex(p => String(p.id) === String(processId));
+                if (processIndex > -1) processes.splice(processIndex, 1);
+                renderTable();
+            }
         } else if (newDayEnd) {
             renderTable();
         } else {
@@ -3737,7 +3824,8 @@ if (addDescriptionForm) {
 
 // Add Country form submit (in modal: save to DB via API, then add to Available; user selects to move to Selected)
 const addCountryForm = document.getElementById('addCountryForm');
-if (addCountryForm) {
+if (addCountryForm && !window.__processlistModalAddCountryFormBound) {
+    window.__processlistModalAddCountryFormBound = true;
     addCountryForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_country_name');
@@ -3774,7 +3862,8 @@ if (addCountryForm) {
 
 // Add Bank form submit (in modal: add new bank to Available only; user selects it to move to Selected)
 const addBankFormEl = document.getElementById('addBankForm');
-if (addBankFormEl) {
+if (addBankFormEl && !window.__processlistModalAddBankFormBound) {
+    window.__processlistModalAddBankFormBound = true;
     addBankFormEl.addEventListener('submit', function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_bank_name');
@@ -3787,7 +3876,8 @@ if (addBankFormEl) {
             availableBanksList.push(bankName);
             availableBanksList.sort((a, b) => a.localeCompare(b));
         }
-        loadExistingBanks();
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
+        loadExistingBanks(currentBankModalCountry);
         if (nameInput) nameInput.value = '';
         showNotification('Bank added to available list', 'success');
     });
@@ -4189,10 +4279,22 @@ async function addCurrencyFromInputBank(type) {
 
 // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
 const addAccountFormEl = document.getElementById('addAccountForm');
-if (addAccountFormEl) {
+if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
+    window.__globalAddAccountSubmitHandlerBound = true;
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
-        if (!validatePaymentAlertForAddBank()) return;
+        if (window.__globalAddAccountSubmitInFlight) return;
+        if (this.dataset.submitting === '1') return;
+        window.__globalAddAccountSubmitInFlight = true;
+        this.dataset.submitting = '1';
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        if (!validatePaymentAlertForAddBank()) {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
+            return;
+        }
         const formData = new FormData(this);
         const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
         if (paymentAlert) {
@@ -4278,6 +4380,10 @@ if (addAccountFormEl) {
         } catch (err) {
             console.error('Add account error', err);
             showNotification('Failed to add account', 'danger');
+        } finally {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
         }
     });
 }
@@ -4904,15 +5010,21 @@ async function showAddCountryModal() {
     }
     let allCountries = [];
     try {
-        allCountries = await fetchCompanyCurrencyCodes();
-        if (allCountries.length === 0) {
-            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        const currencyCodes = await fetchCompanyCurrencyCodes();
+        let fromListApi = [];
+        const cid = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        try {
             let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-            if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+            if (cid) url += '&company_id=' + encodeURIComponent(cid);
             const res = await fetch(url);
             const result = await res.json();
-            allCountries = (result.success && result.data) ? result.data : [];
-        }
+            if (result.success && Array.isArray(result.data)) fromListApi = result.data;
+        } catch (e2) { console.warn('get_countries', e2); }
+        allCountries = [...new Set(
+            [...(currencyCodes || []), ...fromListApi]
+                .map(function (x) { return String(x || '').trim(); })
+                .filter(Boolean)
+        )].sort(function (a, b) { return a.localeCompare(b); });
     } catch (e) { console.warn('country list', e); }
     loadExistingCountries(allCountries);
     updateSelectedCountriesInModal();
@@ -4967,7 +5079,7 @@ function loadExistingCountries(allFromServer) {
         deleteBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            removeCountryFromAvailable(name, item);
+            void removeCountryFromAvailable(name, item);
         });
         item.appendChild(left);
         item.appendChild(deleteBtn);
@@ -5066,7 +5178,7 @@ function moveCountryBackToAvailable(countryName, countryId) {
     delBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        removeCountryFromAvailable(countryName, newItem);
+        void removeCountryFromAvailable(countryName, newItem);
     });
     newItem.appendChild(left);
     newItem.appendChild(delBtn);
@@ -5094,7 +5206,37 @@ function moveCountryToAvailable(checkbox) {
     }
 }
 
-function removeCountryFromAvailable(countryName, itemEl) {
+async function removeCountryFromAvailable(countryName, itemEl) {
+    const name = (countryName || '').trim();
+    if (!name) {
+        if (itemEl && itemEl.parentNode) itemEl.remove();
+        return;
+    }
+    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+    if (companyId) {
+        try {
+            const formData = new FormData();
+            formData.append('company_id', String(companyId));
+            formData.append('country', name);
+            const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=remove_country'), { method: 'POST', body: formData });
+            let result = { success: false, error: 'Invalid response' };
+            try {
+                result = await res.json();
+            } catch (parseErr) { /* use default */ }
+            if (!result.success) {
+                showNotification(result.error || result.message || 'Failed to remove country', 'danger');
+                return;
+            }
+        } catch (err) {
+            console.warn('remove_country', err);
+            showNotification('Failed to remove country', 'danger');
+            return;
+        }
+    }
+    if (Array.isArray(availableCountriesList)) {
+        const idx = availableCountriesList.indexOf(name);
+        if (idx > -1) availableCountriesList.splice(idx, 1);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
@@ -5144,7 +5286,31 @@ async function confirmCountries() {
 
 // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 company + Country 分别存储）
 const DEFAULT_BANKS = [];
+let currentBankModalCountry = '';
 let availableBanksList = [];
+let availableBanksByCountry = {};
+
+function normalizeBankCountryKey(country) {
+    return String(country || '').trim();
+}
+
+function getAvailableBanksForCountry(country) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return [];
+    if (!availableBanksByCountry[key] || !Array.isArray(availableBanksByCountry[key])) {
+        availableBanksByCountry[key] = [];
+    }
+    return availableBanksByCountry[key];
+}
+
+function setAvailableBanksForCountry(country, list) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return;
+    const normalized = Array.isArray(list)
+        ? [...new Set(list.map(function (n) { return (n || '').trim(); }).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+        : [];
+    availableBanksByCountry[key] = normalized;
+}
 
 function getSelectedBanksByCountryStorageKey() {
     const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -5220,6 +5386,8 @@ async function showAddBankModal() {
         showNotification('Please select Country first', 'danger');
         return;
     }
+    currentBankModalCountry = country;
+    availableBanksList = getAvailableBanksForCountry(country).slice();
     // Selected Banks 从当前 Country 的已选列表恢复；Available 由 loadExistingBanks 按接口拉取
     window.selectedBanks = (window.selectedBanksByCountry && window.selectedBanksByCountry[country]) ? window.selectedBanksByCountry[country].slice() : [];
     await loadExistingBanks(country);
@@ -5232,18 +5400,20 @@ async function showAddBankModal() {
 }
 
 async function loadExistingBanks(countryForApi) {
+    const country = normalizeBankCountryKey(countryForApi || currentBankModalCountry || ((document.getElementById('bank_country') && document.getElementById('bank_country').value) ? document.getElementById('bank_country').value : ''));
+    const countryAvailable = getAvailableBanksForCountry(country);
     let all = [];
-    if (countryForApi) {
+    if (country) {
         try {
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
             if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
             const res = await fetch(url);
             const result = await res.json();
             all = (result.success && result.data) ? result.data : [];
-            all = [...new Set([...all, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+            all = [...new Set([...all, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
         } catch (e) {
-            all = [...(availableBanksList || [])].sort((a, b) => a.localeCompare(b));
+            all = [...countryAvailable].sort((a, b) => a.localeCompare(b));
         }
     } else {
         const select = document.getElementById('bank_bank');
@@ -5254,11 +5424,12 @@ async function loadExistingBanks(countryForApi) {
                 if (v) existingOptions.push(v);
             }
         }
-        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
     }
     const selectedSet = new Set(window.selectedBanks || []);
     const combined = all.filter(name => !selectedSet.has(name));
-    availableBanksList = combined;
+    availableBanksList = combined.slice();
+    setAvailableBanksForCountry(country, combined);
 
     const listEl = document.getElementById('existingBanks');
     if (!listEl) return;
@@ -5413,6 +5584,12 @@ function moveBankToAvailable(checkbox) {
 }
 
 function removeBankFromAvailable(bankName, itemEl) {
+    if (availableBanksList && bankName != null && bankName !== '') {
+        const n = String(bankName).trim();
+        const idx = availableBanksList.indexOf(n);
+        if (idx > -1) availableBanksList.splice(idx, 1);
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
@@ -5427,6 +5604,7 @@ function closeBankSelectionModal() {
     const search = document.getElementById('bankSearch');
     if (search) search.value = '';
     document.querySelectorAll('input[name="available_banks"]').forEach(cb => cb.checked = false);
+    currentBankModalCountry = '';
 }
 
 async function confirmBanks() {
@@ -6167,7 +6345,9 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('DOM loaded, calling fetchProcesses...');
     try {
         loadPermissionButtons().then(() => {
-            fetchProcesses();
+            if (!window._isRedirecting) {
+                fetchProcesses();
+            }
         });
     } catch (error) {
         console.error('Error in fetchProcesses:', error);
@@ -6207,6 +6387,44 @@ window.addEventListener('resize', function () {
     }
 });
 
+// 浏览器后退/前进时还原 category 状态（配合 history.pushState 实现的无刷新切换）
+window.addEventListener('popstate', function (e) {
+    try {
+        const pageName = window.location.pathname.replace(/.*\//, '');
+        const permission = (pageName === 'bank_process_list.php') ? 'Bank' : 'Games';
+        if (permission !== selectedPermission) {
+            // 直接执行原地切换（不再 pushState，避免递归）
+            selectedPermission = permission;
+            updateProcessListPageTitle(permission);
+            if (permission === 'Bank') {
+                document.body.classList.add('process-page--bank');
+            } else {
+                document.body.classList.remove('process-page--bank');
+            }
+            const buttons = document.querySelectorAll('#process-list-permission-buttons .process-company-btn');
+            buttons.forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.permission === permission);
+            });
+            const processTableWrapperEl = document.getElementById('processTableWrapper');
+            const bankTableWrapperEl = document.getElementById('bankTableWrapper');
+            if (permission === 'Bank') {
+                if (processTableWrapperEl) processTableWrapperEl.style.display = 'none';
+                if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'block';
+            } else {
+                if (processTableWrapperEl) processTableWrapperEl.style.display = 'grid';
+                if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
+            }
+            updateProcessListDateFilterVisibility();
+            updateBankListScrollMode();
+            currentPage = 1;
+            fetchProcesses();
+        }
+    } catch (err) {
+        // 降级：刷新页面
+        window.location.reload();
+    }
+});
+
 // 加载权限按钮
 async function loadPermissionButtons() {
     const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -6240,7 +6458,7 @@ async function loadPermissionButtons() {
 
         if (permissions.length > 0) {
             if (permissionFilterEl) {
-                permissionFilterEl.style.display = hidePermissionFilter ? 'none' : 'flex';
+                permissionFilterEl.style.display = (hidePermissionFilter || permissions.length <= 1) ? 'none' : 'flex';
             }
 
             permissions.forEach(permission => {
@@ -6276,8 +6494,17 @@ async function loadPermissionButtons() {
 // 切换权限
 function switchPermission(permission) {
     const targetPage = getProcessListPageByPermission(permission);
-    if (redirectToProcessListPage(targetPage, permission)) {
-        return;
+    // 使用 history.pushState 无刷新更新 URL（替代全页跳转，消除白屏卡顿）
+    // 注：currentProcessListPage 是 const 不会更新，必须从实时 URL 读取当前页名做比较
+    if (targetPage) {
+        const _currentPageName = window.location.pathname.replace(/.*\//, '');
+        if (targetPage !== _currentPageName) {
+            try {
+                const _pUrl = new URL(window.location.href);
+                _pUrl.pathname = _pUrl.pathname.replace(/[^/]*$/, targetPage);
+                history.pushState({ permission: permission, page: targetPage }, '', _pUrl.toString());
+            } catch (e) { /* 降级：正常跳转 */ window.location.href = window.location.href.replace(/[^/]*$/, targetPage); return; }
+        }
     }
 
     selectedPermission = permission;
@@ -6340,10 +6567,11 @@ function switchPermission(permission) {
 
         // 恢复 Games 表格的列数（7列）
         if (tableHeader) {
-            tableHeader.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1fr 0.3fr';
+            // Restore original columns, allocating more space to Status AND matching the row exactly
+            tableHeader.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr';
         }
         processCards.forEach(card => {
-            card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
+            card.style.gridTemplateColumns = '0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr';
         });
     }
 

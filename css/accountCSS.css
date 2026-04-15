@@ -221,6 +221,7 @@ body {
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
+    padding: 0 20px 10px 20px;
 }
 
 .account-company-label {
@@ -319,6 +320,24 @@ body {
     display: inline !important;
 }
 
+/* Show All 模式：允许页面纵向滚动，一页展示所有数据 */
+body.account-page--show-all {
+    overflow-y: auto !important;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.account-page--show-all .container {
+    overflow-y: visible;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.account-page--show-all .account-cards {
+    max-height: none;
+    overflow-y: visible;
+}
+
 /* Account Cards - copied from userlist */
 .account-cards {
     display: flex;
@@ -331,7 +350,7 @@ body {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;
     gap: 15px;
-    padding: 0px 22px;
+    padding: 2px 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -1230,6 +1249,18 @@ body {
     border-left-color: #ef4444;
 }
 
+.account-notification-info {
+    background-color: #eff6ff;
+    color: #1e40af;
+    border-left-color: #3b82f6;
+}
+
+.account-notification-warning {
+    background-color: #fffbeb;
+    color: #92400e;
+    border-left-color: #f59e0b;
+}
+
 .account-btn {
     padding: clamp(6px, 0.42vw, 8px) 20px;
     border: none;
@@ -1245,6 +1276,13 @@ body {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
+    min-width: clamp(90px, 7vw, 130px);
+    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+    font-size: clamp(0.625rem, 0.83vw, 1rem);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     --sweep-color: rgba(255, 255, 255, 0.2);
     position: relative;
     overflow: hidden;
@@ -1289,9 +1327,13 @@ body {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: 'Amaranth';
-    width: clamp(5rem, 6.25vw, 7.5rem);
+    min-width: clamp(90px, 7vw, 130px);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
@@ -1606,32 +1648,39 @@ body {
         min-height: calc(100vh - 250px);
     }
 }
+
 /* ========================================================
    Compact Mode for Small Screens (Laptops, Tablets, etc.)
    ======================================================== */
-@media (max-height: 800px), (max-width: 1200px) {
+@media (max-height: 800px),
+(max-width: 1200px) {
+
     .account-form-group input,
     .account-form-group select,
     .account-form-group textarea {
         padding: 0.4rem 0.75rem !important;
         font-size: 0.8125rem !important;
     }
+
     .account-form-group label {
         font-size: 0.8125rem !important;
         margin-bottom: 0.25rem !important;
     }
+
     .account-form-column .account-form-group:has(.account-radio-group) label {
         margin-bottom: 0.25rem !important;
     }
+
     .account-form-column .account-form-row {
         margin-bottom: 0.75rem !important;
         gap: 0.875rem !important;
     }
+
     .account-form-column .account-form-group {
         margin-bottom: 0.75rem !important;
     }
+
     .account-form-row .account-form-group {
         margin-bottom: 0 !important;
     }
 }
-

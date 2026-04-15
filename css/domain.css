@@ -107,6 +107,1092 @@ h1 {
     transform: translateY(-1px);
 }
 
+.btn-fee-settings {
+    background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
+    color: white;
+    font-family: 'Amaranth', sans-serif;
+    padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 18px);
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(71, 85, 105, 0.35);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-fee-settings:hover {
+    background: linear-gradient(180deg, #64748b 0%, #334155 100%);
+    box-shadow: 0 4px 8px rgba(51, 65, 85, 0.4);
+    transform: translateY(-1px);
+}
+
+.domain-fee-inline-summary {
+    font-size: clamp(10px, 0.78vw, 14px);
+    color: #475569;
+    white-space: nowrap;
+}
+
+/* Domain Accounting Due (toolbar + modal) */
+.domain-accounting-due-wrap {
+    display: flex;
+    align-items: center;
+}
+
+.domain-accounting-due-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 18px);
+    font-size: clamp(10px, 0.83vw, 16px);
+    font-family: 'Amaranth', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    white-space: nowrap;
+}
+
+.domain-accounting-due-btn:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+.domain-accounting-due-icon {
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+    opacity: 0.9;
+}
+
+.domain-accounting-due-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.95);
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
+}
+
+.modal-content.domain-accounting-due-modal-content {
+    width: min(920px, 92vw);
+    max-width: min(920px, 92vw);
+}
+
+.domain-accounting-due-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.domain-accounting-due-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 18px 16px;
+}
+
+.domain-accounting-due-table-wrap {
+    max-height: min(46vh, 360px);
+    overflow: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.domain-accounting-due-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(10px, 0.83vw, 14px);
+    table-layout: fixed;
+}
+
+/* Keep column spacing consistent between header/body */
+.domain-ad-col-select {
+    width: 5%;
+}
+
+.domain-ad-col-no {
+    width: 8%;
+}
+
+.domain-ad-col-account {
+    width: 18%;
+}
+
+.domain-ad-col-companies {
+    width: 13%;
+}
+
+.domain-ad-col-breakdown {
+    width: 22%;
+}
+
+.domain-ad-col-due {
+    width: 22%;
+}
+
+.domain-ad-col-delete {
+    width: 12%;
+}
+
+.domain-accounting-due-table thead th {
+    position: sticky;
+    top: 0;
+    background: #6fb1f3;
+    color: #fff;
+    text-align: left;
+    padding: 10px 10px;
+    font-weight: 700;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+.domain-accounting-inbox-cb,
+.domain-accounting-inbox-delete-cb {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    vertical-align: middle;
+}
+
+.domain-accounting-due-table tbody td {
+    border-top: 1px solid #e5e7eb;
+    padding: 10px 10px;
+    vertical-align: middle;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.3;
+}
+
+.domain-accounting-due-account {
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.domain-accounting-due-companies {
+    color: #475569;
+    white-space: nowrap;
+}
+
+.domain-accounting-due-breakdown {
+    color: #1e293b;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    /* no "..." */
+}
+
+.domain-accounting-breakdown-role {
+    font-weight: 600;
+    color: inherit;
+    letter-spacing: 0;
+}
+
+/* Keep checkbox columns visually aligned (left select and right delete) */
+.domain-accounting-due-table thead th:first-child,
+.domain-accounting-due-table thead th:last-child,
+.domain-accounting-due-table tbody td:first-child,
+.domain-accounting-due-table tbody td:last-child {
+    text-align: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.domain-accounting-due-table tbody td:first-child input[type="checkbox"],
+.domain-accounting-due-table tbody td:last-child input[type="checkbox"] {
+    margin: 0 auto;
+    display: block;
+}
+
+.domain-accounting-due-actions {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+/* Match Bank Process Accounting Due: buttons in one row */
+.domain-accounting-inbox-actions {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 12px;
+    margin-top: 0;
+}
+
+.domain-accounting-inbox-actions .btn {
+    width: auto;
+    min-width: 120px;
+}
+
+.domain-accounting-due-table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+.domain-accounting-due-table tbody tr:hover {
+    background: #eef6ff;
+}
+
+.domain-fee-summary-display {
+    font-size: clamp(11px, 0.83vw, 15px);
+    color: #1e293b;
+    margin: 0 0 12px 0;
+    padding: clamp(8px, 0.63vw, 12px) clamp(10px, 0.83vw, 14px);
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    line-height: 1.45;
+}
+
+.domain-fee-summary-display strong {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.domain-fee-edit-hint {
+    color: #64748b;
+    font-size: clamp(9px, 0.73vw, 13px);
+    margin: 0 0 12px 0;
+}
+
+.domain-fee-decimals-hint {
+    font-weight: normal;
+    color: #94a3b8;
+    font-size: 0.92em;
+}
+
+/* Company Settings modal: split pane (Company | Share %) */
+.modal-content.company-settings-modal-content--split {
+    width: min(980px, 96vw);
+    max-width: min(980px, 96vw);
+}
+
+.company-settings-modal-body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: clamp(8px, 0.78vw, 14px) clamp(16px, 1.35vw, 28px) clamp(12px, 1vw, 20px);
+    gap: 0;
+    min-height: 0;
+}
+
+.company-settings-split {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    min-height: min(52vh, 420px);
+}
+
+.company-settings-split-left {
+    flex: 1 1 46%;
+    min-width: 0;
+    padding-right: clamp(14px, 1.25vw, 22px);
+}
+
+.company-settings-split-right {
+    flex: 1 1 54%;
+    min-width: 0;
+    padding-left: clamp(14px, 1.25vw, 22px);
+    display: flex;
+    flex-direction: column;
+}
+
+.company-settings-split-divider {
+    flex: 0 0 1px;
+    width: 1px;
+    min-height: 100%;
+    align-self: stretch;
+    background: linear-gradient(180deg, transparent 0%, #cbd5e1 8%, #94a3b8 50%, #cbd5e1 92%, transparent 100%);
+    margin: 4px 0;
+    border-radius: 1px;
+}
+
+.company-settings-column-title {
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+    font-size: clamp(13px, 1vw, 16px);
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+}
+
+.company-settings-share-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.company-settings-share-header .company-settings-share-title {
+    margin: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+    flex: 1;
+    min-width: 0;
+}
+
+.company-share-charge-on-save {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.company-share-charge-on-save__state {
+    font-size: clamp(11px, 0.85vw, 13px);
+    font-weight: 700;
+    color: #64748b;
+    min-width: 1.75em;
+    text-align: right;
+}
+
+.company-share-charge-on-save__state--on {
+    color: #0F61FF;
+}
+
+.company-share-charge-switch {
+    position: relative;
+    display: inline-flex;
+    cursor: pointer;
+    margin: 0;
+}
+
+.company-share-charge-switch__input {
+    position: absolute;
+    opacity: 0;
+    width: 40px;
+    height: 22px;
+    margin: 0;
+    z-index: 2;
+    cursor: pointer;
+}
+
+.company-share-charge-switch__track {
+    position: relative;
+    display: block;
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+    background: #cbd5e1;
+    transition: background 0.2s ease;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.company-share-charge-switch__thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+    transition: transform 0.2s ease;
+}
+
+.company-share-charge-switch__input:focus-visible+.company-share-charge-switch__track {
+    outline: 2px solid #0F61FF;
+    outline-offset: 2px;
+}
+
+.company-share-charge-switch__input:checked+.company-share-charge-switch__track {
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
+}
+
+.company-share-charge-switch__input:checked+.company-share-charge-switch__track .company-share-charge-switch__thumb {
+    transform: translateX(18px);
+}
+
+.company-settings-form-actions {
+    margin-top: clamp(16px, 1.25vw, 22px);
+    padding-top: clamp(12px, 1vw, 18px);
+    border-top: 1px solid #e2e8f0;
+    justify-content: center;
+}
+
+.company-settings-split-right .company-share-scroll {
+    flex: 1;
+    min-height: 0;
+    max-height: min(58vh, 520px);
+}
+
+@media (max-width: 800px) {
+    .company-settings-split {
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .company-settings-split-left,
+    .company-settings-split-right {
+        flex: 1 1 auto;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .company-settings-split-divider {
+        width: 100%;
+        height: 1px;
+        min-height: 0;
+        margin: 16px 0;
+        background: linear-gradient(90deg, transparent 0%, #cbd5e1 8%, #94a3b8 50%, #cbd5e1 92%, transparent 100%);
+    }
+
+    .company-settings-split-right .company-share-scroll {
+        max-height: min(45vh, 380px);
+    }
+}
+
+.company-share-scroll {
+    max-height: min(52vh, 420px);
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-right: -4px;
+    scrollbar-gutter: stable;
+}
+
+.company-share-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.company-share-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+
+.company-share-intro {
+    color: #64748b;
+    font-size: clamp(10px, 0.78vw, 14px);
+    margin: 0 0 clamp(12px, 1vw, 18px) 0;
+    line-height: 1.5;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.company-share-role-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+.company-share-role-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(8px, 1vw, 14px);
+    padding: clamp(10px, 0.9vw, 14px) clamp(12px, 1vw, 16px);
+    min-height: 64px;
+    cursor: pointer;
+    user-select: none;
+    background: #fff;
+}
+
+.company-share-role-header:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.company-share-role-card.expanded .company-share-role-header {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.company-share-role-header-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+}
+
+.company-share-account-count-display {
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 500;
+    color: #94a3b8;
+    line-height: 1.2;
+}
+
+.company-share-role-header-middle {
+    flex: 1.4;
+    min-width: 0;
+    padding: 0 clamp(6px, 0.8vw, 16px);
+}
+
+.company-share-role-alloc-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 6px;
+}
+
+.company-share-role-alloc-label {
+    font-size: clamp(9px, 0.65vw, 11px);
+    font-weight: 700;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.company-share-role-header-middle .company-share-card-sum {
+    font-size: clamp(18px, 1.5vw, 26px);
+    font-weight: 800;
+    color: #2563eb;
+    background: transparent;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.company-share-role-header-middle .company-share-card-sum.company-share-card-sum--over {
+    color: #dc2626;
+}
+
+.company-share-progress-track {
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.company-share-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 4px;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35);
+}
+
+.company-share-progress-fill--over {
+    background: linear-gradient(90deg, #f87171 0%, #dc2626 100%);
+    box-shadow: 0 1px 4px rgba(220, 38, 38, 0.35);
+}
+
+.company-share-role-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.company-share-btn-manage {
+    padding: 6px 14px;
+    border: 1px solid #3b82f6;
+    color: #2563eb;
+    background: transparent;
+    border-radius: 8px;
+    font-size: clamp(11px, 0.78vw, 13px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.company-share-btn-manage:hover {
+    background: #eff6ff;
+    transform: translateY(-1px);
+}
+
+.company-share-icon-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.company-share-icon-chevron:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.company-share-icon-chevron svg {
+    display: block;
+    transition: transform 0.25s ease;
+}
+
+.company-share-role-card.expanded .company-share-icon-chevron svg {
+    transform: rotate(180deg);
+}
+
+.company-share-role-body {
+    display: none;
+    padding: clamp(10px, 0.85vw, 14px) clamp(12px, 1vw, 16px) clamp(12px, 1vw, 16px);
+}
+
+.company-share-role-card.expanded .company-share-role-body {
+    display: block;
+}
+
+.company-share-role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: clamp(11px, 0.83vw, 14px);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.company-share-role-badge--sales {
+    background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.company-share-role-badge--cs {
+    background: linear-gradient(135deg, #ecfccb 0%, #d9f99d 100%);
+    color: #3f6212;
+    border: 1px solid #bef264;
+}
+
+.company-share-role-badge--it {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    color: #5b21b6;
+    border: 1px solid #c4b5fd;
+}
+
+.company-share-card-sum {
+    font-size: clamp(12px, 0.94vw, 16px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    padding: 4px 10px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.company-share-card-sum--over {
+    color: #b91c1c;
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.company-share-column-labels {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
+    gap: 8px;
+    align-items: center;
+    font-size: clamp(10px, 0.73vw, 12px);
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    padding: 0 2px;
+}
+
+.company-share-role-card--empty .company-share-column-labels {
+    display: none;
+}
+
+.company-share-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+}
+
+.company-share-role-card--empty .company-share-rows {
+    margin-bottom: 8px;
+}
+
+.company-share-role-card--empty .company-share-rows::after {
+    content: 'No rows yet — use “+ Add accounts” below.';
+    display: block;
+    padding: 12px 14px;
+    font-size: clamp(10px, 0.78vw, 13px);
+    color: #94a3b8;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.company-share-data-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.company-share-data-row:focus-within {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.company-share-cell {
+    min-width: 0;
+}
+
+.company-share-select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: clamp(11px, 0.83vw, 14px);
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+}
+
+.company-share-pct-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0 8px;
+    height: 36px;
+    box-sizing: border-box;
+}
+
+.company-share-pct-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-size: clamp(12px, 0.9vw, 15px);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    padding: 0;
+    text-align: right;
+}
+
+.company-share-pct-input:focus {
+    outline: none;
+}
+
+.company-share-pct-suffix {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+.company-share-cell-remove {
+    display: flex;
+    justify-content: center;
+}
+
+.company-share-amount-input {
+    width: 100%;
+    height: 36px;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #eef2f7;
+    color: #334155;
+    font-size: clamp(11px, 0.83vw, 14px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    padding: 0 10px;
+    cursor: not-allowed;
+}
+
+.company-share-remove-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.company-share-remove-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Match Ownership page `.own-btn-add-account` (ownership.css) */
+.company-share-add-btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 8px 0 0 0;
+    padding: 5px;
+    background-color: #e6f0fd;
+    color: #3b8ef6;
+    border: 2px dashed #bfdbfe;
+    border-radius: 12px;
+    font-size: clamp(13px, 0.95vw, 15px);
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.company-share-add-btn:hover {
+    background-color: #dbeafe;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
+
+.company-share-bulk-modal .company-share-bulk-content {
+    width: clamp(320px, 90vw, 440px);
+    max-width: 440px;
+    margin: 8% auto;
+    padding: 0;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.company-share-bulk-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.company-share-bulk-head h3 {
+    margin: 0;
+    font-size: clamp(15px, 1.1vw, 18px);
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.company-share-bulk-x {
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+
+.company-share-bulk-x:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.company-share-bulk-body {
+    padding: 14px 16px 16px;
+}
+
+.company-share-bulk-intro {
+    margin: 0 0 10px;
+    font-size: clamp(11px, 0.8vw, 13px);
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.company-share-bulk-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.company-share-bulk-toolbar-sep {
+    color: #cbd5e1;
+}
+
+.company-share-bulk-link {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: clamp(11px, 0.78vw, 13px);
+    font-weight: 600;
+    color: #2563eb;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.company-share-bulk-link:hover {
+    color: #1d4ed8;
+}
+
+.company-share-bulk-list {
+    max-height: min(38vh, 280px);
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fafafa;
+    padding: 6px 0;
+    margin-bottom: 12px;
+}
+
+.company-share-bulk-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: clamp(11px, 0.82vw, 14px);
+    color: #1e293b;
+}
+
+.company-share-bulk-item:hover {
+    background: #f1f5f9;
+}
+
+.company-share-bulk-item input {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.company-share-bulk-item span {
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.company-share-bulk-empty {
+    margin: 0 0 12px;
+    font-size: clamp(11px, 0.78vw, 13px);
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.company-share-bulk-blank-row {
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    margin-bottom: 14px;
+}
+
+.company-share-bulk-blank-row label {
+    display: block;
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.company-share-bulk-blank-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.company-share-bulk-blank-controls input[type="number"] {
+    width: 4.5rem;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.company-share-bulk-blank-btn {
+    margin: 0 !important;
+}
+
+.company-share-bulk-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#companyShareBulkAddConfirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.company-share-grand-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #f8fafc;
+    border-radius: 12px;
+    font-size: clamp(12px, 0.9vw, 15px);
+}
+
+.company-share-grand-total--over {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+}
+
+.company-share-grand-label {
+    font-weight: 600;
+    opacity: 0.92;
+}
+
+.company-share-grand-value {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(14px, 1.05vw, 18px);
+}
+
+.company-share-callout {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    font-size: clamp(10px, 0.78vw, 13px);
+    line-height: 1.45;
+    color: #475569;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+}
+
+.company-share-callout-icon {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: #b45309;
+}
+
 .btn-edit {
     background-color: transparent;
     color: black;
@@ -234,12 +1320,13 @@ h1 {
     font-weight: bold;
     color: #1e293b;
     border-bottom: 1px solid #e2e8f0;
+    width: 100%;
 }
 
 .modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
     display: flex;
-    gap: 32px;
+    gap: 0px;
     align-items: stretch;
     min-height: 300px;
     /* 添加这行 */
@@ -357,6 +1444,25 @@ h1 {
 
 .btn-save:hover::after {
     transform: translateX(120%);
+}
+
+.btn-primary {
+    background: linear-gradient(180deg, #6fd4c6 0%, #2ea89b 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(80px, 6.25vw, 120px);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(14, 116, 106, 0.3);
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(180deg, #2ea89b 0%, #6fd4c6 100%);
+    box-shadow: 0 4px 8px rgba(14, 116, 106, 0.4);
+    transform: translateY(-1px);
 }
 
 /* Checkbox styles */

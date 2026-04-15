@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../config.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 }
 
 function translateApiMessage(string $message): string {
@@ -90,6 +91,32 @@ function roleExists(PDO $pdo, string $role): bool {
     // 容错：部分环境 role 表可能缺少核心角色，但前端仍会展示（如 PARTNER/STAFF/DEBTOR）
     $core = strtoupper(trim($role));
     return in_array($core, ['PARTNER', 'STAFF', 'DEBTOR'], true);
+}
+
+function buildAccountCreateLockKey(int $companyId, string $accountId): string {
+    $normalized = strtolower(trim($accountId));
+    $normalized = preg_replace('/[^a-z0-9_:-]/', '_', $normalized);
+    return 'add_account_' . $companyId . '_' . $normalized;
+}
+
+function acquireAccountCreateLock(PDO $pdo, string $lockKey, int $timeoutSeconds = 5): bool {
+    try {
+        $stmt = $pdo->prepare('SELECT GET_LOCK(?, ?)');
+        $stmt->execute([$lockKey, $timeoutSeconds]);
+        return (int)$stmt->fetchColumn() === 1;
+    } catch (PDOException $e) {
+        error_log('Failed to acquire account create lock: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function releaseAccountCreateLock(PDO $pdo, string $lockKey): void {
+    try {
+        $stmt = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+        $stmt->execute([$lockKey]);
+    } catch (PDOException $e) {
+        error_log('Failed to release account create lock: ' . $e->getMessage());
+    }
 }
 
 function insertAccount(PDO $pdo, array $row): int {
@@ -289,62 +316,79 @@ try {
     $alert_specific_date = $alert_start_date;
     $remark = !empty($_POST['remark']) ? trim($_POST['remark']) : null;
 
-    if (accountExistsInCompany($pdo, $account_id, $company_id)) {
-        throw new Exception('账户ID已存在');
+    $lockKey = buildAccountCreateLockKey($company_id, $account_id);
+    if (!acquireAccountCreateLock($pdo, $lockKey, 5)) {
+        throw new Exception('Account creation is in progress for this ID, please retry');
     }
-    if (!roleExists($pdo, $role_db_code)) {
-        throw new Exception('选择的角色无效');
-    }
-
-    $current_user_id = $_SESSION['user_id'];
-    $current_user_role = $_SESSION['role'] ?? '';
-
-    $pdo->beginTransaction();
     try {
-        $newAccountId = insertAccount($pdo, [
-            'account_id' => $account_id,
-            'name' => $name,
-            'role' => $role_db_code,
-            'password' => $password,
-            'payment_alert' => $payment_alert,
-            'alert_day' => $alert_day,
-            'alert_specific_date' => $alert_specific_date,
-            'alert_amount' => $alert_amount,
-            'remark' => $remark,
-        ]);
+        if (accountExistsInCompany($pdo, $account_id, $company_id)) {
+            throw new Exception('账户ID已存在');
+        }
+        if (!roleExists($pdo, $role_db_code)) {
+            throw new Exception('选择的角色无效');
+        }
 
-        $company_ids_to_link = [];
-        if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
-            $company_ids = json_decode($_POST['company_ids'], true);
-            if (is_array($company_ids) && !empty($company_ids)) {
-                foreach ($company_ids as $comp_id) {
-                    $comp_id = (int)$comp_id;
-                    if ($comp_id > 0 && userCanAccessCompany($pdo, $current_user_id, $comp_id, $current_user_role)) {
-                        $company_ids_to_link[] = $comp_id;
+        $current_user_id = $_SESSION['user_id'];
+        $current_user_role = $_SESSION['role'] ?? '';
+
+        $pdo->beginTransaction();
+        try {
+            // Re-check inside transaction while holding lock to avoid duplicate inserts under concurrency.
+            if (accountExistsInCompany($pdo, $account_id, $company_id)) {
+                throw new Exception('账户ID已存在');
+            }
+
+            $newAccountId = insertAccount($pdo, [
+                'account_id' => $account_id,
+                'name' => $name,
+                'role' => $role_db_code,
+                'password' => $password,
+                'payment_alert' => $payment_alert,
+                'alert_day' => $alert_day,
+                'alert_specific_date' => $alert_specific_date,
+                'alert_amount' => $alert_amount,
+                'remark' => $remark,
+            ]);
+
+            $company_ids_to_link = [];
+            if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
+                $company_ids = json_decode($_POST['company_ids'], true);
+                if (is_array($company_ids) && !empty($company_ids)) {
+                    foreach ($company_ids as $comp_id) {
+                        $comp_id = (int)$comp_id;
+                        if ($comp_id > 0 && userCanAccessCompany($pdo, $current_user_id, $comp_id, $current_user_role)) {
+                            $company_ids_to_link[] = $comp_id;
+                        }
                     }
                 }
             }
+            if (empty($company_ids_to_link)) {
+                $company_ids_to_link[] = $company_id;
+            }
+
+            linkAccountToCompanies($pdo, $newAccountId, $company_ids_to_link);
+            $users = getUsersWithCompanyAccess($pdo, $company_ids_to_link);
+            updateUserAccountPermissionsForNewAccount($pdo, $users, $company_ids_to_link, $newAccountId, $account_id);
+
+            $pdo->commit();
+
+            jsonResponse(true, '账户创建成功！', [
+                'id' => $newAccountId,
+                'account_id' => $account_id,
+                'name' => $name,
+                'role' => $role,
+                'status' => 'active',
+            ]);
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
         }
-        if (empty($company_ids_to_link)) {
-            $company_ids_to_link[] = $company_id;
-        }
-
-        linkAccountToCompanies($pdo, $newAccountId, $company_ids_to_link);
-        $users = getUsersWithCompanyAccess($pdo, $company_ids_to_link);
-        updateUserAccountPermissionsForNewAccount($pdo, $users, $company_ids_to_link, $newAccountId, $account_id);
-
-        $pdo->commit();
-
-        jsonResponse(true, '账户创建成功！', [
-            'id' => $newAccountId,
-            'account_id' => $account_id,
-            'name' => $name,
-            'role' => $role,
-            'status' => 'active',
-        ]);
     } catch (Exception $e) {
-        $pdo->rollBack();
         throw $e;
+    } finally {
+        releaseAccountCreateLock($pdo, $lockKey);
     }
 } catch (PDOException $e) {
     http_response_code(500);

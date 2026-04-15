@@ -427,7 +427,7 @@ if ($companyId) {
             <?php endif; ?>
 
             <!-- Process Section -->
-            <?php if ((empty($permissions) || in_array('process', $permissions)) && !$isCurrentCompanyC168): ?>
+            <?php if (empty($permissions) || in_array('process', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="processlist.php"
                         onclick="window.location.href='processlist.php'">
@@ -468,7 +468,7 @@ if ($companyId) {
             <?php endif; ?>
 
             <!-- Report Section（仅当前公司有 Games 权限时显示） -->
-            <?php if ((empty($permissions) || in_array('report', $permissions)) && !$isCurrentCompanyC168): ?>
+            <?php if (empty($permissions) || in_array('report', $permissions)): ?>
                 <div class="informationmenu-section" id="sidebar-report-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="menu-item-wrapper">
                         <div class="informationmenu-section-title" data-section="report">
@@ -497,54 +497,43 @@ if ($companyId) {
             <?php $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions)); ?>
             <div class="informationmenu-section">
                 <div class="menu-item-wrapper">
-                    <?php if ($isCurrentCompanyC168 && $hasMaintenance): ?>
-                        <div class="informationmenu-section-title account-direct" data-page="payment_maintenance.php"
-                            onclick="window.location.href='payment_maintenance.php'">
-                            <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-                            </svg>
-                            Maintenance Payment
+                    <div class="informationmenu-section-title" data-section="maintenance">
+                        <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                        </svg>
+                        Maintenance
+                        <span class="section-arrow">▶</span>
+                    </div>
+                    <div class="submenu" id="maintenance-submenu">
+                        <div class="submenu-content">
+                            <?php if ($companyHasGambling && $hasMaintenance): ?>
+                                <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
+                                    <span>Data Capture</span>
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($companyHasGambling && $hasMaintenance): ?>
+                                <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
+                                    <span>Transaction</span>
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($hasMaintenance): ?>
+                                <a href="payment_maintenance.php" class="submenu-item">
+                                    <span>Payment</span>
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($companyHasGambling): ?>
+                                <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
+                                    <span>Formula</span>
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
+                                <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link">
+                                    <span>Process</span>
+                                </a>
+                            <?php endif; ?>
                         </div>
-                    <?php else: ?>
-                        <div class="informationmenu-section-title" data-section="maintenance">
-                            <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-                            </svg>
-                            Maintenance
-                            <span class="section-arrow">▶</span>
-                        </div>
-                        <div class="submenu" id="maintenance-submenu">
-                            <div class="submenu-content">
-                                <?php if (!$isCurrentCompanyC168 && $companyHasGambling && $hasMaintenance): ?>
-                                    <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
-                                        <span>Data Capture</span>
-                                    </a>
-                                <?php endif; ?>
-                                <?php if (!$isCurrentCompanyC168): ?>
-                                    <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
-                                        <span>Transaction</span>
-                                    </a>
-                                <?php endif; ?>
-                                <?php if ($hasMaintenance): ?>
-                                    <a href="payment_maintenance.php" class="submenu-item">
-                                        <span>Payment</span>
-                                    </a>
-                                <?php endif; ?>
-                                <?php if (!$isCurrentCompanyC168 && $companyHasGambling): ?>
-                                    <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
-                                        <span>Formula</span>
-                                    </a>
-                                <?php endif; ?>
-                                <?php if (!$isCurrentCompanyC168 && $hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
-                                    <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link">
-                                        <span>Process</span>
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
+                    </div>
                 </div>
             </div>
         <?php endif; ?>

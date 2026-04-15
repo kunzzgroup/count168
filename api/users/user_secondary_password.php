@@ -4,6 +4,8 @@
  * 路径: api/users/user_secondary_password.php
  */
 session_start();
+// 注意：此文件需要写入 session（设置 secondary_password_verified）
+// session_write_close() 将在每个 session 写入点之后单独调用
 require_once __DIR__ . '/../../config.php';
 
 // 根路径（用于重定向，适配子目录部署）
@@ -38,6 +40,7 @@ function dbGetCompanyC168($pdo, $company_id) {
 // 如果不是c168公司的用户，直接跳转到dashboard
 if (!$is_c168) {
     $_SESSION['secondary_password_verified'] = true;
+    session_write_close(); // 写入完成即释放 session 锁
     header("Location: {$basePath}/dashboard.php");
     exit();
 }
@@ -62,12 +65,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user && !empty($user['secondary_password'])) {
                 if (password_verify($secondary_password, $user['secondary_password'])) {
                     $_SESSION['secondary_password_verified'] = true;
+                    session_write_close(); // 写入完成即释放 session 锁
                     header("Location: {$basePath}/dashboard.php");
                     exit();
                 }
                 $error_message = 'Secondary password is incorrect';
             } else {
                 $_SESSION['secondary_password_verified'] = true;
+                session_write_close(); // 写入完成即释放 session 锁
                 header("Location: {$basePath}/dashboard.php");
                 exit();
             }

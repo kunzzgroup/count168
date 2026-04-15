@@ -6,6 +6,7 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 
@@ -308,70 +309,68 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 }
 
 /**
- * 从 profit_sharing 字符串（如 "D - 500, A - 100"）中解析出指定账户的金额；按 account_id 或 name 匹配
+ * 成本/售价/利润等入账行：与 history_api / search_api 一致，以 description 是否以 Process: 或 Auto: 开头区分
+ * （账单类 WIN/LOSE 的 description 不为 Process:/Auto: 前缀，应继续展示 Remaining days bill 等合成描述）
  */
-function getProfitSharingAmountForAccount(?string $profitSharing, string $accountCode, string $accountName): ?float {
-    if ($profitSharing === null || trim($profitSharing) === '') {
-        return null;
+function bankProcessMaintenanceUseRawProcessDescription(?string $rawDesc): bool {
+    $d = trim((string) $rawDesc);
+    if ($d === '') {
+        return false;
     }
-    $code = trim($accountCode);
-    $name = trim($accountName);
-    foreach (explode(',', $profitSharing) as $part) {
-        $t = trim($part);
-        $dash = strrpos($t, ' - ');
-        if ($dash !== false) {
-            $accountText = trim(substr($t, 0, $dash));
-            $amountStr = trim(substr($t, $dash + 3));
-            $amount = (float) $amountStr;
-            if ($accountText !== '' && ($accountText === $code || $accountText === $name)) {
-                return $amount;
-            }
-        }
+    return (bool) preg_match('/^(Process:|Auto:)\s*/i', $d);
+}
+
+/**
+ * 去掉 Process:/Auto: 前缀，并转为标题大小写（如 Buy Price For Test M20 (Partial First Month)）
+ */
+function bankProcessMaintenanceFormatLedgerDescription(?string $rawFromDb): string {
+    $s = trim((string) $rawFromDb);
+    if ($s === '') {
+        return '';
     }
-    return null;
+    $s = preg_replace('/^(Process:|Auto:)\s*/i', '', $s);
+    $s = trim($s);
+    if ($s === '') {
+        return '';
+    }
+    if (function_exists('mb_strtolower') && function_exists('mb_convert_case')) {
+        $lower = mb_strtolower($s, 'UTF-8');
+        return mb_convert_case($lower, MB_CASE_TITLE, 'UTF-8');
+    }
+    return ucwords(strtolower($s));
 }
 
 /**
  * 将一行转换为统一输出项
- * Description 与 transaction history 一致：WIN/LOSE（Bank process）按 period_type 显示 Remaining days bill / Inactive bill / Monthly bill
+ * Description：账单类 WIN/LOSE 与 history 一致（Remaining/Monthly bill + 金额）；Process:/Auto: 行去前缀并以标题大小写展示
  */
 function rowToItem(array $row) {
+    $rawDescription = trim((string) ($row['description'] ?? ''));
     $description = $row['description'] ?? '';
 
-    // WIN/LOSE（Bank process 入账）：与 history_api 一致，Supplier 用 Buy Price(cost)，Customer 用 Sell Price(price)，Company 用 Profit，Profit sharing 用对应金额，格式如 Remaining days bill 2000 (MBB)
-    if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'])) {
-        $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
-        if ($periodType === 'partial_first_month') {
-            $description = 'Remaining days bill';
-        } elseif ($periodType === 'day_end_tail') {
-            $description = 'Day end tail bill';
-        } elseif ($periodType === 'manual_inactive') {
-            $description = 'Inactive bill';
-        } elseif ($periodType === 'monthly' || $periodType === '') {
-            $description = 'Monthly bill';
+    // WIN/LOSE（Bank process 入账）：与 history_api 一致，账单行 Description 金额用本笔实际入账 amount
+    if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'], true)) {
+        if (bankProcessMaintenanceUseRawProcessDescription($rawDescription)) {
+            $description = bankProcessMaintenanceFormatLedgerDescription($rawDescription);
         } else {
-            $description = 'Monthly bill';
+            $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
+            if ($periodType === 'partial_first_month') {
+                $description = 'Remaining days bill';
+            } elseif ($periodType === 'day_end_tail') {
+                $description = 'Day end tail bill';
+            } elseif ($periodType === 'resend_consolidated_range') {
+                $description = 'Resend consolidated bill';
+            } elseif ($periodType === 'manual_inactive') {
+                $description = 'Inactive bill';
+            } elseif ($periodType === 'monthly' || $periodType === '') {
+                $description = 'Monthly bill';
+            } else {
+                $description = 'Monthly bill';
+            }
+            $amt = isset($row['amount']) ? (float) $row['amount'] : 0.0;
+            $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+            $description = $description . ' ' . $billAmount;
         }
-        $accId = isset($row['account_id']) ? (int) $row['account_id'] : 0;
-        $accCode = isset($row['account_code']) ? (string) $row['account_code'] : '';
-        $accName = isset($row['account_name']) ? (string) $row['account_name'] : '';
-        $isSupplier = isset($row['card_merchant_id']) && (int) $row['card_merchant_id'] === $accId && $row['process_cost'] !== null && $row['process_cost'] !== '';
-        $isCompany = isset($row['profit_account_id']) && (int) $row['profit_account_id'] === $accId && $row['process_profit'] !== null && $row['process_profit'] !== '';
-        $isCustomer = isset($row['customer_id']) && (int) $row['customer_id'] === $accId && $row['process_price'] !== null && $row['process_price'] !== '';
-        if ($isSupplier) {
-            $amt = (float) $row['process_cost'];
-        } elseif ($isCompany) {
-            $amt = (float) $row['process_profit'];
-        } elseif ($isCustomer) {
-            $amt = (float) $row['process_price'];
-        } elseif (!empty($row['process_profit_sharing'])) {
-            $psAmount = getProfitSharingAmountForAccount($row['process_profit_sharing'], $accCode, $accName);
-            $amt = $psAmount !== null ? $psAmount : (isset($row['amount']) ? (float) $row['amount'] : 0);
-        } else {
-            $amt = isset($row['amount']) ? (float) $row['amount'] : 0;
-        }
-        $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
-        $description = $description . ' ' . $billAmount;
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
     }

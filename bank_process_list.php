@@ -784,12 +784,13 @@ if (!function_exists('renderBankProcessModals')) {
                 <div id="confirmBankResendScheduleFields" class="bank-resend-schedule-card">
                     <div class="bank-resend-schedule-card__head">
                         <span class="bank-resend-schedule-card__label">Billing schedule</span>
-                        <p class="bank-resend-schedule-card__hint">Edit here only — these fields are read-only in Edit Process.</p>
+                        <p class="bank-resend-schedule-card__hint">These values apply only to this Resend (which month to reopen). They are not saved to the process record; Edit Process keeps its own billing until you click Update Process.</p>
                     </div>
                     <div class="bank-resend-schedule-grid">
                         <div class="bank-resend-field">
                             <label class="bank-resend-field__label" for="bank_resend_day_start">Day start</label>
                             <input type="date" id="bank_resend_day_start" class="bank-resend-control" autocomplete="off">
+                            <div id="bankResendDayStartInlineError" class="bank-resend-inline-alert" hidden></div>
                         </div>
                         <div class="bank-resend-field">
                             <label class="bank-resend-field__label" for="bank_resend_day_end">Day end</label>

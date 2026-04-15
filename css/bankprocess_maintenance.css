@@ -89,7 +89,7 @@ h1 {
     color: #000000ff;
     backdrop-filter: blur(8px) saturate(1.2);
     -webkit-backdrop-filter: blur(8px) saturate(1.2);
-    box-shadow: 0 3px 4px rgba(15, 23, 42, 0.1);
+    box-shadow: none;
     transition: all 0.2s ease;
     box-sizing: border-box;
 }
@@ -97,7 +97,7 @@ h1 {
 .maintenance-search-section .maintenance-search-input:focus {
     outline: none;
     border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 3px 4px rgba(15, 23, 42, 0.1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
     background: rgba(255, 255, 255, 1);
 }
 
@@ -162,7 +162,7 @@ h1 {
 }
 
 .maintenance-company-filter {
-    display: none;
+    display: flex;
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
@@ -226,10 +226,15 @@ h1 {
 /* Search bar inline with Date Range (right side) */
 .maintenance-date-inline,
 .maintenance-search-inline {
-    /* Match Date Range group sizing so it stays beside it */
-    /* Slightly wider to look balanced */
-    min-width: clamp(200px, 18vw, 320px);
-    max-width: clamp(200px, 18vw, 320px);
+    /* Match Bank Process List search bar sizing (1:1) */
+    min-width: clamp(165px, 13vw, 250px);
+    max-width: clamp(165px, 13vw, 250px);
+}
+
+/* Ensure date-range picker fits the group width */
+.maintenance-date-inline .date-range-picker {
+    width: 100%;
+    min-width: 0;
 }
 
 .maintenance-search-inline-wrap {

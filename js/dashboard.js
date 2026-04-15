@@ -809,7 +809,8 @@ async function executeLoadData() {
         return;
     }
 
-    if (!window.companyId) return;
+    // Group-All 模式：不需要 window.companyId，只需要 selectedDashboardGroup
+    if (!isDashboardGroupAllMode && !window.companyId) return;
 
     // 检查参数是否仍然有效
     const checkParams = buildCacheKey();
@@ -827,7 +828,27 @@ async function executeLoadData() {
     setLoadingState(true);
 
     try {
-        const data = await fetchDashboardForCompany(window.companyId);
+        let data;
+        if (isDashboardGroupAllMode && selectedDashboardGroup) {
+            // 并行请求 group 旗下所有公司
+            const groupCompanies = allOwnerCompanies.filter(c =>
+                c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup &&
+                c.company_id && c.company_id.trim() !== ''
+            );
+            if (groupCompanies.length === 0) {
+                throw new Error('No companies found in group');
+            }
+            const results = await Promise.all(
+                groupCompanies.map(c => fetchDashboardForCompany(c.id))
+            );
+            const validResults = results.filter(d => d && validateData(d));
+            if (validResults.length === 0) {
+                throw new Error('No valid data returned for group companies');
+            }
+            data = mergeGroupData(validResults);
+        } else {
+            data = await fetchDashboardForCompany(window.companyId);
+        }
         if (data) {
             if (validateData(data)) {
                 updateDashboard(data);
@@ -855,7 +876,7 @@ function buildCacheKey() {
     return JSON.stringify({
         date_from: dateRange.startDate,
         date_to: dateRange.endDate,
-        company_id: window.companyId,
+        company_id: isDashboardGroupAllMode ? ('ALL_' + selectedDashboardGroup) : window.companyId,
         currency: window.dashboardCurrency || ''
     });
 }
@@ -895,6 +916,10 @@ function mergeGroupData(dataList) {
     let periodCapital = 0, periodExpenses = 0, periodProfit = 0;
     let bfCapital = 0, bfExpenses = 0, bfProfit = 0;
     const dailyCapital = {}, dailyExpenses = {}, dailyProfit = {}, dailyProfitFlow = {};
+    let hasOwnershipSetup = false;
+
+    // 收集每家公司的 NET PROFIT 和 ownership_percentage，用于加权平均
+    const companyEarnings = [];
 
     dataList.forEach(d => {
         capital += parseFloat(d.capital || 0);
@@ -917,7 +942,38 @@ function mergeGroupData(dataList) {
             mergeDailyMap(dailyProfit, d.daily_data.profit);
             mergeDailyMap(dailyProfitFlow, d.daily_data.profit_payment_flow_daily);
         }
+        if (d.has_ownership_setup) {
+            hasOwnershipSetup = true;
+        }
+
+        // 收集各公司的 Earnings 信息
+        const pct = parseFloat(d.ownership_percentage || 0);
+        const rawP = parseFloat(d?.period_total?.profit ?? d.profit) || 0;
+        const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
+        const displayE = rawE > 0 ? -rawE : rawE;
+        const netProfit = rawP + displayE;
+        companyEarnings.push({ netProfit, pct, earnings: netProfit * (pct / 100) });
     });
+
+    // 合计 Earnings = 各公司的 NET PROFIT × 各自 ownership_percentage 之和
+    const totalEarnings = companyEarnings.reduce((sum, c) => sum + c.earnings, 0);
+
+    // 计算合并后的整体 NET PROFIT
+    const mergedRawProfit = periodProfit;
+    const mergedRawExpenses = periodExpenses;
+    const mergedDisplayExpenses = mergedRawExpenses > 0 ? -mergedRawExpenses : mergedRawExpenses;
+    const mergedNetProfit = mergedRawProfit + mergedDisplayExpenses;
+
+    // 反推等效 ownership_percentage：Earnings = NET_PROFIT × (pct/100)
+    // → pct = (totalEarnings / mergedNetProfit) * 100
+    let effectiveOwnershipPct = 0;
+    if (mergedNetProfit !== 0) {
+        effectiveOwnershipPct = (totalEarnings / mergedNetProfit) * 100;
+    } else if (companyEarnings.length > 0) {
+        // NET PROFIT 为 0 时，取各公司 ownership_percentage 的平均值
+        const totalPct = companyEarnings.reduce((sum, c) => sum + c.pct, 0);
+        effectiveOwnershipPct = totalPct / companyEarnings.length;
+    }
 
     return {
         capital, expenses, profit,
@@ -929,7 +985,9 @@ function mergeGroupData(dataList) {
             profit: dailyProfit,
             profit_payment_flow_daily: dailyProfitFlow
         },
-        date_range: dataList[0]?.date_range || { from: dateRange.startDate, to: dateRange.endDate }
+        date_range: dataList[0]?.date_range || { from: dateRange.startDate, to: dateRange.endDate },
+        ownership_percentage: effectiveOwnershipPct,
+        has_ownership_setup: hasOwnershipSetup
     };
 }
 
@@ -1063,7 +1121,19 @@ function updateDashboard(data) {
                 if (capitalEl) capitalEl.textContent = formatCurrency(displayProfitNum);
                 if (expensesEl) expensesEl.textContent = formatCurrency(displayExpensesNum);
                 if (profitEl) profitEl.textContent = formatCurrency(netProfitDisplay);
-                if (earningsEl) earningsEl.textContent = formatCurrency(earningsDisplay);
+                if (earningsEl) {
+                    earningsEl.textContent = formatCurrency(earningsDisplay);
+                    const earningsCard = document.getElementById('earnings-card-wrapper');
+                    if (earningsCard) {
+                        const showEarnings = !!data?.has_ownership_setup;
+                        earningsCard.style.display = showEarnings ? 'flex' : 'none';
+                        // Toggle top-row layout: 3-column grid when Earnings visible, full-width when hidden
+                        const topRow = earningsCard.closest('.dashboard-top-row');
+                        if (topRow) {
+                            topRow.classList.toggle('has-earnings', showEarnings);
+                        }
+                    }
+                }
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
                     chartDateRangeEl.textContent =
@@ -1184,6 +1254,9 @@ async function updateChart(data) {
     const capitalData = [];
     const expensesData = [];
     const profitData = [];
+    const netProfitData = [];
+    const earningsData = [];
+    const ownershipPercentage = parseFloat(data?.ownership_percentage) || 0;
 
     // 初始化累计值（从 API 返回的 initial_balance 开始）
     // initial_balance 是起始日期之前的余额总和（B/F）
@@ -1249,6 +1322,10 @@ async function updateChart(data) {
             capitalData.push(monthCapital);
             expensesData.push(monthExpenses);
             profitData.push(monthProfit);
+            
+            const monthNetProfit = monthProfit + monthExpenses;
+            netProfitData.push(monthNetProfit);
+            earningsData.push(monthNetProfit * (ownershipPercentage / 100));
         });
     } else {
         // 非年份范围：按天显示
@@ -1293,7 +1370,9 @@ async function updateChart(data) {
                 sortedDates: [],
                 capitalData: [],
                 expensesData: [],
-                profitData: []
+                profitData: [],
+                netProfitData: [],
+                earningsData: []
             };
             if (trendChart) {
                 trendChart.destroy();
@@ -1329,15 +1408,14 @@ async function updateChart(data) {
                 const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
 
                 // 按天图表显示“当日增量”，无数据日为 0（不做累计）
-                const hasStrictProfitDelta = strictProfitDailyFlow
-                    && Object.prototype.hasOwnProperty.call(strictProfitDailyFlow, date)
-                const strictProfitDelta = hasStrictProfitDelta
-                    ? (parseFloat(strictProfitDailyFlow[date]) || 0)
-                    : profitDelta
-                const displayProfit = strictProfitDelta
-                const displayExpenses = (expensesDelta > 0 ? -expensesDelta : expensesDelta)
+                const displayProfit = profitDelta;
+                const displayExpenses = (expensesDelta > 0 ? -expensesDelta : expensesDelta);
                 profitData.push(displayProfit);
                 expensesData.push(displayExpenses);
+                
+                const netProfit = displayProfit + displayExpenses;
+                netProfitData.push(netProfit);
+                earningsData.push(netProfit * (ownershipPercentage / 100));
 
                 // 如果需要 capital 数据（虽然当前图表不显示），也可以累计
                 const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
@@ -1359,10 +1437,12 @@ async function updateChart(data) {
         sortedDates: sortedDates,
         capitalData: capitalData,
         expensesData: expensesData,
-        profitData: profitData
+        profitData: profitData,
+        netProfitData: netProfitData,
+        earningsData: earningsData
     };
 
-    // 只显示 Profit 和 Expenses 数据集
+    // 显示所有四条线数据集
     const allDatasets = [
         {
             label: 'Profit',
@@ -1411,10 +1491,62 @@ async function updateChart(data) {
             pointRadius: 0,
             pointHoverRadius: 8,
             dataType: 'expenses'
+        },
+        {
+            label: 'NET PROFIT',
+            data: netProfitData,
+            borderColor: '#10b981',
+            backgroundColor: function (context) {
+                const chart = context.chart;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return null;
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+                gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.2)');
+                gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+                return gradient;
+            },
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 8,
+            dataType: 'net_profit'
+        },
+        {
+            label: 'Earnings',
+            data: earningsData,
+            borderColor: '#f59e0b',
+            backgroundColor: function (context) {
+                const chart = context.chart;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return null;
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
+                gradient.addColorStop(0.3, 'rgba(245, 158, 11, 0.2)');
+                gradient.addColorStop(0.7, 'rgba(245, 158, 11, 0.1)');
+                gradient.addColorStop(1, 'rgba(245, 158, 11, 0.02)');
+                return gradient;
+            },
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 8,
+            dataType: 'earnings'
         }
     ];
 
-    // 默认显示所有数据集（Profit 和 Expenses）
+    // 根据按钮状态判断是否隐藏
+    document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+        const datasetIndex = parseInt(btn.dataset.dataset);
+        if (allDatasets[datasetIndex]) {
+            allDatasets[datasetIndex].hidden = !btn.classList.contains('active');
+        }
+    });
+
+    // 默认显示所有数据集
     let filteredDatasets = allDatasets;
 
     const chartData = {
@@ -1502,16 +1634,23 @@ async function updateChart(data) {
                     const dateKey = dates[i];
                     if (pointMap.has(dateKey)) {
                         const p = pointMap.get(dateKey);
+                        profitData[i] = parseFloat(p.profit || 0) || 0;
                         expensesData[i] = parseFloat(p.expenses || 0) || 0;
+                        netProfitData[i] = profitData[i] + expensesData[i];
+                        earningsData[i] = netProfitData[i] * (ownershipPercentage / 100);
                     }
                 }
 
                 chartMetadata.profitData = profitData;
                 chartMetadata.expensesData = expensesData;
+                chartMetadata.netProfitData = netProfitData;
+                chartMetadata.earningsData = earningsData;
 
-                if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 2) {
+                if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 4) {
                     trendChart.data.datasets[0].data = [...profitData];
                     trendChart.data.datasets[1].data = [...expensesData];
+                    trendChart.data.datasets[2].data = [...netProfitData];
+                    trendChart.data.datasets[3].data = [...earningsData];
                     trendChart.update('none');
                 }
 
@@ -1709,11 +1848,17 @@ function createChart(canvas, chartData) {
                                         try {
                                             const dateObj = new Date(date);
                                             if (!isNaN(dateObj.getTime())) {
+                                                const p = chartMetadata.profitData[dataIndex] || 0;
+                                                const e = chartMetadata.expensesData[dataIndex] || 0;
+                                                const np = chartMetadata.netProfitData[dataIndex] || 0;
+                                                const er = chartMetadata.earningsData[dataIndex] || 0;
                                                 return [
                                                     '',
-                                                    '--- Daily Summary ---',
-                                                    `Profit: RM ${formatCurrency(profitData[dataIndex] || 0)}`,
-                                                    `Expenses: RM ${formatCurrency(expensesData[dataIndex] || 0)}`
+                                                    '--- Summary ---',
+                                                    `Profit: RM ${formatCurrency(p)}`,
+                                                    `Expenses: RM ${formatCurrency(e)}`,
+                                                    `NET PROFIT: RM ${formatCurrency(np)}`,
+                                                    `Earnings: RM ${formatCurrency(er)}`
                                                 ];
                                             }
                                         } catch (e) {
@@ -1741,9 +1886,10 @@ function createChart(canvas, chartData) {
 // 存储所有公司数据（含 group_id）以便 group 筛选
 let allOwnerCompanies = [];
 let selectedDashboardGroup = null; // null = 显示所有
+let isDashboardGroupAllMode = false; // true = 全选 group 旗下所有公司汇总
 
 function loadOwnerCompanies() {
-    return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php'))
+    return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php?all=1'))
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
@@ -1777,8 +1923,13 @@ function loadOwnerCompanies() {
                     selectedDashboardGroup = null;
                 }
 
-                // 如果经过上述验证后并没有选中 Group，则保持为空。
-                // 根据用户要求，登录第一眼应该默认不选中任何 Group，从而只展示独立公司。
+                // 如果经过上述验证后并没有选中 Group（首次登录），但当前公司属于某个 Group，
+                // 说明用户是通过 Group ID 登录的，自动点亮该 Group
+                if (!selectedDashboardGroup && currentCompany && currentCompany.group_id && currentCompany.group_id.trim() !== '') {
+                    selectedDashboardGroup = currentCompany.group_id.toUpperCase();
+                    sessionStorage.setItem('dashboard_group_filter', selectedDashboardGroup);
+                    console.log('[Dashboard] Auto-selected group based on current company:', selectedDashboardGroup);
+                }
 
                 // 渲染 Group pills（只在有 group 时才显示）
                 if (groups.length > 0) {
@@ -1786,10 +1937,11 @@ function loadOwnerCompanies() {
                 }
 
                 // 渲染 Company buttons
-                if (data.data.length > 1) {
+                if (data.data.length > 0) {
+                    if (data.data.length === 1) {
+                        window.companyId = data.data[0].id;
+                    }
                     renderCompanyButtons(data.data);
-                } else if (data.data.length === 1) {
-                    window.companyId = data.data[0].id;
                 }
             }
             return data;
@@ -1818,11 +1970,25 @@ function renderGroupButtons(groups) {
 
         btn.addEventListener('click', async function () {
             if (selectedDashboardGroup === groupId) {
-                // 再次点击 → 取消选择，显示所有公司
+                // 再次点击 → 取消选择，默认选择首个独立公司
                 selectedDashboardGroup = null;
                 sessionStorage.removeItem('dashboard_group_filter');
                 btn.classList.remove('active');
-                renderCompanyButtons(allOwnerCompanies);
+                
+                const independentCompanies = allOwnerCompanies.filter(c =>
+                    (!c.group_id || c.group_id.trim() === '') && c.company_id && c.company_id.trim() !== ''
+                );
+
+                if (independentCompanies.length > 0) {
+                    const firstCompany = independentCompanies[0];
+                    if (parseInt(firstCompany.id) !== parseInt(window.companyId)) {
+                        switchCompany(firstCompany.id, firstCompany.company_id);
+                    } else {
+                        renderCompanyButtons(allOwnerCompanies);
+                    }
+                } else {
+                    renderCompanyButtons(allOwnerCompanies);
+                }
             } else {
                 // 选择该 group
                 selectedDashboardGroup = groupId;
@@ -1893,6 +2059,37 @@ function renderCompanyButtons(companies) {
         return;
     }
 
+    // 当有 group 被选中且该 group 旗下有多于一家公司时，插入 [All] 按钮
+    if (selectedDashboardGroup && filtered.length > 1) {
+        const allBtn = document.createElement('button');
+        allBtn.className = 'transaction-company-btn dashboard-all-btn';
+        allBtn.textContent = 'All';
+        allBtn.dataset.groupAll = selectedDashboardGroup;
+
+        if (isDashboardGroupAllMode) {
+            allBtn.classList.add('active');
+        }
+
+        allBtn.addEventListener('click', async function () {
+            if (isDashboardGroupAllMode) {
+                // 再次点击 All → 取消全选，切回第一家公司
+                isDashboardGroupAllMode = false;
+                allBtn.classList.remove('active');
+                const firstCompany = filtered[0];
+                switchCompany(firstCompany.id, firstCompany.company_id);
+            } else {
+                // 激活 All 模式
+                isDashboardGroupAllMode = true;
+                // 只亮 All 按钮自己，公司按钮都不亮（与 transaction.php All 行为一致）
+                container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
+                allBtn.classList.add('active');
+                lastRequestParams = null;
+                await loadData(true);
+            }
+        });
+        container.appendChild(allBtn);
+    }
+
     filtered.forEach(company => {
         const btn = document.createElement('button');
         btn.className = 'transaction-company-btn';
@@ -1905,11 +2102,16 @@ function renderCompanyButtons(companies) {
 
         btn.dataset.companyId = company.id;
         
-        if (parseInt(company.id) === parseInt(window.companyId)) {
+        // 全选模式下只亮 All 按钮（公司按钮不高亮）；否则只高亮当前公司
+        if (!isDashboardGroupAllMode && parseInt(company.id) === parseInt(window.companyId)) {
             btn.classList.add('active');
         }
 
         btn.addEventListener('click', async function () {
+            // 退出全选模式，切换到单公司
+            if (isDashboardGroupAllMode) {
+                isDashboardGroupAllMode = false;
+            }
             // 单公司模式：原有逻辑，刷新整页并同步 session
             switchCompany(company.id, company.company_id);
         });
@@ -2160,94 +2362,18 @@ async function switchCompany(companyId, companyCode) {
     }
 }
 
-// 初始化图表数据切换按钮
+// 初始化图表数据图例开关按钮
 function initChartDataButtons() {
-    const buttons = document.querySelectorAll('.chart-data-btn');
+    const buttons = document.querySelectorAll('.chart-toggle-btn');
     buttons.forEach(btn => {
         btn.addEventListener('click', function () {
-            // 移除所有按钮的 active 类
-            buttons.forEach(b => b.classList.remove('active'));
-            // 添加当前按钮的 active 类
-            this.classList.add('active');
-            // 更新选择的数据类型
-            selectedChartDataType = this.getAttribute('data-type');
-            // 重新渲染图表
-            if (chartMetadata.sortedDates.length > 0) {
-                const chartCanvas = document.getElementById('trend-chart');
-                if (chartCanvas) {
-                    // 重新构建图表数据
-                    const dates = chartMetadata.sortedDates.map(d => {
-                        try {
-                            const date = new Date(d);
-                            if (isNaN(date.getTime())) return d;
-                            return `${date.getDate()}/${date.getMonth() + 1}`;
-                        } catch (e) {
-                            return d;
-                        }
-                    });
-
-                    const allDatasets = [
-                        {
-                            label: 'Profit',
-                            data: chartMetadata.profitData,
-                            borderColor: '#3b82f6',
-                            backgroundColor: function (context) {
-                                const chart = context.chart;
-                                const { ctx, chartArea } = chart;
-                                if (!chartArea) return null;
-                                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-                                gradient.addColorStop(0.3, 'rgba(59, 130, 246, 0.2)');
-                                gradient.addColorStop(0.7, 'rgba(59, 130, 246, 0.1)');
-                                gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
-                                return gradient;
-                            },
-                            fill: true,
-                            tension: 0.4,
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            pointHoverRadius: 8,
-                            dataType: 'profit'
-                        },
-                        {
-                            label: 'Expenses',
-                            data: chartMetadata.expensesData,
-                            borderColor: '#ef4444',
-                            backgroundColor: function (context) {
-                                const chart = context.chart;
-                                const { ctx, chartArea } = chart;
-                                if (!chartArea) return null;
-                                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                                gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
-                                gradient.addColorStop(0.3, 'rgba(239, 68, 68, 0.2)');
-                                gradient.addColorStop(0.7, 'rgba(239, 68, 68, 0.1)');
-                                gradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
-                                return gradient;
-                            },
-                            fill: true,
-                            tension: 0.4,
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            pointHoverRadius: 8,
-                            dataType: 'expenses'
-                        }
-                    ];
-
-                    // 默认显示所有数据集（Profit 和 Expenses）
-                    let filteredDatasets = allDatasets;
-
-                    const chartData = {
-                        labels: dates,
-                        datasets: filteredDatasets
-                    };
-
-                    // 销毁旧图表并创建新图表
-                    if (trendChart) {
-                        trendChart.destroy();
-                        trendChart = null;
-                    }
-                    createChart(chartCanvas, chartData);
-                }
+            this.classList.toggle('active');
+            const datasetIndex = parseInt(this.dataset.dataset);
+            
+            if (trendChart) {
+                const isHidden = !this.classList.contains('active');
+                trendChart.setDatasetVisibility(datasetIndex, !isHidden);
+                trendChart.update('none'); // Update without animation
             }
         });
     });
@@ -2310,11 +2436,16 @@ document.addEventListener('DOMContentLoaded', async function () {
         initDatePickers();
         initChartDataButtons();
         await loadCompaniesPromise;
-        await loadCurrencies();
-        // 确保日期范围已设置后再加载数据（首次加载立即请求，不等待防抖）
+        // 串行执行：loadCurrencies 先完成后再 loadData，确保 window.dashboardCurrency 就绪
         if (dateRange.startDate && dateRange.endDate && window.companyId) {
+            // loadCurrencies 必须先完成，以确保 window.dashboardCurrency 被正确设置后，
+            // loadData 才带上正确的 currency 参数发起 API 请求；
+            // 否则两者并行时 loadData 会在 dashboardCurrency 尚未赋值时就发出请求，
+            // 导致不同货币（MYR / SGD）的数据混合在一起显示。
+            await loadCurrencies();
             await loadData(true);
         } else {
+            await loadCurrencies();
             showError('Missing required parameters, please refresh the page');
         }
     } catch (error) {
