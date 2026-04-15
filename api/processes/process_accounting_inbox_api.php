@@ -334,13 +334,18 @@ function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $proces
     return (bool) $stmt->fetch();
 }
 
-function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType): bool
+function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType, ?string $createdYmd = null): bool
 {
     if (!$hasPeriodType) {
         return true;
     }
     try {
         $lastInclusive = (new DateTimeImmutable($exclusiveEndYmd))->modify('-1 day');
+        // 新建流程在合同常规账期结束后才创建时，旧账期本就不会进入 Accounting Due，
+        // 不应再强制要求“最后常规月已入账/跳过”，否则 day_end_tail 永远不会出现。
+        if ($createdYmd !== null && $createdYmd !== '' && $createdYmd > $lastInclusive->format('Y-m-d')) {
+            return true;
+        }
         $y = (int) $lastInclusive->format('Y');
         $mo = (int) $lastInclusive->format('n');
         $lastYm = $lastInclusive->format('Y-n');
@@ -1120,7 +1125,8 @@ try {
             }
             $startTsNorm = strtotime($startDate);
             $startDayOfMonth = $startTsNorm !== false ? (int) date('j', $startTsNorm) : 1;
-            if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType)) {
+            $createdYmdTail = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate);
+            if (!isBillingCompleteBeforeDayEndTail($pdo, $company_id, $processId, $exclusiveEnd, $startDate, $startDayOfMonth, $hasPeriodType, $createdYmdTail)) {
                 continue;
             }
             if ($today < $exclusiveEnd) {
@@ -1129,7 +1135,6 @@ try {
             if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $r['day_end'] ?? null, $frequency, !empty($r['accounting_resend_relax_created_floor']), !empty($r['accounting_resend_single_period_from_schedule']))) {
                 continue;
             }
-            $createdYmdTail = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate);
             if ($today < maxYmd($startDate, $createdYmdTail)) {
                 continue;
             }

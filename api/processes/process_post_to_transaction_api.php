@@ -1078,12 +1078,14 @@ try {
             $transactionDate = $fallbackDate;
             $postedDateForInbox = $fallbackDate;
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
-            // 流水/ Payment History 与 monthly 一致锚定在 Day start；PAP.posted_date 仍用合同自然结束次日，避免与首期 monthly 同日期冲突
+            // day_end_tail：交易归属日应落在尾段起始日（通常是合同自然结束次日；1st 频率下即该月1号），
+            // 这样 Payment History 会显示在正确账期（例如 4/1-4/15 挂在 4/1）。
+            // PAP.posted_date 仍用合同自然结束次日，保持 Inbox 去重口径。
             $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
             if ($term !== null && $term >= 1) {
                 $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
                 if ($exclusiveEnd !== null) {
-                    $transactionDate = $dayStartYmd;
+                    $transactionDate = $exclusiveEnd;
                     $postedDateForInbox = $exclusiveEnd;
                 }
             }
