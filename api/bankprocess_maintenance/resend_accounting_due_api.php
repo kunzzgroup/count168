@@ -2,6 +2,7 @@
 /**
  * Bank Process List：Resend — 清除已入账标记，使 Process 可再次进入 Accounting Due（入账规则不变）。
  * 成功后置 accounting_resend_relax_created_floor，使 Inbox 在「旧数据不拿」上与日常新建流程区分（见 maintenance_accounting_resend_lib::bmp_inboxEffectiveCreatedYmd）。
+ * 请求体中的 day_start / day_end / day_start_frequency 仅用于本次按哪一账期清除标记，不 UPDATE 到 bank_process（与 Edit Process 分离）。
  */
 
 session_start();
@@ -191,20 +192,7 @@ try {
     );
     $delPend->execute([$company_id, $bankProcessId]);
 
-    if ($scheduleFromClient) {
-        $hasFreqCol = bmp_resend_tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
-        if ($hasFreqCol) {
-            $upd = $pdo->prepare(
-                'UPDATE bank_process SET day_start = ?, day_end = ?, day_start_frequency = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?'
-            );
-            $upd->execute([$newDayStart, $newDayEnd, $newFrequency, $bankProcessId, $company_id]);
-        } else {
-            $upd = $pdo->prepare(
-                'UPDATE bank_process SET day_start = ?, day_end = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?'
-            );
-            $upd->execute([$newDayStart, $newDayEnd, $bankProcessId, $company_id]);
-        }
-    }
+    // 客户端传入的 day_start / day_end / frequency 仅用于本次计算清除哪个月份的 posted 标记，不写入 bank_process（与 Edit Process 保存分离）。
 
     $flg = $pdo->prepare(
         'UPDATE bank_process SET accounting_resend_relax_created_floor = 1, dts_modified = NOW() WHERE id = ? AND company_id = ?'
