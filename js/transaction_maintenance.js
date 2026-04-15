@@ -275,6 +275,10 @@
         if (typeof window !== 'undefined') {
             window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
         }
+        if (hasGamblingFromSession === false) {
+            window.location.href = 'dashboard.php';
+            return;
+        }
         const permissions = await fetchCompanyPermissions(currentCompanyCode);
         if (isBankOnlyCategoryCompany(permissions)) {
             window.location.href = 'dashboard.php';
@@ -687,6 +691,10 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+        if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
+            window.location.href = 'dashboard.php';
+            return;
+        }
         initDatePickers();
         initMaintenanceDropdownHover();
 

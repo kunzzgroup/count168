@@ -381,12 +381,14 @@ if (!empty($session_company_id)) {
             if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
             
             // 先更新 session
+            let hasGamblingFromSession = undefined;
             try {
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
                 } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
+                    hasGamblingFromSession = result.data.has_gambling;
                     window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
                 }
             } catch (error) {
@@ -397,6 +399,10 @@ if (!empty($session_company_id)) {
             currentCompanyCode = companyCode || '';
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+            }
+            if (hasGamblingFromSession === false) {
+                window.location.href = 'dashboard.php';
+                return;
             }
             const permissions = await fetchCompanyPermissions(currentCompanyCode);
             if (isBankOnlyCategoryCompany(permissions)) {
@@ -796,6 +802,10 @@ if (!empty($session_company_id)) {
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
+                window.location.href = 'dashboard.php';
+                return;
+            }
             // Initialize date pickers
             initDatePickers();
             initMaintenanceDropdownHover();
