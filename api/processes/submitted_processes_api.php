@@ -442,82 +442,40 @@ function getSubmissionsByCaptureDate($user_id)
         }
 
         if ($hasCaptureDateColumn) {
-            // capture_date 优先；NULL 时回退 date_submitted（旧数据仅写 date_submitted 时维护页与列表一致）
-            $dateFilter = "DATE(COALESCE(sp.capture_date, sp.date_submitted)) = ?";
+            // Use capture_date for filtering
+            $dateFilter = "DATE(sp.capture_date) = ?";
             $dateParam = $capture_date;
-            $sp2AccountingDateExpr = 'DATE(COALESCE(sp2.capture_date, sp2.date_submitted))';
         } else {
             // Fall back to date_submitted if capture_date column doesn't exist
             $dateFilter = "DATE(sp.date_submitted) = ?";
             $dateParam = $capture_date;
-            $sp2AccountingDateExpr = 'DATE(sp2.date_submitted)';
         }
 
-        // 第二段用 p2：与 maintenance 一致须存在明细；避免与 submitted_processes 重复
-        $permissionConditionDc = str_replace('p.id', 'p2.id', $permissionCondition);
+        $stmt = $pdo->prepare("
+            SELECT 
+                sp.id,
+                sp.process_id,
+                sp.date_submitted,
+                sp.created_at,
+                sp.user_type,
+                p.process_id as process_code,
+                d.name as description_name,
+                COALESCE(u.login_id, o.owner_code) as submitted_by
+            FROM submitted_processes sp
+            JOIN process p ON sp.process_id = p.id
+            LEFT JOIN description d ON p.description_id = d.id
+            LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
+            LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
+            WHERE sp.company_id = ?
+              AND $dateFilter
+              AND p.company_id = ?
+            $permissionCondition
+            ORDER BY sp.created_at DESC
+        ");
 
-        $sql = "
-            SELECT * FROM (
-                SELECT 
-                    sp.id,
-                    sp.process_id,
-                    sp.date_submitted,
-                    sp.created_at,
-                    sp.user_type,
-                    p.process_id as process_code,
-                    d.name as description_name,
-                    COALESCE(u.login_id, o.owner_code) as submitted_by
-                FROM submitted_processes sp
-                JOIN process p ON sp.process_id = p.id
-                LEFT JOIN description d ON p.description_id = d.id
-                LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
-                LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
-                WHERE sp.company_id = ?
-                  AND $dateFilter
-                  AND p.company_id = ?
-                $permissionCondition
-                UNION ALL
-                SELECT
-                    -dc.id AS id,
-                    dc.process_id,
-                    DATE(dc.capture_date) AS date_submitted,
-                    dc.created_at,
-                    dc.user_type,
-                    p2.process_id AS process_code,
-                    d2.name AS description_name,
-                    COALESCE(u2.login_id, o2.owner_code) AS submitted_by
-                FROM data_captures dc
-                INNER JOIN process p2 ON dc.process_id = p2.id
-                LEFT JOIN description d2 ON p2.description_id = d2.id
-                LEFT JOIN user u2 ON dc.created_by = u2.id AND dc.user_type = 'user'
-                LEFT JOIN owner o2 ON dc.created_by = o2.id AND dc.user_type = 'owner'
-                WHERE dc.company_id = ?
-                  AND DATE(dc.capture_date) = ?
-                  AND p2.company_id = ?
-                  AND EXISTS (
-                      SELECT 1 FROM data_capture_details dcd
-                      WHERE dcd.capture_id = dc.id AND dcd.company_id = dc.company_id
-                  )
-                $permissionConditionDc
-                  AND NOT EXISTS (
-                      SELECT 1 FROM submitted_processes sp2
-                      WHERE sp2.company_id = dc.company_id
-                        AND sp2.process_id = dc.process_id
-                        AND $sp2AccountingDateExpr = DATE(dc.capture_date)
-                  )
-            ) combined
-            ORDER BY combined.created_at DESC
-        ";
+        // 调整参数顺序：company_id, date, company_id (for process), processIds...
+        $params = array_merge([$currentCompanyId, $dateParam, $currentCompanyId], !empty($processIds) ? $processIds : []);
 
-        $permSuffix = !empty($processIds) ? $processIds : [];
-        $params = array_merge(
-            [$currentCompanyId, $dateParam, $currentCompanyId],
-            $permSuffix,
-            [$currentCompanyId, $dateParam, $currentCompanyId],
-            $permSuffix
-        );
-
-        $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
