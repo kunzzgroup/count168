@@ -535,7 +535,7 @@
         padding: 3px 20px !important;
         min-height: 28px !important;
     }
-    
+
     .card-item,
     .account-card-item,
     .member-card-item,
@@ -556,22 +556,24 @@
     .action-buttons-container {
         margin-top: 5px !important;
     }
-    
+
     .action-buttons {
         padding: 6px 20px !important;
     }
-    
-    h1, .page-title {
+
+    h1,
+    .page-title {
         margin-top: 6px !important;
         margin-bottom: 4px !important;
     }
-    
+
     .separator-line {
         margin-top: 2px !important;
         margin-bottom: 0px !important;
     }
 }
-
+
+
 /* ==========================================================================
    GLOBAL PAGINATION — FIXED BOTTOM-RIGHT (all pages, all screen sizes)
    Covers: domain, member, ownership + any *-pagination-container class.
@@ -626,7 +628,6 @@ body.transaction-page {
 }
 
 /* Main containers: flex-column, full height, NO padding-bottom tricks */
-.container,
 .process-page .container,
 .datacapture-container,
 .dashboard-container,
