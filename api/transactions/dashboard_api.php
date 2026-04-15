@@ -58,6 +58,34 @@ function dashboardHasTransactionEntry(PDO $pdo): bool
 }
 
 /**
+ * 检查 transactions.source_bank_process_id 字段是否存在（static 缓存）
+ */
+function dashboardHasSourceBankProcessId(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) return $has;
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+        $has = $check && $check->rowCount() > 0;
+    } catch (Throwable $e) { $has = false; }
+    return $has;
+}
+
+/**
+ * 检查 transactions.source_bank_process_period_type 字段是否存在（static 缓存）
+ */
+function dashboardHasSourceBankProcessPeriodType(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) return $has;
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
+        $has = $check && $check->rowCount() > 0;
+    } catch (Throwable $e) { $has = false; }
+    return $has;
+}
+
+/**
  * 检查 company_ownership 表及 owner_type 列是否存在（static 缓存）
  * 返回 ['table' => bool, 'owner_type_col' => bool]
  */
@@ -275,6 +303,30 @@ try {
             }
         }
 
+        // --- 智能日期：Bank Process day_start 映射 ---
+        $wlJoinSql = '';
+        $txnDateExpr = "DATE(t.transaction_date)";
+        if (dashboardHasSourceBankProcessId($pdo)) {
+            $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
+            $bpDayStartSql = "CASE
+                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
+                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
+                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
+                ELSE NULL
+            END";
+            $periodCondition = dashboardHasSourceBankProcessPeriodType($pdo)
+                ? "t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')"
+                : "1=1";
+            $txnDateExpr = "(CASE
+                WHEN t.transaction_type IN ('WIN', 'LOSE')
+                     AND t.source_bank_process_id IS NOT NULL
+                     AND $periodCondition
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
+        }
+
         // --- 1. 计算 B/F (Balance Forward) ---
         // A. Data Capture B/F
         $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0)
@@ -305,10 +357,10 @@ try {
                         WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
                         ELSE 0
                     END), 0)
-                    FROM transactions t
+                    FROM transactions t $wlJoinSql
                     WHERE t.company_id = ?
                       AND t.account_id IN ($ids_placeholder)
-                      AND t.transaction_date < ?" . $currency_filter_t_to . $clearFilter . $contraApproval;
+                      AND $txnDateExpr < ?" . $currency_filter_t_to . $clearFilter . $contraApproval;
             $bf_stmt = $pdo->prepare($sql);
             $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_to));
             $total_bf += (float) $bf_stmt->fetchColumn();
@@ -319,10 +371,10 @@ try {
                         WHEN transaction_type = 'CONTRA' THEN amount
                         ELSE 0
                     END), 0)
-                    FROM transactions t
+                    FROM transactions t $wlJoinSql
                     WHERE t.company_id = ?
                       AND t.from_account_id IN ($ids_placeholder)
-                      AND t.transaction_date < ?" . $currency_filter_t_from . $clearFilter . $contraApproval;
+                      AND $txnDateExpr < ?" . $currency_filter_t_from . $clearFilter . $contraApproval;
             $bf_stmt = $pdo->prepare($sql);
             $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_from));
             $total_bf += (float) $bf_stmt->fetchColumn();
@@ -373,7 +425,7 @@ try {
             $contraApproval = dashboardContraApprovedWhere($pdo, 't');
 
             // To Account
-            $sql = "SELECT DATE(t.transaction_date) as date,
+            $sql = "SELECT $txnDateExpr as date,
                            COALESCE(SUM(CASE 
                                WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
                                WHEN transaction_type = 'CONTRA' THEN -t.amount
@@ -385,14 +437,14 @@ try {
                                WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
                                ELSE 0
                            END), 0) as cr_dr
-                    FROM transactions t
+                    FROM transactions t $wlJoinSql
                     WHERE t.company_id = ?
                       AND t.account_id IN ($ids_placeholder)
-                      AND t.transaction_date BETWEEN ? AND ?
+                      AND $txnDateExpr BETWEEN ? AND ?
                       AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
                 . $currency_filter_t_to . $clearFilter . $contraApproval . "
-                    GROUP BY DATE(t.transaction_date)
-                    ORDER BY DATE(t.transaction_date)";
+                    GROUP BY $txnDateExpr
+                    ORDER BY $txnDateExpr";
             $daily_stmt = $pdo->prepare($sql);
             $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_to));
             foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -400,21 +452,21 @@ try {
             }
 
             // From Account
-            $sql = "SELECT DATE(t.transaction_date) as date,
+            $sql = "SELECT $txnDateExpr as date,
                            COALESCE(SUM(CASE 
                                WHEN transaction_type = 'CONTRA' THEN t.amount
                                WHEN transaction_type = 'CLEAR' THEN t.amount
                                WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                                ELSE 0
                            END), 0) as cr_dr
-                    FROM transactions t
+                    FROM transactions t $wlJoinSql
                     WHERE t.company_id = ?
                       AND t.from_account_id IN ($ids_placeholder)
-                      AND t.transaction_date BETWEEN ? AND ?
+                      AND $txnDateExpr BETWEEN ? AND ?
                       AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
                 . $currency_filter_t_from . $clearFilter . $contraApproval . "
-                    GROUP BY DATE(t.transaction_date)
-                    ORDER BY DATE(t.transaction_date)";
+                    GROUP BY $txnDateExpr
+                    ORDER BY $txnDateExpr";
             $daily_stmt = $pdo->prepare($sql);
             $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_from));
             foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {

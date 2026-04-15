@@ -840,6 +840,36 @@ try {
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
     // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
     // 仅 Show Payment：前端过滤；两者都勾选：显示在当前日期范围内有 Win/Loss 或有 Cr/Dr 的账户
+    // --- 修复开始：引入 Bank Process 智能日期转换逻辑 ---
+    $bpJoin = "";
+    $bpDateExpr = "t_wl.transaction_date";
+    if (searchApiHasSourceBankProcessId($pdo)) {
+         $bpJoin = "LEFT JOIN bank_process bp ON t_wl.source_bank_process_id = bp.id";
+         $bpDayStartSql = "CASE
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
+            ELSE NULL
+         END";
+         if (searchApiHasSourceBankProcessPeriodType($pdo)) {
+             $bpDateExpr = "(CASE
+                WHEN t_wl.source_bank_process_id IS NOT NULL
+                     AND t_wl.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
+                     AND DATE(t_wl.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t_wl.transaction_date))
+                ELSE DATE(t_wl.transaction_date)
+             END)";
+         } else {
+             $bpDateExpr = "(CASE
+                WHEN t_wl.source_bank_process_id IS NOT NULL
+                     AND DATE(t_wl.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t_wl.transaction_date))
+                ELSE DATE(t_wl.transaction_date)
+             END)";
+         }
+    }
+    // --- 修复结束 ---
+
     if ($show_capture_only && $show_inactive) {
         // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture 或 WIN/LOSE 交易）或有 Payment（Cr/Dr）即显示
         $where_conditions[] = "(
@@ -851,9 +881,10 @@ try {
             )
             OR EXISTS (
                 SELECT 1 FROM transactions t_wl
+                $bpJoin
                 WHERE t_wl.company_id = ?
                   AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
-                  AND t_wl.transaction_date BETWEEN ? AND ?
+                  AND $bpDateExpr BETWEEN ? AND ?
                   AND t_wl.transaction_type IN ('WIN', 'LOSE')
             )
             OR EXISTS (
@@ -885,9 +916,10 @@ try {
             )
             OR EXISTS (
                 SELECT 1 FROM transactions t_wl
+                $bpJoin
                 WHERE t_wl.company_id = ?
                   AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
-                  AND t_wl.transaction_date BETWEEN ? AND ?
+                  AND $bpDateExpr BETWEEN ? AND ?
                   AND t_wl.transaction_type IN ('WIN', 'LOSE')
             )
         )";
