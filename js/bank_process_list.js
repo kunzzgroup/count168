@@ -228,19 +228,6 @@ function setPendingResendScheduleForProcess(processId, schedule) {
     };
 }
 
-function syncPendingResendScheduleFromEditForm() {
-    const editId = parseInt((document.getElementById('bank_edit_id')?.value || '').trim(), 10);
-    if (!editId) return;
-    const dayStartEl = document.getElementById('bank_day_start');
-    const dayEndEl = document.getElementById('bank_day_end');
-    const freqEl = document.getElementById('bank_day_start_frequency');
-    setPendingResendScheduleForProcess(editId, {
-        day_start: dayStartEl ? dayStartEl.value : '',
-        day_end: dayEndEl ? dayEndEl.value : '',
-        day_start_frequency: (freqEl && freqEl.value === 'monthly') ? 'monthly' : '1st_of_every_month'
-    });
-}
-
 function getProcessListDateRange() {
     const fromInput = document.getElementById('date_from');
     const toInput = document.getElementById('date_to');
@@ -384,16 +371,6 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
                     proc.day_start = payload.day_start || null;
                     proc.day_end = payload.day_end || null;
                     proc.day_start_frequency = payload.day_start_frequency;
-                    const editIdEl = document.getElementById('bank_edit_id');
-                    if (editIdEl && String(editIdEl.value || '') === String(id)) {
-                        const dayStartEl = document.getElementById('bank_day_start');
-                        const dayEndEl = document.getElementById('bank_day_end');
-                        const freqEl = document.getElementById('bank_day_start_frequency');
-                        if (dayStartEl) dayStartEl.value = payload.day_start || '';
-                        if (dayEndEl) dayEndEl.value = payload.day_end || '';
-                        if (freqEl) freqEl.value = payload.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
-                        if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
-                    }
                 }
             }
             setPendingResendScheduleForProcess(id, null);
@@ -1354,18 +1331,6 @@ async function openBankEditModal(id) {
         } else {
             bankSelect.value = '';
         }
-        const pendingSchedule = getPendingResendScheduleForProcess(process.id);
-        if (pendingSchedule) {
-            const dayStartPendingEl = document.getElementById('bank_day_start');
-            const dayEndPendingEl = document.getElementById('bank_day_end');
-            const freqPendingEl = document.getElementById('bank_day_start_frequency');
-            if (dayStartPendingEl) dayStartPendingEl.value = pendingSchedule.day_start;
-            if (dayEndPendingEl) dayEndPendingEl.value = pendingSchedule.day_end;
-            if (freqPendingEl) freqPendingEl.value = pendingSchedule.day_start_frequency;
-            if (typeof updateBankFrequencyOptions === 'function') updateBankFrequencyOptions();
-        } else {
-            syncPendingResendScheduleFromEditForm();
-        }
         const cardMerchantBtn = document.getElementById('bank_card_merchant');
         const customerBtn = document.getElementById('bank_customer');
         if (cardMerchantBtn && process.card_merchant_id) {
@@ -2058,7 +2023,6 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             ['country', 'bank', 'type', 'name'].forEach(function (key) {
                 formData.delete(key);
             });
-            syncPendingResendScheduleFromEditForm();
         }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
@@ -4577,12 +4541,6 @@ function initBankProcessModule() {
             el.addEventListener('input', updateBankSubmitButtonState);
             el.addEventListener('change', updateBankSubmitButtonState);
         }
-    });
-    ['bank_day_start', 'bank_day_end', 'bank_day_start_frequency'].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('input', syncPendingResendScheduleFromEditForm);
-        el.addEventListener('change', syncPendingResendScheduleFromEditForm);
     });
     const accountingInboxBtn = document.getElementById('processAccountingInboxBtn');
     if (accountingInboxBtn) {
