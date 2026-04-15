@@ -303,28 +303,30 @@ try {
             }
         }
 
-        // --- 智能日期：Bank Process day_start 映射 ---
+        // --- 智能日期：与 search_api / calculateWinLossByCurrency 保持一致 ---
         $wlJoinSql = '';
         $txnDateExpr = "DATE(t.transaction_date)";
         if (dashboardHasSourceBankProcessId($pdo)) {
-            $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
-            $bpDayStartSql = "CASE
-                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
-                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
-                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
-                ELSE NULL
-            END";
-            $periodCondition = dashboardHasSourceBankProcessPeriodType($pdo)
-                ? "t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')"
-                : "1=1";
-            $txnDateExpr = "(CASE
-                WHEN t.transaction_type IN ('WIN', 'LOSE')
-                     AND t.source_bank_process_id IS NOT NULL
-                     AND $periodCondition
-                     AND DATE(t.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                ELSE DATE(t.transaction_date)
-            END)";
+            if (dashboardHasSourceBankProcessPeriodType($pdo)) {
+                // 有 period_type 字段：入账 API 已写入经济归属日，直接用 transaction_date
+                $txnDateExpr = "DATE(t.transaction_date)";
+            } else {
+                // 旧库无 period_type 字段：仍按 bp.day_start 归属日期
+                $wlJoinSql = " LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id";
+                $bpDayStartSql = "CASE
+                    WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
+                    WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
+                    WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
+                    ELSE NULL
+                END";
+                $txnDateExpr = "(CASE
+                    WHEN t.transaction_type IN ('WIN', 'LOSE')
+                         AND t.source_bank_process_id IS NOT NULL
+                         AND DATE(t.transaction_date) <= CURDATE()
+                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                    ELSE DATE(t.transaction_date)
+                END)";
+            }
         }
 
         // --- 1. 计算 B/F (Balance Forward) ---
