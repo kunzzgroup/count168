@@ -53,9 +53,6 @@ $assetVer = function ($file) {
             </button>
         </div>
 
-        <!-- Group Earnings Panel (only shown when a group tab is active) -->
-        <div id="own-group-earnings-panel" style="display:none;"></div>
-
         <!-- Companies will be injected here via JS -->
         <div id="companyCardsContainer">
             <!-- Loader -->
@@ -64,96 +61,6 @@ $assetVer = function ($file) {
             </div>
         </div>
     </div>
-
-    <!-- ========== Group Earnings Template ========== -->
-    <template id="tpl-group-earnings">
-        <div class="own-ge-panel">
-            <div class="own-ge-header">
-                <div class="own-ge-title-row">
-                    <svg class="own-ge-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
-                    <span class="own-ge-title">Group Earnings</span>
-                    <span class="own-ge-badge" data-bind="group-id-badge"></span>
-                </div>
-                <!-- Currency filter buttons — populated by JS after first fetch -->
-                <div class="own-ge-currency-row" data-bind="ge-currencies" style="display:none;"></div>
-
-                <div class="own-ge-controls">
-                    <div class="own-ge-date-group">
-                        <label class="own-ge-date-label">From</label>
-                        <input type="date" class="own-ge-date-input" data-bind="date-from">
-                    </div>
-                    <div class="own-ge-date-group">
-                        <label class="own-ge-date-label">To</label>
-                        <input type="date" class="own-ge-date-input" data-bind="date-to">
-                    </div>
-                    <button class="own-ge-refresh-btn" data-action="refresh-earnings">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                        </svg>
-                        Refresh
-                    </button>
-                </div>
-            </div>
-
-            <!-- Loading state -->
-            <div class="own-ge-loading" data-bind="ge-loading">
-                <div class="own-loader"></div>
-            </div>
-
-            <!-- Content -->
-            <div class="own-ge-content" data-bind="ge-content" style="display:none;">
-                <!-- Summary row: total profit + company chips -->
-                <div class="own-ge-summary" data-bind="ge-summary"></div>
-
-                <!-- Shareholders Table -->
-                <div class="own-ge-table-wrap">
-                    <div class="own-ge-table-head">
-                        <div>Shareholder</div>
-                        <div>Total Earnings</div>
-                        <div>Breakdown</div>
-                    </div>
-                    <div data-bind="ge-rows"></div>
-                </div>
-
-                <!-- Empty state -->
-                <div class="own-ge-empty" data-bind="ge-empty" style="display:none;">
-                    No ownership data configured for this group.
-                </div>
-            </div>
-        </div>
-    </template>
-
-    <!-- Shareholder Row Template -->
-    <template id="tpl-ge-shareholder-row">
-        <div class="own-ge-row">
-            <div class="own-ge-row-main">
-                <div class="own-ge-sh-info">
-                    <span class="own-ge-sh-avatar" data-bind="sh-avatar"></span>
-                    <div class="own-ge-sh-names">
-                        <span class="own-ge-sh-name" data-bind="sh-name"></span>
-                        <span class="own-ge-sh-login" data-bind="sh-login"></span>
-                    </div>
-                </div>
-                <div class="own-ge-sh-earn" data-bind="sh-earnings"></div>
-                <button class="own-ge-expand-btn" data-action="toggle-breakdown">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-                    Details
-                </button>
-            </div>
-            <div class="own-ge-breakdown" data-bind="sh-breakdown" style="display:none;">
-                <div class="own-ge-breakdown-head">
-                    <span>Company</span>
-                    <span>Net Profit</span>
-                    <span>Ownership %</span>
-                    <span>Earnings</span>
-                </div>
-                <div data-bind="sh-breakdown-rows"></div>
-            </div>
-        </div>
-    </template>
 
     <!-- ========== HTML Templates ========== -->
 
