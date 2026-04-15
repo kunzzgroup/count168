@@ -589,10 +589,19 @@
     display: flex !important;
     align-items: center !important;
     gap: 0 !important;
-   GLOBAL VIEWPORT LOCK + FLEX COLUMN LAYOUT
-   Strategy: body locked at 100vh. Container is flex-column.
-   Fixed header elements are flex-shrink:0. Data area is flex:1 with overflow hidden.
-   Pagination is flex-shrink:0 AFTER data — physically cannot overlap.
+    width: fit-content !important;
+    padding: 4px 8px !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+}
+
+/* ==========================================================================
+   GLOBAL VIEWPORT LOCK + FLEX LAYOUT
+   Containers are locked to 100vh and made flex-column.
+   Data fills remaining space. Pagination is LAST in flex flow — never overlaps.
    ========================================================================== */
 body.user-page,
 body.account-page,
@@ -618,8 +627,7 @@ body.transaction-page {
     overflow-x: hidden !important;
 }
 
-/* Main containers become flex-column at 100vh height */
-.container,
+/* Main containers: flex-column, full height, NO padding-bottom tricks */
 .process-page .container,
 .datacapture-container,
 .dashboard-container,
@@ -633,33 +641,11 @@ body.transaction-page {
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
+    /* No padding-bottom — flex layout handles spacing */
 }
 
-/* .content is also a flex-column filling remaining container space.
-   NO overflow:hidden here — that would clip the pagination below data. */
+/* Content area fills remaining space in the container */
 .content {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-}
-
-/* All fixed header/action bar elements must NOT shrink */
-h1,
-.page-title,
-.account-page-title,
-.action-buttons-container,
-.action-buttons,
-.separator-line,
-.process-company-filter,
-.process-list-date-filter {
-    flex-shrink: 0 !important;
-}
-
-/* process-table-wrapper: fills remaining vertical space, is itself flex-column.
-   table-header (fixed) + process-cards (flex:1) live inside it. */
-.process-page .process-table-wrapper {
     flex: 1 1 0 !important;
     min-height: 0 !important;
     overflow: hidden !important;
@@ -667,15 +653,7 @@ h1,
     flex-direction: column !important;
 }
 
-/* table-header inside process-table-wrapper stays fixed height */
-.process-page .table-header,
-.table-header,
-.account-table-header {
-    flex-shrink: 0 !important;
-}
-
-/* Data wrapper fills ALL remaining vertical space.
-   overflow:hidden clips rows that don't fit — NO scrollbar appears. */
+/* Data wrappers fill remaining space after headers */
 .account-table-container,
 .table-container,
 .process-cards,
@@ -694,9 +672,8 @@ h1,
 }
 
 /* ==========================================================================
-   PAGINATION — Static in flex flow, ALWAYS after data wrapper.
-   flex-shrink:0 guarantees it NEVER gets squashed or hidden.
-   align-self:flex-end pushes it right.
+   PAGINATION — Back in document flow. flex-shrink:0 + align-self:flex-end.
+   This PHYSICALLY cannot overlap the data row above it.
    ========================================================================== */
 .pagination-container,
 .account-pagination-container,
@@ -704,13 +681,14 @@ h1,
 .ownership-pagination-container,
 .domain-pagination-container,
 [class$="-pagination-container"] {
+    /* NOT fixed — stays in flex flow below data */
     position: static !important;
     flex-shrink: 0 !important;
     align-self: flex-end !important;
     margin-left: auto !important;
-    margin-right: 4px !important;
-    margin-top: 4px !important;
-    margin-bottom: 8px !important;
+    margin-right: 0 !important;
+    margin-top: 6px !important;
+    margin-bottom: 10px !important;
     width: fit-content !important;
     display: flex !important;
     align-items: center !important;
@@ -721,10 +699,10 @@ h1,
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
     backdrop-filter: blur(8px) !important;
     border: 1px solid rgba(148, 163, 184, 0.2) !important;
-    z-index: 10 !important;
+    z-index: auto !important;
 }
 
-/* transaction-container: allowed scroll, no flex constraints */
+/* transaction-container: allowed scroll, no flex tricks */
 .transaction-container {
     height: auto !important;
     max-height: none !important;
