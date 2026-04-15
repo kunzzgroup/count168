@@ -966,22 +966,8 @@ try {
               AND t.transaction_type <> 'RATE'
               AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
               AND $effectiveTxnDateExpr BETWEEN ? AND ?";
-    if ($has_source_bank_process_id) {
-        // bank process：transaction_date 已到日才展示，避免未来账单提前出现。
-        if ($has_source_bank_process_period_type) {
-            $sql .= " AND (
-                t.source_bank_process_id IS NULL
-                OR t.source_bank_process_period_type NOT IN ('monthly', 'partial_first_month', 'day_end_tail')
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
-        } else {
-            $sql .= " AND (
-                t.source_bank_process_id IS NULL
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
-        }
-    }
-    
+    // 不再按 CURDATE() 隐藏未来 transaction_date：与 Transaction List 筛选一致，Resend 锚到未来月份时仍可查看 Payment History。
+
     $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
     
     // 如果指定了 currency，根据 data_capture 的 currency 或 transactions.currency_id 来过滤
