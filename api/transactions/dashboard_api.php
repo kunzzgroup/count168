@@ -461,6 +461,62 @@ try {
         ];
     }
 
+    // ── RATE_MIDDLEMAN 手续费同步至 Profit ──────────────────────────────────
+    // RATE 账户（role='RATE'）的 Win/Loss 来自 RATE_MIDDLEMAN 分录，
+    // 不属于 PROFIT role 账户，被上方 roles 循环跳过，导致 Dashboard 显示 0。
+    // 此处专门汇总全公司当期所有 RATE_MIDDLEMAN 金额，直接累加到 profit 里，
+    // 确保 transaction.php 显示的 Win/Loss 与 Dashboard Profit 卡片一致。
+    if (dashboardHasTransactionEntry($pdo)) {
+        try {
+            $rateMMSql = "
+                SELECT
+                    DATE(h.transaction_date) AS date,
+                    COALESCE(SUM(ROUND(e.amount, 2)), 0) AS total
+                FROM transaction_entry e
+                JOIN transactions h ON e.header_id = h.id
+                WHERE h.company_id = ?
+                  AND e.company_id = ?
+                  AND e.entry_type = 'RATE_MIDDLEMAN'
+                  AND h.transaction_date BETWEEN ? AND ?
+            ";
+            $rateMMParams = [$company_id, $company_id, $date_from_db, $date_to_db];
+
+            // 按币种过滤（与前端选择的 currency 一致）
+            if ($filter_currency_code !== null) {
+                $rateCurrId = array_search($filter_currency_code, $currency_map);
+                if ($rateCurrId !== false) {
+                    $rateMMSql .= " AND e.currency_id = ?";
+                    $rateMMParams[] = $rateCurrId;
+                }
+            }
+
+            $rateMMSql .= " GROUP BY DATE(h.transaction_date)";
+            $rateMMStmt = $pdo->prepare($rateMMSql);
+            $rateMMStmt->execute($rateMMParams);
+
+            $rateMMDaily = [];
+            $rateMMPeriodTotal = 0;
+            while ($rateRow = $rateMMStmt->fetch(PDO::FETCH_ASSOC)) {
+                $d = $rateRow['date'];
+                $v = (float) $rateRow['total'];
+                $rateMMDaily[$d] = ($rateMMDaily[$d] ?? 0) + $v;
+                $rateMMPeriodTotal += $v;
+            }
+
+            // 合并到 profit：period_total、daily_data、total_balance
+            if (!empty($rateMMDaily)) {
+                foreach ($rateMMDaily as $d => $v) {
+                    $result['profit']['daily_data'][$d] = ($result['profit']['daily_data'][$d] ?? 0) + $v;
+                }
+                $result['profit']['period_total'] += $rateMMPeriodTotal;
+                $result['profit']['total_balance'] += $rateMMPeriodTotal;
+            }
+        } catch (Throwable $rateMMErr) {
+            // RATE_MIDDLEMAN 查询失败不影响主数据（向后兼容）
+        }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     // 严格流水口径：仅 PAYMENT + PROFIT 账户 的日净额（To 为负，From 为正）
     $profit_payment_flow_daily = calculateProfitPaymentDailyFlow(
         $pdo,
