@@ -649,14 +649,36 @@ body.transaction-page {
     flex: 1 1 0 !important;
     min-height: 0 !important;
     overflow: hidden !important;
+    flex-direction: column !important;
+}
+
+/* Direct flex children of .content that should NOT grow (headers, title bars) */
+.action-buttons-container,
+.separator-line,
+.table-header,
+.account-table-header,
+.process-page .page-title,
+h1 {
+    flex-shrink: 0 !important;
+}
+
+/* Data wrappers that are DIRECT children of .content — fill remaining space */
+/* .process-table-wrapper wraps both table-header + process-cards for processlist */
+.process-table-wrapper,
+.account-table-container,
+.table-container {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    max-height: none !important;
+    height: auto !important;
     display: flex !important;
     flex-direction: column !important;
 }
 
-/* Data wrappers fill remaining space after headers */
-.account-table-container,
-.table-container,
+/* Inner data containers fill their wrapper */
 .process-cards,
+.account-cards,
 .bank-table-wrapper,
 .user-cards,
 .member-cards,
@@ -682,7 +704,7 @@ body.transaction-page {
 .domain-pagination-container,
 [class$="-pagination-container"] {
     /* NOT fixed — stays in flex flow below data */
-    position: static !important;
+    position: fixed !important;
     flex-shrink: 0 !important;
     align-self: flex-end !important;
     margin-left: auto !important;
