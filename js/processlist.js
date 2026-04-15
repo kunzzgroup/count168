@@ -5209,6 +5209,11 @@ function moveCountryToAvailable(checkbox) {
 }
 
 function removeCountryFromAvailable(countryName, itemEl) {
+    const name = (countryName || '').trim();
+    if (name && Array.isArray(availableCountriesList)) {
+        const idx = availableCountriesList.indexOf(name);
+        if (idx > -1) availableCountriesList.splice(idx, 1);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
