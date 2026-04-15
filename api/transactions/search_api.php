@@ -1561,13 +1561,8 @@ try {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // 如果只勾选了 "Show Win/Loss Only"（前端复选框 show_capture_only）：
-        // 直接使用已计算好的 $win_loss 判断，保证 Data Capture 与 WIN/LOSE 交易都被纳入
-        if ($show_capture_only && !$show_inactive) {
-            if (abs((float) $win_loss) < 0.00001) {
-                continue;
-            }
-        }
+        // 注意：show_capture_only 的账户过滤已由外层 SQL WHERE 子句完成（EXISTS data_capture 或 WIN/LOSE 交易），
+        // 此处不再做二次 win_loss 数值过滤（会导致净额为 0 但确有交易的账户被错误剔除）
 
         // 4. 计算 Balance（显示口径）
         // 公式：Balance = round(B/F,2) + round(Win/Loss,2) + round(Cr/Dr,2)

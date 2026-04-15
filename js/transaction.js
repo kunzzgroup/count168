@@ -11,6 +11,8 @@
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
+    let _searchSeq = 0;                // 每次 searchTransactions 递增，用于丢弃过时响应
+    let _activeSearchController = null; // 当前进行中的 AbortController
 
     function syncSubmitButtonState() {
         const confirmCheckbox = document.getElementById('confirm_submit');
@@ -1743,8 +1745,18 @@
 
         console.log('🔍 搜索参数:', { dateFrom, dateTo, categories: selectedCategories, showInactive, showCaptureOnly, hideZero, companyId: currentCompanyId, currencies: selectedCurrencies, showAll: showAllCurrencies });
 
-        // 添加时间戳防止缓存
+        // 添加时间戳防止浏览器缓存
         url += '&_t=' + Date.now();
+
+        // ── 请求竞态保护 ──────────────────────────────────────────────────────
+        // 取消上一个尚未完成的请求，防止"旧请求后到，覆盖新结果"的竞态问题
+        if (_activeSearchController) {
+            _activeSearchController.abort();
+        }
+        const controller = new AbortController();
+        _activeSearchController = controller;
+        const mySeq = ++_searchSeq; // 捕获本次序号到闭包
+        // ─────────────────────────────────────────────────────────────────────
 
         const tablesSection = document.querySelector('.transaction-tables-section');
         const loadingEl = document.getElementById('transaction-tables-loading');
@@ -1815,17 +1827,20 @@
             : '';
         const categoryParam = (selectedCategories.length > 0 && !selectedCategories.includes(''))
             ? selectedCategories.join(',')
-            : ''
+            : '';
 
         fetch(url, {
             method: 'GET',
             cache: 'no-cache',
             headers: {
                 'Cache-Control': 'no-cache'
-            }
+            },
+            signal: controller.signal
         })
             .then(response => response.json())
             .then(data => {
+                // 序号不匹配：更新的搜索已发出，丢弃本次过时响应
+                if (mySeq !== _searchSeq) return;
                 if (data.success) {
                     // 大量 console 在数据多时会明显拖慢主线程；需要时在控制台执行: window.DEBUG_TRANSACTION_SEARCH = true
                     if (typeof window !== 'undefined' && window.DEBUG_TRANSACTION_SEARCH) {
@@ -1893,7 +1908,7 @@
                     }
 
                     // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
-                    if (showCaptureOnly && totalAccounts === 0) {
+                    if (showCaptureOnly && totalAccounts === 0 && !singleSelectedCurrency) {
                         let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
@@ -1949,6 +1964,9 @@
                 }
             })
             .catch(error => {
+                // AbortError：被新搜索主动取消，静默忽略，不弹错
+                if (error && error.name === 'AbortError') return;
+                if (_activeSearchController === controller) _activeSearchController = null;
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (!silent && tablesSection) tablesSection.style.display = 'none';
                 console.error('❌ 搜索失败:', error);
