@@ -597,3 +597,45 @@
     backdrop-filter: blur(8px) !important;
     border: 1px solid rgba(148, 163, 184, 0.2) !important;
 }
+
+/* ==========================================================================
+   GLOBAL VIEWPORT LOCK — No browser scrollbar. No page scroll. Ever.
+   Body and all main containers are capped at 100vh.
+   Data fits because rows are compressed (see GLOBAL EXTREME COMPRESSION above).
+   Pagination is fixed so it never occupies document flow.
+   ========================================================================== */
+html,
+body,
+body.user-page,
+body.account-page,
+body.transaction-page,
+body.datacapture-page,
+body.dashboard-page,
+body.process-page,
+body.domain-page,
+body.member-page,
+body.ownership-page,
+body.report-page,
+body.maintenance-page {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+}
+
+.container,
+.process-page .container,
+.transaction-container,
+.datacapture-container,
+.dashboard-container,
+.domain-container,
+.member-container,
+.ownership-container,
+.report-container {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    /* padding-bottom keeps data clear of the fixed pagination bar */
+    padding-bottom: 50px !important;
+    box-sizing: border-box !important;
+}
