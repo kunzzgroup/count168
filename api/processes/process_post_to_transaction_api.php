@@ -410,8 +410,9 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             $todayYm = (new DateTimeImmutable($today))->format('Y-n');
             $billYear = (int) date('Y', $startTs);
             $billMonth = (int) date('n', $startTs);
+            // 与 process_accounting_inbox_api：Resend 单期 + day_start=1 号时须能推断锚点自然月，不依赖「今天与 day_start 同月」。
             if ($startDayOfMonth === 1
-                && $todayYm === $startYm
+                && ($todayYm === $startYm || $resendSinglePeriod)
                 && $today >= $startDate
                 && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $billYear, $billMonth)
                 && isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
@@ -439,6 +440,14 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdFirstOfMonth($startDate, $term) : null;
             $anchorMonthCap = txnAnchorMonthCapAfterPartialFirst($contract, (int) date('j', $startTs));
             $anchorSlotIndex = 0;
+            $onlyAnchorYmFirstOfMonth = null;
+            if ($resendSinglePeriod && $startDate !== '') {
+                try {
+                    $onlyAnchorYmFirstOfMonth = (new DateTimeImmutable($startDate))->format('Y-n');
+                } catch (Throwable $e) {
+                    $onlyAnchorYmFirstOfMonth = null;
+                }
+            }
             while ($iter <= $endCap) {
                 if ($anchorMonthCap !== null && $anchorSlotIndex >= $anchorMonthCap) {
                     break;
@@ -450,6 +459,11 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     break;
                 }
                 $billYm = $iter->format('Y-n');
+                if ($onlyAnchorYmFirstOfMonth !== null && $billYm !== $onlyAnchorYmFirstOfMonth) {
+                    $anchorSlotIndex++;
+                    $iter = $iter->modify('+1 month');
+                    continue;
+                }
                 // 非 resend：旧数据不拿，仅允许当前自然月进入候选（例如 today=4月，只可出4月）。
                 if (!$resendRelax && $billYm !== $todayYm) {
                     $anchorSlotIndex++;
