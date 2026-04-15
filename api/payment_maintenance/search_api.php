@@ -266,11 +266,9 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
                 $description = strtoupper(trim($description));
             }
         } else {
-            $ownerPattern = preg_quote($ownerCodeUpper, '/');
-            if ($ownerPattern !== '') {
-                $description = preg_replace('/\b' . $ownerPattern . '\b/i', $profitCode, $description);
-            }
-            $description = preg_replace('/\bC168\b/i', $profitCode, $description);
+            // 只将系统代码 C168 替换为 PROFIT；不替换 owner code，
+            // 避免把描述中的正常账户名（如 K）错误地替换成其他账户名（如 ALBB）。
+            $description = preg_replace('/\bC168\b/i', 'PROFIT', $description);
         }
     }
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
@@ -341,10 +339,10 @@ function remapPaymentMaintenanceAccountCode(?string $code, string $ownerCode, st
     if ($v === '') {
         return '-';
     }
-    $ownerU = strtoupper(trim($ownerCode));
-    $profitU = strtoupper(trim($profitCode));
-    if ($v === 'C168' || ($ownerU !== '' && $v === $ownerU)) {
-        return $profitU !== '' ? $profitU : 'PROFIT';
+    // 只将系统代码 C168 标准化为 PROFIT；不替换 owner code，
+    // 避免把正常账户代码（如 K）错误地替换为其他账户（如 ALBB）。
+    if ($v === 'C168') {
+        return 'PROFIT';
     }
     return $v;
 }
