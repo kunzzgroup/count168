@@ -1327,3 +1327,454 @@ body {
     cursor: not-allowed;
     transform: none;
 }
+
+/* ══════════════════════════════════════════════════════════
+   Tab Switching Bar
+   ══════════════════════════════════════════════════════════ */
+.own-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+}
+
+.own-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 22px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 999px;
+    background: var(--own-gray-light);
+    color: var(--own-dark-text);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    white-space: nowrap;
+    height: 36px;
+}
+
+.own-tab-btn:hover {
+    background: var(--own-gray-bg);
+    border-color: #0D60FF;
+}
+
+.own-tab-btn.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.35);
+}
+
+.own-tab-btn svg {
+    flex-shrink: 0;
+}
+
+/* Tab panels */
+.own-tab-panel {
+    width: 100%;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Group Earnings Tab Styles
+   ══════════════════════════════════════════════════════════ */
+
+/* Group selector bar */
+.ge-group-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.ge-group-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--own-dark-text);
+    font-family: 'Amaranth', sans-serif;
+    white-space: nowrap;
+    min-width: 52px;
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ge-group-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.ge-group-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 18px;
+    background: var(--own-gray-light);
+    border: 1px solid var(--own-gray-border);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--own-dark-text);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    height: 32px;
+}
+
+.ge-group-pill:hover {
+    background: var(--own-gray-bg);
+    border-color: #0D60FF;
+}
+
+.ge-group-pill.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
+}
+
+/* Equity Section */
+.ge-equity-section {
+    background: #fff;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 16px;
+    padding: 24px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.ge-equity-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.ge-equity-label {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--own-dark-text);
+    white-space: nowrap;
+    min-width: 130px;
+}
+
+.ge-equity-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.ge-equity-input {
+    width: 90px;
+    padding: 10px 14px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: right;
+    color: var(--own-dark-text);
+    background: var(--own-gray-bg);
+    outline: none;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.ge-equity-input:focus {
+    border-color: #0D60FF;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.1);
+}
+
+.ge-equity-suffix {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--own-gray-text);
+}
+
+.ge-equity-slider-wrap {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+}
+
+.ge-equity-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--own-gray-border);
+    border-radius: 3px;
+    outline: none;
+}
+
+.ge-equity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #0D60FF;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: transform 0.1s;
+}
+
+.ge-equity-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+/* Company Card */
+.ge-company-card {
+    background: #fff;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.ge-company-card:hover {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06), 0 4px 10px rgba(0, 0, 0, 0.03);
+    border-color: #cbd5e1;
+}
+
+.ge-company-header {
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid var(--own-gray-border);
+}
+
+.ge-company-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--own-dark-text);
+    letter-spacing: 0.2px;
+}
+
+.ge-company-total {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--own-gray-text);
+}
+
+.ge-company-total.ge-over {
+    color: var(--own-danger-red);
+    font-weight: 700;
+}
+
+/* Table Head */
+.ge-table-head {
+    display: grid;
+    grid-template-columns: 1fr 120px 1fr 44px;
+    gap: 12px;
+    padding: 12px 28px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--own-gray-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--own-gray-border);
+}
+
+/* Account Row */
+.ge-account-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 1fr 44px;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 28px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s;
+}
+
+.ge-account-row:hover {
+    background: #fafbfd;
+}
+
+.ge-acc-name-input {
+    padding: 9px 14px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--own-dark-text);
+    background: var(--own-gray-bg);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.ge-acc-name-input:focus {
+    border-color: #0D60FF;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.1);
+}
+
+.ge-pct-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ge-pct-input {
+    width: 80px;
+    padding: 9px 10px;
+    border: 1px solid var(--own-gray-border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: right;
+    color: var(--own-dark-text);
+    background: var(--own-gray-bg);
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.ge-pct-input:focus {
+    border-color: #0D60FF;
+    background: #fff;
+}
+
+.ge-pct-suffix {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--own-gray-text);
+}
+
+.ge-earnings-formula {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0D60FF;
+    font-family: 'Courier New', Courier, monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ge-btn-delete-row {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--own-danger-red);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.ge-btn-delete-row:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Add Account Button */
+.ge-btn-add-account {
+    display: block;
+    width: calc(100% - 56px);
+    margin: 16px 28px 20px 28px;
+    padding: 12px;
+    background-color: #e6f0fd;
+    color: #0D60FF;
+    border: 2px dashed #bfdbfe;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ge-btn-add-account:hover {
+    background-color: #dbeafe;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
+
+/* Footer Actions */
+.ge-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+    padding-bottom: 40px;
+}
+
+.ge-btn {
+    padding: 10px 28px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.ge-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ge-btn-cancel {
+    background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(107, 114, 128, 0.2);
+}
+
+.ge-btn-save {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(13, 96, 255, 0.3);
+}
+
+.ge-btn-save:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    box-shadow: 0 4px 8px rgba(13, 96, 255, 0.4);
+}
+
+.ge-btn-save:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Empty State */
+.ge-empty-state {
+    text-align: center;
+    color: var(--own-gray-text);
+    padding: 40px;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+/* Number input arrows cleanup */
+.ge-equity-input::-webkit-inner-spin-button,
+.ge-equity-input::-webkit-outer-spin-button,
+.ge-pct-input::-webkit-inner-spin-button,
+.ge-pct-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.ge-equity-input[type=number],
+.ge-pct-input[type=number] {
+    -moz-appearance: textfield;
+}
