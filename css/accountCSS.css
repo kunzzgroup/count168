@@ -1526,12 +1526,15 @@ body {
     pointer-events: none;
 }
 
-/* Pagination — FIXED at viewport bottom-right, never overlapping data */
+/* Pagination — in flex flow, right-aligned below data */
 .account-pagination-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 900;
+    position: static;
+    flex-shrink: 0;
+    align-self: flex-end;
+    margin-left: auto;
+    margin-right: 0;
+    margin-top: 6px;
+    margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 0;

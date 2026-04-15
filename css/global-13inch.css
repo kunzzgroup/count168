@@ -597,9 +597,9 @@
 }
 
 /* ==========================================================================
-   GLOBAL VIEWPORT LOCK — No browser scrollbar. No page scroll.
-   Only specific page body classes are locked.
-   html stays at browser default so transaction.php can scroll freely.
+   GLOBAL VIEWPORT LOCK + FLEX LAYOUT
+   Containers are locked to 100vh and made flex-column.
+   Data fills remaining space. Pagination is LAST in flex flow — never overlaps.
    ========================================================================== */
 body.user-page,
 body.account-page,
@@ -614,10 +614,9 @@ body.maintenance-page {
     height: 100vh !important;
     max-height: 100vh !important;
     overflow: hidden !important;
-    overflow-x: hidden !important;
 }
 
-/* transaction-page: always scrollable — financial data can be many rows */
+/* transaction-page: always scrollable */
 html:has(body.transaction-page),
 body.transaction-page {
     height: auto !important;
@@ -626,6 +625,7 @@ body.transaction-page {
     overflow-x: hidden !important;
 }
 
+/* Main containers: flex-column, full height, NO padding-bottom tricks */
 .container,
 .process-page .container,
 .datacapture-container,
@@ -637,12 +637,71 @@ body.transaction-page {
     height: 100vh !important;
     max-height: 100vh !important;
     overflow: hidden !important;
-    /* 70px = pagination height(34) + bottom offset(20) + safety gap(16) */
-    padding-bottom: 70px !important;
+    display: flex !important;
+    flex-direction: column !important;
     box-sizing: border-box !important;
+    /* No padding-bottom — flex layout handles spacing */
 }
 
-/* transaction-container: allowed scroll */
+/* Content area fills remaining space in the container */
+.content {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Data wrappers fill remaining space after headers */
+.account-table-container,
+.table-container,
+.process-cards,
+.bank-table-wrapper,
+.user-cards,
+.member-cards,
+.domain-cards,
+.ownership-cards,
+.datacapture-table-wrapper,
+.dashboard-content {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    max-height: none !important;
+    height: auto !important;
+}
+
+/* ==========================================================================
+   PAGINATION — Back in document flow. flex-shrink:0 + align-self:flex-end.
+   This PHYSICALLY cannot overlap the data row above it.
+   ========================================================================== */
+.pagination-container,
+.account-pagination-container,
+.member-pagination-container,
+.ownership-pagination-container,
+.domain-pagination-container,
+[class$="-pagination-container"] {
+    /* NOT fixed — stays in flex flow below data */
+    position: static !important;
+    flex-shrink: 0 !important;
+    align-self: flex-end !important;
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    margin-top: 6px !important;
+    margin-bottom: 10px !important;
+    width: fit-content !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+    padding: 4px 8px !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    z-index: auto !important;
+}
+
+/* transaction-container: allowed scroll, no flex tricks */
 .transaction-container {
     height: auto !important;
     max-height: none !important;
