@@ -935,7 +935,7 @@ try {
                     if ($dueYmdM !== null) {
                         [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmdM, $dayStartYmd);
                         $from = $p0;
-                        if ($createdYmd > $from) {
+                        if (!$resendRelax && $createdYmd > $from) {
                             $from = $createdYmd;
                         }
                         if ($from <= $p1) {
