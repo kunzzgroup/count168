@@ -929,13 +929,13 @@ try {
                         $firstMonthOnFirstHandled = true;
                     }
                 }
-                // monthly：按「对日对月」服务区间（上一应付日到本期应付前一日）比例，不使用自然月末截断。
+                // monthly：按「对日对月」服务区间（上一应付日到本期应付前一日）比例，不使用自然月末截断
                 if ($frequency === 'monthly' && $dayStartYmd) {
                     $dueYmdM = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, 'monthly');
                     if ($dueYmdM !== null) {
                         [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmdM, $dayStartYmd);
                         $from = $p0;
-                        if ($createdYmd > $from) {
+                        if (!$resendRelax && $createdYmd > $from) {
                             $from = $createdYmd;
                         }
                         if ($from <= $p1) {

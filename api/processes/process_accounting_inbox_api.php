@@ -418,7 +418,8 @@ function inboxAppendMonthlyNeedToday(
                 }
                 [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmd, $startDate);
                 $from = $p0;
-                if ($createdYmd > $from) {
+                // Resend：用户主动补该期整月金额，不按创建日截断服务区间（否则会出现 1111→1096.66 等短天比例）。
+                if (empty($r['accounting_resend_relax_created_floor']) && $createdYmd > $from) {
                     $from = $createdYmd;
                 }
                 if ($from <= $p1) {
