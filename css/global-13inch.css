@@ -454,7 +454,28 @@
         max-height: 120px !important;
     }
 
-
+    /* ==========================================================================
+       NO INTERNAL SCROLL — All table/card containers must render data in full.
+       Fixed pagination (position:fixed) removes the need for internal scrollbars.
+       ========================================================================== */
+    .table-container,
+    .account-table-container,
+    .account-cards,
+    .process-cards,
+    .process-table-wrapper,
+    .bank-table-wrapper,
+    .user-cards,
+    .member-cards,
+    .ownership-cards,
+    .domain-cards,
+    .transaction-main-content,
+    .transaction-table-wrapper,
+    .datacapture-table-wrapper,
+    .dashboard-content {
+        max-height: none !important;
+        height: auto !important;
+        overflow-y: visible !important;
+    }
 
     /* ==========================================================================
    Chips with Overflow Component Styles

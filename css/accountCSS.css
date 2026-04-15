@@ -262,14 +262,14 @@ body {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
-/* Table Container - copied from userlist */
+/* Table Container */
 .account-table-container {
     overflow-x: visible;
+    overflow-y: visible;
     margin-top: 20px;
     border: none;
     border-radius: 0;
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
+    max-height: none;
 }
 
 /* Table Header - copied from userlist */

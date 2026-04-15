@@ -336,14 +336,14 @@ body.process-page {
     margin-right: -50vw;
 }
 
-/* Table Container - copied from accountCSS.css */
+/* Table Container */
 .process-page .table-container {
     overflow-x: visible;
+    overflow-y: visible;
     margin-top: 20px;
     border: none;
     border-radius: 0;
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
+    max-height: none;
 }
 
 /* 包装器：表头与数据区同宽，Bank 数据区可横向滚动 */
@@ -355,7 +355,7 @@ body.process-page {
 
 .process-page .process-table-wrapper .process-cards.bank-mode {
     overflow-x: auto;
-    overflow-y: auto;
+    overflow-y: visible;
 }
 
 /* Bank 真实 table：与 Gambling 同设计；高度随行数增长，不在表格外壳内纵向滚动（整页由 Bank 的 .container 滚动） */
