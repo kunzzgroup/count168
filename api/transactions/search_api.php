@@ -1055,24 +1055,27 @@ try {
                 $extraAcc = $exSt->fetchAll(PDO::FETCH_ASSOC);
 
                 // Fallback for completely deleted from_account_ids
+                // 当使用分类筛选时，已删除的账户没有 role 信息，不应出现在筛选结果中
                 $foundIds = [];
                 foreach ($extraAcc as $ea) {
                     $foundIds[(int)$ea['id']] = true;
                 }
-                foreach ($cpNewIds as $reqId) {
-                    if (!isset($foundIds[(int)$reqId])) {
-                        $extraAcc[] = [
-                            'id' => (int)$reqId,
-                            'account_id' => 'Deleted_Acc_' . $reqId,
-                            'name' => 'Deleted Account',
-                            'role' => 'none',
-                            'status' => 0,
-                            'payment_alert' => 0,
-                            'alert_day' => 0,
-                            'alert_specific_date' => null,
-                            'alert_amount' => 0,
-                            'account_id_debug' => 'FROM_MERGE_DELETED'
-                        ];
+                if (empty($category_filters)) {
+                    foreach ($cpNewIds as $reqId) {
+                        if (!isset($foundIds[(int)$reqId])) {
+                            $extraAcc[] = [
+                                'id' => (int)$reqId,
+                                'account_id' => 'Deleted_Acc_' . $reqId,
+                                'name' => 'Deleted Account',
+                                'role' => 'none',
+                                'status' => 0,
+                                'payment_alert' => 0,
+                                'alert_day' => 0,
+                                'alert_specific_date' => null,
+                                'alert_amount' => 0,
+                                'account_id_debug' => 'FROM_MERGE_DELETED'
+                            ];
+                        }
                     }
                 }
 
