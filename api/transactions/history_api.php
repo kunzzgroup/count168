@@ -1322,7 +1322,8 @@ try {
                 } elseif ($periodType === 'day_end_tail') {
                     $description = 'Day end tail bill';
                 } elseif ($periodType === 'resend_consolidated_range') {
-                    $description = 'Resend consolidated bill';
+                    // Resend consolidated range follows normal monthly wording in history modal
+                    $description = 'Monthly bill';
                 } elseif ($periodType === 'manual_inactive') {
                     $description = 'Inactive bill';
                 } elseif ($periodType === 'monthly' || $periodType === '') {
@@ -1337,10 +1338,13 @@ try {
                     $customerId = (int) ($t['customer_id'] ?? 0);
                     $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
                     if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+                        $description = 'Monthly bill';
                         $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
                     } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
+                        $description = 'Monthly bill';
                         $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
                     } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+                        $description = 'Monthly bill';
                         $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
                     }
                 }
