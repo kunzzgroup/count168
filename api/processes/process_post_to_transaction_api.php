@@ -410,8 +410,9 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             $todayYm = (new DateTimeImmutable($today))->format('Y-n');
             $billYear = (int) date('Y', $startTs);
             $billMonth = (int) date('n', $startTs);
+            // 与 process_accounting_inbox_api：Resend 单期 + day_start=1 号时须能推断锚点自然月，不依赖「今天与 day_start 同月」。
             if ($startDayOfMonth === 1
-                && $todayYm === $startYm
+                && ($todayYm === $startYm || $resendSinglePeriod)
                 && $today >= $startDate
                 && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $billYear, $billMonth)
                 && isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
@@ -439,6 +440,14 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdFirstOfMonth($startDate, $term) : null;
             $anchorMonthCap = txnAnchorMonthCapAfterPartialFirst($contract, (int) date('j', $startTs));
             $anchorSlotIndex = 0;
+            $onlyAnchorYmFirstOfMonth = null;
+            if ($resendSinglePeriod && $startDate !== '') {
+                try {
+                    $onlyAnchorYmFirstOfMonth = (new DateTimeImmutable($startDate))->format('Y-n');
+                } catch (Throwable $e) {
+                    $onlyAnchorYmFirstOfMonth = null;
+                }
+            }
             while ($iter <= $endCap) {
                 if ($anchorMonthCap !== null && $anchorSlotIndex >= $anchorMonthCap) {
                     break;
@@ -450,6 +459,11 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     break;
                 }
                 $billYm = $iter->format('Y-n');
+                if ($onlyAnchorYmFirstOfMonth !== null && $billYm !== $onlyAnchorYmFirstOfMonth) {
+                    $anchorSlotIndex++;
+                    $iter = $iter->modify('+1 month');
+                    continue;
+                }
                 // 非 resend：旧数据不拿，仅允许当前自然月进入候选（例如 today=4月，只可出4月）。
                 if (!$resendRelax && $billYm !== $todayYm) {
                     $anchorSlotIndex++;
@@ -676,6 +690,28 @@ function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId,
         }
     } catch (Throwable $e) {
         // ignore
+    }
+}
+
+/** 与 Inbox：首月 partial 是否已入账或已 dismiss（任一则不再排队 partial） */
+function txnIsPartialFirstMonthPostedOrSkipped(PDO $pdo, int $companyId, int $processId): bool
+{
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return false;
+        }
+        if (!tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            return false;
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+             AND period_type IN ('partial_first_month','partial_first_month_skipped') LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
     }
 }
 
@@ -1135,6 +1171,24 @@ try {
         }
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
+
+        // Resend 弹窗锚点（如 1/1）入账整月 monthly 后，会清除暂存并回到库里真实 day_start（如 4/15）。
+        // 「1st_of_every_month + 非 1 号真实 day_start」仍会排队首月 partial，与刚补的历史整月无关，易误判为重复 — 写入 skipped 抑制该幽灵行（与 dismiss 一致）。
+        if ($periodType === 'monthly'
+            && $has_period_type
+            && !empty($p['accounting_resend_single_period_from_schedule'])
+            && $frequency === '1st_of_every_month') {
+            $storedRaw = $p['bank_process_stored_day_start'] ?? null;
+            $storedYmd = $storedRaw !== null && trim((string) $storedRaw) !== '' ? bankProcessDateFieldToYmd((string) $storedRaw) : null;
+            if ($storedYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedYmd)) {
+                $tsS = strtotime($storedYmd);
+                if ($tsS !== false
+                    && (int) date('j', $tsS) !== 1
+                    && !txnIsPartialFirstMonthPostedOrSkipped($pdo, $companyId, (int) $p['id'])) {
+                    recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmd, 'partial_first_month_skipped', $has_period_type);
+                }
+            }
+        }
 
         if ($has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])) {
             if (bmp_bankProcessHasResendScheduleColumns($pdo)) {

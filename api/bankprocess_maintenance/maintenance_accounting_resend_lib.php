@@ -98,10 +98,13 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
                 $row['accounting_resend_schedule_day_start'],
                 $row['accounting_resend_schedule_day_end'],
                 $row['accounting_resend_schedule_frequency'],
-                $row['accounting_resend_single_period_from_schedule']
+                $row['accounting_resend_single_period_from_schedule'],
+                $row['bank_process_stored_day_start']
             );
             return $row;
         }
+        // 入账 API 在清除 Resend 覆盖前可比对「编辑里持久化的 day_start」与弹窗锚点，避免补历史整月后仍排队真实锚点的首月 partial。
+        $row['bank_process_stored_day_start'] = $row['day_start'] ?? null;
         $ds = $row['accounting_resend_schedule_day_start'] ?? null;
         $hadScheduleStart = $ds !== null && trim((string) $ds) !== '';
         if ($hadScheduleStart) {
@@ -124,6 +127,7 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
             $row['accounting_resend_schedule_day_end'],
             $row['accounting_resend_schedule_frequency']
         );
+        // bank_process_stored_day_start 仅内存字段，供入账 API 使用，不入库
         return $row;
     }
 }

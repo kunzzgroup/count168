@@ -663,8 +663,7 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-04-18';
+    $today = date('Y-m-d');
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -797,8 +796,9 @@ try {
                 $todayYm = (new DateTimeImmutable($today))->format('Y-n');
                 $billYear = (int) date('Y', $startTs);
                 $billMonth = (int) date('n', $startTs);
+                // Resend 弹窗指定单月：day_start 在 1 号时首月整段须在「当前自然月≠锚点月」时仍可出现在 Accounting Due（否则只会从次月循环到「今天」所在月，出现 1 月补账却展示 4 月的问题）。
                 if ($startDayOfMonth === 1
-                    && $todayYm === $startYm
+                    && ($todayYm === $startYm || $resendSinglePeriod)
                     && $today >= $startDate
                     && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $billYear, $billMonth)
                     && isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
@@ -853,6 +853,14 @@ try {
                     $startDayForCap = (int) date('j', $startTs);
                     $anchorMonthCap = inboxAnchorMonthCapAfterPartialFirst($contract, $startDayForCap);
                     $anchorSlotIndex = 0;
+                    $onlyAnchorYmFirstOfMonth = null;
+                    if ($resendSinglePeriod && $startDate !== '') {
+                        try {
+                            $onlyAnchorYmFirstOfMonth = (new DateTimeImmutable($startDate))->format('Y-n');
+                        } catch (Throwable $e) {
+                            $onlyAnchorYmFirstOfMonth = null;
+                        }
+                    }
                     while ($iter <= $endCap) {
                         if ($anchorMonthCap !== null && $anchorSlotIndex >= $anchorMonthCap) {
                             break;
@@ -864,6 +872,11 @@ try {
                             break;
                         }
                         $billYm = $iter->format('Y-n');
+                        if ($onlyAnchorYmFirstOfMonth !== null && $billYm !== $onlyAnchorYmFirstOfMonth) {
+                            $anchorSlotIndex++;
+                            $iter = $iter->modify('+1 month');
+                            continue;
+                        }
                         $todayYm = (new DateTimeImmutable($today))->format('Y-n');
                         // 非 resend：旧数据不拿，仅当月账单进入 Accounting Due。
                         if (!$resendRelax && $billYm !== $todayYm) {
