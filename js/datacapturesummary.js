@@ -911,7 +911,10 @@ function restoreFormulaSourceFromRefresh() {
             // If formulaOperators itself contains $ notation, also set it as template version
             row.setAttribute('data-template-formula-operators', data.formulaOperators);
         }
-        if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+        const existingSourceAttr = String(row.getAttribute('data-source-percent') || '').trim();
+        const existingSourceCellText = cells[5] ? String(cells[5].textContent || '').trim() : '';
+        const existingSourceForRow = existingSourceAttr || existingSourceCellText;
+        if (!existingSourceForRow && data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
         const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
@@ -934,8 +937,9 @@ function restoreFormulaSourceFromRefresh() {
             else row.removeAttribute('data-formula-display');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
-        if (cells[5]) cells[5].textContent = source;
-        const sourcePercentText = source;
+        // Source 优先保留当前行（后端最新）值，避免被 refresh/localStorage 里的旧值覆盖
+        if (cells[5] && !existingSourceForRow) cells[5].textContent = source;
+        const sourcePercentText = existingSourceForRow || source;
         const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
         const inputMethod = row.getAttribute('data-input-method') || '';
         const enableInputMethod = !!(inputMethod && inputMethod.trim());
@@ -955,7 +959,7 @@ function restoreFormulaSourceFromRefresh() {
             : formula;
         recalculateAndRenderProcessedAmount(row, {
             formula: formulaForRecalc,
-            sourcePercent: srcPct || sourcePercentText,
+            sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
@@ -9651,6 +9655,33 @@ function balanceParentheses(s) {
     return s + ')'.repeat(open - close);
 }
 
+// 去掉解析后公式末尾已「写进式子」的占成小乘子（如 *0.18、*(0.14)），避免再拼 Source 列时叠成 1000*0.18*(0.14)；只剥典型占成区间 (0,1] 及 [0,1] 的 *(x) 尾段
+function stripTrailingEmbeddedCommissionFactors(expr) {
+    if (!expr || typeof expr !== 'string') return ''
+    let s = expr.trim().replace(/\s+/g, '')
+    const maxIter = 24
+    for (let i = 0; i < maxIter && s.length > 0; i++) {
+        const mParen = s.match(/^(.*)\*\(([0-9.]+)\)$/)
+        if (mParen) {
+            const v = parseFloat(mParen[2])
+            if (!Number.isNaN(v) && v >= 0 && v <= 1) {
+                s = mParen[1].trim()
+                continue
+            }
+        }
+        const mStar = s.match(/^(.*)\*([0-9.]+)$/)
+        if (mStar) {
+            const v = parseFloat(mStar[2])
+            if (!Number.isNaN(v) && v > 0 && v <= 1) {
+                s = mStar[1].trim()
+                continue
+            }
+        }
+        break
+    }
+    return s
+}
+
 // Create Formula display from expression with source percent
 function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableSourcePercent = true, processValueOverride = null, clickedCellRefsOverride = null, rowIndexOverride = null) {
     try {
@@ -9663,6 +9694,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
+        parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim())
 
         // If source percent is disabled, return parsed formula as-is
         if (!enableSourcePercent) {
@@ -9675,7 +9707,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             return formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`);
         }
 
-        // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
+        // 公式本体已剥掉误写进式子的占成，只在结尾统一乘上 Source 列（展示为括号）
         const trimmedFormula = parsedFormula.trim();
         const formulaPart = trimmedFormula;
 
@@ -9790,8 +9822,10 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
             return 0;
         }
 
-        // Evaluate the formula expression（Summary 页常无 #process，必须显式传入当前行 id_product 才能解析 $数字）
-        const formulaResult = evaluateFormulaExpression(formula, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
+        // 先解析 $/[id:n] 再剥末尾误写的占成小乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
+        const afterRefs = parseReferenceFormula(String(formula).trim(), processValueForRefs, clickedCellRefsOverride, rowIndexOverride)
+        const strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim())
+        const formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If source percent is disabled, return formula result directly (without applying source percent)
         if (!enableSourcePercent) {
@@ -9824,8 +9858,8 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         const decimalValue = evaluateExpression(sanitizedSourcePercent);
 
         // If source is 1, don't multiply (multiplying by 1 has no effect)
-        // If formula already ends with *(sourcePercent) or *(expr that equals source), don't multiply again (avoid double application)
-        const formulaTrimmed = (formula || '').trim().replace(/\s+/g, '');
+        // If formula已经含与 Source 相同的尾段，不再乘（用剥完后的式子判断，与 evaluate 输入一致）
+        const formulaTrimmed = (strippedBody || '').trim().replace(/\s+/g, '');
         const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
         let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
         if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
