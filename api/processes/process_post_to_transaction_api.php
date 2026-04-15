@@ -939,14 +939,12 @@ try {
                             $from = $createdYmd;
                         }
                         if ($from <= $p1) {
-                            $pr = prorateInclusiveDateRange($from, $p1, $cost, $price, $profit);
+                            $pr = prorateMonthlyAnniversaryPeriodLinear($p0, $p1, $from, $cost, $price, $profit);
                             $cost = $pr['cost'];
                             $price = $pr['price'];
                             $profit = $pr['profit'];
-                            $fullD = billingInclusiveDaysBetween($p0, $p1);
-                            $useD = billingInclusiveDaysBetween($from, $p1);
-                            if ($fullD > 0) {
-                                $monthlyProrationPsRatio = $useD / $fullD;
+                            if ($pr['ratio'] !== null) {
+                                $monthlyProrationPsRatio = (float) $pr['ratio'];
                             }
                         }
                     }

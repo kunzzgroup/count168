@@ -115,3 +115,36 @@ function billingInclusiveDaysBetween(string $fromYmd, string $toYmd): int
 
     return (int) round(($b - $a) / 86400) + 1;
 }
+
+/**
+ * Monthly 对日对月：整期 [p0,p1] 对应一笔固定月价（cost/price/profit），仅按 [from,p1] 占整期的日历天数比例缩放。
+ * 不可使用 prorateInclusiveDateRange：该函数按「每个自然月」切片乘整月价，跨两自然月的一期会得到比例之和 >1（如 1111→1125）。
+ *
+ * @return array{cost:float,price:float,profit:float,ratio:?float}
+ */
+function prorateMonthlyAnniversaryPeriodLinear(
+    string $p0,
+    string $p1,
+    string $from,
+    float $cost,
+    float $price,
+    float $profit
+): array {
+    if ($from > $p1) {
+        return ['cost' => 0.0, 'price' => 0.0, 'profit' => 0.0, 'ratio' => null];
+    }
+    $adjFrom = $from < $p0 ? $p0 : $from;
+    $fullD = billingInclusiveDaysBetween($p0, $p1);
+    $useD = billingInclusiveDaysBetween($adjFrom, $p1);
+    if ($fullD <= 0) {
+        return ['cost' => 0.0, 'price' => 0.0, 'profit' => 0.0, 'ratio' => null];
+    }
+    $r = $useD / $fullD;
+
+    return [
+        'cost' => round($cost * $r, 2),
+        'price' => round($price * $r, 2),
+        'profit' => round($profit * $r, 2),
+        'ratio' => $r,
+    ];
+}

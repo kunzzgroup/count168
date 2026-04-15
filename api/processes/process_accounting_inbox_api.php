@@ -423,7 +423,7 @@ function inboxAppendMonthlyNeedToday(
                     $from = $createdYmd;
                 }
                 if ($from <= $p1) {
-                    $pr = prorateInclusiveDateRange($from, $p1, $cost, $price, $profit);
+                    $pr = prorateMonthlyAnniversaryPeriodLinear($p0, $p1, $from, $cost, $price, $profit);
                     $cost = $pr['cost'];
                     $price = $pr['price'];
                     $profit = $pr['profit'];
