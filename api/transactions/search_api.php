@@ -962,6 +962,50 @@ try {
     $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($accounts)) {
+        // ==== 临时调试：当 show_capture_only 且 accounts 为空时，直接查 WIN/LOSE 交易 ====
+        $debugInfo = [];
+        if ($show_capture_only) {
+            // 直接查该公司在此日期范围的 WIN/LOSE 交易
+            $dbgSql = "SELECT t.id, t.account_id, t.from_account_id, t.transaction_type, t.transaction_date, t.amount, t.description, t.currency_id, t.source_bank_process_id
+                       FROM transactions t
+                       WHERE t.company_id = ? AND t.transaction_type IN ('WIN','LOSE')
+                       AND t.transaction_date BETWEEN ? AND ?
+                       LIMIT 20";
+            $dbgStmt = $pdo->prepare($dbgSql);
+            $dbgStmt->execute([$company_id, $date_from_db, $date_to_db]);
+            $debugInfo['win_lose_txns'] = $dbgStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 查所有的 WIN/LOSE（不限日期）看看 transaction_date 到底是什么
+            $dbgSql2 = "SELECT t.id, t.account_id, t.transaction_type, t.transaction_date, t.amount, LEFT(t.description, 80) as descr
+                        FROM transactions t
+                        WHERE t.company_id = ? AND t.transaction_type IN ('WIN','LOSE')
+                        ORDER BY t.transaction_date DESC LIMIT 10";
+            $dbgStmt2 = $pdo->prepare($dbgSql2);
+            $dbgStmt2->execute([$company_id]);
+            $debugInfo['recent_win_lose'] = $dbgStmt2->fetchAll(PDO::FETCH_ASSOC);
+
+            // 查 data capture 情况
+            $dbgSql3 = "SELECT dc.id, dc.capture_date, COUNT(dcd.id) as detail_count
+                        FROM data_captures dc
+                        JOIN data_capture_details dcd ON dcd.capture_id = dc.id
+                        WHERE dc.company_id = ? AND dc.capture_date BETWEEN ? AND ?
+                        GROUP BY dc.id, dc.capture_date LIMIT 10";
+            $dbgStmt3 = $pdo->prepare($dbgSql3);
+            $dbgStmt3->execute([$company_id, $date_from_db, $date_to_db]);
+            $debugInfo['data_captures'] = $dbgStmt3->fetchAll(PDO::FETCH_ASSOC);
+
+            $debugInfo['params'] = [
+                'company_id' => $company_id,
+                'date_from' => $date_from_db,
+                'date_to' => $date_to_db,
+                'show_capture_only' => $show_capture_only,
+                'bpDateExpr' => $bpDateExpr,
+                'bpJoin' => $bpJoin,
+                'account_count' => 0
+            ];
+            @file_put_contents(sys_get_temp_dir() . '/count168_exists_debug.json', json_encode($debugInfo, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        }
+        // ==== 调试结束 ====
         echo json_encode([
             'success' => true,
             'data' => [
@@ -972,7 +1016,8 @@ try {
                     'right' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0],
                     'summary' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0]
                 ],
-                'active_currency_codes' => []
+                'active_currency_codes' => [],
+                '_debug_exists' => $show_capture_only ? $debugInfo : null
             ]
         ]);
         exit;
