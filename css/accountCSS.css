@@ -21,17 +21,11 @@ body {
 .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 40px clamp(180px, 14.06vw, 270px);
+    /* Bottom padding reserves space so last row never hides behind fixed pagination */
+    padding: 1px 40px 60px clamp(180px, 14.06vw, 270px);
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
-}
-
-/* flex-column so pagination's align-self:flex-end pushes right */
-.content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
 }
 
 .page-header {
@@ -1532,22 +1526,22 @@ body {
     pointer-events: none;
 }
 
-/* Pagination Button Styles */
+/* Pagination — FIXED at viewport bottom-right, never overlapping data */
 .account-pagination-container {
+    position: fixed;
+    bottom: 16px;
+    right: 20px;
+    z-index: 900;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 0;
-    margin-top: 10px;
-    margin-bottom: 16px;
-    background: rgba(255, 255, 255, 0.95);
+    width: fit-content;
     padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    width: fit-content;
-    align-self: flex-end;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 

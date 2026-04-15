@@ -20,7 +20,8 @@ body.process-page {
 .process-page .container {
     max-width: none;
     margin: 0;
-    padding: 0px 40px 40px clamp(180px, 14.06vw, 270px);
+    /* Bottom padding reserves space so last row never hides behind fixed pagination */
+    padding: 0px 40px 60px clamp(180px, 14.06vw, 270px);
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
@@ -743,9 +744,10 @@ body.process-page {
 }
 
 .process-page.process-page--bank .pagination-container {
-    flex-shrink: 0;
-    margin-top: 3px;
-    margin-bottom: max(5px, env(safe-area-inset-bottom, 0px));
+    /* Inherits position:fixed from .process-page .pagination-container;
+       just override margin/spacing tweaks */
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 /* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
@@ -1274,21 +1276,18 @@ body.process-page {
     pointer-events: none;
 }
 
-/* Pagination — always static, right-aligned below data */
+/* Pagination — FIXED at viewport bottom-right */
 .process-page .pagination-container {
-    position: static;
-    margin-top: 6px;
-    margin-bottom: 8px;
-    /* Right-align regardless of parent layout */
-    margin-left: auto;
-    margin-right: 0;
-    align-self: flex-end;
-    width: fit-content;
+    position: fixed;
+    bottom: 16px;
+    right: 20px;
+    z-index: 900;
     display: flex;
     align-items: center;
     gap: 0;
+    width: fit-content;
+    padding: 4px 8px;
     background: rgba(255, 255, 255, 0.95);
-    padding: 2px 6px;
     border-radius: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
