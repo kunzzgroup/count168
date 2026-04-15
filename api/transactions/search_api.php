@@ -838,8 +838,10 @@ try {
     // （show_inactive 参数对应前端 "Show Payment Only" 复选框，与账户状态过滤无关）
 
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
-    // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
-    // 仅 Show Payment：前端过滤；两者都勾选：显示在当前日期范围内有 Win/Loss 或有 Cr/Dr 的账户
+    // 过滤逻辑分两层：
+    //   Layer 1（SQL WHERE）：账户级别 EXISTS 过滤，减少账户集合
+    //   Layer 2（foreach 循环内）：(账户 + 货币) 组合级别过滤，精确到每行
+    // 两层设计对称，Win/Loss Only 与 Payment Only 处理方式完全一致。
     if ($show_capture_only && $show_inactive) {
         // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture / WIN/LOSE / RATE_MIDDLEMAN）或有 Payment（Cr/Dr）即显示
         // Bug修复：
@@ -944,8 +946,27 @@ try {
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
+    } elseif ($show_inactive) {
+        // 仅勾选 Show Payment Only：账户在日期范围内必须有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 交易才显示
+        // Bug修复：原来此处不做后端过滤，依赖前端 has_crdr_transactions 判断；
+        // 但 has_crdr_transactions 会被 RATE 分录（非 RATE_MIDDLEMAN）污染（count > 0），
+        // 导致纯 Win/Loss 账户（仅有 RATE 交易）也通过了前端过滤，错误出现在 Payment Only 视图中。
+        // 现在改为后端 SQL 层面强制过滤，与 Show Win/Loss Only 的处理方式对称。
+        $where_conditions[] = "(
+            EXISTS (
+                SELECT 1 FROM transactions t
+                WHERE t.company_id = ?
+                  AND (t.account_id = a.id OR t.from_account_id = a.id)
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  " . contraApprovedWhere($pdo, 't') . "
+            )
+        )";
+        $params[] = $company_id;
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
     }
-    // 默认 / 仅 Show Payment：不限制账户列表，由前端按 has_crdr 过滤
+    // 默认（不勾选任何过滤）：不限制账户列表，返回全部账户
 
     $where_sql = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
@@ -1609,10 +1630,18 @@ try {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // 如果只勾选了 "Show Win/Loss Only"（前端复选框 show_capture_only）：
-        // 直接使用已计算好的 $win_loss 判断，保证 Data Capture 与 WIN/LOSE 交易都被纳入
+        // Layer 2 过滤：(账户 + 货币) 组合级别。两者互相对称：
+        // 情况A：仅 Show Win/Loss Only —— 跳过该货币 win_loss ≈ 0 的行
         if ($show_capture_only && !$show_inactive) {
             if (abs((float) $win_loss) < 0.00001) {
+                continue;
+            }
+        }
+        // 情况B：仅 Show Payment Only —— 跳过该货币没有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 的行
+        // 注意：$has_crdr_transactions 已在 calculateCrDrByCurrency 中修正，
+        // 不再受 RATE 分录（transaction_entry）count 污染。
+        if ($show_inactive && !$show_capture_only) {
+            if (!$has_crdr_transactions) {
                 continue;
             }
         }
@@ -2491,23 +2520,28 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 {
     if ($bulk !== null) {
         $cr_dr = 0;
-        $txn_count = 0;
+        // has_transactions 只统计真实的 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 笔数。
+        // 修复：不计入 transaction_entry（RATE 分录）的 cr_dr_count，
+        // 因为那些是 RATE 汇率交易，不是 Payment，会污染 Show Payment Only 过滤。
+        $payment_txn_count = 0;
 
         $to = $bulk['txn_crdr_to'][$account_id][$currency_id] ?? ['cr_dr' => 0, 'count' => 0];
         $cr_dr += $to['cr_dr'];
-        $txn_count += $to['count'];
+        $payment_txn_count += $to['count']; // 纯 PAYMENT 类型计数
 
         $from = $bulk['txn_crdr_from'][$account_id][$currency_id] ?? ['cr_dr' => 0, 'count' => 0];
         $cr_dr += $from['cr_dr'];
-        $txn_count += $from['count'];
+        $payment_txn_count += $from['count']; // 纯 PAYMENT 类型计数
 
         $entry = $bulk['entry'][$account_id][$currency_id] ?? ['cr_dr' => 0, 'cr_dr_count' => 0];
-        $cr_dr += $entry['cr_dr'];
-        $txn_count += $entry['cr_dr_count'];
+        $cr_dr += $entry['cr_dr']; // RATE 分录金额仍纳入 cr_dr 计算（影响 Cr/Dr 列显示）
+        // 注意：$entry['cr_dr_count'] 故意不加入 $payment_txn_count，
+        // 因为它统计的是非 RATE_MIDDLEMAN 的 RATE 分录（如 RATE_FIRST_FROM/TO），
+        // 这些不属于 PAYMENT 类型，不应使 has_transactions 为 true。
 
         return [
             'value' => $cr_dr,
-            'has_transactions' => $txn_count > 0 || abs($cr_dr) > 0.01,
+            'has_transactions' => $payment_txn_count > 0 || abs($cr_dr) > 0.01,
         ];
     }
 
