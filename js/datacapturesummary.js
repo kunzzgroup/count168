@@ -911,7 +911,10 @@ function restoreFormulaSourceFromRefresh() {
             // If formulaOperators itself contains $ notation, also set it as template version
             row.setAttribute('data-template-formula-operators', data.formulaOperators);
         }
-        if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+        const existingSourceAttr = String(row.getAttribute('data-source-percent') || '').trim();
+        const existingSourceCellText = cells[5] ? String(cells[5].textContent || '').trim() : '';
+        const existingSourceForRow = existingSourceAttr || existingSourceCellText;
+        if (!existingSourceForRow && data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
         const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
@@ -934,8 +937,9 @@ function restoreFormulaSourceFromRefresh() {
             else row.removeAttribute('data-formula-display');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
-        if (cells[5]) cells[5].textContent = source;
-        const sourcePercentText = source;
+        // Source 优先保留当前行（后端最新）值，避免被 refresh/localStorage 里的旧值覆盖
+        if (cells[5] && !existingSourceForRow) cells[5].textContent = source;
+        const sourcePercentText = existingSourceForRow || source;
         const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
         const inputMethod = row.getAttribute('data-input-method') || '';
         const enableInputMethod = !!(inputMethod && inputMethod.trim());
@@ -955,7 +959,7 @@ function restoreFormulaSourceFromRefresh() {
             : formula;
         recalculateAndRenderProcessedAmount(row, {
             formula: formulaForRecalc,
-            sourcePercent: srcPct || sourcePercentText,
+            sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
