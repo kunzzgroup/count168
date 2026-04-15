@@ -842,18 +842,11 @@ try {
     // 仅 Show Payment：前端过滤；两者都勾选：显示在当前日期范围内有 Win/Loss 或有 Cr/Dr 的账户
     if ($show_capture_only && $show_inactive) {
         // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture 或 WIN/LOSE 交易）或有 Payment（Cr/Dr）即显示
-        // 注意：dcd.account_id 可能存储 account_code（字符串）而非 numeric a.id，
-        // 必须用 CAST + account_code 双重匹配（与 calculateWinLossByCurrency 一致）
         $where_conditions[] = "(
             EXISTS (
                 SELECT 1 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ?
-                  AND dc.company_id = ?
-                  AND (
-                      CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR)
-                      OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(a.account_id)
-                  )
+                WHERE dcd.account_id = a.id
                   AND dc.capture_date BETWEEN ? AND ?
             )
             OR EXISTS (
@@ -872,8 +865,6 @@ try {
                   " . contraApprovedWhere($pdo, 't') . "
             )
         )";
-        $params[] = $company_id;
-        $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
         $params[] = $company_id;
@@ -884,19 +875,12 @@ try {
         $params[] = $date_to_db;
     } elseif ($show_capture_only) {
         // 仅勾选 Show Win/Loss Only：账户在当前日期范围内，只要存在 Data Capture 或 WIN/LOSE 交易即可
-        // 注意：dcd.account_id 可能存储 account_code（字符串）而非 numeric a.id，
-        // 必须用 CAST + account_code 双重匹配（与 calculateWinLossByCurrency 一致）
         $where_conditions[] = "(
             EXISTS (
                 SELECT 1 
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ?
-                  AND dc.company_id = ?
-                  AND (
-                      CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR)
-                      OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(a.account_id)
-                  )
+                WHERE dcd.account_id = a.id
                   AND dc.capture_date BETWEEN ? AND ?
             )
             OR EXISTS (
@@ -907,8 +891,6 @@ try {
                   AND t_wl.transaction_type IN ('WIN', 'LOSE')
             )
         )";
-        $params[] = $company_id;
-        $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
         $params[] = $company_id;
