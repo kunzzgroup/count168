@@ -694,6 +694,33 @@ function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId,
     }
 }
 
+/**
+ * Resend 合并区间入账后：为 [fromYmd, toYmd] 覆盖的每个自然月写 monthly_skipped，
+ * 避免列表页「Transaction」再按 inferOpenMonthly 推断出 5/1 等整月重复入账。
+ */
+function txnRecordMonthlySkippedCoveringConsolidatedRange(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $fromYmd,
+    string $toYmd,
+    bool $hasPeriodType
+): void {
+    if (!$hasPeriodType) {
+        return;
+    }
+    try {
+        $cur = (new DateTimeImmutable($fromYmd))->modify('first day of this month');
+        $endM = (new DateTimeImmutable($toYmd))->modify('first day of this month');
+    } catch (Throwable $e) {
+        return;
+    }
+    while ($cur <= $endM) {
+        recordProcessAccountingPosted($pdo, $companyId, $processId, $cur->format('Y-m-01'), 'monthly_skipped', $hasPeriodType);
+        $cur = $cur->modify('+1 month');
+    }
+}
+
 /** 与 Inbox：首月 partial 是否已入账或已 dismiss（任一则不再排队 partial） */
 function txnIsPartialFirstMonthPostedOrSkipped(PDO $pdo, int $companyId, int $processId): bool
 {
@@ -853,7 +880,7 @@ try {
         }
         $skipCurrentPair = false;
         $monthlyProrationPsRatio = null;
-        $periodType = $pair['period_type'];
+        $periodType = trim((string) ($pair['period_type'] ?? 'monthly'));
         $cost = (float) ($p['cost'] ?? 0);
         $price = (float) ($p['price'] ?? 0);
         $profit = (float) ($p['profit'] ?? 0);
@@ -1081,6 +1108,12 @@ try {
             continue;
         }
 
+        // Resend 合并账：流水与 PAP 必须锚在弹窗 Day start，不得落到区间内某月 1 号（与 monthly 应付日逻辑混用）
+        if ($periodType === 'resend_consolidated_range' && $dayStartYmd !== null && $dayStartYmd !== '') {
+            $transactionDate = $dayStartYmd;
+            $postedDateForInbox = $dayStartYmd;
+        }
+
         $ledgerDate = $transactionDate;
 
         $baseTxn = [
@@ -1185,6 +1218,42 @@ try {
         }
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
+
+        if ($periodType === 'resend_consolidated_range' && $has_period_type && $dayStartYmd) {
+            $endRawPost = $p['day_end'] ?? null;
+            $endYmdPost = $endRawPost !== null && trim((string) $endRawPost) !== ''
+                ? bankProcessDateFieldToYmd((string) $endRawPost)
+                : null;
+            if ($endYmdPost !== null && $endYmdPost !== '' && $dayStartYmd <= $endYmdPost) {
+                txnRecordMonthlySkippedCoveringConsolidatedRange(
+                    $pdo,
+                    $companyId,
+                    (int) $p['id'],
+                    $dayStartYmd,
+                    $endYmdPost,
+                    $has_period_type
+                );
+                $termPost = getBillingTermMonthsFromContract($p['contract'] ?? null);
+                if ($termPost !== null && $termPost >= 1) {
+                    $exclPost = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
+                    if ($exclPost !== null && $endYmdPost >= $exclPost) {
+                        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $exclPost, 'day_end_tail_skipped', $has_period_type);
+                    }
+                }
+            }
+            if ($frequency === '1st_of_every_month') {
+                $storedRawPc = $p['bank_process_stored_day_start'] ?? null;
+                $storedYmdPc = $storedRawPc !== null && trim((string) $storedRawPc) !== '' ? bankProcessDateFieldToYmd((string) $storedRawPc) : null;
+                if ($storedYmdPc !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedYmdPc)) {
+                    $tsPc = strtotime($storedYmdPc);
+                    if ($tsPc !== false
+                        && (int) date('j', $tsPc) !== 1
+                        && !txnIsPartialFirstMonthPostedOrSkipped($pdo, $companyId, (int) $p['id'])) {
+                        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmdPc, 'partial_first_month_skipped', $has_period_type);
+                    }
+                }
+            }
+        }
 
         // Resend 弹窗锚点（如 1/1）入账整月 monthly 后，会清除暂存并回到库里真实 day_start（如 4/15）。
         // 「1st_of_every_month + 非 1 号真实 day_start」仍会排队首月 partial，与刚补的历史整月无关，易误判为重复 — 写入 skipped 抑制该幽灵行（与 dismiss 一致）。
