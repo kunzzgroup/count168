@@ -997,7 +997,7 @@ function getLocalDateString(date = null) {
     return `${year}-${month}-${day}`;
 }
 
-// Load submitted processes：随左侧 Date（capture_date）筛选；行内日期为账务日，时间为 created_at
+// Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
 async function loadSubmittedProcesses() {
     try {
         const dateInput = document.getElementById('capture_date');
@@ -2158,39 +2158,26 @@ function renderSubmittedProcesses() {
 
     let html = '';
     submittedProcesses.forEach((process, index) => {
-        // 使用 date_submitted（或 capture_date）显示日期，作为该笔账的逻辑日期
-        // 时间部分仍然使用 created_at（实际物理提交时刻），保留提交的时间戳
+        // 有 created_at：日期+时间均为实际提交时刻（老板可看「13 号账是几号交的」）
+        // 无 created_at：沿用账务日 + 当前时刻兜底（极旧数据）
         let formattedDate = '';
         let formattedTime = '';
 
-        // 1. 处理日期部分 (Logical Date)
-        // 优先使用 capture_date（表单选择日期），修正历史数据里 date_submitted 可能写错的问题
-        const logicalDateStr = process.capture_date || process.date_submitted;
-        if (logicalDateStr) {
-            const parts = logicalDateStr.split('-');
-            if (parts.length === 3) {
-                // 假设输入格式为 YYYY-MM-DD，转换为 DD/MM/YYYY
-                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
-        }
-
-        // 2. 处理时间部分：仅使用 created_at 的本地时分秒（物理提交时刻）
         if (process.created_at) {
             const createdObj = new Date(process.created_at);
-            const hours = String(createdObj.getHours()).padStart(2, '0');
-            const minutes = String(createdObj.getMinutes()).padStart(2, '0');
-            const seconds = String(createdObj.getSeconds()).padStart(2, '0');
-            formattedTime = `${hours}:${minutes}:${seconds}`;
-
-            // 如果逻辑日期为空，则日期也 fallback 到 created_at
-            if (!formattedDate) {
-                const day = String(createdObj.getDate()).padStart(2, '0');
-                const month = String(createdObj.getMonth() + 1).padStart(2, '0');
-                const year = createdObj.getFullYear();
-                formattedDate = `${day}/${month}/${year}`;
-            }
+            const day = String(createdObj.getDate()).padStart(2, '0');
+            const month = String(createdObj.getMonth() + 1).padStart(2, '0');
+            const year = createdObj.getFullYear();
+            formattedDate = `${day}/${month}/${year}`;
+            formattedTime = `${String(createdObj.getHours()).padStart(2, '0')}:${String(createdObj.getMinutes()).padStart(2, '0')}:${String(createdObj.getSeconds()).padStart(2, '0')}`;
         } else {
-            // 完全兜底：若无 created_at 则使用当前系统时间
+            const logicalDateStr = process.capture_date || process.date_submitted;
+            if (logicalDateStr) {
+                const parts = logicalDateStr.split('-');
+                if (parts.length === 3) {
+                    formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+            }
             const now = new Date();
             if (!formattedDate) {
                 formattedDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
