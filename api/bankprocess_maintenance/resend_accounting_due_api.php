@@ -53,16 +53,6 @@ function bank_resend_parse_ymd_from_any_raw(?string $raw): ?string
     return null;
 }
 
-/** Resend 所填 day_start 不可为今天（仅禁止今日） */
-function bank_resend_schedule_day_is_today(string $candidateYmd): bool
-{
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($candidateYmd))) {
-        return false;
-    }
-    $todayYmd = date('Y-m-d');
-    return trim($candidateYmd) === $todayYmd;
-}
-
 function bank_resend_blocking_issue_flag_from_row(array $bpRow): ?string
 {
     $combined = '';
@@ -167,11 +157,6 @@ try {
     }
     if (bank_resend_blocking_issue_flag_from_row($bpRow) !== null) {
         throw new Exception('Official、E-INVOICE、Block 状态的 Process 不可使用 Resend');
-    }
-
-    if ($scheduleFromClient && $newDayStart !== null
-        && bank_resend_schedule_day_is_today($newDayStart)) {
-        throw new Exception('Resend 所填 Day start 不可与今天相同，请另选日期。');
     }
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
