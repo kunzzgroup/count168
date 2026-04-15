@@ -316,7 +316,7 @@ function hasMonthlyPostedOrSkippedInCalendarMonthForTxn(PDO $pdo, int $companyId
 }
 
 /** 与 process_accounting_inbox_api 的 isWithinRecurringBillingWindow 一致 */
-function isWithinRecurringBillingWindowForTxn(string $todayYmd, ?string $dayStartYmd, ?string $contract, ?string $dayEndYmd, ?string $frequency = null, bool $bypassPreStartGate = false): bool
+function isWithinRecurringBillingWindowForTxn(string $todayYmd, ?string $dayStartYmd, ?string $contract, ?string $dayEndYmd, ?string $frequency = null, bool $bypassPreStartGate = false, bool $ignoreContractEndForResendSingle = false): bool
 {
     if ($dayStartYmd === null || $dayStartYmd === '' || strtotime($dayStartYmd) === false) {
         return true;
@@ -324,6 +324,9 @@ function isWithinRecurringBillingWindowForTxn(string $todayYmd, ?string $dayStar
     $start = date('Y-m-d', strtotime($dayStartYmd));
     if (!$bypassPreStartGate && $todayYmd < $start) {
         return false;
+    }
+    if ($ignoreContractEndForResendSingle) {
+        return true;
     }
 
     $freq = ($frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
@@ -391,6 +394,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
     }
     $createdYmd = ymdFromNullableDateTime($r['dts_created'] ?? null, $today);
     $createdYmd = bmp_inboxEffectiveCreatedYmd($createdYmd, $startDate, !empty($r['accounting_resend_relax_created_floor']));
+    $resendSinglePeriod = !empty($r['accounting_resend_single_period_from_schedule']);
 
     if ($frequency === '1st_of_every_month') {
         $resendRelax = !empty($r['accounting_resend_relax_created_floor']);
@@ -410,7 +414,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 && $todayYm === $startYm
                 && $today >= $startDate
                 && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $billYear, $billMonth)
-                && isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax)) {
+                && isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
                 return $startYm;
             }
         } catch (Throwable $e) {
@@ -421,7 +425,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
         if ($firstAccountingDate === '' || (!$resendRelax && $today < $firstAccountingDate)) {
             return null;
         }
-        if (!isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax)) {
+        if (!isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
             return null;
         }
         try {
@@ -482,10 +486,18 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
     }
 
     $resendRelaxMonthly = !empty($r['accounting_resend_relax_created_floor']);
-    if (!isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, 'monthly', $resendRelaxMonthly)) {
+    if (!isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, 'monthly', $resendRelaxMonthly, $resendSinglePeriod)) {
         return null;
     }
     $startDayOfMonth = (int) date('j', $startTs);
+    $onlyAnchorYmMonthly = null;
+    if ($resendSinglePeriod) {
+        try {
+            $onlyAnchorYmMonthly = (new DateTimeImmutable($startDate))->format('Y-n');
+        } catch (Throwable $e) {
+            $onlyAnchorYmMonthly = null;
+        }
+    }
     if ($startDate !== '' && ($resendRelaxMonthly || $today >= $createdYmd)) {
         try {
             $iter = new DateTimeImmutable($startDate);
@@ -507,10 +519,14 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             while ($iter <= $endCap) {
                 $y = (int) $iter->format('Y');
                 $mo = (int) $iter->format('n');
+                if ($onlyAnchorYmMonthly !== null && $iter->format('Y-n') !== $onlyAnchorYmMonthly) {
+                    $iter = $iter->modify('+1 month');
+                    continue;
+                }
                 $due = ($iter->format('Y-m') === $startYm)
                     ? $startDate
                     : calendarMonthDueYmd($y, $mo, $startDayOfMonth);
-                if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
+                if (!$resendSinglePeriod && $exclusiveEnd !== null && $due >= $exclusiveEnd) {
                     break;
                 }
                 if (!$resendRelaxMonthly && $due < $createdYmd) {

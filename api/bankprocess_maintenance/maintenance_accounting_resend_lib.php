@@ -97,12 +97,18 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
             unset(
                 $row['accounting_resend_schedule_day_start'],
                 $row['accounting_resend_schedule_day_end'],
-                $row['accounting_resend_schedule_frequency']
+                $row['accounting_resend_schedule_frequency'],
+                $row['accounting_resend_single_period_from_schedule']
             );
             return $row;
         }
         $ds = $row['accounting_resend_schedule_day_start'] ?? null;
-        if ($ds !== null && trim((string) $ds) !== '') {
+        $hadScheduleStart = $ds !== null && trim((string) $ds) !== '';
+        if ($hadScheduleStart) {
+            // 弹窗指定了 day_start：只补该锚点所在那一期（如 1/13→2/13），不按合同把后续月全部列进 Accounting Due。
+            $row['accounting_resend_single_period_from_schedule'] = 1;
+        }
+        if ($hadScheduleStart) {
             $row['day_start'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $ds, $m) ? $m[1] : $ds;
         }
         $de = $row['accounting_resend_schedule_day_end'] ?? null;
