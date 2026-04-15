@@ -367,11 +367,6 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
             const proc = processes.find(function (p) { return p.id === id; });
             if (proc) {
                 proc.maintenance_resend_pending = false;
-                if (scheduleOpts && typeof scheduleOpts === 'object') {
-                    proc.day_start = payload.day_start || null;
-                    proc.day_end = payload.day_end || null;
-                    proc.day_start_frequency = payload.day_start_frequency;
-                }
             }
             setPendingResendScheduleForProcess(id, null);
             showNotification(result.message || 'You can post from Accounting Due again', 'success');
