@@ -2,7 +2,8 @@
 /**
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
- * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = day_end 超出合同自然结束日的尾段按比例。
+ * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = day_end 超出合同自然结束日的尾段按比例，
+ * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
  * 仅处理 status = 'active' 的 process。
  */
 
@@ -774,7 +775,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -879,7 +880,19 @@ try {
             }
         }
 
-        if ($periodType === 'partial_first_month' && $dayStartYmd) {
+        if ($periodType === 'resend_consolidated_range' && $dayStartYmd) {
+            $dayEndRawRc = $p['day_end'] ?? null;
+            $endYmdRc = $dayEndRawRc !== null && trim((string) $dayEndRawRc) !== ''
+                ? bankProcessDateFieldToYmd((string) $dayEndRawRc)
+                : null;
+            if ($endYmdRc === null || $endYmdRc === '' || $dayStartYmd > $endYmdRc) {
+                continue;
+            }
+            $totRc = prorateInclusiveDateRange($dayStartYmd, $endYmdRc, $cost, $price, $profit);
+            $cost = $totRc['cost'];
+            $price = $totRc['price'];
+            $profit = $totRc['profit'];
+        } elseif ($periodType === 'partial_first_month' && $dayStartYmd) {
             $startTs = strtotime($dayStartYmd);
             if ($startTs === false) {
                 continue;
@@ -901,9 +914,7 @@ try {
             $cost = $partial['cost'];
             $price = $partial['price'];
             $profit = $partial['profit'];
-        }
-
-        if ($periodType === 'day_end_tail' && $dayStartYmd) {
+        } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
             $dayEndRaw = $p['day_end'] ?? null;
             if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {
                 continue;
@@ -1031,6 +1042,9 @@ try {
         if ($periodType === 'partial_first_month' && $dayStartYmd) {
             $transactionDate = $dayStartYmd;
             $postedDateForInbox = $dayStartYmd;
+        } elseif ($periodType === 'resend_consolidated_range' && $dayStartYmd) {
+            $transactionDate = $dayStartYmd;
+            $postedDateForInbox = $dayStartYmd;
         } elseif ($periodType === 'manual_inactive') {
             // 1+1 / 1+2 / 1+3 的赔款（manual_inactive）按执行当天入账，
             // 不回写到原 process day_start；首月正常合同入账仍走 monthly/partial 逻辑。
@@ -1095,7 +1109,7 @@ try {
             }
         }
 
-        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : '');
+        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ''));
         // Cost → Supplier(card_merchant)，Price → Customer，Profit → Company；首月按比例时三笔均用折算后的 cost/price/profit
         if (!$manualInactiveCompensationOnlySell && !empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
@@ -1133,7 +1147,7 @@ try {
                 }
             } elseif ($monthlyProrationPsRatio !== null) {
                 $psRatio = $monthlyProrationPsRatio;
-            } elseif ($periodType === 'day_end_tail') {
+            } elseif ($periodType === 'day_end_tail' || $periodType === 'resend_consolidated_range') {
                 $fp = (float) ($p['profit'] ?? 0);
                 $psRatio = ($fp > 0) ? ($profit / $fp) : 0.0;
             }

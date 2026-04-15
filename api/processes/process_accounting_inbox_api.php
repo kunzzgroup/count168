@@ -11,6 +11,7 @@
  * - Monthly = 每月 day_start 日为应付日；一期金额为「上一应付日到本期应付前一日」按日历天比例（例如 3/13 应付则服务 2/13–3/12），不按自然月末截断。
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  * - 填写 day_end 且长于合同自然结束：多一笔 day_end_tail（例 1st + 非1号 day_start：自然结束次日到 day_end 按当月天数比例）。
+ * - Resend 弹窗同时填 day_start 与 day_end（仅 relax 暂存）：Accounting Due 只列一行，金额按自然月切段 [day_start, day_end] 合并（与 process_post 的 resend_consolidated_range 一致）；不影响非 Resend 的 addprocess。
  */
 
 session_start();
@@ -323,6 +324,16 @@ function isDayEndTailAlreadyPosted(PDO $pdo, int $companyId, int $processId): bo
     return (bool) $stmt->fetch();
 }
 
+function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $processId): bool
+{
+    $stmt = $pdo->prepare(
+        "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+         AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped') LIMIT 1"
+    );
+    $stmt->execute([$companyId, $processId]);
+    return (bool) $stmt->fetch();
+}
+
 function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType): bool
 {
     if (!$hasPeriodType) {
@@ -620,6 +631,10 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     $item['already_posted_today'] = isDayEndTailAlreadyPosted($pdo, $companyId, (int) $item['id']);
                     continue;
                 }
+                if (!empty($item['is_resend_consolidated_range'])) {
+                    $item['already_posted_today'] = isResendConsolidatedAlreadyPosted($pdo, $companyId, (int) $item['id']);
+                    continue;
+                }
                 // 按「账单所属自然月」判断是否已入账（与逾期未显示逻辑一致）
                 if (!empty($item['monthly_billing_month']) && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $item['monthly_billing_month'], $m)) {
                     $item['already_posted_today'] = hasMonthlyPostedOrSkippedInCalendarMonth(
@@ -663,8 +678,7 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-05-01';
+    $today = date('Y-m-d');
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -707,6 +721,9 @@ try {
                 continue;
             }
             $resendSinglePeriod = !empty($r['accounting_resend_single_period_from_schedule']);
+            if (!empty($r['accounting_resend_consolidated_range'])) {
+                continue;
+            }
             if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null, '1st_of_every_month', !empty($r['accounting_resend_relax_created_floor']), $resendSinglePeriod)) {
                 continue;
             }
@@ -754,6 +771,35 @@ try {
 
     // 2) Regular: 每月1号 或 Monthly(day_start-1)；应付日过后整月内仍显示直到该月入账
     foreach ($rows as $r) {
+        if (!empty($r['accounting_resend_relax_created_floor']) && !empty($r['accounting_resend_consolidated_range'])) {
+            $dayStartRaw = $r['day_start'] ?? null;
+            $dayEndRaw = $r['day_end'] ?? null;
+            $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
+            $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
+            if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
+                $baseCost = (float) ($r['cost'] ?? 0);
+                $basePrice = (float) ($r['price'] ?? 0);
+                $baseProfit = (float) ($r['profit'] ?? 0);
+                $tot = prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
+                $needToday[] = [
+                    'id' => (int) $r['id'],
+                    'name' => $r['name'] ?? '',
+                    'bank' => $r['bank'] ?? '',
+                    'country' => $r['country'] ?? '',
+                    'day_start' => $dayStartRaw,
+                    'contract' => $r['contract'] ?? '',
+                    'cost' => $tot['cost'],
+                    'price' => $tot['price'],
+                    'profit' => $tot['profit'],
+                    'already_posted_today' => false,
+                    'is_partial_first_month' => false,
+                    'is_manual_inactive' => false,
+                    'is_day_end_tail' => false,
+                    'is_resend_consolidated_range' => true,
+                ];
+            }
+            continue;
+        }
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
         $resendSinglePeriod = !empty($r['accounting_resend_single_period_from_schedule']);
@@ -1041,6 +1087,9 @@ try {
     // 2b) 填写了 day_end 且长于合同自然结束日：多一笔尾段按比例（例：自然结束 6/1、day_end 6/3 → 6/1–6/3）
     if ($hasPeriodType) {
         foreach ($rows as $r) {
+            if (!empty($r['accounting_resend_consolidated_range'])) {
+                continue;
+            }
             $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
             $dayEndRaw = $r['day_end'] ?? null;
             if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {

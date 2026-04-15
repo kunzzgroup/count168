@@ -99,6 +99,7 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
                 $row['accounting_resend_schedule_day_end'],
                 $row['accounting_resend_schedule_frequency'],
                 $row['accounting_resend_single_period_from_schedule'],
+                $row['accounting_resend_consolidated_range'],
                 $row['bank_process_stored_day_start']
             );
             return $row;
@@ -115,8 +116,13 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
             $row['day_start'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $ds, $m) ? $m[1] : $ds;
         }
         $de = $row['accounting_resend_schedule_day_end'] ?? null;
-        if ($de !== null && trim((string) $de) !== '') {
+        $hadScheduleEnd = $de !== null && trim((string) $de) !== '';
+        if ($hadScheduleEnd) {
             $row['day_end'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $de, $m) ? $m[1] : $de;
+        }
+        // Resend 弹窗同时填 day_start + day_end：按自然月切段合并为一笔（仅 relax 期间；不入库为独立列）
+        if ($hadScheduleStart && $hadScheduleEnd) {
+            $row['accounting_resend_consolidated_range'] = 1;
         }
         $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
         if ($fq === 'monthly' || $fq === '1st_of_every_month') {
@@ -136,7 +142,7 @@ if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {
         $t = strtolower(trim((string) $raw));
-        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail') {
+        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range') {
             return $t;
         }
         return 'monthly';
@@ -197,6 +203,7 @@ if (!function_exists('bmp_resolveProcessAccountingPostedId')) {
             'monthly' => ['monthly', 'monthly_skipped'],
             'day_end_tail' => ['day_end_tail', 'day_end_tail_skipped'],
             'partial_first_month' => ['partial_first_month', 'partial_first_month_skipped'],
+            'resend_consolidated_range' => ['resend_consolidated_range', 'resend_consolidated_range_skipped'],
         ];
         $types = $typeSets[$pt] ?? ['monthly', 'monthly_skipped'];
         $in = implode(',', array_fill(0, count($types), '?'));
@@ -211,7 +218,7 @@ if (!function_exists('bmp_resolveProcessAccountingPostedId')) {
             return (int) $id;
         }
 
-        if ($pt === 'monthly' || $pt === 'day_end_tail') {
+        if ($pt === 'monthly' || $pt === 'day_end_tail' || $pt === 'resend_consolidated_range') {
             $sql2 = "SELECT id FROM process_accounting_posted
                      WHERE company_id = ? AND process_id = ?
                      AND period_type IN ($in)
@@ -253,6 +260,7 @@ if (!function_exists('bmp_deletePapFallback')) {
             'monthly' => ['monthly', 'monthly_skipped'],
             'day_end_tail' => ['day_end_tail', 'day_end_tail_skipped'],
             'partial_first_month' => ['partial_first_month', 'partial_first_month_skipped'],
+            'resend_consolidated_range' => ['resend_consolidated_range', 'resend_consolidated_range_skipped'],
         ];
         $types = $typeSets[$pt] ?? ['monthly', 'monthly_skipped'];
         $in = implode(',', array_fill(0, count($types), '?'));
@@ -262,7 +270,7 @@ if (!function_exists('bmp_deletePapFallback')) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute(array_merge([$companyId, $bankProcessId], $types, [$transactionDateYmd]));
         $n = $stmt->rowCount();
-        if ($n > 0 || ($pt !== 'monthly' && $pt !== 'day_end_tail')) {
+        if ($n > 0 || ($pt !== 'monthly' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range')) {
             return $n;
         }
         $sql2 = "DELETE FROM process_accounting_posted

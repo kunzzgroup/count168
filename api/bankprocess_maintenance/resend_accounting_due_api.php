@@ -131,6 +131,9 @@ try {
         if (!in_array($newFrequency, ['1st_of_every_month', 'monthly'], true)) {
             $newFrequency = '1st_of_every_month';
         }
+        if ($newDayStart !== null && $newDayEnd !== null && $newDayEnd < $newDayStart) {
+            throw new Exception('Day end 不能早于 Day start');
+        }
         // Resend 弹窗允许与 Edit 不同的组合（仅本次入账/Inbox），不再把「有 day_end + monthly」强制改为 1st。
     }
 
@@ -162,7 +165,6 @@ try {
     bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
 
     $pdo->beginTransaction();
-    // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
     $effectiveDayStartYmd = $scheduleFromClient && $newDayStart !== null
         ? $newDayStart
         : bank_resend_parse_ymd_from_any_raw(isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : null);
@@ -171,18 +173,41 @@ try {
     }
     $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
     $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
-    // 兜底：
-    // 1) 当月全部 posted 标记（含 maintenance 产生的 *_skipped）都清除，避免残留记录继续拦截 Accounting Due；
-    // 2) partial_first_month(_skipped) 在 Inbox 中按「是否存在」判定，非按月份判定，因此也要一并清除。
-    $delMonthPap = $pdo->prepare(
-        "DELETE FROM process_accounting_posted
-         WHERE company_id = ? AND process_id = ?
-           AND (
-               (YEAR(posted_date) = ? AND MONTH(posted_date) = ?)
-               OR period_type IN ('partial_first_month','partial_first_month_skipped')
-           )"
-    );
-    $delMonthPap->execute([$company_id, $bankProcessId, $targetYear, $targetMonth]);
+    // 弹窗同时填 day_start + day_end：清除该区间内各月 monthly 及 partial / tail / 合并期标记，便于生成单笔合并账单。
+    if ($scheduleFromClient && $newDayStart !== null && $newDayEnd !== null) {
+        $startYmInt = (int) substr($newDayStart, 0, 4) * 100 + (int) substr($newDayStart, 5, 2);
+        $endYmInt = (int) substr($newDayEnd, 0, 4) * 100 + (int) substr($newDayEnd, 5, 2);
+        $delMonthPap = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND (
+                 period_type IN (
+                   'partial_first_month','partial_first_month_skipped',
+                   'day_end_tail','day_end_tail_skipped',
+                   'resend_consolidated_range','resend_consolidated_range_skipped'
+                 )
+                 OR (
+                   (YEAR(posted_date) * 100 + MONTH(posted_date)) BETWEEN ? AND ?
+                   AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '')
+                 )
+               )"
+        );
+        $delMonthPap->execute([$company_id, $bankProcessId, $startYmInt, $endYmInt]);
+    } else {
+        // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
+        // 兜底：
+        // 1) 当月全部 posted 标记（含 maintenance 产生的 *_skipped）都清除，避免残留记录继续拦截 Accounting Due；
+        // 2) partial_first_month(_skipped) 在 Inbox 中按「是否存在」判定，非按月份判定，因此也要一并清除。
+        $delMonthPap = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND (
+                   (YEAR(posted_date) = ? AND MONTH(posted_date) = ?)
+                   OR period_type IN ('partial_first_month','partial_first_month_skipped')
+               )"
+        );
+        $delMonthPap->execute([$company_id, $bankProcessId, $targetYear, $targetMonth]);
+    }
     $removedPap = $delMonthPap->rowCount();
 
     $delPend = $pdo->prepare(
