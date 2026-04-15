@@ -358,6 +358,8 @@ function rowToItem(array $row) {
                 $description = 'Remaining days bill';
             } elseif ($periodType === 'day_end_tail') {
                 $description = 'Day end tail bill';
+            } elseif ($periodType === 'resend_consolidated_range') {
+                $description = 'Resend consolidated bill';
             } elseif ($periodType === 'manual_inactive') {
                 $description = 'Inactive bill';
             } elseif ($periodType === 'monthly' || $periodType === '') {

@@ -1321,6 +1321,8 @@ try {
                     $description = 'Remaining days bill';
                 } elseif ($periodType === 'day_end_tail') {
                     $description = 'Day end tail bill';
+                } elseif ($periodType === 'resend_consolidated_range') {
+                    $description = 'Resend consolidated bill';
                 } elseif ($periodType === 'manual_inactive') {
                     $description = 'Inactive bill';
                 } elseif ($periodType === 'monthly' || $periodType === '') {
@@ -1416,7 +1418,7 @@ try {
         $displayDateYmd = $t['transaction_date'];
         if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
             $ptForDisplay = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
-            if ($ptForDisplay === 'monthly' || $ptForDisplay === 'partial_first_month' || $ptForDisplay === 'day_end_tail') {
+            if ($ptForDisplay === 'monthly' || $ptForDisplay === 'partial_first_month' || $ptForDisplay === 'day_end_tail' || $ptForDisplay === 'resend_consolidated_range') {
                 $anchorYmd = historyMonthlyBankProcessDisplayYmd(
                     isset($t['bp_day_start']) ? (string) $t['bp_day_start'] : null,
                     $t['bp_dts_created'] ?? null,
