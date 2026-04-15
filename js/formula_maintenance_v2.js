@@ -422,6 +422,31 @@ async function loadPermissionButtons() {
     }
 }
 
+async function fetchCompanyPermissions(companyCode) {
+    if (!companyCode) return [];
+    try {
+        const response = await fetch('/api/domain/domain_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
+        });
+        const result = await response.json();
+        if (result.success && result.data && Array.isArray(result.data.permissions)) {
+            return result.data.permissions;
+        }
+    } catch (err) {
+        console.error('Error fetching company permissions:', err);
+    }
+    return [];
+}
+
+function isBankOnlyCategoryCompany(permissions) {
+    if (!Array.isArray(permissions) || permissions.length === 0) return false;
+    const hasBank = permissions.includes('Bank');
+    const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+    return hasBank && !hasGames;
+}
+
 function switchPermission(permission, skipLoad) {
     selectedPermission = permission;
     if (currentCompanyCode) {
@@ -461,6 +486,11 @@ async function switchCompany(companyId, companyCode) {
     currentCompanyCode = companyCode || '';
     if (typeof window !== 'undefined') {
         window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+    }
+    const permissions = await fetchCompanyPermissions(currentCompanyCode);
+    if (isBankOnlyCategoryCompany(permissions)) {
+        window.location.href = 'dashboard.php';
+        return;
     }
     if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
         const hg = hasGamblingFromSession !== undefined

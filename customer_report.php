@@ -6,6 +6,23 @@ require_once 'permissions.php';
 // 获取 company_id（session_check.php已确保用户已登录）
 $company_id = $_SESSION['company_id'];
 
+// Bank-only company 进入报表时自动跳转 dashboard
+$companyPerms = null;
+try {
+    $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+    $stmt->execute([$company_id]);
+    $permsJson = $stmt->fetchColumn();
+    $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
+} catch (PDOException $e) {
+    $companyPerms = null;
+}
+$hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
+$isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
+if ($isBankOnlyCategory) {
+    header('Location: dashboard.php');
+    exit;
+}
+
 if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
     header('Location: index.php?error=unauthorized_category');
     exit;
