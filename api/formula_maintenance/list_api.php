@@ -8,7 +8,6 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/formula_fields_helper.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -119,6 +118,38 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
 }
 
 /**
+ * Maintenance - Formula 列：符号公式 + Source Percent（Rate 乘子），如 $7*0.125
+ * 若库中已存完整带 * 系数的式子，或乘子为 1，则不再重复拼接。
+ */
+function buildMaintenanceFormulaDisplay(array $row) {
+    $formulaValue = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    if ($formulaValue === '') {
+        $formulaValue = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+    }
+    if ($formulaValue === '') {
+        return '';
+    }
+    $enable = isset($row['enable_source_percent']) ? (int) $row['enable_source_percent'] : 0;
+    $pct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
+    if (!$enable || $pct === '') {
+        return $formulaValue;
+    }
+    if ($pct === '1' || $pct === '1.0' || $pct === '1.00') {
+        return $formulaValue;
+    }
+    $suffix = '*' . $pct;
+    $suffixLen = strlen($suffix);
+    if ($suffixLen > 0 && strlen($formulaValue) >= $suffixLen && substr($formulaValue, -$suffixLen) === $suffix) {
+        return $formulaValue;
+    }
+    // 末尾已是 * 数值（或简单分式）视为已含系数，避免 $7*0.125 再拼 *0.125
+    if (preg_match('/\*\s*[0-9.\/()%]+\s*$/', $formulaValue)) {
+        return $formulaValue;
+    }
+    return $formulaValue . $suffix;
+}
+
+/**
  * 将原始行转换为前端需要的格式（no, process, account, source, formula 等）
  */
 function mapRowsToDisplay(array $rows) {
@@ -128,9 +159,8 @@ function mapRowsToDisplay(array $rows) {
     $displayRowsByKey = [];
     foreach ($rows as $row) {
         $sourceValue = $row['columns_display'] ?? $row['source_columns'] ?? '';
-        // 列表展示：$5 * (0.18)；编辑框用 $5*0.18（与 update 解析一致）
-        $formulaDisplayParen = buildFormulaDisplayParenFromRow($row);
-        $formulaEdit = buildFormulaEditFromRow($row);
+        // 符号公式 + Source Percent（与 Summary / 模板表一致），例如 $7*0.125
+        $formulaValue = buildMaintenanceFormulaDisplay($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
         $processDisplay = $processCode;
@@ -168,8 +198,7 @@ function mapRowsToDisplay(array $rows) {
                 'source' => $sourceValue,
                 'product' => $product,
                 'input_method' => $inputMethod,
-                'formula' => $formulaDisplayParen,
-                'formula_edit' => $formulaEdit,
+                'formula' => $formulaValue,
                 'description' => $description,
                 'product_type' => $productType
             ];
@@ -178,16 +207,6 @@ function mapRowsToDisplay(array $rows) {
             $existingId = (int)$displayRowsByKey[$dedupKey]['id'];
             if ($currentId > $existingId) {
                 $displayRowsByKey[$dedupKey]['id'] = $currentId;
-                $displayRowsByKey[$dedupKey]['formula'] = $formulaDisplayParen;
-                $displayRowsByKey[$dedupKey]['formula_edit'] = $formulaEdit;
-                $displayRowsByKey[$dedupKey]['source'] = $sourceValue;
-                $displayRowsByKey[$dedupKey]['input_method'] = $inputMethod;
-                $displayRowsByKey[$dedupKey]['description'] = $description;
-                $displayRowsByKey[$dedupKey]['account'] = $accountDisplay;
-                $displayRowsByKey[$dedupKey]['account_id'] = $row['account_id'];
-                $displayRowsByKey[$dedupKey]['account_name'] = $row['account_name'] ?? '';
-                $displayRowsByKey[$dedupKey]['currency'] = $currencyDisplay;
-                $displayRowsByKey[$dedupKey]['product'] = $product;
             }
         }
     }

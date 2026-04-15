@@ -643,7 +643,6 @@ function loadDataCaptureList() {
                     const searchUpper = searchFilter.toUpperCase();
                     filteredData = filteredData.filter(row => 
                         (row.formula && row.formula.toUpperCase().includes(searchUpper)) ||
-                        (row.formula_edit && row.formula_edit.toUpperCase().includes(searchUpper)) ||
                         (row.description && row.description.toUpperCase().includes(searchUpper)) ||
                         (row.product && row.product.toUpperCase().includes(searchUpper)) ||
                         (row.account && row.account.toUpperCase().includes(searchUpper)) ||
@@ -718,7 +717,6 @@ function renderDataCaptureTable(data) {
             source: row.source || '',
             input_method: row.input_method || '',
             formula: row.formula || '',
-            formula_edit: row.formula_edit || row.formula || '',
             description: row.description || ''
         };
         tr.setAttribute('data-row-data', JSON.stringify(rowData));
@@ -760,9 +758,9 @@ function renderDataCaptureTable(data) {
                 <span class="input-method-display" title="${escapeHtml(row.input_method || '')}">${toUpperDisplay(row.input_method)}</span>
                 <select class="input-method-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">${inputMethodOptionsHtml}</select>
             </td>
-            <td class="formula-cell" data-original-formula="${escapeHtml(row.formula_edit || row.formula || '')}">
+            <td class="formula-cell" data-original-formula="${escapeHtml(row.formula || '')}">
                 <span class="formula-display" style="word-break: break-word;" title="${escapeHtml(row.formula || '')}">${toUpperDisplay(row.formula)}</span>
-                <input type="text" class="formula-input" value="${escapeHtml(row.formula_edit || row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
+                <input type="text" class="formula-input" value="${escapeHtml(row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
             </td>
             <td class="description-cell" data-original-description="${escapeHtml(row.description || '')}">
                 <span class="description-display" style="word-break: break-word;">${toUpperDisplay(row.description)}</span>
@@ -857,8 +855,6 @@ function editDataCaptureRow(rowId, editBtn) {
     
     // 加载 account 列表
     loadAccountList(accountSelect, accountCell.getAttribute('data-original-account-id')).then(() => {
-        const rowDataForEdit = JSON.parse(row.getAttribute('data-row-data') || '{}');
-        formulaInput.value = rowDataForEdit.formula_edit || rowDataForEdit.formula || '';
         // 显示输入框/下拉列表，隐藏显示文本
         accountDisplay.style.display = 'none';
         accountSelect.style.display = 'block';
@@ -972,7 +968,7 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
     accountSelect.value = rowData.account_id || '';
     sourceInput.value = rowData.source || '';
     inputMethodSelect.value = rowData.input_method || '';
-    formulaInput.value = rowData.formula_edit || rowData.formula || '';
+    formulaInput.value = rowData.formula || '';
     descriptionInput.value = rowData.description || '';
     
     accountDisplay.textContent = toUpperDisplay(rowData.account);
@@ -980,7 +976,6 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
     sourceDisplay.title = rowData.source || '';
     inputMethodDisplay.textContent = toUpperDisplay(rowData.input_method);
     formulaDisplay.textContent = toUpperDisplay(rowData.formula);
-    formulaDisplay.title = rowData.formula || '';
     descriptionDisplay.textContent = toUpperDisplay(rowData.description);
     
     // 隐藏输入框/下拉列表，显示显示文本
@@ -1080,17 +1075,12 @@ function saveDataCaptureRow(rowId, saveBtn) {
     })
     .then(data => {
         if (data.success) {
-            const norm = data.data || {};
-            const disp = norm.formula_display_paren != null ? norm.formula_display_paren : formulaValue;
-            const edit = norm.formula_edit != null ? norm.formula_edit : formulaValue;
             // 更新显示文本
             accountDisplay.textContent = accountText ? toUpperDisplay(accountText.split(' (')[0]) : '-';
             sourceDisplay.textContent = toUpperDisplay(sourceValue);
             sourceDisplay.title = sourceValue || '';
             inputMethodDisplay.textContent = toUpperDisplay(inputMethodValue);
-            formulaDisplay.textContent = toUpperDisplay(disp);
-            formulaDisplay.title = disp || '';
-            formulaInput.value = edit;
+            formulaDisplay.textContent = toUpperDisplay(formulaValue);
             descriptionDisplay.textContent = toUpperDisplay(descriptionValue);
             
             // 隐藏输入框/下拉列表，显示显示文本
@@ -1130,8 +1120,7 @@ function saveDataCaptureRow(rowId, saveBtn) {
                 account_id: accountId || null,
                 source: sourceValue,
                 input_method: inputMethodValue,
-                formula: disp,
-                formula_edit: edit,
+                formula: formulaValue,
                 description: descriptionValue
             };
             row.setAttribute('data-row-data', JSON.stringify(newRowData));
