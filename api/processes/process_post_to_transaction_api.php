@@ -2,7 +2,7 @@
 /**
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
- * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 全额，day_end_tail = day_end 超出合同自然结束日的尾段按比例。
+ * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = day_end 超出合同自然结束日的尾段按比例。
  * 仅处理 status = 'active' 的 process。
  */
 
@@ -393,6 +393,9 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
     $createdYmd = bmp_inboxEffectiveCreatedYmd($createdYmd, $startDate, !empty($r['accounting_resend_relax_created_floor']));
 
     if ($frequency === '1st_of_every_month') {
+        $resendRelax = !empty($r['accounting_resend_relax_created_floor']);
+        $todayYm = (new DateTimeImmutable($today))->format('Y-n');
+        $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
         // 规则：
         // 1) 非 resend：旧月份不补（仅保留创建当月及之后）；
         // 2) day_start 在 1 号时，首月按 day_start(1号) 锚定，不按创建日截断；
@@ -479,7 +482,8 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
         return null;
     }
     $startDayOfMonth = (int) date('j', $startTs);
-    if ($startDate !== '' && $today >= $createdYmd) {
+    $resendRelaxMonthly = !empty($r['accounting_resend_relax_created_floor']);
+    if ($startDate !== '' && ($resendRelaxMonthly || $today >= $createdYmd)) {
         try {
             $iter = new DateTimeImmutable($startDate);
             $iter = $iter->modify('first day of this month');
@@ -496,7 +500,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                     break;
                 }
-                if ($due < $createdYmd) {
+                if (!$resendRelaxMonthly && $due < $createdYmd) {
                     try {
                         $billYm = $iter->format('Y-n');
                         $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
@@ -509,7 +513,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                         continue;
                     }
                 }
-                if ($today >= $due
+                if (($today >= $due || $resendRelaxMonthly)
                     && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
                     return $iter->format('Y-n');
                 }
@@ -528,15 +532,18 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     if (empty($ids)) {
         return [];
     }
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $hasFrequency = tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
     $hasFlagColumn = tableHasColumn($pdo, 'bank_process', 'flag');
     $hasResendRelax = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
     $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
             bp.dts_created" . ($hasFrequency ? ", bp.day_start_frequency" : "") .
-        ($hasResendRelax ? ", bp.accounting_resend_relax_created_floor" : "") . ",
+        ($hasResendRelax ? ", bp.accounting_resend_relax_created_floor" : "") .
+        ($hasSchedCols ? ", bp.accounting_resend_schedule_day_start, bp.accounting_resend_schedule_day_end, bp.accounting_resend_schedule_frequency" : "") . ",
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
@@ -549,7 +556,8 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $byId[(int) $row['id']] = $row;
+        $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+        $byId[(int) $merged['id']] = $merged;
     }
     return $byId;
 }
@@ -892,49 +900,24 @@ try {
                         $firstMonthOnFirstHandled = true;
                     }
                 }
-                if (!$firstMonthOnFirstHandled && $createdYm === $billYm) {
-                    $dueYmd = null;
-                    $shouldProrateMonthlyByCreatedFloor = true;
-                    if ($frequency === '1st_of_every_month') {
-                        $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
-                        // day_start 非 1 号时，后续 monthly 期应整月计费（例如 3/12 -> 4/1~4/30），
-                        // 不允许按 created/today 再次截断。
-                        if ($dayStartYmd !== null && $dayStartYmd !== '') {
-                            try {
-                                $startDt = new DateTimeImmutable($dayStartYmd);
-                                $startYmForBill = $startDt->format('Y-n');
-                                if ((int) $startDt->format('j') !== 1 || $billYm !== $startYmForBill) {
-                                    $shouldProrateMonthlyByCreatedFloor = false;
-                                }
-                            } catch (Throwable $e) {
-                                $shouldProrateMonthlyByCreatedFloor = false;
-                            }
+                // monthly：按「对日对月」服务区间（上一应付日到本期应付前一日）比例，不使用自然月末截断。
+                if ($frequency === 'monthly' && $dayStartYmd) {
+                    $dueYmdM = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, 'monthly');
+                    if ($dueYmdM !== null) {
+                        [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmdM, $dayStartYmd);
+                        $from = $p0;
+                        if ($createdYmd > $from) {
+                            $from = $createdYmd;
                         }
-                    } else {
-                        if ($dayStartYmd) {
-                            $startDay = (int) date('j', strtotime($dayStartYmd));
-                            $dueYmd = calendarMonthDueYmd($billY, $billMo, $startDay);
-                            if ((new DateTimeImmutable($dayStartYmd))->format('Y-n') === $billYm) {
-                                $dueYmd = $dayStartYmd;
-                            }
-                        }
-                    }
-                    if ($dueYmd !== null && $createdYmd > $dueYmd && $shouldProrateMonthlyByCreatedFloor) {
-                        $prorateFrom = $dueYmd;
-                        if ($frequency === '1st_of_every_month' && !$resendRelax) {
-                            // 1st_of_every_month 一律按该月1号(dueYmd)起算，不按创建日截断。
-                        }
-                        $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
-                        $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
-                        $cost = $pr['cost'];
-                        $price = $pr['price'];
-                        $profit = $pr['profit'];
-                        $tPrFrom = strtotime($prorateFrom);
-                        if ($tPrFrom !== false) {
-                            $dim = (int) date('t', $tPrFrom);
-                            $dj = (int) date('j', $tPrFrom);
-                            if ($dim > 0) {
-                                $monthlyProrationPsRatio = ($dim - $dj + 1) / $dim;
+                        if ($from <= $p1) {
+                            $pr = prorateInclusiveDateRange($from, $p1, $cost, $price, $profit);
+                            $cost = $pr['cost'];
+                            $price = $pr['price'];
+                            $profit = $pr['profit'];
+                            $fullD = billingInclusiveDaysBetween($p0, $p1);
+                            $useD = billingInclusiveDaysBetween($from, $p1);
+                            if ($fullD > 0) {
+                                $monthlyProrationPsRatio = $useD / $fullD;
                             }
                         }
                     }
@@ -1127,7 +1110,17 @@ try {
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
 
         if ($has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])) {
-            $clr = $pdo->prepare('UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?');
+            if (bmp_bankProcessHasResendScheduleColumns($pdo)) {
+                $clr = $pdo->prepare(
+                    'UPDATE bank_process SET accounting_resend_relax_created_floor = 0,
+                        accounting_resend_schedule_day_start = NULL,
+                        accounting_resend_schedule_day_end = NULL,
+                        accounting_resend_schedule_frequency = NULL,
+                        dts_modified = NOW() WHERE id = ? AND company_id = ?'
+                );
+            } else {
+                $clr = $pdo->prepare('UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?');
+            }
             $clr->execute([(int) $p['id'], $companyId]);
             $p['accounting_resend_relax_created_floor'] = 0;
         }

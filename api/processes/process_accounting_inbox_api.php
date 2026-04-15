@@ -8,7 +8,7 @@
  * - 同上 Resend 标记期间：regular monthly 段对「截至今日所有未结清账期」逐月各列一行（含 1st of Every Month 与 Monthly prepaid），便于一次勾选、按 billing_month 多笔入账；非 Resend 流程仍只展示下一笔待结清账期。
  * - Day start 为当月1号且与创建同月：仍自 day_start 当日起可入账（与上条后续整月不同）。
  * - 非1号 day_start：首月按比例从 day_start 起算；若创建日晚于该自然月末则整段跳过（旧数据不拿）；出现日 max(day_start, 创建日)。
- * - Monthly = 每月(day_start 日 - 1)号，如 2月8日开始则每月7号算账
+ * - Monthly = 每月 day_start 日为应付日；一期金额为「上一应付日到本期应付前一日」按日历天比例（例如 3/13 应付则服务 2/13–3/12），不按自然月末截断。
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  * - 填写 day_end 且长于合同自然结束：多一笔 day_end_tail（例 1st + 非1号 day_start：自然结束次日到 day_end 按当月天数比例）。
  */
@@ -382,7 +382,7 @@ function inboxUniqueSortedBillingMonths(array $months): array
 }
 
 /**
- * 追加一条 monthly 型 Accounting Due 行（与原先单条逻辑相同的 proration）。
+ * 追加一条 monthly 型 Accounting Due 行。frequency=monthly 时按「对日对月」服务区间比例（与 process_post 一致），不使用自然月末截断。
  *
  * @param '1st_of_every_month'|'monthly' $frequency
  */
@@ -406,20 +406,34 @@ function inboxAppendMonthlyNeedToday(
             $billMo = (int) $m[2];
             $createdYm = $createdDt->format('Y-n');
             $billYm = sprintf('%04d-%d', $billY, $billMo);
-            if ($createdYm === $billYm) {
+            if ($frequency === 'monthly' && $startTs !== false && $startDate !== '') {
+                $startDay = (int) date('j', $startTs);
+                $dueYmd = billingCalendarMonthDueYmd($billY, $billMo, $startDay);
+                if ((new DateTimeImmutable($startDate))->format('Y-n') === $billYm) {
+                    $dueYmd = $startDate;
+                }
+                [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmd, $startDate);
+                $from = $p0;
+                if ($createdYmd > $from) {
+                    $from = $createdYmd;
+                }
+                if ($from <= $p1) {
+                    $pr = prorateInclusiveDateRange($from, $p1, $cost, $price, $profit);
+                    $cost = $pr['cost'];
+                    $price = $pr['price'];
+                    $profit = $pr['profit'];
+                } else {
+                    $cost = 0.0;
+                    $price = 0.0;
+                    $profit = 0.0;
+                }
+            } elseif ($createdYm === $billYm) {
                 $dueYmd = null;
                 $shouldProrateMonthlyByCreatedFloor = true;
                 if ($frequency === '1st_of_every_month') {
                     $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
                     // 1st_of_every_month：始终按自然月1号起算，不按创建日截断。
                     $shouldProrateMonthlyByCreatedFloor = false;
-                } else {
-                    if ($startTs !== false) {
-                        $dueYmd = calendarMonthDueYmd($billY, $billMo, (int) date('j', $startTs));
-                        if ($startDate !== '' && (new DateTimeImmutable($startDate))->format('Y-n') === $billYm) {
-                            $dueYmd = $startDate;
-                        }
-                    }
                 }
                 if ($dueYmd !== null && $createdYmd > $dueYmd && $shouldProrateMonthlyByCreatedFloor) {
                     $prorateFrom = $dueYmd;
@@ -473,17 +487,24 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
 /** 获取当前公司下可用于 Accounting Inbox 的 active Bank Process 列表 */
 function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency, bool $hasResendRelaxCol): array
 {
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit,
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.day_end, bp.contract, bp.dts_created" .
         ($hasFrequency ? ", bp.day_start_frequency" : "") .
-        ($hasResendRelaxCol ? ", bp.accounting_resend_relax_created_floor" : "") . "
+        ($hasResendRelaxCol ? ", bp.accounting_resend_relax_created_floor" : "") .
+        ($hasSchedCols ? ", bp.accounting_resend_schedule_day_start, bp.accounting_resend_schedule_day_end, bp.accounting_resend_schedule_frequency" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
             AND (COALESCE(bp.cost,0) > 0 OR COALESCE(bp.price,0) > 0 OR COALESCE(bp.profit,0) > 0)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$companyId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as $i => $row) {
+        $rows[$i] = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+    }
+    return $rows;
 }
 
 /** 获取当前公司下 inactive-like 且尚未在本轮做过 manual_inactive 入账的 Bank Process。real inactive 与 OFFICIAL / E-INVOICE 共用这套 Accounting Due 逻辑。 */
@@ -729,8 +750,9 @@ try {
     foreach ($rows as $r) {
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
-        // Resend 仅回补 day_start 所在当月：不再一次展开多账期；但保留 relax 标记用于创建日门槛与比例算法。
-        $resendMulti = false;
+        // Resend（relax）期间：与注释一致，可列出多笔未结清账期；非 Resend 仍只取下一笔。
+        $resendMulti = !empty($r['accounting_resend_relax_created_floor']);
+        $resendRelax = $resendMulti;
         $need = false;
         $monthlyBillingMonth = null;
         $queuedMonthlyBillingMonths = [];
@@ -833,7 +855,6 @@ try {
                         }
                         $billYm = $iter->format('Y-n');
                         $todayYm = (new DateTimeImmutable($today))->format('Y-n');
-                        $resendRelax = !empty($r['accounting_resend_relax_created_floor']);
                         // 非 resend：旧数据不拿，仅当月账单进入 Accounting Due。
                         if (!$resendRelax && $billYm !== $todayYm) {
                             $anchorSlotIndex++;
@@ -889,7 +910,7 @@ try {
             }
             $processId = (int) $r['id'];
             $startDayOfMonth = (int) date('j', $startTs);
-            if ($startDate !== '' && $today >= $createdYmd) {
+            if ($startDate !== '' && ($resendRelax || $today >= $createdYmd)) {
                 try {
                     $iter = new DateTimeImmutable($startDate);
                     $iter = $iter->modify('first day of this month');
@@ -906,7 +927,7 @@ try {
                         if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                             break;
                         }
-                        if ($due < $createdYmd) {
+                        if (!$resendRelax && $due < $createdYmd) {
                             try {
                                 $billYm = $iter->format('Y-n');
                                 $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
@@ -919,7 +940,7 @@ try {
                                 continue;
                             }
                         }
-                        if ($today >= $due
+                        if (($today >= $due || $resendRelax)
                             && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, $processId, $y, $mo)) {
                             $bm = $iter->format('Y-n');
                             if ($resendMulti) {

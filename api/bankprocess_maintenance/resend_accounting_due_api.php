@@ -131,10 +131,7 @@ try {
         if (!in_array($newFrequency, ['1st_of_every_month', 'monthly'], true)) {
             $newFrequency = '1st_of_every_month';
         }
-        // 与前端 Add/Edit 一致：已设 day_end 时不允许 monthly
-        if ($newDayEnd !== null && $newFrequency === 'monthly') {
-            $newFrequency = '1st_of_every_month';
-        }
+        // Resend 弹窗允许与 Edit 不同的组合（仅本次入账/Inbox），不再把「有 day_end + monthly」强制改为 1st。
     }
 
     $selectCols = ['id', 'status'];
@@ -162,6 +159,7 @@ try {
 
     bmp_ensureMaintenanceResendPendingTable($pdo);
     bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
 
     $pdo->beginTransaction();
     // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
@@ -194,10 +192,40 @@ try {
 
     // 客户端传入的 day_start / day_end / frequency 仅用于本次计算清除哪个月份的 posted 标记，不写入 bank_process（与 Edit Process 保存分离）。
 
-    $flg = $pdo->prepare(
-        'UPDATE bank_process SET accounting_resend_relax_created_floor = 1, dts_modified = NOW() WHERE id = ? AND company_id = ?'
-    );
-    $flg->execute([$bankProcessId, $company_id]);
+    if (bmp_bankProcessHasResendScheduleColumns($pdo)) {
+        if ($scheduleFromClient) {
+            $flg = $pdo->prepare(
+                'UPDATE bank_process SET accounting_resend_relax_created_floor = 1,
+                    accounting_resend_schedule_day_start = ?,
+                    accounting_resend_schedule_day_end = ?,
+                    accounting_resend_schedule_frequency = ?,
+                    dts_modified = NOW()
+                 WHERE id = ? AND company_id = ?'
+            );
+            $flg->execute([
+                $newDayStart,
+                $newDayEnd,
+                $newFrequency,
+                $bankProcessId,
+                $company_id,
+            ]);
+        } else {
+            $flg = $pdo->prepare(
+                'UPDATE bank_process SET accounting_resend_relax_created_floor = 1,
+                    accounting_resend_schedule_day_start = NULL,
+                    accounting_resend_schedule_day_end = NULL,
+                    accounting_resend_schedule_frequency = NULL,
+                    dts_modified = NOW()
+                 WHERE id = ? AND company_id = ?'
+            );
+            $flg->execute([$bankProcessId, $company_id]);
+        }
+    } else {
+        $flg = $pdo->prepare(
+            'UPDATE bank_process SET accounting_resend_relax_created_floor = 1, dts_modified = NOW() WHERE id = ? AND company_id = ?'
+        );
+        $flg->execute([$bankProcessId, $company_id]);
+    }
 
     $pdo->commit();
     jsonResponse(true, '已处理：该 Process 可再次进入 Accounting Due', [
