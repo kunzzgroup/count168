@@ -2,7 +2,7 @@
 /**
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
- * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 全额，day_end_tail = day_end 超出合同自然结束日的尾段按比例。
+ * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致），day_end_tail = day_end 超出合同自然结束日的尾段按比例。
  * 仅处理 status = 'active' 的 process。
  */
 
@@ -393,6 +393,9 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
     $createdYmd = bmp_inboxEffectiveCreatedYmd($createdYmd, $startDate, !empty($r['accounting_resend_relax_created_floor']));
 
     if ($frequency === '1st_of_every_month') {
+        $resendRelax = !empty($r['accounting_resend_relax_created_floor']);
+        $todayYm = (new DateTimeImmutable($today))->format('Y-n');
+        $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
         // 规则：
         // 1) 非 resend：旧月份不补（仅保留创建当月及之后）；
         // 2) day_start 在 1 号时，首月按 day_start(1号) 锚定，不按创建日截断；
@@ -892,49 +895,24 @@ try {
                         $firstMonthOnFirstHandled = true;
                     }
                 }
-                if (!$firstMonthOnFirstHandled && $createdYm === $billYm) {
-                    $dueYmd = null;
-                    $shouldProrateMonthlyByCreatedFloor = true;
-                    if ($frequency === '1st_of_every_month') {
-                        $dueYmd = sprintf('%04d-%02d-01', $billY, $billMo);
-                        // day_start 非 1 号时，后续 monthly 期应整月计费（例如 3/12 -> 4/1~4/30），
-                        // 不允许按 created/today 再次截断。
-                        if ($dayStartYmd !== null && $dayStartYmd !== '') {
-                            try {
-                                $startDt = new DateTimeImmutable($dayStartYmd);
-                                $startYmForBill = $startDt->format('Y-n');
-                                if ((int) $startDt->format('j') !== 1 || $billYm !== $startYmForBill) {
-                                    $shouldProrateMonthlyByCreatedFloor = false;
-                                }
-                            } catch (Throwable $e) {
-                                $shouldProrateMonthlyByCreatedFloor = false;
-                            }
+                // monthly：按「对日对月」服务区间（上一应付日到本期应付前一日）比例，不使用自然月末截断。
+                if ($frequency === 'monthly' && $dayStartYmd) {
+                    $dueYmdM = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, 'monthly');
+                    if ($dueYmdM !== null) {
+                        [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmdM, $dayStartYmd);
+                        $from = $p0;
+                        if ($createdYmd > $from) {
+                            $from = $createdYmd;
                         }
-                    } else {
-                        if ($dayStartYmd) {
-                            $startDay = (int) date('j', strtotime($dayStartYmd));
-                            $dueYmd = calendarMonthDueYmd($billY, $billMo, $startDay);
-                            if ((new DateTimeImmutable($dayStartYmd))->format('Y-n') === $billYm) {
-                                $dueYmd = $dayStartYmd;
-                            }
-                        }
-                    }
-                    if ($dueYmd !== null && $createdYmd > $dueYmd && $shouldProrateMonthlyByCreatedFloor) {
-                        $prorateFrom = $dueYmd;
-                        if ($frequency === '1st_of_every_month' && !$resendRelax) {
-                            // 1st_of_every_month 一律按该月1号(dueYmd)起算，不按创建日截断。
-                        }
-                        $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($prorateFrom);
-                        $pr = prorateToMonthEndFromStart($prorateFrom, $cost, $price, $profit);
-                        $cost = $pr['cost'];
-                        $price = $pr['price'];
-                        $profit = $pr['profit'];
-                        $tPrFrom = strtotime($prorateFrom);
-                        if ($tPrFrom !== false) {
-                            $dim = (int) date('t', $tPrFrom);
-                            $dj = (int) date('j', $tPrFrom);
-                            if ($dim > 0) {
-                                $monthlyProrationPsRatio = ($dim - $dj + 1) / $dim;
+                        if ($from <= $p1) {
+                            $pr = prorateInclusiveDateRange($from, $p1, $cost, $price, $profit);
+                            $cost = $pr['cost'];
+                            $price = $pr['price'];
+                            $profit = $pr['profit'];
+                            $fullD = billingInclusiveDaysBetween($p0, $p1);
+                            $useD = billingInclusiveDaysBetween($from, $p1);
+                            if ($fullD > 0) {
+                                $monthlyProrationPsRatio = $useD / $fullD;
                             }
                         }
                     }

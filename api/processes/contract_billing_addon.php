@@ -70,3 +70,48 @@ function applyOnePlusXRemainingDaysBuySellAddon(
     // 1+N compensation is handled only in manual_inactive flow.
     return;
 }
+
+/**
+ * 某自然月第 N 日（不超过该月最后一天）— 与 process_accounting_inbox_api 的 calendarMonthDueYmd 一致。
+ */
+function billingCalendarMonthDueYmd(int $year, int $month, int $dueDay): string
+{
+    $last = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+    $d = min(max(1, $dueDay), $last);
+
+    return sprintf('%04d-%02d-%02d', $year, $month, $d);
+}
+
+/**
+ * Frequency=monthly（按同一日对月）：一期服务区间为「上一应付日到本期应付前一日」，
+ * 不使用「从应付日到自然月末」的算法。首期应付若等于合同 day_start，区间为 [day_start, day_start+1月-1日]。
+ *
+ * @return array{0:string,1:string}
+ */
+function billingMonthlyAnniversaryInclusiveRangeFromDue(string $dueYmd, string $contractStartYmd): array
+{
+    try {
+        if ($dueYmd === $contractStartYmd) {
+            $s = new DateTimeImmutable($contractStartYmd);
+
+            return [$contractStartYmd, $s->modify('+1 month')->modify('-1 day')->format('Y-m-d')];
+        }
+        $due = new DateTimeImmutable($dueYmd);
+
+        return [$due->modify('-1 month')->format('Y-m-d'), $due->modify('-1 day')->format('Y-m-d')];
+    } catch (Throwable $e) {
+        return [$dueYmd, $dueYmd];
+    }
+}
+
+/** 含首尾两日的天数；无效或 from>to 时返回 0 */
+function billingInclusiveDaysBetween(string $fromYmd, string $toYmd): int
+{
+    $a = strtotime($fromYmd);
+    $b = strtotime($toYmd);
+    if ($a === false || $b === false || $fromYmd > $toYmd) {
+        return 0;
+    }
+
+    return (int) round(($b - $a) / 86400) + 1;
+}
