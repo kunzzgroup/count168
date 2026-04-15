@@ -671,38 +671,31 @@ body.process-page {
     border: 0.0625rem solid #e0e0e0;
 }
 
-/* Bank Process List 专页：无纵滚；表格容器勿 flex:1 撑高，否则表下大块空白；表随内容增高，分页紧跟其下 */
+/* Bank Process List: no overflow clipping, no internal scroll — unified with Games layout */
 .process-page.process-page--bank .container {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    max-height: 100vh;
-    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+    overflow: visible;
+    max-height: none;
+    padding-bottom: 0;
 }
 
 .process-page.process-page--bank .content {
-    flex: 1 1 auto;
-    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
 }
 
-/* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
+/* Bank 标题行字号与间距与 Games 完全统一 */
 
-/* separator-line 不再 override，与 Games 完全一致（margin: 5px 0 -10px 0） */
+/* separator-line 不再 override，与 Games 完全一致 */
 
 .process-page.process-page--bank .bank-table-wrapper {
-    flex: 1 1 auto;
-    /* 填满剩余垂直空间，分页条始终在 flex 末尾不遮挡数据 */
-    min-height: 0;
-    align-self: stretch;
-    margin-top: 6px;
+    height: auto;
     max-height: none;
+    margin-top: 6px;
     overflow-x: auto;
-    overflow-y: auto;
-    /* 20 条以上在 wrapper 内滚动，而非溢出到分页条后面 */
-    -webkit-overflow-scrolling: touch;
+    overflow-y: visible;  /* no internal scroll — all rows render in full */
 }
 
 /* Show All 模式：与普通模式相同（wrapper 已 flex:1，overflow-y:auto，无需额外规则） */
@@ -891,19 +884,20 @@ body.process-page {
     flex-shrink: 0;
 }
 
-/* Process Cards - copied from accountCSS.css */
+/* Process Cards — no internal scroll; let the 100vh container hold everything */
 .process-page .process-cards {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
 }
 
 .process-page .process-card {
     display: grid;
     grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
-    padding: 4px 20px;
+    padding: 2px 20px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -1280,16 +1274,21 @@ body.process-page {
     pointer-events: none;
 }
 
-/* Pagination Button Styles */
+/* Pagination — always static, right-aligned below data */
 .process-page .pagination-container {
-    margin-top: 5px;
+    position: static;
+    margin-top: 6px;
+    margin-bottom: 8px;
+    /* Right-align regardless of parent layout */
     margin-left: auto;
-    width: max-content;
+    margin-right: 0;
+    align-self: flex-end;
+    width: fit-content;
     display: flex;
     align-items: center;
     gap: 0;
     background: rgba(255, 255, 255, 0.95);
-    padding: 0px;
+    padding: 2px 6px;
     border-radius: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);

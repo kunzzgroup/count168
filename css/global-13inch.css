@@ -128,18 +128,12 @@
        4. Table Rows & Data (Smart Density)
        ---------------------------------------------------- */
     /* Div-based Rows (Cards) */
-    .user-card,
-    .account-card,
-    .contract-card,
-    .member-card {
-        padding: 10px 22px !important;
+    .contract-card {
+        padding: 6px 20px !important;
         min-height: 20px !important;
     }
 
-    .card-item,
-    .account-card-item,
-    .contract-card-item,
-    .member-card-item {
+    .contract-card-item {
         font-size: 14px !important;
         line-height: 1.5 !important;
         letter-spacing: 0.015em !important;
@@ -460,58 +454,7 @@
         max-height: 120px !important;
     }
 
-    /* ==========================================================================
-   Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
-   ========================================================================== */
-    /* 1. Unlock the main bounding containers so they stretch infinitely downwards */
-    html,
-    body.user-page,
-    body.account-page,
-    body.transaction-page,
-    body.datacapture-page,
-    body.dashboard-page,
-    body {
-        height: auto !important;
-        min-height: 100vh !important;
-        max-height: none !important;
-        overflow-y: visible !important;
-        overflow-x: hidden !important;
-    }
 
-    .container,
-    .content,
-    .transaction-container,
-    .datacapture-container,
-    .dashboard-container {
-        height: auto !important;
-        min-height: 100vh !important;
-        max-height: none !important;
-        overflow: visible !important;
-        padding-bottom: 20px !important;
-        /* Absolute guarantee we never cut off the bottom element */
-    }
-
-    /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
-    .table-container,
-    .account-cards,
-    .process-cards,
-    .process-table-wrapper,
-    .dashboard-content,
-    .transaction-main-content,
-    .transaction-table-wrapper,
-    .datacapture-table-wrapper {
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        overflow: visible !important;
-        /* This forces the data to completely render out, triggering the global browser scrollbar */
-    }
-
-    /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
-    body {
-        background-attachment: fixed !important;
-        background-size: cover !important;
-    }
 
     /* ==========================================================================
    Chips with Overflow Component Styles
@@ -560,121 +503,53 @@
         color: #0369a1;
     }
 
-}
+    /* ==========================================================================
+       GLOBAL EXTREME COMPRESSION (13-inch SPA Experience)
+       Goal: Fit exactly 20 rows on screen without scrolling.
+       ========================================================================== */
+    .process-card,
+    .account-card,
+    .user-card,
+    .member-card,
+    .domain-card,
+    .ownership-card {
+        padding: 3px 20px !important;
+        min-height: 28px !important;
+    }
+    
+    .card-item,
+    .account-card-item,
+    .member-card-item,
+    .process-page .card-item {
+        font-size: clamp(10px, 0.75vw, 13px) !important;
+        line-height: 1.15 !important;
+        padding-top: 1px !important;
+        padding-bottom: 1px !important;
+    }
 
-/* ==========================================================================
-   UNIVERSAL LAYOUT UNLOCK — All screen sizes, all monitors
-   Priority: Show ALL data > aesthetics. No internal scroll. No clipping.
-   ========================================================================== */
+    .table-header {
+        margin-top: 5px !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+        font-size: clamp(10px, 0.78vw, 14px) !important;
+    }
 
-/* 1. Body: always auto-height, never clipped */
-html,
-body,
-body.user-page,
-body.account-page,
-body.transaction-page,
-body.datacapture-page,
-body.dashboard-page,
-body.process-page,
-body.domain-page,
-body.member-page,
-body.ownership-page,
-body.report-page,
-body.maintenance-page {
-    height: auto !important;
-    min-height: 100vh !important;
-    max-height: none !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    background-attachment: fixed !important;
-}
-
-/* 2. Main containers: stretch to content, never clip */
-.container,
-.transaction-container,
-.datacapture-container,
-.dashboard-container,
-.domain-container,
-.member-container,
-.ownership-container,
-.report-container,
-.process-page .container {
-    height: auto !important;
-    min-height: 100vh !important;
-    max-height: none !important;
-    overflow: visible !important;
-    padding-bottom: 40px !important;
-}
-
-/* .content wraps the table + pagination — must be flex column
-   so that align-self: flex-end works on the pagination child */
-.content {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-}
-
-
-/* 3. Table / card wrappers: full render, zero nested scroll */
-.table-container,
-.account-cards,
-.process-cards,
-.process-table-wrapper,
-.dashboard-content,
-.transaction-main-content,
-.transaction-table-wrapper,
-.datacapture-table-wrapper,
-.member-cards,
-.ownership-cards,
-.domain-cards,
-.user-cards {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-}
-
-/* 4. Pagination — ALWAYS static, RIGHT-ALIGNED below content
-      Works via:
-        - align-self: flex-end  →  when .content is flex column (processlist, userlist, accountlist)
-        - margin-left: auto     →  fallback for block containers
-      All known pagination class names covered below */
-.pagination-container,
-.account-pagination-container,
-.member-pagination-container,
-.ownership-pagination-container,
-.domain-pagination-container,
-[class$="-pagination-container"],
-[class*="pagination-container"] {
-    /* ❌ Never fixed/absolute — always inline after data */
-    position: static !important;
-    bottom: auto !important;
-    right: auto !important;
-    left: auto !important;
-    top: auto !important;
-    z-index: auto !important;
-
-    /* ✅ Right-aligned pill below table — works in BOTH block and flex parents */
-    display: flex !important;
-    align-items: center !important;
-    align-self: flex-end !important;   /* pushes right in flex-column parent (.content) */
-    justify-content: flex-end !important;
-    margin-top: 10px !important;
-    margin-bottom: 16px !important;
-    margin-left: auto !important;      /* fallback: pushes right in block parent */
-    margin-right: 0 !important;
-    width: fit-content !important;
-    padding: 4px 8px !important;
-
-    /* Keep the pill style */
-    background: rgba(255, 255, 255, 0.95) !important;
-    border-radius: 20px !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    backdrop-filter: blur(8px) !important;
-    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    .action-buttons-container {
+        margin-top: 5px !important;
+    }
+    
+    .action-buttons {
+        padding: 6px 20px !important;
+    }
+    
+    h1, .page-title {
+        margin-top: 6px !important;
+        margin-bottom: 4px !important;
+    }
+    
+    .separator-line {
+        margin-top: 2px !important;
+        margin-bottom: 0px !important;
+    }
 }
 
