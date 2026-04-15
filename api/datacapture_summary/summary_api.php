@@ -2360,6 +2360,61 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Track display_order to preserve row order from frontend
             $displayOrder = 0;
+            // Performance optimization:
+            // Build in-memory formula_variant maps to avoid per-row SQL lookups.
+            // Key format:
+            // - main formula key: "<id_product_main>|<account_id>|<formula>"
+            // - main max key: "<id_product_main>|<account_id>"
+            // - sub formula key: "<id_product_sub>|<id_product_main>|<account_id>|<formula>"
+            // - sub max key: "<id_product_sub>|<id_product_main>|<account_id>"
+            $variantByFormulaMain = [];
+            $variantMaxMain = [];
+            $variantByFormulaSub = [];
+            $variantMaxSub = [];
+
+            if ($isBatchAppend) {
+                $variantSeedStmt = $pdo->prepare("
+                    SELECT
+                        product_type,
+                        COALESCE(id_product_main, '') AS id_product_main,
+                        COALESCE(id_product_sub, '') AS id_product_sub,
+                        account_id,
+                        COALESCE(formula, '') AS formula,
+                        COALESCE(formula_variant, 0) AS formula_variant
+                    FROM data_capture_details
+                    WHERE company_id = ? AND capture_id = ?
+                ");
+                $variantSeedStmt->execute([$companyId, $captureId]);
+                while ($seed = $variantSeedStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $seedType = trim((string)($seed['product_type'] ?? 'main'));
+                    $seedMain = trim((string)($seed['id_product_main'] ?? ''));
+                    $seedSub = trim((string)($seed['id_product_sub'] ?? ''));
+                    $seedAccountId = (int)($seed['account_id'] ?? 0);
+                    $seedFormula = (string)($seed['formula'] ?? '');
+                    $seedVariant = (int)($seed['formula_variant'] ?? 0);
+
+                    if ($seedType === 'sub') {
+                        $formulaKey = $seedSub . '|' . $seedMain . '|' . $seedAccountId . '|' . $seedFormula;
+                        $maxKey = $seedSub . '|' . $seedMain . '|' . $seedAccountId;
+                        if (!isset($variantByFormulaSub[$formulaKey])) {
+                            $variantByFormulaSub[$formulaKey] = $seedVariant;
+                        }
+                        if (!isset($variantMaxSub[$maxKey]) || $seedVariant > $variantMaxSub[$maxKey]) {
+                            $variantMaxSub[$maxKey] = $seedVariant;
+                        }
+                    } else {
+                        $formulaKey = $seedMain . '|' . $seedAccountId . '|' . $seedFormula;
+                        $maxKey = $seedMain . '|' . $seedAccountId;
+                        if (!isset($variantByFormulaMain[$formulaKey])) {
+                            $variantByFormulaMain[$formulaKey] = $seedVariant;
+                        }
+                        if (!isset($variantMaxMain[$maxKey]) || $seedVariant > $variantMaxMain[$maxKey]) {
+                            $variantMaxMain[$maxKey] = $seedVariant;
+                        }
+                    }
+                }
+            }
+
             foreach ($data['summaryRows'] as $row) {
                 // Validate row data
                 if (!isset($row['accountId'])) {
@@ -2419,93 +2474,35 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // If formula_variant not provided or is null, find the next available variant for this id_product and account_id
                 if ($formulaVariant === null) {
-                    $formula = $row['formula'] ?? '';
+                    $formula = (string)($row['formula'] ?? '');
                     if ($productType === 'main') {
-                        $variantCheckStmt = $pdo->prepare("
-                            SELECT formula_variant FROM data_capture_details 
-                            WHERE company_id = :company_id
-                              AND capture_id = :capture_id 
-                              AND product_type = 'main'
-                              AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                              AND COALESCE(id_product_sub, '') = ''
-                              AND account_id = :account_id
-                              AND COALESCE(formula, '') = COALESCE(:formula, '')
-                            LIMIT 1
-                        ");
-                        $variantCheckStmt->execute([
-                            ':company_id' => $companyId,
-                            ':capture_id' => $captureId,
-                            ':id_product_main' => $row['idProductMain'] ?? null,
-                            ':account_id' => $row['accountId'],
-                            ':formula' => $formula
-                        ]);
-                        $existingVariant = $variantCheckStmt->fetch();
-                        if ($existingVariant) {
-                            $formulaVariant = (int)$existingVariant['formula_variant'];
+                        $keyMain = trim((string)($row['idProductMain'] ?? ''));
+                        $keyAccountId = (int)($row['accountId'] ?? 0);
+                        $formulaKey = $keyMain . '|' . $keyAccountId . '|' . $formula;
+                        $maxKey = $keyMain . '|' . $keyAccountId;
+
+                        if (isset($variantByFormulaMain[$formulaKey])) {
+                            $formulaVariant = (int)$variantByFormulaMain[$formulaKey];
                         } else {
-                            $maxVariantStmt = $pdo->prepare("
-                                SELECT MAX(formula_variant) as max_variant FROM data_capture_details 
-                                WHERE company_id = :company_id
-                                  AND capture_id = :capture_id 
-                                  AND product_type = 'main'
-                                  AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                                  AND COALESCE(id_product_sub, '') = ''
-                                  AND account_id = :account_id
-                            ");
-                            $maxVariantStmt->execute([
-                                ':company_id' => $companyId,
-                                ':capture_id' => $captureId,
-                                ':id_product_main' => $row['idProductMain'] ?? null,
-                                ':account_id' => $row['accountId']
-                            ]);
-                            $maxVariantResult = $maxVariantStmt->fetch();
-                            $maxVariant = $maxVariantResult && $maxVariantResult['max_variant'] !== null ? (int)$maxVariantResult['max_variant'] : 0;
-                            $formulaVariant = $maxVariant + 1;
+                            $next = (isset($variantMaxMain[$maxKey]) ? (int)$variantMaxMain[$maxKey] : 0) + 1;
+                            $formulaVariant = $next;
+                            $variantByFormulaMain[$formulaKey] = $formulaVariant;
+                            $variantMaxMain[$maxKey] = $formulaVariant;
                         }
                     } else {
-                        $variantCheckStmt = $pdo->prepare("
-                            SELECT formula_variant FROM data_capture_details 
-                            WHERE company_id = :company_id
-                              AND capture_id = :capture_id 
-                              AND product_type = 'sub'
-                              AND COALESCE(id_product_sub, '') = COALESCE(:id_product_sub, '')
-                              AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                              AND account_id = :account_id
-                              AND COALESCE(formula, '') = COALESCE(:formula, '')
-                            LIMIT 1
-                        ");
-                        $parentIdProduct = $row['parentIdProduct'] ?? $row['idProductMain'] ?? null;
-                        $variantCheckStmt->execute([
-                            ':company_id' => $companyId,
-                            ':capture_id' => $captureId,
-                            ':id_product_sub' => $row['idProductSub'] ?? null,
-                            ':id_product_main' => $parentIdProduct,
-                            ':account_id' => $row['accountId'],
-                            ':formula' => $formula
-                        ]);
-                        $existingVariant = $variantCheckStmt->fetch();
-                        if ($existingVariant) {
-                            $formulaVariant = (int)$existingVariant['formula_variant'];
+                        $keySub = trim((string)($row['idProductSub'] ?? ''));
+                        $keyMain = trim((string)($row['parentIdProduct'] ?? $row['idProductMain'] ?? ''));
+                        $keyAccountId = (int)($row['accountId'] ?? 0);
+                        $formulaKey = $keySub . '|' . $keyMain . '|' . $keyAccountId . '|' . $formula;
+                        $maxKey = $keySub . '|' . $keyMain . '|' . $keyAccountId;
+
+                        if (isset($variantByFormulaSub[$formulaKey])) {
+                            $formulaVariant = (int)$variantByFormulaSub[$formulaKey];
                         } else {
-                            $maxVariantStmt = $pdo->prepare("
-                                SELECT MAX(formula_variant) as max_variant FROM data_capture_details 
-                                WHERE company_id = :company_id
-                                  AND capture_id = :capture_id 
-                                  AND product_type = 'sub'
-                                  AND COALESCE(id_product_sub, '') = COALESCE(:id_product_sub, '')
-                                  AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                                  AND account_id = :account_id
-                            ");
-                            $maxVariantStmt->execute([
-                                ':company_id' => $companyId,
-                                ':capture_id' => $captureId,
-                                ':id_product_sub' => $row['idProductSub'] ?? null,
-                                ':id_product_main' => $parentIdProduct,
-                                ':account_id' => $row['accountId']
-                            ]);
-                            $maxVariantResult = $maxVariantStmt->fetch();
-                            $maxVariant = $maxVariantResult && $maxVariantResult['max_variant'] !== null ? (int)$maxVariantResult['max_variant'] : 0;
-                            $formulaVariant = $maxVariant + 1;
+                            $next = (isset($variantMaxSub[$maxKey]) ? (int)$variantMaxSub[$maxKey] : 0) + 1;
+                            $formulaVariant = $next;
+                            $variantByFormulaSub[$formulaKey] = $formulaVariant;
+                            $variantMaxSub[$maxKey] = $formulaVariant;
                         }
                     }
                 }
