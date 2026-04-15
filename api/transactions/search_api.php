@@ -944,8 +944,27 @@ try {
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
+    } elseif ($show_inactive) {
+        // 仅勾选 Show Payment Only：账户在日期范围内必须有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 交易才显示
+        // Bug修复：原来此处不做后端过滤，依赖前端 has_crdr_transactions 判断；
+        // 但 has_crdr_transactions 会被 RATE 分录（非 RATE_MIDDLEMAN）污染（count > 0），
+        // 导致纯 Win/Loss 账户（仅有 RATE 交易）也通过了前端过滤，错误出现在 Payment Only 视图中。
+        // 现在改为后端 SQL 层面强制过滤，与 Show Win/Loss Only 的处理方式对称。
+        $where_conditions[] = "(
+            EXISTS (
+                SELECT 1 FROM transactions t
+                WHERE t.company_id = ?
+                  AND (t.account_id = a.id OR t.from_account_id = a.id)
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  " . contraApprovedWhere($pdo, 't') . "
+            )
+        )";
+        $params[] = $company_id;
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
     }
-    // 默认 / 仅 Show Payment：不限制账户列表，由前端按 has_crdr 过滤
+    // 默认（不勾选任何过滤）：不限制账户列表，返回全部账户
 
     $where_sql = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
