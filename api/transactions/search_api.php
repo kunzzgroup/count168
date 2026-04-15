@@ -840,26 +840,6 @@ try {
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
     // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
     // 仅 Show Payment：前端过滤；两者都勾选：显示在当前日期范围内有 Win/Loss 或有 Cr/Dr 的账户
-    // --- 修复：EXISTS 过滤器 — 始终使用 bp.day_start 智能日期映射（与 calculateWinLossByCurrency 一致）---
-    $bpJoin = "";
-    $bpDateExpr = "t_wl.transaction_date";
-    if (searchApiHasSourceBankProcessId($pdo)) {
-         $bpJoin = "LEFT JOIN bank_process bp ON t_wl.source_bank_process_id = bp.id";
-         $bpDayStartSql = "CASE
-            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
-            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
-            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
-            ELSE NULL
-         END";
-         $bpDateExpr = "(CASE
-            WHEN t_wl.source_bank_process_id IS NOT NULL
-                 AND DATE(t_wl.transaction_date) <= CURDATE()
-            THEN COALESCE($bpDayStartSql, DATE(t_wl.transaction_date))
-            ELSE DATE(t_wl.transaction_date)
-         END)";
-    }
-    // --- 修复结束 ---
-
     if ($show_capture_only && $show_inactive) {
         // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture 或 WIN/LOSE 交易）或有 Payment（Cr/Dr）即显示
         $where_conditions[] = "(
@@ -871,10 +851,9 @@ try {
             )
             OR EXISTS (
                 SELECT 1 FROM transactions t_wl
-                $bpJoin
                 WHERE t_wl.company_id = ?
                   AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
-                  AND $bpDateExpr BETWEEN ? AND ?
+                  AND t_wl.transaction_date BETWEEN ? AND ?
                   AND t_wl.transaction_type IN ('WIN', 'LOSE')
             )
             OR EXISTS (
@@ -906,10 +885,9 @@ try {
             )
             OR EXISTS (
                 SELECT 1 FROM transactions t_wl
-                $bpJoin
                 WHERE t_wl.company_id = ?
                   AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
-                  AND $bpDateExpr BETWEEN ? AND ?
+                  AND t_wl.transaction_date BETWEEN ? AND ?
                   AND t_wl.transaction_type IN ('WIN', 'LOSE')
             )
         )";
@@ -956,50 +934,6 @@ try {
     $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($accounts)) {
-        // ==== 临时调试：当 show_capture_only 且 accounts 为空时，直接查 WIN/LOSE 交易 ====
-        $debugInfo = [];
-        if ($show_capture_only) {
-            // 直接查该公司在此日期范围的 WIN/LOSE 交易
-            $dbgSql = "SELECT t.id, t.account_id, t.from_account_id, t.transaction_type, t.transaction_date, t.amount, t.description, t.currency_id, t.source_bank_process_id
-                       FROM transactions t
-                       WHERE t.company_id = ? AND t.transaction_type IN ('WIN','LOSE')
-                       AND t.transaction_date BETWEEN ? AND ?
-                       LIMIT 20";
-            $dbgStmt = $pdo->prepare($dbgSql);
-            $dbgStmt->execute([$company_id, $date_from_db, $date_to_db]);
-            $debugInfo['win_lose_txns'] = $dbgStmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // 查所有的 WIN/LOSE（不限日期）看看 transaction_date 到底是什么
-            $dbgSql2 = "SELECT t.id, t.account_id, t.transaction_type, t.transaction_date, t.amount, LEFT(t.description, 80) as descr
-                        FROM transactions t
-                        WHERE t.company_id = ? AND t.transaction_type IN ('WIN','LOSE')
-                        ORDER BY t.transaction_date DESC LIMIT 10";
-            $dbgStmt2 = $pdo->prepare($dbgSql2);
-            $dbgStmt2->execute([$company_id]);
-            $debugInfo['recent_win_lose'] = $dbgStmt2->fetchAll(PDO::FETCH_ASSOC);
-
-            // 查 data capture 情况
-            $dbgSql3 = "SELECT dc.id, dc.capture_date, COUNT(dcd.id) as detail_count
-                        FROM data_captures dc
-                        JOIN data_capture_details dcd ON dcd.capture_id = dc.id
-                        WHERE dc.company_id = ? AND dc.capture_date BETWEEN ? AND ?
-                        GROUP BY dc.id, dc.capture_date LIMIT 10";
-            $dbgStmt3 = $pdo->prepare($dbgSql3);
-            $dbgStmt3->execute([$company_id, $date_from_db, $date_to_db]);
-            $debugInfo['data_captures'] = $dbgStmt3->fetchAll(PDO::FETCH_ASSOC);
-
-            $debugInfo['params'] = [
-                'company_id' => $company_id,
-                'date_from' => $date_from_db,
-                'date_to' => $date_to_db,
-                'show_capture_only' => $show_capture_only,
-                'bpDateExpr' => $bpDateExpr,
-                'bpJoin' => $bpJoin,
-                'account_count' => 0
-            ];
-            @file_put_contents(sys_get_temp_dir() . '/count168_exists_debug.json', json_encode($debugInfo, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        }
-        // ==== 调试结束 ====
         echo json_encode([
             'success' => true,
             'data' => [
@@ -1010,8 +944,7 @@ try {
                     'right' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0],
                     'summary' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0]
                 ],
-                'active_currency_codes' => [],
-                '_debug_exists' => $show_capture_only ? $debugInfo : null
+                'active_currency_codes' => []
             ]
         ]);
         exit;
@@ -1125,13 +1058,13 @@ try {
                 // 当使用分类筛选时，已删除的账户没有 role 信息，不应出现在筛选结果中
                 $foundIds = [];
                 foreach ($extraAcc as $ea) {
-                    $foundIds[(int)$ea['id']] = true;
+                    $foundIds[(int) $ea['id']] = true;
                 }
                 if (empty($category_filters)) {
                     foreach ($cpNewIds as $reqId) {
-                        if (!isset($foundIds[(int)$reqId])) {
+                        if (!isset($foundIds[(int) $reqId])) {
                             $extraAcc[] = [
-                                'id' => (int)$reqId,
+                                'id' => (int) $reqId,
                                 'account_id' => 'Deleted_Acc_' . $reqId,
                                 'name' => 'Deleted Account',
                                 'role' => 'none',
@@ -1424,13 +1357,18 @@ try {
             END";
 
             if ($has_source_bank_process_period_type) {
-                // 使用 bp.day_start 归属日期（交易在14号创建但 transaction_date 可能是15号）
                 $wlDateExpr = "(CASE
                     WHEN t.source_bank_process_id IS NOT NULL
+                         AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
                          AND DATE(t.transaction_date) <= CURDATE()
                     THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                     ELSE DATE(t.transaction_date)
                 END)";
+                $wlFutureGuard = " AND (
+                    t.source_bank_process_id IS NULL
+                    OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
+                    OR DATE(t.transaction_date) <= CURDATE()
+                )";
             } else {
                 // 兼容旧库：缺少 period_type 字段时，仍将 bank_process 来源交易按 day_start 归属日期统计
                 $wlDateExpr = "(CASE
@@ -1439,6 +1377,10 @@ try {
                     THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                     ELSE DATE(t.transaction_date)
                 END)";
+                $wlFutureGuard = " AND (
+                    t.source_bank_process_id IS NULL
+                    OR DATE(t.transaction_date) <= CURDATE()
+                )";
             }
         }
 
@@ -1619,15 +1561,13 @@ try {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // 注意：show_capture_only 的账户过滤已由外层 SQL WHERE 子句完成（EXISTS data_capture 或 WIN/LOSE 交易），
-        // 此处不再做二次 win_loss 数值过滤（会导致净额为 0 但确有交易的账户被错误剔除）
-
-        // ==== 临时调试：追查非零 Win/Loss 来源 ====
-        if (abs((float)$win_loss) > 0.001) {
-            $dbgFile = sys_get_temp_dir() . '/count168_wl_debug.log';
-            @file_put_contents($dbgFile, date('Y-m-d H:i:s') . " | account_id={$account['account_id']} db_id={$account_id} currency={$currency_code}({$currency_id}) win_loss={$win_loss} show_capture_only={$show_capture_only} date={$date_from_db}~{$date_to_db}\n", FILE_APPEND);
+        // 如果只勾选了 "Show Win/Loss Only"（前端复选框 show_capture_only）：
+        // 直接使用已计算好的 $win_loss 判断，保证 Data Capture 与 WIN/LOSE 交易都被纳入
+        if ($show_capture_only && !$show_inactive) {
+            if (abs((float) $win_loss) < 0.00001) {
+                continue;
+            }
         }
-        // ==== 调试结束 ====
 
         // 4. 计算 Balance（显示口径）
         // 公式：Balance = round(B/F,2) + round(Win/Loss,2) + round(Cr/Dr,2)
@@ -2079,7 +2019,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
     $has_transaction_currency = searchApiTxnHasCurrencyId($pdo);
 
-    // Bank WIN/LOSE：partial_first_month / day_end_tail 按 transaction_date 与 Payment History 一致；旧库无 period_type 时仍可按 bp.day_start 兜底
+    // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
     $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存，跨函数共享
     $has_source_bank_process_period_type = searchApiHasSourceBankProcessPeriodType($pdo); // static 缓存
     $wlJoinSql = '';
@@ -2096,10 +2036,16 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         if ($has_source_bank_process_period_type) {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
+                     AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
                      AND DATE(t.transaction_date) <= CURDATE()
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
         } else {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
@@ -2107,6 +2053,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
         }
     }
 
@@ -2345,7 +2295,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss = 0;
     $has_rate_middleman = false;
 
-    // Bank WIN/LOSE：有 period_type 时按 transaction_date 与 Payment History 一致；旧库无 period_type 时仍可按 bp.day_start 兜底
+    // 与 history_api 一致：Bank WIN/LOSE 在 monthly/partial/day_end_tail 时按 day_start 归属日期
     $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存，跨函数共享
     $has_source_bank_process_period_type = searchApiHasSourceBankProcessPeriodType($pdo); // static 缓存
     $wlJoinSql = '';
@@ -2362,10 +2312,16 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         if ($has_source_bank_process_period_type) {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
+                     AND t.source_bank_process_period_type IN ('partial_first_month', 'day_end_tail')
                      AND DATE(t.transaction_date) <= CURDATE()
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
         } else {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
@@ -2373,6 +2329,10 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
+            $wlFutureGuard = " AND (
+                t.source_bank_process_id IS NULL
+                OR DATE(t.transaction_date) <= CURDATE()
+            )";
         }
     }
 
