@@ -224,7 +224,7 @@ function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract
 /**
  * 合同自然结束 + day_end：day_end 为最后一天计入（可长于合同自然结束）；与 day_end 尾段账单一致。
  */
-function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, ?string $contract, ?string $dayEndYmd, ?string $frequency = null): bool
+function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, ?string $contract, ?string $dayEndYmd, ?string $frequency = null, bool $bypassPreStartGate = false): bool
 {
     if ($dayStartYmd === null || trim($dayStartYmd) === '') {
         return true;
@@ -239,7 +239,7 @@ function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, 
         }
         $start = date('Y-m-d', $ts0);
     }
-    if ($todayYmd < $start) {
+    if (!$bypassPreStartGate && $todayYmd < $start) {
         return false;
     }
 
@@ -694,14 +694,14 @@ try {
             if ($startTs === false) {
                 continue;
             }
-            if ($today < $startDate) {
+            if ($today < $startDate && empty($r['accounting_resend_relax_created_floor'])) {
                 continue;
             }
             $createdYmd = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate);
-            if ($today < maxYmd($startDate, $createdYmd)) {
+            if ($today < maxYmd($startDate, $createdYmd) && empty($r['accounting_resend_relax_created_floor'])) {
                 continue;
             }
-            if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null, '1st_of_every_month')) {
+            if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null, '1st_of_every_month', !empty($r['accounting_resend_relax_created_floor']))) {
                 continue;
             }
             // If day_start is the 1st, there's no "partial first month" period at all.
@@ -794,7 +794,7 @@ try {
                     && $todayYm === $startYm
                     && $today >= $startDate
                     && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $billYear, $billMonth)
-                    && isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month')) {
+                    && isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax)) {
                     $firstMonthOnFirst = true;
                     $monthlyBillingMonth = $startYm;
                 }
@@ -829,15 +829,18 @@ try {
             }
             $firstAccountingTs = strtotime('first day of next month', $startTs);
             $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
-            if ($firstAccountingDate === '' || $today < $firstAccountingDate) {
+            if ($firstAccountingDate === '' || (!$resendRelax && $today < $firstAccountingDate)) {
                 $need = false;
-            } elseif (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month')) {
+            } elseif (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax)) {
                 $need = false;
             } else {
                 try {
                     $iter = new DateTimeImmutable($firstAccountingDate);
                     $iter = $iter->modify('first day of this month');
                     $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+                    if ($resendRelax && $iter > $endCap) {
+                        $endCap = $iter;
+                    }
                     $term = getBillingTermMonthsFromContract($contract);
                     $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdFirstOfMonth($startDate, $term) : null;
                     $startDayForCap = (int) date('j', $startTs);
@@ -862,7 +865,7 @@ try {
                             continue;
                         }
                         $effectiveDue = maxYmd($firstOfThis, $createdYmd);
-                        if ($today >= $effectiveDue
+                        if (($today >= $effectiveDue || $resendRelax)
                             && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
                             $bm = $billYm;
                             if ($resendMulti) {
@@ -905,7 +908,7 @@ try {
             if ($startTs === false) {
                 continue;
             }
-            if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, 'monthly')) {
+            if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, 'monthly', $resendRelax)) {
                 continue;
             }
             $processId = (int) $r['id'];
@@ -915,6 +918,16 @@ try {
                     $iter = new DateTimeImmutable($startDate);
                     $iter = $iter->modify('first day of this month');
                     $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+                    if ($resendRelax) {
+                        try {
+                            $startMonthFirst = (new DateTimeImmutable($startDate))->modify('first day of this month');
+                            if ($startMonthFirst > $endCap) {
+                                $endCap = $startMonthFirst;
+                            }
+                        } catch (Throwable $e) {
+                            // ignore
+                        }
+                    }
                     $startYm = (new DateTimeImmutable($startDate))->format('Y-m');
                     $term = getBillingTermMonthsFromContract($contract);
                     $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmd($startDate, $term) : null;
@@ -1030,7 +1043,7 @@ try {
             if ($today < $exclusiveEnd) {
                 continue;
             }
-            if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $r['day_end'] ?? null, $frequency)) {
+            if (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $r['day_end'] ?? null, $frequency, !empty($r['accounting_resend_relax_created_floor']))) {
                 continue;
             }
             $createdYmdTail = inboxEffectiveCreatedYmdForProcess($r, $today, $startDate);
