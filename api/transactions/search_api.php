@@ -840,29 +840,23 @@ try {
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
     // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
     // 仅 Show Payment：前端过滤；两者都勾选：显示在当前日期范围内有 Win/Loss 或有 Cr/Dr 的账户
-    // --- 修复：EXISTS 过滤器的日期逻辑与 calculateWinLossByCurrency 保持一致 ---
+    // --- 修复：EXISTS 过滤器 — 始终使用 bp.day_start 智能日期映射（与 calculateWinLossByCurrency 一致）---
     $bpJoin = "";
     $bpDateExpr = "t_wl.transaction_date";
     if (searchApiHasSourceBankProcessId($pdo)) {
-         if (searchApiHasSourceBankProcessPeriodType($pdo)) {
-             // 有 period_type 字段：入账 API 已写入经济归属日，直接用 transaction_date
-             $bpDateExpr = "t_wl.transaction_date";
-         } else {
-             // 旧库无 period_type 字段：仍按 bp.day_start 归属日期
-             $bpJoin = "LEFT JOIN bank_process bp ON t_wl.source_bank_process_id = bp.id";
-             $bpDayStartSql = "CASE
-                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
-                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
-                WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
-                ELSE NULL
-             END";
-             $bpDateExpr = "(CASE
-                WHEN t_wl.source_bank_process_id IS NOT NULL
-                     AND DATE(t_wl.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t_wl.transaction_date))
-                ELSE DATE(t_wl.transaction_date)
-             END)";
-         }
+         $bpJoin = "LEFT JOIN bank_process bp ON t_wl.source_bank_process_id = bp.id";
+         $bpDayStartSql = "CASE
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN DATE(bp.day_start)
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d/%m/%Y')
+            WHEN CAST(bp.day_start AS CHAR) REGEXP '^[0-9]{1,2}-[0-9]{1,2}-[0-9]{4}$' THEN STR_TO_DATE(bp.day_start, '%d-%m-%Y')
+            ELSE NULL
+         END";
+         $bpDateExpr = "(CASE
+            WHEN t_wl.source_bank_process_id IS NOT NULL
+                 AND DATE(t_wl.transaction_date) <= CURDATE()
+            THEN COALESCE($bpDayStartSql, DATE(t_wl.transaction_date))
+            ELSE DATE(t_wl.transaction_date)
+         END)";
     }
     // --- 修复结束 ---
 
@@ -1430,8 +1424,13 @@ try {
             END";
 
             if ($has_source_bank_process_period_type) {
-                // partial / tail 与 monthly 均按 transaction_date 汇总；入账 API 已写入经济归属日，避免 bp.day_start 与 Resend 锚点不一致
-                $wlDateExpr = "DATE(t.transaction_date)";
+                // 使用 bp.day_start 归属日期（交易在14号创建但 transaction_date 可能是15号）
+                $wlDateExpr = "(CASE
+                    WHEN t.source_bank_process_id IS NOT NULL
+                         AND DATE(t.transaction_date) <= CURDATE()
+                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                    ELSE DATE(t.transaction_date)
+                END)";
             } else {
                 // 兼容旧库：缺少 period_type 字段时，仍将 bank_process 来源交易按 day_start 归属日期统计
                 $wlDateExpr = "(CASE
@@ -2095,7 +2094,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             ELSE NULL
         END";
         if ($has_source_bank_process_period_type) {
-            $wlDateExpr = "DATE(t.transaction_date)";
+            $wlDateExpr = "(CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
         } else {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
@@ -2356,7 +2360,12 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             ELSE NULL
         END";
         if ($has_source_bank_process_period_type) {
-            $wlDateExpr = "DATE(t.transaction_date)";
+            $wlDateExpr = "(CASE
+                WHEN t.source_bank_process_id IS NOT NULL
+                     AND DATE(t.transaction_date) <= CURDATE()
+                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
+                ELSE DATE(t.transaction_date)
+            END)";
         } else {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
