@@ -51,13 +51,23 @@ function geHasContraApproval(PDO $pdo): bool {
 }
 
 /**
- * 计算某公司在指定日期范围内的净利润（Net Profit = PROFIT role 账户余额总和）
+ * 计算某公司 PROFIT role 账户的净余额
+ * 与 dashboard_api.php 完全一致：B/F（期前累计） + 期间增量 = total_balance
+ *
+ * @param PDO    $pdo
+ * @param int    $companyId
+ * @param string $dateFrom   YYYY-MM-DD  （期间开始）
+ * @param string $dateTo     YYYY-MM-DD  （期间结束）
+ * @return float
  */
 function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $dateTo): float
 {
     $hasCurrency = geHasTransactionCurrency($pdo);
     $hasEntry    = geHasTransactionEntry($pdo);
     $hasContra   = geHasContraApproval($pdo);
+    $contraClause = $hasContra
+        ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')"
+        : "";
 
     // 拿该公司所有 PROFIT role 的 active 账户
     $stmt = $pdo->prepare("
@@ -72,103 +82,195 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
     if (empty($accountIds)) return 0.0;
 
     $in    = implode(',', array_fill(0, count($accountIds), '?'));
-    $total = 0.0;
+    $total_bf     = 0.0;   // B/F：dateFrom 之前的所有累计
+    $total_period = 0.0;   // 期间：dateFrom ~ dateTo
 
-    // ── A. Data Capture 汇总 ───────────────────────────────────────────────
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0)
-            FROM data_capture_details dcd
-            JOIN data_captures dc ON dcd.capture_id = dc.id
-            WHERE dc.company_id = ?
-              AND dcd.company_id = ?
-              AND dcd.account_id IN ($in)
-              AND dc.capture_date BETWEEN ? AND ?";
-    $s = $pdo->prepare($sql);
-    $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
-    $total += (float) $s->fetchColumn();
+    // ══════════════════════════════════════════════════════
+    //  SECTION 1: B/F  (capture_date / transaction_date < dateFrom)
+    //  与 dashboard_api.php 的 "--- 1. 计算 B/F ---" 完全一致
+    // ══════════════════════════════════════════════════════
+
+    // A-BF. Data Capture B/F
+    $s = $pdo->prepare("
+        SELECT COALESCE(SUM(dcd.processed_amount), 0)
+        FROM data_capture_details dcd
+        JOIN data_captures dc ON dcd.capture_id = dc.id
+        WHERE dc.company_id = ?
+          AND dcd.company_id = ?
+          AND dcd.account_id IN ($in)
+          AND dc.capture_date < ?
+    ");
+    $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom]));
+    $total_bf += (float) $s->fetchColumn();
 
     if ($hasCurrency) {
-        $contraClause = $hasContra
-            ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')"
-            : "";
+        // B-BF. Transactions To Account (B/F)
+        $s = $pdo->prepare("
+            SELECT COALESCE(SUM(CASE
+                WHEN transaction_type IN ('RECEIVE','CLAIM') THEN -t.amount
+                WHEN transaction_type = 'CONTRA'            THEN -t.amount
+                WHEN transaction_type = 'CLEAR'             THEN -t.amount
+                WHEN transaction_type = 'PAYMENT'           THEN -t.amount
+                WHEN transaction_type = 'WIN'  AND (t.description LIKE 'Process: %') THEN  t.amount
+                WHEN transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                WHEN transaction_type = 'WIN'  AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                WHEN transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN  t.amount
+                ELSE 0
+            END), 0)
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.account_id IN ($in)
+              AND t.transaction_date < ?
+              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','WIN','LOSE')"
+            . $contraClause
+        );
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom]));
+        $total_bf += (float) $s->fetchColumn();
 
-        // ── B. Transactions To Account ────────────────────────────────────
-        $sql = "SELECT COALESCE(SUM(CASE
-                    WHEN transaction_type IN ('RECEIVE','CLAIM') THEN -t.amount
-                    WHEN transaction_type = 'CONTRA' THEN -t.amount
-                    WHEN transaction_type = 'CLEAR'  THEN -t.amount
-                    WHEN transaction_type = 'PAYMENT' THEN -t.amount
-                    WHEN transaction_type = 'WIN'  AND (t.description LIKE 'Process: %') THEN  t.amount
-                    WHEN transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                    WHEN transaction_type = 'WIN'  AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
-                    WHEN transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN  t.amount
-                    ELSE 0
-                END), 0)
-                FROM transactions t
-                WHERE t.company_id = ?
-                  AND t.account_id IN ($in)
-                  AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','WIN','LOSE')"
-                . $contraClause;
-        $s = $pdo->prepare($sql);
-        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
-        $total += (float) $s->fetchColumn();
+        // C-BF. Transactions From Account (B/F)
+        $s = $pdo->prepare("
+            SELECT COALESCE(SUM(CASE
+                WHEN transaction_type IN ('PAYMENT','RECEIVE','CLAIM','CLEAR') THEN t.amount
+                WHEN transaction_type = 'CONTRA' THEN t.amount
+                ELSE 0
+            END), 0)
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.from_account_id IN ($in)
+              AND t.transaction_date < ?
+              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM')"
+            . $contraClause
+        );
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom]));
+        $total_bf += (float) $s->fetchColumn();
 
-        // ── C. Transactions From Account ─────────────────────────────────
-        $sql = "SELECT COALESCE(SUM(CASE
-                    WHEN transaction_type IN ('PAYMENT','RECEIVE','CLAIM','CLEAR') THEN t.amount
-                    WHEN transaction_type = 'CONTRA' THEN t.amount
-                    ELSE 0
-                END), 0)
-                FROM transactions t
-                WHERE t.company_id = ?
-                  AND t.from_account_id IN ($in)
-                  AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM')"
-                . $contraClause;
-        $s = $pdo->prepare($sql);
-        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
-        $total += (float) $s->fetchColumn();
-
-        // ── D. RATE entries ──────────────────────────────────────────────
+        // D-BF. RATE entries B/F (from transaction_entry)
         if ($hasEntry) {
             try {
-                $sql = "SELECT COALESCE(SUM(CASE
-                            WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
-                            WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-                            WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
-                            ELSE e.amount
-                        END), 0)
-                        FROM transaction_entry e
-                        JOIN transactions h ON e.header_id = h.id
-                        WHERE h.company_id = ?
-                          AND e.company_id = ?
-                          AND e.account_id IN ($in)
-                          AND h.transaction_date BETWEEN ? AND ?";
-                $s = $pdo->prepare($sql);
-                $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
-                $total += (float) $s->fetchColumn();
-            } catch (Throwable $e) {}
-        }
-    }
-
-    // ── E. RATE_MIDDLEMAN（直接累加到 Profit，与 dashboard_api 保持一致）──
-    if ($hasEntry) {
-        try {
-            $sql = "SELECT COALESCE(SUM(ROUND(e.amount,2)), 0)
+                $s = $pdo->prepare("
+                    SELECT COALESCE(SUM(CASE
+                        WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                        WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO')     THEN -e.amount
+                        WHEN e.entry_type = 'RATE_MIDDLEMAN'                          THEN  e.amount
+                        ELSE e.amount
+                    END), 0)
                     FROM transaction_entry e
                     JOIN transactions h ON e.header_id = h.id
                     WHERE h.company_id = ?
                       AND e.company_id = ?
-                      AND e.entry_type = 'RATE_MIDDLEMAN'
-                      AND h.transaction_date BETWEEN ? AND ?";
-            $s = $pdo->prepare($sql);
+                      AND e.account_id IN ($in)
+                      AND h.transaction_date < ?
+                ");
+                $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom]));
+                $total_bf += (float) $s->fetchColumn();
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  SECTION 2: 期间增量  (BETWEEN dateFrom AND dateTo)
+    //  与 dashboard_api.php 的 "--- 2. 计算每日数据 ---" 一致
+    // ══════════════════════════════════════════════════════
+
+    // A-P. Data Capture 期间
+    $s = $pdo->prepare("
+        SELECT COALESCE(SUM(dcd.processed_amount), 0)
+        FROM data_capture_details dcd
+        JOIN data_captures dc ON dcd.capture_id = dc.id
+        WHERE dc.company_id = ?
+          AND dcd.company_id = ?
+          AND dcd.account_id IN ($in)
+          AND dc.capture_date BETWEEN ? AND ?
+    ");
+    $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
+    $total_period += (float) $s->fetchColumn();
+
+    if ($hasCurrency) {
+        // B-P. Transactions To Account 期间
+        $s = $pdo->prepare("
+            SELECT COALESCE(SUM(CASE
+                WHEN transaction_type IN ('RECEIVE','CLAIM','RATE') THEN -t.amount
+                WHEN transaction_type = 'CONTRA'                    THEN -t.amount
+                WHEN transaction_type = 'CLEAR'                     THEN -t.amount
+                WHEN transaction_type = 'PAYMENT'                   THEN -t.amount
+                WHEN t.transaction_type = 'WIN'  AND (t.description LIKE 'Process: %') THEN  t.amount
+                WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                WHEN t.transaction_type = 'WIN'  AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN  t.amount
+                ELSE 0
+            END), 0)
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.account_id IN ($in)
+              AND t.transaction_date BETWEEN ? AND ?
+              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE','WIN','LOSE')"
+            . $contraClause
+        );
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
+        $total_period += (float) $s->fetchColumn();
+
+        // C-P. Transactions From Account 期间
+        $s = $pdo->prepare("
+            SELECT COALESCE(SUM(CASE
+                WHEN transaction_type = 'CONTRA'                              THEN t.amount
+                WHEN transaction_type = 'CLEAR'                               THEN t.amount
+                WHEN transaction_type IN ('PAYMENT','RECEIVE','CLAIM','RATE') THEN t.amount
+                ELSE 0
+            END), 0)
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.from_account_id IN ($in)
+              AND t.transaction_date BETWEEN ? AND ?
+              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE')"
+            . $contraClause
+        );
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
+        $total_period += (float) $s->fetchColumn();
+
+        // D-P. RATE entries 期间
+        if ($hasEntry) {
+            try {
+                $s = $pdo->prepare("
+                    SELECT COALESCE(SUM(CASE
+                        WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                        WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO')     THEN -e.amount
+                        WHEN e.entry_type = 'RATE_MIDDLEMAN'                          THEN  e.amount
+                        ELSE e.amount
+                    END), 0)
+                    FROM transaction_entry e
+                    JOIN transactions h ON e.header_id = h.id
+                    WHERE h.company_id = ?
+                      AND e.company_id = ?
+                      AND e.account_id IN ($in)
+                      AND h.transaction_date BETWEEN ? AND ?
+                ");
+                $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
+                $total_period += (float) $s->fetchColumn();
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // E. RATE_MIDDLEMAN 期间（与 dashboard_api 同步累加到 Profit）
+    if ($hasEntry) {
+        try {
+            $s = $pdo->prepare("
+                SELECT COALESCE(SUM(ROUND(e.amount, 2)), 0)
+                FROM transaction_entry e
+                JOIN transactions h ON e.header_id = h.id
+                WHERE h.company_id = ?
+                  AND e.company_id = ?
+                  AND e.entry_type = 'RATE_MIDDLEMAN'
+                  AND h.transaction_date BETWEEN ? AND ?
+            ");
             $s->execute([$companyId, $companyId, $dateFrom, $dateTo]);
-            $total += (float) $s->fetchColumn();
+            $total_period += (float) $s->fetchColumn();
         } catch (Throwable $e) {}
     }
 
-    return round($total, 2);
+    // total_balance = B/F + 期间增量（与 dashboard_api 一致）
+    return round($total_bf + $total_period, 2);
 }
+
 
 // ── Main Logic ────────────────────────────────────────────────────────────
 try {
