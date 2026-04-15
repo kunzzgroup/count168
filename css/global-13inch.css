@@ -638,9 +638,9 @@ body.transaction-page {
     height: 100vh !important;
     max-height: 100vh !important;
     overflow: hidden !important;
+    display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
-    display: contents !important;
     /* No padding-bottom — flex layout handles spacing */
 }
 
