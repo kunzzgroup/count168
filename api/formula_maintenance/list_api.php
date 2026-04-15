@@ -72,6 +72,8 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 dct.input_method,
                 dct.formula_display,
                 dct.formula_operators,
+                dct.source_percent,
+                dct.enable_source_percent,
                 dct.description,
                 p.process_id AS process_code,
                 p.description_id,
@@ -116,6 +118,38 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
 }
 
 /**
+ * Maintenance - Formula 列：符号公式 + Source Percent（Rate 乘子），如 $7*0.125
+ * 若库中已存完整带 * 系数的式子，或乘子为 1，则不再重复拼接。
+ */
+function buildMaintenanceFormulaDisplay(array $row) {
+    $formulaValue = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    if ($formulaValue === '') {
+        $formulaValue = isset($row['formula_display']) ? trim((string) $row['formula_display']) : '';
+    }
+    if ($formulaValue === '') {
+        return '';
+    }
+    $enable = isset($row['enable_source_percent']) ? (int) $row['enable_source_percent'] : 0;
+    $pct = isset($row['source_percent']) ? trim((string) $row['source_percent']) : '';
+    if (!$enable || $pct === '') {
+        return $formulaValue;
+    }
+    if ($pct === '1' || $pct === '1.0' || $pct === '1.00') {
+        return $formulaValue;
+    }
+    $suffix = '*' . $pct;
+    $suffixLen = strlen($suffix);
+    if ($suffixLen > 0 && strlen($formulaValue) >= $suffixLen && substr($formulaValue, -$suffixLen) === $suffix) {
+        return $formulaValue;
+    }
+    // 末尾已是 * 数值（或简单分式）视为已含系数，避免 $7*0.125 再拼 *0.125
+    if (preg_match('/\*\s*[0-9.\/()%]+\s*$/', $formulaValue)) {
+        return $formulaValue;
+    }
+    return $formulaValue . $suffix;
+}
+
+/**
  * 将原始行转换为前端需要的格式（no, process, account, source, formula 等）
  */
 function mapRowsToDisplay(array $rows) {
@@ -125,13 +159,8 @@ function mapRowsToDisplay(array $rows) {
     $displayRowsByKey = [];
     foreach ($rows as $row) {
         $sourceValue = $row['columns_display'] ?? $row['source_columns'] ?? '';
-        // 优先使用 formula_operators（原始公式，可能包含 $2 / 引用格式），
-        // 这样 Maintenance - Formula 的 Formula 列显示的是符号公式而不是代入数值后的结果。
-        // 若 formula_operators 为空，再回退到 formula_display。
-        $formulaValue = $row['formula_operators'] ?? '';
-        if ($formulaValue === null || $formulaValue === '') {
-            $formulaValue = $row['formula_display'] ?? '';
-        }
+        // 符号公式 + Source Percent（与 Summary / 模板表一致），例如 $7*0.125
+        $formulaValue = buildMaintenanceFormulaDisplay($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
         $processDisplay = $processCode;
