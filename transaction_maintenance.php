@@ -2,33 +2,6 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
-// 仅当公司具有 Games category 权限时才可访问此页（Bank-only 自动跳转 dashboard）
-$session_company_id = $_SESSION['company_id'] ?? null;
-if ($session_company_id) {
-    try {
-        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
-        $stmt->execute([$session_company_id]);
-        $permsJson = $stmt->fetchColumn();
-        $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
-        $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
-        $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
-        if ($isBankOnlyCategory) {
-            header('Location: dashboard.php');
-            exit;
-        }
-        if (!$hasGamesPermission) {
-            header('Location: processlist.php?error=no_gambling_permission');
-            exit;
-        }
-    } catch (PDOException $e) {
-        header('Location: processlist.php?error=permission_check_failed');
-        exit;
-    }
-} else {
-    header('Location: processlist.php');
-    exit;
-}
-
 // Get URL parameters for notifications
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
@@ -244,33 +217,7 @@ if (!empty($session_company_id)) {
         let ownerCompanies = [];
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = <?php echo json_encode($session_company_id); ?>;
-        let currentCompanyCode = <?php echo json_encode($session_company_code); ?>;
         let hasSearched = false;
-
-        async function fetchCompanyPermissions(companyCode) {
-            if (!companyCode) return [];
-            try {
-                const response = await fetch('api/domain/domain_api.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
-                });
-                const result = await response.json();
-                if (result.success && result.data && Array.isArray(result.data.permissions)) {
-                    return result.data.permissions;
-                }
-            } catch (err) {
-                console.error('Error fetching company permissions:', err);
-            }
-            return [];
-        }
-
-        function isBankOnlyCategoryCompany(permissions) {
-            if (!Array.isArray(permissions) || permissions.length === 0) return false;
-            const hasBank = permissions.includes('Bank');
-            const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
-            return hasBank && !hasGames;
-        }
 
         // Notification functions
         function showNotification(message, type = 'success') {
@@ -397,11 +344,6 @@ if (!empty($session_company_id)) {
             currentCompanyCode = companyCode || '';
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
-            }
-            const permissions = await fetchCompanyPermissions(currentCompanyCode);
-            if (isBankOnlyCategoryCompany(permissions)) {
-                window.location.href = 'dashboard.php';
-                return;
             }
             loadProcesses();
             if (hasSearched) {
