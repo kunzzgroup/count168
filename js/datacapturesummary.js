@@ -8043,28 +8043,6 @@ function saveFormula() {
         }
     }
 
-    // 展示为 base*(Source%) 或 1000*0.18*(0.14) 时，把解析出的比例写回 Source %，避免 Formula 已变而 Source 列仍是旧值
-    if (formulaDisplay && formulaDisplay !== 'Formula') {
-        const fromParen = extractSourcePercentFromParenDisplayFormula(formulaDisplay)
-        if (fromParen) {
-            sourcePercentValue = fromParen
-            sourcePercentEnableValue = true
-            const spEl = document.getElementById('sourcePercent')
-            if (spEl) spEl.value = sourcePercentValue
-        } else {
-            const convForInfer = (formulaDisplayInput && formulaDisplayInput.value)
-                ? String(formulaDisplayInput.value).trim().replace(/\s+/g, '')
-                : String(formulaValue || '').trim().replace(/\s+/g, '')
-            const inferredTriple = inferSourcePercentFromMisnestedTriple(convForInfer)
-            if (inferredTriple) {
-                sourcePercentValue = inferredTriple.displayPctStr
-                sourcePercentEnableValue = true
-                const spEl = document.getElementById('sourcePercent')
-                if (spEl) spEl.value = sourcePercentValue
-            }
-        }
-    }
-
     // Calculate processed amount
     // IMPORTANT: Save raw value (no rounding) to database, but display rounded value on page
     // 重要：保存原始值（不四舍五入）到数据库，但页面显示时使用四舍五入的值
@@ -9673,108 +9651,6 @@ function balanceParentheses(s) {
     return s + ')'.repeat(open - close);
 }
 
-// 从 Summary 最终展示串（如 1000*(0.16)）末尾一对括号内解析 Source%，用于 Save 时写回 Source 列 / source_percent
-function extractSourcePercentFromParenDisplayFormula(displayStr) {
-    const t = (displayStr || '').trim()
-    if (!t.endsWith(')')) return null
-    let depth = 0
-    for (let i = t.length - 1; i >= 0; i--) {
-        const c = t[i]
-        if (c === ')') depth++
-        else if (c === '(') {
-            depth--
-            if (depth === 0) {
-                const inner = t.slice(i + 1, t.length - 1).trim()
-                if (!inner || inner.includes('$')) return null
-                const compact = inner.replace(/\s+/g, '')
-                if (!/^[0-9.\/+-]+$/.test(compact)) return null
-                try {
-                    const v = evaluateExpression(removeThousandsSeparators(compact))
-                    if (!Number.isFinite(v)) return null
-                } catch (e) {
-                    return null
-                }
-                return inner
-            }
-        }
-    }
-    return null
-}
-
-// 去掉末尾与当前 Source % 数值不一致的 *(…)，避免旧比例残留（如 1000*0.18*(0.14)）
-function stripTrailingParenBlocksNotMatchingSourcePct(formulaStr, pctExpr) {
-    let s = (formulaStr || '').trim()
-    let pVal
-    try {
-        pVal = evaluateExpression(removeThousandsSeparators((pctExpr || '').trim()))
-    } catch (e) {
-        return s
-    }
-    if (!Number.isFinite(pVal)) return s
-    while (true) {
-        const m = s.match(/\*\(\s*([^)]+)\)\s*$/)
-        if (!m) break
-        let innerVal
-        try {
-            innerVal = evaluateExpression(removeThousandsSeparators(m[1].trim()))
-        } catch (e) {
-            break
-        }
-        if (!Number.isFinite(innerVal)) break
-        if (Math.abs(innerVal - pVal) < 0.0001) break
-        s = s.substring(0, s.length - m[0].length).trimEnd()
-    }
-    return s
-}
-
-// 当且仅当「* 前为简单数值或 (数值)」且「* 后为与 Source % 相同的数」时，剥掉末尾 *比例，便于再拼成 base*(pct)
-function stripTrailingInlinePctIfSimpleBase(formulaStr, pctExpr) {
-    const s = (formulaStr || '').trim()
-    const pSan = removeThousandsSeparators((pctExpr || '').trim())
-    let pVal
-    try {
-        pVal = evaluateExpression(pSan)
-    } catch (e) {
-        return s
-    }
-    if (!Number.isFinite(pVal)) return s
-    const lastStar = s.lastIndexOf('*')
-    if (lastStar <= 0) return s
-    const before = s.slice(0, lastStar).trimEnd()
-    const after = s.slice(lastStar + 1).trim()
-    const beforeCompact = before.replace(/\s+/g, '')
-    const isSimpleBase = /^-?\d+(?:\.\d+)?$/.test(beforeCompact) || /^\(\s*-?\d+(?:\.\d+)?\s*\)$/.test(beforeCompact)
-    if (!isSimpleBase) return s
-    let vAfter
-    try {
-        vAfter = evaluateExpression(removeThousandsSeparators(after))
-    } catch (e) {
-        return s
-    }
-    if (!Number.isFinite(vAfter) || Math.abs(vAfter - pVal) >= 0.0001) return s
-    return before.trim()
-}
-
-// 如 1000*0.18*(0.14)：中间为「新」比例、括号为旧比例残留时，用中间数作为展示用 Source %
-function inferSourcePercentFromMisnestedTriple(formulaStr) {
-    const t = (formulaStr || '').trim().replace(/\s+/g, '')
-    const m = t.match(/^(.+)\*([0-9.]+)\*\(([0-9.]+)\)$/)
-    if (!m) return null
-    const g2 = m[2]
-    const g3 = m[3]
-    let v2
-    let v3
-    try {
-        v2 = evaluateExpression(removeThousandsSeparators(g2))
-        v3 = evaluateExpression(removeThousandsSeparators(g3))
-    } catch (e) {
-        return null
-    }
-    if (!Number.isFinite(v2) || !Number.isFinite(v3)) return null
-    if (Math.abs(v2 - v3) < 0.0001) return null
-    return { displayPctStr: g2 }
-}
-
 // Create Formula display from expression with source percent
 function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableSourcePercent = true, processValueOverride = null, clickedCellRefsOverride = null, rowIndexOverride = null) {
     try {
@@ -9822,46 +9698,30 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             return formatNegativeNumbersInFormula(balanced);
         } else {
             // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
-            let effPctExpr = sourcePercentExpr
-            const inferredTriple = inferSourcePercentFromMisnestedTriple(trimmedFormula)
-            if (inferredTriple) {
-                effPctExpr = inferredTriple.displayPctStr
-            }
-            let decimalEff = decimalValue
-            if (inferredTriple) {
-                try {
-                    decimalEff = evaluateExpression(removeThousandsSeparators(effPctExpr.trim()))
-                } catch (e) {
-                    decimalEff = decimalValue
-                }
-            }
-
-            let balancedPart = balanceParentheses(formulaPart)
-            balancedPart = stripTrailingParenBlocksNotMatchingSourcePct(balancedPart, effPctExpr)
-            balancedPart = stripTrailingInlinePctIfSimpleBase(balancedPart, effPctExpr)
-            const percentDisplay = createSourcePercentDisplay(effPctExpr)
+            const balancedPart = balanceParentheses(formulaPart);
+            const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
 
             // 检查公式是否已经包含了同样的 source percent 乘法，避免双重叠加（如从 localStorage 恢复后再次附加）
-            const formulaTrimmed = balancedPart.replace(/\s+/g, '')
-            const srcNorm = effPctExpr.replace(/\s+/g, '')
-            let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm)
+            const formulaTrimmed = balancedPart.replace(/\s+/g, '');
+            const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
+            let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
             if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
-                const lastClose = formulaTrimmed.length - 1
-                let depth = 1
-                let i = lastClose - 1
+                const lastClose = formulaTrimmed.length - 1;
+                let depth = 1;
+                let i = lastClose - 1;
                 while (i >= 0 && depth > 0) {
-                    if (formulaTrimmed[i] === ')') depth++
-                    else if (formulaTrimmed[i] === '(') { depth--; if (depth === 0) break }
-                    i--
+                    if (formulaTrimmed[i] === ')') depth++;
+                    else if (formulaTrimmed[i] === '(') { depth--; if (depth === 0) break; }
+                    i--;
                 }
                 if (depth === 0 && i >= 0) {
-                    const beforeParen = formulaTrimmed.substring(0, i).trimEnd()
-                    const trailingExpr = formulaTrimmed.substring(i + 1, lastClose)
+                    const beforeParen = formulaTrimmed.substring(0, i).trimEnd();
+                    const trailingExpr = formulaTrimmed.substring(i + 1, lastClose);
                     if (beforeParen.endsWith('*') && trailingExpr && /^[0-9+\-*/().\s]+$/.test(trailingExpr.replace(/\s/g, ''))) {
                         try {
-                            const trailingVal = evaluateExpression(trailingExpr)
-                            if (!isNaN(trailingVal) && Number.isFinite(trailingVal) && Math.abs(trailingVal - decimalEff) < 0.0001) {
-                                alreadyHasSource = true
+                            const trailingVal = evaluateExpression(trailingExpr);
+                            if (!isNaN(trailingVal) && Number.isFinite(trailingVal) && Math.abs(trailingVal - decimalValue) < 0.0001) {
+                                alreadyHasSource = true;
                             }
                         } catch (e) { /* ignore */ }
                     }
@@ -9869,22 +9729,13 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             }
 
             if (alreadyHasSource) {
-                let out = balancedPart
-                const ft = balancedPart.replace(/\s+/g, '')
-                const endsParenForm = ft.endsWith('*(' + srcNorm + ')')
-                if (!endsParenForm && ft.endsWith('*' + srcNorm)) {
-                    const baseOnly = stripTrailingInlinePctIfSimpleBase(balancedPart, effPctExpr)
-                    if (baseOnly !== balancedPart.trim()) {
-                        out = `${baseOnly.trim()}*${percentDisplay}`
-                    }
-                }
-                console.log('Formula display already has source percent, normalized:', out)
-                return formatNegativeNumbersInFormula(out)
+                console.log('Formula display already has source percent, not adding again:', balancedPart);
+                return formatNegativeNumbersInFormula(balancedPart);
             }
 
-            const formulaDisplay = `${balancedPart}*${percentDisplay}`
-            console.log('Formula display created from expression:', formulaDisplay)
-            return formatNegativeNumbersInFormula(formulaDisplay)
+            const formulaDisplay = `${balancedPart}*${percentDisplay}`;
+            console.log('Formula display created from expression:', formulaDisplay);
+            return formatNegativeNumbersInFormula(formulaDisplay);
         }
     } catch (error) {
         console.error('Error creating formula display from expression:', error);
