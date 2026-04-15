@@ -1,17 +1,18 @@
-﻿<?php
+<?php
 /**
  * Group Earnings API
  * 计算某个 Group 下所有公司的盈利，并按股东的持股比例分配收益
- * Net Profit 逻辑与 dashboard_api.php 完全一致（B/F + 期间）
+ * Net Profit 与 dashboard_api.php 完全同口径（B/F + 期间 + 可选币别过滤）
  *
  * GET params:
  *   group_id   - 组别ID（必填）
  *   date_from  - 开始日期 YYYY-MM-DD（可选，默认当月1号）
  *   date_to    - 结束日期 YYYY-MM-DD（可选，默认当月最后一天）
+ *   currency   - 币种代码，如 MYR / USD（可选，不传或传 all = 全部币种）
  */
 require_once '../../session_check.php';
 require_once '../../config.php';
-require_once '../../permissions.php';   // filterAccountsByPermissions()
+require_once '../../permissions.php';
 
 header('Content-Type: application/json');
 
@@ -23,6 +24,10 @@ if (!isset($_SESSION['user_id'])) {
 $group_id  = trim($_GET['group_id'] ?? '');
 $date_from = $_GET['date_from'] ?? date('Y-m-01');
 $date_to   = $_GET['date_to']   ?? date('Y-m-t');
+$filter_currency_code = null;
+if (isset($_GET['currency']) && trim($_GET['currency']) !== '' && strtolower(trim($_GET['currency'])) !== 'all') {
+    $filter_currency_code = strtoupper(trim($_GET['currency']));
+}
 
 if ($group_id === '') {
     echo json_encode(['status' => 'error', 'message' => 'Missing group_id']);
@@ -56,50 +61,71 @@ function geContraApprovedWhere(PDO $pdo, string $alias = 't'): string {
 }
 
 /**
- * 计算单公司 PROFIT role 的净余额
- * 与 dashboard_api.php 完全相同的逻辑：
- *   B/F (capture_date / transaction_date < $dateFrom)
- * + 期间增量 (BETWEEN $dateFrom AND $dateTo)
- * + RATE_MIDDLEMAN 补充（所有条目，无 account_id 过滤）
- *
- * @param PDO    $pdo
- * @param int    $companyId   公司主键
- * @param string $dateFrom    YYYY-MM-DD
- * @param string $dateTo      YYYY-MM-DD
- * @return float
+ * Transaction currency filter — identical to dashboardTxnCurrencyFilter()
+ * Includes IS NULL fallback for backward compatibility
  */
-function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $dateTo): float
+function geTxnCurrencyFilter(string $accountColumn, int $companyId, int $currencyId): array {
+    $sql = " AND (
+        t.currency_id = ?
+        OR (
+            t.currency_id IS NULL
+            AND EXISTS (
+                SELECT 1
+                FROM data_capture_details dcd2
+                JOIN data_captures dc2 ON dcd2.capture_id = dc2.id
+                WHERE dcd2.company_id = ? AND dc2.company_id = ?
+                  AND CAST(dcd2.account_id AS CHAR) = CAST(t.`{$accountColumn}` AS CHAR)
+                  AND dcd2.currency_id = ?
+            )
+        )
+    )";
+    return [$sql, [$currencyId, $companyId, $companyId, $currencyId]];
+}
+
+/**
+ * 计算单公司 PROFIT role 的净余额
+ * 与 dashboard_api.php 完全相同：B/F + 期间增量 + RATE_MIDDLEMAN
+ * @param int|null $currencyId  null = 全部币种；传值 = 仅该币种（与 dashboard currency 过滤一致）
+ */
+function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $dateTo, ?int $currencyId = null): float
 {
     $hasCurrency = geHasTransactionCurrency($pdo);
     $hasEntry    = geHasTransactionEntry($pdo);
     $contraWhere = geContraApprovedWhere($pdo, 't');
 
-    // ── 获取该公司所有 PROFIT role active 账户（与 dashboard 相同） ──────────
+    // 账户列表（与 dashboard 相同，应用权限过滤）
     $acctSql = "SELECT DISTINCT a.id
                 FROM account a
                 INNER JOIN account_company ac ON a.id = ac.account_id
                 WHERE ac.company_id = ?
                   AND UPPER(a.role) = 'PROFIT'
                   AND a.status = 'active'";
-    // filterAccountsByPermissions: owner 不受影响，与 dashboard 保持一致
     list($acctSql, $acctParams) = filterAccountsByPermissions($pdo, $acctSql, [], $companyId);
     $acctSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $acctSql);
     $acctSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $acctSql);
-
     $stmtAcct = $pdo->prepare($acctSql);
     $stmtAcct->execute(array_merge([$companyId], $acctParams));
     $accountIds = $stmtAcct->fetchAll(PDO::FETCH_COLUMN);
-
     if (empty($accountIds)) return 0.0;
 
     $ph = implode(',', array_fill(0, count($accountIds), '?'));
-
     $total_bf     = 0.0;
     $total_period = 0.0;
 
-    // ════════════════════════════════════════════════════════════
-    //  B/F  (< $dateFrom) — 完全复制 dashboard_api.php Section 1
-    // ════════════════════════════════════════════════════════════
+    // 币别过滤参数
+    $cfDcd   = $currencyId !== null ? ' AND dcd.currency_id = ?' : '';
+    $cpDcd   = $currencyId !== null ? [$currencyId] : [];
+    $cfEntry = $currencyId !== null ? ' AND e.currency_id = ?' : '';
+    $cpEntry = $currencyId !== null ? [$currencyId] : [];
+
+    $cfTTo = ''; $cpTTo = [];
+    $cfTFrom = ''; $cpTFrom = [];
+    if ($hasCurrency && $currencyId !== null) {
+        [$cfTTo,   $cpTTo]   = geTxnCurrencyFilter('account_id',      $companyId, $currencyId);
+        [$cfTFrom, $cpTFrom] = geTxnCurrencyFilter('from_account_id', $companyId, $currencyId);
+    }
+
+    // ════ B/F (< dateFrom) ════════════════════════════════════════
 
     // A-BF: Data Capture B/F
     $s = $pdo->prepare("
@@ -109,9 +135,8 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
         WHERE dc.company_id = ?
           AND dcd.company_id = ?
           AND dcd.account_id IN ($ph)
-          AND dc.capture_date < ?
-    ");
-    $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom]));
+          AND dc.capture_date < ?" . $cfDcd);
+    $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom], $cpDcd));
     $total_bf += (float) $s->fetchColumn();
 
     if ($hasCurrency) {
@@ -131,10 +156,8 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
             FROM transactions t
             WHERE t.company_id = ?
               AND t.account_id IN ($ph)
-              AND t.transaction_date < ?"
-            . $contraWhere
-        );
-        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom]));
+              AND t.transaction_date < ?" . $cfTTo . $contraWhere);
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom], $cpTTo));
         $total_bf += (float) $s->fetchColumn();
 
         // C-BF: Transactions From Account B/F
@@ -147,13 +170,11 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
             FROM transactions t
             WHERE t.company_id = ?
               AND t.from_account_id IN ($ph)
-              AND t.transaction_date < ?"
-            . $contraWhere
-        );
-        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom]));
+              AND t.transaction_date < ?" . $cfTFrom . $contraWhere);
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom], $cpTFrom));
         $total_bf += (float) $s->fetchColumn();
 
-        // D-BF: RATE entries B/F (transaction_entry)
+        // D-BF: RATE entries B/F
         if ($hasEntry) {
             try {
                 $s = $pdo->prepare("
@@ -168,17 +189,14 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
                     WHERE h.company_id = ?
                       AND e.company_id = ?
                       AND e.account_id IN ($ph)
-                      AND h.transaction_date < ?
-                ");
-                $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom]));
+                      AND h.transaction_date < ?" . $cfEntry);
+                $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom], $cpEntry));
                 $total_bf += (float) $s->fetchColumn();
             } catch (Throwable $e) {}
         }
     }
 
-    // ════════════════════════════════════════════════════════════
-    //  期间增量 (BETWEEN) — 完全复制 dashboard_api.php Section 2
-    // ════════════════════════════════════════════════════════════
+    // ════ 期间增量 (BETWEEN) ══════════════════════════════════════
 
     // A-P: Data Capture 期间
     $s = $pdo->prepare("
@@ -188,13 +206,12 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
         WHERE dc.company_id = ?
           AND dcd.company_id = ?
           AND dcd.account_id IN ($ph)
-          AND dc.capture_date BETWEEN ? AND ?
-    ");
-    $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
+          AND dc.capture_date BETWEEN ? AND ?" . $cfDcd);
+    $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo], $cpDcd));
     $total_period += (float) $s->fetchColumn();
 
     if ($hasCurrency) {
-        // B-P: Transactions To Account 期间（注意：包含 RATE 类型，与 dashboard 一致）
+        // B-P: Transactions To Account 期间
         $s = $pdo->prepare("
             SELECT COALESCE(SUM(CASE
                 WHEN transaction_type IN ('RECEIVE','CLAIM','RATE') THEN -t.amount
@@ -211,10 +228,8 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
             WHERE t.company_id = ?
               AND t.account_id IN ($ph)
               AND t.transaction_date BETWEEN ? AND ?
-              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE','WIN','LOSE')"
-            . $contraWhere
-        );
-        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
+              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE','WIN','LOSE')" . $cfTTo . $contraWhere);
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo], $cpTTo));
         $total_period += (float) $s->fetchColumn();
 
         // C-P: Transactions From Account 期间
@@ -229,10 +244,8 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
             WHERE t.company_id = ?
               AND t.from_account_id IN ($ph)
               AND t.transaction_date BETWEEN ? AND ?
-              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE')"
-            . $contraWhere
-        );
-        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
+              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE')" . $cfTFrom . $contraWhere);
+        $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo], $cpTFrom));
         $total_period += (float) $s->fetchColumn();
 
         // D-P: RATE entries 期间
@@ -250,18 +263,14 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
                     WHERE h.company_id = ?
                       AND e.company_id = ?
                       AND e.account_id IN ($ph)
-                      AND h.transaction_date BETWEEN ? AND ?
-                ");
-                $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
+                      AND h.transaction_date BETWEEN ? AND ?" . $cfEntry);
+                $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo], $cpEntry));
                 $total_period += (float) $s->fetchColumn();
             } catch (Throwable $e) {}
         }
     }
 
-    // ════════════════════════════════════════════════════════════
-    //  RATE_MIDDLEMAN 补充（dashboard_api.php 第464-517行等效）
-    //  仅统计当期，不经过 account_id 过滤（所有 RATE_MIDDLEMAN 条目）
-    // ════════════════════════════════════════════════════════════
+    // ════ RATE_MIDDLEMAN 补充（对应 dashboard_api.php 464-517行）════
     if ($hasEntry) {
         try {
             $s = $pdo->prepare("
@@ -271,9 +280,8 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
                 WHERE h.company_id = ?
                   AND e.company_id = ?
                   AND e.entry_type = 'RATE_MIDDLEMAN'
-                  AND h.transaction_date BETWEEN ? AND ?
-            ");
-            $s->execute([$companyId, $companyId, $dateFrom, $dateTo]);
+                  AND h.transaction_date BETWEEN ? AND ?" . $cfEntry);
+            $s->execute(array_merge([$companyId, $companyId, $dateFrom, $dateTo], $cpEntry));
             $total_period += (float) $s->fetchColumn();
         } catch (Throwable $e) {}
     }
@@ -286,23 +294,20 @@ try {
     $current_user_role = strtolower($_SESSION['role'] ?? '');
     $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
 
-    // 1. 拿出该 group 下所有属于此 owner 的公司
     if ($current_user_role === 'owner') {
         $stmt = $pdo->prepare("
-            SELECT c.id, c.company_id AS name, c.expiration_date
+            SELECT c.id, c.company_id AS name
             FROM company c
-            WHERE c.owner_id = ? AND UPPER(c.group_id) = UPPER(?)
-              AND c.company_id != ''
+            WHERE c.owner_id = ? AND UPPER(c.group_id) = UPPER(?) AND c.company_id != ''
             ORDER BY c.company_id ASC
         ");
         $stmt->execute([$owner_id, $group_id]);
     } else {
         $stmt = $pdo->prepare("
-            SELECT c.id, c.company_id AS name, c.expiration_date
+            SELECT c.id, c.company_id AS name
             FROM company c
             INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-            WHERE ucm.user_id = ? AND UPPER(c.group_id) = UPPER(?)
-              AND c.company_id != ''
+            WHERE ucm.user_id = ? AND UPPER(c.group_id) = UPPER(?) AND c.company_id != ''
             ORDER BY c.company_id ASC
         ");
         $stmt->execute([(int)$_SESSION['user_id'], $group_id]);
@@ -310,21 +315,26 @@ try {
     $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($companies)) {
-        echo json_encode([
-            'status' => 'success',
-            'data'   => [
-                'group_id'     => $group_id,
-                'date_from'    => $date_from,
-                'date_to'      => $date_to,
-                'companies'    => [],
-                'shareholders' => [],
-                'total_profit' => 0
-            ]
-        ]);
+        echo json_encode(['status' => 'success', 'data' => [
+            'group_id' => $group_id, 'date_from' => $date_from, 'date_to' => $date_to,
+            'currency' => $filter_currency_code ?? 'all',
+            'currencies' => [], 'companies' => [], 'shareholders' => [], 'total_profit' => 0
+        ]]);
         exit();
     }
 
-    // 2. 检查 company_ownership 表
+    // 收集所有公司的可用币别
+    $currencySet = [];
+    foreach ($companies as $c) {
+        $cs = $pdo->prepare("SELECT UPPER(code) AS code FROM currency WHERE company_id = ? ORDER BY code");
+        $cs->execute([$c['id']]);
+        foreach ($cs->fetchAll(PDO::FETCH_COLUMN) as $code) {
+            $currencySet[$code] = true;
+        }
+    }
+    $availableCurrencies = array_keys($currencySet);
+    sort($availableCurrencies);
+
     $tableExists  = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
     $hasOwnerType = $tableExists
         ? $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0
@@ -333,24 +343,32 @@ try {
     $companyIds = array_column($companies, 'id');
     $in = implode(',', array_fill(0, count($companyIds), '?'));
 
-    // 3. 计算每公司的净利润（与 dashboard 同口径）
+    // 计算每公司净利润（按选定币别过滤）
     $companyProfits = [];
     foreach ($companies as $c) {
-        $companyProfits[$c['id']] = getCompanyProfit($pdo, (int)$c['id'], $date_from, $date_to);
+        $currencyId = null;
+        if ($filter_currency_code !== null) {
+            $cs = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? AND UPPER(code) = ? LIMIT 1");
+            $cs->execute([$c['id'], $filter_currency_code]);
+            $cid = $cs->fetchColumn();
+            if ($cid === false) {
+                $companyProfits[$c['id']] = 0.0;
+                continue;
+            }
+            $currencyId = (int)$cid;
+        }
+        $companyProfits[$c['id']] = getCompanyProfit($pdo, (int)$c['id'], $date_from, $date_to, $currencyId);
     }
     $totalProfit = array_sum($companyProfits);
 
-    // 4. 拿所有股东 ownership 行
-    $shareholders = [];
+    // 股东列表
+    $shareholders   = [];
+    $companyNameMap = array_column($companies, 'name', 'id');
     if ($tableExists && $hasOwnerType) {
         $ownerships = $pdo->prepare("
-            SELECT
-                co.company_id,
-                co.account_id,
-                co.percentage,
-                co.owner_type,
-                COALESCE(o.name, u.name) AS shareholder_name,
-                COALESCE(o.owner_code, u.login_id) AS shareholder_login
+            SELECT co.company_id, co.account_id, co.percentage, co.owner_type,
+                   COALESCE(o.name, u.name) AS shareholder_name,
+                   COALESCE(o.owner_code, u.login_id) AS shareholder_login
             FROM company_ownership co
             LEFT JOIN owner o ON co.account_id = o.id AND co.owner_type = 'owner'
             LEFT JOIN user  u ON co.account_id = u.id AND co.owner_type = 'user'
@@ -360,18 +378,12 @@ try {
             ORDER BY co.owner_type, co.account_id
         ");
         $ownerships->execute($companyIds);
-        $rows = $ownerships->fetchAll(PDO::FETCH_ASSOC);
-
-        // Build name lookup
-        $companyNameMap = array_column($companies, 'name', 'id');
-
-        foreach ($rows as $row) {
+        foreach ($ownerships->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $key    = $row['owner_type'] . '_' . $row['account_id'];
             $cId    = (int)$row['company_id'];
             $pct    = (float)$row['percentage'];
             $profit = $companyProfits[$cId] ?? 0;
             $earn   = round($profit * $pct / 100, 2);
-
             if (!isset($shareholders[$key])) {
                 $shareholders[$key] = [
                     'account_id'     => ($row['owner_type'] === 'owner' ? 'O_' : 'U_') . $row['account_id'],
@@ -394,28 +406,23 @@ try {
 
     $shareholderList = array_values($shareholders);
     usort($shareholderList, fn($a, $b) => $b['total_earnings'] <=> $a['total_earnings']);
-    foreach ($shareholderList as &$sh) {
-        $sh['total_earnings'] = round($sh['total_earnings'], 2);
-    }
+    foreach ($shareholderList as &$sh) { $sh['total_earnings'] = round($sh['total_earnings'], 2); }
     unset($sh);
 
-    $companyList = array_map(fn($c) => [
-        'id'     => (int)$c['id'],
-        'name'   => $c['name'],
-        'profit' => $companyProfits[$c['id']] ?? 0
-    ], $companies);
-
-    echo json_encode([
-        'status' => 'success',
-        'data'   => [
-            'group_id'     => $group_id,
-            'date_from'    => $date_from,
-            'date_to'      => $date_to,
-            'companies'    => $companyList,
-            'shareholders' => $shareholderList,
-            'total_profit' => round($totalProfit, 2)
-        ]
-    ]);
+    echo json_encode(['status' => 'success', 'data' => [
+        'group_id'     => $group_id,
+        'date_from'    => $date_from,
+        'date_to'      => $date_to,
+        'currency'     => $filter_currency_code ?? 'all',
+        'currencies'   => $availableCurrencies,
+        'companies'    => array_map(fn($c) => [
+            'id'     => (int)$c['id'],
+            'name'   => $c['name'],
+            'profit' => $companyProfits[$c['id']] ?? 0
+        ], $companies),
+        'shareholders' => $shareholderList,
+        'total_profit' => round($totalProfit, 2)
+    ]]);
 
 } catch (PDOException $e) {
     echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);

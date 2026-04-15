@@ -76,6 +76,9 @@ $assetVer = function ($file) {
                     <span class="own-ge-title">Group Earnings</span>
                     <span class="own-ge-badge" data-bind="group-id-badge"></span>
                 </div>
+                <!-- Currency filter buttons — populated by JS after first fetch -->
+                <div class="own-ge-currency-row" data-bind="ge-currencies" style="display:none;"></div>
+
                 <div class="own-ge-controls">
                     <div class="own-ge-date-group">
                         <label class="own-ge-date-label">From</label>

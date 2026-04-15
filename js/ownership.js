@@ -1134,6 +1134,7 @@ function _geDefaultDateTo() {
 // State: currently rendered earnings panel groupId + panel element
 let _geCurrentGroupId = null;
 let _gePanel = null;
+let _geActiveCurrency = 'all';   // 当前选中币别（默认 all = 全部）
 
 /** Show/hide the earnings panel */
 function _hideGroupEarningsPanel() {
@@ -1144,12 +1145,59 @@ function _hideGroupEarningsPanel() {
     }
     _geCurrentGroupId = null;
     _gePanel = null;
+    _geActiveCurrency = 'all';
+}
+
+/**
+ * Render currency filter buttons into the panel.
+ * Called after the first successful API response (which returns available currencies).
+ * No "All" button — different currencies cannot be summed together.
+ */
+function _geRenderCurrencyButtons(panel, currencies, groupId) {
+    const row = panel.querySelector('[data-bind="ge-currencies"]');
+    if (!row) return;
+    if (!currencies || currencies.length === 0) {
+        row.style.display = 'none';
+        return;
+    }
+
+    // If only 1 currency, auto-select it but still show it as label
+    if (_geActiveCurrency === 'all' || !currencies.includes(_geActiveCurrency)) {
+        _geActiveCurrency = currencies[0];
+    }
+
+    row.innerHTML = '';
+    row.style.display = 'flex';
+
+    // Per-currency buttons (no "All" — different currencies cannot be summed)
+    currencies.forEach(code => {
+        const btn = document.createElement('button');
+        btn.className = 'own-ge-currency-btn' + (_geActiveCurrency === code ? ' active' : '');
+        btn.textContent = code;
+        btn.addEventListener('click', () => {
+            if (_geActiveCurrency === code) return; // already selected
+            _geActiveCurrency = code;
+            _geUpdateCurrencyBtnStyles(row);
+            const df = _gePanel.querySelector('[data-bind="date-from"]').value;
+            const dt = _gePanel.querySelector('[data-bind="date-to"]').value;
+            fetchGroupEarnings(groupId, df, dt);
+        });
+        row.appendChild(btn);
+    });
+}
+
+/** Update active/inactive styles on currency buttons */
+function _geUpdateCurrencyBtnStyles(row) {
+    row.querySelectorAll('.own-ge-currency-btn').forEach(btn => {
+        const code = btn.textContent === 'All' ? 'all' : btn.textContent;
+        btn.classList.toggle('active', code === _geActiveCurrency);
+    });
 }
 
 /**
  * Fetch group earnings from the API and render the panel.
  * @param {string} groupId
- * @param {string|null} dateFrom  (YYYY-MM-DD, optional — reads from panel inputs if panel already exists)
+ * @param {string|null} dateFrom
  * @param {string|null} dateTo
  */
 function fetchGroupEarnings(groupId, dateFrom = null, dateTo = null) {
@@ -1160,6 +1208,7 @@ function fetchGroupEarnings(groupId, dateFrom = null, dateTo = null) {
     if (_geCurrentGroupId !== groupId || !_gePanel) {
         // Re-create panel from template
         wrap.innerHTML = '';
+        _geActiveCurrency = 'all';   // reset currency on group change
         const tpl = document.getElementById('tpl-group-earnings');
         if (!tpl) return;
         const clone = tpl.content.cloneNode(true);
@@ -1199,7 +1248,13 @@ function fetchGroupEarnings(groupId, dateFrom = null, dateTo = null) {
     if (loadingEl) loadingEl.style.display = 'flex';
     if (contentEl) contentEl.style.display = 'none';
 
-    fetch(`api/ownership/get_group_earnings_api.php?group_id=${encodeURIComponent(groupId)}&date_from=${df}&date_to=${dt}`)
+    // Build URL with currency filter
+    let url = `api/ownership/get_group_earnings_api.php?group_id=${encodeURIComponent(groupId)}&date_from=${df}&date_to=${dt}`;
+    if (_geActiveCurrency && _geActiveCurrency !== 'all') {
+        url += `&currency=${encodeURIComponent(_geActiveCurrency)}`;
+    }
+
+    fetch(url)
         .then(r => r.json())
         .then(res => {
             if (res.status !== 'success') {
@@ -1207,6 +1262,22 @@ function fetchGroupEarnings(groupId, dateFrom = null, dateTo = null) {
                 if (loadingEl) loadingEl.style.display = 'none';
                 return;
             }
+
+            const currencies = res.data.currencies || [];
+
+            // First load: _geActiveCurrency is 'all' — auto-select first currency and re-fetch
+            if (_geActiveCurrency === 'all' && currencies.length > 0) {
+                _geActiveCurrency = currencies[0];
+                _geRenderCurrencyButtons(_gePanel, currencies, groupId);
+                // Re-fetch with the correct single currency
+                fetchGroupEarnings(groupId,
+                    _gePanel.querySelector('[data-bind="date-from"]').value,
+                    _gePanel.querySelector('[data-bind="date-to"]').value);
+                return;
+            }
+
+            // Render currency buttons + content
+            _geRenderCurrencyButtons(_gePanel, currencies, groupId);
             _renderGroupEarningsContent(_gePanel, res.data);
         })
         .catch(err => {

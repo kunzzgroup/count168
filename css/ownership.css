@@ -1396,6 +1396,50 @@ body {
     letter-spacing: 0.02em;
 }
 
+/* Currency filter row */
+.own-ge-currency-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 0 0 8px 0;
+}
+
+.own-ge-currency-row::before {
+    content: 'Currency:';
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--own-gray-text);
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+.own-ge-currency-btn {
+    padding: 4px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--own-gray-border);
+    background: transparent;
+    color: var(--own-text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    letter-spacing: 0.02em;
+    font-family: inherit;
+}
+
+.own-ge-currency-btn:hover {
+    border-color: var(--own-accent);
+    color: var(--own-accent);
+}
+
+.own-ge-currency-btn.active {
+    background: var(--own-accent);
+    border-color: var(--own-accent);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
 /* Controls (date pickers + refresh button) */
 .own-ge-controls {
     display: flex;
