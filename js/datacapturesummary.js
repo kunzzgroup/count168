@@ -19674,7 +19674,7 @@ async function submitSummaryData() {
         console.log(`Size breakdown - Blob: ${blobSize}, TextEncoder: ${textEncoderSize}, String: ${stringLength}`);
 
         // 自动分批提交函数
-        async function submitBatch(batchData, captureId = null, batchNumber = 1, totalBatches = 1) {
+        async function submitBatch(batchData, captureId = null, batchNumber = 1, totalBatches = 1, options = {}) {
             const batchJsonData = JSON.stringify(batchData);
             const batchSizeKB = batchJsonData.length / 1024;
 
@@ -19703,6 +19703,7 @@ async function submitSummaryData() {
                 },
                 body: JSON.stringify({
                     ...batchData,
+                    immediateAck: options.immediateAck ? 1 : 0,
                     company_id: currentCompanyId
                 })
             });
@@ -19748,6 +19749,37 @@ async function submitSummaryData() {
             }
 
             return result;
+        }
+
+        // Fast mode: immediately acknowledge submit and process in background.
+        // Use this first to make submit feel instant; fallback to legacy batching if it fails.
+        try {
+            const quickSubmitData = {
+                captureDate: parsedProcessData.date,
+                processId: parsedProcessData.process,
+                processName: parsedProcessData.processName,
+                currencyId: parsedProcessData.currency,
+                currencyName: parsedProcessData.currencyName,
+                remark: parsedProcessData.remark || '',
+                summaryRows: summaryRows
+            };
+            const quickResult = await submitBatch(quickSubmitData, null, 1, 1, { immediateAck: true });
+            if (quickResult && quickResult.success && quickResult.queued) {
+                showNotification('Success', 'Data received by server. Processing in background...', 'success');
+                setTimeout(() => {
+                    window.isNavigatingAwayByBackOrSubmit = true;
+                    try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
+                    try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
+                    localStorage.removeItem('capturedTableData');
+                    localStorage.removeItem('capturedProcessData');
+                    window.location.href = 'datacapture.php?submitted=1';
+                }, 600);
+                return;
+            }
+        } catch (quickError) {
+            console.warn('Immediate-ack submit failed, fallback to batched submit:', quickError);
         }
 
         // 分批提交主逻辑
