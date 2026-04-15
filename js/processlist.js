@@ -2026,7 +2026,7 @@ function showConfirmBankResendModal(processId) {
     if (msgEl) {
         msgEl.textContent =
             'Resend "' + label + '" to Accounting Due?\n\n' +
-            'This clears posted markers so the process can appear in Accounting Due again. Change Day start below if it matches the current contract date.';
+            'This clears posted markers so the process can appear in Accounting Due again. The schedule below applies only to this Resend and does not change the Edit Process form.';
     }
     bindBankResendModalFrequencySyncOnce();
     const bmClear = getBankProcessModule();
@@ -2051,18 +2051,6 @@ function showConfirmBankResendModal(processId) {
                 day_end: pendingSchedule.day_end || '',
                 day_start_frequency: pendingSchedule.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
             };
-        }
-    }
-    const editIdEl = document.getElementById('bank_edit_id');
-    const isSameOpenEdit = editIdEl && String(editIdEl.value || '') === String(id);
-    if (isSameOpenEdit) {
-        scheduleSeed = {
-            day_start: (document.getElementById('bank_day_start')?.value || '').trim(),
-            day_end: (document.getElementById('bank_day_end')?.value || '').trim(),
-            day_start_frequency: document.getElementById('bank_day_start_frequency')?.value === 'monthly' ? 'monthly' : '1st_of_every_month'
-        };
-        if (bankModule && typeof bankModule.setPendingResendScheduleForProcess === 'function') {
-            bankModule.setPendingResendScheduleForProcess(id, scheduleSeed);
         }
     }
     if (dsEl) {
@@ -3484,16 +3472,6 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
         const formData = new FormData(this);
-        if (editId) {
-            const bankModule = getBankProcessModule();
-            if (bankModule && typeof bankModule.setPendingResendScheduleForProcess === 'function') {
-                bankModule.setPendingResendScheduleForProcess(editId, {
-                    day_start: (document.getElementById('bank_day_start')?.value || '').trim(),
-                    day_end: (document.getElementById('bank_day_end')?.value || '').trim(),
-                    day_start_frequency: document.getElementById('bank_day_start_frequency')?.value === 'monthly' ? 'monthly' : '1st_of_every_month'
-                });
-            }
-        }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
         formData.set('profit', grossProfit.toFixed(2));
