@@ -1578,6 +1578,13 @@ try {
         // 注意：show_capture_only 的账户过滤已由外层 SQL WHERE 子句完成（EXISTS data_capture 或 WIN/LOSE 交易），
         // 此处不再做二次 win_loss 数值过滤（会导致净额为 0 但确有交易的账户被错误剔除）
 
+        // ==== 临时调试：追查非零 Win/Loss 来源 ====
+        if (abs((float)$win_loss) > 0.001) {
+            $dbgFile = sys_get_temp_dir() . '/count168_wl_debug.log';
+            @file_put_contents($dbgFile, date('Y-m-d H:i:s') . " | account_id={$account['account_id']} db_id={$account_id} currency={$currency_code}({$currency_id}) win_loss={$win_loss} show_capture_only={$show_capture_only} date={$date_from_db}~{$date_to_db}\n", FILE_APPEND);
+        }
+        // ==== 调试结束 ====
+
         // 4. 计算 Balance（显示口径）
         // 公式：Balance = round(B/F,2) + round(Win/Loss,2) + round(Cr/Dr,2)
         // 这样与表格上可见列值的手算结果一致，避免 0.01 浮点尾差

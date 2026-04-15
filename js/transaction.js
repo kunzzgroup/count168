@@ -2749,8 +2749,10 @@
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
 
-        // 使用后端 totals（不受前端过滤影响），保证和数据库一致
-        renderTables(filteredLeft, filteredRight, lastSearchData.totals);
+        // 当有前端过滤生效时（Show Payment Only / Show Win/Loss Only），
+        // 总计应基于过滤后的行重新计算，而非使用后端全量 totals
+        const hasActiveFilter = showPaymentOnly || showWinLossOnly;
+        renderTables(filteredLeft, filteredRight, hasActiveFilter ? null : lastSearchData.totals);
     }
 
     // ==================== 处理复选框变化（改为前端重新渲染） ====================
