@@ -302,7 +302,8 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
         }
     }
 
-    $sql .= " ORDER BY STR_TO_DATE(transaction_date, '%d/%m/%Y') DESC, dts_created DESC";
+    // Maintenance 列表统一按 DTS Created 排序（最新在前），且对 deleted / non-deleted 一视同仁。
+    $sql .= " ORDER BY STR_TO_DATE(dts_created, '%d/%m/%Y %H:%i:%s') DESC, id DESC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
