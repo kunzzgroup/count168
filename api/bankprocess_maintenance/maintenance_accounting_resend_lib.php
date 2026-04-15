@@ -52,6 +52,76 @@ if (!function_exists('bmp_ensureBankProcessAccountingResendRelaxColumn')) {
     }
 }
 
+if (!function_exists('bmp_ensureBankProcessAccountingResendScheduleColumns')) {
+    /**
+     * Resend 弹窗中的 day_start / day_end / frequency 不写入「编辑流程」字段，但入账与 Inbox 须与弹窗一致：
+     * 在 accounting_resend_relax_created_floor=1 期间用下列暂存列覆盖计算；入账成功后与 relax 一并清空。
+     */
+    function bmp_ensureBankProcessAccountingResendScheduleColumns(PDO $pdo): void
+    {
+        $defs = [
+            'accounting_resend_schedule_day_start' => "DATE NULL COMMENT 'Resend 弹窗 day_start，仅 relax 期间'",
+            'accounting_resend_schedule_day_end' => "DATE NULL COMMENT 'Resend 弹窗 day_end，仅 relax 期间'",
+            'accounting_resend_schedule_frequency' => "VARCHAR(40) NULL COMMENT 'monthly 或 1st_of_every_month，仅 relax 期间'",
+        ];
+        foreach ($defs as $col => $ddlTail) {
+            if (bmp_resend_tableHasColumn($pdo, 'bank_process', $col)) {
+                continue;
+            }
+            try {
+                $pdo->exec("ALTER TABLE bank_process ADD COLUMN `$col` $ddlTail");
+            } catch (Throwable $e) {
+                // ignore
+            }
+        }
+    }
+}
+
+if (!function_exists('bmp_bankProcessHasResendScheduleColumns')) {
+    function bmp_bankProcessHasResendScheduleColumns(PDO $pdo): bool
+    {
+        return bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_schedule_day_start');
+    }
+}
+
+/**
+ * Resend 成功后 relax=1 时，用暂存列覆盖 day_start / day_end / day_start_frequency 供 Inbox 与入账推断（不改编辑表单里的持久字段）。
+ *
+ * @param array<string,mixed> $row
+ * @return array<string,mixed>
+ */
+if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) {
+    function bmp_mergeResendScheduleIntoBankProcessRowForAccounting(array $row): array
+    {
+        if (empty($row['accounting_resend_relax_created_floor'])) {
+            unset(
+                $row['accounting_resend_schedule_day_start'],
+                $row['accounting_resend_schedule_day_end'],
+                $row['accounting_resend_schedule_frequency']
+            );
+            return $row;
+        }
+        $ds = $row['accounting_resend_schedule_day_start'] ?? null;
+        if ($ds !== null && trim((string) $ds) !== '') {
+            $row['day_start'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $ds, $m) ? $m[1] : $ds;
+        }
+        $de = $row['accounting_resend_schedule_day_end'] ?? null;
+        if ($de !== null && trim((string) $de) !== '') {
+            $row['day_end'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $de, $m) ? $m[1] : $de;
+        }
+        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
+        if ($fq === 'monthly' || $fq === '1st_of_every_month') {
+            $row['day_start_frequency'] = $fq;
+        }
+        unset(
+            $row['accounting_resend_schedule_day_start'],
+            $row['accounting_resend_schedule_day_end'],
+            $row['accounting_resend_schedule_frequency']
+        );
+        return $row;
+    }
+}
+
 if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {

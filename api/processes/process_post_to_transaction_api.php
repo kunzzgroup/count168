@@ -482,7 +482,8 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
         return null;
     }
     $startDayOfMonth = (int) date('j', $startTs);
-    if ($startDate !== '' && $today >= $createdYmd) {
+    $resendRelaxMonthly = !empty($r['accounting_resend_relax_created_floor']);
+    if ($startDate !== '' && ($resendRelaxMonthly || $today >= $createdYmd)) {
         try {
             $iter = new DateTimeImmutable($startDate);
             $iter = $iter->modify('first day of this month');
@@ -499,7 +500,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 if ($exclusiveEnd !== null && $due >= $exclusiveEnd) {
                     break;
                 }
-                if ($due < $createdYmd) {
+                if (!$resendRelaxMonthly && $due < $createdYmd) {
                     try {
                         $billYm = $iter->format('Y-n');
                         $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
@@ -512,7 +513,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                         continue;
                     }
                 }
-                if ($today >= $due
+                if (($today >= $due || $resendRelaxMonthly)
                     && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
                     return $iter->format('Y-n');
                 }
@@ -531,15 +532,18 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     if (empty($ids)) {
         return [];
     }
+    bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $hasFrequency = tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
     $hasFlagColumn = tableHasColumn($pdo, 'bank_process', 'flag');
     $hasResendRelax = tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor');
+    $hasSchedCols = bmp_bankProcessHasResendScheduleColumns($pdo);
     $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
             bp.dts_created" . ($hasFrequency ? ", bp.day_start_frequency" : "") .
-        ($hasResendRelax ? ", bp.accounting_resend_relax_created_floor" : "") . ",
+        ($hasResendRelax ? ", bp.accounting_resend_relax_created_floor" : "") .
+        ($hasSchedCols ? ", bp.accounting_resend_schedule_day_start, bp.accounting_resend_schedule_day_end, bp.accounting_resend_schedule_frequency" : "") . ",
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
@@ -552,7 +556,8 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $byId[(int) $row['id']] = $row;
+        $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+        $byId[(int) $merged['id']] = $merged;
     }
     return $byId;
 }
@@ -1105,7 +1110,17 @@ try {
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
 
         if ($has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])) {
-            $clr = $pdo->prepare('UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?');
+            if (bmp_bankProcessHasResendScheduleColumns($pdo)) {
+                $clr = $pdo->prepare(
+                    'UPDATE bank_process SET accounting_resend_relax_created_floor = 0,
+                        accounting_resend_schedule_day_start = NULL,
+                        accounting_resend_schedule_day_end = NULL,
+                        accounting_resend_schedule_frequency = NULL,
+                        dts_modified = NOW() WHERE id = ? AND company_id = ?'
+                );
+            } else {
+                $clr = $pdo->prepare('UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?');
+            }
             $clr->execute([(int) $p['id'], $companyId]);
             $p['accounting_resend_relax_created_floor'] = 0;
         }
