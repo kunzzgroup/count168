@@ -193,7 +193,7 @@ $req_company_id = $_GET['company_id'] ?? $_POST['company_id'] ?? $_SESSION['comp
 if ($req_company_id) {
     // Actions that are strictly for 'Bank' category
     $bankOnlyActions = [
-        'get_banks_by_country', 'get_countries', 'add_country', 
+        'get_banks_by_country', 'get_countries', 'add_country', 'remove_country',
         'save_country_banks', 'get_selected_countries', 'save_selected_countries', 
         'get_selected_banks', 'save_selected_banks', 'update_bank_process'
     ];
@@ -230,6 +230,9 @@ switch ($action) {
         break;
     case 'add_country':
         addCountry();
+        break;
+    case 'remove_country':
+        removeCountry();
         break;
     case 'save_country_banks':
         saveCountryBanks();
@@ -1068,6 +1071,41 @@ function addCountry() {
         jsonResponse(true, 'Saved', null);
     } catch (Exception $e) {
         error_log("addCountry: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), null);
+    }
+}
+
+/**
+ * Remove a user-added country row from company_countries (red X on Available list).
+ * Countries that only appear from country_bank or account currencies are unchanged in DB here;
+ * the client still drops them from the session list until the next full reload from those sources.
+ */
+function removeCountry() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'Method not allowed', null);
+        return;
+    }
+    try {
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
+        if ($country === '') {
+            jsonResponse(false, 'Country is required', null);
+            return;
+        }
+        $stmt = $pdo->prepare("DELETE FROM company_countries WHERE company_id = ? AND country = ?");
+        $stmt->execute([$companyId, $country]);
+        jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
+    } catch (Exception $e) {
+        error_log("removeCountry: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
     }
 }

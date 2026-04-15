@@ -3634,15 +3634,21 @@ async function showAddCountryModal() {
     }
     let allCountries = [];
     try {
-        allCountries = await fetchCompanyCurrencyCodes();
-        if (allCountries.length === 0) {
-            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        const currencyCodes = await fetchCompanyCurrencyCodes();
+        let fromListApi = [];
+        const cid = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        try {
             let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-            if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+            if (cid) url += '&company_id=' + encodeURIComponent(cid);
             const res = await fetch(url);
             const result = await res.json();
-            allCountries = (result.success && result.data) ? result.data : [];
-        }
+            if (result.success && Array.isArray(result.data)) fromListApi = result.data;
+        } catch (e2) { console.warn('get_countries', e2); }
+        allCountries = [...new Set(
+            [...(currencyCodes || []), ...fromListApi]
+                .map(function (x) { return String(x || '').trim(); })
+                .filter(Boolean)
+        )].sort(function (a, b) { return a.localeCompare(b); });
     } catch (e) { console.warn('country list', e); }
     loadExistingCountries(allCountries);
     updateSelectedCountriesInModal();
@@ -3697,7 +3703,7 @@ function loadExistingCountries(allFromServer) {
         deleteBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            removeCountryFromAvailable(name, item);
+            void removeCountryFromAvailable(name, item);
         });
         item.appendChild(left);
         item.appendChild(deleteBtn);
@@ -3796,7 +3802,7 @@ function moveCountryBackToAvailable(countryName, countryId) {
     delBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        removeCountryFromAvailable(countryName, newItem);
+        void removeCountryFromAvailable(countryName, newItem);
     });
     newItem.appendChild(left);
     newItem.appendChild(delBtn);
@@ -3824,9 +3830,34 @@ function moveCountryToAvailable(checkbox) {
     }
 }
 
-function removeCountryFromAvailable(countryName, itemEl) {
+async function removeCountryFromAvailable(countryName, itemEl) {
     const name = (countryName || '').trim();
-    if (name && Array.isArray(availableCountriesList)) {
+    if (!name) {
+        if (itemEl && itemEl.parentNode) itemEl.remove();
+        return;
+    }
+    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+    if (companyId) {
+        try {
+            const formData = new FormData();
+            formData.append('company_id', String(companyId));
+            formData.append('country', name);
+            const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=remove_country'), { method: 'POST', body: formData });
+            let result = { success: false, error: 'Invalid response' };
+            try {
+                result = await res.json();
+            } catch (parseErr) { /* use default */ }
+            if (!result.success) {
+                showNotification(result.error || result.message || 'Failed to remove country', 'danger');
+                return;
+            }
+        } catch (err) {
+            console.warn('remove_country', err);
+            showNotification('Failed to remove country', 'danger');
+            return;
+        }
+    }
+    if (Array.isArray(availableCountriesList)) {
         const idx = availableCountriesList.indexOf(name);
         if (idx > -1) availableCountriesList.splice(idx, 1);
     }
