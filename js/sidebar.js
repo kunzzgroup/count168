@@ -295,62 +295,9 @@
         return raw === 'Bank';
     }
 
-    // 切换公司后由各页调用，即时显示/隐藏：
-    // - 侧边栏 Data Capture
-    // - Maintenance 子菜单里 Games 才能用的项
-    // - Category 为 Bank（localStorage）时隐藏 Maintenance > Data Capture / Transaction / Formula
-    // - 侧边栏 Report 区块（仅 Games 可见）
-    // - Maintenance > Process：无 Games 始终显示；有 Games 仅 Category=Bank 时显示
+    // 切换公司后由各页调用（保留接口兼容，但不再隐藏任何侧边栏项）
     function updateSidebarDataCaptureVisibility(hasGambling) {
-        var isBankCategory = isMaintenanceCategoryBankFromStorage();
-
-        var dcSection = document.getElementById('sidebar-datacapture-section');
-        if (dcSection) dcSection.style.display = hasGambling ? '' : 'none';
-
-        var maintCapture = document.getElementById('maintenance-capture-link');
-        if (maintCapture) {
-            if (isBankCategory) {
-                maintCapture.style.display = 'none';
-            } else {
-                maintCapture.style.display = hasGambling ? '' : 'none';
-            }
-        }
-
-        var maintTransaction = document.getElementById('maintenance-transaction-link');
-        if (maintTransaction) {
-            if (isBankCategory) {
-                maintTransaction.style.display = 'none';
-            } else {
-                maintTransaction.style.display = hasGambling ? '' : 'none';
-            }
-        }
-
-        var maintFormula = document.getElementById('maintenance-formula-link');
-        if (maintFormula) {
-            if (isBankCategory) {
-                maintFormula.style.display = 'none';
-            } else {
-                maintFormula.style.display = hasGambling ? '' : 'none';
-            }
-        }
-
-        var maintProcess = document.getElementById('maintenance-process-link');
-        if (maintProcess) {
-            if (hasGambling) {
-                maintProcess.style.display = isBankCategory ? '' : 'none';
-            } else {
-                maintProcess.style.display = '';
-            }
-        }
-
-        var reportSection = document.getElementById('sidebar-report-section');
-        if (reportSection) {
-            if (isBankCategory) {
-                reportSection.style.display = 'none';
-            } else {
-                reportSection.style.display = hasGambling ? '' : 'none';
-            }
-        }
+        // All sidebar items are now always visible regardless of company category
     }
 
     // 暴露给 HTML onclick 和 PHP 初始化脚本
