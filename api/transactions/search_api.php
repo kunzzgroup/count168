@@ -841,12 +841,21 @@ try {
     // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
     // 仅 Show Payment：前端过滤；两者都勾选：显示在当前日期范围内有 Win/Loss 或有 Cr/Dr 的账户
     if ($show_capture_only && $show_inactive) {
-        // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture 或 WIN/LOSE 交易）或有 Payment（Cr/Dr）即显示
+        // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture / WIN/LOSE / RATE_MIDDLEMAN）或有 Payment（Cr/Dr）即显示
+        // Bug修复：
+        // 1. dcd.account_id 可能存储 account_code（字符串），必须用 CAST + account_code 双重匹配
+        // 2. 补全 company_id 防止跨公司数据泄漏
+        // 3. 新增 RATE_MIDDLEMAN 分支：手续费收益也属于 Win/Loss，不能被此处 EXISTS 过滤掉
         $where_conditions[] = "(
             EXISTS (
                 SELECT 1 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.account_id = a.id
+                WHERE dcd.company_id = ?
+                  AND dc.company_id = ?
+                  AND (
+                      CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR)
+                      OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(a.account_id)
+                  )
                   AND dc.capture_date BETWEEN ? AND ?
             )
             OR EXISTS (
@@ -855,6 +864,15 @@ try {
                   AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
                   AND t_wl.transaction_date BETWEEN ? AND ?
                   AND t_wl.transaction_type IN ('WIN', 'LOSE')
+            )
+            OR EXISTS (
+                SELECT 1 FROM transaction_entry e
+                JOIN transactions h ON e.header_id = h.id
+                WHERE h.company_id = ?
+                  AND e.company_id = ?
+                  AND e.account_id = a.id
+                  AND e.entry_type = 'RATE_MIDDLEMAN'
+                  AND h.transaction_date BETWEEN ? AND ?
             )
             OR EXISTS (
                 SELECT 1 FROM transactions t
@@ -865,8 +883,14 @@ try {
                   " . contraApprovedWhere($pdo, 't') . "
             )
         )";
+        $params[] = $company_id;
+        $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
+        $params[] = $company_id;
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
+        $params[] = $company_id;
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
@@ -874,13 +898,22 @@ try {
         $params[] = $date_from_db;
         $params[] = $date_to_db;
     } elseif ($show_capture_only) {
-        // 仅勾选 Show Win/Loss Only：账户在当前日期范围内，只要存在 Data Capture 或 WIN/LOSE 交易即可
+        // 仅勾选 Show Win/Loss Only：账户在当前日期范围内，只要存在 Data Capture / WIN/LOSE / RATE_MIDDLEMAN 即显示
+        // Bug修复：
+        // 1. dcd.account_id 可能存储 account_code（字符串），必须用 CAST + account_code 双重匹配
+        // 2. 补全 company_id 防止跨公司数据泄漏
+        // 3. 新增 RATE_MIDDLEMAN 分支：手续费收益也属于 Win/Loss，不能被此处 EXISTS 过滤掉
         $where_conditions[] = "(
             EXISTS (
-                SELECT 1 
+                SELECT 1
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.account_id = a.id
+                WHERE dcd.company_id = ?
+                  AND dc.company_id = ?
+                  AND (
+                      CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR)
+                      OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(a.account_id)
+                  )
                   AND dc.capture_date BETWEEN ? AND ?
             )
             OR EXISTS (
@@ -890,9 +923,24 @@ try {
                   AND t_wl.transaction_date BETWEEN ? AND ?
                   AND t_wl.transaction_type IN ('WIN', 'LOSE')
             )
+            OR EXISTS (
+                SELECT 1 FROM transaction_entry e
+                JOIN transactions h ON e.header_id = h.id
+                WHERE h.company_id = ?
+                  AND e.company_id = ?
+                  AND e.account_id = a.id
+                  AND e.entry_type = 'RATE_MIDDLEMAN'
+                  AND h.transaction_date BETWEEN ? AND ?
+            )
         )";
+        $params[] = $company_id;
+        $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
+        $params[] = $company_id;
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
+        $params[] = $company_id;
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
