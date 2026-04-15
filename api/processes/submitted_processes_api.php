@@ -522,6 +522,18 @@ function getProcessesByDay($user_id)
     // 获取选择的日期是星期几
     $day_of_week = date('N', strtotime($selected_date)); // 1=Monday, 7=Sunday
 
+    // 与 getSubmissionsByCaptureDate、维护页删除 submitted_processes 的逻辑一致：按账务日判断是否已提交
+    try {
+        $testStmt = $pdo->prepare("SELECT capture_date FROM submitted_processes LIMIT 1");
+        $testStmt->execute();
+        $hasCaptureDateColumn = true;
+    } catch (PDOException $e) {
+        $hasCaptureDateColumn = false;
+    }
+    $submittedDateMatchSql = $hasCaptureDateColumn
+        ? "DATE(COALESCE(sp.capture_date, sp.date_submitted)) = ?"
+        : "DATE(sp.date_submitted) = ?";
+
     // 构建基础 SQL 查询
     $baseSql = "
         SELECT 
@@ -535,7 +547,7 @@ function getProcessesByDay($user_id)
         JOIN day ON pd.day_id = day.id
         LEFT JOIN submitted_processes sp ON p.id = sp.process_id 
             AND sp.company_id = ?
-            AND DATE(sp.date_submitted) = ?
+            AND $submittedDateMatchSql
         WHERE day.id = ?
         AND p.status = 'active'
         AND p.company_id = ?
