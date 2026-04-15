@@ -238,7 +238,7 @@ function normalizeBankFilterState() {
     updateBankListScrollMode();
 }
 
-/** Bank + Show All：仅此时允许表格区域纵向滚动；否则保持原样（分页、表格外不滚） */
+/** Show All：允许页面纵向滚动（Games 和 Bank 统一行为）；否则保持原样 */
 function updateBankListScrollMode() {
     if (!document.body) return;
     const onBank = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
@@ -246,6 +246,12 @@ function updateBankListScrollMode() {
         document.body.classList.add('process-page--bank-show-all');
     } else {
         document.body.classList.remove('process-page--bank-show-all');
+    }
+    // Games Show All：允许页面纵向滚动
+    if (!onBank && showAll) {
+        document.body.classList.add('process-page--show-all');
+    } else {
+        document.body.classList.remove('process-page--show-all');
     }
 }
 
@@ -712,11 +718,19 @@ function renderTable() {
     }
 
     let pageItems, startIndex;
-    const totalPagesGames = Math.max(1, Math.ceil(processes.length / pageSize));
-    if (currentPage > totalPagesGames) currentPage = totalPagesGames;
-    startIndex = (currentPage - 1) * pageSize;
-    const endIndex = Math.min(startIndex + pageSize, processes.length);
-    pageItems = processes.slice(startIndex, endIndex);
+    // showAll 模式：只显示 active 的 process，一页展示所有数据
+    let displayProcesses = processes;
+    if (showAll) {
+        displayProcesses = processes.filter(p => p.status === 'active');
+        startIndex = 0;
+        pageItems = displayProcesses;
+    } else {
+        const totalPagesGames = Math.max(1, Math.ceil(displayProcesses.length / pageSize));
+        if (currentPage > totalPagesGames) currentPage = totalPagesGames;
+        startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, displayProcesses.length);
+        pageItems = displayProcesses.slice(startIndex, endIndex);
+    }
 
     // Games 类别的表格
     {
@@ -897,8 +911,8 @@ function renderPagination() {
     const paginationContainer = document.getElementById('paginationContainer');
     if (!paginationContainer) return;
 
-    // Bank: Show All 时不分页且隐藏分页控件
-    if (selectedPermission === 'Bank' && showAll) {
+    // Show All 时不分页且隐藏分页控件（Games 和 Bank 统一行为）
+    if (showAll) {
         paginationContainer.style.display = 'none';
         return;
     }
@@ -925,7 +939,7 @@ function renderPagination() {
 }
 
 function goToPage(page) {
-    if (selectedPermission === 'Bank' && showAll) return;
+    if (showAll) return;
     const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const newPage = Math.min(Math.max(1, page), totalPages);

@@ -1,4 +1,4 @@
-﻿/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
+/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
 (function () {
     if (typeof window.ACCOUNT_LIST_SHOW_INACTIVE === 'undefined') window.ACCOUNT_LIST_SHOW_INACTIVE = false;
     if (typeof window.ACCOUNT_LIST_SHOW_ALL === 'undefined') window.ACCOUNT_LIST_SHOW_ALL = false;
@@ -146,15 +146,22 @@ function renderTable() {
         return;
     }
 
-    // 始终按分页渲染（showAll 只影响 API 拉取范围，不影响前端分页显示）
     let pageItems;
     let startIndex;
 
-    const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
-    if (currentPage > totalPages) currentPage = totalPages;
-    startIndex = (currentPage - 1) * PAGE_SIZE;
-    const endIndex = Math.min(startIndex + PAGE_SIZE, accounts.length);
-    pageItems = accounts.slice(startIndex, endIndex);
+    // showAll 模式：只显示 active 账户，一页展示所有数据
+    let displayAccounts = accounts;
+    if (showAll) {
+        displayAccounts = accounts.filter(acc => acc.status === 'active');
+        startIndex = 0;
+        pageItems = displayAccounts;
+    } else {
+        const totalPages = Math.max(1, Math.ceil(displayAccounts.length / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        startIndex = (currentPage - 1) * PAGE_SIZE;
+        const endIndex = Math.min(startIndex + PAGE_SIZE, displayAccounts.length);
+        pageItems = displayAccounts.slice(startIndex, endIndex);
+    }
 
     pageItems.forEach((account, idx) => {
         const card = document.createElement('div');
@@ -215,6 +222,11 @@ function renderTable() {
 function renderPagination() {
     const paginationContainer = document.getElementById('paginationContainer');
 
+    // showAll 模式：隐藏分页控件
+    if (showAll) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
 
     const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
 
@@ -1702,8 +1714,19 @@ document.getElementById('showAll').addEventListener('change', function () {
     }
     // 切换 showAll 时始终回到第一页
     currentPage = 1;
+    updateAccountListScrollMode();
     fetchAccounts(); // 瀹炴椂鑾峰彇鏁版嵁
 });
+
+/** showAll 时允许页面纵向滚动；否则恢复 overflow hidden */
+function updateAccountListScrollMode() {
+    if (!document.body) return;
+    if (showAll) {
+        document.body.classList.add('account-page--show-all');
+    } else {
+        document.body.classList.remove('account-page--show-all');
+    }
+}
 
 // Toggle alert fields visibility
 function toggleAlertFields(type) {
@@ -2121,7 +2144,8 @@ async function switchAccountListCompany(companyId, companyCode) {
 
 // 椤甸潰鍔犺浇鏃惰幏鍙栨暟鎹?
 document.addEventListener('DOMContentLoaded', function () {
-    loadEditData(); // Load currencies and roles for edit modal (闇€瑕佸湪鎺掑簭鍓嶅姞杞?
+    loadEditData(); // Load currencies and roles for edit modal
+    updateAccountListScrollMode(); // 初始化滚动模式
     fetchAccounts();
 
     // 缁熶竴绠＄悊闇€瑕佸ぇ鍐欑殑杈撳叆妗?

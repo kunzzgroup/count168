@@ -320,6 +320,24 @@ body {
     display: inline !important;
 }
 
+/* Show All 模式：允许页面纵向滚动，一页展示所有数据 */
+body.account-page--show-all {
+    overflow-y: auto !important;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.account-page--show-all .container {
+    overflow-y: visible;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.account-page--show-all .account-cards {
+    max-height: none;
+    overflow-y: visible;
+}
+
 /* Account Cards - copied from userlist */
 .account-cards {
     display: flex;
