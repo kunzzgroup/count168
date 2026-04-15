@@ -3,6 +3,7 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
+    height: 100vh;
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -11,9 +12,9 @@ body {
         radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
         linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
     background-blend-mode: screen, screen, multiply, screen, normal;
-    background-attachment: fixed;
     color: #334155;
     overflow-x: hidden;
+    overflow-y: hidden;
     font-size: clamp(0.875rem, 2.5vw, 1rem);
     position: relative;
 }
@@ -21,11 +22,11 @@ body {
 .container {
     max-width: none;
     margin: 0;
-    /* 70px = pagination height(34) + bottom offset(20) + safety gap(16) */
-    padding: 1px 40px 70px clamp(180px, 14.06vw, 270px);
+    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
 .page-header {
@@ -262,14 +263,14 @@ body {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
-/* Table Container */
+/* Table Container - copied from userlist */
 .account-table-container {
     overflow-x: visible;
-    overflow-y: visible;
     margin-top: 20px;
     border: none;
     border-radius: 0;
-    max-height: none;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
 }
 
 /* Table Header - copied from userlist */
@@ -323,6 +324,8 @@ body {
 .account-cards {
     display: flex;
     flex-direction: column;
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
 }
 
 .account-card {
@@ -1526,25 +1529,21 @@ body {
     pointer-events: none;
 }
 
-/* Pagination — in flex flow, right-aligned below data */
+/* Pagination Button Styles */
 .account-pagination-container {
-    position: static;
-    flex-shrink: 0;
-    align-self: flex-end;
-    margin-left: auto;
-    margin-right: 0;
-    margin-top: 6px;
-    margin-bottom: 10px;
+    position: fixed;
+    bottom: clamp(15px, 1.56vw, 30px);
+    right: 40px;
     display: flex;
     align-items: center;
     gap: 0;
-    width: fit-content;
-    padding: 4px 8px;
     background: rgba(255, 255, 255, 0.95);
+    padding: 0px;
     border-radius: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
+    z-index: 100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 

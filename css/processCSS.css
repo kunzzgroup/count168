@@ -4,6 +4,7 @@ body.process-page {
     margin: 0;
     padding: 0;
     min-height: 100vh;
+    height: 100vh;
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -14,17 +15,18 @@ body.process-page {
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
+    overflow-y: hidden;
     font-size: clamp(0.875rem, 2.5vw, 1rem);
 }
 
 .process-page .container {
     max-width: none;
     margin: 0;
-    /* 70px = pagination height(34) + bottom offset(20) + safety gap(16) */
-    padding: 0px 40px 70px clamp(180px, 14.06vw, 270px);
+    padding: 0px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
 .process-page .page-header {
@@ -336,14 +338,14 @@ body.process-page {
     margin-right: -50vw;
 }
 
-/* Table Container */
+/* Table Container - copied from accountCSS.css */
 .process-page .table-container {
     overflow-x: visible;
-    overflow-y: visible;
     margin-top: 20px;
     border: none;
     border-radius: 0;
-    max-height: none;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
 }
 
 /* 包装器：表头与数据区同宽，Bank 数据区可横向滚动 */
@@ -355,7 +357,7 @@ body.process-page {
 
 .process-page .process-table-wrapper .process-cards.bank-mode {
     overflow-x: auto;
-    overflow-y: visible;
+    overflow-y: auto;
 }
 
 /* Bank 真实 table：与 Gambling 同设计；高度随行数增长，不在表格外壳内纵向滚动（整页由 Bank 的 .container 滚动） */
@@ -672,31 +674,38 @@ body.process-page {
     border: 0.0625rem solid #e0e0e0;
 }
 
-/* Bank Process List: no overflow clipping, no internal scroll — unified with Games layout */
+/* Bank Process List 专页：无纵滚；表格容器勿 flex:1 撑高，否则表下大块空白；表随内容增高，分页紧跟其下 */
 .process-page.process-page--bank .container {
     display: flex;
     flex-direction: column;
-    overflow: visible;
-    max-height: none;
-    padding-bottom: 0;
+    overflow: hidden;
+    max-height: 100vh;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
 }
 
 .process-page.process-page--bank .content {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: visible;
+    overflow: hidden;
 }
 
-/* Bank 标题行字号与间距与 Games 完全统一 */
+/* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
 
-/* separator-line 不再 override，与 Games 完全一致 */
+/* separator-line 不再 override，与 Games 完全一致（margin: 5px 0 -10px 0） */
 
 .process-page.process-page--bank .bank-table-wrapper {
-    height: auto;
-    max-height: none;
+    flex: 1 1 auto;
+    /* 填满剩余垂直空间，分页条始终在 flex 末尾不遮挡数据 */
+    min-height: 0;
+    align-self: stretch;
     margin-top: 6px;
+    max-height: none;
     overflow-x: auto;
-    overflow-y: visible;  /* no internal scroll — all rows render in full */
+    overflow-y: auto;
+    /* 20 条以上在 wrapper 内滚动，而非溢出到分页条后面 */
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Show All 模式：与普通模式相同（wrapper 已 flex:1，overflow-y:auto，无需额外规则） */
@@ -744,10 +753,9 @@ body.process-page {
 }
 
 .process-page.process-page--bank .pagination-container {
-    /* Inherits position:fixed from .process-page .pagination-container;
-       just override margin/spacing tweaks */
-    margin-top: 0;
-    margin-bottom: 0;
+    flex-shrink: 0;
+    margin-top: 3px;
+    margin-bottom: max(5px, env(safe-area-inset-bottom, 0px));
 }
 
 /* Bank 操作栏：5 个 checkbox（比 Games 多 3 个）+ 日期选择器 + Search，laptop 下防止换行 */
@@ -886,20 +894,19 @@ body.process-page {
     flex-shrink: 0;
 }
 
-/* Process Cards — no internal scroll; let the 100vh container hold everything */
+/* Process Cards - copied from accountCSS.css */
 .process-page .process-cards {
     display: flex;
     flex-direction: column;
-    height: auto;
-    max-height: none;
-    overflow: visible;
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
 }
 
 .process-page .process-card {
     display: grid;
     grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
-    padding: 2px 20px;
+    padding: 4px 20px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -1276,28 +1283,39 @@ body.process-page {
     pointer-events: none;
 }
 
-/* Pagination — in flex flow, right-aligned below data */
+/* Pagination Button Styles */
 .process-page .pagination-container {
-    position: static;
-    flex-shrink: 0;
-    align-self: flex-end;
+    margin-top: 5px;
     margin-left: auto;
-    margin-right: 0;
-    margin-top: 6px;
-    margin-bottom: 10px;
+    width: max-content;
     display: flex;
     align-items: center;
     gap: 0;
-    width: fit-content;
-    padding: 4px 8px;
     background: rgba(255, 255, 255, 0.95);
+    padding: 0px;
     border-radius: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
+    z-index: 100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* Games list: pagination fixed to viewport bottom-right (does not move with row count / list scroll) */
+.process-page:not(.process-page--bank) .pagination-container {
+    position: fixed;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    margin: 0 !important;
+    left: auto;
+    top: auto;
+    z-index: 120;
+}
+
+/* Reserve space inside the scrollable list so the last row is not hidden under fixed pagination */
+.process-page:not(.process-page--bank) #processTableBody.process-cards {
+    padding-bottom: 48px;
+}
 
 .process-page .pagination-btn {
     background: transparent;

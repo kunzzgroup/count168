@@ -128,12 +128,18 @@
        4. Table Rows & Data (Smart Density)
        ---------------------------------------------------- */
     /* Div-based Rows (Cards) */
-    .contract-card {
-        padding: 6px 20px !important;
+    .user-card,
+    .account-card,
+    .contract-card,
+    .member-card {
+        padding: 10px 22px !important;
         min-height: 20px !important;
     }
 
-    .contract-card-item {
+    .card-item,
+    .account-card-item,
+    .contract-card-item,
+    .member-card-item {
         font-size: 14px !important;
         line-height: 1.5 !important;
         letter-spacing: 0.015em !important;
@@ -455,24 +461,56 @@
     }
 
     /* ==========================================================================
-       NO INTERNAL SCROLL — All table/card containers must render data in full.
-       Fixed pagination (position:fixed) removes the need for internal scrollbars.
-       ========================================================================== */
+   Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
+   ========================================================================== */
+    /* 1. Unlock the main bounding containers so they stretch infinitely downwards */
+    html,
+    body.user-page,
+    body.account-page,
+    body.transaction-page,
+    body.datacapture-page,
+    body.dashboard-page,
+    body {
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+        overflow-x: hidden !important;
+    }
+
+    .container,
+    .content,
+    .transaction-container,
+    .datacapture-container,
+    .dashboard-container {
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding-bottom: 20px !important;
+        /* Absolute guarantee we never cut off the bottom element */
+    }
+
+    /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
     .table-container,
-    .account-table-container,
     .account-cards,
     .process-cards,
     .process-table-wrapper,
-    .bank-table-wrapper,
-    .user-cards,
-    .member-cards,
-    .ownership-cards,
-    .domain-cards,
-    .datacapture-table-wrapper,
-    .dashboard-content {
-        max-height: none !important;
+    .dashboard-content,
+    .transaction-main-content,
+    .transaction-table-wrapper,
+    .datacapture-table-wrapper {
         height: auto !important;
-        overflow-y: visible !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        /* This forces the data to completely render out, triggering the global browser scrollbar */
+    }
+
+    /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
+    body {
+        background-attachment: fixed !important;
+        background-size: cover !important;
     }
 
     /* ==========================================================================
@@ -522,214 +560,4 @@
         color: #0369a1;
     }
 
-    /* ==========================================================================
-       GLOBAL EXTREME COMPRESSION (13-inch SPA Experience)
-       Goal: Fit exactly 20 rows on screen without scrolling.
-       ========================================================================== */
-    .process-card,
-    .account-card,
-    .user-card,
-    .member-card,
-    .domain-card,
-    .ownership-card {
-        padding: 3px 20px !important;
-        min-height: 28px !important;
-    }
-
-    .card-item,
-    .account-card-item,
-    .member-card-item,
-    .process-page .card-item {
-        font-size: clamp(10px, 0.75vw, 13px) !important;
-        line-height: 1.15 !important;
-        padding-top: 1px !important;
-        padding-bottom: 1px !important;
-    }
-
-    .table-header {
-        margin-top: 5px !important;
-        padding-top: 4px !important;
-        padding-bottom: 4px !important;
-        font-size: clamp(10px, 0.78vw, 14px) !important;
-    }
-
-    .action-buttons-container {
-        margin-top: 5px !important;
-    }
-
-    .action-buttons {
-        padding: 6px 20px !important;
-    }
-
-    h1,
-    .page-title {
-        margin-top: 6px !important;
-        margin-bottom: 4px !important;
-    }
-
-    .separator-line {
-        margin-top: 2px !important;
-        margin-bottom: 0px !important;
-    }
-}
-
-
-/* ==========================================================================
-   GLOBAL PAGINATION — FIXED BOTTOM-RIGHT (all pages, all screen sizes)
-   Covers: domain, member, ownership + any *-pagination-container class.
-   ========================================================================== */
-.member-pagination-container,
-.ownership-pagination-container,
-.domain-pagination-container,
-[class$="-pagination-container"] {
-    position: fixed !important;
-    bottom: 20px !important;
-    right: 20px !important;
-    z-index: 900 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 0 !important;
-    width: fit-content !important;
-    padding: 4px 8px !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-    border-radius: 20px !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    backdrop-filter: blur(8px) !important;
-    border: 1px solid rgba(148, 163, 184, 0.2) !important;
-}
-
-/* ==========================================================================
-   GLOBAL VIEWPORT LOCK + FLEX LAYOUT
-   Containers are locked to 100vh and made flex-column.
-   Data fills remaining space. Pagination is LAST in flex flow — never overlaps.
-   ========================================================================== */
-body.user-page,
-body.account-page,
-body.datacapture-page,
-body.dashboard-page,
-body.process-page,
-body.domain-page,
-body.member-page,
-body.ownership-page,
-body.report-page,
-body.maintenance-page {
-    height: 100vh !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
-}
-
-/* transaction-page: always scrollable */
-html:has(body.transaction-page),
-body.transaction-page {
-    height: auto !important;
-    max-height: none !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-}
-
-/* Main containers: flex-column, full height, NO padding-bottom tricks */
-.process-page .container,
-.datacapture-container,
-.dashboard-container,
-.domain-container,
-.member-container,
-.ownership-container,
-.report-container {
-    height: 100vh !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-    box-sizing: border-box !important;
-    /* No padding-bottom — flex layout handles spacing */
-}
-
-/* Content area fills remaining space in the container */
-.content {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    flex-direction: column !important;
-}
-
-/* Direct flex children of .content that should NOT grow (headers, title bars) */
-.action-buttons-container,
-.separator-line,
-.table-header,
-.account-table-header,
-.process-page .page-title,
-h1 {
-    flex-shrink: 0 !important;
-}
-
-/* Data wrappers that are DIRECT children of .content — fill remaining space */
-/* .process-table-wrapper wraps both table-header + process-cards for processlist */
-.process-table-wrapper,
-.account-table-container,
-.table-container {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    max-height: none !important;
-    height: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-/* Inner data containers fill their wrapper */
-.process-cards,
-.account-cards,
-.bank-table-wrapper,
-.user-cards,
-.member-cards,
-.domain-cards,
-.ownership-cards,
-.datacapture-table-wrapper,
-.dashboard-content {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    max-height: none !important;
-    height: auto !important;
-}
-
-/* ==========================================================================
-   PAGINATION — Back in document flow. flex-shrink:0 + align-self:flex-end.
-   This PHYSICALLY cannot overlap the data row above it.
-   ========================================================================== */
-.pagination-container,
-.account-pagination-container,
-.member-pagination-container,
-.ownership-pagination-container,
-.domain-pagination-container,
-[class$="-pagination-container"] {
-    /* NOT fixed — stays in flex flow below data */
-    position: fixed !important;
-    flex-shrink: 0 !important;
-    align-self: flex-end !important;
-    margin-left: auto !important;
-    margin-right: 0 !important;
-    margin-top: 6px !important;
-    margin-bottom: 10px !important;
-    width: fit-content !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 0 !important;
-    padding: 4px 8px !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-    border-radius: 20px !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    backdrop-filter: blur(8px) !important;
-    border: 1px solid rgba(148, 163, 184, 0.2) !important;
-    z-index: auto !important;
-}
-
-/* transaction-container: allowed scroll, no flex tricks */
-.transaction-container {
-    height: auto !important;
-    max-height: none !important;
-    overflow-y: auto !important;
-    min-height: 100vh !important;
-    padding-bottom: 60px !important;
-    box-sizing: border-box !important;
 }
