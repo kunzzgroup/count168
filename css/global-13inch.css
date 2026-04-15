@@ -581,7 +581,7 @@
 .domain-pagination-container,
 [class$="-pagination-container"] {
     position: fixed !important;
-    bottom: 16px !important;
+    bottom: 20px !important;
     right: 20px !important;
     z-index: 900 !important;
     display: flex !important;
@@ -637,8 +637,8 @@ body.transaction-page {
     height: 100vh !important;
     max-height: 100vh !important;
     overflow: hidden !important;
-    /* padding-bottom keeps data clear of the fixed pagination bar */
-    padding-bottom: 50px !important;
+    /* 70px = pagination height(34) + bottom offset(20) + safety gap(16) */
+    padding-bottom: 70px !important;
     box-sizing: border-box !important;
 }
 

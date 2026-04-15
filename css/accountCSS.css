@@ -21,8 +21,8 @@ body {
 .container {
     max-width: none;
     margin: 0;
-    /* Bottom padding reserves space so last row never hides behind fixed pagination */
-    padding: 1px 40px 60px clamp(180px, 14.06vw, 270px);
+    /* 70px = pagination height(34) + bottom offset(20) + safety gap(16) */
+    padding: 1px 40px 70px clamp(180px, 14.06vw, 270px);
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
@@ -1529,7 +1529,7 @@ body {
 /* Pagination — FIXED at viewport bottom-right, never overlapping data */
 .account-pagination-container {
     position: fixed;
-    bottom: 16px;
+    bottom: 20px;
     right: 20px;
     z-index: 900;
     display: flex;
