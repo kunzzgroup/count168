@@ -1,7 +1,8 @@
-<?php
+﻿<?php
 /**
  * Group Earnings API
  * 计算某个 Group 下所有公司的盈利，并按股东的持股比例分配收益
+ * Net Profit 逻辑与 dashboard_api.php 完全一致（B/F + 期间）
  *
  * GET params:
  *   group_id   - 组别ID（必填）
@@ -10,6 +11,7 @@
  */
 require_once '../../session_check.php';
 require_once '../../config.php';
+require_once '../../permissions.php';   // filterAccountsByPermissions()
 
 header('Content-Type: application/json');
 
@@ -27,7 +29,7 @@ if ($group_id === '') {
     exit();
 }
 
-// ── Schema helpers ────────────────────────────────────────────────────────
+// ── Schema helpers (static cache per request) ─────────────────────────────
 function geHasTransactionCurrency(PDO $pdo): bool {
     static $v = null;
     if ($v !== null) return $v;
@@ -42,109 +44,116 @@ function geHasTransactionEntry(PDO $pdo): bool {
     catch (Throwable $e) { $v = false; }
     return $v;
 }
-function geHasContraApproval(PDO $pdo): bool {
-    static $v = null;
-    if ($v !== null) return $v;
-    try { $v = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'")->rowCount() > 0; }
-    catch (Throwable $e) { $v = false; }
-    return $v;
+function geContraApprovedWhere(PDO $pdo, string $alias = 't'): string {
+    static $has = null;
+    if ($has === null) {
+        try { $has = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'")->rowCount() > 0; }
+        catch (Throwable $e) { $has = false; }
+    }
+    if (!$has) return '';
+    $a = $alias !== '' ? $alias . '.' : '';
+    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
 }
 
 /**
- * 计算某公司 PROFIT role 账户的净余额
- * 与 dashboard_api.php 完全一致：B/F（期前累计） + 期间增量 = total_balance
+ * 计算单公司 PROFIT role 的净余额
+ * 与 dashboard_api.php 完全相同的逻辑：
+ *   B/F (capture_date / transaction_date < $dateFrom)
+ * + 期间增量 (BETWEEN $dateFrom AND $dateTo)
+ * + RATE_MIDDLEMAN 补充（所有条目，无 account_id 过滤）
  *
  * @param PDO    $pdo
- * @param int    $companyId
- * @param string $dateFrom   YYYY-MM-DD  （期间开始）
- * @param string $dateTo     YYYY-MM-DD  （期间结束）
+ * @param int    $companyId   公司主键
+ * @param string $dateFrom    YYYY-MM-DD
+ * @param string $dateTo      YYYY-MM-DD
  * @return float
  */
 function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $dateTo): float
 {
     $hasCurrency = geHasTransactionCurrency($pdo);
     $hasEntry    = geHasTransactionEntry($pdo);
-    $hasContra   = geHasContraApproval($pdo);
-    $contraClause = $hasContra
-        ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')"
-        : "";
+    $contraWhere = geContraApprovedWhere($pdo, 't');
 
-    // 拿该公司所有 PROFIT role 的 active 账户
-    $stmt = $pdo->prepare("
-        SELECT DISTINCT a.id
-        FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND UPPER(a.role) = 'PROFIT' AND a.status = 'active'
-    ");
-    $stmt->execute([$companyId]);
-    $accountIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    // ── 获取该公司所有 PROFIT role active 账户（与 dashboard 相同） ──────────
+    $acctSql = "SELECT DISTINCT a.id
+                FROM account a
+                INNER JOIN account_company ac ON a.id = ac.account_id
+                WHERE ac.company_id = ?
+                  AND UPPER(a.role) = 'PROFIT'
+                  AND a.status = 'active'";
+    // filterAccountsByPermissions: owner 不受影响，与 dashboard 保持一致
+    list($acctSql, $acctParams) = filterAccountsByPermissions($pdo, $acctSql, [], $companyId);
+    $acctSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $acctSql);
+    $acctSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $acctSql);
+
+    $stmtAcct = $pdo->prepare($acctSql);
+    $stmtAcct->execute(array_merge([$companyId], $acctParams));
+    $accountIds = $stmtAcct->fetchAll(PDO::FETCH_COLUMN);
 
     if (empty($accountIds)) return 0.0;
 
-    $in    = implode(',', array_fill(0, count($accountIds), '?'));
-    $total_bf     = 0.0;   // B/F：dateFrom 之前的所有累计
-    $total_period = 0.0;   // 期间：dateFrom ~ dateTo
+    $ph = implode(',', array_fill(0, count($accountIds), '?'));
 
-    // ══════════════════════════════════════════════════════
-    //  SECTION 1: B/F  (capture_date / transaction_date < dateFrom)
-    //  与 dashboard_api.php 的 "--- 1. 计算 B/F ---" 完全一致
-    // ══════════════════════════════════════════════════════
+    $total_bf     = 0.0;
+    $total_period = 0.0;
 
-    // A-BF. Data Capture B/F
+    // ════════════════════════════════════════════════════════════
+    //  B/F  (< $dateFrom) — 完全复制 dashboard_api.php Section 1
+    // ════════════════════════════════════════════════════════════
+
+    // A-BF: Data Capture B/F
     $s = $pdo->prepare("
         SELECT COALESCE(SUM(dcd.processed_amount), 0)
         FROM data_capture_details dcd
         JOIN data_captures dc ON dcd.capture_id = dc.id
         WHERE dc.company_id = ?
           AND dcd.company_id = ?
-          AND dcd.account_id IN ($in)
+          AND dcd.account_id IN ($ph)
           AND dc.capture_date < ?
     ");
     $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom]));
     $total_bf += (float) $s->fetchColumn();
 
     if ($hasCurrency) {
-        // B-BF. Transactions To Account (B/F)
+        // B-BF: Transactions To Account B/F
         $s = $pdo->prepare("
             SELECT COALESCE(SUM(CASE
-                WHEN transaction_type IN ('RECEIVE','CLAIM') THEN -t.amount
-                WHEN transaction_type = 'CONTRA'            THEN -t.amount
-                WHEN transaction_type = 'CLEAR'             THEN -t.amount
-                WHEN transaction_type = 'PAYMENT'           THEN -t.amount
-                WHEN transaction_type = 'WIN'  AND (t.description LIKE 'Process: %') THEN  t.amount
-                WHEN transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                WHEN transaction_type = 'WIN'  AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
-                WHEN transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN  t.amount
+                WHEN transaction_type IN ('RECEIVE','CLAIM') THEN -amount
+                WHEN transaction_type = 'CONTRA'            THEN -amount
+                WHEN transaction_type = 'CLEAR'             THEN -amount
+                WHEN transaction_type = 'PAYMENT'           THEN -amount
+                WHEN transaction_type = 'WIN'  AND (description LIKE 'Process: %') THEN  amount
+                WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
+                WHEN transaction_type = 'WIN'  AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
+                WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN  amount
                 ELSE 0
             END), 0)
             FROM transactions t
             WHERE t.company_id = ?
-              AND t.account_id IN ($in)
-              AND t.transaction_date < ?
-              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','WIN','LOSE')"
-            . $contraClause
+              AND t.account_id IN ($ph)
+              AND t.transaction_date < ?"
+            . $contraWhere
         );
         $s->execute(array_merge([$companyId], $accountIds, [$dateFrom]));
         $total_bf += (float) $s->fetchColumn();
 
-        // C-BF. Transactions From Account (B/F)
+        // C-BF: Transactions From Account B/F
         $s = $pdo->prepare("
             SELECT COALESCE(SUM(CASE
-                WHEN transaction_type IN ('PAYMENT','RECEIVE','CLAIM','CLEAR') THEN t.amount
-                WHEN transaction_type = 'CONTRA' THEN t.amount
+                WHEN transaction_type IN ('PAYMENT','RECEIVE','CLAIM','CLEAR') THEN amount
+                WHEN transaction_type = 'CONTRA' THEN amount
                 ELSE 0
             END), 0)
             FROM transactions t
             WHERE t.company_id = ?
-              AND t.from_account_id IN ($in)
-              AND t.transaction_date < ?
-              AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM')"
-            . $contraClause
+              AND t.from_account_id IN ($ph)
+              AND t.transaction_date < ?"
+            . $contraWhere
         );
         $s->execute(array_merge([$companyId], $accountIds, [$dateFrom]));
         $total_bf += (float) $s->fetchColumn();
 
-        // D-BF. RATE entries B/F (from transaction_entry)
+        // D-BF: RATE entries B/F (transaction_entry)
         if ($hasEntry) {
             try {
                 $s = $pdo->prepare("
@@ -158,7 +167,7 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
                     JOIN transactions h ON e.header_id = h.id
                     WHERE h.company_id = ?
                       AND e.company_id = ?
-                      AND e.account_id IN ($in)
+                      AND e.account_id IN ($ph)
                       AND h.transaction_date < ?
                 ");
                 $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom]));
@@ -167,26 +176,25 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
         }
     }
 
-    // ══════════════════════════════════════════════════════
-    //  SECTION 2: 期间增量  (BETWEEN dateFrom AND dateTo)
-    //  与 dashboard_api.php 的 "--- 2. 计算每日数据 ---" 一致
-    // ══════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════
+    //  期间增量 (BETWEEN) — 完全复制 dashboard_api.php Section 2
+    // ════════════════════════════════════════════════════════════
 
-    // A-P. Data Capture 期间
+    // A-P: Data Capture 期间
     $s = $pdo->prepare("
         SELECT COALESCE(SUM(dcd.processed_amount), 0)
         FROM data_capture_details dcd
         JOIN data_captures dc ON dcd.capture_id = dc.id
         WHERE dc.company_id = ?
           AND dcd.company_id = ?
-          AND dcd.account_id IN ($in)
+          AND dcd.account_id IN ($ph)
           AND dc.capture_date BETWEEN ? AND ?
     ");
     $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
     $total_period += (float) $s->fetchColumn();
 
     if ($hasCurrency) {
-        // B-P. Transactions To Account 期间
+        // B-P: Transactions To Account 期间（注意：包含 RATE 类型，与 dashboard 一致）
         $s = $pdo->prepare("
             SELECT COALESCE(SUM(CASE
                 WHEN transaction_type IN ('RECEIVE','CLAIM','RATE') THEN -t.amount
@@ -201,15 +209,15 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
             END), 0)
             FROM transactions t
             WHERE t.company_id = ?
-              AND t.account_id IN ($in)
+              AND t.account_id IN ($ph)
               AND t.transaction_date BETWEEN ? AND ?
               AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE','WIN','LOSE')"
-            . $contraClause
+            . $contraWhere
         );
         $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
         $total_period += (float) $s->fetchColumn();
 
-        // C-P. Transactions From Account 期间
+        // C-P: Transactions From Account 期间
         $s = $pdo->prepare("
             SELECT COALESCE(SUM(CASE
                 WHEN transaction_type = 'CONTRA'                              THEN t.amount
@@ -219,15 +227,15 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
             END), 0)
             FROM transactions t
             WHERE t.company_id = ?
-              AND t.from_account_id IN ($in)
+              AND t.from_account_id IN ($ph)
               AND t.transaction_date BETWEEN ? AND ?
               AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','RATE')"
-            . $contraClause
+            . $contraWhere
         );
         $s->execute(array_merge([$companyId], $accountIds, [$dateFrom, $dateTo]));
         $total_period += (float) $s->fetchColumn();
 
-        // D-P. RATE entries 期间
+        // D-P: RATE entries 期间
         if ($hasEntry) {
             try {
                 $s = $pdo->prepare("
@@ -241,7 +249,7 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
                     JOIN transactions h ON e.header_id = h.id
                     WHERE h.company_id = ?
                       AND e.company_id = ?
-                      AND e.account_id IN ($in)
+                      AND e.account_id IN ($ph)
                       AND h.transaction_date BETWEEN ? AND ?
                 ");
                 $s->execute(array_merge([$companyId, $companyId], $accountIds, [$dateFrom, $dateTo]));
@@ -250,7 +258,10 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
         }
     }
 
-    // E. RATE_MIDDLEMAN 期间（与 dashboard_api 同步累加到 Profit）
+    // ════════════════════════════════════════════════════════════
+    //  RATE_MIDDLEMAN 补充（dashboard_api.php 第464-517行等效）
+    //  仅统计当期，不经过 account_id 过滤（所有 RATE_MIDDLEMAN 条目）
+    // ════════════════════════════════════════════════════════════
     if ($hasEntry) {
         try {
             $s = $pdo->prepare("
@@ -267,10 +278,8 @@ function getCompanyProfit(PDO $pdo, int $companyId, string $dateFrom, string $da
         } catch (Throwable $e) {}
     }
 
-    // total_balance = B/F + 期间增量（与 dashboard_api 一致）
     return round($total_bf + $total_period, 2);
 }
-
 
 // ── Main Logic ────────────────────────────────────────────────────────────
 try {
@@ -288,7 +297,6 @@ try {
         ");
         $stmt->execute([$owner_id, $group_id]);
     } else {
-        // 普通用户：通过 user_company_map 验证
         $stmt = $pdo->prepare("
             SELECT c.id, c.company_id AS name, c.expiration_date
             FROM company c
@@ -316,8 +324,8 @@ try {
         exit();
     }
 
-    // 2. 检查 company_ownership 表是否存在及 owner_type 列
-    $tableExists = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
+    // 2. 检查 company_ownership 表
+    $tableExists  = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
     $hasOwnerType = $tableExists
         ? $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0
         : false;
@@ -325,15 +333,15 @@ try {
     $companyIds = array_column($companies, 'id');
     $in = implode(',', array_fill(0, count($companyIds), '?'));
 
-    // 3. 计算每公司的净利润
-    $companyProfits = []; // company_id => profit
+    // 3. 计算每公司的净利润（与 dashboard 同口径）
+    $companyProfits = [];
     foreach ($companies as $c) {
         $companyProfits[$c['id']] = getCompanyProfit($pdo, (int)$c['id'], $date_from, $date_to);
     }
     $totalProfit = array_sum($companyProfits);
 
-    // 4. 拿所有股东 ownership 行（user + owner type）
-    $shareholders = []; // key: "type_id" => {name, account_id, companies: []}
+    // 4. 拿所有股东 ownership 行
+    $shareholders = [];
     if ($tableExists && $hasOwnerType) {
         $ownerships = $pdo->prepare("
             SELECT
@@ -354,12 +362,15 @@ try {
         $ownerships->execute($companyIds);
         $rows = $ownerships->fetchAll(PDO::FETCH_ASSOC);
 
+        // Build name lookup
+        $companyNameMap = array_column($companies, 'name', 'id');
+
         foreach ($rows as $row) {
-            $key   = $row['owner_type'] . '_' . $row['account_id'];
-            $cId   = (int)$row['company_id'];
-            $pct   = (float)$row['percentage'];
-            $profit= $companyProfits[$cId] ?? 0;
-            $earn  = round($profit * $pct / 100, 2);
+            $key    = $row['owner_type'] . '_' . $row['account_id'];
+            $cId    = (int)$row['company_id'];
+            $pct    = (float)$row['percentage'];
+            $profit = $companyProfits[$cId] ?? 0;
+            $earn   = round($profit * $pct / 100, 2);
 
             if (!isset($shareholders[$key])) {
                 $shareholders[$key] = [
@@ -372,31 +383,22 @@ try {
             }
             $shareholders[$key]['companies'][] = [
                 'company_id'   => $cId,
-                'company_name' => $this_name = (function() use ($companies, $cId) {
-                    foreach ($companies as $c) {
-                        if ((int)$c['id'] === $cId) return $c['name'];
-                    }
-                    return 'Unknown';
-                })(),
-                'pct'      => $pct,
-                'profit'   => $profit,
-                'earnings' => $earn
+                'company_name' => $companyNameMap[$cId] ?? 'Unknown',
+                'pct'          => $pct,
+                'profit'       => $profit,
+                'earnings'     => $earn
             ];
             $shareholders[$key]['total_earnings'] += $earn;
         }
     }
 
-    // 按 total_earnings 降序排列
     $shareholderList = array_values($shareholders);
     usort($shareholderList, fn($a, $b) => $b['total_earnings'] <=> $a['total_earnings']);
-
-    // Round total_earnings
     foreach ($shareholderList as &$sh) {
         $sh['total_earnings'] = round($sh['total_earnings'], 2);
     }
     unset($sh);
 
-    // 5. 组装公司列表（含利润）
     $companyList = array_map(fn($c) => [
         'id'     => (int)$c['id'],
         'name'   => $c['name'],
