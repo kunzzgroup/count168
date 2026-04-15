@@ -105,22 +105,12 @@ function bankProcessNormalizeDayStartYmd(dayStartField) {
 }
 
 /**
- * Resend 弹窗中所选 Day start 不可为今天（与后端一致）。
+ * Resend 弹窗 Day start 客户端校验（曾禁止等于今天，现已允许与后端一致）。
  * @returns {string|null} 错误提示文案；null 表示可提交
  */
 function bankResendScheduleDayStartForbiddenMessage(chosenTrim, anchorRaw) {
-    void anchorRaw; // kept for call-site compatibility
-    const v = chosenTrim != null ? String(chosenTrim).trim() : '';
-    if (!v) return null;
-    const chosenYmd = bankProcessNormalizeDayStartYmd(v);
-    if (!chosenYmd) return null;
-    const today = new Date();
-    const todayYmd = today.getFullYear()
-        + '-' + String(today.getMonth() + 1).padStart(2, '0')
-        + '-' + String(today.getDate()).padStart(2, '0');
-    if (chosenYmd === todayYmd) {
-        return 'Day start cannot be today. Pick another date.';
-    }
+    void anchorRaw;
+    void chosenTrim;
     return null;
 }
 
@@ -314,7 +304,7 @@ function initProcessListDateFilter() {
 
 function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) {
     const isBankStatusActive = String(status || '').trim().toLowerCase() === 'active';
-    // Official / E-INVOICE / Block 仍为 status=active；Resend 不依赖 Maintenance 待办表；Day start 限制在 Resend 弹窗日期校验
+    // Official / E-INVOICE / Block 仍为 status=active；Resend 不依赖 Maintenance 待办表
     const showResend = isBankStatusActive && !isBankInactiveLike(status, issueFlag);
     const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
     const actionButtons =
