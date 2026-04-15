@@ -1359,11 +1359,6 @@ try {
             if ($has_source_bank_process_period_type) {
                 // partial / tail 与 monthly 均按 transaction_date 汇总；入账 API 已写入经济归属日，避免 bp.day_start 与 Resend 锚点不一致
                 $wlDateExpr = "DATE(t.transaction_date)";
-                $wlFutureGuard = " AND (
-                    t.source_bank_process_id IS NULL
-                    OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
-                    OR DATE(t.transaction_date) <= CURDATE()
-                )";
             } else {
                 // 兼容旧库：缺少 period_type 字段时，仍将 bank_process 来源交易按 day_start 归属日期统计
                 $wlDateExpr = "(CASE
@@ -1372,10 +1367,6 @@ try {
                     THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                     ELSE DATE(t.transaction_date)
                 END)";
-                $wlFutureGuard = " AND (
-                    t.source_bank_process_id IS NULL
-                    OR DATE(t.transaction_date) <= CURDATE()
-                )";
             }
         }
 
@@ -2025,11 +2016,6 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         END";
         if ($has_source_bank_process_period_type) {
             $wlDateExpr = "DATE(t.transaction_date)";
-            $wlFutureGuard = " AND (
-                t.source_bank_process_id IS NULL
-                OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
         } else {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
@@ -2037,10 +2023,6 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
-            $wlFutureGuard = " AND (
-                t.source_bank_process_id IS NULL
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
         }
     }
 
@@ -2295,11 +2277,6 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         END";
         if ($has_source_bank_process_period_type) {
             $wlDateExpr = "DATE(t.transaction_date)";
-            $wlFutureGuard = " AND (
-                t.source_bank_process_id IS NULL
-                OR t.source_bank_process_period_type NOT IN ('partial_first_month', 'day_end_tail')
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
         } else {
             $wlDateExpr = "(CASE
                 WHEN t.source_bank_process_id IS NOT NULL
@@ -2307,10 +2284,6 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
                 ELSE DATE(t.transaction_date)
             END)";
-            $wlFutureGuard = " AND (
-                t.source_bank_process_id IS NULL
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
         }
     }
 
