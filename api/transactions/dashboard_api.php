@@ -622,6 +622,13 @@ try {
             'profit' => $result['profit']['total_balance'],
             'ownership_percentage' => $ownership_percentage,
             'has_ownership_setup' => $has_ownership_setup,
+            'group_debug' => [
+                'applied' => $group_applied,
+                'group_id' => $company_group_id ?? null,
+                'logged_in_as' => $account_str_id ?? null,
+                'equity' => $groupEquity ?? null,
+                'account_pct' => $accPct ?? null
+            ],
             'period_total' => [
                 'capital' => $result['capital']['period_total'],
                 'expenses' => $result['expenses']['period_total'],
