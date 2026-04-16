@@ -9055,10 +9055,20 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
                     const dataColumnIndex = dollarMatch.columnNumber - 1;
 
                     // 按顺序查找匹配的引用（使用 parseIdProductColumnRef 保留完整 id_product）
+                    // IMPORTANT: $数字 仅应解析为当前编辑行；不能只按列号匹配，否则会串到其他 id_product 的引用。
                     for (let j = refIndex; j < refs.length; j++) {
                         const ref = refs[j];
                         const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
                         if (parsed && parsed.dataColumnIndex === dataColumnIndex) {
+                            const refIdProduct = parsed.idProduct;
+                            const isCurrentRowRef = processValue && (
+                                (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
+                                    ? (refIdProduct.trim() === String(processValue).trim())
+                                    : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(processValue))
+                            );
+                            if (!isCurrentRowRef) {
+                                continue;
+                            }
                             columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel, parsed.captureRowIndex);
                             refIndex = j + 1;
                             break;
