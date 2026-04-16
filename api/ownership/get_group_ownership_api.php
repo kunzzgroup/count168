@@ -9,10 +9,27 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$current_user_id = $_SESSION['user_id'];
+$current_user_role = $_SESSION['role'] ?? '';
+
 try {
-    // 1. Fetch distinct group_ids from company table
-    $stmtGroups = $pdo->query("SELECT DISTINCT group_id FROM company WHERE group_id IS NOT NULL AND TRIM(group_id) != '' ORDER BY group_id ASC");
-    $groups = $stmtGroups->fetchAll(PDO::FETCH_COLUMN);
+    require_once '../get_companies_helper.php';
+    $companies = [];
+    if ($current_user_role === 'owner') {
+        $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id);
+        $companies = getCompaniesByOwner($pdo, $owner_id, true);
+    } else {
+        $companies = getCompaniesByUser($pdo, $current_user_id, true);
+    }
+
+    $group_ids = [];
+    foreach ($companies as $c) {
+        if (!empty($c['group_id'])) {
+            $group_ids[] = $c['group_id'];
+        }
+    }
+    $groups = array_unique($group_ids);
+    sort($groups);
 
     // 2. Fetch group equities
     $stmtEquity = $pdo->query("SELECT group_id, equity_percentage FROM group_equity");

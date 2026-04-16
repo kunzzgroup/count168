@@ -24,10 +24,33 @@ function fetchGlobalAccounts() {
         }).catch(err => console.error(err));
 }
 
+function initTabs() {
+    const tabs = document.querySelectorAll('.own-tab-btn');
+    tabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabs.forEach(b => {
+                b.classList.remove('active');
+                b.style.color = 'var(--own-gray-text)';
+                b.style.fontWeight = '600';
+                b.style.borderBottomColor = 'transparent';
+            });
+            btn.classList.add('active');
+            btn.style.color = 'var(--own-primary-blue)';
+            btn.style.fontWeight = '700';
+            btn.style.borderBottomColor = 'var(--own-primary-blue)';
+
+            document.getElementById('companyView').style.display = 'none';
+            document.getElementById('groupView').style.display = 'none';
+            document.getElementById(btn.dataset.target).style.display = 'block';
+        });
+    });
+}
+
 function fetchGroupEarnings() {
+    initTabs(); // Initialize the tab behavior
     const container = document.getElementById('groupCardsContainer');
-    const wrapper = document.getElementById('groupEarningsWrapper');
-    if (!container || !wrapper) return;
+    const groupTabBtn = document.getElementById('groupTabBtn');
+    if (!container || !groupTabBtn) return;
 
     container.innerHTML = '';
     const loaderWrap = document.createElement('div');
@@ -44,10 +67,10 @@ function fetchGroupEarnings() {
             }
             groupEarningsData = res.data;
             if (groupEarningsData.length > 0) {
-                wrapper.style.display = 'block';
+                groupTabBtn.style.display = 'block';
                 renderGroupCards();
             } else {
-                wrapper.style.display = 'none';
+                groupTabBtn.style.display = 'none';
             }
         })
         .catch(err => {

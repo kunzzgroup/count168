@@ -38,44 +38,51 @@ $assetVer = function ($file) {
         <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
-        <!-- Group Filter Bar + Select Mode Button (same row) -->
-        <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
-            <span class="own-gfb-label">Group</span>
-            <div class="own-gfb-buttons" id="own-gfb-buttons">
-                <!-- Injected by JS -->
+        <!-- TABS -->
+        <div class="own-tabs-container" style="display: flex; gap: 32px; border-bottom: 1px solid var(--own-gray-border); margin-top: 16px; margin-bottom: 24px;">
+            <div class="own-tab-btn active" data-target="companyView" style="padding-bottom: 12px; font-size: 15px; font-weight: 700; color: var(--own-primary-blue); border-bottom: 3px solid var(--own-primary-blue); cursor: pointer; text-transform: uppercase;">
+                COMPANY ALLOCATION
             </div>
-            <div class="own-gfb-spacer"></div>
-            <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <path d="M14 17h7M17.5 14v7" />
-                </svg>
-                Select
-            </button>
+            <div class="own-tab-btn" id="groupTabBtn" data-target="groupView" style="display: none; padding-bottom: 12px; font-size: 15px; font-weight: 600; color: var(--own-gray-text); cursor: pointer; text-transform: uppercase; margin-bottom: -1px; border-bottom: 3px solid transparent;">
+                GROUP EARNINGS
+            </div>
         </div>
 
-        <div id="groupEarningsWrapper" style="display: none; margin-top: 24px;">
-            <h2 class="own-section-title" style="font-family: 'Amaranth', sans-serif; font-size: 22px; color: #002C49; margin-bottom: 16px; font-weight: 600; text-transform: uppercase;">
-                GROUP EARNINGS
-            </h2>
-            <div id="groupCardsContainer">
+        <!-- COMPANY VIEW -->
+        <div id="companyView">
+            <!-- Group Filter Bar + Select Mode Button (same row) -->
+            <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
+                <span class="own-gfb-label">Group</span>
+                <div class="own-gfb-buttons" id="own-gfb-buttons">
+                    <!-- Injected by JS -->
+                </div>
+                <div class="own-gfb-spacer"></div>
+                <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <path d="M14 17h7M17.5 14v7" />
+                    </svg>
+                    Select
+                </button>
+            </div>
+
+            <!-- Companies will be injected here via JS -->
+            <div id="companyCardsContainer" style="margin-top: 16px;">
+                <!-- Loader -->
                 <div class="own-loader-container">
                     <div class="own-loader"></div>
                 </div>
             </div>
-            
-            <h2 class="own-section-title" style="font-family: 'Amaranth', sans-serif; font-size: 22px; color: #002C49; margin-top: 32px; margin-bottom: 16px; font-weight: 600; text-transform: uppercase;">
-                COMPANY ALLOCATION
-            </h2>
         </div>
 
-        <!-- Companies will be injected here via JS -->
-        <div id="companyCardsContainer" style="margin-top: 16px;">
-            <!-- Loader -->
-            <div class="own-loader-container">
-                <div class="own-loader"></div>
+        <!-- GROUP VIEW -->
+        <div id="groupView" style="display: none;">
+            <div id="groupCardsContainer">
+                <div class="own-loader-container">
+                    <div class="own-loader"></div>
+                </div>
             </div>
         </div>
     </div>
