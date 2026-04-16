@@ -80,6 +80,37 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
+function bank_resend_ensureDailyGuardTable(PDO $pdo): void
+{
+    $sql = "
+        CREATE TABLE IF NOT EXISTS bank_process_accounting_resend_daily_guard (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            bank_process_id INT NOT NULL,
+            resend_day_start DATE NOT NULL,
+            guard_date DATE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_bp_resend_daily_guard (company_id, bank_process_id, resend_day_start, guard_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ";
+    $pdo->exec($sql);
+}
+
+function bank_resend_hasSameDayRecord(PDO $pdo, int $companyId, int $bankProcessId, string $dayStartYmd): bool
+{
+    $stmt = $pdo->prepare(
+        "SELECT 1
+         FROM bank_process_accounting_resend_daily_guard
+         WHERE company_id = ?
+           AND bank_process_id = ?
+           AND resend_day_start = ?
+           AND guard_date = CURDATE()
+         LIMIT 1"
+    );
+    $stmt->execute([$companyId, $bankProcessId, $dayStartYmd]);
+    return (bool) $stmt->fetchColumn();
+}
+
 /** @return string|null */
 function bank_resend_normalizeOptionalYmd($value): ?string
 {
@@ -163,14 +194,19 @@ try {
     bmp_ensureMaintenanceResendPendingTable($pdo);
     bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
     bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    bank_resend_ensureDailyGuardTable($pdo);
 
-    $pdo->beginTransaction();
     $effectiveDayStartYmd = $scheduleFromClient && $newDayStart !== null
         ? $newDayStart
         : bank_resend_parse_ymd_from_any_raw(isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : null);
     if ($effectiveDayStartYmd === null) {
         throw new Exception('无法识别 Day start，Resend 仅支持按 Day start 当月补单月记录。');
     }
+    if (bank_resend_hasSameDayRecord($pdo, $company_id, $bankProcessId, $effectiveDayStartYmd)) {
+        throw new Exception('今日已补过该 Day start 日期，不能重复补单。');
+    }
+
+    $pdo->beginTransaction();
     $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
     $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
     // 弹窗同时填 day_start + day_end：清除该区间内各月 monthly 及 partial / tail / 合并期标记，便于生成单笔合并账单。
@@ -250,6 +286,19 @@ try {
             'UPDATE bank_process SET accounting_resend_relax_created_floor = 1, dts_modified = NOW() WHERE id = ? AND company_id = ?'
         );
         $flg->execute([$bankProcessId, $company_id]);
+    }
+    $insGuard = $pdo->prepare(
+        "INSERT INTO bank_process_accounting_resend_daily_guard
+         (company_id, bank_process_id, resend_day_start, guard_date)
+         VALUES (?, ?, ?, CURDATE())"
+    );
+    try {
+        $insGuard->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+    } catch (PDOException $e) {
+        if ((string) $e->getCode() === '23000') {
+            throw new Exception('今日已补过该 Day start 日期，不能重复补单。');
+        }
+        throw $e;
     }
 
     $pdo->commit();
