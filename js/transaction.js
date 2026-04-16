@@ -427,8 +427,6 @@
             });
         }
 
-        bindTransactionListExternalInvalidate();
-
         // 绑定右侧工作区的 Search 按钮：执行完整日期搜索（不受右侧 Type 选择影响）
         const actionSearchBtn = document.getElementById('action_search_btn');
         if (actionSearchBtn) {
@@ -1255,61 +1253,6 @@
 
     /** 同标签页内：用 sessionStorage 按筛选条件缓存列表，再次进入页面先秒开旧数据再静默拉新 */
     const TX_LIST_SESSION_PREFIX = 'count168_txlist_v1_';
-    /** Bumped when Maintenance deletes transactions so other tabs / stale session cache can refresh. */
-    const TX_LIST_INVALIDATE_LS_KEY = 'count168_tx_invalidate_ts';
-
-    function closeHistoryModalIfVisible() {
-        const hm = document.getElementById('historyModal');
-        if (!hm) return;
-        const d = (hm.style.display || '').trim().toLowerCase();
-        if (d === 'flex' || d === 'block') {
-            hm.style.display = 'none';
-        }
-    }
-
-    function refreshTransactionSearchIfStaleOnReturn() {
-        try {
-            const inv = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || '0', 10) || 0;
-            if (!inv) return;
-            const key = buildTxListSessionKey();
-            if (!key) return;
-            const raw = sessionStorage.getItem(key);
-            let savedAt = 0;
-            if (raw) {
-                const o = JSON.parse(raw);
-                if (o && o.v === 2 && typeof o.savedAt === 'number') {
-                    savedAt = o.savedAt;
-                }
-            }
-            if (inv > savedAt && typeof searchTransactions === 'function') {
-                const dateFrom = document.getElementById('date_from')?.value;
-                const dateTo = document.getElementById('date_to')?.value;
-                if (!dateFrom || !dateTo) return;
-                try {
-                    sessionStorage.removeItem(key);
-                } catch (e2) { /* ignore */ }
-                closeHistoryModalIfVisible();
-                searchTransactions(false, { silent: true });
-            }
-        } catch (e) { /* ignore */ }
-    }
-
-    function bindTransactionListExternalInvalidate() {
-        window.addEventListener('storage', function (e) {
-            if (e.key !== TX_LIST_INVALIDATE_LS_KEY || e.newValue == null) return;
-            closeHistoryModalIfVisible();
-            if (typeof searchTransactions !== 'function') return;
-            const dateFrom = document.getElementById('date_from')?.value;
-            const dateTo = document.getElementById('date_to')?.value;
-            if (!dateFrom || !dateTo) return;
-            if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-            searchTransactions(false, { silent: true });
-        });
-        document.addEventListener('visibilitychange', function () {
-            if (document.visibilityState !== 'visible') return;
-            refreshTransactionSearchIfStaleOnReturn();
-        });
-    }
 
     function buildTxListSessionKey() {
         const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
@@ -1336,7 +1279,7 @@
         try {
             const key = buildTxListSessionKey();
             if (!key || !data) return;
-            const wrap = JSON.stringify({ v: 2, savedAt: Date.now(), data: data });
+            const wrap = JSON.stringify({ v: 1, data: data });
             if (wrap.length > 1800000) return;
             sessionStorage.setItem(key, wrap);
         } catch (e) { /* quota or private mode */ }
@@ -1349,17 +1292,8 @@
             const raw = sessionStorage.getItem(key);
             if (!raw) return false;
             const o = JSON.parse(raw);
-            if (!o || !o.data) return false;
-            if (o.v !== 1 && o.v !== 2) return false;
+            if (!o || o.v !== 1 || !o.data) return false;
             if (!Array.isArray(o.data.left_table) && !Array.isArray(o.data.right_table)) return false;
-            const inv = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || '0', 10) || 0;
-            const savedAt = (o.v === 2 && typeof o.savedAt === 'number') ? o.savedAt : 0;
-            if (inv > savedAt) {
-                try {
-                    sessionStorage.removeItem(key);
-                } catch (e2) { /* ignore */ }
-                return false;
-            }
             lastSearchData = o.data;
             applyZeroBalanceFilterAndRender();
             return true;
