@@ -2178,9 +2178,6 @@ async function confirmBankResendFromModal() {
     if (cancelBtn) cancelBtn.disabled = true;
     try {
         if (bankModule && typeof bankModule.executeAccountingDueResend === 'function') {
-            if (scheduleOpts && typeof bankModule.setPendingResendScheduleForProcess === 'function') {
-                bankModule.setPendingResendScheduleForProcess(id, scheduleOpts);
-            }
             await bankModule.executeAccountingDueResend(id, scheduleOpts);
         }
     } finally {
