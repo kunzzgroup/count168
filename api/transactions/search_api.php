@@ -1439,17 +1439,10 @@ try {
                     OR DATE(t.transaction_date) <= CURDATE()
                 )";
             } else {
-                // 兼容旧库：缺少 period_type 字段时，仍将 bank_process 来源交易按 day_start 归属日期统计
-                $wlDateExpr = "(CASE
-                    WHEN t.source_bank_process_id IS NOT NULL
-                         AND DATE(t.transaction_date) <= CURDATE()
-                    THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                    ELSE DATE(t.transaction_date)
-                END)";
-                $wlFutureGuard = " AND (
-                    t.source_bank_process_id IS NULL
-                    OR DATE(t.transaction_date) <= CURDATE()
-                )";
+                // 缺少 period_type 字段时，统一按 transactions.transaction_date 归属；
+                // 避免 Resend 仅临时改 day_start 后，主表仍被历史 bank_process.day_start（原始锚点）错误归档。
+                $wlDateExpr = "DATE(t.transaction_date)";
+                $wlFutureGuard = '';
             }
         }
 
@@ -2124,16 +2117,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                 OR DATE(t.transaction_date) <= CURDATE()
             )";
         } else {
-            $wlDateExpr = "(CASE
-                WHEN t.source_bank_process_id IS NOT NULL
-                     AND DATE(t.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                ELSE DATE(t.transaction_date)
-            END)";
-            $wlFutureGuard = " AND (
-                t.source_bank_process_id IS NULL
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
+            // 缺少 period_type 字段时，避免把所有 Bank WIN/LOSE 回绑到旧 day_start。
+            $wlDateExpr = "DATE(t.transaction_date)";
+            $wlFutureGuard = '';
         }
     }
 
@@ -2400,16 +2386,9 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 OR DATE(t.transaction_date) <= CURDATE()
             )";
         } else {
-            $wlDateExpr = "(CASE
-                WHEN t.source_bank_process_id IS NOT NULL
-                     AND DATE(t.transaction_date) <= CURDATE()
-                THEN COALESCE($bpDayStartSql, DATE(t.transaction_date))
-                ELSE DATE(t.transaction_date)
-            END)";
-            $wlFutureGuard = " AND (
-                t.source_bank_process_id IS NULL
-                OR DATE(t.transaction_date) <= CURDATE()
-            )";
+            // 缺少 period_type 字段时，避免把所有 Bank WIN/LOSE 回绑到旧 day_start。
+            $wlDateExpr = "DATE(t.transaction_date)";
+            $wlFutureGuard = '';
         }
     }
 

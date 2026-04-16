@@ -153,8 +153,6 @@ try {
     if (!$bpRow) {
         throw new Exception('未找到该 Bank Process 或无权操作');
     }
-    /** 编辑里持久化的 day_start（弹窗留空或与 type=date 不同步时可作兜底，避免误走多账期 Resend） */
-    $parsedPersistedDayStart = bank_resend_parse_ymd_from_any_raw(isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : null);
     if (strtolower(trim((string) ($bpRow['status'] ?? ''))) !== 'active') {
         throw new Exception('仅状态为 Active 的 Process 可使用 Resend');
     }
@@ -167,19 +165,17 @@ try {
     bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
 
     $pdo->beginTransaction();
-    // 弹窗 day_start 为空时：仍用库里锚点写入暂存列，保证 bmp_merge 能置 accounting_resend_single_period（仅补首段/单月，不拉后续月）
-    $scheduleDayStartForDb = $scheduleFromClient ? ($newDayStart ?? $parsedPersistedDayStart) : null;
-    $effectiveDayStartYmd = $scheduleFromClient
-        ? $scheduleDayStartForDb
-        : $parsedPersistedDayStart;
+    $effectiveDayStartYmd = $scheduleFromClient && $newDayStart !== null
+        ? $newDayStart
+        : bank_resend_parse_ymd_from_any_raw(isset($bpRow['day_start']) ? (string) $bpRow['day_start'] : null);
     if ($effectiveDayStartYmd === null) {
         throw new Exception('无法识别 Day start，Resend 仅支持按 Day start 当月补单月记录。');
     }
     $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
     $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
     // 弹窗同时填 day_start + day_end：清除该区间内各月 monthly 及 partial / tail / 合并期标记，便于生成单笔合并账单。
-    if ($scheduleFromClient && $scheduleDayStartForDb !== null && $newDayEnd !== null) {
-        $startYmInt = (int) substr($scheduleDayStartForDb, 0, 4) * 100 + (int) substr($scheduleDayStartForDb, 5, 2);
+    if ($scheduleFromClient && $newDayStart !== null && $newDayEnd !== null) {
+        $startYmInt = (int) substr($newDayStart, 0, 4) * 100 + (int) substr($newDayStart, 5, 2);
         $endYmInt = (int) substr($newDayEnd, 0, 4) * 100 + (int) substr($newDayEnd, 5, 2);
         $delMonthPap = $pdo->prepare(
             "DELETE FROM process_accounting_posted
@@ -232,7 +228,7 @@ try {
                  WHERE id = ? AND company_id = ?'
             );
             $flg->execute([
-                $scheduleDayStartForDb,
+                $newDayStart,
                 $newDayEnd,
                 $newFrequency,
                 $bankProcessId,
