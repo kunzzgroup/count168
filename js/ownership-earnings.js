@@ -30,14 +30,16 @@ function initTabs() {
         btn.addEventListener('click', () => {
             tabs.forEach(b => {
                 b.classList.remove('active');
-                b.style.color = 'var(--own-gray-text)';
-                b.style.fontWeight = '600';
-                b.style.borderBottomColor = 'transparent';
+                b.style.background = '#f8fafc';
+                b.style.color = '#475569';
+                b.style.borderColor = '#cbd5e1';
+                b.style.boxShadow = 'none';
             });
             btn.classList.add('active');
-            btn.style.color = 'var(--own-primary-blue)';
-            btn.style.fontWeight = '700';
-            btn.style.borderBottomColor = 'var(--own-primary-blue)';
+            btn.style.background = 'linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%)';
+            btn.style.color = '#fff';
+            btn.style.borderColor = 'transparent';
+            btn.style.boxShadow = '0 4px 10px rgba(59,142,246,0.3)';
 
             document.getElementById('companyView').style.display = 'none';
             document.getElementById('groupView').style.display = 'none';
@@ -67,7 +69,7 @@ function fetchGroupEarnings() {
             }
             groupEarningsData = res.data;
             if (groupEarningsData.length > 0) {
-                groupTabBtn.style.display = 'block';
+                groupTabBtn.style.display = 'inline-flex';
                 renderGroupCards();
             } else {
                 groupTabBtn.style.display = 'none';

@@ -39,11 +39,11 @@ $assetVer = function ($file) {
         <div class="own-separator-line"></div>
 
         <!-- TABS -->
-        <div class="own-tabs-container" style="display: flex; gap: 32px; border-bottom: 1px solid var(--own-gray-border); margin-top: 16px; margin-bottom: 24px;">
-            <div class="own-tab-btn active" data-target="companyView" style="padding-bottom: 12px; font-size: 15px; font-weight: 700; color: var(--own-primary-blue); border-bottom: 3px solid var(--own-primary-blue); cursor: pointer; text-transform: uppercase;">
+        <div class="own-tabs-container" style="display: flex; gap: 12px; margin-top: 16px; margin-bottom: 24px; align-items: center;">
+            <div class="own-tab-btn active" data-target="companyView" style="display: inline-flex; align-items: center; padding: 10px 24px; background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%); border-radius: 999px; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; text-transform: uppercase; box-shadow: 0 4px 10px rgba(59,142,246,0.3); border: 1px solid transparent; transition: all 0.2s; letter-spacing: 0.5px;">
                 COMPANY ALLOCATION
             </div>
-            <div class="own-tab-btn" id="groupTabBtn" data-target="groupView" style="display: none; padding-bottom: 12px; font-size: 15px; font-weight: 600; color: var(--own-gray-text); cursor: pointer; text-transform: uppercase; margin-bottom: -1px; border-bottom: 3px solid transparent;">
+            <div class="own-tab-btn" id="groupTabBtn" data-target="groupView" style="display: none; align-items: center; padding: 10px 24px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 14px; font-weight: 700; color: #475569; cursor: pointer; text-transform: uppercase; transition: all 0.2s; letter-spacing: 0.5px;">
                 GROUP EARNINGS
             </div>
         </div>
