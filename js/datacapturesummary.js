@@ -129,6 +129,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+// 从 bfcache 返回（浏览器后退等）时 DOM 不会重新跑 DOMContentLoaded，页脚合计可能仍为旧值；此处按当前表格强制对齐
+window.addEventListener('pageshow', function (ev) {
+    if (!ev.persisted) return;
+    const body = document.getElementById('summaryTableBody');
+    if (!body || !body.querySelector('tr')) return;
+    try {
+        if (typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
+            recalculateSummaryProcessedAmountsFromDisplayedFormula();
+        } else if (typeof updateProcessedAmountTotal === 'function') {
+            updateProcessedAmountTotal();
+        }
+    } catch (e) {
+        console.warn('pageshow summary total refresh failed:', e);
+        if (typeof updateProcessedAmountTotal === 'function') {
+            updateProcessedAmountTotal();
+        }
+    }
+});
+
 // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
 window.addEventListener('beforeunload', function () {
     if (!window.isNavigatingAwayByBackOrSubmit && typeof saveRateValuesForRefresh === 'function') {
@@ -1321,11 +1340,9 @@ function hideLoadingState() {
     }
     if (summarySubmitContainer) {
         summarySubmitContainer.style.display = 'flex';
-        setTimeout(function () {
-            if (typeof updateProcessedAmountTotal === 'function') {
-                updateProcessedAmountTotal();
-            }
-        }, 100);
+        // 不在此处延迟刷新 Total：populate + 模板/恢复 的链路是异步的，
+        // setTimeout(100) 曾与 autoPopulate/restore 竞态，导致「各行已是 0.00 但页脚仍为旧合计」。
+        // 合计由 populate / restore / reorder 等路径显式调用 updateProcessedAmountTotal 更新。
     }
 }
 
@@ -1688,47 +1705,60 @@ function populateOriginalTableWithColumnAData(tableData) {
     autoPopulateSummaryRowsFromTemplates(columnAData)
         .catch(error => console.error('Auto-populate templates error:', error))
         .finally(() => {
-            const isFreshFromCapture = window.__summaryFreshFromCapture === true;
-            if (isFreshFromCapture) {
-                try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
-                try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
-                try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
-                window._summaryStateFromServer = null;
-            } else {
-                // 先恢复 Formula/Source（含行 rowUid），再按 rowUid 恢复 Rate，避免同 Id_Product+Account 多行 Rate 串行
-                restoreFormulaSourceFromRefresh();
-                restoreRateValuesFromRefresh();
-                if (typeof restoreRateValuesFromRefresh === 'function') {
-                    setTimeout(restoreRateValuesFromRefresh, 80);
+            try {
+                const isFreshFromCapture = window.__summaryFreshFromCapture === true;
+                if (isFreshFromCapture) {
+                    try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
+                    window._summaryStateFromServer = null;
+                } else {
+                    // 先恢复 Formula/Source（含行 rowUid），再按 rowUid 恢复 Rate，避免同 Id_Product+Account 多行 Rate 串行
+                    restoreFormulaSourceFromRefresh();
+                    restoreRateValuesFromRefresh();
+                    if (typeof restoreRateValuesFromRefresh === 'function') {
+                        setTimeout(restoreRateValuesFromRefresh, 80);
+                    }
                 }
-            }
-            // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
-            if (window.currentProcessHadTemplates !== true && window._summaryHasRefreshStateToPreserve !== true) {
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    summaryTableBody.querySelectorAll('tr').forEach((row) => {
-                        const cells = row.querySelectorAll('td');
-                        if (cells[4]) {
-                            cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
-                            const span = cells[4].querySelector('.formula-text');
-                            if (span) span.textContent = '';
-                        }
-                        if (cells[5]) cells[5].textContent = '';
-                        row.removeAttribute('data-formula-operators');
-                        row.removeAttribute('data-template-formula-operators');
-                        row.removeAttribute('data-formula-display');
-                        row.removeAttribute('data-formula-raw');
-                        row.removeAttribute('data-source-columns');
-                        row.removeAttribute('data-source-percent');
-                        row.setAttribute('data-base-processed-amount', '0');
-                        if (cells[8]) cells[8].textContent = '0.00';
-                    });
+                // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
+                if (window.currentProcessHadTemplates !== true && window._summaryHasRefreshStateToPreserve !== true) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody) {
+                        summaryTableBody.querySelectorAll('tr').forEach((row) => {
+                            const cells = row.querySelectorAll('td');
+                            if (cells[4]) {
+                                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+                                const span = cells[4].querySelector('.formula-text');
+                                if (span) span.textContent = '';
+                            }
+                            if (cells[5]) cells[5].textContent = '';
+                            row.removeAttribute('data-formula-operators');
+                            row.removeAttribute('data-template-formula-operators');
+                            row.removeAttribute('data-formula-display');
+                            row.removeAttribute('data-formula-raw');
+                            row.removeAttribute('data-source-columns');
+                            row.removeAttribute('data-source-percent');
+                            row.setAttribute('data-base-processed-amount', '0');
+                            if (cells[8]) cells[8].textContent = '0.00';
+                        });
+                    }
                 }
+                if (isFreshFromCapture && typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
+                    recalculateSummaryProcessedAmountsFromDisplayedFormula();
+                }
+            } catch (e) {
+                console.warn('Summary init (restore / clear formulas) failed:', e);
             }
-            if (isFreshFromCapture && typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
-                recalculateSummaryProcessedAmountsFromDisplayedFormula()
+            // 无论上面哪一步抛错，都必须用当前表格重算页脚合计，避免与各行 Processed Amount 脱节
+            if (typeof updateProcessedAmountTotal === 'function') {
+                updateProcessedAmountTotal();
             }
-            updateProcessedAmountTotal();
+            // 第二次延迟恢复 Rate 后再对齐一次合计（restoreRateValuesFromRefresh 内部也会 update，此处兜底）
+            setTimeout(function () {
+                if (typeof updateProcessedAmountTotal === 'function') {
+                    updateProcessedAmountTotal();
+                }
+            }, 120);
         });
 }
 
@@ -15599,7 +15629,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
                 const formulaCell = targetRow.querySelector('td:nth-child(5)');
                 if (formulaCell) formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
-                const processedCell = targetRow.querySelector('td:nth-child(8)');
+                const processedCell = targetRow.querySelector('td:nth-child(9)');
                 if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
                     const val = Number(mainTemplate.last_processed_amount);
                     processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
@@ -16456,7 +16486,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             if (formulaCell) {
                 formulaCell.innerHTML = `<span class="formula-text">${formulaDisplayForManual}</span>`;
             }
-            const processedCell = targetRow.querySelector('td:nth-child(8)');
+            const processedCell = targetRow.querySelector('td:nth-child(9)');
             if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
                 const val = Number(mainTemplate.last_processed_amount);
                 processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
@@ -17264,6 +17294,10 @@ function reorderSummaryRowsByRowIndex() {
             'Reordered rows by Data Capture Table order.',
             'Total rows:', orderedRows.length
         );
+
+        if (typeof updateProcessedAmountTotal === 'function') {
+            updateProcessedAmountTotal();
+        }
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -18518,11 +18552,8 @@ function updateProcessedAmountCell(processValue, processedAmount) {
         if (mainText === processValue || subText === processValue) {
             // Update the "Processed Amount" column
             const cells = row.querySelectorAll('td');
-            // Column order:
-            // 0: Id Product, 1: Account, 2: (+) button, 3: Currency, 4: Columns,
-            // 5: Batch Selection, 6: Source, 7: Source %, 8: Formula,
-            // 9: Rate, 10: Processed Amount, 11: Select
-            const processedAmountCell = cells[7];
+            // 与 datacapturesummary.php 表头一致：0 Id Product … 8 Processed Amount
+            const processedAmountCell = cells[8];
             if (processedAmountCell) {
                 let val = Number(processedAmount);
                 // Apply rate multiplication if checkbox is checked
