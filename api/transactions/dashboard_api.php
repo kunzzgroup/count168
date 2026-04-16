@@ -531,47 +531,86 @@ try {
     // 获取当前账户的 ownership_percentage
     $ownership_percentage = 0;
     $has_ownership_setup = false;
+    $group_applied = false;
+
     try {
-        $ownershipSchema = dashboardCompanyOwnershipSchema($pdo); // static 缓存
-        $hasCompanyOwnership = $ownershipSchema['table'];
-        if ($hasCompanyOwnership) {
-            $stmtSetup = $pdo->prepare("SELECT 1 FROM company_ownership WHERE company_id = ? LIMIT 1");
-            $stmtSetup->execute([$company_id]);
-            if ($stmtSetup->fetchColumn() !== false) {
-                $has_ownership_setup = true;
+        $stmtGrp = $pdo->prepare("SELECT group_id FROM company WHERE id = ?");
+        $stmtGrp->execute([$company_id]);
+        $company_group_id = $stmtGrp->fetchColumn();
+
+        if ($company_group_id) {
+            $userId = $_SESSION['user_id'] ?? 0;
+            $userRoleStr = strtolower($_SESSION['role'] ?? '');
+            
+            $account_str_id = '';
+            if (in_array($userRoleStr, ['admin', 'superadmin', 'partnership'])) {
+                $account_str_id = 'U_' . $userId;
+            } else if ($userRoleStr === 'owner') {
+                $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $userId);
+                $account_str_id = 'O_' . $owner_id;
             }
 
-            $hasOwnerType = $ownershipSchema['owner_type_col'];
-            $userId = $_SESSION['user_id'] ?? 0;
-            $userType = $_SESSION['user_type'] ?? '';
+            $stmtEq = $pdo->prepare("SELECT equity_percentage FROM group_equity WHERE group_id = ?");
+            $stmtEq->execute([$company_group_id]);
+            $groupEquity = $stmtEq->fetchColumn();
 
-            if ($hasOwnerType) {
-                $ownerTypeStr = 'account';
-                if ($userType === 'owner') {
-                    $ownerTypeStr = 'owner';
-                } elseif ($userType === 'user') {
-                    $ownerTypeStr = 'user';
+            if ($groupEquity !== false) {
+                $stmtConf = $pdo->prepare("SELECT account_percentage FROM group_earnings_config WHERE group_id = ? AND account_name = ?");
+                $stmtConf->execute([$company_group_id, $account_str_id]);
+                $accPct = $stmtConf->fetchColumn();
+
+                if ($accPct !== false) {
+                    $ownership_percentage = ((float)$groupEquity * (float)$accPct) / 100.0;
+                    $has_ownership_setup = true;
+                    $group_applied = true;
+                }
+            }
+        }
+    } catch (Throwable $e) {}
+
+    if (!$group_applied) {
+        try {
+            $ownershipSchema = dashboardCompanyOwnershipSchema($pdo); // static 缓存
+            $hasCompanyOwnership = $ownershipSchema['table'];
+            if ($hasCompanyOwnership) {
+                $stmtSetup = $pdo->prepare("SELECT 1 FROM company_ownership WHERE company_id = ? LIMIT 1");
+                $stmtSetup->execute([$company_id]);
+                if ($stmtSetup->fetchColumn() !== false) {
+                    $has_ownership_setup = true;
                 }
 
-                $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?");
-                $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
-                $pct = $stmtPct->fetchColumn();
-                if ($pct !== false) {
-                    $ownership_percentage = (float) $pct;
-                }
-            } else {
-                if ($userType === 'member') {
-                    $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ?");
-                    $stmtPct->execute([$company_id, $userId]);
+                $hasOwnerType = $ownershipSchema['owner_type_col'];
+                $userId = $_SESSION['user_id'] ?? 0;
+                $userType = $_SESSION['user_type'] ?? '';
+
+                if ($hasOwnerType) {
+                    $ownerTypeStr = 'account';
+                    if ($userType === 'owner') {
+                        $ownerTypeStr = 'owner';
+                    } elseif ($userType === 'user') {
+                        $ownerTypeStr = 'user';
+                    }
+
+                    $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?");
+                    $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
                     $pct = $stmtPct->fetchColumn();
                     if ($pct !== false) {
                         $ownership_percentage = (float) $pct;
                     }
+                } else {
+                    if ($userType === 'member') {
+                        $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ?");
+                        $stmtPct->execute([$company_id, $userId]);
+                        $pct = $stmtPct->fetchColumn();
+                        if ($pct !== false) {
+                            $ownership_percentage = (float) $pct;
+                        }
+                    }
                 }
             }
+        } catch (Throwable $e) {
+            // ignore
         }
-    } catch (Throwable $e) {
-        // ignore
     }
 
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
