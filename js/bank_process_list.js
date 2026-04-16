@@ -1553,6 +1553,9 @@ async function postAccountingInboxToTransaction() {
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
+            try {
+                localStorage.setItem('count168_tx_invalidate_ts', String(Date.now()));
+            } catch (eInv) { /* ignore */ }
             showNotification(result.message || 'Posted successfully.', 'success');
             closeAccountingInbox();
             loadAccountingInbox();
@@ -1663,6 +1666,9 @@ async function postToTransactionSelected() {
         });
         const result = await response.json();
         if (result.success) {
+            try {
+                localStorage.setItem('count168_tx_invalidate_ts', String(Date.now()));
+            } catch (eInv) { /* ignore */ }
             showNotification(result.message || 'Posted successfully', 'success');
             updateDeleteButton();
             fetchProcesses();
