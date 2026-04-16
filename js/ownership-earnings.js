@@ -18,7 +18,14 @@
         
         // Fetch accounts for dropdowns
         fetch('api/ownership/get_available_accounts_api.php')
-            .then(r => r.json())
+            .then(async r => {
+                const text = await r.text();
+                try {
+                    return JSON.parse(text);
+                } catch(e) {
+                    throw new Error("Invalid JSON: " + text.substring(0, 100));
+                }
+            })
             .then(res => {
                 if(res.status === 'success') {
                     globalAccountsList = res.data;
@@ -56,7 +63,14 @@
         geContainer.innerHTML = '<div class="own-loader-container"><div class="own-loader"></div></div>';
 
         fetch('api/ownership/get_group_earnings_api.php')
-            .then(r => r.json())
+            .then(async r => {
+                const text = await r.text();
+                try {
+                    return JSON.parse(text);
+                } catch(e) {
+                    throw new Error("Invalid JSON: " + text.substring(0, 100));
+                }
+            })
             .then(res => {
                 if (res.status !== 'success') {
                     _showGeToast(res.message || 'Failed to load', 'error');
@@ -67,7 +81,7 @@
             })
             .catch(err => {
                 console.error(err);
-                _showGeToast('Failed to load group data', 'error');
+                _showGeToast('Failed to load group data: ' + err.message, 'error');
             });
     }
 
