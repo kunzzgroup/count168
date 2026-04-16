@@ -632,6 +632,201 @@ $assetVer = function ($file) {
         </div>
     </template>
 
+                    </div>
+
+                    <div class="own-card-footer">
+                        <div class="own-footer-left">
+                            <div class="own-warning-badge" data-bind="warning" style="display: none;">
+                                <span data-bind="warning-icon">⚠️</span>
+                                <span data-bind="warning-msg">Total is less than 100%</span>
+                            </div>
+                            <span class="own-unallocated-text" data-bind="footer-remain">100% Unallocated</span>
+                        </div>
+                        <div class="own-footer-right">
+                            <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
+                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
+                                data-action="confirm">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Toast Notification -->
+    <div id="ownToast" class="own-toast">
+        <div id="ownToastIcon"></div>
+        <div id="ownToastMessage"></div>
+    </div>
+    <!-- Toast icon templates (hidden, cloned by JS) -->
+    <template id="tpl-toast-success">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+        </svg>
+    </template>
+
+<template id="tpl-group-card">
+        <div class="own-card">
+            <div class="own-card-header" data-action="toggle">
+                <div class="own-card-header-left">
+                    <div class="own-group-name" data-bind="name"></div>
+                    <div class="own-group-date" data-bind="date"></div>
+                </div>
+                <div class="own-card-header-middle">
+                    <div class="own-allocation-info">
+                        <span class="own-allocation-label">Total Allocation</span>
+                        <span class="own-allocation-percentage" data-bind="percent"></span>
+                        <span class="own-allocation-remaining" data-bind="remaining"></span>
+                    </div>
+                    <div class="own-progress-bar-container">
+                        <div class="own-progress-bar-fill" data-bind="bar"></div>
+                    </div>
+                </div>
+                <div class="own-card-header-right">
+                    <button class="own-btn-outline" data-action="toggle">Manage</button>
+                    <button class="own-icon-btn" data-action="toggle">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="own-card-body" data-bind="body">
+                <div class="own-loader-container" data-bind="loader">
+                    <div class="own-loader"></div>
+                </div>
+                <div class="own-editor-hidden" data-bind="editor">
+                    <div class="own-account-row own-equity-row" style="border-bottom: 2px solid var(--own-gray-300); margin-bottom: 12px; padding-bottom: 12px;"><div style="width: 120px; font-weight: 500;">Group Equity %</div><div class="own-ownership-input-group"><input type="text" class="own-percent-input" data-bind="group-equity-input" value="0%"><div class="own-slider-container"><input type="range" class="own-slider" data-bind="group-equity-slider" min="0" max="100" step="1"></div></div></div>
+<div class="own-table-headers">
+                        <div>Account</div>
+                        <div>Ownership%</div>
+                    </div>
+
+                    <div data-bind="rows-container"></div>
+
+                    <button class="own-btn-add-account" data-action="add-row">+ Add Account</button>
+
+                    <div class="own-partner-section">
+                        <div class="own-partner-info">
+                            <div class="own-partner-title-row">
+                                <span class="own-partner-title">External Partner</span>
+                                <div class="own-partner-actions">
+                                    <input type="text" class="own-partner-input" data-bind="partner-input"
+                                        placeholder="Login ID/Group ID" autocomplete="off">
+                                    <button class="own-partner-link-btn" data-action="link-partner">Link
+                                        Partner</button>
+                                </div>
+                            </div>
+                            <span class="own-partner-desc">Share this company's read-only dashboard visibility with
+                                another independent owner.</span>
+                        </div>
+                    </div>
+
+                    <div class="own-card-footer">
+                        <div class="own-footer-left">
+                            <div class="own-warning-badge" data-bind="warning" style="display: none;">
+                                <span data-bind="warning-icon">⚠️</span>
+                                <span data-bind="warning-msg">Total is less than 100%</span>
+                            </div>
+                            <span class="own-unallocated-text" data-bind="footer-remain">100% Unallocated</span>
+                        </div>
+                        <div class="own-footer-right">
+                            <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
+                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
+                                data-action="confirm">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+    <template id="tpl-toast-error">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--own-danger-red)" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+            </path>
+        </svg>
+    </template>
+
+<template id="tpl-group-card">
+        <div class="own-card">
+            <div class="own-card-header" data-action="toggle">
+                <div class="own-card-header-left">
+                    <div class="own-group-name" data-bind="name"></div>
+                    <div class="own-group-date" data-bind="date"></div>
+                </div>
+                <div class="own-card-header-middle">
+                    <div class="own-allocation-info">
+                        <span class="own-allocation-label">Total Allocation</span>
+                        <span class="own-allocation-percentage" data-bind="percent"></span>
+                        <span class="own-allocation-remaining" data-bind="remaining"></span>
+                    </div>
+                    <div class="own-progress-bar-container">
+                        <div class="own-progress-bar-fill" data-bind="bar"></div>
+                    </div>
+                </div>
+                <div class="own-card-header-right">
+                    <button class="own-btn-outline" data-action="toggle">Manage</button>
+                    <button class="own-icon-btn" data-action="toggle">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="own-card-body" data-bind="body">
+                <div class="own-loader-container" data-bind="loader">
+                    <div class="own-loader"></div>
+                </div>
+                <div class="own-editor-hidden" data-bind="editor">
+                    <div class="own-account-row own-equity-row" style="border-bottom: 2px solid var(--own-gray-300); margin-bottom: 12px; padding-bottom: 12px;"><div style="width: 120px; font-weight: 500;">Group Equity %</div><div class="own-ownership-input-group"><input type="text" class="own-percent-input" data-bind="group-equity-input" value="0%"><div class="own-slider-container"><input type="range" class="own-slider" data-bind="group-equity-slider" min="0" max="100" step="1"></div></div></div>
+<div class="own-table-headers">
+                        <div>Account</div>
+                        <div>Ownership%</div>
+                    </div>
+
+                    <div data-bind="rows-container"></div>
+
+                    <button class="own-btn-add-account" data-action="add-row">+ Add Account</button>
+
+                    <div class="own-partner-section">
+                        <div class="own-partner-info">
+                            <div class="own-partner-title-row">
+                                <span class="own-partner-title">External Partner</span>
+                                <div class="own-partner-actions">
+                                    <input type="text" class="own-partner-input" data-bind="partner-input"
+                                        placeholder="Login ID/Group ID" autocomplete="off">
+                                    <button class="own-partner-link-btn" data-action="link-partner">Link
+                                        Partner</button>
+                                </div>
+                            </div>
+                            <span class="own-partner-desc">Share this company's read-only dashboard visibility with
+                                another independent owner.</span>
+                        </div>
+                    </div>
+
+                    <div class="own-card-footer">
+                        <div class="own-footer-left">
+                            <div class="own-warning-badge" data-bind="warning" style="display: none;">
+                                <span data-bind="warning-icon">⚠️</span>
+                                <span data-bind="warning-msg">Total is less than 100%</span>
+                            </div>
+                            <span class="own-unallocated-text" data-bind="footer-remain">100% Unallocated</span>
+                        </div>
+                        <div class="own-footer-right">
+                            <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
+                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
+                                data-action="confirm">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
     <script src="js/ownership-group.js?v=<?php echo $assetVer('js/ownership-group.js'); ?>"></script>
     <script>
@@ -642,15 +837,16 @@ $assetVer = function ($file) {
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     tabs.forEach(t => t.classList.remove('active'));
-                    panels.forEach(p => p.classList.remove('active'));
-                    p => p.style && (p.style.display = 'none');
+                    panels.forEach(p => {
+                        p.classList.remove('active');
+                        p.style.display = 'none';
+                    });
                     
                     tab.classList.add('active');
                     const targetId = tab.dataset.tab;
                     const targetPanel = document.getElementById('own-tab-panel-' + targetId.split('-')[1]);
                     if (targetPanel) {
                         targetPanel.classList.add('active');
-                        panels.forEach(p => { p.style.display = 'none'; });
                         targetPanel.style.display = 'block';
                         
                         if (targetId === 'tab-groups') {

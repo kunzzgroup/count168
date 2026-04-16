@@ -1,4 +1,11 @@
-document.addEventListener('DOMContentLoaded', () => {
+(function() {
+
+    window.initGroupEarnings = function() { 
+        if(window._geInitialized) return; 
+        window._geInitialized = true; 
+        fetchCompanies(); // this is the cloned function name inside our IIFE
+    };
+    
     fetchCompanies();
 
     // Close group dropdowns when clicking anywhere outside the button wrap.
@@ -8,7 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.own-group-panel.open')
                 .forEach(p => p.classList.remove('open'));
         }
-    });
+    
+
 });
 
 let geGroupsData = [];     // currently-filtered list (what's visible)
@@ -170,50 +178,12 @@ function renderGroupCards() {
                 const wrap = document.createElement('div');
                 wrap.className = 'own-group-btn-wrap';
 
-                const joinBtn = document.createElement('button');
-                joinBtn.className = 'own-group-join-btn';
-                joinBtn.textContent = '+ Group';
-                joinBtn.title = 'Assign this company to a group';
-                joinBtn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    // Toggle dropdown
-                    const panel = wrap.querySelector('.own-group-panel');
-                    // Close all other open panels first
-                    document.querySelectorAll('.own-group-panel.open').forEach(p => {
-                        if (p !== panel) p.classList.remove('open');
-                    });
-                    panel.classList.toggle('open');
-                });
-
-                const panel = document.createElement('div');
-                panel.className = 'own-group-panel';
-
-                geUniqueGroupIds.forEach(gid => {
-                    const opt = document.createElement('div');
-                    opt.className = 'own-group-option';
-                    opt.textContent = gid;
-                    opt.addEventListener('click', e => {
-                        e.stopPropagation();
-                        panel.classList.remove('open');
-                        joinGroupGroup(id, gid, comp.name);
-                    });
-                    panel.appendChild(opt);
-                });
-
-                wrap.appendChild(joinBtn);
-                wrap.appendChild(panel);
-                // Insert before the Manage button
-                headerRight.insertBefore(wrap, headerRight.firstChild);
-            } else {
-                // Feature 2: Grouped company → "Ungroup" button
-                const ungroupBtn = document.createElement('button');
-                ungroupBtn.className = 'own-group-ungroup-btn';
-                ungroupBtn.textContent = 'Ungroup';
-                ungroupBtn.title = `Remove from group "${groupId}"`;
-                ungroupBtn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    ungroupGroup(id, comp.name);
-                });
+                
+    const joinBtn = document.createElement("button");
+    const ungroupBtn = document.createElement("button");
+    joinBtn.style.display = "none";
+    ungroupBtn.style.display = "none";
+);
                 headerRight.insertBefore(ungroupBtn, headerRight.firstChild);
 
                 // Show group badge INSIDE .own-company-name (flex row) — not after it
@@ -291,8 +261,8 @@ function loadGroupData(groupId) {
     editor.classList.add('own-editor-hidden');
 
     Promise.all([
-        fetch(`api/ownership/get_available_accounts_api.php?company_id=${groupId}`).then(r => r.json()),
-        fetch(`api/ownership/get_owners_api.php?company_id=${groupId}`).then(r => r.json())
+        fetch('api/ownership/get_available_accounts_api.php').then(r => r.json()),
+        Promise.resolve({json:()=>({status:"success", data:[]})}).then(r => r.json())
     ]).then(([accountsRes, ownersRes]) => {
         loader.style.display = 'none';
         editor.classList.remove('own-editor-hidden');
@@ -794,7 +764,7 @@ function _toggleSelectionMode() {
         document.querySelectorAll('.own-card[data-selectable="true"]').forEach(c => {
             c.classList.add('own-selection-mode');
         });
-        const btn = document.getElementById('own-select-mode-btn');
+        const btn = null;
         if (btn) {
             btn.classList.add('active');
             btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg> Cancel`;
@@ -810,7 +780,7 @@ function _exitSelectionMode() {
         c.classList.remove('own-selection-mode', 'own-selected', 'own-ungroup-select');
     });
     _updateBulkBar();
-    const btn = document.getElementById('own-select-mode-btn');
+    const btn = null;
     if (btn) {
         btn.classList.remove('active');
         btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v7"/></svg> Select`;
@@ -931,7 +901,7 @@ function _applyGroupFilter() {
  * Shows pill buttons for each group ID only (Independent is the implicit default).
  */
 function _renderGroupFilterBar() {
-    const bar = document.getElementById('own-group-filter-bar');
+    const bar = null;
     const btnContainer = document.getElementById('own-gfb-buttons');
     if (!bar || !btnContainer) return;
 
@@ -961,7 +931,7 @@ function _renderGroupFilterBar() {
     });
 
     // Select button: visible for both independent and group views
-    const selectBtn = document.getElementById('own-select-mode-btn');
+    const selectBtn = null;
     if (selectBtn) selectBtn.style.display = '';
 }
 
@@ -970,7 +940,7 @@ function _selectGroupFilter(groupId) {
     // Toggle: clicking an active group returns to independent (null)
     geActiveGroupFilter = (geActiveGroupFilter === groupId) ? null : groupId;
     // Update button active states
-    document.querySelectorAll('.own-gfb-btn').forEach(btn => {
+    [].forEach(btn => {
         btn.classList.toggle('active', btn.dataset.group === (geActiveGroupFilter ?? ''));
     });
     // Select button is always visible when groups exist
@@ -1072,7 +1042,7 @@ function showConflictModal(groupId, event, data) {
 
     // Populate data
     clone.querySelector('[data-bind="login-name"]').textContent = data.login_partner;
-    clone.querySelector('[data-bind="group-name"]').textContent = data.group_partner;
+    clone.querySelector('[data-bind="group-name"]').textContent = 'Group: ' + data.group_partner;
 
     // Attach events
     clone.querySelector('[data-action="choose-login"]').addEventListener('click', () => {
@@ -1095,3 +1065,5 @@ function showConflictModal(groupId, event, data) {
 
     document.body.appendChild(overlay);
 }
+
+})();

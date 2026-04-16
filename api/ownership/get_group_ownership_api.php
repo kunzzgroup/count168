@@ -51,6 +51,16 @@ try {
     // Group the accounts by group_id
     $groupData = [];
     
+    // First, prefill with all known groups from the company table so UI shows them all
+    $stmtAllGroups = $pdo->query("SELECT DISTINCT group_id FROM company WHERE group_id IS NOT NULL AND group_id != ''");
+    $allGroups = $stmtAllGroups->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($allGroups as $gid) {
+        $groupData[$gid] = [
+            'accounts' => [],
+            'external_partner' => null
+        ];
+    }
+    
     // Default structure for every group
     // In actual JS we iterate over frontend active groups, but sending all saved ones here
     foreach ($accounts as $acc) {
