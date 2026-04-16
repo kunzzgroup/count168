@@ -347,3 +347,132 @@ if (!function_exists('bmp_recordResendPendingForTransactionIds')) {
         }
     }
 }
+
+if (!function_exists('bmp_ensureAccountingResendDailyGuardTable')) {
+    /**
+     * Resend 当日防重复：bank_process_accounting_resend_daily_guard
+     * 若用户已在 Maintenance 删除对应账单交易，须 prune 掉无凭证的 guard，否则仍会误拦。
+     */
+    function bmp_ensureAccountingResendDailyGuardTable(PDO $pdo): void
+    {
+        $sql = "
+            CREATE TABLE IF NOT EXISTS bank_process_accounting_resend_daily_guard (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                company_id INT NOT NULL,
+                bank_process_id INT NOT NULL,
+                resend_day_start DATE NOT NULL,
+                guard_date DATE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_bp_resend_daily_guard (company_id, bank_process_id, resend_day_start, guard_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ";
+        $pdo->exec($sql);
+        try {
+            $pdo->exec(
+                'ALTER TABLE bank_process_accounting_resend_daily_guard DROP INDEX uq_bp_resend_daily_guard_company_date'
+            );
+        } catch (Throwable $e) {
+        }
+        try {
+            $idx = $pdo->query(
+                "SHOW INDEX FROM bank_process_accounting_resend_daily_guard WHERE Key_name = 'uq_bp_resend_daily_guard'"
+            );
+            $cols = [];
+            if ($idx) {
+                while ($r = $idx->fetch(PDO::FETCH_ASSOC)) {
+                    $cols[(int) ($r['Seq_in_index'] ?? 0)] = (string) ($r['Column_name'] ?? '');
+                }
+            }
+            ksort($cols);
+            $colList = array_values($cols);
+            $hasProcessInUq = in_array('bank_process_id', $colList, true);
+            if (!$hasProcessInUq && count($colList) > 0) {
+                $pdo->exec('ALTER TABLE bank_process_accounting_resend_daily_guard DROP INDEX uq_bp_resend_daily_guard');
+                $pdo->exec(
+                    'ALTER TABLE bank_process_accounting_resend_daily_guard
+                     ADD UNIQUE KEY uq_bp_resend_daily_guard (company_id, bank_process_id, resend_day_start, guard_date)'
+                );
+            }
+        } catch (Throwable $e) {
+        }
+    }
+}
+
+if (!function_exists('bmp_normalizeSqlDateYmd')) {
+    /** @param mixed $raw from DB DATE/DATETIME or string */
+    function bmp_normalizeSqlDateYmd($raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        $s = trim((string) $raw);
+        if ($s === '') {
+            return null;
+        }
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $s, $m)) {
+            return $m[1];
+        }
+        return null;
+    }
+}
+
+if (!function_exists('bmp_accountingResendDailyGuardHasLiveEvidence')) {
+    /**
+     * 仍视为「该次 Resend 锚日下的补单结果尚在」：仅看与 resend_day_start 同一天的入账行
+     * （与 Maintenance 按 transaction_date 筛选一致）。不再用「当日任意该 process 交易」以免删单后仍误拦。
+     */
+    function bmp_accountingResendDailyGuardHasLiveEvidence(
+        PDO $pdo,
+        int $companyId,
+        int $bankProcessId,
+        string $resendDayStartYmd
+    ): bool {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendDayStartYmd)) {
+            return false;
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1
+             FROM transactions t
+             INNER JOIN account a ON t.account_id = a.id
+             INNER JOIN account_company ac ON a.id = ac.account_id
+             WHERE ac.company_id = ?
+               AND t.source_bank_process_id = ?
+               AND DATE(t.transaction_date) = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $bankProcessId, $resendDayStartYmd]);
+        return (bool) $stmt->fetchColumn();
+    }
+}
+
+if (!function_exists('bmp_pruneStaleAccountingResendDailyGuardsForProcess')) {
+    /**
+     * 去掉已无对应交易凭证的当日 guard（删除账单后应可再次 Resend）。
+     */
+    function bmp_pruneStaleAccountingResendDailyGuardsForProcess(PDO $pdo, int $companyId, int $bankProcessId): void
+    {
+        bmp_ensureAccountingResendDailyGuardTable($pdo);
+        $stmt = $pdo->prepare(
+            "SELECT resend_day_start FROM bank_process_accounting_resend_daily_guard
+             WHERE company_id = ? AND bank_process_id = ? AND guard_date = CURDATE()"
+        );
+        $stmt->execute([$companyId, $bankProcessId]);
+        $days = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($days)) {
+            return;
+        }
+        $del = $pdo->prepare(
+            "DELETE FROM bank_process_accounting_resend_daily_guard
+             WHERE company_id = ? AND bank_process_id = ? AND guard_date = CURDATE() AND resend_day_start = ?"
+        );
+        foreach ($days as $ds) {
+            $ymd = bmp_normalizeSqlDateYmd($ds);
+            if ($ymd === null) {
+                continue;
+            }
+            if (!bmp_accountingResendDailyGuardHasLiveEvidence($pdo, $companyId, $bankProcessId, $ymd)) {
+                $del->execute([$companyId, $bankProcessId, $ymd]);
+            }
+        }
+    }
+}

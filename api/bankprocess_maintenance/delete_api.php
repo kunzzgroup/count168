@@ -301,6 +301,23 @@ try {
     // Ensure resend-pending table exists BEFORE starting a DB transaction
     // (DDL inside transaction can cause implicit commit).
     bmp_ensureMaintenanceResendPendingTable($pdo);
+
+    $placeholdersBp = implode(',', array_fill(0, count($allowedIds), '?'));
+    $bpStmt = $pdo->prepare(
+        "SELECT DISTINCT t.source_bank_process_id FROM transactions t
+         INNER JOIN account a ON t.account_id = a.id
+         INNER JOIN account_company ac ON a.id = ac.account_id
+         WHERE t.id IN ($placeholdersBp) AND ac.company_id = ? AND t.source_bank_process_id IS NOT NULL"
+    );
+    $bpStmt->execute(array_merge($allowedIds, [$company_id]));
+    $affectedBankProcessIds = [];
+    foreach ($bpStmt->fetchAll(PDO::FETCH_COLUMN) as $bid) {
+        $bid = (int) $bid;
+        if ($bid > 0 && !in_array($bid, $affectedBankProcessIds, true)) {
+            $affectedBankProcessIds[] = $bid;
+        }
+    }
+
     $pdo->beginTransaction();
 
     bmp_recordResendPendingForTransactionIds($pdo, $company_id, $allowedIds);
@@ -310,6 +327,11 @@ try {
     $deleted = deleteTransactions($pdo, $allowedIds, $company_id);
 
     $pdo->commit();
+
+    foreach ($affectedBankProcessIds as $bpId) {
+        bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $company_id, $bpId);
+    }
+
     jsonResponse(true, "已删除 {$deleted} 条 Bank process 交易记录", [
         'deleted' => $deleted,
         'manual_inactive_posted_removed' => (int) ($manualInactiveSync['pap_removed'] ?? 0),
