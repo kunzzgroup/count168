@@ -90,24 +90,32 @@ function bank_resend_ensureDailyGuardTable(PDO $pdo): void
             resend_day_start DATE NOT NULL,
             guard_date DATE NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_bp_resend_daily_guard (company_id, bank_process_id, resend_day_start, guard_date)
+            UNIQUE KEY uq_bp_resend_daily_guard (company_id, resend_day_start, guard_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
     $pdo->exec($sql);
+    // 兼容旧索引：历史版本可能已存在包含 bank_process_id 的唯一键；这里补上全公司+日期级别唯一键。
+    try {
+        $pdo->exec(
+            "ALTER TABLE bank_process_accounting_resend_daily_guard
+             ADD UNIQUE KEY uq_bp_resend_daily_guard_company_date (company_id, resend_day_start, guard_date)"
+        );
+    } catch (Throwable $e) {
+        // 已存在或受历史脏数据影响时忽略；业务判断仍由查询兜底。
+    }
 }
 
-function bank_resend_hasSameDayRecord(PDO $pdo, int $companyId, int $bankProcessId, string $dayStartYmd): bool
+function bank_resend_hasSameDayRecord(PDO $pdo, int $companyId, string $dayStartYmd): bool
 {
     $stmt = $pdo->prepare(
         "SELECT 1
          FROM bank_process_accounting_resend_daily_guard
          WHERE company_id = ?
-           AND bank_process_id = ?
            AND resend_day_start = ?
            AND guard_date = CURDATE()
          LIMIT 1"
     );
-    $stmt->execute([$companyId, $bankProcessId, $dayStartYmd]);
+    $stmt->execute([$companyId, $dayStartYmd]);
     return (bool) $stmt->fetchColumn();
 }
 
@@ -202,7 +210,7 @@ try {
     if ($effectiveDayStartYmd === null) {
         throw new Exception('无法识别 Day start，Resend 仅支持按 Day start 当月补单月记录。');
     }
-    if (bank_resend_hasSameDayRecord($pdo, $company_id, $bankProcessId, $effectiveDayStartYmd)) {
+    if (bank_resend_hasSameDayRecord($pdo, $company_id, $effectiveDayStartYmd)) {
         throw new Exception('今日已补过该 Day start 日期，不能重复补单。');
     }
 
