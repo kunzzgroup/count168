@@ -80,54 +80,6 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
-function bank_resend_ensureDailyGuardTable(PDO $pdo): void
-{
-    $sql = "
-        CREATE TABLE IF NOT EXISTS bank_process_accounting_resend_daily_guard (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            company_id INT NOT NULL,
-            bank_process_id INT NOT NULL,
-            resend_day_start DATE NOT NULL,
-            guard_date DATE NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_bp_resend_daily_guard (company_id, bank_process_id, resend_day_start, guard_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ";
-    $pdo->exec($sql);
-    // 移除误加的「全公司 + day_start + 当天」唯一键（若存在）。
-    try {
-        $pdo->exec(
-            'ALTER TABLE bank_process_accounting_resend_daily_guard DROP INDEX uq_bp_resend_daily_guard_company_date'
-        );
-    } catch (Throwable $e) {
-        // 无此索引则忽略
-    }
-    // 若历史表上的 uq_bp_resend_daily_guard 不含 bank_process_id，则替换为按 process 的唯一键。
-    try {
-        $idx = $pdo->query(
-            "SHOW INDEX FROM bank_process_accounting_resend_daily_guard WHERE Key_name = 'uq_bp_resend_daily_guard'"
-        );
-        $cols = [];
-        if ($idx) {
-            while ($r = $idx->fetch(PDO::FETCH_ASSOC)) {
-                $cols[(int) ($r['Seq_in_index'] ?? 0)] = (string) ($r['Column_name'] ?? '');
-            }
-        }
-        ksort($cols);
-        $colList = array_values($cols);
-        $hasProcessInUq = in_array('bank_process_id', $colList, true);
-        if (!$hasProcessInUq && count($colList) > 0) {
-            $pdo->exec('ALTER TABLE bank_process_accounting_resend_daily_guard DROP INDEX uq_bp_resend_daily_guard');
-            $pdo->exec(
-                'ALTER TABLE bank_process_accounting_resend_daily_guard
-                 ADD UNIQUE KEY uq_bp_resend_daily_guard (company_id, bank_process_id, resend_day_start, guard_date)'
-            );
-        }
-    } catch (Throwable $e) {
-        // 已是正确结构、或脏数据导致 ADD 失败时忽略；业务判断仍由查询兜底
-    }
-}
-
 function bank_resend_hasSameDayRecord(PDO $pdo, int $companyId, int $bankProcessId, string $dayStartYmd): bool
 {
     $stmt = $pdo->prepare(
@@ -226,7 +178,9 @@ try {
     bmp_ensureMaintenanceResendPendingTable($pdo);
     bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
     bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
-    bank_resend_ensureDailyGuardTable($pdo);
+    bmp_ensureAccountingResendDailyGuardTable($pdo);
+    // 若 Maintenance 已删除对应账单，guard 可能已无交易凭证，需先清理否则会误拦。
+    bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $company_id, $bankProcessId);
 
     $effectiveDayStartYmd = $scheduleFromClient && $newDayStart !== null
         ? $newDayStart
