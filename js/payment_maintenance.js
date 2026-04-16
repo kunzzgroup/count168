@@ -514,6 +514,9 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            try {
+                                localStorage.setItem('count168_tx_invalidate_ts', String(Date.now()));
+                            } catch (eInv) { /* private mode */ }
                             showNotification(data.message || `Deleted ${transactionIds.length} record(s)`, 'success');
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;
