@@ -785,24 +785,24 @@ try {
                 $sgdAmount      = (float)$rate_from_amount;
                 $sgdCurrencyId  = (int)$rate_from_currency_id;
 
-                // From account：正数（最终 search_api 乘以-1会变成负数，符合发金方扣款逻辑）
+                // From account：减
                 $entryStmt->execute([
                     $main_transaction_id,
                     $company_id,
                     $rate_from_account_id,
                     $sgdCurrencyId,
-                    $sgdAmount,
+                    -$sgdAmount,
                     'RATE_FIRST_FROM',
                     $rate_from_description
                 ]);
 
-                // To account：负数（最终 search_api 乘以-1会变成正数，符合收金方收款逻辑）
+                // To account：加
                 $entryStmt->execute([
                     $main_transaction_id,
                     $company_id,
                     $rate_to_account_id,
                     $sgdCurrencyId,
-                    -$sgdAmount,
+                    $sgdAmount,
                     'RATE_FIRST_TO',
                     $rate_to_description
                 ]);
@@ -813,32 +813,30 @@ try {
                     $myrToAmount   = (float)$rate_transfer_to_amount;   // 例如 320
                     $myrCurrencyId = (int)$rate_transfer_currency_id;
 
-                    // 第二行修复回目标显示（结合业务真实需求及 search/history 的 *-1 逻辑）：
-                    // 业务需求：
-                    // - Select To (收款方，如 AG110)：最终显示正数（资金增加）
-                    // - Select From (付款方，如 XE)：最终显示负数（资金减少）
-                    // 因为 search/history 会对 RATE_TRANSFER_* 统一乘以 -1，因此写入符号必定为：
-                    // - RATE_TRANSFER_FROM (Select To): 写入负数 -fromAmount（乘以-1变正数）
-                    // - RATE_TRANSFER_TO (Select From): 写入正数 +toAmount（乘以-1变负数）
+                    // - Select To (收款方)：最终显示负数
+                    // - Select From (付款方)：最终显示正数
+                    // search/history 会对 RATE_TRANSFER_* 统一乘以 -1，因此写入符号必定为：
+                    // - RATE_TRANSFER_FROM (Select To): 写入正数（乘以-1变负数）
+                    // - RATE_TRANSFER_TO (Select From): 写入负数（乘以-1变正数）
 
-                    // account3（Select To/收款方）：写入负数
+                    // account3（Select To/收款方）：写入正数
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
                         $rate_transfer_from_account_id,
                         $myrCurrencyId,
-                        -$myrFromAmount,
+                        $myrFromAmount,
                         'RATE_TRANSFER_FROM',
                         $rate_transfer_from_description
                     ]);
 
-                    // account4（Select From/付款方）：写入正数
+                    // account4（Select From/付款方）：写入负数
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
                         $rate_transfer_to_account_id,
                         $myrCurrencyId,
-                        $myrToAmount,
+                        -$myrToAmount,
                         'RATE_TRANSFER_TO',
                         $rate_transfer_to_description
                     ]);
