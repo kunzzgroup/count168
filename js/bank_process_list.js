@@ -134,6 +134,11 @@ function normalizeBankResendDateInputValue(raw) {
  * Resend 弹窗 Day start 客户端校验（曾禁止等于今天，现已允许与后端一致）。
  * @returns {string|null} 错误提示文案；null 表示可提交
  */
+function bankResendScheduleDayStartForbiddenMessage(chosenTrim, anchorRaw) {
+    void anchorRaw;
+    void chosenTrim;
+    return null;
+}
 
 function isBankResendDayStartBackendErrorMessage(text) {
     const s = String(text || '');
