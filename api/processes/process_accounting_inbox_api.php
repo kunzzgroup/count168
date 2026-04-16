@@ -1096,6 +1096,11 @@ try {
             if (!empty($r['accounting_resend_consolidated_range'])) {
                 continue;
             }
+            // Resend with an explicit single reopened period: do not also queue day_end_tail in the same pass
+            // (would look like a duplicate bill alongside the monthly line).
+            if (!empty($r['accounting_resend_single_period_from_schedule'])) {
+                continue;
+            }
             $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
             $dayEndRaw = $r['day_end'] ?? null;
             if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {
