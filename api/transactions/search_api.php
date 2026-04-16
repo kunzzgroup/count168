@@ -961,7 +961,20 @@ try {
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   " . contraApprovedWhere($pdo, 't') . "
             )
+            OR EXISTS (
+                SELECT 1 FROM transaction_entry e
+                JOIN transactions h ON e.header_id = h.id
+                WHERE h.company_id = ?
+                  AND e.company_id = ?
+                  AND e.account_id = a.id
+                  AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')
+                  AND h.transaction_date BETWEEN ? AND ?
+            )
         )";
+        $params[] = $company_id;
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
+        $params[] = $company_id;
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
@@ -1062,6 +1075,17 @@ try {
                     AND t.currency_id IS NOT NULL
                     $cpContra";
         $cpParams = [$company_id, $date_to_db];
+
+        $cpSql2 = "SELECT DISTINCT e.account_id AS id
+                   FROM transaction_entry e
+                   JOIN transactions h ON e.header_id = h.id
+                   WHERE h.company_id = ?
+                     AND e.company_id = ?
+                     AND h.transaction_date <= ?
+                     AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')
+                     AND e.currency_id IS NOT NULL";
+        $cpParams2 = [$company_id, $company_id, $date_to_db];
+
         $cpCurrencyOk = true;
         if (!empty($filter_currency_codes)) {
             $cpCids = [];
@@ -1076,6 +1100,9 @@ try {
             } else {
                 $cpSql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($cpCids), '?')) . ')';
                 $cpParams = array_merge($cpParams, $cpCids);
+                
+                $cpSql2 .= ' AND e.currency_id IN (' . implode(',', array_fill(0, count($cpCids), '?')) . ')';
+                $cpParams2 = array_merge($cpParams2, $cpCids);
             }
         }
         if ($cpCurrencyOk) {
@@ -1083,6 +1110,15 @@ try {
             $cpStmt->execute($cpParams);
             $cpNewIds = [];
             while ($cpRow = $cpStmt->fetch(PDO::FETCH_ASSOC)) {
+                $fid = (int) $cpRow['id'];
+                if ($fid > 0 && empty($existingAccountIds[$fid])) {
+                    $cpNewIds[$fid] = true;
+                }
+            }
+
+            $cpStmt2 = $pdo->prepare($cpSql2);
+            $cpStmt2->execute($cpParams2);
+            while ($cpRow = $cpStmt2->fetch(PDO::FETCH_ASSOC)) {
                 $fid = (int) $cpRow['id'];
                 if ($fid > 0 && empty($existingAccountIds[$fid])) {
                     $cpNewIds[$fid] = true;
