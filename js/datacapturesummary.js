@@ -1766,41 +1766,7 @@ function populateOriginalTableWithColumnAData(tableData) {
                     updateProcessedAmountTotal();
                 }
             }, 120);
-            // 首次进入 Summary 时，部分模板/恢复链路是异步完成的；再做一轮“延迟强制对齐”，避免只能手动刷新才正确。
-            forceSyncSummaryTotalsAfterInitialRender();
         });
-}
-
-// 首次渲染后的多阶段兜底重算：
-// 某些流程会在主渲染后异步写入 Formula / Rate / Processed Amount，
-// 这里用 rAF + 延迟重算确保 footer total 与最终表格一致（不依赖手动 refresh）。
-function forceSyncSummaryTotalsAfterInitialRender() {
-    const runSync = () => {
-        try {
-            if (typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
-                recalculateSummaryProcessedAmountsFromDisplayedFormula();
-            } else if (typeof updateProcessedAmountTotal === 'function') {
-                updateProcessedAmountTotal();
-            }
-        } catch (e) {
-            console.warn('forceSyncSummaryTotalsAfterInitialRender failed:', e);
-            if (typeof updateProcessedAmountTotal === 'function') {
-                updateProcessedAmountTotal();
-            }
-        }
-    };
-
-    // 立即下一帧先跑一次
-    if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(runSync);
-    } else {
-        setTimeout(runSync, 0);
-    }
-
-    // 再做几次延迟兜底，覆盖模板/恢复链路的异步时序
-    setTimeout(runSync, 120);
-    setTimeout(runSync, 350);
-    setTimeout(runSync, 900);
 }
 
 // Preserve source structure while updating numbers from current table data
