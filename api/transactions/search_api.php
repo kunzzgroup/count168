@@ -786,31 +786,9 @@ try {
     $date_from_db = date('Y-m-d 00:00:00', $from_ts);
     $date_to_db = date('Y-m-d 23:59:59', $to_ts);
 
-    // 列表结果缓存：从其他菜单返回、短时内重复相同条件时直接读文件，明显快于冷查询
-    // 略延长 TTL，减轻「大数据量首次算完后，几分钟内来回切换」时的等待（数据非实时时可接受）
-    $cache_ttl = 60; // 1 分钟：减少缓存时间，避免因其他操作未清理缓存而导致长期显示旧数据
-    // 把当前文件版本纳入缓存 key，避免代码更新后仍命中旧结果（尤其是单币别筛选场景）
-    $cache_version = (string) (@filemtime(__FILE__) ?: '0');
-    $cache_key = md5(
-        $cache_version . '|' .
-        ($_SESSION['user_id'] ?? '') . '|' . $company_id . '|' . $date_from_db . '|' . $date_to_db . '|' .
-        implode(',', $currency_filters) . '|' . implode(',', $category_filters) . '|' . ($show_inactive ? '1' : '0') . '|' .
-        ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' .
-        implode(',', $target_account_ids)
-    );
-    $cache_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
-    if (!is_dir($cache_dir)) {
-        @mkdir($cache_dir, 0755, true);
-    }
-    $cache_file = $cache_dir . DIRECTORY_SEPARATOR . $cache_key;
-    if (file_exists($cache_file) && (time() - filemtime($cache_file)) < $cache_ttl) {
-        $cached = @file_get_contents($cache_file);
-        if ($cached !== false) {
-            header('Content-Type: application/json');
-            echo $cached;
-            exit;
-        }
-    }
+    // 修复：transaction payment 必须优先保证实时与日期归属准确；
+    // 先禁用文件缓存，避免 Resend/删除后短时间命中旧结果导致显示错位和同步延迟。
+    $cache_file = null;
 
     // 构建账户查询条件
     $where_conditions = [];
@@ -1875,7 +1853,7 @@ try {
         ]
     ];
     $json = json_encode($payload);
-    if (isset($cache_file) && $json !== false) {
+    if (!empty($cache_file) && $json !== false) {
         @file_put_contents($cache_file, $json, LOCK_EX);
     }
     echo $json;
