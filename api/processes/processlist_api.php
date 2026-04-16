@@ -714,6 +714,13 @@ function getBankProcesses() {
         $resendTodayDayStartLockedSelect = $hasResendDailyGuardTable
             ? "(EXISTS (SELECT 1 FROM bank_process_accounting_resend_daily_guard rg WHERE rg.company_id = bp.company_id AND rg.bank_process_id = bp.id AND rg.resend_day_start = CURDATE() AND rg.guard_date = CURDATE())) AS resend_today_day_start_locked"
             : "0 AS resend_today_day_start_locked";
+        $resendGuardDayStartsTodaySelect = $hasResendDailyGuardTable
+            ? "(SELECT GROUP_CONCAT(DISTINCT DATE_FORMAT(rg2.resend_day_start, '%Y-%m-%d') ORDER BY rg2.resend_day_start SEPARATOR ',')
+                FROM bank_process_accounting_resend_daily_guard rg2
+               WHERE rg2.company_id = bp.company_id
+                 AND rg2.bank_process_id = bp.id
+                 AND rg2.guard_date = CURDATE()) AS resend_guard_day_starts_today"
+            : "'' AS resend_guard_day_starts_today";
         $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
         $issueFlagSelect = $hasAnyIssueFlagColumn ? $issueFlagSql . " AS issue_flag" : "NULL AS issue_flag";
         $normalizedIssueFlagSql = $hasAnyIssueFlagColumn
@@ -749,7 +756,8 @@ function getBankProcesses() {
                     a_cust.account_id as customer_account,
                     $hasTxnSubquery AS has_transactions,
                     $resendPendingSelect,
-                    $resendTodayDayStartLockedSelect
+                    $resendTodayDayStartLockedSelect,
+                    $resendGuardDayStartsTodaySelect
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                 LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
@@ -839,6 +847,7 @@ function getBankProcesses() {
                 'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
                 'maintenance_resend_pending' => ((int) ($r['maintenance_resend_pending'] ?? 0)) === 1,
                 'resend_today_day_start_locked' => ((int) ($r['resend_today_day_start_locked'] ?? 0)) === 1,
+                'resend_guard_day_starts_today' => isset($r['resend_guard_day_starts_today']) ? (string) $r['resend_guard_day_starts_today'] : '',
             ];
         }
         jsonResponse(true, '', $formattedProcesses);
