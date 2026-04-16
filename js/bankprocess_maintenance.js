@@ -32,44 +32,16 @@
             updateDeleteButtonState();
         }
 
-        let txSyncChannel = null;
-
-        function getTxSyncChannel() {
-            if (typeof window === 'undefined' || typeof window.BroadcastChannel !== 'function') return null;
-            if (txSyncChannel) return txSyncChannel;
+        function notifyTransactionDataChanged() {
+            const ts = String(Date.now());
             try {
-                txSyncChannel = new BroadcastChannel('count168_tx_sync');
-            } catch (e) {
-                txSyncChannel = null;
-            }
-            return txSyncChannel;
-        }
-
-        function emitTransactionDataChanged(source, ts) {
-            const mark = String(ts || Date.now());
-            try {
-                localStorage.setItem('count168_tx_invalidate_ts', mark);
+                localStorage.setItem('count168_tx_invalidate_ts', ts);
             } catch (eInv) { /* ignore */ }
             if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
                 try {
-                    window.dispatchEvent(new CustomEvent('tx-data-changed', { detail: { ts: mark, source: source || 'bankprocess_maintenance_delete' } }));
+                    window.dispatchEvent(new CustomEvent('tx-data-changed', { detail: { ts: ts, source: 'bankprocess_maintenance_delete' } }));
                 } catch (eEvt) { /* ignore */ }
             }
-            try {
-                const ch = getTxSyncChannel();
-                if (ch) {
-                    ch.postMessage({ type: 'tx-invalidate', ts: mark, source: source || 'bankprocess_maintenance_delete' });
-                }
-            } catch (eBc) { /* ignore */ }
-        }
-
-        function notifyTransactionDataChanged() {
-            // Dual-pulse invalidation: immediate + delayed.
-            // This makes Transaction Payment refresh more reliable across tabs and under event throttling.
-            emitTransactionDataChanged('bankprocess_maintenance_delete', Date.now());
-            setTimeout(() => {
-                emitTransactionDataChanged('bankprocess_maintenance_delete_delayed', Date.now());
-            }, 120);
         }
 
         function escapeHtml(str) {

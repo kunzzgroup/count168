@@ -10,7 +10,6 @@
     let selectedCurrencies = []; let showAllCurrencies = false; let ownerCompanies = []; let currencyList = []; let currentDisplayData = { left_table: [], right_table: [] };
     let lastSearchCommitMs = 0;
     let externalRefreshRetryTimer = null;
-    let txSyncChannel = null;
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
@@ -444,7 +443,6 @@
         window.addEventListener(TX_DATA_CHANGED_EVENT, () => {
             refreshTransactionDataFromExternalChange();
         });
-        setupTxSyncChannel();
         // Fallback: if browser throttles/drops events, poll invalidate mark while visible.
         setInterval(() => {
             if (document.visibilityState !== 'visible') return;
@@ -1279,21 +1277,6 @@
     const TX_LIST_SESSION_PREFIX = 'count168_txlist_v1_';
     const TX_LIST_INVALIDATE_LS_KEY = 'count168_tx_invalidate_ts';
     const TX_DATA_CHANGED_EVENT = 'tx-data-changed';
-    const TX_SYNC_CHANNEL_NAME = 'count168_tx_sync';
-
-    function setupTxSyncChannel() {
-        if (typeof window === 'undefined' || typeof window.BroadcastChannel !== 'function' || txSyncChannel) return;
-        try {
-            txSyncChannel = new BroadcastChannel(TX_SYNC_CHANNEL_NAME);
-            txSyncChannel.addEventListener('message', (evt) => {
-                const payload = evt && evt.data ? evt.data : {};
-                if (!payload || payload.type !== 'tx-invalidate') return;
-                refreshTransactionDataFromExternalChange();
-            });
-        } catch (e) {
-            txSyncChannel = null;
-        }
-    }
 
     function queueExternalRefreshRetry() {
         if (externalRefreshRetryTimer) return;
