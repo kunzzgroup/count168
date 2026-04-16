@@ -576,6 +576,11 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
                 $displayAmount = (float) $originalAmount;
             }
         }
+        // RATE_FIRST_TO 存储为负数（与 RATE_TRANSFER 统一符号约定），
+        // 但 Maintenance 显示时应取绝对值，方向已由 Account(To)/Account(From) 标示。
+        if ($entryType === 'RATE_FIRST_TO') {
+            $displayAmount = abs($displayAmount);
+        }
         $items[] = [
             'transaction_id' => (int) $rateRow['header_id'],
             'date' => $rateRow['transaction_date'],
