@@ -102,13 +102,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }).catch(function () { });
         }
 
-        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-        loadAndRenderCapturedTable().catch(function (e) {
-            console.warn('loadAndRenderCapturedTable error:', e);
-            hideLoadingState();
-            showEmptyState();
-        });
-
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
@@ -121,6 +114,14 @@ document.addEventListener('DOMContentLoaded', function () {
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
+
+        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
+        // IMPORTANT: 必须在 __summaryFreshFromCapture 设置后执行，避免首屏误走旧缓存恢复分支。
+        loadAndRenderCapturedTable().catch(function (e) {
+            console.warn('loadAndRenderCapturedTable error:', e);
+            hideLoadingState();
+            showEmptyState();
+        });
     } catch (error) {
         console.error('Error in DOMContentLoaded:', error);
         // Ensure loading state is hidden even if there's an error
@@ -1165,6 +1166,12 @@ function refreshPage() {
 // Load captured table data from localStorage and render it. 会先从服务端拉取 Summary 状态（若有），供后续恢复顺序与公式，减少对 localStorage 的依赖。
 async function loadAndRenderCapturedTable() {
     try {
+        // 兜底：确保 fresh 标记在异步链路里可用（避免调用顺序变化导致首屏判定错误）
+        if (typeof window.__summaryFreshFromCapture === 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            window.__summaryFreshFromCapture = urlParams.get('success') === '1';
+        }
+
         const tableData = localStorage.getItem('capturedTableData');
         const processData = localStorage.getItem('capturedProcessData');
 
@@ -16069,84 +16076,55 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
         // Priority 2: Match by account_id + formula_variant (primary business logic match)
         // This ensures templates are matched to the correct id_product + account combination
-        // regardless of row position changes in Data Capture Table
+        // regardless of row position changes in Data Capture Table.
+        // IMPORTANT: 多候选时禁止 fallback 到第一条，避免首屏套错行。
         if (!targetRow && templateAccountId && templateFormulaVariant) {
-            // First, try exact match by account_id + formula_variant
-            for (const candidate of candidateRows) {
-                if (candidate.alreadyApplied) continue
-                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
-                    break;
-                }
-            }
+            const matchingCandidates = findUnappliedCandidates(c =>
+                c.accountId === templateAccountId && c.formulaVariant === templateFormulaVariant
+            );
 
-            // If multiple rows match account_id + formula_variant, use row_index as tiebreaker
-            if (!targetRow && templateRowIndex !== null) {
-                const matchingCandidates = findUnappliedCandidates(c =>
-                    c.accountId === templateAccountId && c.formulaVariant === templateFormulaVariant
-                );
-
-                if (matchingCandidates.length > 0) {
-                    // Try to find exact row_index match first
-                    let matchedByRowIndex = false;
-                    for (const candidate of matchingCandidates) {
-                        if (candidate.rowIndex === templateRowIndex) {
-                            targetRow = candidate.row;
-                            console.log('Matched row by account_id + formula_variant + row_index (exact):', templateAccountId, templateFormulaVariant, templateRowIndex);
-                            matchedByRowIndex = true;
-                            break;
-                        }
+            if (matchingCandidates.length === 1) {
+                targetRow = matchingCandidates[0].row;
+                console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
+            } else if (matchingCandidates.length > 1) {
+                if (templateRowIndex !== null) {
+                    const exactRow = matchingCandidates.find(c => c.rowIndex === templateRowIndex);
+                    if (exactRow) {
+                        targetRow = exactRow.row;
+                        console.log('Matched row by account_id + formula_variant + row_index (exact):', templateAccountId, templateFormulaVariant, templateRowIndex);
+                    } else {
+                        console.warn('Ambiguous account_id + formula_variant match without exact row_index; skip first-row fallback:', templateAccountId, templateFormulaVariant, templateRowIndex, idProduct);
                     }
-
-                    // If no exact row_index match, use first matching candidate
-                    if (!matchedByRowIndex) {
-                        targetRow = matchingCandidates[0].row;
-                        console.log('Matched row by account_id + formula_variant (multiple matches, using first):', templateAccountId, templateFormulaVariant);
-                    }
+                } else {
+                    console.warn('Ambiguous account_id + formula_variant match (no row_index); skip first-row fallback:', templateAccountId, templateFormulaVariant, idProduct);
                 }
             }
         }
 
         // Priority 3: Match by account_id only (if formula_variant not available)
-        // 同时匹配：行有 data-account-id，或行仅有显示文本但包含 account_id（如 "CITIZENX [3300]" 未写 data-account-id）
+        // 同时匹配：行有 data-account-id，或行仅有显示文本但包含 account_id（如 "CITIZENX [3300]" 未写 data-account-id）。
+        // IMPORTANT: 多候选时必须命中 row_index；否则跳过，避免首屏套到邻行。
         if (!targetRow && templateAccountId) {
-            for (const candidate of candidateRows) {
-                if (candidate.alreadyApplied) continue
-                if (candidate.accountId === templateAccountId) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id:', templateAccountId);
-                    break;
-                }
-                const displayHasId = candidate.accountDisplay && (String(candidate.accountDisplay).indexOf('[' + templateAccountId + ']') >= 0 || String(candidate.accountDisplay).trim() === templateAccountId);
-                if (displayHasId) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id in display text:', templateAccountId);
-                    break;
-                }
-            }
+            const matchingCandidates = findUnappliedCandidates(c => {
+                if (c.accountId === templateAccountId) return true;
+                const displayHasId = c.accountDisplay && (String(c.accountDisplay).indexOf('[' + templateAccountId + ']') >= 0 || String(c.accountDisplay).trim() === templateAccountId);
+                return !!displayHasId;
+            });
 
-            // If multiple rows match account_id, use row_index as tiebreaker
-            if (!targetRow && templateRowIndex !== null) {
-                const matchingCandidates = findUnappliedCandidates(c => c.accountId === templateAccountId);
-
-                if (matchingCandidates.length > 0) {
-                    // Try to find exact row_index match first
-                    let matchedByRowIndex = false;
-                    for (const candidate of matchingCandidates) {
-                        if (candidate.rowIndex === templateRowIndex) {
-                            targetRow = candidate.row;
-                            console.log('Matched row by account_id + row_index (exact):', templateAccountId, templateRowIndex);
-                            matchedByRowIndex = true;
-                            break;
-                        }
+            if (matchingCandidates.length === 1) {
+                targetRow = matchingCandidates[0].row;
+                console.log('Matched row by account_id:', templateAccountId);
+            } else if (matchingCandidates.length > 1) {
+                if (templateRowIndex !== null) {
+                    const exactRow = matchingCandidates.find(c => c.rowIndex === templateRowIndex);
+                    if (exactRow) {
+                        targetRow = exactRow.row;
+                        console.log('Matched row by account_id + row_index (exact):', templateAccountId, templateRowIndex);
+                    } else {
+                        console.warn('Ambiguous account_id match without exact row_index; skip first-row fallback:', templateAccountId, templateRowIndex, idProduct);
                     }
-
-                    // If no exact row_index match, use first matching candidate
-                    if (!matchedByRowIndex) {
-                        targetRow = matchingCandidates[0].row;
-                        console.log('Matched row by account_id (multiple matches, using first):', templateAccountId);
-                    }
+                } else {
+                    console.warn('Ambiguous account_id match (no row_index); skip first-row fallback:', templateAccountId, idProduct);
                 }
             }
         }
