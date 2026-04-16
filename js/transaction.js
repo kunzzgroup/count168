@@ -8,6 +8,7 @@
     const viewerRole = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.viewerRole !== undefined) ? window.TRANSACTION_PAGE.viewerRole : '';
     const canApproveContra = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.canApproveContra !== undefined) ? window.TRANSACTION_PAGE.canApproveContra : false;
     let selectedCurrencies = []; let showAllCurrencies = false; let ownerCompanies = []; let currencyList = []; let currentDisplayData = { left_table: [], right_table: [] };
+    let lastSearchCommitMs = 0;
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
@@ -426,6 +427,22 @@
                 document.getElementById('historyModal').style.display = 'none';
             });
         }
+
+        // Maintenance 删除了 Bank Process 交易后，回到本页自动静默重搜，清掉残留 Win/Loss 展示。
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible') return;
+            const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || '0', 10) || 0;
+            if (!invalidateTs || invalidateTs <= lastSearchCommitMs) return;
+            const dateFrom = document.getElementById('date_from')?.value;
+            const dateTo = document.getElementById('date_to')?.value;
+            if (!dateFrom || !dateTo) return;
+            if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+            const hm = document.getElementById('historyModal');
+            if (hm && (hm.style.display === 'flex' || hm.style.display === 'block')) {
+                hm.style.display = 'none';
+            }
+            searchTransactions(false, { silent: true });
+        });
 
         // 绑定右侧工作区的 Search 按钮：执行完整日期搜索（不受右侧 Type 选择影响）
         const actionSearchBtn = document.getElementById('action_search_btn');
@@ -1253,6 +1270,7 @@
 
     /** 同标签页内：用 sessionStorage 按筛选条件缓存列表，再次进入页面先秒开旧数据再静默拉新 */
     const TX_LIST_SESSION_PREFIX = 'count168_txlist_v1_';
+    const TX_LIST_INVALIDATE_LS_KEY = 'count168_tx_invalidate_ts';
 
     function buildTxListSessionKey() {
         const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
@@ -1279,9 +1297,11 @@
         try {
             const key = buildTxListSessionKey();
             if (!key || !data) return;
-            const wrap = JSON.stringify({ v: 1, data: data });
+            const ts = Date.now();
+            const wrap = JSON.stringify({ v: 2, savedAt: ts, data: data });
             if (wrap.length > 1800000) return;
             sessionStorage.setItem(key, wrap);
+            lastSearchCommitMs = ts;
         } catch (e) { /* quota or private mode */ }
     }
 
@@ -1292,9 +1312,19 @@
             const raw = sessionStorage.getItem(key);
             if (!raw) return false;
             const o = JSON.parse(raw);
-            if (!o || o.v !== 1 || !o.data) return false;
+            if (!o || !o.data) return false;
+            if (o.v !== 1 && o.v !== 2) return false;
             if (!Array.isArray(o.data.left_table) && !Array.isArray(o.data.right_table)) return false;
+            const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || '0', 10) || 0;
+            const savedAt = (o.v === 2 && typeof o.savedAt === 'number') ? o.savedAt : 0;
+            if (invalidateTs > savedAt) {
+                try {
+                    sessionStorage.removeItem(key);
+                } catch (e2) { /* ignore */ }
+                return false;
+            }
             lastSearchData = o.data;
+            lastSearchCommitMs = savedAt || Date.now();
             applyZeroBalanceFilterAndRender();
             return true;
         } catch (e) {
