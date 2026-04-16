@@ -785,24 +785,24 @@ try {
                 $sgdAmount      = (float)$rate_from_amount;
                 $sgdCurrencyId  = (int)$rate_from_currency_id;
 
-                // From account：减
+                // From account：存正数，search_api 统一乘 -1 后显示负数（出金）
                 $entryStmt->execute([
                     $main_transaction_id,
                     $company_id,
                     $rate_from_account_id,
                     $sgdCurrencyId,
-                    -$sgdAmount,
+                    $sgdAmount,
                     'RATE_FIRST_FROM',
                     $rate_from_description
                 ]);
 
-                // To account：加
+                // To account：存负数，search_api 统一乘 -1 后显示正数（入金）
                 $entryStmt->execute([
                     $main_transaction_id,
                     $company_id,
                     $rate_to_account_id,
                     $sgdCurrencyId,
-                    $sgdAmount,
+                    -$sgdAmount,
                     'RATE_FIRST_TO',
                     $rate_to_description
                 ]);
