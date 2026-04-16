@@ -37,6 +37,18 @@ let currentQuickRemarkProcessId = null;
 let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
 
+function notifyTransactionDataChanged(sourceTag) {
+    const ts = String(Date.now());
+    try {
+        localStorage.setItem('count168_tx_invalidate_ts', ts);
+    } catch (eInv) { /* ignore */ }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        try {
+            window.dispatchEvent(new CustomEvent('tx-data-changed', { detail: { ts: ts, source: sourceTag || 'processlist' } }));
+        } catch (eEvt) { /* ignore */ }
+    }
+}
+
 function sortBankProcessesBySupplier() {
     if (!Array.isArray(processes) || processes.length === 0) return;
     processes.sort(function (a, b) {
@@ -1615,6 +1627,7 @@ let pendingToggleProcessId = null;
 let pendingToggleNewStatus = null;
 let pendingDismissPairs = [];
 let pendingBankResendProcessId = null;
+let bankResendLockCheckSeq = 0;
 
 function deleteSelected() {
     const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked:not([disabled])');
@@ -1936,6 +1949,7 @@ async function postAccountingInboxToTransaction() {
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
+            notifyTransactionDataChanged('processlist_accounting_due_post');
             showNotification(result.message || 'Posted successfully.', 'success');
             closeAccountingInbox();
             loadAccountingInbox();
@@ -2019,6 +2033,110 @@ function bindBankResendDayStartClearInlineErrorOnce() {
     el.addEventListener('input', tryClear);
 }
 
+function normalizeResendDayStartToYmd(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dmy) {
+        const dd = String(parseInt(dmy[1], 10)).padStart(2, '0');
+        const mm = String(parseInt(dmy[2], 10)).padStart(2, '0');
+        const yy = dmy[3];
+        return yy + '-' + mm + '-' + dd;
+    }
+    return '';
+}
+
+function isSelectedDayStartResendLockedToday(proc, selectedDayStartRaw) {
+    if (!proc) return false;
+    const selectedYmd = normalizeResendDayStartToYmd(selectedDayStartRaw);
+    if (!selectedYmd) return false;
+    const lockedCsv = String(proc.resend_guard_day_starts_today || '').trim();
+    if (lockedCsv) {
+        const lockedSet = new Set(
+            lockedCsv
+                .split(',')
+                .map(function (item) { return normalizeResendDayStartToYmd(item); })
+                .filter(Boolean)
+        );
+        return lockedSet.has(selectedYmd);
+    }
+    // Backward-compatible fallback (older payload shape):
+    return !!proc.resend_today_day_start_locked;
+}
+
+async function checkBankResendDayStartLockFromBackend(processId, selectedDayStartRaw) {
+    const dayStartYmd = normalizeResendDayStartToYmd(selectedDayStartRaw);
+    if (!processId || !dayStartYmd) return false;
+    const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            bank_process_id: processId,
+            mode: 'check_daystart_lock',
+            day_start: dayStartYmd
+        })
+    });
+    const result = await response.json();
+    if (!result || !result.success) {
+        throw new Error((result && result.message) ? result.message : 'Check failed');
+    }
+    return !!(result.data && result.data.locked);
+}
+
+async function refreshBankResendConfirmButtonState() {
+    const confirmBtn = document.getElementById('confirmBankResendBtn');
+    const dsEl = document.getElementById('bank_resend_day_start');
+    const id = pendingBankResendProcessId;
+    if (!confirmBtn || !dsEl || !id) return;
+    const proc = Array.isArray(processes) ? processes.find(function (p) { return p.id === id; }) : null;
+    const rawDayStart = dsEl.value;
+    const quickLocked = isSelectedDayStartResendLockedToday(proc, rawDayStart);
+    const requestSeq = ++bankResendLockCheckSeq;
+    if (!normalizeResendDayStartToYmd(rawDayStart)) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Resend';
+        confirmBtn.title = '';
+        return;
+    }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Resend';
+    confirmBtn.title = 'Checking latest backend status...';
+    try {
+        const backendLocked = await checkBankResendDayStartLockFromBackend(id, rawDayStart);
+        if (requestSeq !== bankResendLockCheckSeq) return;
+        if (backendLocked) {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Resend';
+            confirmBtn.title = 'Today for this Day start has already been resent and related maintenance data still exists. Please choose another date.';
+            return;
+        }
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Resend';
+        confirmBtn.title = '';
+    } catch (err) {
+        if (requestSeq !== bankResendLockCheckSeq) return;
+        // Fallback to current in-memory payload when live check fails.
+        if (quickLocked) {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Resend';
+            confirmBtn.title = 'Today for this Day start has already been resent. Please choose another date.';
+        } else {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Resend';
+            confirmBtn.title = '';
+        }
+    }
+}
+
+function bindBankResendDayStartButtonLockSyncOnce() {
+    const el = document.getElementById('bank_resend_day_start');
+    if (!el || el._bankResendDayStartLockBound) return;
+    el._bankResendDayStartLockBound = true;
+    el.addEventListener('change', function () { void refreshBankResendConfirmButtonState(); });
+    el.addEventListener('input', function () { void refreshBankResendConfirmButtonState(); });
+}
+
 function showConfirmBankResendModal(processId) {
     const id = parseInt(processId, 10);
     if (!id) return;
@@ -2094,7 +2212,10 @@ function showConfirmBankResendModal(processId) {
     if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Resend';
+        confirmBtn.title = '';
     }
+    bindBankResendDayStartButtonLockSyncOnce();
+    void refreshBankResendConfirmButtonState();
     if (modalEl) {
         const cancelBtn = modalEl.querySelector('.confirm-bank-resend-cancel');
         if (cancelBtn) cancelBtn.disabled = false;
@@ -2119,6 +2240,7 @@ function closeConfirmBankResendModal() {
     if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Resend';
+        confirmBtn.title = '';
     }
     if (modal) {
         const cancelBtn = modal.querySelector('.confirm-bank-resend-cancel');
@@ -2144,6 +2266,19 @@ async function confirmBankResendFromModal() {
         day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : '1st_of_every_month'
     } : null;
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
+    let backendLocked = false;
+    try {
+        backendLocked = await checkBankResendDayStartLockFromBackend(id, scheduleOpts ? scheduleOpts.day_start : '');
+    } catch (e) {
+        backendLocked = isSelectedDayStartResendLockedToday(proc, scheduleOpts ? scheduleOpts.day_start : '');
+    }
+    if (backendLocked) {
+        if (typeof showNotification === 'function') {
+            showNotification('This process has already been resent for this Day start today. Please select another Day start.', 'warning');
+        }
+        void refreshBankResendConfirmButtonState();
+        return;
+    }
     const bankModule = getBankProcessModule();
     const forbidMsg = bankModule && typeof bankModule.bankResendScheduleDayStartForbiddenMessage === 'function'
         ? bankModule.bankResendScheduleDayStartForbiddenMessage(scheduleOpts ? scheduleOpts.day_start : '', proc ? proc.day_start : null)
@@ -2235,6 +2370,7 @@ async function postToTransactionSelected() {
         });
         const result = await response.json();
         if (result.success) {
+            notifyTransactionDataChanged('processlist_bulk_post');
             showNotification(result.message || 'Posted successfully', 'success');
             updateDeleteButton();
             fetchProcesses();

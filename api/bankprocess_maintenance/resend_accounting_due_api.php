@@ -69,6 +69,35 @@ function bank_resend_blocking_issue_flag_from_row(array $bpRow): ?string
     return null;
 }
 
+/** @return string|null Y-m-d（支持 yyyy-mm-dd / dd/mm/yyyy） */
+function bank_resend_parse_ymd_from_any_raw_or_dmy(?string $raw): ?string
+{
+    if ($raw === null) {
+        return null;
+    }
+    $s = trim((string) $raw);
+    if ($s === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $s, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+        if (checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    if (preg_match('#^(\d{1,2})/(\d{1,2})/(\d{4})$#', $s, $m)) {
+        $d = (int) $m[1];
+        $mo = (int) $m[2];
+        $y = (int) $m[3];
+        if (checkdate($mo, $d, $y)) {
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+    }
+    return null;
+}
+
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
         http_response_code($httpCode);
@@ -131,6 +160,26 @@ try {
     $bankProcessId = isset($payload['bank_process_id']) ? (int) $payload['bank_process_id'] : 0;
     if ($bankProcessId <= 0) {
         throw new Exception('无效的 Process ID');
+    }
+
+    $mode = isset($payload['mode']) ? trim((string) $payload['mode']) : '';
+    if ($mode === 'check_daystart_lock') {
+        $dayStartYmd = bank_resend_parse_ymd_from_any_raw_or_dmy($payload['day_start'] ?? null);
+        if ($dayStartYmd === null) {
+            jsonResponse(true, '', [
+                'locked' => false,
+                'day_start' => null,
+            ]);
+            return;
+        }
+        bmp_ensureAccountingResendDailyGuardTable($pdo);
+        bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $company_id, $bankProcessId);
+        $locked = bank_resend_hasSameDayRecord($pdo, $company_id, $bankProcessId, $dayStartYmd);
+        jsonResponse(true, '', [
+            'locked' => $locked,
+            'day_start' => $dayStartYmd,
+        ]);
+        return;
     }
 
     $scheduleFromClient = array_key_exists('day_start', $payload)
