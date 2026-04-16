@@ -83,12 +83,18 @@
             let equityPct = geServerData.equities[gid] !== undefined ? parseFloat(geServerData.equities[gid]) : 0;
             let accounts = geServerData.accounts[gid] || [];
 
-            // Card Header setup
             const headerActions = card.querySelectorAll('[data-action="toggle"]');
             headerActions.forEach(el => {
                 el.addEventListener('click', (e) => {
                     if (e.target.tagName === 'BUTTON' && !el.classList.contains('own-icon-btn') && !el.classList.contains('own-btn-outline')) return;
                     card.classList.toggle('expanded');
+                    
+                    const editor = $(card, 'editor');
+                    if (card.classList.contains('expanded')) {
+                        editor.style.display = 'block';
+                    } else {
+                        editor.style.display = 'none';
+                    }
                 });
             });
 
