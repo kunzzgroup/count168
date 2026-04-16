@@ -46,9 +46,9 @@ try {
 
         // Sort by account_name
         $combined = array_merge($users, $partners);
-        
+
         // Sort alphabetically by account_name
-        usort($combined, function($a, $b) {
+        usort($combined, function ($a, $b) {
             return strcmp($a['account_name'], $b['account_name']);
         });
 
@@ -59,29 +59,18 @@ try {
 
     } else {
         // Fallback or global mode, return generally available
-        $user_role = strtolower($_SESSION['role'] ?? '');
-        
-        if ($user_role === 'admin' || $user_role === 'superadmin') {
-            $stmtOwner = $pdo->prepare("
-                SELECT CONCAT('O_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type, 0 as is_main_owner
-                FROM owner
-                WHERE LOWER(status) = 'active'
-            ");
-            $stmtOwner->execute();
-        } else {
-            $stmtOwner = $pdo->prepare("
-                SELECT CONCAT('O_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type, 0 as is_main_owner
-                FROM owner
-                WHERE LOWER(status) = 'active'
-                  AND id = ?
-            ");
-            $stmtOwner->execute([$_SESSION['user_id']]);
-        }
+        $stmtOwner = $pdo->prepare("
+            SELECT CONCAT('O_', id) as id, owner_code as account_name, name, 'OWNER' as role, 'owner' as type, 0 as is_main_owner
+            FROM owner
+            WHERE LOWER(status) = 'active'
+              AND id = ?
+        ");
+        $stmtOwner->execute([$_SESSION['user_id']]);
         $users = $stmtOwner->fetchAll(PDO::FETCH_ASSOC);
 
-        // For fallback, fetch active partners in the system
+        // For fallback, fetch all active partners in the system (both owner and partnership roles can see this)
         $partners = [];
-        if (in_array($user_role, ['owner', 'partnership', 'admin', 'superadmin'])) {
+        if (isset($_SESSION['role']) && in_array(strtolower($_SESSION['role']), ['owner', 'partnership'])) {
             $stmtPartner = $pdo->prepare("
                 SELECT DISTINCT CONCAT('U_', id) as id, 
                        login_id as account_name, 
@@ -95,7 +84,7 @@ try {
         }
 
         $combined = array_merge($users, $partners);
-        usort($combined, function($a, $b) {
+        usort($combined, function ($a, $b) {
             return strcmp($a['account_name'], $b['account_name']);
         });
 

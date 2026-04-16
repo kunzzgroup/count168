@@ -38,51 +38,29 @@ $assetVer = function ($file) {
         <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
-        <!-- TABS -->
-        <div class="own-tabs-container" style="display: flex; gap: 12px; margin-top: 16px; margin-bottom: 24px; align-items: center;">
-            <div class="own-tab-btn active" data-target="companyView" style="display: inline-flex; align-items: center; padding: 10px 24px; background: linear-gradient(180deg, var(--own-primary-blue) 0%, var(--own-primary-blue-hover) 100%); border-radius: 999px; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; text-transform: uppercase; box-shadow: 0 4px 10px rgba(59,142,246,0.3); border: 1px solid transparent; transition: all 0.2s; letter-spacing: 0.5px;">
-                COMPANY ALLOCATION
+        <!-- Group Filter Bar + Select Mode Button (same row) -->
+        <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
+            <span class="own-gfb-label">Group</span>
+            <div class="own-gfb-buttons" id="own-gfb-buttons">
+                <!-- Injected by JS -->
             </div>
-            <div class="own-tab-btn" id="groupTabBtn" data-target="groupView" style="display: none; align-items: center; padding: 10px 24px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 14px; font-weight: 700; color: #475569; cursor: pointer; text-transform: uppercase; transition: all 0.2s; letter-spacing: 0.5px;">
-                GROUP EARNINGS
-            </div>
+            <div class="own-gfb-spacer"></div>
+            <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <path d="M14 17h7M17.5 14v7" />
+                </svg>
+                Select
+            </button>
         </div>
 
-        <!-- COMPANY VIEW -->
-        <div id="companyView">
-            <!-- Group Filter Bar + Select Mode Button (same row) -->
-            <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
-                <span class="own-gfb-label">Group</span>
-                <div class="own-gfb-buttons" id="own-gfb-buttons">
-                    <!-- Injected by JS -->
-                </div>
-                <div class="own-gfb-spacer"></div>
-                <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <rect x="3" y="3" width="7" height="7" rx="1" />
-                        <rect x="14" y="3" width="7" height="7" rx="1" />
-                        <rect x="3" y="14" width="7" height="7" rx="1" />
-                        <path d="M14 17h7M17.5 14v7" />
-                    </svg>
-                    Select
-                </button>
-            </div>
-
-            <!-- Companies will be injected here via JS -->
-            <div id="companyCardsContainer" style="margin-top: 16px;">
-                <!-- Loader -->
-                <div class="own-loader-container">
-                    <div class="own-loader"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- GROUP VIEW -->
-        <div id="groupView" style="display: none;">
-            <div id="groupCardsContainer">
-                <div class="own-loader-container">
-                    <div class="own-loader"></div>
-                </div>
+        <!-- Companies will be injected here via JS -->
+        <div id="companyCardsContainer">
+            <!-- Loader -->
+            <div class="own-loader-container">
+                <div class="own-loader"></div>
             </div>
         </div>
     </div>
@@ -160,82 +138,6 @@ $assetVer = function ($file) {
                             <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
                             <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
                                 data-action="confirm">Confirm</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </template>
-
-    <!-- Group Card Template -->
-    <template id="tpl-group-card">
-        <div class="own-card">
-            <div class="own-card-header" data-action="toggle-group">
-                <div class="own-card-header-left">
-                    <div class="own-company-name" data-bind="name"></div>
-                </div>
-                <div class="own-card-header-middle">
-                    <div class="own-allocation-info">
-                        <span class="own-allocation-label">Total Allocation</span>
-                        <span class="own-allocation-percentage" data-bind="percent"></span>
-                        <span class="own-allocation-remaining" data-bind="remaining"></span>
-                    </div>
-                    <div class="own-progress-bar-container">
-                        <div class="own-progress-bar-fill" data-bind="bar"></div>
-                    </div>
-                </div>
-                <div class="own-card-header-right">
-                    <button class="own-btn-outline" data-action="toggle-group">Manage</button>
-                    <button class="own-icon-btn" data-action="toggle-group">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
-                            </path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="own-card-body" data-bind="body">
-                <div class="own-loader-container" data-bind="loader">
-                    <div class="own-loader"></div>
-                </div>
-                <div class="own-editor-hidden" data-bind="editor">
-                    
-                    <!-- Group Equity Setting inside Editor -->
-                    <div class="own-group-equity-setting" style="margin: 0 32px 16px; padding: 20px; background: var(--own-gray-bg); border-radius: 12px; border: 1px solid var(--own-gray-border); display: flex; align-items: center; gap: 24px;">
-                        <span style="font-size: 15px; font-weight: 700; color: var(--own-dark-text); min-width: 120px;">Group Equity %</span>
-                        <div class="own-ownership-input-group" style="flex: 1;">
-                            <input type="text" class="own-percent-input" data-bind="group-eq-input">
-                            <div class="own-slider-container">
-                                <input type="range" class="own-slider" data-bind="group-eq-slider" min="0" max="100" step="1">
-                                <div class="own-slider-labels">
-                                    <span>0%</span><span>50%</span><span>100%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="own-table-headers">
-                        <div>Account</div>
-                        <div>Ownership%</div>
-                    </div>
-
-                    <div data-bind="rows-container"></div>
-
-                    <button class="own-btn-add-account" data-action="add-group-row">+ Add Account</button>
-
-                    <div class="own-card-footer">
-                        <div class="own-footer-left">
-                            <div class="own-warning-badge" data-bind="warning" style="display: none;">
-                                <span data-bind="warning-icon">⚠️</span>
-                                <span data-bind="warning-msg">Total is less than 100%</span>
-                            </div>
-                            <span class="own-unallocated-text" data-bind="footer-remain">100% Unallocated</span>
-                        </div>
-                        <div class="own-footer-right">
-                            <button class="own-footer-btn own-btn-cancel" data-action="cancel-group">Cancel</button>
-                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
-                                data-action="confirm-group">Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -324,7 +226,8 @@ $assetVer = function ($file) {
     </template>
 
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
-    <script src="js/ownership-earnings.js?v=<?php echo $assetVer('js/ownership-earnings.js'); ?>"></script>
 </body>
+
+</html>
 
 </html>
