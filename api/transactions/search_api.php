@@ -1460,19 +1460,19 @@ try {
         $sql = "SELECT t.account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
                     CASE 
-                        WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
                     CASE 
-                        WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_total
@@ -2147,10 +2147,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2197,10 +2197,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'WIN' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%') THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
@@ -2408,7 +2408,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
-                  AND (UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'PROCESS: %' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'INACTIVE COMPENSATION %')"
+                  AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'PROCESS:%' OR REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') LIKE 'INACTIVECOMPENSATION%')"
             . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
@@ -2419,7 +2419,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
-                  AND (UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'PROCESS: %' AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'INACTIVE COMPENSATION %')"
+                  AND (REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'PROCESS:%' AND REPLACE(UPPER(TRIM(COALESCE(t.description, ''))), ' ', '') NOT LIKE 'INACTIVECOMPENSATION%')"
             . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
