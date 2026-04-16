@@ -38,46 +38,29 @@ $assetVer = function ($file) {
         <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
-        <!-- 标签式切换 -->
-        <div class="own-tabs">
-            <button id="tab-btn-account" class="own-tab-btn active" onclick="switchOwnershipTab('account')">Account Ownership</button>
-            <button id="tab-btn-group" class="own-tab-btn" onclick="switchOwnershipTab('group')">Group Earnings</button>
+        <!-- Group Filter Bar + Select Mode Button (same row) -->
+        <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
+            <span class="own-gfb-label">Group</span>
+            <div class="own-gfb-buttons" id="own-gfb-buttons">
+                <!-- Injected by JS -->
+            </div>
+            <div class="own-gfb-spacer"></div>
+            <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <path d="M14 17h7M17.5 14v7" />
+                </svg>
+                Select
+            </button>
         </div>
 
-        <div id="tab-ownership" class="own-tab-content active">
-            <!-- Group Filter Bar + Select Mode Button (same row) -->
-            <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
-                <span class="own-gfb-label">Group</span>
-                <div class="own-gfb-buttons" id="own-gfb-buttons">
-                    <!-- Injected by JS -->
-                </div>
-                <div class="own-gfb-spacer"></div>
-                <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <rect x="3" y="3" width="7" height="7" rx="1" />
-                        <rect x="14" y="3" width="7" height="7" rx="1" />
-                        <rect x="3" y="14" width="7" height="7" rx="1" />
-                        <path d="M14 17h7M17.5 14v7" />
-                    </svg>
-                    Select
-                </button>
-            </div>
-
-            <!-- Companies will be injected here via JS -->
-            <div id="companyCardsContainer">
-                <!-- Loader -->
-                <div class="own-loader-container">
-                    <div class="own-loader"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Group Earnings 专用内容 -->
-        <div id="tab-group" class="own-tab-content" style="display:none;">
-            <div id="groupCardsContainer">
-                <div class="own-loader-container">
-                    <div class="own-loader"></div>
-                </div>
+        <!-- Companies will be injected here via JS -->
+        <div id="companyCardsContainer">
+            <!-- Loader -->
+            <div class="own-loader-container">
+                <div class="own-loader"></div>
             </div>
         </div>
     </div>
@@ -125,11 +108,7 @@ $assetVer = function ($file) {
 
                     <div data-bind="rows-container"></div>
 
-                    <div class="own-split-actions">
-                        <button class="own-btn-add-account" data-action="add-row">+ Add Account</button>
-                        <span class="own-split-divider">|</span>
-                        <button class="own-btn-add-group" data-action="add-group-row">+ Add Group</button>
-                    </div>
+                    <button class="own-btn-add-account" data-action="add-row">+ Add Account</button>
 
                     <div class="own-partner-section">
                         <div class="own-partner-info">
@@ -170,12 +149,7 @@ $assetVer = function ($file) {
     <template id="tpl-account-row">
         <div class="own-account-row">
             <div class="own-drag-handle">⋮⋮</div>
-            
-            <div class="own-account-select-wrap">
-                <span class="own-badge-account" data-bind="badge" style="display:none;">Account</span>
-                <select class="own-account-select" data-bind="account-select"></select>
-                <input type="text" class="own-group-input" data-bind="group-input" placeholder="Type Group ID..." style="display:none;" autocomplete="off" />
-            </div>
+            <select class="own-account-select" data-bind="account-select"></select>
 
             <div class="own-ownership-input-group">
                 <input type="text" class="own-percent-input" data-bind="percent-input">
@@ -198,78 +172,11 @@ $assetVer = function ($file) {
                 </div>
                 <button class="own-btn-square own-btn-delete" title="Remove" data-action="delete">
                     <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        <path fill-rule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clip-rule="evenodd"></path>
                     </svg>
                 </button>
-            </div>
-        </div>
-    </template>
-
-    <!-- Group Card Template (for Group Earnings Tab) -->
-    <template id="tpl-group-card">
-        <div class="own-card">
-            <div class="own-card-header" data-action="toggle">
-                <div class="own-card-header-left">
-                    <div class="own-company-name own-group-title">
-                        🏢 <span data-bind="name"></span>
-                    </div>
-                </div>
-                <div class="own-card-header-middle">
-                    <div class="own-allocation-info">
-                        <span class="own-allocation-label">Total Group Allocation</span>
-                        <span class="own-allocation-percentage" data-bind="percent"></span>
-                        <span class="own-allocation-remaining" data-bind="remaining"></span>
-                    </div>
-                    <div class="own-progress-bar-container">
-                        <div class="own-progress-bar-fill" data-bind="bar"></div>
-                    </div>
-                </div>
-                <div class="own-card-header-right">
-                    <button class="own-btn-outline" data-action="toggle">Manage</button>
-                    <button class="own-btn-square own-btn-delete-group" title="Delete Group" data-action="delete-group">
-                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
-                    <button class="own-icon-btn" data-action="toggle">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="own-card-body" data-bind="body">
-                <div class="own-loader-container" data-bind="loader">
-                    <div class="own-loader"></div>
-                </div>
-                <div class="own-editor-hidden" data-bind="editor">
-                    <div class="own-table-headers">
-                        <div>Account</div>
-                        <div>Allocation%</div>
-                    </div>
-
-                    <div data-bind="rows-container"></div>
-
-                    <div class="own-split-actions">
-                        <button class="own-btn-add-account" data-action="add-row">+ Add Account</button>
-                    </div>
-
-                    <div class="own-card-footer">
-                        <div class="own-footer-left">
-                            <div class="own-warning-badge" data-bind="warning" style="display: none;">
-                                <span data-bind="warning-icon">⚠️</span>
-                                <span data-bind="warning-msg">Total is less than 100%</span>
-                            </div>
-                            <span class="own-unallocated-text" data-bind="footer-remain">100% Unallocated</span>
-                        </div>
-                        <div class="own-footer-right">
-                            <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
-                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
-                                data-action="confirm">Confirm</button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </template>
@@ -318,26 +225,9 @@ $assetVer = function ($file) {
         </svg>
     </template>
 
-    <script>
-        function switchOwnershipTab(tabId) {
-            // Update Tab buttons
-            document.querySelectorAll('.own-tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('tab-btn-' + tabId).classList.add('active');
-
-            // Update content pane
-            document.querySelectorAll('.own-tab-content').forEach(pane => pane.style.display = 'none');
-            document.getElementById('tab-' + tabId).style.display = 'block';
-
-            // Trigger fetch data lazily if needed
-            if (tabId === 'group' && window.initGroupEarnings) {
-                window.initGroupEarnings();
-            } else if (tabId === 'account' && window.initAccountOwnership) {
-                window.initAccountOwnership();
-            }
-        }
-    </script>
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
-    <script src="js/ownership-group.js?v=<?php echo $assetVer('js/ownership-group.js'); ?>"></script>
 </body>
+
+</html>
 
 </html>

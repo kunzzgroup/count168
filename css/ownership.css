@@ -26,7 +26,9 @@ body {
     overflow-x: hidden;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -201,14 +203,14 @@ body {
 
 .own-card.own-selection-mode:hover {
     box-shadow: 0 0 0 2px var(--own-primary-blue),
-                0 4px 14px rgba(59, 142, 246, 0.10);
+        0 4px 14px rgba(59, 142, 246, 0.10);
     border-color: var(--own-primary-blue);
 }
 
 /* Selected card: solid blue ring */
 .own-card.own-selected {
     box-shadow: 0 0 0 2.5px var(--own-primary-blue),
-                0 4px 14px rgba(59, 142, 246, 0.18);
+        0 4px 14px rgba(59, 142, 246, 0.18);
     border-color: var(--own-primary-blue);
     background: var(--own-primary-light);
 }
@@ -216,7 +218,7 @@ body {
 /* Selected card in ungroup mode: red ring */
 .own-card.own-selected.own-ungroup-select {
     box-shadow: 0 0 0 2.5px #e11d48,
-                0 4px 14px rgba(225, 29, 72, 0.18);
+        0 4px 14px rgba(225, 29, 72, 0.18);
     border-color: #e11d48;
     background: #fff1f2;
 }
@@ -228,9 +230,11 @@ body {
     margin-bottom: 24px;
     background-color: #fff;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
-    overflow: visible; /* allow group dropdown to escape card boundary */
+    overflow: visible;
+    /* allow group dropdown to escape card boundary */
     transition: box-shadow 0.3s ease, transform 0.3s ease;
-    position: relative; /* stacking context for inner absolute elements */
+    position: relative;
+    /* stacking context for inner absolute elements */
 }
 
 .own-card:hover {
@@ -245,7 +249,8 @@ body {
     justify-content: space-between;
     background-color: #fff;
     min-height: 90px;
-    border-radius: 16px; /* match card — clips top corners even without overflow:hidden */
+    border-radius: 16px;
+    /* match card — clips top corners even without overflow:hidden */
     transition: border-radius 0.25s ease;
 }
 
@@ -306,13 +311,15 @@ body {
 
 .own-card-header-middle {
     flex: 2;
-    padding: 0 50px; /* More side breathing room */
+    padding: 0 50px;
+    /* More side breathing room */
 }
 
 .own-allocation-info {
     display: flex;
     align-items: baseline;
-    margin-bottom: 12px; /* Increased margin */
+    margin-bottom: 12px;
+    /* Increased margin */
 }
 
 .own-allocation-label {
@@ -325,7 +332,8 @@ body {
 }
 
 .own-allocation-percentage {
-    font-size: 28px; /* Bigger dominant percent */
+    font-size: 28px;
+    /* Bigger dominant percent */
     font-weight: 800;
     color: var(--own-primary-blue);
     margin-right: 16px;
@@ -340,11 +348,13 @@ body {
 /* Progress Bar */
 .own-progress-bar-container {
     width: 100%;
-    height: 10px; /* Thicker progress bar */
-    background-color: var(--own-gray-light); /* Softer empty bg */
+    height: 10px;
+    /* Thicker progress bar */
+    background-color: var(--own-gray-light);
+    /* Softer empty bg */
     border-radius: 5px;
     overflow: hidden;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .own-progress-bar-fill {
@@ -362,7 +372,8 @@ body {
 }
 
 .own-btn-outline {
-    padding: 8px 20px; /* Larger button padding */
+    padding: 8px 20px;
+    /* Larger button padding */
     border: 1px solid var(--own-primary-blue);
     color: var(--own-primary-blue);
     background: transparent;
@@ -382,7 +393,8 @@ body {
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--own-gray-text); /* Softer icon color initial */
+    color: var(--own-gray-text);
+    /* Softer icon color initial */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -390,6 +402,7 @@ body {
     border-radius: 50%;
     transition: all 0.2s ease;
 }
+
 .own-icon-btn:hover {
     background-color: var(--own-gray-light);
     color: var(--own-dark-text);
@@ -402,7 +415,8 @@ body {
 /* Expanded Card Specifics */
 .own-card.expanded .own-card-header {
     border-bottom: 1px solid var(--own-gray-border);
-    border-radius: 16px 16px 0 0; /* only top corners rounded when expanded */
+    border-radius: 16px 16px 0 0;
+    /* only top corners rounded when expanded */
 }
 
 /* Card Body (Account Rows) */
@@ -417,7 +431,8 @@ body {
 
 .own-table-headers {
     display: grid;
-    grid-template-columns: 360px 1fr; /* Wider first column */
+    grid-template-columns: 360px 1fr;
+    /* Wider first column */
     padding: 16px 32px;
     font-size: 13px;
     color: var(--own-gray-text);
@@ -429,13 +444,17 @@ body {
 .own-account-row {
     display: flex;
     align-items: center;
-    padding: 16px 24px; /* Bigger padding */
+    padding: 16px 24px;
+    /* Bigger padding */
     border: 1px solid var(--own-gray-border);
-    border-radius: 12px; /* Bigger radius */
-    margin: 0 32px 16px 32px; /* More side margin */
+    border-radius: 12px;
+    /* Bigger radius */
+    margin: 0 32px 16px 32px;
+    /* More side margin */
     background-color: white;
     transition: box-shadow 0.2s, border-color 0.2s;
 }
+
 .own-account-row:hover {
     border-color: #cbd5e1;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
@@ -450,9 +469,11 @@ body {
     user-select: none;
     transition: color 0.2s;
 }
+
 .own-drag-handle:active {
     cursor: grabbing;
 }
+
 .own-account-row:hover .own-drag-handle {
     color: #94a3b8;
 }
@@ -466,11 +487,14 @@ body {
 }
 
 .own-account-select {
-    flex: 0 0 300px; /* Wider select */
-    padding: 12px 16px; /* Bigger padding */
+    flex: 0 0 300px;
+    /* Wider select */
+    padding: 12px 16px;
+    /* Bigger padding */
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
-    font-size: 15px; /* Larger font */
+    font-size: 15px;
+    /* Larger font */
     font-weight: 600;
     color: var(--own-dark-text);
     outline: none;
@@ -481,6 +505,7 @@ body {
     margin-right: 32px;
     transition: border-color 0.2s, background-color 0.2s;
 }
+
 .own-account-select:focus {
     border-color: var(--own-primary-blue);
     background-color: white;
@@ -494,7 +519,8 @@ body {
 }
 
 .own-percent-input {
-    width: 75px; /* Wider input */
+    width: 75px;
+    /* Wider input */
     padding: 10px 12px;
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
@@ -507,6 +533,7 @@ body {
     background-color: var(--own-gray-bg);
     transition: border-color 0.2s, background-color 0.2s;
 }
+
 .own-percent-input:focus {
     border-color: var(--own-primary-blue);
     background-color: white;
@@ -525,7 +552,8 @@ body {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 6px; /* Thicker slider line */
+    height: 6px;
+    /* Thicker slider line */
     background: var(--own-gray-border);
     border-radius: 3px;
     outline: none;
@@ -534,15 +562,18 @@ body {
 .own-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px; /* Bigger thumb */
-    height: 20px; /* Bigger thumb */
+    width: 20px;
+    /* Bigger thumb */
+    height: 20px;
+    /* Bigger thumb */
     border-radius: 50%;
     background: white;
     border: 3px solid var(--own-primary-blue);
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     transition: transform 0.1s;
 }
+
 .own-slider::-webkit-slider-thumb:hover {
     transform: scale(1.15);
 }
@@ -561,12 +592,14 @@ body {
 /* Action Buttons Row */
 .own-row-actions {
     display: flex;
-    gap: 12px; /* Nicer gap */
+    gap: 12px;
+    /* Nicer gap */
     margin-left: auto;
 }
 
 .own-btn-square {
-    width: 38px; /* Bigger buttons */
+    width: 38px;
+    /* Bigger buttons */
     height: 38px;
     border: 1px solid var(--own-gray-border);
     border-radius: 8px;
@@ -581,8 +614,8 @@ body {
     transition: all 0.2s;
 }
 
-.own-btn-square:hover { 
-    background-color: var(--own-gray-light); 
+.own-btn-square:hover {
+    background-color: var(--own-gray-light);
     border-color: #cbd5e1;
 }
 
@@ -590,7 +623,8 @@ body {
     color: var(--own-danger-red);
     border-color: transparent;
 }
-.own-btn-delete:hover { 
+
+.own-btn-delete:hover {
     background-color: #fee2e2;
     color: #dc2626;
 }
@@ -599,11 +633,13 @@ body {
 .own-btn-add-account {
     display: block;
     width: calc(100% - 64px);
-    margin: 0 32px 32px 32px; /* Bigger margins */
+    margin: 0 32px 32px 32px;
+    /* Bigger margins */
     padding: 14px;
     background-color: var(--own-primary-light);
     color: var(--own-primary-blue);
-    border: 2px dashed #bfdbfe; /* Cool dashed border */
+    border: 2px dashed #bfdbfe;
+    /* Cool dashed border */
     border-radius: 12px;
     font-size: 15px;
     font-weight: 700;
@@ -611,8 +647,8 @@ body {
     transition: all 0.2s;
 }
 
-.own-btn-add-account:hover { 
-    background-color: #dbeafe; 
+.own-btn-add-account:hover {
+    background-color: #dbeafe;
     border-color: #93c5fd;
     transform: translateY(-1px);
 }
@@ -625,7 +661,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-radius: 0 0 16px 16px; /* round the bottom corners explicitly */
+    border-radius: 0 0 16px 16px;
+    /* round the bottom corners explicitly */
 }
 
 .own-footer-left {
@@ -655,11 +692,13 @@ body {
 
 .own-footer-right {
     display: flex;
-    gap: 16px; /* wider gap */
+    gap: 16px;
+    /* wider gap */
 }
 
 .own-footer-btn {
-    padding: 10px 28px; /* Bigger buttons */
+    padding: 10px 28px;
+    /* Bigger buttons */
     border-radius: 24px;
     font-size: 15px;
     font-weight: 600;
@@ -668,9 +707,10 @@ body {
     color: white;
     transition: all 0.2s;
 }
+
 .own-footer-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .own-btn-cancel {
@@ -682,6 +722,7 @@ body {
     background: linear-gradient(to bottom, #60a5fa, #3b82f6);
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
+
 .own-btn-confirm:disabled {
     background: #9ca3af;
     cursor: not-allowed;
@@ -694,6 +735,7 @@ body {
     justify-content: center;
     padding: 40px;
 }
+
 .own-loader {
     width: 40px;
     height: 40px;
@@ -702,8 +744,11 @@ body {
     border-top-color: var(--own-primary-blue);
     animation: own-spin 1s ease-in-out infinite;
 }
+
 @keyframes own-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Base Toast Styles matching global or component structure */
@@ -730,7 +775,8 @@ body {
 }
 
 .own-toast.own-success {
-    border-left: 4px solid #10b981; /* emerald-500 */
+    border-left: 4px solid #10b981;
+    /* emerald-500 */
 }
 
 .own-toast.own-error {
@@ -841,47 +887,57 @@ body {
 /* Conflict Modal */
 .own-modal-overlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.4);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
 }
+
 .own-modal {
     background: #fff;
     width: 400px;
     max-width: 90%;
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     overflow: hidden;
     font-family: inherit;
 }
+
 .own-modal-header {
     background: #f8fafc;
     padding: 16px 20px;
     border-bottom: 1px solid #e2e8f0;
 }
+
 .own-modal-title {
     margin: 0;
     font-size: 16px;
     color: #1e293b;
     font-weight: 600;
 }
+
 .own-modal-body {
     padding: 20px;
 }
+
 .own-modal-desc {
     margin: 0 0 16px 0;
     font-size: 14px;
     color: #64748b;
     line-height: 1.5;
 }
+
 .own-modal-options {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
+
 .own-btn-conflict {
     height: auto;
     padding: 12px;
@@ -890,10 +946,12 @@ body {
     white-space: normal;
     border-color: #cbd5e1;
 }
+
 .own-btn-conflict:hover {
     background: #f1f5f9;
     border-color: #94a3b8;
 }
+
 .own-modal-footer {
     padding: 16px 20px;
     border-top: 1px solid #e2e8f0;
@@ -951,7 +1009,7 @@ body {
     background: #cbd5e1;
     border-radius: 999px;
     transition: background 0.25s ease;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .own-ro-slider::before {
@@ -965,14 +1023,14 @@ body {
     background: white;
     border-radius: 50%;
     transition: left 0.25s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.own-ro-toggle input:checked + .own-ro-slider {
+.own-ro-toggle input:checked+.own-ro-slider {
     background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
 }
 
-.own-ro-toggle input:checked + .own-ro-slider::before {
+.own-ro-toggle input:checked+.own-ro-slider::before {
     left: calc(100% - 17px);
 }
 
@@ -1028,13 +1086,17 @@ body {
 .own-group-panel {
     position: absolute;
     right: 0;
-    top: 100%; /* flush directly below button — no gap */
+    top: 100%;
+    /* flush directly below button — no gap */
     z-index: 9999;
-    min-width: 100%; /* at least as wide as the button */
+    min-width: 100%;
+    /* at least as wide as the button */
     background: #fff;
     border: 1.5px solid #059669;
-    border-top: none; /* merges with button bottom border */
-    border-radius: 0 0 8px 8px; /* only bottom corners rounded */
+    border-top: none;
+    /* merges with button bottom border */
+    border-radius: 0 0 8px 8px;
+    /* only bottom corners rounded */
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10);
     overflow: hidden;
     display: none;
@@ -1046,15 +1108,23 @@ body {
 }
 
 @keyframes own-panel-open {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* When panel is open, flatten the button's bottom corners to connect seamlessly */
 .own-group-btn-wrap:has(.own-group-panel.open) .own-group-join-btn {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
-    border-bottom-color: transparent; /* hide bottom border so panel blends in */
+    border-bottom-color: transparent;
+    /* hide bottom border so panel blends in */
 }
 
 /* Each group option inside dropdown */
@@ -1073,7 +1143,7 @@ body {
     color: #2563eb;
 }
 
-.own-group-option + .own-group-option {
+.own-group-option+.own-group-option {
     border-top: 1px solid #f1f5f9;
 }
 
@@ -1135,7 +1205,7 @@ body {
 /* Selected card gets a blue ring */
 .own-card.own-selected {
     box-shadow: 0 0 0 2.5px var(--own-primary-blue),
-                0 4px 14px rgba(59, 142, 246, 0.18);
+        0 4px 14px rgba(59, 142, 246, 0.18);
     border-color: var(--own-primary-blue);
 }
 
@@ -1158,7 +1228,7 @@ body {
     box-shadow: 0 8px 32px rgba(59, 142, 246, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
     min-width: 480px;
     transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-                opacity   0.30s ease;
+        opacity 0.30s ease;
     pointer-events: none;
     overflow: hidden;
 }
@@ -1523,7 +1593,7 @@ body {
     background: white;
     border: 3px solid #0D60FF;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     transition: transform 0.1s;
 }
 
@@ -1777,117 +1847,4 @@ body {
 .ge-equity-input[type=number],
 .ge-pct-input[type=number] {
     -moz-appearance: textfield;
-}
-
-/* Tabs UI */
-.own-tabs {
-    display: flex;
-    gap: 16px;
-    margin-top: 24px;
-    margin-bottom: 24px;
-}
-
-.own-tab-btn {
-    padding: 10px 24px;
-    background: transparent;
-    border: none;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--own-gray-text);
-    cursor: pointer;
-    border-bottom: 3px solid transparent;
-    transition: all 0.2s;
-}
-
-.own-tab-btn:hover {
-    color: var(--own-dark-text);
-}
-
-.own-tab-btn.active {
-    color: var(--own-primary-blue);
-    border-bottom-color: var(--own-primary-blue);
-}
-
-.own-split-actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin: 0 32px 32px 32px;
-}
-
-.own-split-divider {
-    color: var(--own-gray-border);
-    font-size: 24px;
-}
-
-.own-split-actions button {
-    margin: 0;
-    flex: 1;
-}
-
-.own-account-select-wrap {
-    flex: 0 0 300px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-right: 32px;
-}
-
-.own-badge-account {
-    background: #e2e8f0;
-    color: #475569;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.own-badge-group {
-    background: #cffafe;
-    color: #0891b2;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.own-group-input {
-    flex: 1;
-    padding: 12px 16px;
-    border: 1px solid var(--own-gray-border);
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--own-dark-text);
-    outline: none;
-    background-color: var(--own-gray-bg);
-    transition: border-color 0.2s, background-color 0.2s;
-}
-
-.own-group-input:focus {
-    border-color: var(--own-primary-blue);
-    background-color: white;
-    box-shadow: 0 0 0 3px rgba(59, 142, 246, 0.1);
-}
-
-.own-btn-register-new-group {
-    display: inline-block;
-    padding: 12px 24px;
-    background: linear-gradient(135deg, var(--own-primary-blue) 0%, #0D60FF 100%);
-    color: white;
-    font-weight: 700;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(13, 96, 255, 0.2);
-    transition: all 0.2s;
-}
-
-.own-btn-register-new-group:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(13, 96, 255, 0.3);
 }

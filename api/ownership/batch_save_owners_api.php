@@ -37,25 +37,11 @@ if (!$company_id) {
 // Validate total percentage
 $total_percentage = 0;
 foreach ($owners as $owner) {
-    if (!isset($owner['percentage'])) {
+    if (!isset($owner['account_id']) || !isset($owner['percentage'])) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid owner data format']);
         exit();
     }
-    
-    $entity_type = $owner['entity_type'] ?? 'account';
-    if ($entity_type === 'group') {
-        if (empty($owner['group_id'])) {
-            echo json_encode(['status' => 'error', 'message' => 'Missing Group ID']);
-            exit();
-        }
-    } else {
-        if (!isset($owner['account_id'])) {
-            echo json_encode(['status' => 'error', 'message' => 'Missing Account ID']);
-            exit();
-        }
-    }
-    
-    $pct = (float)$owner['percentage'];
+    $pct = (float) $owner['percentage'];
     if ($pct <= 0 || $pct > 100) {
         echo json_encode(['status' => 'error', 'message' => 'Percentage must be between 0 and 100']);
         exit();
@@ -80,7 +66,7 @@ try {
     $stmtGroups->execute([$company_id]);
     while ($row = $stmtGroups->fetch(PDO::FETCH_ASSOC)) {
         $existingGroups[$row['account_id']] = $row['partner_group_id'];
-        $existingReadOnly[$row['account_id']] = (int)$row['read_only'];
+        $existingReadOnly[$row['account_id']] = (int) $row['read_only'];
     }
 
     // Remove all existing owners for this company
@@ -91,8 +77,8 @@ try {
     if (count($owners) > 0) {
         if ($hasOwnerType) {
             $insertStmt = $pdo->prepare("
-                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, partner_group_id, read_only, entity_type, group_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, partner_group_id, read_only)
+                VALUES (?, ?, ?, ?, ?, ?)
             ");
         } else {
             $insertStmt = $pdo->prepare("
@@ -100,20 +86,9 @@ try {
                 VALUES (?, ?, ?)
             ");
         }
-        
-        foreach ($owners as $owner) {
-            $entity_type = $owner['entity_type'] ?? 'account';
-            
-            if ($entity_type === 'group') {
-                if ($hasOwnerType) {
-                    $insertStmt->execute([$company_id, null, 'account', (float)$owner['percentage'], null, 0, 'group', $owner['group_id']]);
-                } else {
-                    // Pre-migration fallback (ignore groups)
-                }
-                continue;
-            }
 
-            $raw_id = (string)$owner['account_id'];
+        foreach ($owners as $owner) {
+            $raw_id = (string) $owner['account_id'];
             $owner_type = 'account'; // default
             $real_id = $raw_id;
 
@@ -130,25 +105,25 @@ try {
 
             if ($hasOwnerType) {
                 $pgid = null;
-                $roVal = isset($owner['read_only']) ? (int)$owner['read_only'] : 1;
+                $roVal = isset($owner['read_only']) ? (int) $owner['read_only'] : 1;
 
-                if ($owner_type === 'owner' && isset($existingGroups[(int)$real_id])) {
-                    $pgid = $existingGroups[(int)$real_id];
+                if ($owner_type === 'owner' && isset($existingGroups[(int) $real_id])) {
+                    $pgid = $existingGroups[(int) $real_id];
                     if (!isset($owner['read_only'])) {
-                        $roVal = $existingReadOnly[(int)$real_id] ?? 1;
+                        $roVal = $existingReadOnly[(int) $real_id] ?? 1;
                     }
                 }
-                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid, $roVal, 'account', null]);
-                
+                $insertStmt->execute([$company_id, (int) $real_id, $owner_type, (float) $owner['percentage'], $pgid, $roVal]);
+
                 // 同步 read_only 到 user 表的全局设置作为默认回退
                 if ($owner_type === 'user') {
                     $uStmt = $pdo->prepare("UPDATE user SET read_only = ? WHERE id = ?");
-                    $uStmt->execute([$roVal, (int)$real_id]);
+                    $uStmt->execute([$roVal, (int) $real_id]);
                 }
             } else {
                 // If migration hasn't run, we must drop Users so it doesn't crash, or attempt.
                 // In a perfect world, migration is run first. If not, only save numbers.
-                $insertStmt->execute([$company_id, (int)$real_id, (float)$owner['percentage']]);
+                $insertStmt->execute([$company_id, (int) $real_id, (float) $owner['percentage']]);
             }
         }
     }
