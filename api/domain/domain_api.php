@@ -160,12 +160,6 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
 }
 
 /**
- * 表单或 JSON 中的可选十进制数：空为 null，非法返回 false
- *
- * @param mixed $val
- * @return float|null|false
- */
-/**
  * company 表：费用分成（Sales / CS / IT），JSON
  */
 function ensureCompanyFeeShareColumn(PDO $pdo): void {
@@ -337,6 +331,12 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
     return true;
 }
 
+/**
+ * 表单或 JSON 中的可选十进制数：空为 null，非法返回 false
+ *
+ * @param mixed $val
+ * @return float|null|false
+ */
 function normalizeOptionalDecimal($val) {
     if ($val === null || $val === '') {
         return null;
