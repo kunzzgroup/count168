@@ -105,32 +105,6 @@ function bankProcessNormalizeDayStartYmd(dayStartField) {
 }
 
 /**
- * Resend 弹窗与 API 使用 type=date / YYYY-MM-DD；将 d/m/Y、带时间的 ISO 等规范为 yyyy-mm-dd。
- * @returns {string} '' 表示无法解析
- */
-function normalizeBankResendDateInputValue(raw) {
-    if (raw == null) return '';
-    const s = String(raw).trim();
-    if (!s) return '';
-    const isoHead = bankProcessNormalizeDayStartYmd(s);
-    if (isoHead) return isoHead;
-    const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
-    if (m) {
-        const d = parseInt(m[1], 10);
-        const mo = parseInt(m[2], 10);
-        const y = parseInt(m[3], 10);
-        if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-            const t = new Date(y, mo - 1, d);
-            if (!isNaN(t.getTime()) && t.getFullYear() === y && t.getMonth() === mo - 1 && t.getDate() === d) {
-                const pad = function (n) { return n < 10 ? '0' + n : String(n); };
-                return y + '-' + pad(mo) + '-' + pad(d);
-            }
-        }
-    }
-    return '';
-}
-
-/**
  * Resend 弹窗 Day start 客户端校验（曾禁止等于今天，现已允许与后端一致）。
  * @returns {string|null} 错误提示文案；null 表示可提交
  */
@@ -371,15 +345,12 @@ async function executeAccountingDueResend(processId, scheduleOpts) {
     }
     const payload = { bank_process_id: id };
     if (scheduleOpts && typeof scheduleOpts === 'object') {
-        const dsNorm = normalizeBankResendDateInputValue(scheduleOpts.day_start);
-        const deNorm = normalizeBankResendDateInputValue(scheduleOpts.day_end);
-        payload.day_start = dsNorm;
-        payload.day_end = deNorm;
+        payload.day_start = scheduleOpts.day_start != null && String(scheduleOpts.day_start).trim() !== ''
+            ? String(scheduleOpts.day_start).trim() : '';
+        payload.day_end = scheduleOpts.day_end != null && String(scheduleOpts.day_end).trim() !== ''
+            ? String(scheduleOpts.day_end).trim() : '';
         payload.day_start_frequency = (scheduleOpts.day_start_frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
-        const forbidMsg = bankResendScheduleDayStartForbiddenMessage(
-            payload.day_start,
-            procGuard ? procGuard.day_start : null
-        );
+        const forbidMsg = bankResendScheduleDayStartForbiddenMessage(payload.day_start, procGuard ? procGuard.day_start : null);
         if (forbidMsg) {
             presentBankResendDayStartValidationError(forbidMsg);
             return;
@@ -452,9 +423,7 @@ async function persistOpenBankEditBeforeResend(targetProcessId) {
     if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
 
     const formData = new FormData(formEl);
-    // 保留 day_start / day_end / day_start_frequency：若从 FormData 删掉，update_process 会把未传的日期当成空串并写入 NULL，
-    // 会在 Resend 确认前清空流程锚点，进而使 accounting_resend_schedule_day_start 落空并误走「多账期 Resend」。
-    ['country', 'bank', 'type', 'name'].forEach(function (key) {
+    ['country', 'bank', 'type', 'name', 'day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
         formData.delete(key);
     });
     const cost = parseFloat(document.getElementById('bank_cost')?.value || '0') || 0;
@@ -4604,7 +4573,6 @@ return {
     setPendingResendScheduleForProcess: setPendingResendScheduleForProcess,
     bankResendScheduleDayStartForbiddenMessage: bankResendScheduleDayStartForbiddenMessage,
     presentBankResendDayStartValidationError: presentBankResendDayStartValidationError,
-    clearBankResendDayStartInlineError: clearBankResendDayStartInlineError,
-    normalizeBankResendDateInputValue: normalizeBankResendDateInputValue
+    clearBankResendDayStartInlineError: clearBankResendDayStartInlineError
 };
 })();
