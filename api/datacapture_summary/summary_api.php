@@ -284,6 +284,27 @@ function ensureSummarySubmitQueueTable(PDO $pdo) {
     }
 }
 
+/**
+ * 清理 Transaction List 搜索缓存，避免 Data Capture submit 后
+ * 立即查看 Data Capture Summary / Transaction List 时读到旧 totals。
+ */
+function clearTransactionSearchCache(): void
+{
+    $cacheDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
+    if (!is_dir($cacheDir)) {
+        return;
+    }
+    foreach (scandir($cacheDir) as $file) {
+        if ($file === '.' || $file === '..') {
+            continue;
+        }
+        $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
+    }
+}
+
 function computeTemplateKey(array $row): string {
     $productType = $row['product_type'] ?? 'main';
 
@@ -2715,6 +2736,9 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Commit transaction
             $pdo->commit();
+
+            // 提交成功后清理 transaction search 缓存，确保前端立即看到最新 totals。
+            clearTransactionSearchCache();
             
             // Log success
             error_log("Data capture submitted successfully - Capture ID: $captureId, Rows: " . count($data['summaryRows']));
