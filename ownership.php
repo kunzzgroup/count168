@@ -274,14 +274,12 @@ $assetVer = function ($file) {
                         </div>
                     </div>
                     
-                    <div class="own-table-headers" style="grid-template-columns: 1fr 140px 200px 40px; border-bottom: 2px solid var(--own-gray-border);">
-                        <div>Account Name</div>
-                        <div>Share %</div>
-                        <div>Earnings Formula</div>
-                        <div></div>
+                    <div class="own-table-headers">
+                        <div>Account</div>
+                        <div>Ownership%</div>
                     </div>
                     <div data-bind="rows-container"></div>
-                    <button class="ge-btn-add-account" data-action="add-row">+ Add Account</button>
+                    <button class="own-btn-add-account" data-action="add-row">+ Add Account</button>
                     
                     <div class="own-card-footer">
                         <div class="own-footer-left">
@@ -303,15 +301,19 @@ $assetVer = function ($file) {
 
     <!-- Group earnings Account Row Template -->
     <template id="tpl-group-account-row">
-        <div class="own-account-row" style="grid-template-columns: 1fr 140px 200px 40px; padding: 12px 28px; background: transparent;">
-            <input type="text" class="ge-acc-name-input" data-bind="acc-name" placeholder="Account name">
-            
-            <div class="ge-pct-wrap">
-                <input type="number" class="ge-pct-input" data-bind="acc-pct" min="0" max="100" step="0.01">
-                <span class="ge-pct-suffix">%</span>
-            </div>
+        <div class="own-account-row">
+            <div class="own-drag-handle">⋮⋮</div>
+            <select class="own-account-select" data-bind="acc-name"></select>
 
-            <div class="ge-earnings-formula" data-bind="formula">= NP × 0% × 0%</div>
+            <div class="own-ownership-input-group">
+                <input type="text" class="own-percent-input" data-bind="acc-pct">
+                <div class="own-slider-container">
+                    <input type="range" class="own-slider" data-bind="acc-slider" min="0" max="100" step="1">
+                    <div class="own-slider-labels">
+                        <span>0%</span><span>50%</span><span>100%</span>
+                    </div>
+                </div>
+            </div>
 
             <div class="own-row-actions">
                 <button class="own-btn-square own-btn-delete" title="Remove" data-action="delete">

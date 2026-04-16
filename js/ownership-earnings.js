@@ -160,23 +160,63 @@
         });
     }
 
-    function _addGroupRow(card, container, nameStr, pctVal) {
+    function _addGroupRow(card, container, accName, pctVal) {
         const tplRow = document.getElementById('tpl-group-account-row');
         const frag = tplRow.content.cloneNode(true);
         const row = frag.querySelector('.own-account-row');
 
-        const nameInput = $(row, 'acc-name');
-        nameInput.value = nameStr;
+        // Populate select options
+        const selectEl = $(row, 'acc-name');
+        if (typeof accountsList !== 'undefined') {
+            const defOpt = document.createElement('option');
+            defOpt.value = '';
+            defOpt.textContent = '-- SELECT ACCOUNT --';
+            selectEl.appendChild(defOpt);
+            
+            accountsList.forEach(member => {
+                const opt = document.createElement('option');
+                opt.value = member.id;
+                opt.textContent = member.name;
+                selectEl.appendChild(opt);
+            });
+            // Try matching original name if editing, else select first valid
+            // We use name/id flexibly here based on what was saved previously
+            // If they saved a raw name before, it might not match id, so we match name
+            let found = false;
+            for(let i=0; i<selectEl.options.length; i++) {
+                if (selectEl.options[i].textContent === accName || selectEl.options[i].value === accName) {
+                    selectEl.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+        }
 
         const pctInput = $(row, 'acc-pct');
-        pctInput.value = pctVal;
+        const sliderInput = $(row, 'acc-slider');
         
-        pctInput.addEventListener('input', () => {
-            let v = parseFloat(pctInput.value) || 0;
+        pctInput.value = pctVal + '%';
+        sliderInput.value = pctVal;
+        
+        const updateSliderStyle = (sl) => {
+            const pct = sl.value;
+            sl.style.background = `linear-gradient(to right, #63C4FF ${pct}%, #e2e8f0 ${pct}%)`;
+        };
+        updateSliderStyle(sliderInput);
+
+        pctInput.addEventListener('change', () => {
+            let v = parseFloat(pctInput.value.replace('%', '')) || 0;
             v = Math.min(100, Math.max(0, v));
-            // Don't auto-reset it here, let them type. Just calculate from it.
+            pctInput.value = v + '%';
+            sliderInput.value = v;
+            updateSliderStyle(sliderInput);
             _updateCardHeaderAndFooter(card);
-            _recalcFormulas(card);
+        });
+
+        sliderInput.addEventListener('input', () => {
+            pctInput.value = sliderInput.value + '%';
+            updateSliderStyle(sliderInput);
+            _updateCardHeaderAndFooter(card);
         });
 
         row.querySelector('[data-action="delete"]').addEventListener('click', () => {
@@ -184,15 +224,15 @@
             _updateCardHeaderAndFooter(card);
         });
 
+        // Initialize sortable behavior if we wanted to
         container.appendChild(row);
         _updateCardHeaderAndFooter(card);
-        _recalcFormulas(card);
     }
 
     function _updateCardHeaderAndFooter(card) {
         let total = 0;
-        card.querySelectorAll('.ge-pct-input').forEach(input => {
-            total += parseFloat(input.value) || 0;
+        card.querySelectorAll('.own-percent-input').forEach(input => {
+            total += parseFloat(input.value.replace('%', '')) || 0;
         });
 
         total = parseFloat(total.toFixed(2));
@@ -242,6 +282,12 @@
         }
     }
 
+    function _applyGeSliderBg(slider) {
+        if (!slider) return;
+        const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+        slider.style.background = `linear-gradient(to right, #0D60FF ${pct}%, #e2e8f0 ${pct}%)`;
+    }
+
     function _recalcFormulas(card) {
         const eqInput = $(card, 'equity-input');
         const eqPct = parseFloat(eqInput.value) || 0;
@@ -252,12 +298,6 @@
             const formulaEl = $(row, 'formula');
             formulaEl.textContent = `= NP × ${eqPct}% × ${accP}%`;
         });
-    }
-
-    function _applyGeSliderBg(slider) {
-        if (!slider) return;
-        const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
-        slider.style.background = `linear-gradient(to right, #0D60FF ${pct}%, #e2e8f0 ${pct}%)`;
     }
 
     function _saveGroup(gid, card) {
@@ -272,19 +312,29 @@
         let hasError = false;
 
         card.querySelectorAll('.own-account-row').forEach(row => {
-            const name = $(row, 'acc-name').value.trim();
-            const pct = parseFloat($(row, 'acc-pct').value) || 0;
+            const selectEl = $(row, 'acc-name');
+            // We save the ID this time if we want, or the name since backend still takes account_name string
+            // Actually wait, let's keep it as account_name (the text content of the select) to not break API completely.
+            let name = selectEl.options[selectEl.selectedIndex]?.textContent || '';
+            if (name === '-- SELECT ACCOUNT --') name = '';
+            
+            const pctText = $(row, 'acc-pct').value;
+            const pct = parseFloat(pctText.replace('%', '')) || 0;
 
             if (name === '') {
-                _showGeToast('Please fill in all account names', 'error');
+                _showGeToast('Please select all accounts', 'error');
                 hasError = true;
                 return;
             }
 
-            if (pct < 0 || pct > 100) {
-                _showGeToast('Account Share % must be between 0 and 100', 'error');
-                hasError = true;
-                return;
+            if (pct <= 0 || pct > 100) {
+                // Ignore 0% rows conceptually, but Ownership saves them sometimes.
+                // We'll require > 0
+                if (pct < 0 || pct > 100) {
+                    _showGeToast('Account Share % must be between 0 and 100', 'error');
+                    hasError = true;
+                    return;
+                }
             }
 
             totalPct += pct;
