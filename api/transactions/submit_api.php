@@ -807,37 +807,6 @@ try {
                     $rate_to_description
                 ]);
 
-                // 1b) 第一组若涉及两种币种：在第二币种上补一对分录（与第一组符号结构一致），
-                // 否则 Transaction List 只按 transaction_entry.currency_id 汇总时对手币种永远不会出现。
-                // 未填完整 Transfer 行时才写入：若 Transfer 已在同 header 下用第二币种记账，避免与 RATE_TRANSFER_* 重复。
-                $hasFullRateTransfer = $rate_transfer_from_account_id && $rate_transfer_to_account_id;
-                if (
-                    !$hasFullRateTransfer
-                    && (int) $rate_from_currency_id !== (int) $rate_to_currency_id
-                    && $rate_to_amount > 0.00001
-                ) {
-                    $secondCurrencyId = (int) $rate_to_currency_id;
-                    $secondAmount = (float) $rate_to_amount;
-                    $entryStmt->execute([
-                        $main_transaction_id,
-                        $company_id,
-                        $rate_from_account_id,
-                        $secondCurrencyId,
-                        -$secondAmount,
-                        'RATE_FIRST_FROM',
-                        $rate_from_description
-                    ]);
-                    $entryStmt->execute([
-                        $main_transaction_id,
-                        $company_id,
-                        $rate_to_account_id,
-                        $secondCurrencyId,
-                        $secondAmount,
-                        'RATE_FIRST_TO',
-                        $rate_to_description
-                    ]);
-                }
-
                 // 2) 第二行：全部跟随第二个币种（例如 MYR）
                 if ($rate_transfer_from_account_id && $rate_transfer_to_account_id && $rate_transfer_currency_id) {
                     $myrFromAmount = (float)$rate_transfer_from_amount; // 例如 330

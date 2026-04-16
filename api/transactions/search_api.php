@@ -881,7 +881,7 @@ try {
                 WHERE t.company_id = ?
                   AND (t.account_id = a.id OR t.from_account_id = a.id)
                   AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   " . contraApprovedWhere($pdo, 't') . "
             )
         )";
@@ -947,15 +947,18 @@ try {
         $params[] = $date_from_db;
         $params[] = $date_to_db;
     } elseif ($show_inactive) {
-        // 仅勾选 Show Payment Only：账户在日期范围内须有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 或 RATE 才显示
-        // （RATE 为换汇流水，应出现在本页；原仅 Cr/Dr 类型会导致仅有 RATE 的账户整表被 SQL 层剔除）
+        // 仅勾选 Show Payment Only：账户在日期范围内必须有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 交易才显示
+        // Bug修复：原来此处不做后端过滤，依赖前端 has_crdr_transactions 判断；
+        // 但 has_crdr_transactions 会被 RATE 分录（非 RATE_MIDDLEMAN）污染（count > 0），
+        // 导致纯 Win/Loss 账户（仅有 RATE 交易）也通过了前端过滤，错误出现在 Payment Only 视图中。
+        // 现在改为后端 SQL 层面强制过滤，与 Show Win/Loss Only 的处理方式对称。
         $where_conditions[] = "(
             EXISTS (
                 SELECT 1 FROM transactions t
                 WHERE t.company_id = ?
                   AND (t.account_id = a.id OR t.from_account_id = a.id)
                   AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   " . contraApprovedWhere($pdo, 't') . "
             )
         )";
@@ -1055,7 +1058,7 @@ try {
                   WHERE t.company_id = ?
                     AND t.from_account_id IS NOT NULL
                     AND t.transaction_date <= ?
-                    AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')
+                    AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                     AND t.currency_id IS NOT NULL
                     $cpContra";
         $cpParams = [$company_id, $date_to_db];
@@ -1182,7 +1185,6 @@ try {
     $bulk_txn_cur_prd = []; // [account_id][currency_id] => currency_code  (本期 transactions)
     $bulk_dcd_cur = []; // [acc_str][currency_id] => currency_code      (DCD 历史，截至 date_to)
     $bulk_txn_cur_all = []; // [account_id][currency_id] => currency_code  (全历史 transactions，legacy 兜底)
-    $bulk_entry_cur = []; // [account_id][currency_id] => currency_code  (transaction_entry：RATE 对手币等)
 
     if (!empty($accounts)) {
         $all_ids = array_column($accounts, 'id');
@@ -1249,23 +1251,6 @@ try {
                 }
             } catch (PDOException $e) {
             }
-
-            // 2c. 分录表上的币别（RATE 主表 currency_id 仅为第一币种，对手币种只存在于 transaction_entry）
-            try {
-                $st = $pdo->prepare("
-                    SELECT DISTINCT e.account_id AS acc_id, e.currency_id, UPPER(c.code) AS currency_code
-                    FROM transaction_entry e
-                    INNER JOIN currency c ON e.currency_id = c.id AND c.company_id = ?
-                    INNER JOIN transactions h ON e.header_id = h.id AND h.company_id = ?
-                    WHERE e.account_id IN ($all_ph)
-                      AND e.company_id = ?
-                ");
-                $st->execute(array_merge([$company_id, $company_id, $company_id], $all_ids));
-                while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-                    $bulk_entry_cur[(int) $r['acc_id']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
-                }
-            } catch (PDOException $e) {
-            }
         }
 
         // 3. DCD 历史币别（截至 date_to，用于 legacy 路径）
@@ -1315,9 +1300,6 @@ try {
                 foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                 }
-                foreach ($bulk_entry_cur[$account_id] ?? [] as $cid => $code) {
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
-                }
             } elseif (!empty($filter_currency_codes)) {
                 // 旧环境：从 DCD 本期数据补充
                 foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
@@ -1354,11 +1336,6 @@ try {
             if (empty($account_currencies)) {
                 foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
-                }
-                if (searchApiTxnHasCurrencyId($pdo)) {
-                    foreach ($bulk_entry_cur[$account_id] ?? [] as $cid => $code) {
-                        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
-                    }
                 }
             }
             // 添加 filter 或全公司币别
