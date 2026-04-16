@@ -8,13 +8,30 @@
     // State
     let geGroupIds = [];
     let geServerData = null; // { equities: {groupID: %}, accounts: {groupID: [{account_name, account_percentage}]} }
+    let globalAccountsList = null;
 
     let geContainer;
 
     function initGroupEarnings() {
         geContainer = document.getElementById('groupCardsContainer');
         if (!geContainer) return;
-        _waitForGroups();
+        
+        // Fetch accounts for dropdowns
+        fetch('api/ownership/get_available_accounts_api.php')
+            .then(r => r.json())
+            .then(res => {
+                if(res.status === 'success') {
+                    globalAccountsList = res.data;
+                } else {
+                    globalAccountsList = [];
+                }
+                _waitForGroups();
+            })
+            .catch(err => {
+                console.error(err);
+                globalAccountsList = [];
+                _waitForGroups();
+            });
     }
 
     function _waitForGroups() {
@@ -167,16 +184,16 @@
 
         // Populate select options
         const selectEl = $(row, 'acc-name');
-        if (typeof accountsList !== 'undefined') {
+        if (globalAccountsList) {
             const defOpt = document.createElement('option');
             defOpt.value = '';
             defOpt.textContent = '-- SELECT ACCOUNT --';
             selectEl.appendChild(defOpt);
             
-            accountsList.forEach(member => {
+            globalAccountsList.forEach(member => {
                 const opt = document.createElement('option');
                 opt.value = member.id;
-                opt.textContent = member.name;
+                opt.textContent = member.account_name + ' (' + member.name + ')';
                 selectEl.appendChild(opt);
             });
             // Try matching original name if editing, else select first valid
