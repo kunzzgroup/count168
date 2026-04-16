@@ -1596,7 +1596,7 @@ try {
         $sql = "SELECT e.account_id, e.currency_id,
                  SUM(CASE WHEN h.transaction_date < ? THEN (
                     CASE
-                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN ROUND(e.amount, 2)
                       WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
                       WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2)
                       ELSE ROUND(e.amount, 2)
@@ -1606,7 +1606,7 @@ try {
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
                     CASE
-                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN ROUND(e.amount, 2)
                       WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
                       ELSE ROUND(e.amount, 2)
                     END
@@ -2312,7 +2312,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
     $rateStmt = $pdo->prepare("
         SELECT COALESCE(SUM(CASE
-          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN ROUND(e.amount, 2)
           WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
           WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2)
           ELSE ROUND(e.amount, 2)
@@ -2663,7 +2663,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     $rateStmt = $pdo->prepare("
         SELECT 
             COALESCE(SUM(CASE
-              WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+              WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN ROUND(e.amount, 2)
               WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
               ELSE ROUND(e.amount, 2)
             END), 0) AS cr_dr,

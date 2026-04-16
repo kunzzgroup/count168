@@ -1604,7 +1604,7 @@ try {
         // RATE 第二行/第四行：TO 负数、FROM 正数（与 PAYMENT 一致）
         // Middle-Man（RATE_MIDDLEMAN）保留正数，并显示在 Win/Loss
         $entryType = $row['entry_type'] ?? '';
-        if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
+        if (in_array($entryType, ['RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
             $amount = -$amount;
         }
 
@@ -2084,7 +2084,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
     $rateStmt = $pdo->prepare("
         SELECT COALESCE(SUM(CASE
-          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
+          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN ROUND(e.amount, 2)
           WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
           WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2)
           ELSE ROUND(e.amount, 2)
