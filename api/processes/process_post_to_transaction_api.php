@@ -59,6 +59,26 @@ function insertTransactionRow(PDO $pdo, array $data): int
     return (int) $pdo->lastInsertId();
 }
 
+/**
+ * 清理 Transaction List 搜索缓存，确保 Process 入账（含 Resend）后列表立即同步。
+ */
+function clearTransactionSearchCache(): void
+{
+    $cacheDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
+    if (!is_dir($cacheDir)) {
+        return;
+    }
+    foreach (scandir($cacheDir) as $file) {
+        if ($file === '.' || $file === '..') {
+            continue;
+        }
+        $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
+    }
+}
+
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
 function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, float $profit): array
 {
@@ -1317,6 +1337,9 @@ try {
             }
         }
     }
+
+    // 入账成功后立刻清理 Transaction List 缓存，避免 Resend 后短时间显示旧账单。
+    clearTransactionSearchCache();
 
     if ($createdCount === 0 && $skippedFutureMonthlyDueCount > 0) {
         jsonResponse(true, "未到应付日，暂不生成交易记录（Resend 除外）。", [
