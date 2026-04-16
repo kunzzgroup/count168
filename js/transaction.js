@@ -428,20 +428,19 @@
             });
         }
 
-        // Maintenance 删除了 Bank Process 交易后，回到本页自动静默重搜，清掉残留 Win/Loss 展示。
+        // Maintenance / Post 对交易有变更后，回到本页自动静默重搜，清掉残留 Win/Loss 展示。
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') return;
-            const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || '0', 10) || 0;
-            if (!invalidateTs || invalidateTs <= lastSearchCommitMs) return;
-            const dateFrom = document.getElementById('date_from')?.value;
-            const dateTo = document.getElementById('date_to')?.value;
-            if (!dateFrom || !dateTo) return;
-            if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-            const hm = document.getElementById('historyModal');
-            if (hm && (hm.style.display === 'flex' || hm.style.display === 'block')) {
-                hm.style.display = 'none';
-            }
-            searchTransactions(false, { silent: true });
+            refreshTransactionDataFromExternalChange();
+        });
+        // Other tabs write invalidate timestamp to localStorage; this tab should refresh immediately.
+        window.addEventListener('storage', (e) => {
+            if (!e || e.key !== TX_LIST_INVALIDATE_LS_KEY) return;
+            refreshTransactionDataFromExternalChange();
+        });
+        // Same-tab updates (custom event) for flows that don't trigger storage in current document.
+        window.addEventListener(TX_DATA_CHANGED_EVENT, () => {
+            refreshTransactionDataFromExternalChange();
         });
 
         // 绑定右侧工作区的 Search 按钮：执行完整日期搜索（不受右侧 Type 选择影响）
@@ -1271,6 +1270,27 @@
     /** 同标签页内：用 sessionStorage 按筛选条件缓存列表，再次进入页面先秒开旧数据再静默拉新 */
     const TX_LIST_SESSION_PREFIX = 'count168_txlist_v1_';
     const TX_LIST_INVALIDATE_LS_KEY = 'count168_tx_invalidate_ts';
+    const TX_DATA_CHANGED_EVENT = 'tx-data-changed';
+
+    function refreshTransactionDataFromExternalChange() {
+        const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || '0', 10) || 0;
+        if (!invalidateTs || invalidateTs <= lastSearchCommitMs) return;
+        const dateFrom = document.getElementById('date_from')?.value;
+        const dateTo = document.getElementById('date_to')?.value;
+        if (!dateFrom || !dateTo) return;
+        if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+        const hm = document.getElementById('historyModal');
+        if (hm && (hm.style.display === 'flex' || hm.style.display === 'block')) {
+            hm.style.display = 'none';
+        }
+        const key = buildTxListSessionKey();
+        if (key) {
+            try {
+                sessionStorage.removeItem(key);
+            } catch (e2) { /* ignore */ }
+        }
+        searchTransactions(false, { silent: true });
+    }
 
     function buildTxListSessionKey() {
         const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;

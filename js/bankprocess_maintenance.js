@@ -32,6 +32,18 @@
             updateDeleteButtonState();
         }
 
+        function notifyTransactionDataChanged() {
+            const ts = String(Date.now());
+            try {
+                localStorage.setItem('count168_tx_invalidate_ts', ts);
+            } catch (eInv) { /* ignore */ }
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                try {
+                    window.dispatchEvent(new CustomEvent('tx-data-changed', { detail: { ts: ts, source: 'bankprocess_maintenance_delete' } }));
+                } catch (eEvt) { /* ignore */ }
+            }
+        }
+
         function escapeHtml(str) {
             if (str === null || str === undefined) return '';
             return String(str)
@@ -420,9 +432,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            try {
-                                localStorage.setItem('count168_tx_invalidate_ts', String(Date.now()));
-                            } catch (eInv) { /* ignore */ }
+                            notifyTransactionDataChanged();
                             showNotification(data.message || `Deleted ${transactionIds.length} record(s)`, 'success');
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;

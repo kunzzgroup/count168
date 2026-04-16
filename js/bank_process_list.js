@@ -19,6 +19,18 @@ let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
 const pendingResendScheduleByProcessId = {};
 
+function notifyTransactionDataChanged(sourceTag) {
+    const ts = String(Date.now());
+    try {
+        localStorage.setItem('count168_tx_invalidate_ts', ts);
+    } catch (eInv) { /* ignore */ }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        try {
+            window.dispatchEvent(new CustomEvent('tx-data-changed', { detail: { ts: ts, source: sourceTag || 'bank_process_list' } }));
+        } catch (eEvt) { /* ignore */ }
+    }
+}
+
 function sortBankProcessesBySupplier() {
     if (!Array.isArray(processes) || processes.length === 0) return;
     processes.sort(function (a, b) {
@@ -1553,9 +1565,7 @@ async function postAccountingInboxToTransaction() {
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
-            try {
-                localStorage.setItem('count168_tx_invalidate_ts', String(Date.now()));
-            } catch (eInv) { /* ignore */ }
+            notifyTransactionDataChanged('bank_accounting_due_post');
             showNotification(result.message || 'Posted successfully.', 'success');
             closeAccountingInbox();
             loadAccountingInbox();
@@ -1666,9 +1676,7 @@ async function postToTransactionSelected() {
         });
         const result = await response.json();
         if (result.success) {
-            try {
-                localStorage.setItem('count168_tx_invalidate_ts', String(Date.now()));
-            } catch (eInv) { /* ignore */ }
+            notifyTransactionDataChanged('bank_list_bulk_post');
             showNotification(result.message || 'Posted successfully', 'success');
             updateDeleteButton();
             fetchProcesses();
