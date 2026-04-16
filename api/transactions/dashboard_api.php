@@ -553,9 +553,38 @@ try {
                     $ownerTypeStr = 'user';
                 }
 
-                $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?");
-                $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
-                $pct = $stmtPct->fetchColumn();
+                $stmtPct = $pdo->prepare("
+                    SELECT COALESCE(SUM(
+                        CASE 
+                            WHEN co.entity_type = 'account' THEN co.percentage
+                            WHEN co.entity_type = 'group' THEN (co.percentage * gea.percentage / 100.0)
+                            ELSE 0 
+                        END
+                    ), 0) AS total_pct
+                    FROM company_ownership co
+                    LEFT JOIN group_earnings_allocation gea 
+                        ON co.entity_type = 'group' 
+                        AND co.group_id = gea.group_id 
+                        AND gea.account_id = ? 
+                        AND gea.owner_type = ?
+                    WHERE co.company_id = ? 
+                      AND (
+                          (co.entity_type = 'account' AND co.account_id = ? AND co.owner_type = ?)
+                          OR 
+                          (co.entity_type = 'group' AND gea.account_id IS NOT NULL)
+                      )
+                ");
+                
+                try {
+                    $stmtPct->execute([$userId, $ownerTypeStr, $company_id, $userId, $ownerTypeStr]);
+                    $pct = $stmtPct->fetchColumn();
+                } catch (PDOException $ex) {
+                    // Fallback if group_earnings_allocation doesn't exist yet
+                    $stmtPctFallback = $pdo->prepare("SELECT SUM(percentage) FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ? AND entity_type = 'account'");
+                    $stmtPctFallback->execute([$company_id, $userId, $ownerTypeStr]);
+                    $pct = $stmtPctFallback->fetchColumn();
+                }
+
                 if ($pct !== false) {
                     $ownership_percentage = (float) $pct;
                 }

@@ -252,6 +252,7 @@ function renderCompanyCards() {
             switch (action) {
                 case 'toggle': toggleCard(id, e); break;
                 case 'add-row': addAccountRow(id); break;
+                case 'add-group-row': addGroupRow(id); break;
                 case 'cancel': cancelEdit(id); break;
                 case 'confirm': confirmEdit(id); break;
                 case 'link-partner': linkExternalPartner(id, e); break;
@@ -299,7 +300,9 @@ function loadCompanyData(companyId) {
         companyStates[companyId] = {
             accounts: accountsRes.status === 'success' ? accountsRes.data : [],
             rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
-                account_id: o.account_id,
+                entity_type: o.entity_type || 'account',
+                account_id: o.account_id || null,
+                group_id: o.group_id || null,
                 percentage: parseFloat(o.percentage),
                 role: o.role || '',
                 user_raw_id: o.user_raw_id || null,
@@ -347,22 +350,43 @@ function createRowElement(companyId, idx, rowData) {
     const div = frag.querySelector('.own-account-row');
     div.dataset.index = idx;
 
-    // Populate account select
+    // Select element vs Group Input logic
+    const selectWrap = $(div, 'account-select').parentNode;
     const select = $(div, 'account-select');
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = '';
-    defaultOpt.textContent = '-- SELECT ACCOUNT --';
-    select.appendChild(defaultOpt);
+    const groupInput = $(div, 'group-input');
+    const badgeAcc = $(div, 'badge');
+    
+    if (rowData.entity_type === 'group') {
+        select.style.display = 'none';
+        groupInput.style.display = 'block';
+        groupInput.value = rowData.group_id || '';
+        badgeAcc.style.display = 'flex';
+        badgeAcc.textContent = 'Group';
+        badgeAcc.className = 'own-badge-group';
+        
+        groupInput.addEventListener('input', () => updateRowData(companyId, idx, 'group_id', groupInput.value));
+    } else {
+        select.style.display = 'block';
+        groupInput.style.display = 'none';
+        badgeAcc.style.display = 'flex';
+        badgeAcc.textContent = 'Account';
+        badgeAcc.className = 'own-badge-account';
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- SELECT ACCOUNT --';
+        select.appendChild(defaultOpt);
 
-    companyStates[companyId].accounts.forEach(acc => {
-        const opt = document.createElement('option');
-        opt.value = acc.id;
-        const mainStr = parseInt(acc.is_main_owner) === 1 ? ' - Main' : '';
-        opt.textContent = `${acc.account_name} (${acc.name})${mainStr}`;
-        if (acc.id == rowData.account_id) opt.selected = true;
-        select.appendChild(opt);
-    });
-    select.addEventListener('change', () => updateRowData(companyId, idx, 'account_id', select.value));
+        companyStates[companyId].accounts.forEach(acc => {
+            const opt = document.createElement('option');
+            opt.value = acc.id;
+            const mainStr = parseInt(acc.is_main_owner) === 1 ? ' - Main' : '';
+            opt.textContent = `${acc.account_name} (${acc.name})${mainStr}`;
+            if (acc.id == rowData.account_id) opt.selected = true;
+            select.appendChild(opt);
+        });
+        select.addEventListener('change', () => updateRowData(companyId, idx, 'account_id', select.value));
+    }
 
     // Percentage input
     const input = $(div, 'percent-input');
@@ -376,7 +400,7 @@ function createRowElement(companyId, idx, rowData) {
     slider.id = `slider-${companyId}-${idx}`;
     slider.addEventListener('input', () => updateInputFromSlider(companyId, idx, slider.value));
 
-    // Action buttons (via event delegation — only delete now)
+    // Action buttons
     div.addEventListener('click', (e) => {
         const action = e.target.closest('[data-action]')?.dataset.action;
         if (!action) return;
@@ -385,12 +409,12 @@ function createRowElement(companyId, idx, rowData) {
         }
     });
 
-    // Read Only toggle: show for Partnership users OR External Partners
+    // Read Only toggle: show for Partnership users OR External Partners (NOT groups)
     const badge = $(div, 'read-only-badge');
     const roCheck = $(div, 'read-only-check');
 
     const isPartnership = (rowData.role || '').toLowerCase() === 'partnership';
-    const showToggle = isPartnership || rowData.is_external_partner;
+    const showToggle = rowData.entity_type !== 'group' && (isPartnership || rowData.is_external_partner);
 
     if (badge && roCheck) {
         badge.style.display = 'flex';
@@ -401,7 +425,6 @@ function createRowElement(companyId, idx, rowData) {
 
             roCheck.addEventListener('change', () => {
                 companyStates[companyId].rows[idx].read_only = roCheck.checked ? 1 : 0;
-                // Immediate API call removed, this will be saved on confirm
             });
         }
     }
@@ -498,7 +521,12 @@ function createRowElement(companyId, idx, rowData) {
 // ---------------------------------------------
 
 function addAccountRow(companyId) {
-    companyStates[companyId].rows.push({ account_id: '', percentage: 0, role: '', user_raw_id: null, read_only: 1 });
+    companyStates[companyId].rows.push({ entity_type: 'account', account_id: '', group_id: null, percentage: 0, role: '', user_raw_id: null, read_only: 1 });
+    renderCardBodyRows(companyId);
+}
+
+function addGroupRow(companyId) {
+    companyStates[companyId].rows.push({ entity_type: 'group', account_id: null, group_id: '', percentage: 0, role: '', user_raw_id: null, read_only: 0 });
     renderCardBodyRows(companyId);
 }
 
@@ -628,9 +656,16 @@ function confirmEdit(companyId) {
     let hasError = false;
 
     rows.forEach(r => {
-        if (!r.account_id) {
-            hasError = true;
-            showToast('Please select an account for all rows.', 'error');
+        if (r.entity_type === 'group') {
+            if (!r.group_id || r.group_id.trim() === '') {
+                hasError = true;
+                showToast('Please specify a Group ID for all group rows.', 'error');
+            }
+        } else {
+            if (!r.account_id) {
+                hasError = true;
+                showToast('Please select an account for all account rows.', 'error');
+            }
         }
         total += parseFloat(r.percentage);
     });
@@ -638,16 +673,24 @@ function confirmEdit(companyId) {
     if (total > 100) { showToast('Total percentage exceeds 100%', 'error'); return; }
     if (hasError) return;
 
-    const accIds = rows.map(r => r.account_id);
+    // Duplicates check
+    const accIds = rows.filter(r => r.entity_type === 'account').map(r => r.account_id);
     if (accIds.some((item, idx) => accIds.indexOf(item) !== idx)) {
         showToast('Duplicate accounts detected. Please combine them.', 'error');
+        return;
+    }
+    const groupIds = rows.filter(r => r.entity_type === 'group').map(r => r.group_id);
+    if (groupIds.some((item, idx) => groupIds.indexOf(item) !== idx)) {
+        showToast('Duplicate groups detected. Please combine them.', 'error');
         return;
     }
 
     const payload = {
         company_id: companyId,
         owners: rows.map(r => ({
-            account_id: r.account_id,
+            entity_type: r.entity_type || 'account',
+            account_id: r.entity_type === 'account' ? r.account_id : null,
+            group_id: r.entity_type === 'group' ? r.group_id : null,
             percentage: parseFloat(r.percentage),
             read_only: r.read_only
         }))

@@ -37,10 +37,24 @@ if (!$company_id) {
 // Validate total percentage
 $total_percentage = 0;
 foreach ($owners as $owner) {
-    if (!isset($owner['account_id']) || !isset($owner['percentage'])) {
+    if (!isset($owner['percentage'])) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid owner data format']);
         exit();
     }
+    
+    $entity_type = $owner['entity_type'] ?? 'account';
+    if ($entity_type === 'group') {
+        if (empty($owner['group_id'])) {
+            echo json_encode(['status' => 'error', 'message' => 'Missing Group ID']);
+            exit();
+        }
+    } else {
+        if (!isset($owner['account_id'])) {
+            echo json_encode(['status' => 'error', 'message' => 'Missing Account ID']);
+            exit();
+        }
+    }
+    
     $pct = (float)$owner['percentage'];
     if ($pct <= 0 || $pct > 100) {
         echo json_encode(['status' => 'error', 'message' => 'Percentage must be between 0 and 100']);
@@ -77,8 +91,8 @@ try {
     if (count($owners) > 0) {
         if ($hasOwnerType) {
             $insertStmt = $pdo->prepare("
-                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, partner_group_id, read_only)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO company_ownership (company_id, account_id, owner_type, percentage, partner_group_id, read_only, entity_type, group_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
         } else {
             $insertStmt = $pdo->prepare("
@@ -88,6 +102,17 @@ try {
         }
         
         foreach ($owners as $owner) {
+            $entity_type = $owner['entity_type'] ?? 'account';
+            
+            if ($entity_type === 'group') {
+                if ($hasOwnerType) {
+                    $insertStmt->execute([$company_id, null, 'account', (float)$owner['percentage'], null, 0, 'group', $owner['group_id']]);
+                } else {
+                    // Pre-migration fallback (ignore groups)
+                }
+                continue;
+            }
+
             $raw_id = (string)$owner['account_id'];
             $owner_type = 'account'; // default
             $real_id = $raw_id;
@@ -113,7 +138,7 @@ try {
                         $roVal = $existingReadOnly[(int)$real_id] ?? 1;
                     }
                 }
-                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid, $roVal]);
+                $insertStmt->execute([$company_id, (int)$real_id, $owner_type, (float)$owner['percentage'], $pgid, $roVal, 'account', null]);
                 
                 // 同步 read_only 到 user 表的全局设置作为默认回退
                 if ($owner_type === 'user') {
