@@ -56,8 +56,23 @@ $assetVer = function ($file) {
             </button>
         </div>
 
+        <div id="groupEarningsWrapper" style="display: none; margin-top: 24px;">
+            <h2 class="own-section-title" style="font-family: 'Amaranth', sans-serif; font-size: 22px; color: #002C49; margin-bottom: 16px; font-weight: 600; text-transform: uppercase;">
+                GROUP EARNINGS
+            </h2>
+            <div id="groupCardsContainer">
+                <div class="own-loader-container">
+                    <div class="own-loader"></div>
+                </div>
+            </div>
+            
+            <h2 class="own-section-title" style="font-family: 'Amaranth', sans-serif; font-size: 22px; color: #002C49; margin-top: 32px; margin-bottom: 16px; font-weight: 600; text-transform: uppercase;">
+                COMPANY ALLOCATION
+            </h2>
+        </div>
+
         <!-- Companies will be injected here via JS -->
-        <div id="companyCardsContainer">
+        <div id="companyCardsContainer" style="margin-top: 16px;">
             <!-- Loader -->
             <div class="own-loader-container">
                 <div class="own-loader"></div>
@@ -138,6 +153,82 @@ $assetVer = function ($file) {
                             <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
                             <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
                                 data-action="confirm">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Group Card Template -->
+    <template id="tpl-group-card">
+        <div class="own-card">
+            <div class="own-card-header" data-action="toggle-group">
+                <div class="own-card-header-left">
+                    <div class="own-company-name" data-bind="name"></div>
+                </div>
+                <div class="own-card-header-middle">
+                    <div class="own-allocation-info">
+                        <span class="own-allocation-label">Total Allocation</span>
+                        <span class="own-allocation-percentage" data-bind="percent"></span>
+                        <span class="own-allocation-remaining" data-bind="remaining"></span>
+                    </div>
+                    <div class="own-progress-bar-container">
+                        <div class="own-progress-bar-fill" data-bind="bar"></div>
+                    </div>
+                </div>
+                <div class="own-card-header-right">
+                    <button class="own-btn-outline" data-action="toggle-group">Manage</button>
+                    <button class="own-icon-btn" data-action="toggle-group">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="own-card-body" data-bind="body">
+                <div class="own-loader-container" data-bind="loader">
+                    <div class="own-loader"></div>
+                </div>
+                <div class="own-editor-hidden" data-bind="editor">
+                    
+                    <!-- Group Equity Setting inside Editor -->
+                    <div class="own-group-equity-setting" style="margin: 0 32px 16px; padding: 20px; background: var(--own-gray-bg); border-radius: 12px; border: 1px solid var(--own-gray-border); display: flex; align-items: center; gap: 24px;">
+                        <span style="font-size: 15px; font-weight: 700; color: var(--own-dark-text); min-width: 120px;">Group Equity %</span>
+                        <div class="own-ownership-input-group" style="flex: 1;">
+                            <input type="text" class="own-percent-input" data-bind="group-eq-input">
+                            <div class="own-slider-container">
+                                <input type="range" class="own-slider" data-bind="group-eq-slider" min="0" max="100" step="1">
+                                <div class="own-slider-labels">
+                                    <span>0%</span><span>50%</span><span>100%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="own-table-headers">
+                        <div>Account</div>
+                        <div>Ownership%</div>
+                    </div>
+
+                    <div data-bind="rows-container"></div>
+
+                    <button class="own-btn-add-account" data-action="add-group-row">+ Add Account</button>
+
+                    <div class="own-card-footer">
+                        <div class="own-footer-left">
+                            <div class="own-warning-badge" data-bind="warning" style="display: none;">
+                                <span data-bind="warning-icon">⚠️</span>
+                                <span data-bind="warning-msg">Total is less than 100%</span>
+                            </div>
+                            <span class="own-unallocated-text" data-bind="footer-remain">100% Unallocated</span>
+                        </div>
+                        <div class="own-footer-right">
+                            <button class="own-footer-btn own-btn-cancel" data-action="cancel-group">Cancel</button>
+                            <button class="own-footer-btn own-btn-confirm" data-bind="confirm-btn"
+                                data-action="confirm-group">Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -226,8 +317,7 @@ $assetVer = function ($file) {
     </template>
 
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
+    <script src="js/ownership-earnings.js?v=<?php echo $assetVer('js/ownership-earnings.js'); ?>"></script>
 </body>
-
-</html>
 
 </html>
