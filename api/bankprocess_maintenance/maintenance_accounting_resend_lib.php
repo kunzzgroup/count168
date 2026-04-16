@@ -398,20 +398,28 @@ if (!function_exists('bmp_ensureAccountingResendDailyGuardTable')) {
     }
 }
 
-if (!function_exists('bmp_transactionsHasCreatedAt')) {
-    function bmp_transactionsHasCreatedAt(PDO $pdo): bool
+if (!function_exists('bmp_normalizeSqlDateYmd')) {
+    /** @param mixed $raw from DB DATE/DATETIME or string */
+    function bmp_normalizeSqlDateYmd($raw): ?string
     {
-        try {
-            return $pdo->query("SHOW COLUMNS FROM transactions LIKE 'created_at'")->rowCount() > 0;
-        } catch (Throwable $e) {
-            return false;
+        if ($raw === null) {
+            return null;
         }
+        $s = trim((string) $raw);
+        if ($s === '') {
+            return null;
+        }
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $s, $m)) {
+            return $m[1];
+        }
+        return null;
     }
 }
 
 if (!function_exists('bmp_accountingResendDailyGuardHasLiveEvidence')) {
     /**
-     * 仍视为「今日补单结果尚在」：锚日日期的入账行仍在，或当日曾为该 process 产生过入账。
+     * 仍视为「该次 Resend 锚日下的补单结果尚在」：仅看与 resend_day_start 同一天的入账行
+     * （与 Maintenance 按 transaction_date 筛选一致）。不再用「当日任意该 process 交易」以免删单后仍误拦。
      */
     function bmp_accountingResendDailyGuardHasLiveEvidence(
         PDO $pdo,
@@ -419,6 +427,9 @@ if (!function_exists('bmp_accountingResendDailyGuardHasLiveEvidence')) {
         int $bankProcessId,
         string $resendDayStartYmd
     ): bool {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendDayStartYmd)) {
+            return false;
+        }
         $stmt = $pdo->prepare(
             "SELECT 1
              FROM transactions t
@@ -430,24 +441,7 @@ if (!function_exists('bmp_accountingResendDailyGuardHasLiveEvidence')) {
              LIMIT 1"
         );
         $stmt->execute([$companyId, $bankProcessId, $resendDayStartYmd]);
-        if ($stmt->fetchColumn()) {
-            return true;
-        }
-        if (bmp_transactionsHasCreatedAt($pdo)) {
-            $stmt2 = $pdo->prepare(
-                "SELECT 1
-                 FROM transactions t
-                 INNER JOIN account a ON t.account_id = a.id
-                 INNER JOIN account_company ac ON a.id = ac.account_id
-                 WHERE ac.company_id = ?
-                   AND t.source_bank_process_id = ?
-                   AND DATE(t.created_at) = CURDATE()
-                 LIMIT 1"
-            );
-            $stmt2->execute([$companyId, $bankProcessId]);
-            return (bool) $stmt2->fetchColumn();
-        }
-        return false;
+        return (bool) $stmt->fetchColumn();
     }
 }
 
@@ -472,8 +466,8 @@ if (!function_exists('bmp_pruneStaleAccountingResendDailyGuardsForProcess')) {
              WHERE company_id = ? AND bank_process_id = ? AND guard_date = CURDATE() AND resend_day_start = ?"
         );
         foreach ($days as $ds) {
-            $ymd = is_string($ds) ? $ds : (string) $ds;
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+            $ymd = bmp_normalizeSqlDateYmd($ds);
+            if ($ymd === null) {
                 continue;
             }
             if (!bmp_accountingResendDailyGuardHasLiveEvidence($pdo, $companyId, $bankProcessId, $ymd)) {
