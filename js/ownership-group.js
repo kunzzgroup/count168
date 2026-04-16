@@ -1,11 +1,11 @@
-(function() {
+(function () {
 
-    window.initGroupEarnings = function() { 
-        if(window._geInitialized) return; 
-        window._geInitialized = true; 
+    window.initGroupEarnings = function () {
+        if (window._geInitialized) return;
+        window._geInitialized = true;
         fetchCompanies(); // this is the cloned function name inside our IIFE
     };
-    
+
     fetchCompanies();
 
     // Close group dropdowns when clicking anywhere outside the button wrap.
@@ -15,221 +15,221 @@
             document.querySelectorAll('.own-group-panel.open')
                 .forEach(p => p.classList.remove('open'));
         }
-    
 
-});
 
-let geGroupsData = [];     // currently-filtered list (what's visible)
-let geAllGroupIds = [];  // full unfiltered list (all companies)
-let geGroupStates = {};
-let geCurrentlyExpandedId = null;
-let geUniqueGroupIds = []; // unique group IDs extracted from geAllGroupIds
+    });
 
-let geDraggedRowIdx = null;
-let geDraggedGroupId = null;
+    let geGroupsData = [];     // currently-filtered list (what's visible)
+    let geAllGroupIds = [];  // full unfiltered list (all companies)
+    let geGroupStates = {};
+    let geCurrentlyExpandedId = null;
+    let geUniqueGroupIds = []; // unique group IDs extracted from geAllGroupIds
 
-// ── Multi-select state ────────────────────────────────────────────
-const geSelectedGroupIds = new Set(); // IDs of checked independent companies
-let geSelectionMode = false;            // true = clicking a card selects it
+    let geDraggedRowIdx = null;
+    let geDraggedGroupId = null;
 
-// ── Group filter state ────────────────────────────────────────────
-// null = show independent companies; string = show that group's companies
-let window.geGroupEquityMap = {}; window.geRawGroups = {};
+    // ── Multi-select state ────────────────────────────────────────────
+    const geSelectedGroupIds = new Set(); // IDs of checked independent companies
+    let geSelectionMode = false;            // true = clicking a card selects it
+
+    // ── Group filter state ────────────────────────────────────────────
+    // null = show independent companies; string = show that group's companies
+    let window.geGroupEquityMap = {}; window.geRawGroups = {};
     geActiveGroupFilter = null;
 
-// Template references (cached on first use)
-const tpl = {
-    card: () => document.getElementById('tpl-group-card'),
-    row: () => document.getElementById('tpl-account-row')
-};
+    // Template references (cached on first use)
+    const tpl = {
+        card: () => document.getElementById('tpl-group-card'),
+        row: () => document.getElementById('tpl-account-row')
+    };
 
-// Helper: query inside a cloned template fragment by data-bind
-function $(el, bind) {
-    return el.querySelector(`[data-bind="${bind}"]`);
-}
-
-// ---------------------------------------------
-// Data Fetching
-// ---------------------------------------------
-
-function fetchCompanies() {
-    const container = document.getElementById('groupCardsContainer');
-    container.textContent = '';
-    const loaderWrap = document.createElement('div');
-    loaderWrap.className = 'own-loader-container';
-    loaderWrap.appendChild(document.createElement('div')).className = 'own-loader';
-    container.appendChild(loaderWrap);
-
-    // Always fetch the full unfiltered list — we filter client-side via the group bar
-    // Use ownership API (includes allocated_percentage) with all=1 to bypass session filter
-    fetch('api/ownership/get_group_ownership_api.php')
-        .then(r => r.json())
-        .then(res => {
-            if (res.status !== 'success') {
-                showToast(res.message || 'Failed to load companies', 'error');
-                return;
-            }
-            geAllGroupIds = Object.keys(res.data.groups).map(k => ({id: k, name: k, group_id: k})); geGroupEquityMap = res.data.equities; geRawGroups = res.data.groups;
-            _rebuildGroupIds();
-            _applyGroupFilter();   // sets geGroupsData then renders
-            _renderGroupFilterBar();
-        })
-        .catch(err => {
-            console.error(err);
-            showToast('Failed to fetch companies', 'error');
-        });
-}
-
-// ---------------------------------------------
-// Card Rendering (template-based)
-// ---------------------------------------------
-
-function renderGroupCards() {
-    const container = document.getElementById('groupCardsContainer');
-    container.innerHTML = '';
-
-    // Clear selection whenever cards re-render (data may have changed)
-    geSelectedGroupIds.clear();
-    _updateBulkBar();
-
-    if (geGroupsData.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'own-empty-state';
-        empty.textContent = 'No companies found.';
-        container.appendChild(empty);
-        return;
+    // Helper: query inside a cloned template fragment by data-bind
+    function $(el, bind) {
+        return el.querySelector(`[data-bind="${bind}"]`);
     }
 
-    geGroupsData.forEach(comp => {
-        const alloc = parseFloat(comp.allocated_percentage) || 0;
-        const remaining = Math.max(0, 100 - alloc);
-        const id = comp.id;
-        const groupId = comp.group_id || null;
+    // ---------------------------------------------
+    // Data Fetching
+    // ---------------------------------------------
 
-        // Clone card template
-        const frag = tpl.card().content.cloneNode(true);
-        const card = frag.querySelector('.own-card');
-        card.id = `card-${id}`;
-        if (groupId) card.dataset.groupId = groupId;
+    function fetchCompanies() {
+        const container = document.getElementById('groupCardsContainer');
+        container.textContent = '';
+        const loaderWrap = document.createElement('div');
+        loaderWrap.className = 'own-loader-container';
+        loaderWrap.appendChild(document.createElement('div')).className = 'own-loader';
+        container.appendChild(loaderWrap);
 
-        // Fill data bindings
-        $(card, 'name').textContent = comp.name;
-        
-        const dateEl = $(card, 'date');
-        if (dateEl) {
-            if (comp.expiration_date) {
-                const expStr = comp.expiration_date.split(' ')[0];
-                const expDate = new Date(expStr);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+        // Always fetch the full unfiltered list — we filter client-side via the group bar
+        // Use ownership API (includes allocated_percentage) with all=1 to bypass session filter
+        fetch('api/ownership/get_group_ownership_api.php')
+            .then(r => r.json())
+            .then(res => {
+                if (res.status !== 'success') {
+                    showToast(res.message || 'Failed to load companies', 'error');
+                    return;
+                }
+                geAllGroupIds = Object.keys(res.data.groups).map(k => ({ id: k, name: k, group_id: k })); geGroupEquityMap = res.data.equities; geRawGroups = res.data.groups;
+                _rebuildGroupIds();
+                _applyGroupFilter();   // sets geGroupsData then renders
+                _renderGroupFilterBar();
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Failed to fetch companies', 'error');
+            });
+    }
 
-                // Color coding: expired = red, ≤30 days = amber, else = gray
-                let cls = '';
-                if (daysLeft < 0) cls = 'own-date-expired';
-                else if (daysLeft <= 30) cls = 'own-date-warning';
+    // ---------------------------------------------
+    // Card Rendering (template-based)
+    // ---------------------------------------------
 
-                dateEl.innerHTML = `
+    function renderGroupCards() {
+        const container = document.getElementById('groupCardsContainer');
+        container.innerHTML = '';
+
+        // Clear selection whenever cards re-render (data may have changed)
+        geSelectedGroupIds.clear();
+        _updateBulkBar();
+
+        if (geGroupsData.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'own-empty-state';
+            empty.textContent = 'No companies found.';
+            container.appendChild(empty);
+            return;
+        }
+
+        geGroupsData.forEach(comp => {
+            const alloc = parseFloat(comp.allocated_percentage) || 0;
+            const remaining = Math.max(0, 100 - alloc);
+            const id = comp.id;
+            const groupId = comp.group_id || null;
+
+            // Clone card template
+            const frag = tpl.card().content.cloneNode(true);
+            const card = frag.querySelector('.own-card');
+            card.id = `card-${id}`;
+            if (groupId) card.dataset.groupId = groupId;
+
+            // Fill data bindings
+            $(card, 'name').textContent = comp.name;
+
+            const dateEl = $(card, 'date');
+            if (dateEl) {
+                if (comp.expiration_date) {
+                    const expStr = comp.expiration_date.split(' ')[0];
+                    const expDate = new Date(expStr);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+                    // Color coding: expired = red, ≤30 days = amber, else = gray
+                    let cls = '';
+                    if (daysLeft < 0) cls = 'own-date-expired';
+                    else if (daysLeft <= 30) cls = 'own-date-warning';
+
+                    dateEl.innerHTML = `
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                     </svg>
                     ${expStr}`;
-                if (cls) dateEl.classList.add(cls);
-            } else {
-                dateEl.textContent = '';
+                    if (cls) dateEl.classList.add(cls);
+                } else {
+                    dateEl.textContent = '';
+                }
             }
-        }
-        const pctEl = $(card, 'percent');
-        pctEl.textContent = `${alloc}%`;
-        pctEl.id = `header-percent-${id}`;
+            const pctEl = $(card, 'percent');
+            pctEl.textContent = `${alloc}%`;
+            pctEl.id = `header-percent-${id}`;
 
-        const remEl = $(card, 'remaining');
-        remEl.textContent = `${remaining}% Remaining`;
-        remEl.id = `header-remain-${id}`;
+            const remEl = $(card, 'remaining');
+            remEl.textContent = `${remaining}% Remaining`;
+            remEl.id = `header-remain-${id}`;
 
-        const barEl = $(card, 'bar');
-        barEl.style.width = `${Math.min(alloc, 100)}%`;
-        barEl.id = `header-bar-${id}`;
+            const barEl = $(card, 'bar');
+            barEl.style.width = `${Math.min(alloc, 100)}%`;
+            barEl.id = `header-bar-${id}`;
 
-        // Body IDs
-        $(card, 'body').id = `card-body-${id}`;
-        $(card, 'loader').id = `loader-${id}`;
-        $(card, 'editor').id = `editor-${id}`;
-        $(card, 'rows-container').id = `rows-container-${id}`;
-        $(card, 'partner-input').id = `partner-login-${id}`;
-        $(card, 'warning').id = `warning-${id}`;
-        $(card, 'warning-msg').id = `warning-msg-${id}`;
-        $(card, 'footer-remain').id = `footer-remain-${id}`;
-        $(card, 'confirm-btn').id = `confirm-btn-${id}`;
+            // Body IDs
+            $(card, 'body').id = `card-body-${id}`;
+            $(card, 'loader').id = `loader-${id}`;
+            $(card, 'editor').id = `editor-${id}`;
+            $(card, 'rows-container').id = `rows-container-${id}`;
+            $(card, 'partner-input').id = `partner-login-${id}`;
+            $(card, 'warning').id = `warning-${id}`;
+            $(card, 'warning-msg').id = `warning-msg-${id}`;
+            $(card, 'footer-remain').id = `footer-remain-${id}`;
+            $(card, 'confirm-btn').id = `confirm-btn-${id}`;
 
-        // ── In selection mode: mark selectable cards ─────────────────
-        // Independent cards selectable for grouping; grouped cards selectable for ungrouping
-        if (geUniqueGroupIds.length > 0) {
-            if (!groupId || geActiveGroupFilter !== null) {
-                card.dataset.selectable = 'true';
+            // ── In selection mode: mark selectable cards ─────────────────
+            // Independent cards selectable for grouping; grouped cards selectable for ungrouping
+            if (geUniqueGroupIds.length > 0) {
+                if (!groupId || geActiveGroupFilter !== null) {
+                    card.dataset.selectable = 'true';
+                }
             }
-        }
 
-        // ── Group management buttons in header-right ──────────────────
-        const headerRight = card.querySelector('.own-card-header-right');
-        if (headerRight && geUniqueGroupIds.length > 0) {
-            if (!groupId) {
-                // Feature 1: Independent company → "+ Group" button with dropdown
-                const wrap = document.createElement('div');
-                wrap.className = 'own-group-btn-wrap';
+            // ── Group management buttons in header-right ──────────────────
+            const headerRight = card.querySelector('.own-card-header-right');
+            if (headerRight && geUniqueGroupIds.length > 0) {
+                if (!groupId) {
+                    // Feature 1: Independent company → "+ Group" button with dropdown
+                    const wrap = document.createElement('div');
+                    wrap.className = 'own-group-btn-wrap';
 
-                
-    const joinBtn = document.createElement("button");
-    const ungroupBtn = document.createElement("button");
-    joinBtn.style.display = "none";
-    ungroupBtn.style.display = "none";
+
+                    const joinBtn = document.createElement("button");
+                    const ungroupBtn = document.createElement("button");
+                    joinBtn.style.display = "none";
+                    ungroupBtn.style.display = "none";
 );
-                headerRight.insertBefore(ungroupBtn, headerRight.firstChild);
+        headerRight.insertBefore(ungroupBtn, headerRight.firstChild);
 
-                // Show group badge INSIDE .own-company-name (flex row) — not after it
-                const nameEl = $(card, 'name');
-                const badge = document.createElement('span');
-                badge.className = 'own-group-badge';
-                badge.textContent = groupId;
-                nameEl.appendChild(badge);
-            }
-        }
+        // Show group badge INSIDE .own-company-name (flex row) — not after it
+        const nameEl = $(card, 'name');
+        const badge = document.createElement('span');
+        badge.className = 'own-group-badge';
+        badge.textContent = groupId;
+        nameEl.appendChild(badge);
+    }
+}
         // ──────────────────────────────────────────────────────────────
 
         // Bind actions via event delegation
         card.addEventListener('click', (e) => {
-            // Selection mode: clicking anywhere on a selectable card toggles it
-            if (geSelectionMode && card.dataset.selectable === 'true') {
-                // Allow buttons inside (+ Group, Ungroup, Manage) to still work normally
-                if (e.target.closest('button, .own-group-panel')) return;
-                e.stopPropagation();
-                const isSelected = geSelectedGroupIds.has(id);
-                if (isSelected) {
-                    geSelectedGroupIds.delete(id);
-                    card.classList.remove('own-selected', 'own-ungroup-select');
-                } else {
-                    geSelectedGroupIds.add(id);
-                    card.classList.add('own-selected');
-                    // Red tint for ungroup selection
-                    if (geActiveGroupFilter !== null) card.classList.add('own-ungroup-select');
-                }
-                _updateBulkBar();
-                return;
-            }
+    // Selection mode: clicking anywhere on a selectable card toggles it
+    if (geSelectionMode && card.dataset.selectable === 'true') {
+        // Allow buttons inside (+ Group, Ungroup, Manage) to still work normally
+        if (e.target.closest('button, .own-group-panel')) return;
+        e.stopPropagation();
+        const isSelected = geSelectedGroupIds.has(id);
+        if (isSelected) {
+            geSelectedGroupIds.delete(id);
+            card.classList.remove('own-selected', 'own-ungroup-select');
+        } else {
+            geSelectedGroupIds.add(id);
+            card.classList.add('own-selected');
+            // Red tint for ungroup selection
+            if (geActiveGroupFilter !== null) card.classList.add('own-ungroup-select');
+        }
+        _updateBulkBar();
+        return;
+    }
 
-            const action = e.target.closest('[data-action]')?.dataset.action;
-            if (!action) return;
-            e.stopPropagation();
-            switch (action) {
-                case 'toggle': toggleCard(id, e); break;
-                case 'add-row': addAccountRow(id); break;
-                case 'cancel': cancelEdit(id); break;
-                case 'confirm': confirmEdit(id); break;
-                case 'link-partner': linkExternalPartner(id, e); break;
-            }
-        });
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (!action) return;
+    e.stopPropagation();
+    switch (action) {
+        case 'toggle': toggleCard(id, e); break;
+        case 'add-row': addAccountRow(id); break;
+        case 'cancel': cancelEdit(id); break;
+        case 'confirm': confirmEdit(id); break;
+        case 'link-partner': linkExternalPartner(id, e); break;
+    }
+});
 
-        container.appendChild(frag);
+container.appendChild(frag);
     });
 }
 
@@ -262,7 +262,7 @@ function loadGroupData(groupId) {
 
     Promise.all([
         fetch('api/ownership/get_available_accounts_api.php').then(r => r.json()),
-        Promise.resolve({json:()=>({status:"success", data:[]})}).then(r => r.json())
+        Promise.resolve({ json: () => ({ status: "success", data: [] }) }).then(r => r.json())
     ]).then(([accountsRes, ownersRes]) => {
         loader.style.display = 'none';
         editor.classList.remove('own-editor-hidden');
@@ -425,7 +425,7 @@ function createRowElement(groupId, idx, rowData) {
         div.style.borderTop = '';
         div.style.borderBottom = '';
         div.style.transform = '';
-        
+
         if (geDraggedGroupId !== groupId || geDraggedRowIdx === null) return;
         if (geDraggedRowIdx === idx) return;
 
@@ -435,14 +435,14 @@ function createRowElement(groupId, idx, rowData) {
 
         const rows = geGroupStates[groupId].rows;
         const [movedRow] = rows.splice(geDraggedRowIdx, 1);
-        
+
         let newIdx = idx;
         if (geDraggedRowIdx < idx) {
             newIdx = insertAfter ? idx : idx - 1;
         } else {
             newIdx = insertAfter ? idx + 1 : idx;
         }
-        
+
         rows.splice(newIdx, 0, movedRow);
         renderCardBodyRows(groupId);
     });
@@ -452,7 +452,7 @@ function createRowElement(groupId, idx, rowData) {
         div.removeAttribute('draggable');
         geDraggedRowIdx = null;
         geDraggedGroupId = null;
-        
+
         const allRows = document.querySelectorAll(`#rows-container-${groupId} .own-account-row`);
         allRows.forEach(r => {
             r.style.borderTop = '';
@@ -633,25 +633,25 @@ function confirmEdit(groupId) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(res => res.json())
-    .then(res => {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm';
-        if (res.status === 'success') {
-            showToast(res.message, 'success');
-            const compIdx = geGroupsData.findIndex(c => parseInt(c.id) === groupId);
-            if (compIdx >= 0) geGroupsData[compIdx].allocated_percentage = total;
-            cancelEdit(groupId, true);
-        } else {
-            showToast(res.message, 'error');
-        }
-    })
-    .catch(err => {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm';
-        console.error(err);
-        showToast('Server error', 'error');
-    });
+        .then(res => res.json())
+        .then(res => {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirm';
+            if (res.status === 'success') {
+                showToast(res.message, 'success');
+                const compIdx = geGroupsData.findIndex(c => parseInt(c.id) === groupId);
+                if (compIdx >= 0) geGroupsData[compIdx].allocated_percentage = total;
+                cancelEdit(groupId, true);
+            } else {
+                showToast(res.message, 'error');
+            }
+        })
+        .catch(err => {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirm';
+            console.error(err);
+            showToast('Server error', 'error');
+        });
 }
 
 // ---------------------------------------------
@@ -954,20 +954,20 @@ function joinGroupGroup(groupId, groupId, companyName) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ company_id: groupId, group_id: groupId })
     })
-    .then(res => res.json())
-    .then(res => {
-        if (res.status === 'success') {
-            showToast(`"${companyName}" joined group "${groupId}"`, 'success');
-            // Re-fetch from server so the list immediately reflects the new group context
-            fetchCompanies();
-        } else {
-            showToast(res.message, 'error');
-        }
-    })
-    .catch(err => {
-        console.error(err);
-        showToast('Server error', 'error');
-    });
+        .then(res => res.json())
+        .then(res => {
+            if (res.status === 'success') {
+                showToast(`"${companyName}" joined group "${groupId}"`, 'success');
+                // Re-fetch from server so the list immediately reflects the new group context
+                fetchCompanies();
+            } else {
+                showToast(res.message, 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Server error', 'error');
+        });
 }
 
 function ungroupGroup(groupId, companyName) {
@@ -976,20 +976,20 @@ function ungroupGroup(groupId, companyName) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ company_id: groupId, group_id: null })
     })
-    .then(res => res.json())
-    .then(res => {
-        if (res.status === 'success') {
-            showToast(`"${companyName}" removed from group`, 'success');
-            // Re-fetch from server so the list immediately reflects the new group context
-            fetchCompanies();
-        } else {
-            showToast(res.message, 'error');
-        }
-    })
-    .catch(err => {
-        console.error(err);
-        showToast('Server error', 'error');
-    });
+        .then(res => res.json())
+        .then(res => {
+            if (res.status === 'success') {
+                showToast(`"${companyName}" removed from group`, 'success');
+                // Re-fetch from server so the list immediately reflects the new group context
+                fetchCompanies();
+            } else {
+                showToast(res.message, 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Server error', 'error');
+        });
 }
 
 function linkExternalPartner(groupId, event, forceType = '') {
@@ -1006,27 +1006,27 @@ function linkExternalPartner(groupId, event, forceType = '') {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ company_id: groupId, login_id: loginId, force_type: forceType })
     })
-    .then(res => res.json())
-    .then(res => {
-        btn.disabled = false;
-        btn.textContent = 'Link Partner';
-        if (res.status === 'success') {
-            showToast(res.message, 'success');
-            loginIdInput.value = '';
-            cancelEdit(groupId, true);
-            setTimeout(() => toggleCard(groupId, null), 300);
-        } else if (res.status === 'conflict') {
-            showConflictModal(groupId, event, res.data);
-        } else {
-            showToast(res.message, 'error');
-        }
-    })
-    .catch(err => {
-        btn.disabled = false;
-        btn.textContent = 'Link Partner';
-        console.error(err);
-        showToast('Server error', 'error');
-    });
+        .then(res => res.json())
+        .then(res => {
+            btn.disabled = false;
+            btn.textContent = 'Link Partner';
+            if (res.status === 'success') {
+                showToast(res.message, 'success');
+                loginIdInput.value = '';
+                cancelEdit(groupId, true);
+                setTimeout(() => toggleCard(groupId, null), 300);
+            } else if (res.status === 'conflict') {
+                showConflictModal(groupId, event, res.data);
+            } else {
+                showToast(res.message, 'error');
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = 'Link Partner';
+            console.error(err);
+            showToast('Server error', 'error');
+        });
 }
 
 // ---------------------------------------------
@@ -1036,13 +1036,13 @@ function linkExternalPartner(groupId, event, forceType = '') {
 function showConflictModal(groupId, event, data) {
     const tpl = document.getElementById('tpl-conflict-modal');
     if (!tpl) return;
-    
+
     const clone = tpl.content.cloneNode(true);
     const overlay = clone.querySelector('.own-modal-overlay');
 
     // Populate data
     clone.querySelector('[data-bind="login-name"]').textContent = data.login_partner;
-    clone.querySelector('[data-bind="group-name"]').textContent = 'Group: ' + data.group_partner;
+    clone.querySelector('[data-bind="group-name"]').textContent = data.group_partner;
 
     // Attach events
     clone.querySelector('[data-action="choose-login"]').addEventListener('click', () => {
@@ -1066,4 +1066,4 @@ function showConflictModal(groupId, event, data) {
     document.body.appendChild(overlay);
 }
 
-})();
+}) ();

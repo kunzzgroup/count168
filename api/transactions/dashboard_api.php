@@ -574,43 +574,6 @@ try {
         // ignore
     }
 
-    // ── Group Equity multiplier ──────────────────────────────────────────
-    // If this company belongs to a group with a configured equity_percentage,
-    // Dashboard Earnings = NET PROFIT × Group equity% × Account ownership% (from group_ownership or company_ownership)
-    try {
-        $hasGroupEquity = $pdo->query("SHOW TABLES LIKE 'group_equity'")->rowCount() > 0;
-        $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
-        if ($hasGroupEquity) {
-            $stmtGroup = $pdo->prepare("SELECT c.group_id, ge.equity_percentage FROM company c INNER JOIN group_equity ge ON c.group_id = ge.group_id WHERE c.id = ?");
-            $stmtGroup->execute([$company_id]);
-            $groupRow = $stmtGroup->fetch(PDO::FETCH_ASSOC);
-            
-            if ($groupRow && (float)$groupRow['equity_percentage'] > 0) {
-                $group_equity = (float)$groupRow['equity_percentage'];
-                $group_id = $groupRow['group_id'];
-                
-                // Fetch group_ownership% if available for this specific account
-                $group_acc_pct = null;
-                if ($hasGroupOwnership && isset($userType) && $userType !== 'member') {
-                    $ownerTypeStrFixed = ($userType === 'owner') ? 'owner' : 'user';
-                    $stmtGrpAcc = $pdo->prepare("SELECT percentage FROM group_ownership WHERE group_id = ? AND account_id = ? AND owner_type = ?");
-                    $stmtGrpAcc->execute([$group_id, $userId, $ownerTypeStrFixed]);
-                    $fetchedGrpPct = $stmtGrpAcc->fetchColumn();
-                    if ($fetchedGrpPct !== false) {
-                        $group_acc_pct = (float)$fetchedGrpPct;
-                    }
-                }
-                
-                // Use group account % if explicitly set, else fallback to the previously fetched company account %
-                $base_acc_pct = ($group_acc_pct !== null) ? $group_acc_pct : $ownership_percentage;
-                // Calculate combined percentage
-                $ownership_percentage = ($group_equity * $base_acc_pct) / 100;
-            }
-        }
-    } catch (Throwable $e) {
-        // ignore — tables may not exist yet
-    }
-
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
     echo json_encode([
         'success' => true,
