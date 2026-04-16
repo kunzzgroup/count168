@@ -128,6 +128,11 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
         if ($fq === 'monthly' || $fq === '1st_of_every_month') {
             $row['day_start_frequency'] = $fq;
         }
+        if (!$hadScheduleStart && !empty($row['accounting_resend_relax_created_floor'])
+            && ($fq === 'monthly' || $fq === '1st_of_every_month')) {
+            // Resend stored frequency but left schedule_day_start NULL: still one anchor month for this relax session.
+            $row['accounting_resend_single_period_from_schedule'] = 1;
+        }
         unset(
             $row['accounting_resend_schedule_day_start'],
             $row['accounting_resend_schedule_day_end'],

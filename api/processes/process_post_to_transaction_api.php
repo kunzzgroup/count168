@@ -1273,7 +1273,7 @@ try {
         if ($periodType === 'monthly'
             && $has_period_type
             && !empty($p['accounting_resend_single_period_from_schedule'])
-            && $frequency === '1st_of_every_month') {
+            && ($frequency === '1st_of_every_month' || $frequency === 'monthly')) {
             $storedRaw = $p['bank_process_stored_day_start'] ?? null;
             $storedYmd = $storedRaw !== null && trim((string) $storedRaw) !== '' ? bankProcessDateFieldToYmd((string) $storedRaw) : null;
             if ($storedYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedYmd)) {

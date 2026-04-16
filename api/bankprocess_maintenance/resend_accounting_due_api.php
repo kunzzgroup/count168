@@ -241,6 +241,11 @@ try {
 
     if (bmp_bankProcessHasResendScheduleColumns($pdo)) {
         if ($scheduleFromClient) {
+            // Always persist the effective reopen anchor as schedule_day_start when the client opened the
+            // Resend schedule panel. If day_start is left blank, $newDayStart is null but leaving the DB
+            // column NULL would skip accounting_resend_single_period_from_schedule in merge and surface
+            // every open monthly period (duplicate "bills") while relax is on — especially with Monthly frequency.
+            $scheduleDayStartForDb = $newDayStart ?? $effectiveDayStartYmd;
             $flg = $pdo->prepare(
                 'UPDATE bank_process SET accounting_resend_relax_created_floor = 1,
                     accounting_resend_schedule_day_start = ?,
@@ -250,7 +255,7 @@ try {
                  WHERE id = ? AND company_id = ?'
             );
             $flg->execute([
-                $newDayStart,
+                $scheduleDayStartForDb,
                 $newDayEnd,
                 $newFrequency,
                 $bankProcessId,
