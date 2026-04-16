@@ -2032,6 +2032,47 @@ function bindBankResendDayStartClearInlineErrorOnce() {
     el.addEventListener('input', tryClear);
 }
 
+function getLocalTodayYmd() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+}
+
+function isTodayDayStartResendLocked(proc, dayStartYmd) {
+    if (!proc || !dayStartYmd) return false;
+    const selected = String(dayStartYmd).trim();
+    if (!selected || selected !== getLocalTodayYmd()) return false;
+    return !!proc.resend_today_day_start_locked;
+}
+
+function refreshBankResendConfirmButtonState() {
+    const confirmBtn = document.getElementById('confirmBankResendBtn');
+    const dsEl = document.getElementById('bank_resend_day_start');
+    const id = pendingBankResendProcessId;
+    if (!confirmBtn || !dsEl || !id) return;
+    const proc = Array.isArray(processes) ? processes.find(function (p) { return p.id === id; }) : null;
+    const isLocked = isTodayDayStartResendLocked(proc, dsEl.value);
+    if (isLocked) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Resend';
+        confirmBtn.title = 'Today for this Day start has already been resent. Please choose another date.';
+    } else {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Resend';
+        confirmBtn.title = '';
+    }
+}
+
+function bindBankResendDayStartButtonLockSyncOnce() {
+    const el = document.getElementById('bank_resend_day_start');
+    if (!el || el._bankResendDayStartLockBound) return;
+    el._bankResendDayStartLockBound = true;
+    el.addEventListener('change', refreshBankResendConfirmButtonState);
+    el.addEventListener('input', refreshBankResendConfirmButtonState);
+}
+
 function showConfirmBankResendModal(processId) {
     const id = parseInt(processId, 10);
     if (!id) return;
@@ -2107,7 +2148,10 @@ function showConfirmBankResendModal(processId) {
     if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Resend';
+        confirmBtn.title = '';
     }
+    bindBankResendDayStartButtonLockSyncOnce();
+    refreshBankResendConfirmButtonState();
     if (modalEl) {
         const cancelBtn = modalEl.querySelector('.confirm-bank-resend-cancel');
         if (cancelBtn) cancelBtn.disabled = false;
@@ -2132,6 +2176,7 @@ function closeConfirmBankResendModal() {
     if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Resend';
+        confirmBtn.title = '';
     }
     if (modal) {
         const cancelBtn = modal.querySelector('.confirm-bank-resend-cancel');
@@ -2157,6 +2202,13 @@ async function confirmBankResendFromModal() {
         day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : '1st_of_every_month'
     } : null;
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
+    if (isTodayDayStartResendLocked(proc, scheduleOpts ? scheduleOpts.day_start : '')) {
+        if (typeof showNotification === 'function') {
+            showNotification('This process has already been resent for this Day start today. Please select another Day start.', 'warning');
+        }
+        refreshBankResendConfirmButtonState();
+        return;
+    }
     const bankModule = getBankProcessModule();
     const forbidMsg = bankModule && typeof bankModule.bankResendScheduleDayStartForbiddenMessage === 'function'
         ? bankModule.bankResendScheduleDayStartForbiddenMessage(scheduleOpts ? scheduleOpts.day_start : '', proc ? proc.day_start : null)

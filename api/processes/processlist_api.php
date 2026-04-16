@@ -685,13 +685,21 @@ function getBankProcesses() {
                 $hasResendPendingTable = $rt && $rt->rowCount() > 0;
             } catch (PDOException $e) { /* ignore */ }
 
+            $hasResendDailyGuardTable = false;
+            try {
+                $gt = $pdo->query("SHOW TABLES LIKE 'bank_process_accounting_resend_daily_guard'");
+                $hasResendDailyGuardTable = $gt && $gt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+
             $bankSchema = [
-                'has_source_bank_process_id' => $hasSourceBankProcessId,
-                'has_resend_pending_table'   => $hasResendPendingTable,
+                'has_source_bank_process_id'  => $hasSourceBankProcessId,
+                'has_resend_pending_table'    => $hasResendPendingTable,
+                'has_resend_daily_guard_table'=> $hasResendDailyGuardTable,
             ];
         }
         $hasSourceBankProcessId = $bankSchema['has_source_bank_process_id'];
         $hasResendPendingTable  = $bankSchema['has_resend_pending_table'];
+        $hasResendDailyGuardTable = $bankSchema['has_resend_daily_guard_table'];
 
         // bankProcessHasColumn() 内部已有 static 缓存，两次调用只查一次 SHOW COLUMNS
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
@@ -703,6 +711,9 @@ function getBankProcesses() {
         $resendPendingSelect = $hasResendPendingTable
             ? "(EXISTS (SELECT 1 FROM bank_process_maintenance_resend_pending rp WHERE rp.company_id = bp.company_id AND rp.bank_process_id = bp.id)) AS maintenance_resend_pending"
             : "0 AS maintenance_resend_pending";
+        $resendTodayDayStartLockedSelect = $hasResendDailyGuardTable
+            ? "(EXISTS (SELECT 1 FROM bank_process_accounting_resend_daily_guard rg WHERE rg.company_id = bp.company_id AND rg.bank_process_id = bp.id AND rg.resend_day_start = CURDATE() AND rg.guard_date = CURDATE())) AS resend_today_day_start_locked"
+            : "0 AS resend_today_day_start_locked";
         $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
         $issueFlagSelect = $hasAnyIssueFlagColumn ? $issueFlagSql . " AS issue_flag" : "NULL AS issue_flag";
         $normalizedIssueFlagSql = $hasAnyIssueFlagColumn
@@ -737,7 +748,8 @@ function getBankProcesses() {
                     a_cm.account_id as card_merchant_account_id,
                     a_cust.account_id as customer_account,
                     $hasTxnSubquery AS has_transactions,
-                    $resendPendingSelect
+                    $resendPendingSelect,
+                    $resendTodayDayStartLockedSelect
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                 LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
@@ -826,6 +838,7 @@ function getBankProcesses() {
                 'day_end' => $r['day_end'] ?? null,
                 'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
                 'maintenance_resend_pending' => ((int) ($r['maintenance_resend_pending'] ?? 0)) === 1,
+                'resend_today_day_start_locked' => ((int) ($r['resend_today_day_start_locked'] ?? 0)) === 1,
             ];
         }
         jsonResponse(true, '', $formattedProcesses);
