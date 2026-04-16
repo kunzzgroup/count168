@@ -86,15 +86,9 @@ $assetVer = function ($file) {
 
         <!-- ══ Tab 2: Group Earnings ══ -->
         <div id="own-tab-panel-earnings" class="own-tab-panel" style="display:none;">
-            <div id="ge-content">
-                <div class="ge-group-bar">
-                    <span class="ge-group-label">Group</span>
-                    <div class="ge-group-pills" id="ge-group-pills">
-                        <!-- Injected by JS -->
-                    </div>
-                </div>
-                <div id="ge-body">
-                    <div class="ge-empty-state">Select a group to configure earnings.</div>
+            <div id="groupCardsContainer">
+                <div class="own-loader-container">
+                    <div class="own-loader"></div>
                 </div>
             </div>
         </div>
@@ -236,6 +230,93 @@ $assetVer = function ($file) {
                 <div class="own-modal-footer">
                     <button class="own-footer-btn own-btn-cancel" data-action="cancel-conflict">Cancel</button>
                 </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Group earnings Card Template -->
+    <template id="tpl-group-card">
+        <div class="own-card">
+            <div class="own-card-header" data-action="toggle">
+                <div class="own-card-header-left">
+                    <div class="own-company-name">Group: <span data-bind="group-name"></span></div>
+                </div>
+                <div class="own-card-header-middle">
+                    <div class="own-allocation-info">
+                        <span class="own-allocation-label">Total Allocation</span>
+                        <span class="own-allocation-percentage" data-bind="percent">0%</span>
+                        <span class="own-allocation-remaining" data-bind="remaining">100% Remaining</span>
+                    </div>
+                    <div class="own-progress-bar-container">
+                        <div class="own-progress-bar-fill" data-bind="bar"></div>
+                    </div>
+                </div>
+                <div class="own-card-header-right">
+                    <button class="own-btn-outline" data-action="toggle">Manage</button>
+                    <button class="own-icon-btn" data-action="toggle">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="own-card-body" data-bind="body">
+                <div class="own-editor-hidden" data-bind="editor">
+                    <!-- Group Equity Section -->
+                    <div class="ge-equity-section" style="margin-bottom: 20px; box-shadow:none; border-bottom:1px solid var(--own-gray-border); border-radius:0; padding-bottom:20px;">
+                        <div class="ge-equity-row">
+                            <span class="ge-equity-label">Group Equity %</span>
+                            <div class="ge-equity-input-wrap">
+                                <input type="number" class="ge-equity-input" data-bind="equity-input" min="0" max="100" step="0.01" placeholder="0">
+                                <span class="ge-equity-suffix">%</span>
+                            </div>
+                            <div class="ge-equity-slider-wrap">
+                                <input type="range" class="ge-equity-slider" data-bind="equity-slider" min="0" max="100" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="own-table-headers" style="grid-template-columns: 1fr 140px 200px 40px; border-bottom: 2px solid var(--own-gray-border);">
+                        <div>Account Name</div>
+                        <div>Share %</div>
+                        <div>Earnings Formula</div>
+                        <div></div>
+                    </div>
+                    <div data-bind="rows-container"></div>
+                    <button class="ge-btn-add-account" data-action="add-row">+ Add Account</button>
+                    
+                    <div class="own-card-footer">
+                        <div class="own-footer-left">
+                            <div class="own-warning-badge" data-bind="warning" style="display: none;">
+                                <span data-bind="warning-icon">⚠️</span>
+                                <span data-bind="warning-msg">Total is less than 100%</span>
+                            </div>
+                            <span class="own-unallocated-text" data-bind="footer-remain">100% Unallocated</span>
+                        </div>
+                        <div class="own-footer-right">
+                            <button class="own-footer-btn own-btn-cancel" data-action="cancel">Cancel</button>
+                            <button class="own-footer-btn own-btn-confirm" data-action="confirm">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Group earnings Account Row Template -->
+    <template id="tpl-group-account-row">
+        <div class="own-account-row" style="grid-template-columns: 1fr 140px 200px 40px; padding: 12px 28px; background: transparent;">
+            <input type="text" class="ge-acc-name-input" data-bind="acc-name" placeholder="Account name">
+            
+            <div class="ge-pct-wrap">
+                <input type="number" class="ge-pct-input" data-bind="acc-pct" min="0" max="100" step="0.01">
+                <span class="ge-pct-suffix">%</span>
+            </div>
+
+            <div class="ge-earnings-formula" data-bind="formula">= NP × 0% × 0%</div>
+
+            <div class="own-row-actions">
+                <button class="own-btn-square own-btn-delete" title="Remove" data-action="delete">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                </button>
             </div>
         </div>
     </template>

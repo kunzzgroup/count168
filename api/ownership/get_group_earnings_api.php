@@ -9,15 +9,26 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$group_id = $_GET['group_id'] ?? null;
-
-if (!$group_id) {
-    echo json_encode(['status' => 'error', 'message' => 'Missing group_id']);
-    exit();
-}
-
 try {
-    // Auto-create tables if they don't exist
+    // Check and update schema: ignore or drop company_id
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS group_earnings_config (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            group_id VARCHAR(100) NOT NULL COMMENT 'Group ID',
+            account_name VARCHAR(255) NOT NULL COMMENT 'Account display name',
+            account_percentage DECIMAL(10,4) NOT NULL DEFAULT 0 COMMENT 'Account share %',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_group (group_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+
+    try {
+        $pdo->exec("ALTER TABLE group_earnings_config DROP COLUMN company_id");
+    } catch (PDOException $e) {
+        // Ignore if column doesn't exist
+    }
+
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS group_equity (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -29,66 +40,36 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
 
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS group_earnings_config (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            group_id VARCHAR(100) NOT NULL COMMENT 'Group ID (matches company.group_id)',
-            company_id INT NOT NULL COMMENT 'FK to company.id',
-            account_name VARCHAR(255) NOT NULL COMMENT 'Account display name',
-            account_percentage DECIMAL(10,4) NOT NULL DEFAULT 0 COMMENT 'Account share %',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_group_company (group_id, company_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
+    // Fetch all group equity configs
+    $stmtEq = $pdo->query("SELECT group_id, equity_percentage FROM group_equity");
+    $equities = $stmtEq->fetchAll(PDO::FETCH_ASSOC);
 
-    // 1. Get Group equity percentage
-    $stmtEquity = $pdo->prepare("SELECT equity_percentage FROM group_equity WHERE group_id = ?");
-    $stmtEquity->execute([$group_id]);
-    $equityRow = $stmtEquity->fetch(PDO::FETCH_ASSOC);
-    $equity_percentage = $equityRow ? (float)$equityRow['equity_percentage'] : 0;
+    $eqMap = [];
+    foreach ($equities as $eq) {
+        $eqMap[$eq['group_id']] = (float)$eq['equity_percentage'];
+    }
 
-    // 2. Get all companies in this group
-    $stmtCompanies = $pdo->prepare("
-        SELECT id, company_id as name, group_id
-        FROM company
-        WHERE group_id = ?
-        ORDER BY company_id ASC
-    ");
-    $stmtCompanies->execute([$group_id]);
-    $companies = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC);
+    // Fetch all account configs
+    $stmtAcc = $pdo->query("SELECT group_id, account_name, account_percentage FROM group_earnings_config ORDER BY id ASC");
+    $accounts = $stmtAcc->fetchAll(PDO::FETCH_ASSOC);
 
-    // 3. Get account configs for each company in this group
-    $stmtAccounts = $pdo->prepare("
-        SELECT id, company_id, account_name, account_percentage
-        FROM group_earnings_config
-        WHERE group_id = ? AND company_id = ?
-        ORDER BY id ASC
-    ");
-
-    $companyData = [];
-    foreach ($companies as $company) {
-        $stmtAccounts->execute([$group_id, $company['id']]);
-        $accounts = $stmtAccounts->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Convert percentages to float
-        foreach ($accounts as &$acc) {
-            $acc['account_percentage'] = (float)$acc['account_percentage'];
+    $accMap = [];
+    foreach ($accounts as $acc) {
+        $gid = $acc['group_id'];
+        if (!isset($accMap[$gid])) {
+            $accMap[$gid] = [];
         }
-
-        $companyData[] = [
-            'id' => (int)$company['id'],
-            'name' => $company['name'],
-            'accounts' => $accounts
+        $accMap[$gid][] = [
+            'account_name' => $acc['account_name'],
+            'account_percentage' => (float)$acc['account_percentage']
         ];
     }
 
     echo json_encode([
         'status' => 'success',
         'data' => [
-            'group_id' => $group_id,
-            'equity_percentage' => $equity_percentage,
-            'companies' => $companyData
+            'equities' => $eqMap,
+            'accounts' => $accMap
         ]
     ]);
 
