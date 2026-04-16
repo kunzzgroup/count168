@@ -785,20 +785,8 @@ try {
     $cache_ttl = 60; // 1 分钟：减少缓存时间，避免因其他操作未清理缓存而导致长期显示旧数据
     // 把当前文件版本纳入缓存 key，避免代码更新后仍命中旧结果（尤其是单币别筛选场景）
     $cache_version = (string) (@filemtime(__FILE__) ?: '0');
-    // 把公司级 transactions 版本纳入缓存 key，确保 Resend/删除后立即失效，不需要等待 TTL。
-    // 使用 MAX(id)+COUNT(*)：插入与删除都会改变版本，避免“Maintenance/Resend 后同日期仍显示旧 0 结果”。
-    $txn_cache_sig = '0:0';
-    try {
-        $stTxnSig = $pdo->prepare("SELECT COALESCE(MAX(id),0) AS max_id, COUNT(*) AS cnt FROM transactions WHERE company_id = ?");
-        $stTxnSig->execute([$company_id]);
-        $txnSigRow = $stTxnSig->fetch(PDO::FETCH_ASSOC) ?: [];
-        $txn_cache_sig = (string) ((int) ($txnSigRow['max_id'] ?? 0)) . ':' . (string) ((int) ($txnSigRow['cnt'] ?? 0));
-    } catch (Throwable $e) {
-        // ignore：失败时退化为旧 key 逻辑
-    }
     $cache_key = md5(
         $cache_version . '|' .
-        $txn_cache_sig . '|' .
         ($_SESSION['user_id'] ?? '') . '|' . $company_id . '|' . $date_from_db . '|' . $date_to_db . '|' .
         implode(',', $currency_filters) . '|' . implode(',', $category_filters) . '|' . ($show_inactive ? '1' : '0') . '|' .
         ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' .
@@ -855,13 +843,11 @@ try {
     //   Layer 2（foreach 循环内）：(账户 + 货币) 组合级别过滤，精确到每行
     // 两层设计对称，Win/Loss Only 与 Payment Only 处理方式完全一致。
     if ($show_capture_only && $show_inactive) {
-        // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture / WIN/LOSE / RATE_MIDDLEMAN）、
-        // 有 Payment（Cr/Dr）或有 RATE 换汇分录即显示
+        // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture / WIN/LOSE / RATE_MIDDLEMAN）或有 Payment（Cr/Dr）即显示
         // Bug修复：
         // 1. dcd.account_id 可能存储 account_code（字符串），必须用 CAST + account_code 双重匹配
         // 2. 补全 company_id 防止跨公司数据泄漏
         // 3. 新增 RATE_MIDDLEMAN 分支：手续费收益也属于 Win/Loss，不能被此处 EXISTS 过滤掉
-        // 4. 新增 RATE 非 MIDDLEMAN 分支：换汇分录影响 Cr/Dr 列，参与换汇的账户应可见
         $where_conditions[] = "(
             EXISTS (
                 SELECT 1 FROM data_capture_details dcd
@@ -891,16 +877,6 @@ try {
                   AND h.transaction_date BETWEEN ? AND ?
             )
             OR EXISTS (
-                SELECT 1 FROM transaction_entry e
-                JOIN transactions h ON e.header_id = h.id
-                WHERE h.company_id = ?
-                  AND e.company_id = ?
-                  AND e.account_id = a.id
-                  AND e.entry_type <> 'RATE_MIDDLEMAN'
-                  AND h.transaction_type = 'RATE'
-                  AND h.transaction_date BETWEEN ? AND ?
-            )
-            OR EXISTS (
                 SELECT 1 FROM transactions t
                 WHERE t.company_id = ?
                   AND (t.account_id = a.id OR t.from_account_id = a.id)
@@ -913,10 +889,6 @@ try {
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
@@ -975,10 +947,11 @@ try {
         $params[] = $date_from_db;
         $params[] = $date_to_db;
     } elseif ($show_inactive) {
-        // 仅勾选 Show Payment Only：账户在日期范围内必须有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 交易，
-        // 或有 RATE 分录（非 RATE_MIDDLEMAN）影响 Cr/Dr 列才显示。
-        // Bug修复：RATE 换汇分录（RATE_FIRST_FROM/TO、RATE_TRANSFER_FROM/TO）也影响 Cr/Dr 列，
-        // 参与 RATE 的账户（如 AG110）应在 Show Payment Only 视图中可见。
+        // 仅勾选 Show Payment Only：账户在日期范围内必须有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 交易才显示
+        // Bug修复：原来此处不做后端过滤，依赖前端 has_crdr_transactions 判断；
+        // 但 has_crdr_transactions 会被 RATE 分录（非 RATE_MIDDLEMAN）污染（count > 0），
+        // 导致纯 Win/Loss 账户（仅有 RATE 交易）也通过了前端过滤，错误出现在 Payment Only 视图中。
+        // 现在改为后端 SQL 层面强制过滤，与 Show Win/Loss Only 的处理方式对称。
         $where_conditions[] = "(
             EXISTS (
                 SELECT 1 FROM transactions t
@@ -988,21 +961,7 @@ try {
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
                   " . contraApprovedWhere($pdo, 't') . "
             )
-            OR EXISTS (
-                SELECT 1 FROM transaction_entry e
-                JOIN transactions h ON e.header_id = h.id
-                WHERE h.company_id = ?
-                  AND e.company_id = ?
-                  AND e.account_id = a.id
-                  AND e.entry_type <> 'RATE_MIDDLEMAN'
-                  AND h.transaction_type = 'RATE'
-                  AND h.transaction_date BETWEEN ? AND ?
-            )
         )";
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
