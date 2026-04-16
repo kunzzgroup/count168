@@ -2067,13 +2067,20 @@ function showConfirmBankResendModal(processId) {
             };
         }
     }
+    const normResendDate = function (v) {
+        const bm = getBankProcessModule();
+        if (bm && typeof bm.normalizeBankResendDateInputValue === 'function') {
+            return bm.normalizeBankResendDateInputValue(v);
+        }
+        const s = String(v || '').trim();
+        if (!s) return '';
+        return s.length >= 10 && /^\d{4}-\d{2}-\d{2}$/.test(s.substring(0, 10)) ? s.substring(0, 10) : '';
+    };
     if (dsEl) {
-        const d1 = scheduleSeed.day_start || '';
-        dsEl.value = d1 ? (d1.length === 10 ? d1 : String(d1).split(' ')[0]) : '';
+        dsEl.value = normResendDate(scheduleSeed.day_start || '');
     }
     if (deEl) {
-        const d2 = scheduleSeed.day_end || '';
-        deEl.value = d2 ? (d2.length === 10 ? d2 : String(d2).split(' ')[0]) : '';
+        deEl.value = normResendDate(scheduleSeed.day_end || '');
     }
     if (fqEl) {
         fqEl.value = scheduleSeed.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
@@ -2138,9 +2145,16 @@ async function confirmBankResendFromModal() {
     const dsEl = document.getElementById('bank_resend_day_start');
     const deEl = document.getElementById('bank_resend_day_end');
     const fqEl = document.getElementById('bank_resend_frequency');
+    const bankModuleNorm = getBankProcessModule();
+    const toNorm = function (v) {
+        if (bankModuleNorm && typeof bankModuleNorm.normalizeBankResendDateInputValue === 'function') {
+            return bankModuleNorm.normalizeBankResendDateInputValue(v);
+        }
+        return String(v || '').trim();
+    };
     const scheduleOpts = (dsEl && deEl && fqEl) ? {
-        day_start: (dsEl.value || '').trim(),
-        day_end: (deEl.value || '').trim(),
+        day_start: toNorm(dsEl.value),
+        day_end: toNorm(deEl.value),
         day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : '1st_of_every_month'
     } : null;
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
