@@ -785,8 +785,20 @@ try {
     $cache_ttl = 60; // 1 分钟：减少缓存时间，避免因其他操作未清理缓存而导致长期显示旧数据
     // 把当前文件版本纳入缓存 key，避免代码更新后仍命中旧结果（尤其是单币别筛选场景）
     $cache_version = (string) (@filemtime(__FILE__) ?: '0');
+    // 把公司级 transactions 版本纳入缓存 key，确保 Resend/删除后立即失效，不需要等待 TTL。
+    // 使用 MAX(id)+COUNT(*)：插入与删除都会改变版本，避免“Maintenance/Resend 后同日期仍显示旧 0 结果”。
+    $txn_cache_sig = '0:0';
+    try {
+        $stTxnSig = $pdo->prepare("SELECT COALESCE(MAX(id),0) AS max_id, COUNT(*) AS cnt FROM transactions WHERE company_id = ?");
+        $stTxnSig->execute([$company_id]);
+        $txnSigRow = $stTxnSig->fetch(PDO::FETCH_ASSOC) ?: [];
+        $txn_cache_sig = (string) ((int) ($txnSigRow['max_id'] ?? 0)) . ':' . (string) ((int) ($txnSigRow['cnt'] ?? 0));
+    } catch (Throwable $e) {
+        // ignore：失败时退化为旧 key 逻辑
+    }
     $cache_key = md5(
         $cache_version . '|' .
+        $txn_cache_sig . '|' .
         ($_SESSION['user_id'] ?? '') . '|' . $company_id . '|' . $date_from_db . '|' . $date_to_db . '|' .
         implode(',', $currency_filters) . '|' . implode(',', $category_filters) . '|' . ($show_inactive ? '1' : '0') . '|' .
         ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' .
