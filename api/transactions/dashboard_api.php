@@ -574,6 +574,26 @@ try {
         // ignore
     }
 
+    // ── Group Equity multiplier ──────────────────────────────────────────
+    // If this company belongs to a group with a configured equity_percentage,
+    // multiply the account ownership% by group equity% to get the final Earnings%.
+    // Formula: Earnings = NET PROFIT × (Group equity% × Account ownership%) / 100
+    try {
+        $hasGroupEquity = $pdo->query("SHOW TABLES LIKE 'group_equity'")->rowCount() > 0;
+        if ($hasGroupEquity && $ownership_percentage > 0) {
+            $stmtGroup = $pdo->prepare("SELECT c.group_id, ge.equity_percentage FROM company c INNER JOIN group_equity ge ON c.group_id = ge.group_id WHERE c.id = ?");
+            $stmtGroup->execute([$company_id]);
+            $groupRow = $stmtGroup->fetch(PDO::FETCH_ASSOC);
+            if ($groupRow && (float)$groupRow['equity_percentage'] > 0) {
+                $group_equity = (float)$groupRow['equity_percentage'];
+                // Combined: account sees (group_equity% * ownership%) / 100
+                $ownership_percentage = ($group_equity * $ownership_percentage) / 100;
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore — group_equity table may not exist yet
+    }
+
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
     echo json_encode([
         'success' => true,

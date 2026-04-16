@@ -27,6 +27,7 @@ $assetVer = function ($file) {
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <link rel="stylesheet" href="css/ownership.css?v=<?php echo $assetVer('css/ownership.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
+    <script src="js/ownership-earnings.js?v=<?php echo $assetVer('js/ownership-earnings.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
@@ -37,27 +38,64 @@ $assetVer = function ($file) {
         <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
-        <!-- Group Filter Bar + Select Mode Button (same row) -->
-        <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
-            <span class="own-gfb-label">Group</span>
-            <div class="own-gfb-buttons" id="own-gfb-buttons">
-                <!-- Injected by JS -->
-            </div>
-            <div class="own-gfb-spacer"></div>
-            <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v7"/>
+        <!-- ══ Tab Switching Bar ══ -->
+        <div class="own-tab-bar">
+            <button class="own-tab-btn active" id="own-tab-ownership" onclick="switchOwnershipTab('ownership')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 00-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 010 7.75"/>
                 </svg>
-                Select
+                Account Ownership
+            </button>
+            <button class="own-tab-btn" id="own-tab-earnings" onclick="switchOwnershipTab('earnings')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+                Group Earnings
             </button>
         </div>
 
-        <!-- Companies will be injected here via JS -->
-        <div id="companyCardsContainer">
-            <!-- Loader -->
-            <div class="own-loader-container">
-                <div class="own-loader"></div>
+        <!-- ══ Tab 1: Account Ownership ══ -->
+        <div id="own-tab-panel-ownership" class="own-tab-panel">
+            <!-- Group Filter Bar + Select Mode Button (same row) -->
+            <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
+                <span class="own-gfb-label">Group</span>
+                <div class="own-gfb-buttons" id="own-gfb-buttons">
+                    <!-- Injected by JS -->
+                </div>
+                <div class="own-gfb-spacer"></div>
+                <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v7"/>
+                    </svg>
+                    Select
+                </button>
+            </div>
+
+            <!-- Companies will be injected here via JS -->
+            <div id="companyCardsContainer">
+                <!-- Loader -->
+                <div class="own-loader-container">
+                    <div class="own-loader"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ Tab 2: Group Earnings ══ -->
+        <div id="own-tab-panel-earnings" class="own-tab-panel" style="display:none;">
+            <div id="ge-content">
+                <div class="ge-group-bar">
+                    <span class="ge-group-label">Group</span>
+                    <div class="ge-group-pills" id="ge-group-pills">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+                <div id="ge-body">
+                    <div class="ge-empty-state">Select a group to configure earnings.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -221,6 +259,32 @@ $assetVer = function ($file) {
     </template>
 
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
+    <script>
+        // Tab switching logic
+        let geInitialized = false;
+        function switchOwnershipTab(tab) {
+            const ownershipPanel = document.getElementById('own-tab-panel-ownership');
+            const earningsPanel = document.getElementById('own-tab-panel-earnings');
+            const btnOwnership = document.getElementById('own-tab-ownership');
+            const btnEarnings = document.getElementById('own-tab-earnings');
+
+            if (tab === 'ownership') {
+                ownershipPanel.style.display = '';
+                earningsPanel.style.display = 'none';
+                btnOwnership.classList.add('active');
+                btnEarnings.classList.remove('active');
+            } else {
+                ownershipPanel.style.display = 'none';
+                earningsPanel.style.display = '';
+                btnOwnership.classList.remove('active');
+                btnEarnings.classList.add('active');
+                if (!geInitialized) {
+                    geInitialized = true;
+                    initGroupEarnings();
+                }
+            }
+        }
+    </script>
 </body>
 
 </html>

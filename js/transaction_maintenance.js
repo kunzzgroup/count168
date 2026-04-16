@@ -15,6 +15,31 @@
     let selectedPermission = null;
     let hasSearched = false;
 
+    async function fetchCompanyPermissions(companyCode) {
+        if (!companyCode) return [];
+        try {
+            const response = await fetch('api/domain/domain_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
+            });
+            const result = await response.json();
+            if (result.success && result.data && Array.isArray(result.data.permissions)) {
+                return result.data.permissions;
+            }
+        } catch (err) {
+            console.error('Error fetching company permissions:', err);
+        }
+        return [];
+    }
+
+    function isBankOnlyCategoryCompany(permissions) {
+        if (!Array.isArray(permissions) || permissions.length === 0) return false;
+        const hasBank = permissions.includes('Bank');
+        const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+        return hasBank && !hasGames;
+    }
+
     // Notification functions
     function showNotification(message, type = 'success') {
         const container = document.getElementById('notificationContainer');
@@ -178,15 +203,10 @@
             return;
         }
         try {
-            const response = await fetch('api/domain/domain_api.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'get_company_permissions', company_id: code })
-            });
-            const result = await response.json();
-            let permissions = result.success && result.data && result.data.permissions
-                ? result.data.permissions
-                : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
+            let permissions = await fetchCompanyPermissions(code);
+            if (!permissions.length) {
+                permissions = ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
+            }
             containerEl.innerHTML = '';
             if (permissions.length > 0) {
                 filterEl.style.display = (permissions.length <= 1) ? 'none' : 'flex';
@@ -254,6 +274,15 @@
         currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
         if (typeof window !== 'undefined') {
             window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+        }
+        if (hasGamblingFromSession === false) {
+            window.location.href = 'dashboard.php';
+            return;
+        }
+        const permissions = await fetchCompanyPermissions(currentCompanyCode);
+        if (isBankOnlyCategoryCompany(permissions)) {
+            window.location.href = 'dashboard.php';
+            return;
         }
         if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
             const hg = hasGamblingFromSession !== undefined
@@ -662,6 +691,10 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+        if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
+            window.location.href = 'dashboard.php';
+            return;
+        }
         initDatePickers();
         initMaintenanceDropdownHover();
 

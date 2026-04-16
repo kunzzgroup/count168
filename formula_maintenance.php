@@ -10,7 +10,13 @@ if ($session_company_id) {
         $stmt->execute([$session_company_id]);
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
-        if (!is_array($companyPerms) || (!in_array('Games', $companyPerms) && !in_array('Gambling', $companyPerms))) {
+        $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
+        $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
+        if ($isBankOnlyCategory) {
+            header('Location: dashboard.php');
+            exit;
+        }
+        if (!$hasGamesPermission) {
             header('Location: processlist.php?error=no_gambling_permission');
             exit;
         }

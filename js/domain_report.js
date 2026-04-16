@@ -44,6 +44,31 @@ function formatAmount(amount) {
 let currentCompanyId = typeof window.DOMAIN_REPORT_COMPANY_ID !== 'undefined' ? window.DOMAIN_REPORT_COMPANY_ID : null;
 let loadReportTimeout;
 
+async function fetchCompanyPermissions(companyCode) {
+    if (!companyCode) return [];
+    try {
+        const response = await fetch('api/domain/domain_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
+        });
+        const result = await response.json();
+        if (result.success && result.data && Array.isArray(result.data.permissions)) {
+            return result.data.permissions;
+        }
+    } catch (err) {
+        console.error('Error fetching company permissions:', err);
+    }
+    return [];
+}
+
+function isBankOnlyCategoryCompany(permissions) {
+    if (!Array.isArray(permissions) || permissions.length === 0) return false;
+    const hasBank = permissions.includes('Bank');
+    const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+    return hasBank && !hasGames;
+}
+
 // Company filtering is now handled by SSR includes/company_filter.php
 async function switchCompany(companyId, companyCode) {
     // 先更新 session
@@ -62,6 +87,11 @@ async function switchCompany(companyId, companyCode) {
     }
     
     currentCompanyId = companyId;
+    const permissions = await fetchCompanyPermissions(companyCode || '');
+    if (isBankOnlyCategoryCompany(permissions)) {
+        window.location.href = 'dashboard.php';
+        return;
+    }
 
     const buttons = document.querySelectorAll('#company-buttons-container .transaction-company-btn');
     buttons.forEach(btn => {

@@ -49,6 +49,31 @@ let currencyList = []; // currency 列表（包含 id 和 code，按 ID 排序�
 let selectedCurrencies = []; // 当前选中的 currency 数组（可多选）
 let showAllCurrencies = false; // 是否显示所有 currency
 
+async function fetchCompanyPermissions(companyCode) {
+    if (!companyCode) return [];
+    try {
+        const response = await fetch('/api/domain/domain_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
+        });
+        const result = await response.json();
+        if (result.success && result.data && Array.isArray(result.data.permissions)) {
+            return result.data.permissions;
+        }
+    } catch (err) {
+        console.error('Error fetching company permissions:', err);
+    }
+    return [];
+}
+
+function isBankOnlyCategoryCompany(permissions) {
+    if (!Array.isArray(permissions) || permissions.length === 0) return false;
+    const hasBank = permissions.includes('Bank');
+    const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+    return hasBank && !hasGames;
+}
+
 // Company filtering is now handled by SSR includes/company_filter.php
 // Switch company
 async function switchCompany(companyId, companyCode) {
@@ -68,6 +93,11 @@ async function switchCompany(companyId, companyCode) {
     }
     
     currentCompanyId = companyId;
+    const permissions = await fetchCompanyPermissions(companyCode || '');
+    if (isBankOnlyCategoryCompany(permissions)) {
+        window.location.href = 'dashboard.php';
+        return;
+    }
     
     // 更新按钮状态
     const buttons = document.querySelectorAll('#company-buttons-container .transaction-company-btn');
