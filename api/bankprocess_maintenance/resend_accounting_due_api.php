@@ -189,7 +189,7 @@ try {
         throw new Exception('无法识别 Day start，Resend 仅支持按 Day start 当月补单月记录。');
     }
     if (bank_resend_hasSameDayRecord($pdo, $company_id, $bankProcessId, $effectiveDayStartYmd)) {
-        throw new Exception('该 Process 今日已补过该 Day start，不能重复补单。');
+        throw new Exception('This process has already been resent for this Day start today. Duplicate resends are not allowed.');
     }
 
     $pdo->beginTransaction();
@@ -282,13 +282,13 @@ try {
         $insGuard->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
     } catch (PDOException $e) {
         if ((string) $e->getCode() === '23000') {
-            throw new Exception('该 Process 今日已补过该 Day start，不能重复补单。');
+            throw new Exception('This process has already been resent for this Day start today. Duplicate resends are not allowed.');
         }
         throw $e;
     }
 
     $pdo->commit();
-    jsonResponse(true, '已处理：该 Process 可再次进入 Accounting Due', [
+    jsonResponse(true, 'Done: This process can appear in Accounting Due again.', [
         'bank_process_id' => $bankProcessId,
         'process_accounting_posted_removed' => $removedPap,
     ]);
