@@ -2777,10 +2777,17 @@
         let filteredRight = rawRight;
 
         if (showPaymentOnly) {
+            const eps = 0.00001;
             const hasCrdr = row => {
-                if (typeof row.has_crdr_transactions === 'boolean') return row.has_crdr_transactions;
-                if (typeof row.has_crdr_transactions === 'number') return row.has_crdr_transactions !== 0;
-                return parseInt(row.has_crdr_transactions || '0', 10) !== 0;
+                const byFlag = (typeof row.has_crdr_transactions === 'boolean')
+                    ? row.has_crdr_transactions
+                    : ((typeof row.has_crdr_transactions === 'number')
+                        ? row.has_crdr_transactions !== 0
+                        : parseInt(row.has_crdr_transactions || '0', 10) !== 0);
+                // Fallback: if backend flag is missing/inconsistent, trust numeric Cr/Dr value.
+                const crdr = parseFloat(row.cr_dr);
+                const byValue = !isNaN(crdr) && Math.abs(crdr) > eps;
+                return byFlag || byValue;
             };
             const hasWinLoss = row => {
                 const wl = parseFloat(row.win_loss);
@@ -2859,9 +2866,15 @@
         }
 
         const hasCrdr = row => {
-            if (typeof row.has_crdr_transactions === 'boolean') return row.has_crdr_transactions;
-            if (typeof row.has_crdr_transactions === 'number') return row.has_crdr_transactions !== 0;
-            return parseInt(row.has_crdr_transactions || '0', 10) !== 0;
+            const eps = 0.00001;
+            const byFlag = (typeof row.has_crdr_transactions === 'boolean')
+                ? row.has_crdr_transactions
+                : ((typeof row.has_crdr_transactions === 'number')
+                    ? row.has_crdr_transactions !== 0
+                    : parseInt(row.has_crdr_transactions || '0', 10) !== 0);
+            const crdr = parseFloat(row.cr_dr);
+            const byValue = !isNaN(crdr) && Math.abs(crdr) > eps;
+            return byFlag || byValue;
         };
         const hasWinLoss = row => {
             const wl = parseFloat(row.win_loss);

@@ -776,9 +776,15 @@ try {
         throw new Exception('日期范围是必填项');
     }
 
-    // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
-    $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
-    $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
+    // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd HH:ii:ss)
+    // 结束日必须取到 23:59:59，避免 transaction_date 为 DATETIME 时单日查询漏掉当天记录。
+    $from_ts = strtotime(str_replace('/', '-', $date_from));
+    $to_ts = strtotime(str_replace('/', '-', $date_to));
+    if ($from_ts === false || $to_ts === false) {
+        throw new Exception('日期格式无效');
+    }
+    $date_from_db = date('Y-m-d 00:00:00', $from_ts);
+    $date_to_db = date('Y-m-d 23:59:59', $to_ts);
 
     // 列表结果缓存：从其他菜单返回、短时内重复相同条件时直接读文件，明显快于冷查询
     // 略延长 TTL，减轻「大数据量首次算完后，几分钟内来回切换」时的等待（数据非实时时可接受）
