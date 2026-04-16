@@ -102,13 +102,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }).catch(function () { });
         }
 
-        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-        loadAndRenderCapturedTable().catch(function (e) {
-            console.warn('loadAndRenderCapturedTable error:', e);
-            hideLoadingState();
-            showEmptyState();
-        });
-
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
@@ -121,6 +114,14 @@ document.addEventListener('DOMContentLoaded', function () {
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
+
+        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
+        // IMPORTANT: 需在 __summaryFreshFromCapture 设置后执行，避免首屏误走“恢复旧缓存”分支导致 Total 不正确。
+        loadAndRenderCapturedTable().catch(function (e) {
+            console.warn('loadAndRenderCapturedTable error:', e);
+            hideLoadingState();
+            showEmptyState();
+        });
     } catch (error) {
         console.error('Error in DOMContentLoaded:', error);
         // Ensure loading state is hidden even if there's an error
@@ -1165,6 +1166,12 @@ function refreshPage() {
 // Load captured table data from localStorage and render it. 会先从服务端拉取 Summary 状态（若有），供后续恢复顺序与公式，减少对 localStorage 的依赖。
 async function loadAndRenderCapturedTable() {
     try {
+        // 兜底：确保 fresh 标记在任何异步链路里都可用（例如未来重构时调用顺序变化）。
+        if (typeof window.__summaryFreshFromCapture === 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            window.__summaryFreshFromCapture = urlParams.get('success') === '1';
+        }
+
         const tableData = localStorage.getItem('capturedTableData');
         const processData = localStorage.getItem('capturedProcessData');
 
