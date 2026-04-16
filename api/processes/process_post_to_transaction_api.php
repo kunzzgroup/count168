@@ -972,6 +972,17 @@ try {
             try {
                 $createdYm = (new DateTimeImmutable($createdYmd))->format('Y-n');
                 $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
+                // 防呆：1st_of_every_month 且 day_start 非 1 号时，首自然月只能走 partial_first_month；
+                // 若客户端误把首月传成 monthly，会造成首月金额重复（例如 partial + full monthly）。
+                if ($frequency === '1st_of_every_month' && $dayStartYmd) {
+                    $startTsGuard = strtotime($dayStartYmd);
+                    if ($startTsGuard !== false && (int) date('j', $startTsGuard) !== 1) {
+                        $startYmGuard = (new DateTimeImmutable($dayStartYmd))->format('Y-n');
+                        if ($billYm === $startYmGuard) {
+                            $skipCurrentPair = true;
+                        }
+                    }
+                }
                 if (!$resendRelax) {
                     $billYmInt = $billY * 100 + $billMo;
                     $createdDt = new DateTimeImmutable($createdYmd);

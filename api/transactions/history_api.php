@@ -1332,22 +1332,6 @@ try {
                     $description = 'Monthly bill';
                 }
                 $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
-                if ($isBankProcessTransaction && $is_to_account) {
-                    $txAccountId = (int) ($t['account_id'] ?? 0);
-                    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
-                    $customerId = (int) ($t['customer_id'] ?? 0);
-                    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
-                    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
-                        $description = 'Monthly bill';
-                        $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
-                    } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
-                        $description = 'Monthly bill';
-                        $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
-                    } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
-                        $description = 'Monthly bill';
-                        $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
-                    }
-                }
                 $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
                 $description = $description . ' ' . $billAmount;
             }
