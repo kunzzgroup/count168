@@ -10,13 +10,18 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 try {
-    // 1. Find all distinct groups from company_ownership where entity_type = 'group'
-    $stmt = $pdo->query("
-        SELECT DISTINCT group_id 
-        FROM company_ownership 
-        WHERE entity_type = 'group' AND group_id IS NOT NULL AND group_id != ''
-    ");
-    $groups = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    // 1. Check if entity_type exists
+    $hasEntityType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'entity_type'")->rowCount() > 0;
+    
+    $groups = [];
+    if ($hasEntityType) {
+        $stmt = $pdo->query("
+            SELECT DISTINCT group_id 
+            FROM company_ownership 
+            WHERE entity_type = 'group' AND group_id IS NOT NULL AND group_id != ''
+        ");
+        $groups = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
 
     $response = [
         'groups' => [],

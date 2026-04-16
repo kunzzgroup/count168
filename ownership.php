@@ -79,8 +79,6 @@ $assetVer = function ($file) {
                     <div class="own-loader"></div>
                 </div>
             </div>
-            
-            <button class="own-btn-register-new-group" onclick="promptCreateGroup()" style="margin-top: 10px;">+ Register New Group</button>
         </div>
     </div>
 
