@@ -2752,12 +2752,19 @@
         const num = parseFloat(row.balance);
         if (isNaN(num)) return true;
         if (Math.abs(num) > eps) return true;
+        const flagToBool = (v) => {
+            if (typeof v === 'boolean') return v;
+            if (typeof v === 'number') return v !== 0;
+            return parseInt(v || '0', 10) !== 0;
+        };
         const absVal = (v) => {
             const n = parseFloat(v);
             if (isNaN(n)) return 0;
             return Math.abs(n);
         };
-        return absVal(row.bf) > eps || absVal(row.win_loss) > eps || absVal(row.cr_dr) > eps;
+        // 有真实交易记录（例如 PROFIT 0.00）时，不应被“隐藏 0 balance”吃掉。
+        const hasTxnFlag = flagToBool(row.has_win_loss_history) || flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_crdr_transactions);
+        return hasTxnFlag || absVal(row.bf) > eps || absVal(row.win_loss) > eps || absVal(row.cr_dr) > eps;
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================

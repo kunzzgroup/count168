@@ -1417,7 +1417,8 @@ try {
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
                        SUM(CASE WHEN dc.capture_date < ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS bf_total,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS wl_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
+                       COUNT(*) AS up_to_count
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
                 WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL
@@ -1428,7 +1429,8 @@ try {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
                 'bf' => (float) $r['bf_total'],
                 'wl' => (float) $r['wl_total'],
-                'wl_count' => (int) $r['wl_count']
+                'wl_count' => (int) $r['wl_count'],
+                'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
         }
 
@@ -1478,19 +1480,21 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr <= ? THEN 1 ELSE 0 END) AS up_to_count
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND t.transaction_type IN ('WIN', 'LOSE')
                   $contra_where_t $wlFutureGuard
                 GROUP BY t.account_id, IFNULL(t.currency_id, 0)";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
                 'bf' => (float) $r['bf_total'],
                 'wl' => (float) $r['wl_total'],
-                'wl_count' => (int) $r['wl_count']
+                'wl_count' => (int) $r['wl_count'],
+                'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
         }
 
@@ -1592,6 +1596,7 @@ try {
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2) ELSE 0 END) AS wl_rate_mm,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
                     CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
@@ -1607,12 +1612,13 @@ try {
               AND h.transaction_type = 'RATE'
             GROUP BY e.account_id, e.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['entry'][$r['account_id']][$r['currency_id']] = [
                 'bf' => (float) $r['bf_total'],
                 'wl_mm' => (float) $r['wl_rate_mm'],
                 'wl_mm_count' => (int) $r['wl_rate_mm_count'],
+                'wl_mm_up_to_count' => (int) ($r['up_to_rate_mm_count'] ?? 0),
                 'cr_dr' => (float) $r['wl_cr_dr_other'],
                 'cr_dr_count' => (int) $r['wl_cr_dr_other_count']
             ];
@@ -1633,6 +1639,7 @@ try {
         $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
         $win_loss = $wlPack['win_loss'];
         $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions']);
+        $has_win_loss_history = !empty($wlPack['has_win_loss_history']);
 
         // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
@@ -1776,6 +1783,7 @@ try {
             'balance' => round((float) $balance, 2),
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
+            'has_win_loss_history' => $has_win_loss_history ? 1 : 0,
             'is_alert' => $is_alert ? 1 : 0,
             'is_rate_middleman' => $is_rate_middleman ? 1 : 0
         ];
@@ -2328,26 +2336,30 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
  *          + 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
  *          + RATE Middle-Man 手续费（RATE_MIDDLEMAN）
  *
- * @return array{win_loss: float, has_rate_middleman: bool, has_win_loss_transactions: bool}
+ * @return array{win_loss: float, has_rate_middleman: bool, has_win_loss_transactions: bool, has_win_loss_history: bool}
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '', &$bulk = null)
 {
     if ($bulk !== null) {
         $win_loss = 0;
         $wl_row_count = 0;
+        $wl_up_to_count = 0;
         $acc_str = trim((string) $account_id);
         $code_str = trim((string) $account_code);
 
         $win_loss += $bulk['dcd'][$acc_str][$currency_id]['wl'] ?? 0;
         $wl_row_count += (int) ($bulk['dcd'][$acc_str][$currency_id]['wl_count'] ?? 0);
+        $wl_up_to_count += (int) ($bulk['dcd'][$acc_str][$currency_id]['up_to_count'] ?? 0);
         if ($code_str !== '' && $code_str !== $acc_str) {
             $win_loss += $bulk['dcd'][$code_str][$currency_id]['wl'] ?? 0;
             $wl_row_count += (int) ($bulk['dcd'][$code_str][$currency_id]['wl_count'] ?? 0);
+            $wl_up_to_count += (int) ($bulk['dcd'][$code_str][$currency_id]['up_to_count'] ?? 0);
         }
 
         $txn_wl = $bulk['txn_win_lose'][$account_id][$currency_id] ?? ['bf' => 0, 'wl' => 0];
         $win_loss += $txn_wl['wl'];
         $wl_row_count += (int) ($txn_wl['wl_count'] ?? 0);
+        $wl_up_to_count += (int) ($txn_wl['up_to_count'] ?? 0);
 
         // Handle fallback for currency_id IS NULL in transactions (fallback to DCD check)
         $txn_wl_null = $bulk['txn_win_lose'][$account_id][0] ?? null;
@@ -2356,17 +2368,21 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             if (isset($bulk['dcd'][$acc_str][$currency_id]) || ($code_str !== '' && isset($bulk['dcd'][$code_str][$currency_id]))) {
                 $win_loss += $txn_wl_null['wl'];
                 $wl_row_count += (int) ($txn_wl_null['wl_count'] ?? 0);
+                $wl_up_to_count += (int) ($txn_wl_null['up_to_count'] ?? 0);
             }
         }
 
         $win_loss += $bulk['entry'][$account_id][$currency_id]['wl_mm'] ?? 0;
 
         $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
+        $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
         $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm;
+        $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
         return [
             'win_loss' => $win_loss,
             'has_rate_middleman' => $has_rate_mm,
             'has_win_loss_transactions' => $has_win_loss_transactions,
+            'has_win_loss_history' => $has_win_loss_history,
         ];
     }
 
@@ -2468,6 +2484,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         'win_loss' => $win_loss,
         'has_rate_middleman' => $has_rate_middleman,
         'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),
+        'has_win_loss_history' => ($wl_row_count > 0 || $has_rate_middleman),
     ];
 }
 
