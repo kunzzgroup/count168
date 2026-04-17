@@ -29,6 +29,14 @@ body {
     overflow: hidden;
 }
 
+/* 固定一屏布局：标题/筛选/表头/列表20行/分页 */
+.account-page .content {
+    height: calc(100vh - 22px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .page-header {
     display: none;
 }
@@ -37,7 +45,7 @@ body {
     color: #002C49;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
-    margin-bottom: clamp(16px, 1.35vw, 26px);
+    margin-bottom: clamp(8px, 0.83vw, 14px);
     font-size: clamp(26px, 2.08vw, 40px);
     font-weight: 500;
     letter-spacing: -0.025em;
@@ -84,7 +92,7 @@ body {
 
 /* Controls Section - copied from userlist */
 .account-action-buttons-container {
-    margin-top: 20px;
+    margin-top: 8px;
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -281,7 +289,7 @@ body {
     padding: 0px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
-    margin-top: 20px;
+    margin-top: 8px;
     font-weight: bold;
     color: white;
     font-size: clamp(10px, 0.89vw, 17px);
@@ -342,20 +350,23 @@ body.account-page--show-all .account-cards {
 .account-cards {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .account-card {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;
     gap: 15px;
-    padding: 2px 22px;
+    padding: 0 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
     transition: all 0.2s ease;
-    min-height: fit-content;
+    height: calc(100% / 20);
+    min-height: 0;
+    box-sizing: border-box;
 }
 
 .account-card:hover {
@@ -364,7 +375,7 @@ body.account-page--show-all .account-cards {
 }
 
 .account-card-item {
-    font-size: clamp(12px, 0.82vw, 15px);
+    font-size: clamp(10px, 0.7vw, 13px);
     font-weight: bold;
     color: #374151;
     display: flex;
@@ -374,7 +385,7 @@ body.account-page--show-all .account-cards {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-height: 0;
-    line-height: 1;
+    line-height: 1.1;
 }
 
 .account-edit-btn {
@@ -1549,9 +1560,10 @@ body.account-page--show-all .account-cards {
 
 /* Pagination Button Styles */
 .account-pagination-container {
-    position: fixed;
-    bottom: clamp(15px, 1.56vw, 30px);
-    right: 40px;
+    position: relative;
+    margin-top: 6px;
+    margin-left: auto;
+    width: fit-content;
     display: flex;
     align-items: center;
     gap: 0;
@@ -1561,8 +1573,9 @@ body.account-page--show-all .account-cards {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: 100;
+    z-index: 1;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    flex-shrink: 0;
 }
 
 .account-pagination-btn {

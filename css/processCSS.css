@@ -924,7 +924,7 @@ body.process-page.process-page--show-all .process-cards {
     display: grid;
     grid-template-columns: 0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr;
     gap: 15px;
-    padding: 4px 20px;
+    padding: 0 20px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -950,7 +950,7 @@ body.process-page.process-page--show-all .process-cards {
 }
 
 .process-page .card-item {
-    font-size: clamp(12px, 0.82vw, 15px);
+    font-size: clamp(10px, 0.7vw, 13px);
     font-weight: bold;
     color: #374151;
     display: flex;
@@ -959,6 +959,7 @@ body.process-page.process-page--show-all .process-cards {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.1;
 }
 
 /* Currency column center alignment */
@@ -1321,18 +1322,84 @@ body.process-page.process-page--show-all .process-cards {
 
 /* Games list: pagination fixed to viewport bottom-right (does not move with row count / list scroll) */
 .process-page:not(.process-page--bank) .pagination-container {
-    position: fixed;
-    right: max(40px, env(safe-area-inset-right, 0px));
-    bottom: max(20px, env(safe-area-inset-bottom, 0px));
-    margin: 0 !important;
+    position: relative;
+    margin-top: 6px;
+    margin-left: auto;
+    margin-right: 0;
+    right: auto;
+    bottom: auto;
     left: auto;
     top: auto;
-    z-index: 120;
+    z-index: 1;
 }
 
 /* Reserve space inside the scrollable list so the last row is not hidden under fixed pagination */
 .process-page:not(.process-page--bank) #processTableBody.process-cards {
-    padding-bottom: 48px;
+    padding-bottom: 0;
+}
+
+/* Non-bank Process List: fixed viewport layout, 20 rows visible without scrolling */
+.process-page:not(.process-page--bank) .content {
+    height: calc(100vh - 22px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.process-page:not(.process-page--bank) .content>div:first-child {
+    margin-top: 8px !important;
+}
+
+.process-page:not(.process-page--bank) .page-title {
+    margin-bottom: clamp(8px, 0.83vw, 14px);
+}
+
+.process-page:not(.process-page--bank) .action-buttons-container {
+    margin-top: 8px;
+}
+
+.process-page:not(.process-page--bank) .table-header {
+    margin-top: 8px;
+}
+
+.process-page:not(.process-page--bank) .process-table-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.process-page:not(.process-page--bank) .process-cards {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: repeat(20, minmax(0, 1fr));
+    align-content: start;
+}
+
+.process-page:not(.process-page--bank) .process-card {
+    height: auto;
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+/* No. column: fixed compact width and center alignment */
+.process-page:not(.process-page--bank) .table-header,
+.process-page:not(.process-page--bank) .process-card {
+    grid-template-columns: 38px 0.88fr 1fr 0.4fr 0.35fr 1.15fr 0.28fr !important;
+}
+
+.process-page:not(.process-page--bank) .table-header .header-item:first-child,
+.process-page:not(.process-page--bank) .process-card .card-item:first-child {
+    justify-content: center;
+    text-align: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    font-variant-numeric: tabular-nums;
+    min-height: 0;
 }
 
 .process-page .pagination-btn {
