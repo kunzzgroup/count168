@@ -3741,6 +3741,8 @@ function loadIdProductList() {
 
         // Store row index in data attribute for reference
         option.setAttribute('data-row-index', String(item.rowIndex));
+        // id_product 本身可含冒号（如 AD:ADVANT PLAY），不能用 option.value 拆 lastIndexOf(':') 推 id
+        option.setAttribute('data-id-product', item.idProduct);
 
         descriptionSelect1.appendChild(option);
     });
@@ -3751,15 +3753,46 @@ function loadIdProductList() {
         const currentProduct = processInput ? (processInput.value || '').trim() : '';
         const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
         let valueToSelect = null;
+        const editSummaryRow = typeof getActiveSummaryRowForEditFormula === 'function' ? getActiveSummaryRowForEditFormula() : null;
+        const preferredRowIdx = editSummaryRow && typeof getDataCaptureRowIndexOverrideFromSummaryRow === 'function'
+            ? getDataCaptureRowIndexOverrideFromSummaryRow(editSummaryRow)
+            : null;
         if (currentProduct) {
+            const normCur = normalizeSpaces(currentProduct);
+            const candidates = [];
             for (let i = 0; i < descriptionSelect1.options.length; i++) {
                 const opt = descriptionSelect1.options[i];
                 const optVal = (opt.value || '').trim();
                 if (!optVal) continue;
-                const optId = optVal.indexOf(':') >= 0 ? optVal.substring(0, optVal.lastIndexOf(':')).trim() : optVal;
-                if (normalizeSpaces(optId) === normalizeSpaces(currentProduct)) {
-                    valueToSelect = opt.value;
-                    break;
+                const fullId = (opt.getAttribute('data-id-product') || optVal).trim();
+                if (normalizeSpaces(fullId) !== normCur) continue;
+                candidates.push(opt);
+            }
+            if (candidates.length === 1) {
+                valueToSelect = candidates[0].value;
+            } else if (candidates.length > 1) {
+                if (preferredRowIdx !== null && preferredRowIdx >= 0) {
+                    for (const opt of candidates) {
+                        const ri = parseInt(opt.getAttribute('data-row-index') || '', 10);
+                        if (!Number.isNaN(ri) && ri === preferredRowIdx) {
+                            valueToSelect = opt.value;
+                            break;
+                        }
+                    }
+                }
+                if (valueToSelect == null) {
+                    valueToSelect = candidates[0].value;
+                }
+            }
+        }
+        if (valueToSelect == null) {
+            if (preferredRowIdx !== null && preferredRowIdx >= 0) {
+                const hit = idProductRows.find(r => r.rowIndex === preferredRowIdx);
+                if (hit) {
+                    const c = idProductCount.get(hit.idProduct);
+                    valueToSelect = (c > 1 && hit.rowLabel)
+                        ? `${hit.idProduct}:${hit.rowLabel}`
+                        : hit.idProduct;
                 }
             }
         }
@@ -3994,6 +4027,7 @@ function updateFormulaDataGrid() {
 
     let idProduct = selectedIdProductValue;
     let rowLabel = null;
+    const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
 
     // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
     // 让重复 id_product 的底部灰色块只显示自己那一行。
@@ -4007,7 +4041,22 @@ function updateFormulaDataGrid() {
             if (rowIndexAttr == null || rowIndexAttr === '' || Number.isNaN(Number(rowIndexAttr))) continue;
             const currentRowIndex = Number(rowIndexAttr);
             const capturedRow = capturedTableBody.querySelectorAll('tr')[currentRowIndex];
-            const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
+            if (!capturedRow) continue;
+            let capId = capturedRow.getAttribute('data-id-product') || '';
+            if (!capId.trim()) {
+                const cs = capturedRow.querySelectorAll('td');
+                if (cs.length > 1 && cs[1]) {
+                    capId = cs[1].textContent ? cs[1].textContent.trim() : '';
+                }
+            }
+            const capTrim = (capId || '').trim();
+            const selTrim = (selectedIdProductValue || '').trim();
+            let idOnRowMatches = normalizeSpaces(capTrim) === normalizeSpaces(selTrim);
+            if (!idOnRowMatches && typeof normalizeIdProductText === 'function') {
+                idOnRowMatches = normalizeIdProductText(capTrim) === normalizeIdProductText(selTrim);
+            }
+            if (!idOnRowMatches) continue;
+            const rowHeaderCell = capturedRow.querySelector('.row-header');
             const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
             if (matchedRowLabel) {
                 rowLabel = matchedRowLabel;
@@ -4028,9 +4077,25 @@ function updateFormulaDataGrid() {
         }
     }
 
-    const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
     const isFullId = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
     const normalizedTargetIdProduct = isFullId ? normalizeSpaces(idProduct) : normalizeIdProductText(idProduct);
+
+    function capturedDomRowMatchesEditIdProduct(domRow) {
+        if (!domRow) return false;
+        let rowIdProduct = domRow.getAttribute('data-id-product');
+        if (!rowIdProduct || rowIdProduct.trim() === '') {
+            const cells = domRow.querySelectorAll('td');
+            if (cells.length > 1 && cells[1]) {
+                rowIdProduct = cells[1].textContent ? cells[1].textContent.trim() : '';
+            }
+        }
+        const rowIdTrim = (rowIdProduct || '').trim();
+        const idTrim = (idProduct || '').trim();
+        const normalizedRowIdProduct = isFullId ? normalizeSpaces(rowIdProduct || '') : normalizeIdProductText(rowIdProduct || '');
+        return isFullId
+            ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim))
+            : !!(normalizedRowIdProduct && normalizedRowIdProduct === normalizedTargetIdProduct);
+    }
 
     // Get table data
     let parsedTableData;
@@ -4119,10 +4184,11 @@ function updateFormulaDataGrid() {
     };
 
     // 优先按当前编辑行 data-row-index 渲染（尤其 sub row），避免同 id_product 场景下匹配到错误行或匹配不到。
+    // data-row-index 过期（如 Capture 重排）时须与 findProcessRow 一致：下标行 id 与当前编辑 id 不符则不要用该下标。
     const activeRowIndexOverride = currentActiveRow ? getDataCaptureRowIndexOverrideFromSummaryRow(currentActiveRow) : null;
     if (activeRowIndexOverride !== null) {
         const targetRow = rows[activeRowIndexOverride];
-        if (targetRow) {
+        if (targetRow && capturedDomRowMatchesEditIdProduct(targetRow)) {
             appendFormulaGridItemsFromCapturedRow(targetRow, activeRowIndexOverride);
             if (formulaDataGrid.children.length > 0) {
                 return;
@@ -6661,10 +6727,26 @@ function insertCellValueToFormula(cell) {
             currentActiveRow.getAttribute('data-row-index')
         ];
         const capturedRows = capturedTableBody.querySelectorAll('tr');
+        const normLbl = (s) => (s || '').trim().replace(/\s+/g, '');
         for (const rowIndexAttr of currentRowIndexCandidates) {
             if (rowIndexAttr == null || rowIndexAttr === '' || Number.isNaN(Number(rowIndexAttr))) continue;
             const capturedRow = capturedRows[Number(rowIndexAttr)];
-            const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
+            if (!capturedRow) continue;
+            if (currentIdProduct && currentIdProduct.trim()) {
+                let capId = capturedRow.getAttribute('data-id-product') || '';
+                if (!capId.trim()) {
+                    const cs = capturedRow.querySelectorAll('td');
+                    if (cs.length > 1 && cs[1]) {
+                        capId = cs[1].textContent ? cs[1].textContent.trim() : '';
+                    }
+                }
+                let idOnRowMatches = normLbl(capId) === normLbl(currentIdProduct);
+                if (!idOnRowMatches && typeof normalizeIdProductText === 'function') {
+                    idOnRowMatches = normalizeIdProductText(capId) === normalizeIdProductText(currentIdProduct);
+                }
+                if (!idOnRowMatches) continue;
+            }
+            const rowHeaderCell = capturedRow.querySelector('.row-header');
             const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
             if (matchedRowLabel) {
                 currentRowLabel = matchedRowLabel;

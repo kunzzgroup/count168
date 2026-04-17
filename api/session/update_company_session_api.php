@@ -40,11 +40,15 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 
 /**
  * 返回公司状态：
- * - valid: 可访问
+ * - valid: 可访问（C168 永远 valid）
  * - no_set: 未设置到期日（Not set）
  * - expired: 已到期
  */
-function getCompanyExpirationState($expirationDate): string {
+function getCompanyExpirationState($expirationDate, $companyCode = null): string {
+    if (strtoupper(trim((string)$companyCode)) === 'C168') {
+        return 'valid';
+    }
+
     if ($expirationDate === null || trim((string)$expirationDate) === '') {
         return 'no_set';
     }
@@ -143,7 +147,7 @@ try {
     foreach ($user_companies as $comp) {
         if ((int) $comp['id'] === $requested_company_id) {
             $valid = true;
-            $expState = getCompanyExpirationState($comp['expiration_date'] ?? null);
+            $expState = getCompanyExpirationState($comp['expiration_date'] ?? null, $comp['company_id'] ?? null);
             if ($expState === 'expired') {
                 $blockedReason = 'expired';
             } elseif ($expState === 'no_set') {
