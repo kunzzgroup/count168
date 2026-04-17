@@ -942,12 +942,15 @@ function restoreFormulaSourceFromRefresh() {
             const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
 
-            // 先读取当前单元格中从后端加载的公式文本
+            // 先读取当前单元格中从后端（模板）加载的公式文本
             const existingSpan = cells[4].querySelector('.formula-text');
             const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
 
-            // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
-            const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
+            // IMPORTANT: localStorage 中保存的公式（Refresh 前一刻保存）优先于模板的 formulaDisplay。
+            // 模板的 formulaDisplay 是上一轮数据的计算结果（stale），若优先使用会导致 Refresh 后 total 错误。
+            // 规则：1) localStorage 保存的公式 > 2) 模板的公式 > 3) 空
+            const localSavedFormula = savedFormulaDisplay || formula;
+            const finalFormula = localSavedFormula || existingFormulaText;
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
             const span = cells[4].querySelector('.formula-text');
