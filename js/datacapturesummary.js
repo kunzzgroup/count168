@@ -4015,13 +4015,22 @@ function updateFormulaDataGrid() {
         if (tableData) parsedTableData = JSON.parse(tableData);
     }
     
+    console.log('--- updateFormulaDataGrid DIAGNOSTIC START ---');
+    console.log('Selected Id Product:', selectedIdProductValue);
+    console.log('Current Active Row Product Type:', currentActiveProductType);
+    
     // 优先按当前编辑行获取在 JSON 中确切的数据行，使用 JSON row 直接生成内容以避免任何 DOM 偏移或文本匹配污染。
     // 并且强制要求锁定当前编辑行的父母账户身份 (forceOwnIdentity = true)，不要被 Data 下拉菜单干扰！
     const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue, true) : null;
     let targetJsonRow = null;
+    
+    console.log('activeRowIndexOverride:', activeRowIndexOverride);
+    
     if (activeRowIndexOverride !== null && parsedTableData && parsedTableData.rows) {
         targetJsonRow = parsedTableData.rows[activeRowIndexOverride];
     }
+    
+    console.log('targetJsonRow defined?', !!targetJsonRow);
     
     // Falls back strictly to finding the DOM row directly if JSON resolution fails
     let fallbackDomRow = null;
@@ -4163,6 +4172,8 @@ function updateFormulaDataGrid() {
             }
         }
         
+        console.log('rowContainer items appended:', rowContainer.children.length);
+        
         if (rowContainer.children.length > 0) {
             formulaDataGrid.appendChild(rowContainer);
             return true;
@@ -4172,9 +4183,12 @@ function updateFormulaDataGrid() {
 
     if (targetJsonRow) {
         // Rendering accurately and purely from the calculated JSON array.
-        appendFormulaGridItemsFromJsonRow(targetJsonRow, activeRowIndexOverride);
+        const rendered = appendFormulaGridItemsFromJsonRow(targetJsonRow, activeRowIndexOverride);
+        console.log('Rendering from targetJsonRow completed. Success:', rendered);
         return; // Complete halt prevents iteration overlap completely
     }
+
+    console.log('fallbackDomRow evaluated:', !!fallbackDomRow);
 
     if (fallbackDomRow) {
         // Fallback rendering using exactly the captured DOM row.
@@ -5191,18 +5205,16 @@ function getEditFormulaDataCaptureRowIndexOverride(targetProcessValue = null, fo
             }
         }
 
-        // Find the own id_product of the targetMainRow
-        const idProductCell = targetMainRow.querySelector('td:first-child');
-        const productValues = getProductValuesFromCell(idProductCell);
-        ownMainIdProduct = normalizeIdProductText(productValues.main || '');
+        // Find the own id_product of the targetMainRow safely handling merged cells
+        const processValueExtract = getProcessValueFromRow(targetMainRow);
+        ownMainIdProduct = normalizeIdProductText(processValueExtract || '');
         // Find all summary rows with the SAME id_product to calculate rank
         const matchingSummaryRows = [];
         allRows.forEach((r) => {
             const rProductType = r.getAttribute('data-product-type') || 'main';
             if (rProductType !== 'main') return;
-            const rCell = r.querySelector('td:first-child');
-            const rValues = getProductValuesFromCell(rCell);
-            if (normalizeIdProductText(rValues.main || '') === ownMainIdProduct) {
+            const rProcessValue = getProcessValueFromRow(r);
+            if (normalizeIdProductText(rProcessValue || '') === ownMainIdProduct) {
                 matchingSummaryRows.push(r);
             }
         });
