@@ -1404,7 +1404,15 @@ try {
                             : 'Full Month @Monthly';
                     }
                     $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
-                    $description = $description . ' ' . $billAmount;
+                    if (stripos((string) $description, 'Pro-rated(') === 0
+                        || stripos((string) $description, 'Prorated(') === 0
+                        || stripos((string) $description, 'DayEnd - Prorated(') === 0
+                        || stripos((string) $description, 'Prorated@Monthly') === 0
+                        || stripos((string) $description, 'DayEnd - Prorated@Monthly') === 0) {
+                        // Prorated 文案已包含金额括号，不再重复追加
+                    } else {
+                        $description = $description . ' ' . $billAmount;
+                    }
                 }
             }
         }

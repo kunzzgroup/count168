@@ -155,7 +155,7 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
 
     $value = bankProcessResolveDisplayValueByAccount($t);
 
-    return "Pro-rated({$startDm} - {$endDm} | {$daysCount}days)@monthly {$value}";
+    return "Pro-rated({$startDm} - {$endDm} | {$daysCount}days)@Monthly {$value}";
 }
 
 /**
@@ -182,8 +182,8 @@ function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true)
         $startYmd = $endYmd;
     }
     if ($startYmd === null) {
-        return ($withPrefix ? 'DayEnd - Prorated@Monthly ' : 'Prorated@Monthly ')
-            . bankProcessResolveDisplayValueByAccount($t);
+        $value = bankProcessResolveDisplayValueByAccount($t);
+        return ($withPrefix ? 'DayEnd - Prorated@Monthly' : 'Prorated@Monthly') . " {$value}";
     }
     if ($endYmd === null || $endYmd < $startYmd) {
         $endYmd = $startYmd;
@@ -192,8 +192,8 @@ function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true)
     $tsStart = strtotime($startYmd . ' 12:00:00');
     $tsEnd = strtotime($endYmd . ' 12:00:00');
     if ($tsStart === false || $tsEnd === false) {
-        return ($withPrefix ? 'DayEnd - Prorated@Monthly ' : 'Prorated@Monthly ')
-            . bankProcessResolveDisplayValueByAccount($t);
+        $value = bankProcessResolveDisplayValueByAccount($t);
+        return ($withPrefix ? 'DayEnd - Prorated@Monthly' : 'Prorated@Monthly') . " {$value}";
     }
 
     $startDm = date('j/n', $tsStart);
@@ -204,6 +204,6 @@ function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true)
     }
 
     $prefix = $withPrefix ? 'DayEnd - Prorated(' : 'Prorated(';
-    return $prefix . $startDm . ' - ' . $endDm . ' | ' . $daysCount . 'days)@Monthly '
-        . bankProcessResolveDisplayValueByAccount($t);
+    $value = bankProcessResolveDisplayValueByAccount($t);
+    return $prefix . $startDm . ' - ' . $endDm . ' | ' . $daysCount . "days)@Monthly {$value}";
 }
