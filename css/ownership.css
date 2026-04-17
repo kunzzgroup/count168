@@ -1470,3 +1470,16 @@ body {
     width: 100%;
 }
 
+/* Group ID entries in Account Ownership dropdown */
+.own-account-select option[value^="G_"] {
+    background-color: #eef2ff;
+    color: #4f46e5;
+    font-weight: 600;
+}
+
+/* Group entry row visual indicator */
+.own-account-row[data-group-entry="true"] {
+    border-left: 3px solid #6366f1;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, transparent 100%);
+}
+

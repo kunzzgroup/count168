@@ -259,6 +259,10 @@ $assetVer = function ($file) {
         </svg>
     </template>
 
+    <script>
+        window._ownCurrentUserId = <?php echo json_encode($_SESSION['user_id'] ?? null); ?>;
+        window._ownCurrentUserType = <?php echo json_encode($_SESSION['user_type'] ?? 'owner'); ?>;
+    </script>
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
     <script src="js/ownership-group.js?v=<?php echo $assetVer('js/ownership-group.js'); ?>"></script>
 </body>

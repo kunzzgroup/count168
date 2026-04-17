@@ -197,38 +197,18 @@ function geLoadGroupData(groupId) {
     loader.style.display = 'flex';
     editor.classList.add('own-editor-hidden');
 
-    // Fetch available accounts (using group_id to collect all company accounts)
-    // and existing group ownership rows
-    const grp = geGroupsData.find(g => g.group_id === groupId);
-    const companyIds = grp ? grp.companies.map(c => c.id) : [];
-
-    // Fetch accounts from all companies in this group
-    const accountPromises = companyIds.map(cid =>
-        fetch(`api/ownership/get_available_accounts_api.php?company_id=${cid}`).then(r => r.json())
-    );
-
+    // Fetch available accounts by group_id (single API call) + existing group ownership rows
     Promise.all([
-        Promise.all(accountPromises),
+        fetch(`api/ownership/get_group_available_accounts_api.php?group_id=${encodeURIComponent(groupId)}`).then(r => r.json()),
         fetch(`api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(groupId)}`).then(r => r.json())
-    ]).then(([accountResults, ownersRes]) => {
+    ]).then(([accountsRes, ownersRes]) => {
         loader.style.display = 'none';
         editor.classList.remove('own-editor-hidden');
 
-        // Merge and deduplicate accounts from all companies in this group
-        const accountMap = new Map();
-        accountResults.forEach(res => {
-            if (res.status === 'success') {
-                res.data.forEach(acc => {
-                    if (!accountMap.has(acc.id)) {
-                        accountMap.set(acc.id, acc);
-                    }
-                });
-            }
-        });
-        const mergedAccounts = Array.from(accountMap.values());
+        const accounts = (accountsRes.status === 'success') ? accountsRes.data : [];
 
         geGroupStates[groupId] = {
-            accounts: mergedAccounts,
+            accounts: accounts,
             rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
                 account_id: o.composite_id || o.account_id,
                 percentage: parseFloat(o.percentage),
