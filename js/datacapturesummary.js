@@ -942,29 +942,12 @@ function restoreFormulaSourceFromRefresh() {
             const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
 
-            // 先读取当前单元格中从后端（模板）加载的公式文本
+            // 先读取当前单元格中从后端加载的公式文本
             const existingSpan = cells[4].querySelector('.formula-text');
             const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
 
-            // IMPORTANT: formula = data.formula 是 Refresh 前直接从公式单元格文本内容保存的值（e.g., "851.65"）。
-            // 这是最可信的 localStorage 值。
-            //
-            // savedFormulaDisplay = getPreferredFormulaDisplay() 会读 row.getAttribute('data-formula-display')，
-            // 而这个属性在模板应用时已被写入 stale 的 DB 值 ——因此不能作为 localStorage 来源。
-            //
-            // 正确优先级：1) data.formula（localStorage 原始文本） > 2) existingFormulaText（模板）
-            const finalFormula = formula || existingFormulaText;
-
-            // DEBUG: log formula source for each row to confirm priority
-            const _dbgId = row.querySelector('td:first-child')?.textContent?.trim()?.slice(0, 40) || '?';
-            if (formula && existingFormulaText && formula !== existingFormulaText) {
-                console.warn('[RestoreFormula] CONFLICT row:', _dbgId,
-                    '| localStorage formula:', formula,
-                    '| template formula:', existingFormulaText,
-                    '| using:', finalFormula);
-            } else {
-                console.log('[RestoreFormula] row:', _dbgId, '| finalFormula:', finalFormula);
-            }
+            // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
+            const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
             const span = cells[4].querySelector('.formula-text');
@@ -987,45 +970,21 @@ function restoreFormulaSourceFromRefresh() {
         if (resolvedRate != null && String(resolvedRate).trim() !== '' && cells[7]) {
             cells[7].textContent = String(resolvedRate).trim();
         }
-        // 用当前单元格中最终显示的公式（finalFormula）来重算 Processed Amount。
-        // IMPORTANT: formulaForRecalc 是已经含 source percent 的 display 公式（如 "851.65*(0.08)"）。
-        // 不能再通过 calculateFormulaResultFromExpression 传入 enableSourcePercent=true，
-        // 否则 stripTrailingEmbeddedCommissionFactors 会先剥掉 *(0.08)，再重新乘一次 source percent → 双重叠加。
-        // 正确做法：直接 evaluateFormulaExpression 得到数值，再应用 Rate 和 InputMethod 变换。
+        // 用当前单元格中最终显示的公式（finalFormula）来重算 Processed Amount，
+        // 而非被 removeTrailingSourcePercentExpression 可能误截的 formula 变量。
+        // sourcePercent 优先使用 data-source-percent 属性值（srcPct），
+        // 而非 data.source（Source 列文本，不一定等于 sourcePercent）。
         const formulaForRecalc = (cells[4] && cells[4].querySelector('.formula-text'))
             ? (cells[4].querySelector('.formula-text').textContent || '').trim()
             : formula;
-
-        // 直接求值 display formula（它已经是纯数字表达式，不含 $n 引用）
-        let recalcBase = 0;
-        if (formulaForRecalc && formulaForRecalc !== 'Formula') {
-            try {
-                recalcBase = typeof evaluateFormulaExpression === 'function'
-                    ? Number(evaluateFormulaExpression(formulaForRecalc, null, '', null))
-                    : 0;
-                if (!Number.isFinite(recalcBase)) recalcBase = 0;
-            } catch (_re) { recalcBase = 0; }
-        }
-        row.setAttribute('data-base-processed-amount', String(recalcBase));
-
-        // Apply InputMethod transformation if enabled
-        let recalcFinal = recalcBase;
-        if (enableInputMethod && inputMethod && typeof applyInputMethodTransformation === 'function') {
-            recalcFinal = applyInputMethodTransformation(recalcBase, inputMethod);
-        }
-        // Apply Rate
-        if (typeof applyRateToProcessedAmount === 'function') {
-            recalcFinal = applyRateToProcessedAmount(row, recalcBase);
-        }
-        if (!Number.isFinite(recalcFinal)) recalcFinal = 0;
-
-        if (cells[8]) {
-            const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
-                ? roundProcessedAmountTo2Decimals(recalcFinal) : recalcFinal;
-            cells[8].textContent = typeof formatNumberWithThousands === 'function'
-                ? formatNumberWithThousands(rounded) : String(rounded);
-            cells[8].style.color = recalcFinal > 0 ? '#0D60FF' : (recalcFinal < 0 ? '#A91215' : '#000000');
-        }
+        recalculateAndRenderProcessedAmount(row, {
+            formula: formulaForRecalc,
+            sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
+            inputMethod,
+            enableInputMethod,
+            enableSourcePercent,
+            updateTotal: false
+        });
     });
     if (typeof applyAccountDisplayByRoleToAllRows === 'function') applyAccountDisplayByRoleToAllRows();
     if (typeof rebuildUsedAccountIds === 'function') {
@@ -3223,7 +3182,7 @@ async function loadFormData() {
                     // Add account options
                     result.accounts.forEach(account => {
                         // Only for upline (Supplier in UI), agent, member: display "Account [name]"; other roles show account_id only
-                        const rolesToShowName = ['upline', 'supplier', 'agent', 'member','debtor'];
+                        const rolesToShowName = ['upline', 'supplier', 'agent', 'member', 'debtor'];
                         let displayText;
                         if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
                             displayText = account.account_id + ' [' + account.name + ']';
@@ -4195,9 +4154,9 @@ function updateFormulaDataGrid() {
 
         const idProductMatches = isFullId
             ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim)
-               || normalizeSpaces(rowIdTrim).toUpperCase() === normalizeSpaces(idTrim).toUpperCase())
+                || normalizeSpaces(rowIdTrim).toUpperCase() === normalizeSpaces(idTrim).toUpperCase())
             : (normalizedRowIdProduct && (normalizedRowIdProduct === normalizedTargetIdProduct
-               || normalizedRowIdProduct.toUpperCase() === normalizedTargetIdProduct.toUpperCase()));
+                || normalizedRowIdProduct.toUpperCase() === normalizedTargetIdProduct.toUpperCase()));
 
         if (!idProductMatches) {
             return;
@@ -7556,7 +7515,7 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
         const hasCurrency = rowData.currency_id != null && String(rowData.currency_id).trim() !== '';
         const hasFormula = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
             (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
-        
+
         if (hasAccount && !hasCurrency) {
             return { success: false, message: 'Currency is required.' };
         }
@@ -7772,7 +7731,7 @@ async function autoSaveTemplateFromRow(row) {
         const currencyPlaceholder = (formData.currencyName || '').trim() && /^select\s*curren/i.test(String(formData.currencyName).trim());
         const formulaEmpty = !formData.formulaValue || (typeof formData.formulaValue === 'string' && !formData.formulaValue.trim());
         const productType = row.getAttribute('data-product-type') || 'main';
-        
+
         if (currencyEmpty || currencyPlaceholder || (productType === 'sub' && formulaEmpty)) {
             return;
         }
@@ -12435,7 +12394,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                     const enableSourcePercent = data.enableSourcePercent !== undefined
                         ? data.enableSourcePercent
                         : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                        formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
+                    formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
                     rawFormula = formulaText;
                 }
             }
@@ -20322,7 +20281,7 @@ async function submitSummaryData() {
 }
 
 // Only upline (Supplier in UI), member, agent show "Account [name]"; other roles show account_id only.
-const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member','debtor'];
+const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member', 'debtor'];
 
 // Format account display by role: strip [name] for roles not in ROLES_TO_SHOW_ACCOUNT_NAME.
 // accountList: optional array with { id, account_id, name, role }; uses window.__accountListWithRoles or __summaryAccountListCache if not provided.
@@ -20439,7 +20398,7 @@ function getCurrencyIdByCode(currencyCode) {
 }
 
 // Add Global Enter=Save Logic for Edit Formula Modal
-document.addEventListener('keydown', function(event) {
+document.addEventListener('keydown', function (event) {
     if (event.key === 'Enter') {
         const modal = document.getElementById('editFormulaModal');
         // Only trigger if modal is open (even if focus isn't strictly inside it yet)
@@ -20449,7 +20408,7 @@ document.addEventListener('keydown', function(event) {
             if (activeDropdown && event.target.closest('.custom-select-wrapper')) {
                 return; // Let the dropdown handle the Select
             }
-            
+
             // Do not trigger if SweetAlert or another library's confirmation popup is open and focused
             if (document.body.classList.contains('swal2-shown') || event.target.closest('.swal2-container')) {
                 return;
