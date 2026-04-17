@@ -1359,7 +1359,7 @@ body.process-page.process-page--show-all .process-cards {
 }
 
 .process-page:not(.process-page--bank) .table-header {
-    margin-top: 8px;
+    margin-top: 24px;
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {
