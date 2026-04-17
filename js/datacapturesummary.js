@@ -931,36 +931,23 @@ function restoreFormulaSourceFromRefresh() {
             // If formulaOperators itself contains $ notation, also set it as template version
             row.setAttribute('data-template-formula-operators', data.formulaOperators);
         }
-        const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
         const existingSourceAttr = String(row.getAttribute('data-source-percent') || '').trim();
         const existingSourceCellText = cells[5] ? String(cells[5].textContent || '').trim() : '';
-        let resolvedSourcePercent = srcPct || existingSourceAttr;
-        if (!resolvedSourcePercent && existingSourceCellText) {
-            resolvedSourcePercent = typeof convertDisplayPercentToDecimal === 'function' ? convertDisplayPercentToDecimal(existingSourceCellText) : existingSourceCellText;
-        }
-
-        if (resolvedSourcePercent) {
-            row.setAttribute('data-source-percent', resolvedSourcePercent);
-        } else {
-            row.removeAttribute('data-source-percent');
-        }
-
+        const existingSourceForRow = existingSourceAttr || existingSourceCellText;
+        if (!existingSourceForRow && data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
-        
+        const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
         if (cells[4]) {
             const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
 
-            // 先读取当前单元格中从后端（模板）加载的公式文本
+            // 先读取当前单元格中从后端加载的公式文本
             const existingSpan = cells[4].querySelector('.formula-text');
             const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
 
-            // IMPORTANT: localStorage 中保存的公式（Refresh 前一刻保存）优先于模板的 formulaDisplay。
-            // 模板的 formulaDisplay 是上一轮数据的计算结果（stale），若优先使用会导致 Refresh 后 total 错误。
-            // 规则：1) localStorage 保存的公式 > 2) 模板的公式 > 3) 空
-            const localSavedFormula = savedFormulaDisplay || formula;
-            const finalFormula = localSavedFormula || existingFormulaText;
+            // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
+            const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
             const span = cells[4].querySelector('.formula-text');
@@ -971,8 +958,8 @@ function restoreFormulaSourceFromRefresh() {
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         // Source 优先保留当前行（后端最新）值，避免被 refresh/localStorage 里的旧值覆盖
-        if (cells[5] && !existingSourceCellText) cells[5].textContent = source;
-        const sourcePercentText = resolvedSourcePercent || source;
+        if (cells[5] && !existingSourceForRow) cells[5].textContent = source;
+        const sourcePercentText = existingSourceForRow || source;
         const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
         const inputMethod = row.getAttribute('data-input-method') || '';
         const enableInputMethod = !!(inputMethod && inputMethod.trim());
@@ -992,8 +979,7 @@ function restoreFormulaSourceFromRefresh() {
             : formula;
         recalculateAndRenderProcessedAmount(row, {
             formula: formulaForRecalc,
-            formulaOperators: data.formulaOperators,
-            sourcePercent: resolvedSourcePercent || sourcePercentText,
+            sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
@@ -3195,9 +3181,10 @@ async function loadFormData() {
 
                     // Add account options
                     result.accounts.forEach(account => {
-                        // Display "Account [name]" if name exists, otherwise show account_id only
+                        // Only for upline (Supplier in UI), agent, member: display "Account [name]"; other roles show account_id only
+                        const rolesToShowName = ['upline', 'supplier', 'agent', 'member', 'debtor'];
                         let displayText;
-                        if (account.name) {
+                        if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
                             displayText = account.account_id + ' [' + account.name + ']';
                         } else {
                             displayText = account.account_id;
@@ -4002,67 +3989,15 @@ function updateFormulaDataGrid() {
     }
 
     if (!selectedIdProductValue || selectedIdProductValue === '') {
-        const errDiv = document.createElement('div');
-        errDiv.innerText = `[DEBUG] Exit Early: selectedIdProductValue is empty! currentActiveProductType=${currentActiveProductType}`;
-        errDiv.style = "background: red; color: white; padding: 5px; font-size: 11px;";
-        formulaDataGrid.appendChild(errDiv);
         return;
     }
 
     let idProduct = selectedIdProductValue;
-    // Get table data safely
-    let parsedTableData;
-    if (window.transformedTableData) {
-        parsedTableData = window.transformedTableData;
-    } else {
-        const tableData = localStorage.getItem('capturedTableData');
-        if (tableData) parsedTableData = JSON.parse(tableData);
-    }
-    
-    console.log('--- updateFormulaDataGrid DIAGNOSTIC START ---');
-    console.log('Selected Id Product:', selectedIdProductValue);
-    console.log('Current Active Row Product Type:', currentActiveProductType);
-    
-    // 优先按当前编辑行获取在 JSON 中确切的数据行，使用 JSON row 直接生成内容以避免任何 DOM 偏移或文本匹配污染。
-    // 并且强制要求锁定当前编辑行的父母账户身份 (forceOwnIdentity = true)，不要被 Data 下拉菜单干扰！
-    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue, true) : null;
-    let targetJsonRow = null;
-    
-    console.log('activeRowIndexOverride:', activeRowIndexOverride);
-    
-    if (activeRowIndexOverride !== null && parsedTableData && parsedTableData.rows) {
-        targetJsonRow = parsedTableData.rows[activeRowIndexOverride];
-    }
-    
-    // NUCLEAR FIX: In cases where a Sub Account inherited an offset data-row-index (e.g. +1), targetJsonRow will load the wrong product.
-    // We enforce that the loaded JSON row MUST match the explicitly selectedIdProductValue (e.g., AD:ADVANT PLAY - D89M).
-    if (parsedTableData && parsedTableData.rows && selectedIdProductValue) {
-        const targetIdNormal = normalizeIdProductText(selectedIdProductValue);
-        const resolvedIdNormal = targetJsonRow && targetJsonRow.length > 1 && targetJsonRow[1].type === 'data' ? normalizeIdProductText(targetJsonRow[1].value) : '';
-        
-        let debugStr = `[DEBUG] selectedId="${selectedIdProductValue}", targetIdNormal="${targetIdNormal}", activeRowOverride=${activeRowIndexOverride}, targetJsonRowExists=${!!targetJsonRow}, resolvedIdNormal="${resolvedIdNormal}"`;
-        
-        // If the resolved row from the index override doesn't match the required game, or is null, auto-recover by searching JSON directly
-        if (!targetJsonRow || resolvedIdNormal !== targetIdNormal) {
-            const manualMatchRow = parsedTableData.rows.find(r => r.length > 1 && r[1].type === 'data' && normalizeIdProductText(r[1].value) === targetIdNormal);
-            debugStr += ` => Manual Recovery: ${!!manualMatchRow}`;
-            if (manualMatchRow) {
-                targetJsonRow = manualMatchRow;
-                console.log('NUCLEAR FIX: Recovered targeted JSON row manually to match:', selectedIdProductValue);
-            }
-        }
-        
-        const alertDiv = document.createElement('div');
-        alertDiv.style = "background: #fff3cd; color: #856404; padding: 6px; font-size: 11px; margin-bottom: 8px; border: 1px solid #ffeeba; word-break: break-all;";
-        alertDiv.innerText = debugStr;
-        formulaDataGrid.appendChild(alertDiv);
-    }
-    
-    console.log('targetJsonRow defined?', !!targetJsonRow);
-    
-    // Falls back strictly to finding the DOM row directly if JSON resolution fails
-    let fallbackDomRow = null;
-    if (!targetJsonRow && currentActiveRow && capturedTableBody) {
+    let rowLabel = null;
+
+    // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
+    // 让重复 id_product 的底部灰色块只显示自己那一行。
+    if (currentActiveRow && capturedTableBody) {
         const currentRowIndexCandidates = [
             currentActiveRow.getAttribute('data-preserved-row-index'),
             currentActiveRow.getAttribute('data-row-index')
@@ -4073,9 +4008,22 @@ function updateFormulaDataGrid() {
             const currentRowIndex = Number(rowIndexAttr);
             const capturedRow = capturedTableBody.querySelectorAll('tr')[currentRowIndex];
             const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
-            if (capturedRow) {
-                fallbackDomRow = capturedRow;
+            const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
+            if (matchedRowLabel) {
+                rowLabel = matchedRowLabel;
                 break;
+            }
+        }
+    }
+
+    // 兼容旧行为：若 process 本身带 row_label（如 "ABC:A"），仍可解析使用。
+    if (!rowLabel) {
+        const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
+        if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
+            const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
+            if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
+                idProduct = selectedIdProductValue.substring(0, lastColonIndex).trim();
+                rowLabel = afterColon;
             }
         }
     }
@@ -4084,7 +4032,19 @@ function updateFormulaDataGrid() {
     const isFullId = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
     const normalizedTargetIdProduct = isFullId ? normalizeSpaces(idProduct) : normalizeIdProductText(idProduct);
 
-    // Fetch operations were hoisted cleanly earlier
+    // Get table data
+    let parsedTableData;
+    if (window.transformedTableData) {
+        parsedTableData = window.transformedTableData;
+    } else {
+        const tableData = localStorage.getItem('capturedTableData');
+        if (!tableData) {
+            console.log('No table data found for formula data grid');
+            return;
+        }
+        parsedTableData = JSON.parse(tableData);
+    }
+
     const rows = capturedTableBody.querySelectorAll('tr');
 
     const appendFormulaGridItemsFromCapturedRow = function (row, rowIndex) {
@@ -4158,75 +4118,58 @@ function updateFormulaDataGrid() {
         return false;
     };
 
-    const appendFormulaGridItemsFromJsonRow = function (jsonRow, rowIndex) {
-        if (!jsonRow || jsonRow.length <= 1) return false;
-        const rowContainer = document.createElement('div');
-        rowContainer.className = 'formula-data-grid-row';
-        
-        // Ensure styling applies
-        rowContainer.style.display = 'flex';
-        rowContainer.style.flexWrap = 'wrap';
-        rowContainer.style.gap = '8px';
-        rowContainer.style.marginBottom = '5px';
-
-        // Read columns starting from index 2 (skip header and id_product)
-        for (let i = 2; i < jsonRow.length; i++) {
-            const cellData = jsonRow[i];
-            const cellValue = cellData.value ? String(cellData.value).trim() : '';
-            if (cellValue !== '') {
-                const gridItem = document.createElement('div');
-                gridItem.className = 'formula-data-grid-item';
-                gridItem.textContent = `[${i}] ${cellValue}`;
-                gridItem.setAttribute('data-row-index', rowIndex); // DOM index is typically json rowIndex - 1
-                gridItem.setAttribute('data-column-index', i);
-
-                gridItem.addEventListener('click', function () {
-                    const targetColumnIndex = this.getAttribute('data-column-index');
-                    // Get the freshly queried DOM body to find the active td cell corresponding to JSON rowIndex
-                    const activeTableBody = document.getElementById('capturedTableBody');
-                    if (!activeTableBody) return;
-                    const domRows = activeTableBody.querySelectorAll('tr');
-                    // DOM is zero-indexed, JSON is 1-indexed (due to headers). So subtract 1.
-                    const domRowIndex = parseInt(this.getAttribute('data-row-index'), 10) - 1;
-                    const targetRow = domRows[domRowIndex];
-                    if (targetRow) {
-                        const targetCell = targetRow.querySelector(`td[data-column-index="${targetColumnIndex}"]`);
-                        if (targetCell) {
-                            insertCellValueToFormula(targetCell);
-                        }
-                    }
-                });
-                rowContainer.appendChild(gridItem);
+    // 优先按当前编辑行 data-row-index 渲染（尤其 sub row），避免同 id_product 场景下匹配到错误行或匹配不到。
+    const activeRowIndexOverride = currentActiveRow ? getDataCaptureRowIndexOverrideFromSummaryRow(currentActiveRow) : null;
+    if (activeRowIndexOverride !== null) {
+        const targetRow = rows[activeRowIndexOverride];
+        if (targetRow) {
+            appendFormulaGridItemsFromCapturedRow(targetRow, activeRowIndexOverride);
+            if (formulaDataGrid.children.length > 0) {
+                return;
             }
         }
-        
-        console.log('rowContainer items appended:', rowContainer.children.length);
-        
-        if (rowContainer.children.length > 0) {
-            formulaDataGrid.appendChild(rowContainer);
-            return true;
+    }
+
+    rows.forEach((row, rowIndex) => {
+        // Try to get id_product from data-id-product attribute first
+        let rowIdProduct = row.getAttribute('data-id-product');
+
+        // If not found, try to get from first cell (id_product column)
+        if (!rowIdProduct || rowIdProduct.trim() === '') {
+            const cells = row.querySelectorAll('td');
+            // First cell (index 0) is row header, second cell (index 1) is id_product
+            if (cells.length > 1 && cells[1]) {
+                const idProductCell = cells[1];
+                rowIdProduct = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                // Store it for future use
+                if (rowIdProduct) {
+                    row.setAttribute('data-id-product', rowIdProduct);
+                }
+            }
         }
-        return false;
-    };
 
-    if (targetJsonRow) {
-        // Rendering accurately and purely from the calculated JSON array.
-        const rendered = appendFormulaGridItemsFromJsonRow(targetJsonRow, activeRowIndexOverride);
-        console.log('Rendering from targetJsonRow completed. Success:', rendered);
-        return; // Complete halt prevents iteration overlap completely
-    }
+        const rowIdTrim = (rowIdProduct || '').trim();
+        const idTrim = (idProduct || '').trim();
+        const normalizedRowIdProduct = isFullId ? normalizeSpaces(rowIdProduct || '') : normalizeIdProductText(rowIdProduct || '');
 
-    console.log('fallbackDomRow evaluated:', !!fallbackDomRow);
+        const idProductMatches = isFullId
+            ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim))
+            : (normalizedRowIdProduct && normalizedRowIdProduct === normalizedTargetIdProduct);
 
-    if (fallbackDomRow) {
-        // Fallback rendering using exactly the captured DOM row.
-        const rIndexNum = [
-            currentActiveRow.getAttribute('data-preserved-row-index'),
-            currentActiveRow.getAttribute('data-row-index')
-        ].map(Number).find(n => !Number.isNaN(n) && n != null) || 0;
-        appendFormulaGridItemsFromCapturedRow(fallbackDomRow, rIndexNum);
-        return; 
-    }
+        if (!idProductMatches) {
+            return;
+        }
+
+        if (rowLabel) {
+            const rowHeaderCell = row.querySelector('.row-header');
+            const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+            if (rowHeaderLabel !== rowLabel) {
+                return;
+            }
+        }
+
+        appendFormulaGridItemsFromCapturedRow(row, rowIndex);
+    });
 }
 
 // Close add account modal (wrapper for compatibility)
@@ -5143,6 +5086,7 @@ function getActiveSummaryRowForEditFormula() {
     return null;
 }
 
+/** Summary 行上的 data-row-index → Data Capture 行序；占位 999999 视为无 */
 function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
     if (!row || !row.getAttribute) return null;
     const rowIdxStr = row.getAttribute('data-row-index');
@@ -5152,129 +5096,8 @@ function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
     return n;
 }
 
-function getEditFormulaDataCaptureRowIndexOverride(targetProcessValue = null, forceOwnIdentity = false) {
-    const row = getActiveSummaryRowForEditFormula();
-    let override = getDataCaptureRowIndexOverrideFromSummaryRow(row);
-    if (!forceOwnIdentity && override !== null) return override;
-
-    if (!row) return null;
-
-    // If targetProcessValue is provided, use it. Otherwise, fallback to the dropdown value.
-    // However, the *rank* must ALWAYS be calculated based on the currentActiveRow's OWN id_product!
-    const processInput = document.getElementById('process');
-    const processValue = targetProcessValue !== null ? targetProcessValue : (processInput ? processInput.value.trim() : '');
-    
-    // Get table data
-    let parsedTableData;
-    if (window.transformedTableData) {
-        parsedTableData = window.transformedTableData;
-    } else {
-        const tableData = localStorage.getItem('capturedTableData');
-        if (!tableData) return null;
-        parsedTableData = JSON.parse(tableData);
-    }
-    
-    const summaryTableBody = document.getElementById('summaryTableBody');
-    if (!summaryTableBody) return null;
-
-    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-    
-    // The rank of the sub-account is based on its OWN parent game
-    const productType = row.getAttribute('data-product-type') || 'main';
-    let targetMainRow = null;
-    let ownMainIdProduct = '';
-
-    if (productType === 'sub') {
-        const currentRowIndex = allRows.indexOf(row);
-        if (currentRowIndex > 0) {
-            for (let i = currentRowIndex - 1; i >= 0; i--) {
-                const r = allRows[i];
-                const rProductType = r.getAttribute('data-product-type') || 'main';
-                if (rProductType === 'main') {
-                    const idProductCell = r.querySelector('td:first-child');
-                    const productValues = getProductValuesFromCell(idProductCell);
-                    const mainText = normalizeIdProductText(productValues.main || '');
-                    if (mainText === normalizedProcessValue) {
-                        targetMainRow = r;
-                        break;
-                    }
-                }
-            }
-        }
-        if (!targetMainRow) {
-            const parentIdProduct = row.getAttribute('data-parent-id-product');
-            if (parentIdProduct) {
-                const normalizedParentId = normalizeIdProductText(parentIdProduct);
-                for (const r of allRows) {
-                    const rProductType = r.getAttribute('data-product-type') || 'main';
-                    if (rProductType === 'main') {
-                        const idProductCell = r.querySelector('td:first-child');
-                        const productValues = getProductValuesFromCell(idProductCell);
-                        const mainText = normalizeIdProductText(productValues.main || '');
-                        if (mainText === normalizedParentId) {
-                            targetMainRow = r;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        targetMainRow = row;
-    }
-
-    if (targetMainRow) {
-        if (forceOwnIdentity) {
-            // 杀手锏：主账号在生成表格时 100% 被赋予了正确的 data-row-index 指向源 JSON 数组
-            // 我们直接抽取父母账号自带的绝对索引位置，彻底无视任何文字拼写、有无 R 的误差！
-            const mainRowIndex = getDataCaptureRowIndexOverrideFromSummaryRow(targetMainRow);
-            if (mainRowIndex !== null) {
-                return mainRowIndex;
-            }
-        }
-
-        // Find the own id_product of the targetMainRow safely handling merged cells
-        const processValueExtract = getProcessValueFromRow(targetMainRow);
-        ownMainIdProduct = normalizeIdProductText(processValueExtract || '');
-        // Find all summary rows with the SAME id_product to calculate rank
-        const matchingSummaryRows = [];
-        allRows.forEach((r) => {
-            const rProductType = r.getAttribute('data-product-type') || 'main';
-            if (rProductType !== 'main') return;
-            const rProcessValue = getProcessValueFromRow(r);
-            if (normalizeIdProductText(rProcessValue || '') === ownMainIdProduct) {
-                matchingSummaryRows.push(r);
-            }
-        });
-
-        const currentPosIndex = matchingSummaryRows.indexOf(targetMainRow);
-        if (currentPosIndex >= 0) {
-            // Apply this rank to the target game (processValue), or strictly the own game if forceOwnIdentity is requested
-            const targetGameToMatch = forceOwnIdentity ? ownMainIdProduct : (processValue || ownMainIdProduct);
-            const normalizedTargetGame = normalizeIdProductText(targetGameToMatch);
-            
-            const matchingDataCaptureRows = [];
-            if (parsedTableData && parsedTableData.rows) {
-                parsedTableData.rows.forEach((r, idx) => {
-                    if (r.length > 1 && r[1].type === 'data') {
-                        const rowValue = r[1].value;
-                        const normalizedRowValue = normalizeIdProductText(rowValue);
-                        if (rowValue === targetGameToMatch || (normalizedRowValue && normalizedRowValue === normalizedTargetGame)) {
-                            matchingDataCaptureRows.push(idx);
-                        }
-                    }
-                });
-            }
-            if (currentPosIndex < matchingDataCaptureRows.length) {
-                return matchingDataCaptureRows[currentPosIndex];
-            } else if (matchingDataCaptureRows.length > 0) {
-                // If it doesn't have duplicates, fallback to the first match
-                return matchingDataCaptureRows[0];
-            }
-        }
-    }
-
-    return null;
+function getEditFormulaDataCaptureRowIndexOverride() {
+    return getDataCaptureRowIndexOverrideFromSummaryRow(getActiveSummaryRowForEditFormula());
 }
 
 // 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
@@ -7531,15 +7354,13 @@ function extractRowDataForTemplate(row, formData) {
                 const capturedTableBody = document.getElementById('capturedTableBody');
                 if (capturedTableBody) {
                     const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                    // Find the first matching row in Data Capture Table (case-insensitive)
-                    const normalizedIdProductUpper = normalizedIdProduct.toUpperCase();
+                    // Find the first matching row in Data Capture Table
                     for (let i = 0; i < capturedRows.length; i++) {
                         const capturedRow = capturedRows[i];
                         const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                         if (capturedIdProductCell) {
                             const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                            // Use case-insensitive comparison to handle e.g. summary="CM:CMD SPORTSBOOK - XBFSG" vs captured="Cm:Cmd Sportsbook - XBFSG"
-                            if (capturedIdProduct === normalizedIdProduct || capturedIdProduct.toUpperCase() === normalizedIdProductUpper) {
+                            if (capturedIdProduct === normalizedIdProduct) {
                                 rowIndex = i;
                                 console.log('Computed row_index from Data Capture Table position:', rowIndex, 'for id_product:', normalizedIdProduct);
                                 // Set the data attribute for future use
@@ -9013,8 +8834,6 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
 
     // 完整 id_product（ALLBET95MS(SV)MYR / (KM) / (SEXY) 等）只做精确或去空格匹配，不归一成同一 base
     const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
-    const processValueResolvedUpper = processValueResolved.toUpperCase();
-    const normalizedProcessValueUpper = normalizedProcessValue.toUpperCase();
     console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
     for (let i = 0; i < tableData.rows.length; i++) {
         const row = tableData.rows[i];
@@ -9024,28 +8843,14 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
                 console.log('findProcessRow: Found row at index:', i, 'by exact match');
                 return row;
             }
-            // Case-insensitive exact match (e.g. "CM:CMD SPORTSBOOK - XBFSG" vs "Cm:Cmd Sportsbook - XBFSG")
-            if (rowValue && rowValue.toUpperCase() === processValueResolvedUpper) {
-                console.log('findProcessRow: Found row at index:', i, 'by case-insensitive exact match');
-                return row;
-            }
             if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) {
                 console.log('findProcessRow: Found row at index:', i, 'by normalize-spaces match');
-                return row;
-            }
-            if (useExactOnly && normalizeSpaces(rowValue).toUpperCase() === normalizeSpaces(processValueResolved).toUpperCase()) {
-                console.log('findProcessRow: Found row at index:', i, 'by case-insensitive normalize-spaces match');
                 return row;
             }
             if (!useExactOnly) {
                 const normalizedRowValue = normalizeIdProductText(rowValue);
                 if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
                     console.log('findProcessRow: Found row at index:', i, 'by normalized match');
-                    return row;
-                }
-                // Case-insensitive normalized match
-                if (normalizedRowValue && normalizedRowValue.toUpperCase() === normalizedProcessValueUpper) {
-                    console.log('findProcessRow: Found row at index:', i, 'by case-insensitive normalized match');
                     return row;
                 }
             }
@@ -9058,7 +8863,6 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
         const fallbackTarget = (typeof normalizeIdProductText === 'function')
             ? normalizeIdProductText(processValueResolved)
             : processValueResolved.trim();
-        const fallbackTargetUpper = fallbackTarget.toUpperCase();
         if (fallbackTarget) {
             for (let i = 0; i < tableData.rows.length; i++) {
                 const row = tableData.rows[i];
@@ -9067,7 +8871,7 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
                     const candidate = (typeof normalizeIdProductText === 'function')
                         ? normalizeIdProductText(raw)
                         : String(raw || '').trim();
-                    if (candidate && (candidate === fallbackTarget || candidate.toUpperCase() === fallbackTargetUpper)) {
+                    if (candidate && candidate === fallbackTarget) {
                         console.log('findProcessRow: Fallback matched row at index:', i, 'by normalized id_product only (ignoring description)');
                         return row;
                     }
@@ -10010,7 +9814,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
-        parsedFormula = enableSourcePercent ? stripTrailingEmbeddedCommissionFactors(parsedFormula.trim()) : parsedFormula.trim();
+        parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim())
 
         // If source percent is disabled, return parsed formula as-is
         if (!enableSourcePercent) {
@@ -10140,10 +9944,7 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
 
         // 先解析 $/[id:n] 再剥末尾误写的占成小乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
         const afterRefs = parseReferenceFormula(String(formula).trim(), processValueForRefs, clickedCellRefsOverride, rowIndexOverride)
-        
-        // ONLY strip if we are actively applying an external Source Percent to avoid destroying hardcoded formula percentages
-        const strippedBody = enableSourcePercent ? stripTrailingEmbeddedCommissionFactors(afterRefs.trim()) : afterRefs.trim();
-        
+        const strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim())
         const formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If source percent is disabled, return formula result directly (without applying source percent)
@@ -14662,34 +14463,9 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
 
     // Persist row_index (if provided) on the DOM row for later reordering
-    // IMPORTANT: Validate that data.rowIndex actually corresponds to the correct id_product
-    // in the captured table. A stale/wrong row_index from the DB could cause formula hints
-    // to show data from the wrong row (e.g. XBFSG's index stored for CQ:CQ9 - 4D55MYR).
+    // IMPORTANT: If rowIndex is not provided, preserve existing row_index to maintain order
     if (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex))) {
-        const proposedIdx = Number(data.rowIndex);
-        let idxIsValid = true; // Default to trusting the index
-        // Validate against captured table when available
-        try {
-            const capturedTb = document.getElementById('capturedTableBody');
-            if (capturedTb && processValue) {
-                const capturedRowCheck = capturedTb.querySelectorAll('tr')[proposedIdx];
-                if (capturedRowCheck) {
-                    const ccell = capturedRowCheck.querySelector('td[data-column-index="1"]') || capturedRowCheck.querySelector('td[data-col-index="1"]') || capturedRowCheck.querySelectorAll('td')[1];
-                    if (ccell) {
-                        const capturedId = normalizeIdProductText(ccell.textContent.trim());
-                        const rowIdNorm = normalizeIdProductText(processValue);
-                        idxIsValid = (capturedId === rowIdNorm)
-                            || (capturedId.toUpperCase() === rowIdNorm.toUpperCase());
-                        if (!idxIsValid) {
-                            console.warn('updateSummaryTableRow: data.rowIndex', proposedIdx, 'points to captured row with id_product', capturedId, 'but expected', rowIdNorm, '— ignoring stale row_index from template');
-                        }
-                    }
-                }
-            }
-        } catch (_e) { /* non-blocking */ }
-        if (idxIsValid) {
-            row.setAttribute('data-row-index', String(proposedIdx));
-        }
+        row.setAttribute('data-row-index', String(Number(data.rowIndex)));
     } else {
         // Preserve existing row_index if not provided in data
         const existingRowIndex = row.getAttribute('data-row-index');
@@ -14978,35 +14754,10 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         }
 
         // If backend provides rowIndex, persist it to disambiguate duplicated id_product rows.
-        // Validate first: the captured row at this index must match this row's id_product.
         if (data.rowIndex !== undefined && data.rowIndex !== null && data.rowIndex !== '') {
             const idx = parseInt(String(data.rowIndex), 10)
             if (!isNaN(idx) && Number.isFinite(idx)) {
-                let idxOk = true;
-                try {
-                    const ctb = document.getElementById('capturedTableBody');
-                    if (ctb) {
-                        const idCell0 = row.querySelector('td:first-child');
-                        const pv0 = idCell0 ? getProductValuesFromCell(idCell0) : null;
-                        const thisId = pv0 ? normalizeIdProductText(pv0.main || '') : '';
-                        if (thisId) {
-                            const capRow0 = ctb.querySelectorAll('tr')[idx];
-                            if (capRow0) {
-                                const cc0 = capRow0.querySelector('td[data-column-index="1"]') || capRow0.querySelector('td[data-col-index="1"]') || capRow0.querySelectorAll('td')[1];
-                                if (cc0) {
-                                    const captId0 = normalizeIdProductText(cc0.textContent.trim());
-                                    idxOk = (captId0 === thisId) || (captId0.toUpperCase() === thisId.toUpperCase());
-                                    if (!idxOk) {
-                                        console.warn('updateSummaryTableRow: rowIndex', idx, 'targets captured id', captId0, 'but this row is', thisId, '— skipping stale row_index');
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (_e0) { /* non-blocking */ }
-                if (idxOk) {
-                    row.setAttribute('data-row-index', String(idx))
-                }
+                row.setAttribute('data-row-index', String(idx))
             }
         }
 
@@ -15304,34 +15055,8 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         }
 
         // Persist row_index (if provided) on the DOM row for later reordering
-        // Validate first: the captured table row at that index must match this row's id_product
         if (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex))) {
-            const proposedIdx2 = Number(data.rowIndex);
-            let idx2IsValid = true;
-            try {
-                const capturedTb2 = document.getElementById('capturedTableBody');
-                if (capturedTb2) {
-                    const idProductCell2 = row.querySelector('td:first-child');
-                    const productVals2 = idProductCell2 ? getProductValuesFromCell(idProductCell2) : null;
-                    const rowIdNorm2 = productVals2 ? normalizeIdProductText(productVals2.main || '') : '';
-                    if (rowIdNorm2) {
-                        const capturedRowCheck2 = capturedTb2.querySelectorAll('tr')[proposedIdx2];
-                        if (capturedRowCheck2) {
-                            const ccell2 = capturedRowCheck2.querySelector('td[data-column-index="1"]') || capturedRowCheck2.querySelector('td[data-col-index="1"]') || capturedRowCheck2.querySelectorAll('td')[1];
-                            if (ccell2) {
-                                const capturedId2 = normalizeIdProductText(ccell2.textContent.trim());
-                                idx2IsValid = (capturedId2 === rowIdNorm2) || (capturedId2.toUpperCase() === rowIdNorm2.toUpperCase());
-                                if (!idx2IsValid) {
-                                    console.warn('updateSummaryTableRow (2): data.rowIndex', proposedIdx2, 'points to', capturedId2, 'but expected', rowIdNorm2, '— skipping');
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (_e2) { /* non-blocking */ }
-            if (idx2IsValid) {
-                row.setAttribute('data-row-index', String(proposedIdx2));
-            }
+            row.setAttribute('data-row-index', String(Number(data.rowIndex)));
         }
 
         // Store input method data in row attributes
@@ -15378,20 +15103,10 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         if (data.productType !== undefined) {
             row.setAttribute('data-product-type', data.productType);
         } else {
-            // Keep existing product type if not provided, fallback to main if missing
-            if (!row.hasAttribute('data-product-type')) {
-                row.setAttribute('data-product-type', 'main');
-            }
+            row.setAttribute('data-product-type', 'main');
         }
-        
-        // Only modify parent ID product if it's explicitly provided
-        if (data.parentIdProduct !== undefined) {
-            if (data.parentIdProduct) {
-                row.setAttribute('data-parent-id-product', data.parentIdProduct);
-            } else {
-                row.removeAttribute('data-parent-id-product');
-            }
-        }
+        row.removeAttribute('data-parent-id-product');
+
         updateProcessedAmountTotal();
         if (typeof updateHeaderCurrencyFromSummaryTable === 'function') {
             updateHeaderCurrencyFromSummaryTable();
@@ -15527,21 +15242,13 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             const idProductToRowIndex = new Map(); // Cache id_product -> row_index mapping
 
             // First pass: Build mapping from Data Capture Table
-            // 使用大写 key（toUpperCase）实现大小写不敏感匹配，避免 Summary 行（如 CM:CMD SPORTSBOOK）与
-            // Data Capture 行（如 Cm:Cmd Sportsbook）因大小写不同而无法匹配，导致 data-row-index=999999
             capturedRows.forEach((capturedRow, capturedIndex) => {
                 const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                 if (capturedIdProductCell) {
-                    const capturedIdProductRaw = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                    // Store both original-case key AND uppercase key for case-insensitive lookup
-                    const capturedIdProductUpper = capturedIdProductRaw.toUpperCase();
-                    if (capturedIdProductRaw && !idProductToRowIndex.has(capturedIdProductRaw)) {
-                        // Store the first occurrence (position in Data Capture Table) with original key
-                        idProductToRowIndex.set(capturedIdProductRaw, capturedIndex);
-                    }
-                    if (capturedIdProductUpper && !idProductToRowIndex.has(capturedIdProductUpper)) {
-                        // Also store uppercase version for case-insensitive fallback
-                        idProductToRowIndex.set(capturedIdProductUpper, capturedIndex);
+                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                    if (capturedIdProduct && !idProductToRowIndex.has(capturedIdProduct)) {
+                        // Store the first occurrence (position in Data Capture Table)
+                        idProductToRowIndex.set(capturedIdProduct, capturedIndex);
                     }
                 }
             });
@@ -15556,39 +15263,17 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const productValues = getProductValuesFromCell(summaryIdProductCell);
                 const summaryIdProduct = normalizeIdProductText(productValues.main || '');
 
-                // Check if row already has a valid row_index
+                // Check if row already has a valid row_index - if so, preserve it
                 const existingRowIndex = summaryRow.getAttribute('data-row-index');
                 if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
                     const existingIndexNum = Number(existingRowIndex);
                     if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
-                        // CRITICAL: Validate that the captured table row at this index actually has the
-                        // correct id_product. If not, the stored row_index is wrong (e.g. from a stale
-                        // template DB entry) and must be recalculated.
-                        const capturedRowAtIndex = capturedRows[existingIndexNum];
-                        let indexIsCorrect = false;
-                        if (capturedRowAtIndex && summaryIdProduct) {
-                            const capturedIdCell = capturedRowAtIndex.querySelector('td[data-column-index="1"]') || capturedRowAtIndex.querySelector('td[data-col-index="1"]') || capturedRowAtIndex.querySelectorAll('td')[1];
-                            if (capturedIdCell) {
-                                const capturedId = normalizeIdProductText(capturedIdCell.textContent.trim());
-                                indexIsCorrect = (capturedId === summaryIdProduct)
-                                    || (capturedId.toUpperCase() === summaryIdProduct.toUpperCase());
-                            }
-                        } else if (!summaryIdProduct) {
-                            // No id_product to verify against — trust the existing index
-                            indexIsCorrect = true;
-                        }
-
-                        if (indexIsCorrect) {
-                            // Row already has a validated row_index, preserve it
-                            const idProductFull = (productValues.main || '').trim();
-                            summaryRow.setAttribute('data-preserved-row-index', existingRowIndex);
-                            console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
-                            return; // Keep existing row_index - don't recalculate
-                        } else {
-                            // Existing row_index points to the wrong row — fall through to recalculate
-                            const idProductFull = (productValues.main || '').trim();
-                            console.warn('Existing row_index', existingRowIndex, 'points to wrong captured row for id_product:', idProductFull || summaryIdProduct, '— recalculating');
-                        }
+                        // Row already has a valid row_index, preserve it（输出完整 id_product 便于控制台查看）
+                        const idProductFull = (productValues.main || '').trim();
+                        // 额外记录一份「初始 row_index」，供后续重排时使用，避免后面逻辑改写 data-row-index 影响顺序
+                        summaryRow.setAttribute('data-preserved-row-index', existingRowIndex);
+                        console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
+                        return; // Keep existing row_index - don't recalculate
                     }
                 }
 
@@ -15600,9 +15285,8 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     return;
                 }
 
-                // Get row_index from cache: try exact match first, then case-insensitive uppercase fallback
-                const matchedIndex = idProductToRowIndex.get(summaryIdProduct)
-                    ?? idProductToRowIndex.get(summaryIdProduct.toUpperCase());
+                // Get row_index from cache (all rows with same id_product get same row_index)
+                const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
 
                 // Set row_index based on Data Capture Table position (only if not already set)
                 const idProductFullForLog = (productValues.main || '').trim() || summaryIdProduct;
@@ -17386,36 +17070,9 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         updateSummaryTableRow(idProduct, data, targetRow);
 
         // IMPORTANT: Set data-row-index attribute on the row to preserve row order
-        // Validate that the stored row_index actually maps to a captured row with matching id_product.
-        // A stale DB entry (e.g. XBFSG's index stored for CQ:CQ9 - 4D55MYR) would poison the formula hint grid.
         if (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null) {
-            const proposedMainIdx = Number(mainTemplate.row_index);
-            if (!isNaN(proposedMainIdx) && Number.isFinite(proposedMainIdx)) {
-                let mainIdxOk = true;
-                try {
-                    const ctbMain = document.getElementById('capturedTableBody');
-                    if (ctbMain) {
-                        const capRowMain = ctbMain.querySelectorAll('tr')[proposedMainIdx];
-                        if (capRowMain) {
-                            const ccMain = capRowMain.querySelector('td[data-column-index="1"]') || capRowMain.querySelector('td[data-col-index="1"]') || capRowMain.querySelectorAll('td')[1];
-                            if (ccMain) {
-                                const capturedIdMain = normalizeIdProductText(ccMain.textContent.trim());
-                                const targetIdMain = normalizeIdProductText(idProduct || '');
-                                mainIdxOk = !targetIdMain // if no id to check, trust
-                                    || (capturedIdMain === targetIdMain)
-                                    || (capturedIdMain.toUpperCase() === targetIdMain.toUpperCase());
-                                if (!mainIdxOk) {
-                                    console.warn('applyMainTemplateToRow: template row_index', proposedMainIdx, 'points to captured id', capturedIdMain, 'but template id is', targetIdMain, '— not writing stale row_index');
-                                }
-                            }
-                        }
-                    }
-                } catch (_em) { /* non-blocking */ }
-                if (mainIdxOk) {
-                    targetRow.setAttribute('data-row-index', String(proposedMainIdx));
-                    console.log('Set data-row-index on row:', proposedMainIdx);
-                }
-            }
+            targetRow.setAttribute('data-row-index', String(mainTemplate.row_index));
+            console.log('Set data-row-index on row:', mainTemplate.row_index);
         }
 
         // Also set template_id and formula_variant for precise matching
@@ -18759,36 +18416,10 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         window.currentAddAccountButton = targetButton;
         updateSubIdProductRow(idProduct, data, targetRow);
 
-        // IMPORTANT: Set data-row-index attribute on the sub row to preserve row order
-        // Validate first: avoid writing a stale row_index from the DB that targets the wrong captured row.
+        // IMPORTANT: Set data-row-index attribute on the row to preserve row order
         if (template.row_index !== undefined && template.row_index !== null) {
-            const proposedSubIdx = Number(template.row_index);
-            if (!isNaN(proposedSubIdx) && Number.isFinite(proposedSubIdx)) {
-                let subIdxOk = true;
-                try {
-                    const ctbSub = document.getElementById('capturedTableBody');
-                    if (ctbSub) {
-                        const capRowSub = ctbSub.querySelectorAll('tr')[proposedSubIdx];
-                        if (capRowSub) {
-                            const ccSub = capRowSub.querySelector('td[data-column-index="1"]') || capRowSub.querySelector('td[data-col-index="1"]') || capRowSub.querySelectorAll('td')[1];
-                            if (ccSub) {
-                                const capturedIdSub = normalizeIdProductText(ccSub.textContent.trim());
-                                const targetIdSub = normalizeIdProductText(idProduct || '');
-                                subIdxOk = !targetIdSub
-                                    || (capturedIdSub === targetIdSub)
-                                    || (capturedIdSub.toUpperCase() === targetIdSub.toUpperCase());
-                                if (!subIdxOk) {
-                                    console.warn('applySubTemplatesToSummaryRow: template row_index', proposedSubIdx, 'points to captured id', capturedIdSub, 'but expected', targetIdSub, '— skipping');
-                                }
-                            }
-                        }
-                    }
-                } catch (_es) { /* non-blocking */ }
-                if (subIdxOk) {
-                    targetRow.setAttribute('data-row-index', String(proposedSubIdx));
-                    console.log('Set data-row-index on sub row:', proposedSubIdx);
-                }
-            }
+            targetRow.setAttribute('data-row-index', String(template.row_index));
+            console.log('Set data-row-index on sub row:', template.row_index);
         }
 
         // Also set template_id and formula_variant for precise matching
@@ -20468,10 +20099,10 @@ async function submitSummaryData() {
     }
 }
 
-// Always show "Account [name]" if name is available, regardless of role.
-const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member', 'debtor']; // Kept for safe measure
+// Only upline (Supplier in UI), member, agent show "Account [name]"; other roles show account_id only.
+const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member', 'debtor'];
 
-// Format account display: show [name] if available.
+// Format account display by role: strip [name] for roles not in ROLES_TO_SHOW_ACCOUNT_NAME.
 // accountList: optional array with { id, account_id, name, role }; uses window.__accountListWithRoles or __summaryAccountListCache if not provided.
 function getAccountDisplayByRole(accountDisplay, accountDbId, accountList) {
     if (!accountDisplay || typeof accountDisplay !== 'string') return accountDisplay || '';
@@ -20487,7 +20118,8 @@ function getAccountDisplayByRole(accountDisplay, accountDbId, accountList) {
         if (aid && (aid === accountIdFromDisplay || aid === trimmed)) { acc = a; break; }
     }
     if (!acc) return accountDisplay;
-    if (acc.name) {
+    const role = (acc.role || '').toLowerCase();
+    if (ROLES_TO_SHOW_ACCOUNT_NAME.includes(role) && acc.name) {
         return (acc.account_id || '').trim() + ' [' + (acc.name || '').trim() + ']';
     }
     return (acc.account_id || '').trim() || accountDisplay;
