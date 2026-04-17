@@ -891,13 +891,6 @@ try {
     $has_source_bank_process_id = $stmt->rowCount() > 0;
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
     $has_source_bank_process_period_type = $stmt->rowCount() > 0;
-    $has_bank_process_frequency = false;
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'frequency'");
-        $has_bank_process_frequency = $stmt->rowCount() > 0;
-    } catch (Throwable $e) {
-        $has_bank_process_frequency = false;
-    }
 
     $sql = "SELECT 
                 t.id,
@@ -925,8 +918,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $bpFrequencySql = $has_bank_process_frequency ? "bp_t.frequency" : "''";
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.dts_created AS bp_dts_created";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.dts_created AS bp_dts_created";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -1351,18 +1343,6 @@ try {
                             $description = 'Monthly bill';
                             $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
                         }
-                    }
-                    // frequency=monthly 的月账单：统一显示 Full Month (April/2026) @Monthly + process 原始价格
-                    $bpFrequency = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
-                    if ($isBankProcessTransaction && $bpFrequency === 'monthly' && ($periodType === 'monthly' || $periodType === '')) {
-                        $monthLabel = '';
-                        $tsMonth = strtotime((string) ($t['transaction_date'] ?? ''));
-                        if ($tsMonth !== false) {
-                            $monthLabel = date('F/Y', $tsMonth);
-                        }
-                        $description = $monthLabel !== ''
-                            ? ('Full Month (' . $monthLabel . ') @Monthly')
-                            : 'Full Month @Monthly';
                     }
                     $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
                     $description = $description . ' ' . $billAmount;
