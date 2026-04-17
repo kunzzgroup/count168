@@ -1487,7 +1487,7 @@ function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates
                         $subT['id'] = $t['id'] . '_' . $subAccId; 
                         
                         // 防止同一个模板被插入多次
-                        $dedupKey = $subAccId . '_' . ($t['process_id'] ?? 0) . '_' . ($t['formula_variant'] ?? 0);
+                        $dedupKey = $subAccId . '_' . ($t['process_id'] ?? 0) . '_' . ($t['id_product'] ?? '') . '_' . ($t['row_index'] ?? '') . '_' . ($t['formula_variant'] ?? 0);
                         if (!isset($addedForSubAcc[$dedupKey])) {
                             $newMains[] = $subT;
                             $addedForSubAcc[$dedupKey] = true;
