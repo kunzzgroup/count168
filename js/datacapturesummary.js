@@ -4102,6 +4102,13 @@ function updateFormulaDataGrid() {
         });
 
         // Only append row container if it has items
+        if (rowContainer.children.length > 0) {
+            formulaDataGrid.appendChild(rowContainer);
+            return true;
+        }
+        return false;
+    };
+
     const appendFormulaGridItemsFromJsonRow = function (jsonRow, rowIndex) {
         if (!jsonRow || jsonRow.length <= 1) return false;
         const rowContainer = document.createElement('div');
