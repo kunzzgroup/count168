@@ -50,8 +50,11 @@ function bankProcessBillFormatTripartNumber(float $amt): string
 }
 
 /**
- * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly buy/-sell/profit
- * buy/sell/profit 为 process 面额（与 Add Process 表单一致）；sell 在文案中始终带负号。
+ * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly <对应账单价格>
+ * 仅显示当前这条记录对应的价格：
+ * - Supplier(card_merchant): buy price
+ * - Customer: sell price（始终负号）
+ * - Profit account: profit
  *
  * @param array $t 需含 bp_day_start、process_cost、process_price、process_profit；可选 transaction_date 作 day_start 后备
  */
@@ -88,9 +91,20 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
     $sell = isset($t['process_price']) ? (float) $t['process_price'] : 0.0;
     $profit = isset($t['process_profit']) ? (float) $t['process_profit'] : 0.0;
 
-    $buyS = bankProcessBillFormatTripartNumber($buy);
-    $sellS = '-' . bankProcessBillFormatTripartNumber(abs($sell));
-    $profS = bankProcessBillFormatTripartNumber($profit);
+    $txAccountId = (int) ($t['account_id'] ?? 0);
+    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+    $customerId = (int) ($t['customer_id'] ?? 0);
+    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
 
-    return "Pro-rated({$startDm} - {$endDm})@monthly {$buyS}/{$sellS}/{$profS}";
+    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+        $value = bankProcessBillFormatTripartNumber($buy);
+    } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
+        $value = '-' . bankProcessBillFormatTripartNumber(abs($sell));
+    } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+        $value = bankProcessBillFormatTripartNumber($profit);
+    } else {
+        $value = bankProcessBillFormatTripartNumber(isset($t['amount']) ? (float) $t['amount'] : 0.0);
+    }
+
+    return "Pro-rated({$startDm} - {$endDm})@monthly {$value}";
 }

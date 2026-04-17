@@ -1293,23 +1293,10 @@ try {
         }
 
         // Bank process 的 WIN/LOSE + 手动 PROFIT：
-        // 默认 History 与主表一致：金额进 Win/Loss、Cr/Dr 为 0。
-        // 首月 partial 的 Sell Price（LOSE、Customer）：与主表一致进 Cr/Dr（右侧负号），Win/Loss 为 0。
+        // History 中金额统一显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
         if (($isBankProcessTransaction || $isManualProfit) && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
-            $ptBl = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
-            $customerIdBl = (int) ($t['customer_id'] ?? 0);
-            $txAccBl = (int) ($t['account_id'] ?? 0);
-            if ($isBankProcessTransaction
-                && $ptBl === 'partial_first_month'
-                && $t['transaction_type'] === 'LOSE'
-                && $customerIdBl > 0
-                && $txAccBl === $customerIdBl
-            ) {
-                $win_loss = 0;
-            } else {
-                $win_loss = $cr_dr;
-                $cr_dr = 0;
-            }
+            $win_loss = $cr_dr;
+            $cr_dr = 0;
         }
 
         // 动态调整 description
