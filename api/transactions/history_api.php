@@ -1187,6 +1187,16 @@ try {
         $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
         // 原始 description，用于判断显示文案/手动 PROFIT
         $rawDescription = $t['description'] ?? '';
+        // resend_consolidated_range 的临时 day_end 会在入账后被清理，优先从描述标记回读
+        $resendEndFromDesc = null;
+        if (preg_match('/\[RESEND_END=(\d{4}-\d{2}-\d{2})\]/', (string) $rawDescription, $mRe)) {
+            $resendEndFromDesc = $mRe[1];
+            $rawDescription = trim((string) preg_replace('/\s*\[RESEND_END=\d{4}-\d{2}-\d{2}\]\s*/', ' ', (string) $rawDescription));
+            $t['description'] = $rawDescription;
+        }
+        if ($resendEndFromDesc !== null && $resendEndFromDesc !== '') {
+            $t['bp_resend_day_end'] = $resendEndFromDesc;
+        }
         // 关联账户间内部转账：to 和 from 都在聚合列表内时，对聚合视图 Cr/Dr 为 0
         $is_internal_transfer = $is_to_account && $is_from_account;
         $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
