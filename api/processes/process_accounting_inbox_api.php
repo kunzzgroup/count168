@@ -324,8 +324,17 @@ function isDayEndTailAlreadyPosted(PDO $pdo, int $companyId, int $processId): bo
     return (bool) $stmt->fetch();
 }
 
-function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $processId): bool
+function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $processId, ?string $anchorYmd = null): bool
 {
+    if ($anchorYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+             AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')
+             AND posted_date = ? LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $anchorYmd]);
+        return (bool) $stmt->fetch();
+    }
     $stmt = $pdo->prepare(
         "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
          AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped') LIMIT 1"
@@ -669,7 +678,14 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     continue;
                 }
                 if (!empty($item['is_resend_consolidated_range'])) {
-                    $item['already_posted_today'] = isResendConsolidatedAlreadyPosted($pdo, $companyId, (int) $item['id']);
+                    $anchorRaw = isset($item['day_start']) ? trim((string) $item['day_start']) : '';
+                    $anchorYmd = $anchorRaw !== '' ? inboxBankProcessDateFieldToYmd($anchorRaw) : null;
+                    $item['already_posted_today'] = isResendConsolidatedAlreadyPosted(
+                        $pdo,
+                        $companyId,
+                        (int) $item['id'],
+                        $anchorYmd
+                    );
                     continue;
                 }
                 // 按「账单所属自然月」判断是否已入账（与逾期未显示逻辑一致）
