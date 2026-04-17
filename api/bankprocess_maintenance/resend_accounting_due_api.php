@@ -252,10 +252,13 @@ try {
             "DELETE FROM process_accounting_posted
              WHERE company_id = ? AND process_id = ?
                AND (
-                 period_type IN (
-                   'partial_first_month','partial_first_month_skipped',
-                   'day_end_tail','day_end_tail_skipped',
-                   'resend_consolidated_range','resend_consolidated_range_skipped'
+                 (
+                   period_type IN (
+                     'partial_first_month','partial_first_month_skipped',
+                     'day_end_tail','day_end_tail_skipped',
+                     'resend_consolidated_range','resend_consolidated_range_skipped'
+                   )
+                   AND posted_date BETWEEN ? AND ?
                  )
                  OR (
                    (YEAR(posted_date) * 100 + MONTH(posted_date)) BETWEEN ? AND ?
@@ -263,7 +266,7 @@ try {
                  )
                )"
         );
-        $delMonthPap->execute([$company_id, $bankProcessId, $startYmInt, $endYmInt]);
+        $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart, $newDayEnd, $startYmInt, $endYmInt]);
     } else {
         // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
         // 兜底：
