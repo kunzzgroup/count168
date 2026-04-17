@@ -1389,7 +1389,7 @@ body.process-page.process-page--show-all .process-cards {
 /* No. column: fixed compact width and center alignment */
 .process-page:not(.process-page--bank) .table-header,
 .process-page:not(.process-page--bank) .process-card {
-    grid-template-columns: 56px 0.85fr 1fr 0.4fr 0.35fr 1.15fr 0.28fr !important;
+    grid-template-columns: 38px 0.88fr 1fr 0.4fr 0.35fr 1.15fr 0.28fr !important;
 }
 
 .process-page:not(.process-page--bank) .table-header .header-item:first-child,
