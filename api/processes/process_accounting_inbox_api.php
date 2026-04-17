@@ -1197,6 +1197,73 @@ try {
         ];
     }
 
+    // 去重防护：Resend（尤其带 day_end）在某些组合条件下可能产生重复候选行。
+    // 这里仅对“同 process + 同账期 + 同 period_type”去重；并且特殊账期优先于普通 monthly。
+    if (!empty($needToday)) {
+        $rankOf = static function (array $item): int {
+            if (!empty($item['is_resend_consolidated_range'])) return 5;
+            if (!empty($item['is_day_end_tail'])) return 4;
+            if (!empty($item['is_partial_first_month'])) return 3;
+            if (!empty($item['is_manual_inactive'])) return 2;
+            return 1; // regular monthly
+        };
+        $typeOf = static function (array $item): string {
+            if (!empty($item['is_resend_consolidated_range'])) return 'resend_consolidated_range';
+            if (!empty($item['is_day_end_tail'])) return 'day_end_tail';
+            if (!empty($item['is_partial_first_month'])) return 'partial_first_month';
+            if (!empty($item['is_manual_inactive'])) return 'manual_inactive';
+            return 'monthly';
+        };
+
+        $unique = [];
+        foreach ($needToday as $row) {
+            $pid = (int) ($row['id'] ?? 0);
+            $bm = trim((string) ($row['monthly_billing_month'] ?? ''));
+            if ($bm === '') {
+                $bm = trim((string) ($row['day_start'] ?? ''));
+            }
+            $key = $pid . '|' . $bm . '|' . $typeOf($row);
+
+            if (!isset($unique[$key])) {
+                $unique[$key] = $row;
+                continue;
+            }
+            if ($rankOf($row) >= $rankOf($unique[$key])) {
+                $unique[$key] = $row;
+            }
+        }
+
+        // 额外规则：同 process + 同账期，若存在特殊账期（resend/day_end/partial/manual），丢弃普通 monthly。
+        $hasSpecialByProcessMonth = [];
+        foreach ($unique as $row) {
+            $pid = (int) ($row['id'] ?? 0);
+            $bm = trim((string) ($row['monthly_billing_month'] ?? ''));
+            if ($bm === '') {
+                $bm = trim((string) ($row['day_start'] ?? ''));
+            }
+            if ($bm === '') continue;
+            if ($rankOf($row) > 1) {
+                $hasSpecialByProcessMonth[$pid . '|' . $bm] = true;
+            }
+        }
+
+        $deduped = [];
+        foreach ($unique as $row) {
+            $pid = (int) ($row['id'] ?? 0);
+            $bm = trim((string) ($row['monthly_billing_month'] ?? ''));
+            if ($bm === '') {
+                $bm = trim((string) ($row['day_start'] ?? ''));
+            }
+            $pmKey = $pid . '|' . $bm;
+            if ($rankOf($row) === 1 && isset($hasSpecialByProcessMonth[$pmKey])) {
+                continue;
+            }
+            $deduped[] = $row;
+        }
+
+        $needToday = array_values($deduped);
+    }
+
     if (!empty($needToday)) {
         markAlreadyPostedOnNeedToday($pdo, $needToday, $company_id, $today, $hasPeriodType);
     }
