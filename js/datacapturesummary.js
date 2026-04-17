@@ -14800,10 +14800,35 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         }
 
         // If backend provides rowIndex, persist it to disambiguate duplicated id_product rows.
+        // Validate first: the captured row at this index must match this row's id_product.
         if (data.rowIndex !== undefined && data.rowIndex !== null && data.rowIndex !== '') {
             const idx = parseInt(String(data.rowIndex), 10)
             if (!isNaN(idx) && Number.isFinite(idx)) {
-                row.setAttribute('data-row-index', String(idx))
+                let idxOk = true;
+                try {
+                    const ctb = document.getElementById('capturedTableBody');
+                    if (ctb) {
+                        const idCell0 = row.querySelector('td:first-child');
+                        const pv0 = idCell0 ? getProductValuesFromCell(idCell0) : null;
+                        const thisId = pv0 ? normalizeIdProductText(pv0.main || '') : '';
+                        if (thisId) {
+                            const capRow0 = ctb.querySelectorAll('tr')[idx];
+                            if (capRow0) {
+                                const cc0 = capRow0.querySelector('td[data-column-index="1"]') || capRow0.querySelector('td[data-col-index="1"]') || capRow0.querySelectorAll('td')[1];
+                                if (cc0) {
+                                    const captId0 = normalizeIdProductText(cc0.textContent.trim());
+                                    idxOk = (captId0 === thisId) || (captId0.toUpperCase() === thisId.toUpperCase());
+                                    if (!idxOk) {
+                                        console.warn('updateSummaryTableRow: rowIndex', idx, 'targets captured id', captId0, 'but this row is', thisId, '— skipping stale row_index');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (_e0) { /* non-blocking */ }
+                if (idxOk) {
+                    row.setAttribute('data-row-index', String(idx))
+                }
             }
         }
 
@@ -17173,9 +17198,36 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         updateSummaryTableRow(idProduct, data, targetRow);
 
         // IMPORTANT: Set data-row-index attribute on the row to preserve row order
+        // Validate that the stored row_index actually maps to a captured row with matching id_product.
+        // A stale DB entry (e.g. XBFSG's index stored for CQ:CQ9 - 4D55MYR) would poison the formula hint grid.
         if (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null) {
-            targetRow.setAttribute('data-row-index', String(mainTemplate.row_index));
-            console.log('Set data-row-index on row:', mainTemplate.row_index);
+            const proposedMainIdx = Number(mainTemplate.row_index);
+            if (!isNaN(proposedMainIdx) && Number.isFinite(proposedMainIdx)) {
+                let mainIdxOk = true;
+                try {
+                    const ctbMain = document.getElementById('capturedTableBody');
+                    if (ctbMain) {
+                        const capRowMain = ctbMain.querySelectorAll('tr')[proposedMainIdx];
+                        if (capRowMain) {
+                            const ccMain = capRowMain.querySelector('td[data-column-index="1"]') || capRowMain.querySelector('td[data-col-index="1"]') || capRowMain.querySelectorAll('td')[1];
+                            if (ccMain) {
+                                const capturedIdMain = normalizeIdProductText(ccMain.textContent.trim());
+                                const targetIdMain = normalizeIdProductText(idProduct || '');
+                                mainIdxOk = !targetIdMain // if no id to check, trust
+                                    || (capturedIdMain === targetIdMain)
+                                    || (capturedIdMain.toUpperCase() === targetIdMain.toUpperCase());
+                                if (!mainIdxOk) {
+                                    console.warn('applyMainTemplateToRow: template row_index', proposedMainIdx, 'points to captured id', capturedIdMain, 'but template id is', targetIdMain, '— not writing stale row_index');
+                                }
+                            }
+                        }
+                    }
+                } catch (_em) { /* non-blocking */ }
+                if (mainIdxOk) {
+                    targetRow.setAttribute('data-row-index', String(proposedMainIdx));
+                    console.log('Set data-row-index on row:', proposedMainIdx);
+                }
+            }
         }
 
         // Also set template_id and formula_variant for precise matching
@@ -18519,10 +18571,36 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         window.currentAddAccountButton = targetButton;
         updateSubIdProductRow(idProduct, data, targetRow);
 
-        // IMPORTANT: Set data-row-index attribute on the row to preserve row order
+        // IMPORTANT: Set data-row-index attribute on the sub row to preserve row order
+        // Validate first: avoid writing a stale row_index from the DB that targets the wrong captured row.
         if (template.row_index !== undefined && template.row_index !== null) {
-            targetRow.setAttribute('data-row-index', String(template.row_index));
-            console.log('Set data-row-index on sub row:', template.row_index);
+            const proposedSubIdx = Number(template.row_index);
+            if (!isNaN(proposedSubIdx) && Number.isFinite(proposedSubIdx)) {
+                let subIdxOk = true;
+                try {
+                    const ctbSub = document.getElementById('capturedTableBody');
+                    if (ctbSub) {
+                        const capRowSub = ctbSub.querySelectorAll('tr')[proposedSubIdx];
+                        if (capRowSub) {
+                            const ccSub = capRowSub.querySelector('td[data-column-index="1"]') || capRowSub.querySelector('td[data-col-index="1"]') || capRowSub.querySelectorAll('td')[1];
+                            if (ccSub) {
+                                const capturedIdSub = normalizeIdProductText(ccSub.textContent.trim());
+                                const targetIdSub = normalizeIdProductText(idProduct || '');
+                                subIdxOk = !targetIdSub
+                                    || (capturedIdSub === targetIdSub)
+                                    || (capturedIdSub.toUpperCase() === targetIdSub.toUpperCase());
+                                if (!subIdxOk) {
+                                    console.warn('applySubTemplatesToSummaryRow: template row_index', proposedSubIdx, 'points to captured id', capturedIdSub, 'but expected', targetIdSub, '— skipping');
+                                }
+                            }
+                        }
+                    }
+                } catch (_es) { /* non-blocking */ }
+                if (subIdxOk) {
+                    targetRow.setAttribute('data-row-index', String(proposedSubIdx));
+                    console.log('Set data-row-index on sub row:', proposedSubIdx);
+                }
+            }
         }
 
         // Also set template_id and formula_variant for precise matching
