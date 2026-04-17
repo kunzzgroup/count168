@@ -4002,6 +4002,10 @@ function updateFormulaDataGrid() {
     }
 
     if (!selectedIdProductValue || selectedIdProductValue === '') {
+        const errDiv = document.createElement('div');
+        errDiv.innerText = `[DEBUG] Exit Early: selectedIdProductValue is empty! currentActiveProductType=${currentActiveProductType}`;
+        errDiv.style = "background: red; color: white; padding: 5px; font-size: 11px;";
+        formulaDataGrid.appendChild(errDiv);
         return;
     }
 
@@ -4036,14 +4040,22 @@ function updateFormulaDataGrid() {
         const targetIdNormal = normalizeIdProductText(selectedIdProductValue);
         const resolvedIdNormal = targetJsonRow && targetJsonRow.length > 1 && targetJsonRow[1].type === 'data' ? normalizeIdProductText(targetJsonRow[1].value) : '';
         
+        let debugStr = `[DEBUG] selectedId="${selectedIdProductValue}", targetIdNormal="${targetIdNormal}", activeRowOverride=${activeRowIndexOverride}, targetJsonRowExists=${!!targetJsonRow}, resolvedIdNormal="${resolvedIdNormal}"`;
+        
         // If the resolved row from the index override doesn't match the required game, or is null, auto-recover by searching JSON directly
         if (!targetJsonRow || resolvedIdNormal !== targetIdNormal) {
             const manualMatchRow = parsedTableData.rows.find(r => r.length > 1 && r[1].type === 'data' && normalizeIdProductText(r[1].value) === targetIdNormal);
+            debugStr += ` => Manual Recovery: ${!!manualMatchRow}`;
             if (manualMatchRow) {
                 targetJsonRow = manualMatchRow;
                 console.log('NUCLEAR FIX: Recovered targeted JSON row manually to match:', selectedIdProductValue);
             }
         }
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.style = "background: #fff3cd; color: #856404; padding: 6px; font-size: 11px; margin-bottom: 8px; border: 1px solid #ffeeba; word-break: break-all;";
+        alertDiv.innerText = debugStr;
+        formulaDataGrid.appendChild(alertDiv);
     }
     
     console.log('targetJsonRow defined?', !!targetJsonRow);
