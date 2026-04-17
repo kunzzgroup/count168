@@ -374,6 +374,22 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
         </div>
     </div>
 
+    <!-- Dashboard 自定义提醒弹窗（公司到期/不可访问） -->
+    <div id="dashboardAlertModalOverlay" class="dashboard-alert-modal-overlay" aria-hidden="true">
+        <div class="dashboard-alert-modal-box" role="dialog" aria-labelledby="dashboardAlertModalTitle"
+            aria-describedby="dashboardAlertModalMessage">
+            <div class="dashboard-alert-modal-icon-wrap">
+                <i class="fas fa-exclamation-triangle dashboard-alert-modal-icon" aria-hidden="true"></i>
+            </div>
+            <h3 id="dashboardAlertModalTitle" class="dashboard-alert-modal-title">Notice</h3>
+            <p id="dashboardAlertModalMessage" class="dashboard-alert-modal-message"></p>
+            <div class="dashboard-alert-modal-actions">
+                <button type="button" id="dashboardAlertModalConfirmBtn"
+                    class="dashboard-alert-modal-btn dashboard-alert-modal-btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>
