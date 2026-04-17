@@ -3184,10 +3184,9 @@ async function loadFormData() {
 
                     // Add account options
                     result.accounts.forEach(account => {
-                        // Only for upline (Supplier in UI), agent, member: display "Account [name]"; other roles show account_id only
-                        const rolesToShowName = ['upline', 'supplier', 'agent', 'member', 'debtor'];
+                        // Display "Account [name]" if name exists, otherwise show account_id only
                         let displayText;
-                        if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
+                        if (account.name) {
                             displayText = account.account_id + ' [' + account.name + ']';
                         } else {
                             displayText = account.account_id;
@@ -20405,10 +20404,10 @@ async function submitSummaryData() {
     }
 }
 
-// Only upline (Supplier in UI), member, agent show "Account [name]"; other roles show account_id only.
-const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member', 'debtor'];
+// Always show "Account [name]" if name is available, regardless of role.
+const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member', 'debtor']; // Kept for safe measure
 
-// Format account display by role: strip [name] for roles not in ROLES_TO_SHOW_ACCOUNT_NAME.
+// Format account display: show [name] if available.
 // accountList: optional array with { id, account_id, name, role }; uses window.__accountListWithRoles or __summaryAccountListCache if not provided.
 function getAccountDisplayByRole(accountDisplay, accountDbId, accountList) {
     if (!accountDisplay || typeof accountDisplay !== 'string') return accountDisplay || '';
@@ -20424,8 +20423,7 @@ function getAccountDisplayByRole(accountDisplay, accountDbId, accountList) {
         if (aid && (aid === accountIdFromDisplay || aid === trimmed)) { acc = a; break; }
     }
     if (!acc) return accountDisplay;
-    const role = (acc.role || '').toLowerCase();
-    if (ROLES_TO_SHOW_ACCOUNT_NAME.includes(role) && acc.name) {
+    if (acc.name) {
         return (acc.account_id || '').trim() + ' [' + (acc.name || '').trim() + ']';
     }
     return (acc.account_id || '').trim() || accountDisplay;
