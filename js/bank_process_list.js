@@ -32,8 +32,12 @@ function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
     const code = String(codeRaw || '').trim();
     const name = String(nameRaw || '').trim();
     const fallback = String(fallbackRaw || '').trim();
-    if (code && name) return code + '[' + name + ']';
-    if (code) return code;
+    // Always show account_id[name] when account_id exists.
+    // If name is empty, fall back to account_id itself: EXPENSES[EXPENSES].
+    if (code) {
+        const safeName = name || code;
+        return code + '[' + safeName + ']';
+    }
     if (name) return name;
     return fallback;
 }
