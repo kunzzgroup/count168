@@ -15350,10 +15350,20 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         if (data.productType !== undefined) {
             row.setAttribute('data-product-type', data.productType);
         } else {
-            row.setAttribute('data-product-type', 'main');
+            // Keep existing product type if not provided, fallback to main if missing
+            if (!row.hasAttribute('data-product-type')) {
+                row.setAttribute('data-product-type', 'main');
+            }
         }
-        row.removeAttribute('data-parent-id-product');
-
+        
+        // Only modify parent ID product if it's explicitly provided
+        if (data.parentIdProduct !== undefined) {
+            if (data.parentIdProduct) {
+                row.setAttribute('data-parent-id-product', data.parentIdProduct);
+            } else {
+                row.removeAttribute('data-parent-id-product');
+            }
+        }
         updateProcessedAmountTotal();
         if (typeof updateHeaderCurrencyFromSummaryTable === 'function') {
             updateHeaderCurrencyFromSummaryTable();
