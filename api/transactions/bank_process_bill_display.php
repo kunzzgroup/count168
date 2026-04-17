@@ -80,6 +80,33 @@ function bankProcessProfitSharingOriginalAmountByAccount(array $t): ?float
     return null;
 }
 
+function bankProcessResolveDisplayValueByAccount(array $t): string
+{
+    $buy = isset($t['process_cost']) ? (float) $t['process_cost'] : 0.0;
+    $sell = isset($t['process_price']) ? (float) $t['process_price'] : 0.0;
+    $profit = isset($t['process_profit']) ? (float) $t['process_profit'] : 0.0;
+
+    $txAccountId = (int) ($t['account_id'] ?? 0);
+    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+    $customerId = (int) ($t['customer_id'] ?? 0);
+    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+
+    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+        return bankProcessBillFormatTripartNumber($buy);
+    }
+    if ($txAccountId > 0 && $txAccountId === $customerId) {
+        return bankProcessBillFormatTripartNumber(abs($sell));
+    }
+    if ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+        return bankProcessBillFormatTripartNumber($profit);
+    }
+    $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
+    if ($psAmount !== null) {
+        return bankProcessBillFormatTripartNumber($psAmount);
+    }
+    return bankProcessBillFormatTripartNumber(isset($t['amount']) ? (float) $t['amount'] : 0.0);
+}
+
 /**
  * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly <对应账单价格>
  * 仅显示当前这条记录对应的价格：
@@ -126,29 +153,52 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
         $daysCount = 1;
     }
 
-    $buy = isset($t['process_cost']) ? (float) $t['process_cost'] : 0.0;
-    $sell = isset($t['process_price']) ? (float) $t['process_price'] : 0.0;
-    $profit = isset($t['process_profit']) ? (float) $t['process_profit'] : 0.0;
-
-    $txAccountId = (int) ($t['account_id'] ?? 0);
-    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
-    $customerId = (int) ($t['customer_id'] ?? 0);
-    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
-
-    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
-        $value = bankProcessBillFormatTripartNumber($buy);
-    } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
-        $value = bankProcessBillFormatTripartNumber(abs($sell));
-    } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
-        $value = bankProcessBillFormatTripartNumber($profit);
-    } else {
-        $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
-        if ($psAmount !== null) {
-            $value = bankProcessBillFormatTripartNumber($psAmount);
-        } else {
-            $value = bankProcessBillFormatTripartNumber(isset($t['amount']) ? (float) $t['amount'] : 0.0);
-        }
-    }
+    $value = bankProcessResolveDisplayValueByAccount($t);
 
     return "Pro-rated({$startDm} - {$endDm} | {$daysCount}days)@monthly {$value}";
+}
+
+/**
+ * day_end 尾段账单描述：DayEnd - Prorated(dd/mm - dd/mm | Ndays)@Monthly <对应账单价格>
+ */
+function bankProcessDayEndProratedDescription(array $t): string
+{
+    $startYmd = null;
+    $td = trim((string) ($t['transaction_date'] ?? ''));
+    if ($td !== '') {
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m)) {
+            $startYmd = $m[1];
+        } else {
+            $ts = strtotime(str_replace('/', '-', $td));
+            if ($ts !== false) {
+                $startYmd = date('Y-m-d', $ts);
+            }
+        }
+    }
+    $endYmd = bankProcessParseDayStartToYmd($t['bp_day_end'] ?? null);
+    if ($startYmd === null && $endYmd !== null) {
+        $startYmd = $endYmd;
+    }
+    if ($startYmd === null) {
+        return 'DayEnd - Prorated@Monthly ' . bankProcessResolveDisplayValueByAccount($t);
+    }
+    if ($endYmd === null || $endYmd < $startYmd) {
+        $endYmd = $startYmd;
+    }
+
+    $tsStart = strtotime($startYmd . ' 12:00:00');
+    $tsEnd = strtotime($endYmd . ' 12:00:00');
+    if ($tsStart === false || $tsEnd === false) {
+        return 'DayEnd - Prorated@Monthly ' . bankProcessResolveDisplayValueByAccount($t);
+    }
+
+    $startDm = date('j/n', $tsStart);
+    $endDm = date('j/n', $tsEnd);
+    $daysCount = (int) floor(($tsEnd - $tsStart) / 86400) + 1;
+    if ($daysCount < 1) {
+        $daysCount = 1;
+    }
+
+    return 'DayEnd - Prorated(' . $startDm . ' - ' . $endDm . ' | ' . $daysCount . 'days)@Monthly '
+        . bankProcessResolveDisplayValueByAccount($t);
 }
