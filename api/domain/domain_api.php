@@ -1702,6 +1702,63 @@ function domainApiMemberRoleAllowed(PDO $pdo): bool {
 }
 
 /**
+ * Domain 自动建账使用的 MEMBER 模板：role=MEMBER、password=111（与 login_process member 一致）。
+ * 仅当账户已符合该模板时才允许覆盖 name/role/password，避免误伤手动创建的同名 account_id（如与公司代码相同的 G）。
+ */
+function domainApiAccountLooksLikeDomainProvisionedMember(PDO $pdo, int $accountDbId): bool {
+    if ($accountDbId <= 0) {
+        return false;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT role, password FROM account WHERE id = ? LIMIT 1");
+        $stmt->execute([$accountDbId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return false;
+        }
+        $role = strtolower(trim((string) ($row['role'] ?? '')));
+        $pw = (string) ($row['password'] ?? '');
+        return $role === 'member' && $pw === '111';
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * Domain 自动创建的 MEMBER 登录账号：OWNERCODE_公司代码（owner_code 仅保留字母数字；空则 DOM）。
+ * 与手动以「公司代码单字母」建账区分，避免窜改其他账户。
+ */
+function domainApiBuildDomainProvisionedMemberAccountId(string $ownerCodeUpper, string $companyCode): string {
+    $cc = strtoupper(trim($companyCode));
+    $owner = strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($ownerCodeUpper)));
+    if ($owner === '') {
+        $owner = 'DOM';
+    }
+    return $owner . '_' . $cc;
+}
+
+/**
+ * 解析最终 account_id：优先 OWNER_COMPANY；若该 id 已被非 Domain MEMBER 模板占用，则顺延 OWNER_COMPANY_2、_3…
+ * 若已是 Domain MEMBER 模板则复用该行（幂等）。
+ */
+function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, string $ownerCodeUpper, string $companyCode): string {
+    $base = domainApiBuildDomainProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
+    $chk = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
+    for ($i = 0; $i < 1000; $i++) {
+        $code = $i === 0 ? $base : $base . '_' . $i;
+        $chk->execute([$code]);
+        $gid = (int) ($chk->fetchColumn() ?: 0);
+        if ($gid <= 0) {
+            return $code;
+        }
+        if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $gid)) {
+            return $code;
+        }
+    }
+    return $base . '_X' . substr(str_replace('.', '', uniqid('', true)), -10);
+}
+
+/**
  * Domain 同步策略：强制 name = Owner 姓名、role = MEMBER、password = 111（明文，与 member 登录一致）
  */
 function domainApiForceMemberDefaultsFromDomain(PDO $pdo, int $accountDbId, string $ownerDisplayName): void {
@@ -1792,14 +1849,18 @@ function domainApiMergeAccountIntoUserCompanyPermissions(PDO $pdo, array $users,
 /**
  * C168 在 Add Domain 时为公司代码创建 MEMBER 账户：挂在当前 C168 公司 account list，并关联主账号 C168（account_link）。
  * 密码明文 111，与 login_process.php member 校验一致。
+ *
+ * @param string $ownerCodeUpper Owner.owner_code；与 company 组成 account_id：OWNERCODE_公司代码（见 domainApiBuildDomainProvisionedMemberAccountId）。
  */
-function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168NumericCompanyId, string $ownerDisplayName, array $companyIdStrings): void {
+function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168NumericCompanyId, string $ownerDisplayName, array $companyIdStrings, string $ownerCodeUpper = ''): void {
     if ($c168NumericCompanyId <= 0 || empty($companyIdStrings)) {
         return;
     }
     if (!domainApiMemberRoleAllowed($pdo)) {
         return;
     }
+
+    $ownerCodeUpper = strtoupper(trim($ownerCodeUpper));
 
     $usersForAccountListPerm = domainApiGetUsersWithCompanyAccess($pdo, [$c168NumericCompanyId]);
     $companyIdsForPerm = [$c168NumericCompanyId];
@@ -1816,17 +1877,22 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
     $parentStmt->execute([$c168NumericCompanyId]);
     $parentAccountId = (int) ($parentStmt->fetchColumn() ?: 0);
 
-    $existsStmt = $pdo->prepare("
-        SELECT COUNT(*) FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND UPPER(a.account_id) = UPPER(?)
-    ");
-    $findAccIdInC168Stmt = $pdo->prepare("
-        SELECT a.id FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
-        LIMIT 1
-    ");
+    $finalizeMember = function (int $accDbId, string $permAccountCode) use ($pdo, $c168NumericCompanyId, $ownerDisplayName, $parentAccountId, $syncListPerm): void {
+        if ($accDbId <= 0) {
+            return;
+        }
+        domainApiForceMemberDefaultsFromDomain($pdo, $accDbId, $ownerDisplayName);
+        domainApiEnsureAccountDefaultCurrency($pdo, $accDbId, $c168NumericCompanyId, 'MYR');
+        if ($parentAccountId > 0) {
+            try {
+                domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $accDbId, $c168NumericCompanyId);
+            } catch (PDOException $e) {
+                error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
+            }
+        }
+        $syncListPerm($accDbId, $permAccountCode);
+    };
+
     $findGlobalAccStmt = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
     $insertStmt = $pdo->prepare("
         INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
@@ -1839,30 +1905,16 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         if ($cid === '') {
             continue;
         }
-        $existsStmt->execute([$c168NumericCompanyId, $cid]);
-        if ((int) $existsStmt->fetchColumn() > 0) {
-            $findAccIdInC168Stmt->execute([$c168NumericCompanyId, $cid]);
-            $alreadyId = (int) ($findAccIdInC168Stmt->fetchColumn() ?: 0);
-            if ($alreadyId > 0) {
-                domainApiForceMemberDefaultsFromDomain($pdo, $alreadyId, $ownerDisplayName);
-                domainApiEnsureAccountDefaultCurrency($pdo, $alreadyId, $c168NumericCompanyId, 'MYR');
-                if ($parentAccountId > 0) {
-                    try {
-                        domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $alreadyId, $c168NumericCompanyId);
-                    } catch (PDOException $e) {
-                        error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
-                    }
-                }
-                $syncListPerm($alreadyId, $cid);
-            }
-            continue;
-        }
+        $useAccountId = domainApiResolveProvisionedMemberAccountCode($pdo, $ownerCodeUpper, $cid);
 
-        $findGlobalAccStmt->execute([$cid]);
+        $findGlobalAccStmt->execute([$useAccountId]);
         $existingAccId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
 
         if ($existingAccId > 0) {
-            // account_id 全局唯一：已存在则只补 account_company，把该账号挂到 C168 下展示
+            if (!domainApiAccountLooksLikeDomainProvisionedMember($pdo, $existingAccId)) {
+                error_log('domainApiAutoCreateMemberAccountsUnderC168Company: resolved code occupied by non-domain member: ' . $useAccountId);
+                continue;
+            }
             try {
                 $linkCoStmt->execute([$existingAccId, $c168NumericCompanyId]);
             } catch (PDOException $e) {
@@ -1870,21 +1922,12 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                     throw $e;
                 }
             }
-            domainApiForceMemberDefaultsFromDomain($pdo, $existingAccId, $ownerDisplayName);
-            domainApiEnsureAccountDefaultCurrency($pdo, $existingAccId, $c168NumericCompanyId, 'MYR');
-            if ($parentAccountId > 0) {
-                try {
-                    domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $existingAccId, $c168NumericCompanyId);
-                } catch (PDOException $e) {
-                    error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
-                }
-            }
-            $syncListPerm($existingAccId, $cid);
+            $finalizeMember($existingAccId, $useAccountId);
             continue;
         }
 
         try {
-            $insertStmt->execute([$cid, $ownerDisplayName]);
+            $insertStmt->execute([$useAccountId, $ownerDisplayName]);
             $newAccId = (int) $pdo->lastInsertId();
             if ($newAccId <= 0) {
                 continue;
@@ -1896,22 +1939,12 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                     throw $e;
                 }
             }
-            domainApiForceMemberDefaultsFromDomain($pdo, $newAccId, $ownerDisplayName);
-            domainApiEnsureAccountDefaultCurrency($pdo, $newAccId, $c168NumericCompanyId, 'MYR');
-            if ($parentAccountId > 0) {
-                try {
-                    domainApiLinkAccountsBidirectional($pdo, $parentAccountId, $newAccId, $c168NumericCompanyId);
-                } catch (PDOException $e) {
-                    error_log('domainApiAutoCreateMemberAccountsUnderC168Company: account_link failed: ' . $e->getMessage());
-                }
-            }
-            $syncListPerm($newAccId, $cid);
+            $finalizeMember($newAccId, $useAccountId);
         } catch (PDOException $e) {
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                // 并发下可能已被他处插入：再尝试只关联
-                $findGlobalAccStmt->execute([$cid]);
+                $findGlobalAccStmt->execute([$useAccountId]);
                 $retryId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
-                if ($retryId > 0) {
+                if ($retryId > 0 && domainApiAccountLooksLikeDomainProvisionedMember($pdo, $retryId)) {
                     try {
                         $linkCoStmt->execute([$retryId, $c168NumericCompanyId]);
                     } catch (PDOException $e2) {
@@ -1919,9 +1952,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                             throw $e2;
                         }
                     }
-                    domainApiForceMemberDefaultsFromDomain($pdo, $retryId, $ownerDisplayName);
-                    domainApiEnsureAccountDefaultCurrency($pdo, $retryId, $c168NumericCompanyId, 'MYR');
-                    $syncListPerm($retryId, $cid);
+                    $finalizeMember($retryId, $useAccountId);
                 }
                 continue;
             }
@@ -2028,7 +2059,7 @@ try {
                 if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
-                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionCompanyIds);
+                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionCompanyIds, $owner_code);
                     }
                 }
 
@@ -2312,7 +2343,10 @@ try {
                 if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
-                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionFromUpdate);
+                        $ocStmt = $pdo->prepare('SELECT UPPER(TRIM(owner_code)) FROM owner WHERE id = ? LIMIT 1');
+                        $ocStmt->execute([$id]);
+                        $updateOwnerCode = (string) ($ocStmt->fetchColumn() ?: '');
+                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionFromUpdate, $updateOwnerCode);
                     }
                 }
                 

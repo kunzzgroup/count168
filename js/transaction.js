@@ -2953,7 +2953,7 @@
 
         const standardAmountInput = document.getElementById('action_amount');
         const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
-        const amount = isRate
+        let amount = isRate
             ? (rateCurrencyFromAmountInput ? rateCurrencyFromAmountInput.value : '')
             : (standardAmountInput ? standardAmountInput.value : '');
 
@@ -3128,10 +3128,14 @@
 
             currency = rateCurrencyFrom;
         } else {
-            if (!Number.isFinite(amount) || amount < 0) {
+            // amount 来自 input.value（字符串）；Number.isFinite 仅对 number 为 true，否则会误判为无效
+            const amountNormalized = String(amount).trim().replace(/,/g, '');
+            const amountNum = parseFloat(amountNormalized);
+            if (!Number.isFinite(amountNum) || amountNum < 0) {
                 showNotification('Please enter a valid amount (>= 0)', 'error');
                 return;
             }
+            amount = amountNormalized;
             const currencySelect = document.getElementById('transaction_currency');
             currency = currencySelect ? currencySelect.value : '';
             if (!currency) {
