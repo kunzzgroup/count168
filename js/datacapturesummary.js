@@ -515,43 +515,6 @@ function saveRateValuesForRefresh() {
     }
 }
 
-// Capture 表内容指纹：用于 refresh 恢复时判断「当前表是否仍是保存时的那份」，
-// 避免新 Submit 的表数据被旧 localStorage 里的公式/refs 覆盖（用户需 F5 才正常的现象）。
-function computeCaptureTableFingerprintForRefresh() {
-    try {
-        const td = window.transformedTableData;
-        if (!td || !Array.isArray(td.rows)) return '';
-        const procId = getCurrentProcessId();
-        const procCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
-        const idParts = [];
-        let valueHash = 5381;
-        for (let i = 0; i < td.rows.length; i++) {
-            const row = td.rows[i];
-            if (!row || !Array.isArray(row) || row.length < 2) continue;
-            const c1 = row[1];
-            if (c1 && c1.type === 'data' && c1.value != null) {
-                const id = String(c1.value).trim().replace(/\s+/g, '');
-                idParts.push(String(i) + ':' + id);
-            }
-            for (let j = 0; j < row.length; j++) {
-                const c = row[j];
-                if (c && c.type === 'data' && c.value != null) {
-                    const s = String(c.value);
-                    for (let k = 0; k < s.length; k++) {
-                        valueHash = ((valueHash << 5) + valueHash) + s.charCodeAt(k);
-                    }
-                }
-            }
-        }
-        const raw = [procId != null ? String(procId) : '', procCode, String(idParts.length), idParts.join('>')].join('#');
-        let headHash = 5381;
-        for (let i = 0; i < raw.length; i++) headHash = ((headHash << 5) + headHash) + raw.charCodeAt(i);
-        return 'fp1_' + idParts.length + '_' + (headHash >>> 0).toString(36) + '_' + (valueHash >>> 0).toString(36);
-    } catch (e) {
-        return '';
-    }
-}
-
 // Save Formula + Source (and data attrs) per row by id_product + Account for restore after refresh.
 // 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化导致 formula 贴错行。
 // includeRateValue: 默认 true；为 false 时只保存公式/Source/行顺序，不写入 Rate（Rate 仅随 Rate 的 Submit 持久化）
@@ -662,26 +625,13 @@ function saveFormulaSourceForRefresh(opts) {
             if (uidForRate) rateValuesByRowUid[uidForRate] = rv;
         });
     }
-    const captureFingerprint = typeof computeCaptureTableFingerprintForRefresh === 'function' ? computeCaptureTableFingerprintForRefresh() : '';
-    const payload = {
-        processId: processId != null ? processId : null,
-        processCode,
-        captureFingerprint,
-        rowsByKey: byKey,
-        rowsByStableKey: byStableKey,
-        rowsByRowUid: byRowUid,
-        rowOrder: rowOrder,
-        rateValuesByKey: rateValuesByKey,
-        rateValuesByRowUid: rateValuesByRowUid,
-        savedAt: Date.now()
-    };
+    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowsByStableKey: byStableKey, rowsByRowUid: byRowUid, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey, rateValuesByRowUid: rateValuesByRowUid, savedAt: Date.now() };
     try {
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
         if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
             localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
                 processId: processId != null ? processId : null,
                 processCode: processCode,
-                captureFingerprint: captureFingerprint,
                 rateValuesByKey: rateValuesByKey,
                 rateValuesByRowUid: rateValuesByRowUid
             }));
@@ -860,16 +810,6 @@ function restoreFormulaSourceFromRefresh() {
     const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
     if (!idMatch || !codeMatch) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
-        return;
-    }
-    const savedFp = typeof saved.captureFingerprint === 'string' ? saved.captureFingerprint.trim() : '';
-    const currentFp = typeof computeCaptureTableFingerprintForRefresh === 'function' ? String(computeCaptureTableFingerprintForRefresh() || '').trim() : '';
-    if (savedFp !== '' && currentFp !== '' && savedFp !== currentFp) {
-        try {
-            localStorage.removeItem('capturedTableFormulaSourceForRefresh');
-            localStorage.removeItem('capturedTableRateValuesByProductId');
-        } catch (e) { }
-        console.log('restoreFormulaSourceFromRefresh: skipped stale summary cache (capture fingerprint mismatch)');
         return;
     }
     const summaryTableBody = document.getElementById('summaryTableBody');
@@ -1148,13 +1088,6 @@ function restoreRateValuesFromRefresh() {
         const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
         const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
         if (!idMatch || !codeMatch) {
-            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
-            if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
-            return;
-        }
-        const savedRateFp = typeof savedByProduct.captureFingerprint === 'string' ? savedByProduct.captureFingerprint.trim() : '';
-        const currentRateFp = typeof computeCaptureTableFingerprintForRefresh === 'function' ? String(computeCaptureTableFingerprintForRefresh() || '').trim() : '';
-        if (savedRateFp !== '' && currentRateFp !== '' && savedRateFp !== currentRateFp) {
             try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
             if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
             return;
