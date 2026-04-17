@@ -2350,8 +2350,11 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
         modalContent = document.getElementById('editFormulaModalContent');
     }
 
-    // Find and store the current row for calculator keypad
-    if (productValue) {
+    // 与 $n / 计算器一致：必须绑定「正在编辑」的 Summary 行。同 id_product 下多条 sub 时不能按 productValue 扫到第一条就停。
+    const activeSummaryRowForModal = getActiveSummaryRowForEditFormula();
+    if (activeSummaryRowForModal) {
+        currentSelectedRowForCalculator = activeSummaryRowForModal;
+    } else if (productValue) {
         const summaryTableBody = document.getElementById('summaryTableBody');
         if (summaryTableBody) {
             const rows = summaryTableBody.querySelectorAll('tr');
@@ -2722,6 +2725,14 @@ function getColumnValueFromSelectedRow(columnNumber) {
     // Get the row that was last clicked or is currently being edited
     let targetRow = currentSelectedRowForCalculator;
 
+    if (!targetRow) {
+        const ar = getActiveSummaryRowForEditFormula();
+        if (ar) {
+            targetRow = ar;
+            currentSelectedRowForCalculator = ar;
+        }
+    }
+
     // If no stored row, try to find it from the form's process value
     if (!targetRow) {
         const processInput = document.getElementById('process');
@@ -2754,7 +2765,7 @@ function getColumnValueFromSelectedRow(columnNumber) {
     // Get column data from the data capture table
     // Column number corresponds to the column index in the data capture table
     // columnNumber 1 = Column A = first data column (index 1 in table)
-    const columnData = getColumnDataFromTable(processValue, columnNumber.toString(), '');
+    const columnData = getColumnDataFromTable(processValue, columnNumber.toString(), '', targetRow);
 
     if (columnData && columnData !== '') {
         // Extract numeric value from column data (remove any formatting)
@@ -4035,6 +4046,90 @@ function updateFormulaDataGrid() {
     }
 
     const rows = capturedTableBody.querySelectorAll('tr');
+
+    const appendFormulaGridItemsFromCapturedRow = function (row, rowIndex) {
+        if (!row) return false;
+        const rowContainer = document.createElement('div');
+        rowContainer.className = 'formula-data-grid-row';
+
+        // Get all data cells (skip row header and id_product column)
+        const cells = row.querySelectorAll('td');
+        cells.forEach((cell) => {
+            const columnIndex = cell.getAttribute('data-column-index');
+            if (columnIndex && parseInt(columnIndex) > 1) {
+                // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                if (cellValue !== '') {
+                    // Create a grid item for each column data
+                    const gridItem = document.createElement('div');
+                    gridItem.className = 'formula-data-grid-item';
+                    gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                    gridItem.setAttribute('data-row-index', rowIndex);
+                    gridItem.setAttribute('data-column-index', columnIndex);
+
+                    // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                    gridItem.addEventListener('click', function () {
+                        const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                        const targetColumnIndex = this.getAttribute('data-column-index');
+
+                        // Re-get rows to ensure we have the latest data
+                        const capturedTableBody = document.getElementById('capturedTableBody');
+                        if (!capturedTableBody) {
+                            console.warn('Captured data table body not found.');
+                            return;
+                        }
+
+                        const currentRows = capturedTableBody.querySelectorAll('tr');
+                        const targetRow = currentRows[targetRowIndex];
+                        if (!targetRow) {
+                            console.warn('Row not found for index:', targetRowIndex);
+                            return;
+                        }
+
+                        // Find the cell with matching data-column-index
+                        const targetCells = targetRow.querySelectorAll('td');
+                        let targetCell = null;
+                        targetCells.forEach(cell => {
+                            const colIdx = cell.getAttribute('data-column-index');
+                            if (colIdx === targetColumnIndex) {
+                                targetCell = cell;
+                            }
+                        });
+
+                        if (!targetCell) {
+                            console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                            return;
+                        }
+
+                        // Reuse existing logic: behave exactly like clicking the cell
+                        insertCellValueToFormula(targetCell);
+                    });
+
+                    rowContainer.appendChild(gridItem);
+                }
+            }
+        });
+
+        // Only append row container if it has items
+        if (rowContainer.children.length > 0) {
+            formulaDataGrid.appendChild(rowContainer);
+            return true;
+        }
+        return false;
+    };
+
+    // 优先按当前编辑行 data-row-index 渲染（尤其 sub row），避免同 id_product 场景下匹配到错误行或匹配不到。
+    const activeRowIndexOverride = currentActiveRow ? getDataCaptureRowIndexOverrideFromSummaryRow(currentActiveRow) : null;
+    if (activeRowIndexOverride !== null) {
+        const targetRow = rows[activeRowIndexOverride];
+        if (targetRow) {
+            appendFormulaGridItemsFromCapturedRow(targetRow, activeRowIndexOverride);
+            if (formulaDataGrid.children.length > 0) {
+                return;
+            }
+        }
+    }
+
     rows.forEach((row, rowIndex) => {
         // Try to get id_product from data-id-product attribute first
         let rowIdProduct = row.getAttribute('data-id-product');
@@ -4073,75 +4168,7 @@ function updateFormulaDataGrid() {
             }
         }
 
-        {
-            // Create a separate row container for each matching row
-            const rowContainer = document.createElement('div');
-            rowContainer.className = 'formula-data-grid-row';
-
-            // Get all data cells (skip row header and id_product column)
-            const cells = row.querySelectorAll('td');
-
-            cells.forEach((cell, cellIndex) => {
-                const columnIndex = cell.getAttribute('data-column-index');
-                if (columnIndex && parseInt(columnIndex) > 1) {
-                    // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                    const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                    if (cellValue !== '') {
-                        // Create a grid item for each column data
-                        const gridItem = document.createElement('div');
-                        gridItem.className = 'formula-data-grid-item';
-                        gridItem.textContent = `[${columnIndex}] ${cellValue}`;
-                        gridItem.setAttribute('data-row-index', rowIndex);
-                        gridItem.setAttribute('data-column-index', columnIndex);
-
-                        // Add click event to insert value into formula (same behavior as descriptionSelect2)
-                        gridItem.addEventListener('click', function () {
-                            const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
-                            const targetColumnIndex = this.getAttribute('data-column-index');
-
-                            // Re-get rows to ensure we have the latest data
-                            const capturedTableBody = document.getElementById('capturedTableBody');
-                            if (!capturedTableBody) {
-                                console.warn('Captured data table body not found.');
-                                return;
-                            }
-
-                            const currentRows = capturedTableBody.querySelectorAll('tr');
-                            const targetRow = currentRows[targetRowIndex];
-                            if (!targetRow) {
-                                console.warn('Row not found for index:', targetRowIndex);
-                                return;
-                            }
-
-                            // Find the cell with matching data-column-index
-                            const targetCells = targetRow.querySelectorAll('td');
-                            let targetCell = null;
-                            targetCells.forEach(cell => {
-                                const colIdx = cell.getAttribute('data-column-index');
-                                if (colIdx === targetColumnIndex) {
-                                    targetCell = cell;
-                                }
-                            });
-
-                            if (!targetCell) {
-                                console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
-                                return;
-                            }
-
-                            // Reuse existing logic: behave exactly like clicking the cell
-                            insertCellValueToFormula(targetCell);
-                        });
-
-                        rowContainer.appendChild(gridItem);
-                    }
-                }
-            });
-
-            // Only append row container if it has items
-            if (rowContainer.children.length > 0) {
-                formulaDataGrid.appendChild(rowContainer);
-            }
-        }
+        appendFormulaGridItemsFromCapturedRow(row, rowIndex);
     });
 }
 
@@ -5047,6 +5074,32 @@ function getRowLabelFromProcessValue(processValue, rowIndexOverride = null) {
     }
 }
 
+/** Edit Formula 当前对应的 Summary 行（区分同 id_product 的 main / 多条 sub） */
+function getActiveSummaryRowForEditFormula() {
+    if (window.currentEditRow) return window.currentEditRow;
+    if (window.currentAddAccountButton) {
+        try {
+            const r = window.currentAddAccountButton.closest('tr');
+            if (r) return r;
+        } catch (e) { /* ignore */ }
+    }
+    return null;
+}
+
+/** Summary 行上的 data-row-index → Data Capture 行序；占位 999999 视为无 */
+function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
+    if (!row || !row.getAttribute) return null;
+    const rowIdxStr = row.getAttribute('data-row-index');
+    if (rowIdxStr == null || rowIdxStr === '' || rowIdxStr === '999999') return null;
+    const n = Number(rowIdxStr);
+    if (Number.isNaN(n) || n < 0) return null;
+    return n;
+}
+
+function getEditFormulaDataCaptureRowIndexOverride() {
+    return getDataCaptureRowIndexOverrideFromSummaryRow(getActiveSummaryRowForEditFormula());
+}
+
 // 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
 // 这确保删除数据后，data-clicked-cell-refs 也被正确更新
 function syncClickedCellRefsWithFormula(formulaInput, formulaValue, processValue) {
@@ -5190,6 +5243,8 @@ function updateFormulaDisplay(formulaValue, processValue) {
     }
 
     try {
+        const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
+
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 这样当用户选择其他 id product 的数据时，能正确显示那些数据
         // 重要：优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
@@ -5330,10 +5385,10 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
                     // 如果从引用中找不到值，使用当前编辑的id_product
                     if (columnValue === null && currentIdProduct) {
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
                         if (rowLabel) {
                             const dataColumnIndex = match.columnNumber - 1;
-                            columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
+                            columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel, editFormulaRowIndexOverride);
                             console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                         }
                     }
@@ -5366,7 +5421,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
         } else {
             // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
             // 获取行标签
-            const rowLabel = getRowLabelFromProcessValue(processValue);
+            const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
             if (!rowLabel) {
                 formulaDisplayInput.value = formulaValue;
                 return;
@@ -5400,7 +5455,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 const match = allMatches[i];
                 // 获取列的实际值
                 const columnReference = rowLabel + match.columnNumber;
-                let columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                let columnValue = getColumnValueFromCellReference(columnReference, processValue, editFormulaRowIndexOverride);
 
                 if (columnValue === null) {
                     columnValue = '0';
@@ -5416,7 +5471,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
         // 如果还有列引用（如 A5），也转换为实际值
         // 使用 parseReferenceFormula 来处理列引用
-        const parsedFormula = parseReferenceFormula(displayFormula);
+        const parsedFormula = parseReferenceFormula(displayFormula, null, undefined, editFormulaRowIndexOverride);
 
         // 格式化负数：将负数用括号包裹（例如：-1416.03 -> (-1416.03)）
         let finalDisplayFormula = parsedFormula || displayFormula;
@@ -5458,6 +5513,8 @@ function processDollarColumnReferences(formulaValue, processValue) {
         return formulaValue;
     }
 
+    const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
+
     // 匹配 $ 后跟数字的模式 (例如 $5, $10, $123)
     // 使用正则表达式: \$(\d+)
     const dollarPattern = /\$(\d+)/g;
@@ -5466,13 +5523,20 @@ function processDollarColumnReferences(formulaValue, processValue) {
     const replacements = [];
 
     // 获取行标签 (A, B, C 等)
-    const rowLabel = getRowLabelFromProcessValue(processValue);
+    const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
     if (!rowLabel) {
         return formulaValue; // 如果无法获取行标签，返回原值
     }
 
     // 获取当前选中的行
     let targetRow = currentSelectedRowForCalculator;
+    if (!targetRow) {
+        const ar = getActiveSummaryRowForEditFormula();
+        if (ar) {
+            targetRow = ar;
+            currentSelectedRowForCalculator = ar;
+        }
+    }
     if (!targetRow) {
         const processInput = document.getElementById('process');
         if (processInput && processInput.value) {
@@ -5618,14 +5682,23 @@ function processManualFormulaInput(currentValue, previousValue, cursorPos, proce
         return currentValue;
     }
 
+    const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
+
     // Get the row label (A, B, C, etc.) for column reference
-    const rowLabel = getRowLabelFromProcessValue(processValue);
+    const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
     if (!rowLabel) {
         return currentValue;
     }
 
     // Get the row for column lookup
     let targetRow = currentSelectedRowForCalculator;
+    if (!targetRow) {
+        const ar = getActiveSummaryRowForEditFormula();
+        if (ar) {
+            targetRow = ar;
+            currentSelectedRowForCalculator = ar;
+        }
+    }
     if (!targetRow) {
         const processInput = document.getElementById('process');
         if (processInput && processInput.value) {
@@ -10891,6 +10964,17 @@ function getColumnDataFromTable(processValue, sourceColumnValue, formulaValue, c
         // Determine which row index to use in data capture table
         let rowIndex = null;
         if (currentEditRow) {
+            const idxDirect = getDataCaptureRowIndexOverrideFromSummaryRow(currentEditRow);
+            if (idxDirect !== null) {
+                const verifyRow = findProcessRow(parsedTableData, processValue, idxDirect);
+                if (verifyRow) {
+                    rowIndex = idxDirect;
+                    console.log('getColumnDataFromTable: Using Summary data-row-index:', rowIndex);
+                }
+            }
+        }
+
+        if (rowIndex === null && currentEditRow) {
             const summaryTableBody = document.getElementById('summaryTableBody');
             if (summaryTableBody) {
                 const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
@@ -11090,6 +11174,16 @@ function getColumnDataFromTableWithParentheses(processValue, originalInput, colu
         // Determine which row index to use in data capture table (same logic as getColumnDataFromTable)
         let rowIndex = null;
         if (currentEditRow) {
+            const idxDirect = getDataCaptureRowIndexOverrideFromSummaryRow(currentEditRow);
+            if (idxDirect !== null) {
+                const verifyRow = findProcessRow(parsedTableData, processValue, idxDirect);
+                if (verifyRow) {
+                    rowIndex = idxDirect;
+                }
+            }
+        }
+
+        if (rowIndex === null && currentEditRow) {
             const summaryTableBody = document.getElementById('summaryTableBody');
             if (summaryTableBody) {
                 const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
