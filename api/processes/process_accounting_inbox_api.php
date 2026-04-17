@@ -610,6 +610,38 @@ function getPostedProcessIdsForDate(PDO $pdo, int $companyId, string $date, arra
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
+/** 无 period_type 兼容：指定 process + 日期是否已入账 */
+function hasLegacyPostedOnDate(PDO $pdo, int $companyId, int $processId, string $dateYmd): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ? AND posted_date = ? LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $dateYmd]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** 无 period_type 兼容：指定 process 在某自然月是否已入账（用于 monthly billing_month 去重） */
+function hasLegacyPostedInCalendarMonth(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND YEAR(posted_date) = ? AND MONTH(posted_date) = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $year, $month]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 /** 标记 needToday 中哪些已入账 */
 function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyId, string $today, bool $hasPeriodType): void
 {
@@ -659,6 +691,26 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
             foreach ($needToday as &$item) {
                 if (!empty($item['is_manual_inactive'])) {
                     $item['already_posted_today'] = false;
+                    continue;
+                }
+                if (!empty($item['is_resend_consolidated_range'])) {
+                    $processId = (int) ($item['id'] ?? 0);
+                    $anchorRaw = isset($item['day_start']) ? trim((string) $item['day_start']) : '';
+                    $anchorYmd = $anchorRaw !== '' ? inboxBankProcessDateFieldToYmd($anchorRaw) : null;
+                    if ($processId > 0 && $anchorYmd !== null) {
+                        $item['already_posted_today'] = hasLegacyPostedOnDate($pdo, $companyId, $processId, $anchorYmd);
+                        continue;
+                    }
+                }
+                if (!empty($item['monthly_billing_month'])
+                    && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $item['monthly_billing_month'], $m)) {
+                    $item['already_posted_today'] = hasLegacyPostedInCalendarMonth(
+                        $pdo,
+                        $companyId,
+                        (int) ($item['id'] ?? 0),
+                        (int) $m[1],
+                        (int) $m[2]
+                    );
                     continue;
                 }
                 $item['already_posted_today'] = in_array((int) $item['id'], $postedIds, true);
