@@ -1955,7 +1955,7 @@ async function postAccountingInboxToTransaction() {
             loadAccountingInbox();
             fetchProcesses();
         } else {
-            showNotification(result.error || 'Post failed.', 'danger');
+            showNotification(result.error || result.message || 'Post failed.', 'danger');
         }
     } catch (err) {
         console.error('transaction error:', err);
@@ -2375,7 +2375,7 @@ async function postToTransactionSelected() {
             updateDeleteButton();
             fetchProcesses();
         } else {
-            showNotification(result.error || 'Post failed', 'danger');
+            showNotification(result.error || result.message || 'Post failed', 'danger');
         }
     } catch (err) {
         console.error('transaction error:', err);
