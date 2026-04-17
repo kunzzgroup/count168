@@ -1236,8 +1236,8 @@ try {
         if (abs($companyProfit) < 0.00001) {
             $companyProfit = 0.0;
         }
-        // 交易表侧仍仅写入正数金额，避免 0.00 在部分环境触发过账失败。
-        if (!empty($p['profit_account_id']) && $companyProfit > 0) {
+        // Profit 被 Share 抵消为 0.00 时，也要保留一条 Profit 记录给 Transaction Payment / History。
+        if (!empty($p['profit_account_id']) && $companyProfit >= 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['profit_account_id'];
             $txn['amount'] = $companyProfit;
