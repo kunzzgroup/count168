@@ -4121,8 +4121,8 @@ function updateFormulaDataGrid() {
         return false;
     };
 
-    // 优先按当前编辑行 data-row-index 渲染（尤其 sub row），避免同 id_product 场景下匹配到错误行或匹配不到。
-    const activeRowIndexOverride = currentActiveRow ? getDataCaptureRowIndexOverrideFromSummaryRow(currentActiveRow) : null;
+    // 优先按当前编辑行匹配确切的数据行，防止多条重复记录时串台。
+    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride() : null;
     if (activeRowIndexOverride !== null) {
         const targetRow = rows[activeRowIndexOverride];
         if (targetRow) {
@@ -5091,7 +5091,6 @@ function getActiveSummaryRowForEditFormula() {
     return null;
 }
 
-/** Summary 行上的 data-row-index → Data Capture 行序；占位 999999 视为无 */
 function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
     if (!row || !row.getAttribute) return null;
     const rowIdxStr = row.getAttribute('data-row-index');
@@ -5102,7 +5101,109 @@ function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
 }
 
 function getEditFormulaDataCaptureRowIndexOverride() {
-    return getDataCaptureRowIndexOverrideFromSummaryRow(getActiveSummaryRowForEditFormula());
+    const row = getActiveSummaryRowForEditFormula();
+    let override = getDataCaptureRowIndexOverrideFromSummaryRow(row);
+    if (override !== null) return override;
+
+    if (!row) return null;
+
+    // Use dynamic positional matching to avoid stale data-preserved-row-index issues
+    const processInput = document.getElementById('process');
+    const processValue = processInput ? processInput.value.trim() : '';
+    if (!processValue) return null;
+    
+    // Get table data
+    let parsedTableData;
+    if (window.transformedTableData) {
+        parsedTableData = window.transformedTableData;
+    } else {
+        const tableData = localStorage.getItem('capturedTableData');
+        if (!tableData) return null;
+        parsedTableData = JSON.parse(tableData);
+    }
+    
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return null;
+
+    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    const normalizedProcessValue = normalizeIdProductText(processValue);
+    const productType = row.getAttribute('data-product-type') || 'main';
+
+    let targetMainRow = null;
+
+    if (productType === 'sub') {
+        const currentRowIndex = allRows.indexOf(row);
+        if (currentRowIndex > 0) {
+            for (let i = currentRowIndex - 1; i >= 0; i--) {
+                const r = allRows[i];
+                const rProductType = r.getAttribute('data-product-type') || 'main';
+                if (rProductType === 'main') {
+                    const idProductCell = r.querySelector('td:first-child');
+                    const productValues = getProductValuesFromCell(idProductCell);
+                    const mainText = normalizeIdProductText(productValues.main || '');
+                    if (mainText === normalizedProcessValue) {
+                        targetMainRow = r;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!targetMainRow) {
+            const parentIdProduct = row.getAttribute('data-parent-id-product');
+            if (parentIdProduct) {
+                const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                for (const r of allRows) {
+                    const rProductType = r.getAttribute('data-product-type') || 'main';
+                    if (rProductType === 'main') {
+                        const idProductCell = r.querySelector('td:first-child');
+                        const productValues = getProductValuesFromCell(idProductCell);
+                        const mainText = normalizeIdProductText(productValues.main || '');
+                        if (mainText === normalizedParentId) {
+                            targetMainRow = r;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        targetMainRow = row;
+    }
+
+    if (targetMainRow) {
+        const matchingSummaryRows = [];
+        allRows.forEach((r) => {
+            const rProductType = r.getAttribute('data-product-type') || 'main';
+            if (rProductType !== 'main') return;
+            const idProductCell = r.querySelector('td:first-child');
+            const productValues = getProductValuesFromCell(idProductCell);
+            const mainText = normalizeIdProductText(productValues.main || '');
+            if (mainText === normalizedProcessValue) {
+                matchingSummaryRows.push(r);
+            }
+        });
+
+        const currentPosIndex = matchingSummaryRows.indexOf(targetMainRow);
+        if (currentPosIndex >= 0) {
+            const matchingDataCaptureRows = [];
+            if (parsedTableData && parsedTableData.rows) {
+                parsedTableData.rows.forEach((r, idx) => {
+                    if (r.length > 1 && r[1].type === 'data') {
+                        const rowValue = r[1].value;
+                        const normalizedRowValue = normalizeIdProductText(rowValue);
+                        if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                            matchingDataCaptureRows.push(idx);
+                        }
+                    }
+                });
+            }
+            if (currentPosIndex < matchingDataCaptureRows.length) {
+                return matchingDataCaptureRows[currentPosIndex];
+            }
+        }
+    }
+
+    return null;
 }
 
 // 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
