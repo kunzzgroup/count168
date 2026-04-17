@@ -18,6 +18,7 @@ function translateApiMessage(string $message): string {
         '获取公司列表失败' => 'Failed to load company list',
         '无权限访问该公司' => 'No permission to access this company',
         'Company has expired' => 'Company has expired',
+        'Company expiration date is not set' => 'Company expiration date is not set',
         'Company 已更新' => 'Company updated',
     ];
 
@@ -38,19 +39,26 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 }
 
 /**
- * 规则：未设置到期日（Not set）或已过期，都视为不可访问。
+ * 返回公司状态：
+ * - valid: 可访问
+ * - no_set: 未设置到期日（Not set）
+ * - expired: 已到期
  */
-function isCompanyExpiredOrUnset($expirationDate): bool {
+function getCompanyExpirationState($expirationDate): string {
     if ($expirationDate === null || trim((string)$expirationDate) === '') {
-        return true;
+        return 'no_set';
     }
 
     $expTs = strtotime((string)$expirationDate);
     if ($expTs === false) {
-        return true;
+        return 'no_set';
     }
 
-    return $expTs < strtotime(date('Y-m-d'));
+    if ($expTs < strtotime(date('Y-m-d'))) {
+        return 'expired';
+    }
+
+    return 'valid';
 }
 
 function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
@@ -131,12 +139,15 @@ try {
     $valid = false;
     $is_external_view = false;
     $real_owner_id = null;
-    $expired = false;
+    $blockedReason = null;
     foreach ($user_companies as $comp) {
         if ((int) $comp['id'] === $requested_company_id) {
             $valid = true;
-            if (isCompanyExpiredOrUnset($comp['expiration_date'] ?? null)) {
-                $expired = true;
+            $expState = getCompanyExpirationState($comp['expiration_date'] ?? null);
+            if ($expState === 'expired') {
+                $blockedReason = 'expired';
+            } elseif ($expState === 'no_set') {
+                $blockedReason = 'no_set';
             }
             if (isset($comp['is_external']) && $comp['is_external'] == 1) {
                 $is_external_view = true;
@@ -151,8 +162,12 @@ try {
         jsonResponse(false, '无权限访问该公司', null, 403);
         exit;
     }
-    if ($expired) {
-        jsonResponse(false, 'Company has expired', null, 403);
+    if ($blockedReason === 'expired') {
+        jsonResponse(false, 'Company has expired', ['reason' => 'expired'], 403);
+        exit;
+    }
+    if ($blockedReason === 'no_set') {
+        jsonResponse(false, 'Company expiration date is not set', ['reason' => 'no_set'], 403);
         exit;
     }
 
