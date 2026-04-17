@@ -513,51 +513,51 @@
         background-size: cover !important;
     }
 
-    /* ==========================================================================
+}
+
+/* ==========================================================================
    Chips with Overflow Component Styles
+   Global — applies to ALL screen sizes (no media query)
    ========================================================================== */
-    .chip-group {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-wrap: nowrap;
-        overflow: hidden;
-    }
+.chip-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
 
-    .chip,
-    .chip-more {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2px 8px !important;
-        /* Force override for table cell */
-        font-size: 12px !important;
-        /* Slightly smaller to fit UI scale */
-        font-family: inherit;
-        border-radius: 4px;
-        line-height: 1.4;
-        white-space: nowrap;
-        box-sizing: border-box;
-    }
+.chip,
+.chip-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    border-radius: 4px;
+    line-height: 1.4;
+    white-space: nowrap;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
 
-    .chip {
-        background-color: #f3f4f6;
-        border: 1px solid #e5e7eb;
-        color: #374151;
-    }
+.chip {
+    background-color: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+}
 
-    .chip-more {
-        background-color: #e0f2fe;
-        border: 1px solid transparent;
-        color: #0284c7;
-        cursor: pointer;
-        font-weight: 500;
-        transition: background-color 0.15s ease, color 0.15s ease;
-    }
+.chip-more {
+    background-color: #e0f2fe;
+    border: 1px solid transparent;
+    color: #0284c7;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
 
-    .chip-more:hover {
-        background-color: #bae6fd;
-        color: #0369a1;
-    }
-
+.chip-more:hover {
+    background-color: #bae6fd;
+    color: #0369a1;
 }
