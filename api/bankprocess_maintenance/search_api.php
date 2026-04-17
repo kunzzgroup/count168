@@ -9,6 +9,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../transactions/bank_process_bill_display.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -165,7 +166,8 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 bp.name AS bank_process_name,
                 bp.bank AS process_bank,
                 a_cm_bp.name AS card_owner_name,
-                bp.profit AS process_profit, bp.cost AS process_cost, bp.price AS process_price, bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.profit_sharing AS process_profit_sharing
+                bp.profit AS process_profit, bp.cost AS process_cost, bp.price AS process_price, bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.profit_sharing AS process_profit_sharing,
+                bp.day_start AS bp_day_start
                 $periodTypeSelect,
                 0 AS is_deleted,
                 NULL AS deleter
@@ -254,6 +256,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                     bp_del.bank AS process_bank,
                     a_cm_bp_del.name AS card_owner_name,
                     bp_del.profit AS process_profit, bp_del.cost AS process_cost, bp_del.price AS process_price, bp_del.card_merchant_id, bp_del.customer_id, bp_del.profit_account_id, bp_del.profit_sharing AS process_profit_sharing,
+                    bp_del.day_start AS bp_day_start,
                     {$deletedPeriodTypeSelect},
                     1 AS is_deleted,
                     COALESCE(del_u.login_id, del_o.owner_code, '-') AS deleter
@@ -356,21 +359,23 @@ function rowToItem(array $row) {
         } else {
             $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
             if ($periodType === 'partial_first_month') {
-                $description = 'Remaining days bill';
-            } elseif ($periodType === 'day_end_tail') {
-                $description = 'Day end tail bill';
-            } elseif ($periodType === 'resend_consolidated_range') {
-                $description = 'Resend consolidated bill';
-            } elseif ($periodType === 'manual_inactive') {
-                $description = 'Inactive bill';
-            } elseif ($periodType === 'monthly' || $periodType === '') {
-                $description = 'Monthly bill';
+                $description = bankProcessProRatedFirstMonthDescription($row);
             } else {
-                $description = 'Monthly bill';
+                if ($periodType === 'day_end_tail') {
+                    $description = 'Day end tail bill';
+                } elseif ($periodType === 'resend_consolidated_range') {
+                    $description = 'Resend consolidated bill';
+                } elseif ($periodType === 'manual_inactive') {
+                    $description = 'Inactive bill';
+                } elseif ($periodType === 'monthly' || $periodType === '') {
+                    $description = 'Monthly bill';
+                } else {
+                    $description = 'Monthly bill';
+                }
+                $amt = isset($row['amount']) ? (float) $row['amount'] : 0.0;
+                $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+                $description = $description . ' ' . $billAmount;
             }
-            $amt = isset($row['amount']) ? (float) $row['amount'] : 0.0;
-            $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
-            $description = $description . ' ' . $billAmount;
         }
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
