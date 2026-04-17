@@ -9857,6 +9857,40 @@ function balanceParentheses(s) {
     return s + ')'.repeat(open - close);
 }
 
+// 前缀在「括号深度 0」是否存在二元 + / -（非一元负号）。用于判断末尾 *占成 是否只作用于最后一项，
+// 避免把 0.16+64.60*3.15*(0.12) 误剥成 0.16+64.60*3.15 再乘 Source（会变成先加后乘）。
+function hasBinaryAdditiveAtDepthZero(prefix) {
+    if (!prefix || typeof prefix !== 'string') return false
+    const str = prefix.replace(/\s+/g, '')
+    let depth = 0
+    for (let i = 0; i < str.length; i++) {
+        const c = str[i]
+        if (c === '(') {
+            depth++
+            continue
+        }
+        if (c === ')') {
+            depth--
+            continue
+        }
+        if (depth !== 0) continue
+        if (c === '+') {
+            if (i === 0) continue
+            const prev = str[i - 1]
+            if ('(*/^+-'.includes(prev)) continue
+            if (/[0-9.)]/.test(prev)) return true
+            continue
+        }
+        if (c === '-') {
+            if (i === 0) continue
+            const prev = str[i - 1]
+            if (prev === '(' || '*/^+-'.includes(prev)) continue
+            if (/[0-9.)]/.test(prev)) return true
+        }
+    }
+    return false
+}
+
 // 去掉解析后公式末尾已「写进式子」的占成小乘子（如 *0.18、*(0.14)），避免再拼 Source 列时叠成 1000*0.18*(0.14)；只剥典型占成区间 (0,1] 及 [0,1] 的 *(x) 尾段
 function stripTrailingEmbeddedCommissionFactors(expr) {
     if (!expr || typeof expr !== 'string') return ''
@@ -9867,7 +9901,11 @@ function stripTrailingEmbeddedCommissionFactors(expr) {
         if (mParen) {
             const v = parseFloat(mParen[2])
             if (!Number.isNaN(v) && v >= 0 && v <= 1) {
-                s = mParen[1].trim()
+                const nextPrefix = mParen[1].trim()
+                if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
+                    break
+                }
+                s = nextPrefix
                 continue
             }
         }
@@ -9875,7 +9913,11 @@ function stripTrailingEmbeddedCommissionFactors(expr) {
         if (mStar) {
             const v = parseFloat(mStar[2])
             if (!Number.isNaN(v) && v > 0 && v <= 1) {
-                s = mStar[1].trim()
+                const nextPrefix = mStar[1].trim()
+                if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
+                    break
+                }
+                s = nextPrefix
                 continue
             }
         }
