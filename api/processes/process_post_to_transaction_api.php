@@ -1194,7 +1194,7 @@ try {
             $txn['account_id'] = (int) $p['customer_id'];
             $txn['amount'] = round($price, 2);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Monthly Bill" . round($price, 2))
+                ? ("Inactive Compensation Sell Price" . round($price, 2))
                 : ("Process: Sell Price for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
