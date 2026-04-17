@@ -60,6 +60,64 @@ function insertTransactionRow(PDO $pdo, array $data): int
 }
 
 /**
+ * 兼容旧库里的 transactions 金额触发器（要求 amount > 0）。
+ * 业务需要允许 0.00（如 Profit 被 Share 抵消），仅禁止负数。
+ */
+function ensureTransactionsAllowZeroAmount(PDO $pdo): void
+{
+    $triggers = $pdo->query("SHOW TRIGGERS WHERE `Table` = 'transactions'")->fetchAll(PDO::FETCH_ASSOC);
+    $legacyTriggerNames = [];
+
+    foreach ($triggers as $tr) {
+        $stmt = strtolower((string) ($tr['Statement'] ?? ''));
+        $isAmountGuard = (
+            strpos($stmt, 'new.amount') !== false
+            && strpos($stmt, '45000') !== false
+            && (
+                strpos($stmt, '金额必须大于 0') !== false
+                || strpos($stmt, '金额必须大于0') !== false
+                || strpos($stmt, 'amount must be greater than 0') !== false
+                || strpos($stmt, '<= 0') !== false
+            )
+        );
+        if ($isAmountGuard && !empty($tr['Trigger'])) {
+            $legacyTriggerNames[] = (string) $tr['Trigger'];
+        }
+    }
+
+    foreach ($legacyTriggerNames as $name) {
+        $safeName = str_replace('`', '``', $name);
+        $pdo->exec("DROP TRIGGER IF EXISTS `$safeName`");
+    }
+
+    // 标准化为“金额不能小于 0”（允许 0.00）
+    $pdo->exec("DROP TRIGGER IF EXISTS `tr_transactions_amount_guard_bi`");
+    $pdo->exec("DROP TRIGGER IF EXISTS `tr_transactions_amount_guard_bu`");
+
+    $pdo->exec("
+        CREATE TRIGGER `tr_transactions_amount_guard_bi`
+        BEFORE INSERT ON `transactions`
+        FOR EACH ROW
+        BEGIN
+            IF NEW.amount < 0 THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '金额不能小于 0';
+            END IF;
+        END
+    ");
+
+    $pdo->exec("
+        CREATE TRIGGER `tr_transactions_amount_guard_bu`
+        BEFORE UPDATE ON `transactions`
+        FOR EACH ROW
+        BEGIN
+            IF NEW.amount < 0 THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '金额不能小于 0';
+            END IF;
+        END
+    ");
+}
+
+/**
  * 清理 Transaction List 搜索缓存，确保 Process 入账（含 Resend）后列表立即同步。
  */
 function clearTransactionSearchCache(): void
@@ -870,6 +928,8 @@ try {
         jsonResponse(false, '缺少公司信息', null);
         exit;
     }
+    // 自动移除“金额必须大于 0”的旧触发器限制（允许 0.00）。
+    ensureTransactionsAllowZeroAmount($pdo);
     $isOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner';
     $owner_id = $isOwner ? ($_SESSION['owner_id'] ?? $_SESSION['user_id']) : null;
     $created_by_user = $isOwner ? null : $_SESSION['user_id'];

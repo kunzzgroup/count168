@@ -74,8 +74,8 @@ try {
     if ($transaction_id <= 0) {
         throw new Exception('缺少交易记录 ID');
     }
-    if ($amount === null || $amount <= 0) {
-        throw new Exception('金额必须大于 0');
+    if ($amount === null || $amount < 0) {
+        throw new Exception('金额不能小于 0');
     }
 
     if (!checkTransactionBelongsToCompany($pdo, $transaction_id, $company_id)) {
