@@ -1264,7 +1264,8 @@ function saveCompanyExpDate() {
         body: JSON.stringify({
             action: 'update_company_permissions',
             company_id: company.company_id,
-            permissions: permissions
+            permissions: permissions,
+            expiration_date: company.expiration_date || null  // 同步写库；null 时清除到期日
         })
     }).then(response => response.json());
 

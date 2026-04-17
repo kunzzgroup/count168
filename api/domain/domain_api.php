@@ -2591,29 +2591,38 @@ try {
             // Update permissions for a specific company
             $company_id = $data['company_id'] ?? '';
             $permissions = $data['permissions'] ?? [];
-            
+
             if (empty($company_id)) {
                 echo json_encode(['success' => false, 'message' => 'Invalid company ID', 'data' => null]);
                 exit;
             }
-            
+
             if (!is_array($permissions)) {
                 echo json_encode(['success' => false, 'message' => 'Invalid permissions format', 'data' => null]);
                 exit;
             }
-            
+
             try {
                 // 验证权限值
                 $valid_permissions = ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
                 $filtered_permissions = array_intersect($permissions, $valid_permissions);
-                
+
                 // 转换为 JSON
                 $permissions_json = json_encode(array_values($filtered_permissions));
-                
-                // 更新数据库
-                $stmt = $pdo->prepare("UPDATE company SET permissions = ? WHERE company_id = ?");
-                $stmt->execute([$permissions_json, strtoupper($company_id)]);
-                
+
+                // 同步写入 expiration_date（前端传 null 时清除，不传时保持原有）
+                if (array_key_exists('expiration_date', $data)) {
+                    $expiration_date_val = (!empty($data['expiration_date']) && $data['expiration_date'] !== 'null')
+                        ? $data['expiration_date']
+                        : null;
+                    $stmt = $pdo->prepare("UPDATE company SET permissions = ?, expiration_date = ? WHERE company_id = ?");
+                    $stmt->execute([$permissions_json, $expiration_date_val, strtoupper($company_id)]);
+                } else {
+                    // 旧调用方式兼容：未传 expiration_date 时只更新权限
+                    $stmt = $pdo->prepare("UPDATE company SET permissions = ? WHERE company_id = ?");
+                    $stmt->execute([$permissions_json, strtoupper($company_id)]);
+                }
+
                 echo json_encode([
                     'success' => true,
                     'message' => 'Permissions updated successfully',
