@@ -1326,10 +1326,10 @@ try {
                     if ($periodType === 'day_end_tail') {
                         $description = bankProcessDayEndProratedDescription($t);
                     } elseif ($periodType === 'resend_consolidated_range') {
-                        // Resend 且带 day_end：沿用 DayEnd - Prorated 文案（仅展示变更，不影响算法）
+                        // Resend 且带 day_end：展示为 Prorated(daystart-dayend|days)@Monthly（不带 DayEnd 前缀）
                         $bpDayEndText = trim((string) ($t['bp_day_end'] ?? ''));
                         if ($bpDayEndText !== '') {
-                            $description = bankProcessDayEndProratedDescription($t);
+                            $description = bankProcessDayEndProratedDescription($t, false);
                         } else {
                             // 无 day_end 的 resend 维持原本 monthly 文案
                             $description = 'Monthly bill';
@@ -1348,23 +1348,35 @@ try {
                         $customerId = (int) ($t['customer_id'] ?? 0);
                         $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
                         if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
-                            $description = 'Monthly bill';
                             $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
                         } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
-                            $description = 'Monthly bill';
                             $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
                         } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
-                            $description = 'Monthly bill';
                             $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
                         }
                     }
                     $bpFreq = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
+                    // Resend 单期开账（尤其 1st_of_every_month + 自定义 day_start）会落在 monthly period_type，
+                    // 但描述应显示为 Prorated，而非 Monthly bill。
+                    $txnDay = 0;
+                    try {
+                        $txnDay = (int) date('j', strtotime((string) ($t['transaction_date'] ?? '')));
+                    } catch (Throwable $e) {
+                        $txnDay = 0;
+                    }
+                    if ($isBankProcessTransaction
+                        && ($periodType === 'monthly' || $periodType === '')
+                        && in_array($bpFreq, ['1st_of_every_month', ''], true)
+                        && $txnDay > 1) {
+                        $description = bankProcessProRatedFirstMonthDescription($t);
+                    }
                     // 合同内整月账单（period_type=monthly）统一展示 Full Month 文案：
                     // - day_start_frequency = monthly
                     // - day_start_frequency = 1st_of_every_month（首月 partial 后的第2/3笔整月）
                     if ($isBankProcessTransaction
                         && ($periodType === 'monthly' || $periodType === '')
-                        && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)) {
+                        && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)
+                        && $txnDay <= 1) {
                         $monthLabel = '';
                         $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
                         if ($monthTs !== false) {

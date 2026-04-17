@@ -159,9 +159,11 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
 }
 
 /**
- * day_end 尾段账单描述：DayEnd - Prorated(dd/mm - dd/mm | Ndays)@Monthly <对应账单价格>
+ * day_end 区间账单描述：
+ * - $withPrefix=true  => DayEnd - Prorated(dd/mm - dd/mm | Ndays)@Monthly <value>
+ * - $withPrefix=false => Prorated(dd/mm - dd/mm | Ndays)@Monthly <value>
  */
-function bankProcessDayEndProratedDescription(array $t): string
+function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true): string
 {
     $startYmd = null;
     $td = trim((string) ($t['transaction_date'] ?? ''));
@@ -180,7 +182,8 @@ function bankProcessDayEndProratedDescription(array $t): string
         $startYmd = $endYmd;
     }
     if ($startYmd === null) {
-        return 'DayEnd - Prorated@Monthly ' . bankProcessResolveDisplayValueByAccount($t);
+        return ($withPrefix ? 'DayEnd - Prorated@Monthly ' : 'Prorated@Monthly ')
+            . bankProcessResolveDisplayValueByAccount($t);
     }
     if ($endYmd === null || $endYmd < $startYmd) {
         $endYmd = $startYmd;
@@ -189,7 +192,8 @@ function bankProcessDayEndProratedDescription(array $t): string
     $tsStart = strtotime($startYmd . ' 12:00:00');
     $tsEnd = strtotime($endYmd . ' 12:00:00');
     if ($tsStart === false || $tsEnd === false) {
-        return 'DayEnd - Prorated@Monthly ' . bankProcessResolveDisplayValueByAccount($t);
+        return ($withPrefix ? 'DayEnd - Prorated@Monthly ' : 'Prorated@Monthly ')
+            . bankProcessResolveDisplayValueByAccount($t);
     }
 
     $startDm = date('j/n', $tsStart);
@@ -199,6 +203,7 @@ function bankProcessDayEndProratedDescription(array $t): string
         $daysCount = 1;
     }
 
-    return 'DayEnd - Prorated(' . $startDm . ' - ' . $endDm . ' | ' . $daysCount . 'days)@Monthly '
+    $prefix = $withPrefix ? 'DayEnd - Prorated(' : 'Prorated(';
+    return $prefix . $startDm . ' - ' . $endDm . ' | ' . $daysCount . 'days)@Monthly '
         . bankProcessResolveDisplayValueByAccount($t);
 }
