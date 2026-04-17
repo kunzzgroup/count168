@@ -1150,18 +1150,18 @@ function shouldShowCompanyAccessModal(message) {
 function getCompanyAccessModalMessage(reason, fallbackMessage) {
     const normalizedReason = String(reason || '').toLowerCase();
     if (normalizedReason === 'expired') {
-        return 'Cannot switch to this company because its login has expired.';
+        return 'This company since login has expired. Please contact the Customer Service.';
     }
     if (normalizedReason === 'no_set') {
-        return 'Cannot switch to this company because its expiration date is not set.';
+        return 'Please contact the Customer Service to set the expiration date.';
     }
 
     const msg = String(fallbackMessage || '').toLowerCase();
     if (msg.includes('date is not set') || msg.includes('not set')) {
-        return 'Cannot switch to this company because its expiration date is not set.';
+        return 'Please contact the Customer Service to set the expiration date.';
     }
     if (msg.includes('expired') || msg.includes('expiration')) {
-        return 'Cannot switch to this company because its login has expired.';
+        return 'This company since login has expired. Please contact the Customer Service';
     }
     return 'Cannot switch to this company due to company access restriction.';
 }
