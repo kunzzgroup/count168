@@ -41,10 +41,16 @@ if (!isset($pdo) || !$pdo) {
 }
 
 /**
- * 规则：未设置到期日（Not set）或已过期，都视为不可登录。
+ * 规则：
+ * - C168 永远可登录（不受 expiration_date 限制）
+ * - 其他公司：未设置到期日（Not set）或已过期，视为不可登录
  */
-function isCompanyExpiredOrUnset($expirationDate): bool
+function isCompanyExpiredOrUnset($expirationDate, $companyCode = null): bool
 {
+    if (strtoupper(trim((string)$companyCode)) === 'C168') {
+        return false;
+    }
+
     if ($expirationDate === null || trim((string)$expirationDate) === '') {
         return true;
     }
@@ -94,7 +100,7 @@ try {
         foreach ($matched_accounts as $row) {
             if (!empty($row['password']) && $password === $row['password']) {
                 $password_match = true;
-                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null)) {
+                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
                     $has_expired = true;
                 } else {
                     $account = $row;
@@ -163,7 +169,7 @@ try {
     foreach ($matched_users as $row) {
         if (password_verify($password, $row['password'])) {
             $user_password_match = true;
-            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null)) {
+            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
                 $user_has_expired = true;
             } else {
                 $user = $row;
@@ -258,7 +264,7 @@ try {
 
             if ($is_pwd_valid) {
                 $owner_password_match = true;
-                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null)) {
+                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
                     $owner_has_expired = true;
                 } else {
                     $owner = $row;
