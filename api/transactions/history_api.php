@@ -898,6 +898,13 @@ try {
     } catch (Throwable $e) {
         $has_day_start_frequency = false;
     }
+    $has_resend_schedule_day_end = false;
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'accounting_resend_schedule_day_end'");
+        $has_resend_schedule_day_end = $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        $has_resend_schedule_day_end = false;
+    }
 
     $sql = "SELECT 
                 t.id,
@@ -926,7 +933,8 @@ try {
     }
     if ($has_source_bank_process_id) {
         $bpFrequencySql = $has_day_start_frequency ? "bp_t.day_start_frequency" : "''";
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.day_end AS bp_day_end, bp_t.dts_created AS bp_dts_created";
+        $bpResendDayEndSql = $has_resend_schedule_day_end ? "bp_t.accounting_resend_schedule_day_end" : "''";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.day_end AS bp_day_end, {$bpResendDayEndSql} AS bp_resend_day_end, bp_t.dts_created AS bp_dts_created";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";

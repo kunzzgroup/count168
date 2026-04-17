@@ -177,7 +177,10 @@ function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true)
             }
         }
     }
-    $endYmd = bankProcessParseDayStartToYmd($t['bp_day_end'] ?? null);
+    $endYmd = bankProcessParseDayStartToYmd($t['bp_resend_day_end'] ?? null);
+    if ($endYmd === null) {
+        $endYmd = bankProcessParseDayStartToYmd($t['bp_day_end'] ?? null);
+    }
     if ($startYmd === null && $endYmd !== null) {
         $startYmd = $endYmd;
     }
