@@ -1232,11 +1232,15 @@ try {
                 }
             }
         }
-        $companyProfit = $profit - $totalPs;
-        if (!empty($p['profit_account_id']) && $companyProfit > 0) {
+        $companyProfit = round($profit - $totalPs, 2);
+        if (abs($companyProfit) < 0.00001) {
+            $companyProfit = 0.0;
+        }
+        // Profit 被 Share 吃掉时，仍需保留一笔 0.00 账单给 Payment History 展示。
+        if (!empty($p['profit_account_id']) && $companyProfit >= 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['profit_account_id'];
-            $txn['amount'] = round($companyProfit, 2);
+            $txn['amount'] = $companyProfit;
             $txn['description'] = $isManualInactiveCompensation
                 ? "Inactive Compensation Profit"
                 : ("Process: Profit for $processLabel" . $suffix);
