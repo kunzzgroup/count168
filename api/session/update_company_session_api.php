@@ -37,6 +37,22 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
+/**
+ * 规则：未设置到期日（Not set）或已过期，都视为不可访问。
+ */
+function isCompanyExpiredOrUnset($expirationDate): bool {
+    if ($expirationDate === null || trim((string)$expirationDate) === '') {
+        return true;
+    }
+
+    $expTs = strtotime((string)$expirationDate);
+    if ($expTs === false) {
+        return true;
+    }
+
+    return $expTs < strtotime(date('Y-m-d'));
+}
+
 function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
     if (strtolower($user_type) === 'member') {
         // member 可能来自不同登录入口：有的用 account_company(account_id)，有的仍走 user_company_map(user_id)
@@ -119,7 +135,7 @@ try {
     foreach ($user_companies as $comp) {
         if ((int) $comp['id'] === $requested_company_id) {
             $valid = true;
-            if (!empty($comp['expiration_date']) && strtotime($comp['expiration_date']) < strtotime(date('Y-m-d'))) {
+            if (isCompanyExpiredOrUnset($comp['expiration_date'] ?? null)) {
                 $expired = true;
             }
             if (isset($comp['is_external']) && $comp['is_external'] == 1) {

@@ -1094,6 +1094,58 @@ function showError(message) {
     }, 3000);
 }
 
+function showDashboardAlertModal(title, message) {
+    return new Promise(resolve => {
+        const overlay = document.getElementById('dashboardAlertModalOverlay');
+        const titleEl = document.getElementById('dashboardAlertModalTitle');
+        const messageEl = document.getElementById('dashboardAlertModalMessage');
+        const confirmBtn = document.getElementById('dashboardAlertModalConfirmBtn');
+
+        if (!overlay || !titleEl || !messageEl || !confirmBtn) {
+            alert(message || 'Company access denied.');
+            resolve();
+            return;
+        }
+
+        titleEl.textContent = title || 'Notice';
+        messageEl.textContent = message || '';
+        overlay.classList.add('is-open');
+        overlay.setAttribute('aria-hidden', 'false');
+
+        function close() {
+            overlay.classList.remove('is-open');
+            overlay.setAttribute('aria-hidden', 'true');
+            confirmBtn.removeEventListener('click', onConfirm);
+            overlay.removeEventListener('click', onOverlayClick);
+            document.removeEventListener('keydown', onEscape);
+            resolve();
+        }
+
+        function onConfirm() { close(); }
+        function onOverlayClick(e) {
+            if (e.target === overlay) close();
+        }
+        function onEscape(e) {
+            if (e.key === 'Escape') close();
+        }
+
+        confirmBtn.addEventListener('click', onConfirm);
+        overlay.addEventListener('click', onOverlayClick);
+        document.addEventListener('keydown', onEscape);
+    });
+}
+
+function shouldShowCompanyAccessModal(message) {
+    const msg = String(message || '').toLowerCase();
+    if (!msg) return false;
+    return (
+        msg.includes('company has expired') ||
+        msg.includes('group has expired') ||
+        msg.includes('not set') ||
+        msg.includes('expiration')
+    );
+}
+
 function updateDashboard(data) {
     try {
         // 单次 requestAnimationFrame 批量更新 DOM 与图表，减少一帧延迟
@@ -2334,24 +2386,33 @@ async function switchCompany(companyId, companyCode) {
 
             clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
+            let result = null;
+            try {
+                result = await response.json();
+            } catch (e) {
+                result = null;
             }
 
-            const result = await response.json();
-            if (!result.success) {
-                throw new Error(result.error || '更新 session 失败');
+            if (!response.ok || !result || !result.success) {
+                const apiMessage = (result && (result.error || result.message)) ? (result.error || result.message) : '';
+                throw new Error(apiMessage || `HTTP错误: ${response.status}`);
             }
             if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
                 window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
             }
         } catch (error) {
+            const errMessage = error && error.message ? error.message : '';
             if (error.name === 'AbortError') {
                 console.error('更新 session 超时');
             } else {
                 console.error('更新 session 失败:', error);
             }
-            showError('Failed to switch company, please refresh the page and try again');
+            if (shouldShowCompanyAccessModal(errMessage)) {
+                await showDashboardAlertModal('Notice', 'Company login has expired or expiration date is not set.');
+                showError('Company login has expired or expiration date is not set');
+            } else {
+                showError('Failed to switch company, please refresh the page and try again');
+            }
             return;
         }
 
