@@ -2128,8 +2128,12 @@ async function switchAccountListCompany(companyId, companyCode) {
         const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
         const result = await response.json();
         if (!result.success) {
+            const blocked = (typeof window.handleCompanySwitchDenied === 'function')
+                ? await window.handleCompanySwitchDenied(result)
+                : false;
+            if (blocked) return;
             console.error('Failed to update session:', result.message);
-            // 鍗充娇 API 澶辫触锛屼篃缁х画鍒锋柊椤甸潰锛圥HP 绔細澶勭悊锛?
+            // 非到期/未设置类错误：保持原行为
         }
     } catch (error) {
         console.error('Error updating session:', error);
@@ -2699,4 +2703,4 @@ async function saveCurrencySetting() {
         console.error(e);
         showNotification('Network error saving settings', 'danger');
     }
-}
+}

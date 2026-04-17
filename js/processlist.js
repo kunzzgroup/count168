@@ -6756,8 +6756,12 @@ async function switchProcessListCompany(companyId) {
         const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
         const result = await response.json();
         if (!result.success) {
+            const blocked = (typeof window.handleCompanySwitchDenied === 'function')
+                ? await window.handleCompanySwitchDenied(result)
+                : false;
+            if (blocked) return;
             console.error('Failed to update session:', result.error);
-            // 即使 API 失败，也继续刷新页面（PHP 端会处理）
+            // 非到期/未设置类错误：保持原行为
         }
     } catch (error) {
         console.error('Error updating session:', error);
