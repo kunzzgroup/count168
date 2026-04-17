@@ -1194,16 +1194,18 @@
             const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
             const result = await response.json();
             if (!result.success) {
+                const blocked = (typeof window.handleCompanySwitchDenied === 'function')
+                    ? await window.handleCompanySwitchDenied(result)
+                    : false;
+                if (blocked) return;
                 console.error('更新 session 失败:', result.error);
-                window.location.href = 'dashboard.php';
-                return;
+                // 非到期/未设置类错误：保持原行为
             } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
                 window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
             }
         } catch (error) {
             console.error('更新 session 时出错:', error);
-            window.location.href = 'dashboard.php';
-            return;
+            // 即使 API 失败，也继续更新前端状态
         }
 
         // 立即刷新整页，让 sidebar 按新 company 的 session 状态重渲染

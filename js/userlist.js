@@ -2043,14 +2043,16 @@ async function switchUserListCompany(companyId, companyCode) {
         const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
         const result = await response.json();
         if (!result.success) {
+            const blocked = (typeof window.handleCompanySwitchDenied === 'function')
+                ? await window.handleCompanySwitchDenied(result)
+                : false;
+            if (blocked) return;
             console.error('更新 session 失败:', result.error);
-            window.location.href = 'dashboard.php';
-            return;
+            // 非到期/未设置类错误：保持原行为
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);
-        window.location.href = 'dashboard.php';
-        return;
+        // 即使 API 失败，也继续刷新页面（PHP 端会处理）
     }
 
     // 使用 URL 参数传递 company_id，然后刷新页面
