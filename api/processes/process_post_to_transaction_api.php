@@ -1259,7 +1259,7 @@ try {
             $txn['account_id'] = (int) $p['card_merchant_id'];
             $txn['amount'] = $cost;
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . " Buy Price")
+                ? ("Compensation " . $compMonthLabel . ' ' . (($cost == floor($cost)) ? (string) (int) $cost : number_format($cost, 2, '.', '')))
                 : ("Process: Buy Price for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1271,7 +1271,7 @@ try {
             $txn['account_id'] = (int) $p['customer_id'];
             $txn['amount'] = round($price, 2);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . " Sell Price")
+                ? ("Compensation " . $compMonthLabel . ' ' . (($price == floor($price)) ? (string) (int) $price : number_format($price, 2, '.', '')))
                 : ("Process: Sell Price for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1319,7 +1319,7 @@ try {
             $txn['account_id'] = (int) $p['profit_account_id'];
             $txn['amount'] = $companyProfit;
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . " Profit")
+                ? ("Compensation " . $compMonthLabel . ' ' . (($profit == floor($profit)) ? (string) (int) $profit : number_format($profit, 2, '.', '')))
                 : ("Process: Profit for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1329,7 +1329,7 @@ try {
             $txn['account_id'] = (int) $ps['account_id'];
             $txn['amount'] = $ps['amount'];
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . " Profit Sharing (" . $ps['account_text'] . ' ' . $ps['amount'] . ')')
+                ? ("Compensation " . $compMonthLabel . ' ' . (($ps['amount'] == floor($ps['amount'])) ? (string) (int) $ps['amount'] : number_format((float) $ps['amount'], 2, '.', '')))
                 : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
