@@ -40,17 +40,31 @@ try {
         // Polymorphic query — JOIN company to detect external partners
         $stmt = $pdo->prepare("
             SELECT co.id as ownership_id, co.percentage, co.owner_type,
-                   CONCAT(
-                       CASE 
-                           WHEN co.owner_type = 'owner' THEN 'O_'
-                           WHEN co.owner_type = 'user' THEN 'U_'
-                           ELSE 'A_' 
-                       END, 
-                       co.account_id
-                   ) as account_id,
-                   COALESCE(co.partner_group_id, a.account_id, o.owner_code, u.login_id) as account_name,
-                   COALESCE(a.name, o.name, u.name) as name,
-                   CASE WHEN co.owner_type = 'user' THEN u.role WHEN co.owner_type = 'owner' THEN 'OWNER' ELSE a.role END as role,
+                   CASE
+                       WHEN co.owner_type = 'group' THEN CONCAT('G_', co.partner_group_id)
+                       ELSE CONCAT(
+                           CASE 
+                               WHEN co.owner_type = 'owner' THEN 'O_'
+                               WHEN co.owner_type = 'user' THEN 'U_'
+                               ELSE 'A_' 
+                           END, 
+                           co.account_id
+                       )
+                   END as account_id,
+                   CASE
+                       WHEN co.owner_type = 'group' THEN CONCAT('Group: ', co.partner_group_id)
+                       ELSE COALESCE(co.partner_group_id, a.account_id, o.owner_code, u.login_id)
+                   END as account_name,
+                   CASE
+                       WHEN co.owner_type = 'group' THEN 'Group Equity'
+                       ELSE COALESCE(a.name, o.name, u.name)
+                   END as name,
+                   CASE
+                       WHEN co.owner_type = 'group' THEN 'GROUP'
+                       WHEN co.owner_type = 'user' THEN u.role
+                       WHEN co.owner_type = 'owner' THEN 'OWNER'
+                       ELSE a.role
+                   END as role,
                    co.partner_group_id,
                    CASE WHEN co.owner_type = 'user' THEN co.account_id ELSE NULL END as user_raw_id,
                    CASE

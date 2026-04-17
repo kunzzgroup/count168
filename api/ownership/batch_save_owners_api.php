@@ -57,6 +57,11 @@ if ($total_percentage > 100) {
 $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
 
 try {
+    // Auto-add 'group' to owner_type ENUM if not present
+    try {
+        $pdo->exec("ALTER TABLE company_ownership MODIFY COLUMN owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account'");
+    } catch (Exception $e) { /* already has it or not applicable */ }
+
     $pdo->beginTransaction();
 
     // Preserve existing partner_group_id and read_only for owner-type rows
@@ -91,8 +96,16 @@ try {
             $raw_id = (string) $owner['account_id'];
             $owner_type = 'account'; // default
             $real_id = $raw_id;
+            $is_group_entry = false;
+            $group_ref = null;
 
-            if (strpos($raw_id, 'O_') === 0) {
+            if (strpos($raw_id, 'G_') === 0) {
+                // Group entry: G_IG → owner_type='group', account_id=0, partner_group_id='IG'
+                $owner_type = 'group';
+                $real_id = 0;
+                $group_ref = substr($raw_id, 2);
+                $is_group_entry = true;
+            } elseif (strpos($raw_id, 'O_') === 0) {
                 $owner_type = 'owner';
                 $real_id = substr($raw_id, 2);
             } elseif (strpos($raw_id, 'U_') === 0) {
@@ -107,7 +120,9 @@ try {
                 $pgid = null;
                 $roVal = isset($owner['read_only']) ? (int) $owner['read_only'] : 1;
 
-                if ($owner_type === 'owner' && isset($existingGroups[(int) $real_id])) {
+                if ($is_group_entry) {
+                    $pgid = $group_ref;
+                } elseif ($owner_type === 'owner' && isset($existingGroups[(int) $real_id])) {
                     $pgid = $existingGroups[(int) $real_id];
                     if (!isset($owner['read_only'])) {
                         $roVal = $existingReadOnly[(int) $real_id] ?? 1;

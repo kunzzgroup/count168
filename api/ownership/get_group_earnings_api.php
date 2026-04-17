@@ -78,7 +78,23 @@ try {
         ];
     }
 
-    // Get total allocation for each group from group_ownership table
+    // Get per-company group equity from company_ownership (owner_type='group')
+    $companyGroupEquity = [];
+    $allCompanyIds = array_map(fn($c) => $c['id'], $companies);
+    if (!empty($allCompanyIds)) {
+        $in = str_repeat('?,', count($allCompanyIds) - 1) . '?';
+        $stmt = $pdo->prepare("
+            SELECT company_id, partner_group_id, percentage
+            FROM company_ownership
+            WHERE company_id IN ($in) AND owner_type = 'group'
+        ");
+        $stmt->execute($allCompanyIds);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $companyGroupEquity[$row['company_id'] . '_' . $row['partner_group_id']] = (float)$row['percentage'];
+        }
+    }
+
+    // Get total allocation for each group from group_ownership table (account-level shares)
     $groupIds = array_keys($groups);
     $totals = [];
     if (!empty($groupIds)) {
@@ -97,9 +113,16 @@ try {
     $result = [];
     foreach ($groups as $gid => $grp) {
         $alloc = isset($totals[$gid]) ? (float)$totals[$gid] : 0.00;
+        // Add per-company group equity to each company entry
+        $companiesWithEquity = [];
+        foreach ($grp['companies'] as $comp) {
+            $key = $comp['id'] . '_' . $gid;
+            $comp['group_equity'] = $companyGroupEquity[$key] ?? 0.00;
+            $companiesWithEquity[] = $comp;
+        }
         $result[] = [
             'group_id'             => $gid,
-            'companies'            => $grp['companies'],
+            'companies'            => $companiesWithEquity,
             'company_count'        => count($grp['companies']),
             'allocated_percentage' => $alloc,
         ];

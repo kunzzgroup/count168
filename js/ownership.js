@@ -293,25 +293,16 @@ function loadCompanyData(companyId) {
     const compData = allCompaniesData.find(c => parseInt(c.id) === companyId);
     const compGroupId = compData ? (compData.group_id || '') : '';
 
-    // Build fetch list: accounts + owners + (optionally) group ownership for current user
-    const fetches = [
+    Promise.all([
         fetch(`api/ownership/get_available_accounts_api.php?company_id=${companyId}`).then(r => r.json()),
         fetch(`api/ownership/get_owners_api.php?company_id=${companyId}`).then(r => r.json())
-    ];
-    // If company has a group, also fetch existing group_ownership for this user
-    if (compGroupId) {
-        fetches.push(
-            fetch(`api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(compGroupId)}`).then(r => r.json())
-        );
-    }
-
-    Promise.all(fetches).then(([accountsRes, ownersRes, groupOwnersRes]) => {
+    ]).then(([accountsRes, ownersRes]) => {
         loader.style.display = 'none';
         editor.classList.remove('own-editor-hidden');
 
         const accounts = accountsRes.status === 'success' ? accountsRes.data : [];
 
-        // If company has a group, add the Group ID as a selectable entry (G_ prefix)
+        // If company has a group, add Group ID as a selectable entry (G_ prefix)
         if (compGroupId) {
             accounts.push({
                 id: `G_${compGroupId}`,
@@ -323,42 +314,19 @@ function loadCompanyData(companyId) {
             });
         }
 
-        // Build rows from company_ownership
-        const rows = (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
-            account_id: o.account_id,
-            percentage: parseFloat(o.percentage),
-            role: o.role || '',
-            user_raw_id: o.user_raw_id || null,
-            ownership_id: o.ownership_id || null,
-            is_external_partner: parseInt(o.is_external_partner) === 1,
-            read_only: o.read_only !== null && o.read_only !== undefined ? parseInt(o.read_only) : 1
-        }));
+        companyStates[companyId] = {
+            accounts: accounts,
+            rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
+                account_id: o.account_id,
+                percentage: parseFloat(o.percentage),
+                role: o.role || '',
+                user_raw_id: o.user_raw_id || null,
+                ownership_id: o.ownership_id || null,
+                is_external_partner: parseInt(o.is_external_partner) === 1,
+                read_only: o.read_only !== null && o.read_only !== undefined ? parseInt(o.read_only) : 1
+            }))
+        };
 
-        // If there's existing group_ownership for current user in this group, add as a G_ row
-        if (compGroupId && groupOwnersRes && groupOwnersRes.status === 'success') {
-            const userId = window._ownCurrentUserId || null;
-            const userType = window._ownCurrentUserType || 'owner';
-            const ownerTypeStr = userType === 'user' ? 'user' : 'owner';
-            groupOwnersRes.data.forEach(go => {
-                // Show current user's group ownership row
-                const goType = (go.owner_type || 'owner');
-                const goAccId = parseInt(go.account_id);
-                if (userId && goAccId === parseInt(userId) && goType === ownerTypeStr) {
-                    rows.push({
-                        account_id: `G_${compGroupId}`,
-                        percentage: parseFloat(go.percentage),
-                        role: 'GROUP',
-                        user_raw_id: null,
-                        ownership_id: null,
-                        is_external_partner: false,
-                        read_only: 1,
-                        is_group_entry: true
-                    });
-                }
-            });
-        }
-
-        companyStates[companyId] = { accounts, rows };
         renderCardBodyRows(companyId);
     }).catch(err => {
         console.error(err);
@@ -622,10 +590,7 @@ function applySliderBackground(slider) {
 // ---------------------------------------------
 
 function updateCalculations(companyId) {
-    // Exclude group entries (G_ prefix) from company total — they are a separate allocation
-    const total = companyStates[companyId].rows
-        .filter(r => !String(r.account_id).startsWith('G_'))
-        .reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
+    const total = companyStates[companyId].rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
     updateCardHeaderDisplay(companyId, total);
 
     const remaining = 100 - total;
@@ -681,96 +646,55 @@ function updateCardHeaderDisplay(companyId, total) {
 
 function confirmEdit(companyId) {
     const rows = companyStates[companyId].rows;
+    let total = 0;
     let hasError = false;
 
-    // Separate group entries (G_ prefix) from regular account entries
-    const groupRows = rows.filter(r => String(r.account_id).startsWith('G_'));
-    const accountRows = rows.filter(r => !String(r.account_id).startsWith('G_'));
-
-    // Validate account rows
-    let accountTotal = 0;
-    accountRows.forEach(r => {
+    rows.forEach(r => {
         if (!r.account_id) {
             hasError = true;
             showToast('Please select an account for all rows.', 'error');
         }
-        accountTotal += parseFloat(r.percentage);
+        total += parseFloat(r.percentage);
     });
 
-    if (accountTotal > 100) { showToast('Account total percentage exceeds 100%', 'error'); return; }
+    if (total > 100) { showToast('Total percentage exceeds 100%', 'error'); return; }
     if (hasError) return;
 
-    // Validate no duplicate accounts (excluding group entries)
-    const accIds = accountRows.map(r => r.account_id);
+    const accIds = rows.map(r => r.account_id);
     if (accIds.some((item, idx) => accIds.indexOf(item) !== idx)) {
         showToast('Duplicate accounts detected. Please combine them.', 'error');
         return;
     }
 
-    // Validate group rows
-    groupRows.forEach(r => {
-        if (!r.account_id) { hasError = true; }
-    });
-    if (hasError) return;
-
-    const confirmBtn = document.getElementById(`confirm-btn-${companyId}`);
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Saving...';
-
-    // Build save promises
-    const savePromises = [];
-
-    // 1. Save regular account ownership
-    const accountPayload = {
+    const payload = {
         company_id: companyId,
-        owners: accountRows.map(r => ({
+        owners: rows.map(r => ({
             account_id: r.account_id,
             percentage: parseFloat(r.percentage),
             read_only: r.read_only
         }))
     };
-    savePromises.push(
-        fetch('api/ownership/batch_save_owners_api.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(accountPayload)
-        }).then(res => res.json())
-    );
 
-    // 2. Save group ownership entries (each via upsert)
-    const userId = window._ownCurrentUserId || null;
-    const userType = window._ownCurrentUserType || 'owner';
-    const userAccountId = userType === 'user' ? `U_${userId}` : `O_${userId}`;
+    const confirmBtn = document.getElementById(`confirm-btn-${companyId}`);
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Saving...';
 
-    groupRows.forEach(gr => {
-        const groupId = String(gr.account_id).replace('G_', '');
-        savePromises.push(
-            fetch('api/ownership/upsert_group_ownership_api.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    group_id: groupId,
-                    account_id: userAccountId,
-                    percentage: parseFloat(gr.percentage)
-                })
-            }).then(res => res.json())
-        );
-    });
-
-    Promise.all(savePromises)
-        .then(results => {
+    fetch('api/ownership/batch_save_owners_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+        .then(res => res.json())
+        .then(res => {
             confirmBtn.disabled = false;
             confirmBtn.textContent = 'Confirm';
-
-            const failed = results.find(r => r.status !== 'success');
-            if (failed) {
-                showToast(failed.message || 'Save failed', 'error');
-            } else {
-                const groupMsg = groupRows.length > 0 ? ' + Group Earnings updated' : '';
-                showToast('Ownership saved successfully' + groupMsg, 'success');
+            if (res.status === 'success') {
+                showToast(res.message, 'success');
                 const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
-                if (compIdx >= 0) companiesData[compIdx].allocated_percentage = accountTotal;
+                if (compIdx >= 0) companiesData[compIdx].allocated_percentage = total;
                 cancelEdit(companyId, true);
+            } else {
+                showToast(res.message, 'error');
             }
         })
         .catch(err => {

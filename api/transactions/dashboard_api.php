@@ -573,26 +573,40 @@ try {
             }
 
             // ── Group Equity: Dashboard Earnings = NET PROFIT × Group Equity % × Account Allocation %
-            // Check if company belongs to a group and group_ownership table exists
+            // Group equity is stored per-company in company_ownership (owner_type='group')
+            // Account share is stored per-group in group_ownership
             try {
-                $stmtGrp = $pdo->prepare("SELECT group_id FROM company WHERE id = ?");
-                $stmtGrp->execute([$company_id]);
-                $companyGroupId = $stmtGrp->fetchColumn();
+                // 1. Find group equity for this company from company_ownership
+                $stmtGrpEquity = $pdo->prepare("
+                    SELECT partner_group_id, percentage 
+                    FROM company_ownership 
+                    WHERE company_id = ? AND owner_type = 'group' 
+                    LIMIT 1
+                ");
+                $stmtGrpEquity->execute([$company_id]);
+                $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
 
-                if ($companyGroupId) {
+                if ($grpEquityRow && $grpEquityRow['partner_group_id']) {
+                    $companyGroupId = $grpEquityRow['partner_group_id'];
+                    $group_equity_percentage = (float) $grpEquityRow['percentage'];
+
+                    // 2. Find current user's account share in this group from group_ownership
                     $hasGroupTable = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
                     if ($hasGroupTable) {
-                        $stmtGrpPct = $pdo->prepare("SELECT percentage FROM group_ownership WHERE group_id = ? AND account_id = ? AND owner_type = ?");
-                        $stmtGrpPct->execute([$companyGroupId, $userId, $ownerTypeStr ?? 'owner']);
-                        $grpPct = $stmtGrpPct->fetchColumn();
-                        if ($grpPct !== false) {
-                            $group_equity_percentage = (float) $grpPct;
+                        $stmtAccShare = $pdo->prepare("
+                            SELECT percentage FROM group_ownership 
+                            WHERE group_id = ? AND account_id = ? AND owner_type = ?
+                        ");
+                        $stmtAccShare->execute([$companyGroupId, $userId, $ownerTypeStr ?? 'owner']);
+                        $accSharePct = $stmtAccShare->fetchColumn();
+                        if ($accSharePct !== false) {
+                            $ownership_percentage = (float) $accSharePct;
                             $has_group_ownership = true;
                         }
                     }
                 }
             } catch (Throwable $e) {
-                // ignore — group_ownership may not exist yet
+                // ignore — group tables may not exist yet
             }
         }
     } catch (Throwable $e) {

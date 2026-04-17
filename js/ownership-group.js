@@ -82,10 +82,17 @@ function renderGroupCards() {
         const header = document.createElement('div');
         header.className = 'own-card-header';
         header.style.cursor = 'pointer';
+
+        // Build company list with per-company group equity
+        const companyLabels = grp.companies.map(c => {
+            const eq = parseFloat(c.group_equity) || 0;
+            return eq > 0 ? `${c.name} (${eq}%)` : c.name;
+        }).join(', ');
+
         header.innerHTML = `
             <div class="own-card-header-left">
                 <div class="own-company-name">${gid}</div>
-                <div class="own-company-date ge-company-list">${grp.companies.map(c => c.name).join(', ')}</div>
+                <div class="own-company-date ge-company-list">${companyLabels}</div>
             </div>
             <div class="own-card-header-middle">
                 <div class="own-allocation-info">
