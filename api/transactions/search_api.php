@@ -1416,17 +1416,19 @@ try {
 
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
                        SUM(CASE WHEN dc.capture_date < ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS bf_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS wl_total
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS wl_total,
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
                 WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL
                 GROUP BY TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')), dcd.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
                 'bf' => (float) $r['bf_total'],
-                'wl' => (float) $r['wl_total']
+                'wl' => (float) $r['wl_total'],
+                'wl_count' => (int) $r['wl_count']
             ];
         }
 
@@ -1475,18 +1477,20 @@ try {
                         WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
                         ELSE 0 
                     END
-                 ) ELSE 0 END) AS wl_total
+                 ) ELSE 0 END) AS wl_total,
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND t.transaction_type IN ('WIN', 'LOSE')
                   $contra_where_t $wlFutureGuard
                 GROUP BY t.account_id, IFNULL(t.currency_id, 0)";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
                 'bf' => (float) $r['bf_total'],
-                'wl' => (float) $r['wl_total']
+                'wl' => (float) $r['wl_total'],
+                'wl_count' => (int) $r['wl_count']
             ];
         }
 
@@ -1628,6 +1632,7 @@ try {
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
         $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
         $win_loss = $wlPack['win_loss'];
+        $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions']);
 
         // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
@@ -1635,9 +1640,9 @@ try {
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
         // Layer 2 过滤：(账户 + 货币) 组合级别。两者互相对称：
-        // 情况A：仅 Show Win/Loss Only —— 跳过该货币 win_loss ≈ 0 的行
+        // 情况A：仅 Show Win/Loss Only —— 跳过该货币“本期没有任何 Win/Loss 相关记录”的行
         if ($show_capture_only && !$show_inactive) {
-            if (abs((float) $win_loss) < 0.00001) {
+            if (!$has_win_loss_transactions) {
                 continue;
             }
         }
@@ -1770,6 +1775,7 @@ try {
             'cr_dr' => $cr_dr_display,
             'balance' => round((float) $balance, 2),
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
+            'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
             'is_alert' => $is_alert ? 1 : 0,
             'is_rate_middleman' => $is_rate_middleman ? 1 : 0
         ];
@@ -2322,22 +2328,26 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
  *          + 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
  *          + RATE Middle-Man 手续费（RATE_MIDDLEMAN）
  *
- * @return array{win_loss: float, has_rate_middleman: bool}
+ * @return array{win_loss: float, has_rate_middleman: bool, has_win_loss_transactions: bool}
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = '', &$bulk = null)
 {
     if ($bulk !== null) {
         $win_loss = 0;
+        $wl_row_count = 0;
         $acc_str = trim((string) $account_id);
         $code_str = trim((string) $account_code);
 
         $win_loss += $bulk['dcd'][$acc_str][$currency_id]['wl'] ?? 0;
+        $wl_row_count += (int) ($bulk['dcd'][$acc_str][$currency_id]['wl_count'] ?? 0);
         if ($code_str !== '' && $code_str !== $acc_str) {
             $win_loss += $bulk['dcd'][$code_str][$currency_id]['wl'] ?? 0;
+            $wl_row_count += (int) ($bulk['dcd'][$code_str][$currency_id]['wl_count'] ?? 0);
         }
 
         $txn_wl = $bulk['txn_win_lose'][$account_id][$currency_id] ?? ['bf' => 0, 'wl' => 0];
         $win_loss += $txn_wl['wl'];
+        $wl_row_count += (int) ($txn_wl['wl_count'] ?? 0);
 
         // Handle fallback for currency_id IS NULL in transactions (fallback to DCD check)
         $txn_wl_null = $bulk['txn_win_lose'][$account_id][0] ?? null;
@@ -2345,20 +2355,24 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             // Only aggregate if this currency_id exists in DCD for this account
             if (isset($bulk['dcd'][$acc_str][$currency_id]) || ($code_str !== '' && isset($bulk['dcd'][$code_str][$currency_id]))) {
                 $win_loss += $txn_wl_null['wl'];
+                $wl_row_count += (int) ($txn_wl_null['wl_count'] ?? 0);
             }
         }
 
         $win_loss += $bulk['entry'][$account_id][$currency_id]['wl_mm'] ?? 0;
 
         $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
+        $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm;
         return [
             'win_loss' => $win_loss,
             'has_rate_middleman' => $has_rate_mm,
+            'has_win_loss_transactions' => $has_win_loss_transactions,
         ];
     }
 
     $win_loss = 0;
     $has_rate_middleman = false;
+    $wl_row_count = 0;
 
     // 与 history_api 一致：Bank WIN/LOSE 仅 partial_first_month 按 day_start 归属；day_end_tail/monthly 使用 transaction_date
     $has_source_bank_process_id = searchApiHasSourceBankProcessId($pdo); // static 缓存，跨函数共享
@@ -2386,7 +2400,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     }
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
+    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total, COUNT(*) AS cnt
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -2399,12 +2413,14 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
               AND dc.capture_date BETWEEN ? AND ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, (string) $account_code, (string) $account_code, $currency_id, $date_from, $date_to]);
-    $win_loss += $stmt->fetchColumn();
+    $dcdRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'cnt' => 0];
+    $win_loss += (float) ($dcdRow['total'] ?? 0);
+    $wl_row_count += (int) ($dcdRow['cnt'] ?? 0);
 
     // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
     if (searchApiTxnHasCurrencyId($pdo)) {
         // 与 history_api 的事件口径一致：每条 transaction 金额先 round(2) 再求和
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN -ROUND(t.amount, 2) ELSE 0 END), 0) as total
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN -ROUND(t.amount, 2) ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
@@ -2412,10 +2428,12 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
-        $win_loss += $stmt->fetchColumn();
+        $txnBankRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'cnt' => 0];
+        $win_loss += (float) ($txnBankRow['total'] ?? 0);
+        $wl_row_count += (int) ($txnBankRow['cnt'] ?? 0);
 
         // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）：Select To 显示负数、Select From 显示正数（WIN -> -amount, LOSE -> +amount）
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN -ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN ROUND(t.amount, 2) ELSE 0 END), 0) as total
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN -ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN ROUND(t.amount, 2) ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
@@ -2423,7 +2441,9 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
-        $win_loss += $stmt->fetchColumn();
+        $txnManualRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'cnt' => 0];
+        $win_loss += (float) ($txnManualRow['total'] ?? 0);
+        $wl_row_count += (int) ($txnManualRow['cnt'] ?? 0);
 
         // 4. RATE Middle-Man：手续费应显示在 Win/Loss，而不是 Cr/Dr（一次查询同时得到金额与是否存在）
         $rateStmt = $pdo->prepare("
@@ -2447,6 +2467,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     return [
         'win_loss' => $win_loss,
         'has_rate_middleman' => $has_rate_middleman,
+        'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),
     ];
 }
 

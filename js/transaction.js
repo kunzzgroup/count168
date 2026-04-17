@@ -2790,8 +2790,14 @@
                 return byFlag || byValue;
             };
             const hasWinLoss = row => {
+                const byFlag = (typeof row.has_win_loss_transactions === 'boolean')
+                    ? row.has_win_loss_transactions
+                    : ((typeof row.has_win_loss_transactions === 'number')
+                        ? row.has_win_loss_transactions !== 0
+                        : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
                 const wl = parseFloat(row.win_loss);
-                return !isNaN(wl) && Math.abs(wl) > 0.00001;
+                const byValue = !isNaN(wl) && Math.abs(wl) > 0.00001;
+                return byFlag || byValue;
             };
             const shouldShow = showWinLossOnly
                 ? (row) => hasCrdr(row) || hasWinLoss(row)
