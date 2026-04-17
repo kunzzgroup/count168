@@ -14484,9 +14484,34 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
 
     // Persist row_index (if provided) on the DOM row for later reordering
-    // IMPORTANT: If rowIndex is not provided, preserve existing row_index to maintain order
+    // IMPORTANT: Validate that data.rowIndex actually corresponds to the correct id_product
+    // in the captured table. A stale/wrong row_index from the DB could cause formula hints
+    // to show data from the wrong row (e.g. XBFSG's index stored for CQ:CQ9 - 4D55MYR).
     if (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex))) {
-        row.setAttribute('data-row-index', String(Number(data.rowIndex)));
+        const proposedIdx = Number(data.rowIndex);
+        let idxIsValid = true; // Default to trusting the index
+        // Validate against captured table when available
+        try {
+            const capturedTb = document.getElementById('capturedTableBody');
+            if (capturedTb && processValue) {
+                const capturedRowCheck = capturedTb.querySelectorAll('tr')[proposedIdx];
+                if (capturedRowCheck) {
+                    const ccell = capturedRowCheck.querySelector('td[data-column-index="1"]') || capturedRowCheck.querySelector('td[data-col-index="1"]') || capturedRowCheck.querySelectorAll('td')[1];
+                    if (ccell) {
+                        const capturedId = normalizeIdProductText(ccell.textContent.trim());
+                        const rowIdNorm = normalizeIdProductText(processValue);
+                        idxIsValid = (capturedId === rowIdNorm)
+                            || (capturedId.toUpperCase() === rowIdNorm.toUpperCase());
+                        if (!idxIsValid) {
+                            console.warn('updateSummaryTableRow: data.rowIndex', proposedIdx, 'points to captured row with id_product', capturedId, 'but expected', rowIdNorm, '— ignoring stale row_index from template');
+                        }
+                    }
+                }
+            }
+        } catch (_e) { /* non-blocking */ }
+        if (idxIsValid) {
+            row.setAttribute('data-row-index', String(proposedIdx));
+        }
     } else {
         // Preserve existing row_index if not provided in data
         const existingRowIndex = row.getAttribute('data-row-index');
@@ -15076,8 +15101,34 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         }
 
         // Persist row_index (if provided) on the DOM row for later reordering
+        // Validate first: the captured table row at that index must match this row's id_product
         if (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex))) {
-            row.setAttribute('data-row-index', String(Number(data.rowIndex)));
+            const proposedIdx2 = Number(data.rowIndex);
+            let idx2IsValid = true;
+            try {
+                const capturedTb2 = document.getElementById('capturedTableBody');
+                if (capturedTb2) {
+                    const idProductCell2 = row.querySelector('td:first-child');
+                    const productVals2 = idProductCell2 ? getProductValuesFromCell(idProductCell2) : null;
+                    const rowIdNorm2 = productVals2 ? normalizeIdProductText(productVals2.main || '') : '';
+                    if (rowIdNorm2) {
+                        const capturedRowCheck2 = capturedTb2.querySelectorAll('tr')[proposedIdx2];
+                        if (capturedRowCheck2) {
+                            const ccell2 = capturedRowCheck2.querySelector('td[data-column-index="1"]') || capturedRowCheck2.querySelector('td[data-col-index="1"]') || capturedRowCheck2.querySelectorAll('td')[1];
+                            if (ccell2) {
+                                const capturedId2 = normalizeIdProductText(ccell2.textContent.trim());
+                                idx2IsValid = (capturedId2 === rowIdNorm2) || (capturedId2.toUpperCase() === rowIdNorm2.toUpperCase());
+                                if (!idx2IsValid) {
+                                    console.warn('updateSummaryTableRow (2): data.rowIndex', proposedIdx2, 'points to', capturedId2, 'but expected', rowIdNorm2, '— skipping');
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (_e2) { /* non-blocking */ }
+            if (idx2IsValid) {
+                row.setAttribute('data-row-index', String(proposedIdx2));
+            }
         }
 
         // Store input method data in row attributes
@@ -15292,17 +15343,39 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const productValues = getProductValuesFromCell(summaryIdProductCell);
                 const summaryIdProduct = normalizeIdProductText(productValues.main || '');
 
-                // Check if row already has a valid row_index - if so, preserve it
+                // Check if row already has a valid row_index
                 const existingRowIndex = summaryRow.getAttribute('data-row-index');
                 if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
                     const existingIndexNum = Number(existingRowIndex);
                     if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
-                        // Row already has a valid row_index, preserve it（输出完整 id_product 便于控制台查看）
-                        const idProductFull = (productValues.main || '').trim();
-                        // 额外记录一份「初始 row_index」，供后续重排时使用，避免后面逻辑改写 data-row-index 影响顺序
-                        summaryRow.setAttribute('data-preserved-row-index', existingRowIndex);
-                        console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
-                        return; // Keep existing row_index - don't recalculate
+                        // CRITICAL: Validate that the captured table row at this index actually has the
+                        // correct id_product. If not, the stored row_index is wrong (e.g. from a stale
+                        // template DB entry) and must be recalculated.
+                        const capturedRowAtIndex = capturedRows[existingIndexNum];
+                        let indexIsCorrect = false;
+                        if (capturedRowAtIndex && summaryIdProduct) {
+                            const capturedIdCell = capturedRowAtIndex.querySelector('td[data-column-index="1"]') || capturedRowAtIndex.querySelector('td[data-col-index="1"]') || capturedRowAtIndex.querySelectorAll('td')[1];
+                            if (capturedIdCell) {
+                                const capturedId = normalizeIdProductText(capturedIdCell.textContent.trim());
+                                indexIsCorrect = (capturedId === summaryIdProduct)
+                                    || (capturedId.toUpperCase() === summaryIdProduct.toUpperCase());
+                            }
+                        } else if (!summaryIdProduct) {
+                            // No id_product to verify against — trust the existing index
+                            indexIsCorrect = true;
+                        }
+
+                        if (indexIsCorrect) {
+                            // Row already has a validated row_index, preserve it
+                            const idProductFull = (productValues.main || '').trim();
+                            summaryRow.setAttribute('data-preserved-row-index', existingRowIndex);
+                            console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
+                            return; // Keep existing row_index - don't recalculate
+                        } else {
+                            // Existing row_index points to the wrong row — fall through to recalculate
+                            const idProductFull = (productValues.main || '').trim();
+                            console.warn('Existing row_index', existingRowIndex, 'points to wrong captured row for id_product:', idProductFull || summaryIdProduct, '— recalculating');
+                        }
                     }
                 }
 
