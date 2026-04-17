@@ -891,6 +891,13 @@ try {
     $has_source_bank_process_id = $stmt->rowCount() > 0;
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
     $has_source_bank_process_period_type = $stmt->rowCount() > 0;
+    $has_bank_process_frequency = false;
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'frequency'");
+        $has_bank_process_frequency = $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        $has_bank_process_frequency = false;
+    }
 
     $sql = "SELECT 
                 t.id,
@@ -918,7 +925,8 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.dts_created AS bp_dts_created";
+        $bpFrequencySql = $has_bank_process_frequency ? "bp_t.frequency" : "''";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.dts_created AS bp_dts_created";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -1143,13 +1151,15 @@ try {
         // 关联账户间内部转账：to 和 from 都在聚合列表内时，对聚合视图 Cr/Dr 为 0
         $is_internal_transfer = $is_to_account && $is_from_account;
         $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
-        $isInactiveCompensationSell = stripos(trim((string) $rawDescription), 'Inactive Compensation Sell Price') === 0;
+        $isCompensationDescription = preg_match('/^(Inactive\s+Compensation|Compensation)\s*/i', trim((string) $rawDescription)) === 1;
+        $isInactiveCompensationSell = preg_match('/^(Inactive\s+Compensation|Compensation)(?:\s*\([^)]*\)|\s+\w+\s+Month)?\s*Sell Price/i', trim((string) $rawDescription)) === 1
+            || stripos(trim((string) $rawDescription), 'Inactive Compensation Sell Price') === 0;
         // 手动 PROFIT：WIN/LOSE 且非 Bank Process，且不是系统生成的 Process/Auto/赔款文案
         $isManualProfit = in_array($t['transaction_type'], ['WIN', 'LOSE'], true)
             && !$isBankProcessTransaction
             && stripos((string) $rawDescription, 'Process: ') !== 0
             && stripos((string) $rawDescription, 'Auto: ') !== 0
-            && !$isInactiveCompensationSell;
+            && !$isCompensationDescription;
 
         // 为手动 PROFIT 尝试找出对应的对手账户（另一条相反类型、相同日期和金额的交易）
         $otherAccountCodeForManualProfit = null;
@@ -1293,23 +1303,10 @@ try {
         }
 
         // Bank process 的 WIN/LOSE + 手动 PROFIT：
-        // 默认 History 与主表一致：金额进 Win/Loss、Cr/Dr 为 0。
-        // 首月 partial 的 Sell Price（LOSE、Customer）：与主表一致进 Cr/Dr（右侧负号），Win/Loss 为 0。
+        // History 中金额统一显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
         if (($isBankProcessTransaction || $isManualProfit) && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
-            $ptBl = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
-            $customerIdBl = (int) ($t['customer_id'] ?? 0);
-            $txAccBl = (int) ($t['account_id'] ?? 0);
-            if ($isBankProcessTransaction
-                && $ptBl === 'partial_first_month'
-                && $t['transaction_type'] === 'LOSE'
-                && $customerIdBl > 0
-                && $txAccBl === $customerIdBl
-            ) {
-                $win_loss = 0;
-            } else {
-                $win_loss = $cr_dr;
-                $cr_dr = 0;
-            }
+            $win_loss = $cr_dr;
+            $cr_dr = 0;
         }
 
         // 动态调整 description
@@ -1319,8 +1316,8 @@ try {
         // Description 金额展示 process 原始 Buy/Sell/Profit（不显示本笔 total amount）。
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
-            if ($isInactiveCompensationSell) {
-                // 赔款 Sell Price 保持原始文案，不再改写成 Inactive bill / PROFIT FROM
+            if ($isCompensationDescription) {
+                // 赔款文案保持原始描述（Compensation One/Two/Three Month ...）
                 $description = trim((string) $rawDescription);
             } else {
                 if ($periodType === 'partial_first_month') {
@@ -1354,6 +1351,18 @@ try {
                             $description = 'Monthly bill';
                             $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
                         }
+                    }
+                    // frequency=monthly 的月账单：统一显示 Full Month (April/2026) @Monthly + process 原始价格
+                    $bpFrequency = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
+                    if ($isBankProcessTransaction && $bpFrequency === 'monthly' && ($periodType === 'monthly' || $periodType === '')) {
+                        $monthLabel = '';
+                        $tsMonth = strtotime((string) ($t['transaction_date'] ?? ''));
+                        if ($tsMonth !== false) {
+                            $monthLabel = date('F/Y', $tsMonth);
+                        }
+                        $description = $monthLabel !== ''
+                            ? ('Full Month (' . $monthLabel . ') @Monthly')
+                            : 'Full Month @Monthly';
                     }
                     $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
                     $description = $description . ' ' . $billAmount;

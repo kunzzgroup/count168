@@ -321,7 +321,7 @@ function bankProcessMaintenanceUseRawProcessDescription(?string $rawDesc): bool 
     if ($d === '') {
         return false;
     }
-    return (bool) preg_match('/^(Process:|Auto:)\s*/i', $d);
+    return (bool) preg_match('/^(Process:|Auto:|Compensation\s+)/i', $d);
 }
 
 /**
