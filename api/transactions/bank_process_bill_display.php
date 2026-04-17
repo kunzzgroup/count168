@@ -49,12 +49,44 @@ function bankProcessBillFormatTripartNumber(float $amt): string
     return number_format($amt, 2, '.', '');
 }
 
+function bankProcessProfitSharingOriginalAmountByAccount(array $t): ?float
+{
+    $profitSharingRaw = trim((string) ($t['process_profit_sharing'] ?? ''));
+    if ($profitSharingRaw === '') {
+        return null;
+    }
+    $currentCode = trim((string) ($t['to_account_code'] ?? $t['account_code'] ?? ''));
+    if ($currentCode === '') {
+        return null;
+    }
+    foreach (explode(',', $profitSharingRaw) as $part) {
+        $entry = trim($part);
+        if ($entry === '') {
+            continue;
+        }
+        $dash = strrpos($entry, ' - ');
+        if ($dash === false) {
+            continue;
+        }
+        $accountText = trim(substr($entry, 0, $dash));
+        $amountStr = trim(substr($entry, $dash + 3));
+        if ($accountText === '' || $amountStr === '') {
+            continue;
+        }
+        if (strcasecmp($accountText, $currentCode) === 0) {
+            return (float) $amountStr;
+        }
+    }
+    return null;
+}
+
 /**
  * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly <对应账单价格>
  * 仅显示当前这条记录对应的价格：
  * - Supplier(card_merchant): buy price
  * - Customer: sell price（始终负号）
  * - Profit account: profit
+ * - Profit sharing account: 取 process_profit_sharing 中该账号的原始金额
  *
  * @param array $t 需含 bp_day_start、process_cost、process_price、process_profit；可选 transaction_date 作 day_start 后备
  */
@@ -84,8 +116,12 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
     }
     $endYmd = date('Y-m-t', $tsStart);
     $tsEnd = strtotime($endYmd . ' 12:00:00');
-    $startDm = date('d/m', $tsStart);
-    $endDm = $tsEnd !== false ? date('d/m', $tsEnd) : date('d/m', $tsStart);
+    $startDm = date('j/n', $tsStart);
+    $endDm = $tsEnd !== false ? date('j/n', $tsEnd) : date('j/n', $tsStart);
+    $daysCount = (int) floor((strtotime($endYmd . ' 12:00:00') - $tsStart) / 86400) + 1;
+    if ($daysCount < 1) {
+        $daysCount = 1;
+    }
 
     $buy = isset($t['process_cost']) ? (float) $t['process_cost'] : 0.0;
     $sell = isset($t['process_price']) ? (float) $t['process_price'] : 0.0;
@@ -103,8 +139,13 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
     } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
         $value = bankProcessBillFormatTripartNumber($profit);
     } else {
-        $value = bankProcessBillFormatTripartNumber(isset($t['amount']) ? (float) $t['amount'] : 0.0);
+        $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
+        if ($psAmount !== null) {
+            $value = bankProcessBillFormatTripartNumber($psAmount);
+        } else {
+            $value = bankProcessBillFormatTripartNumber(isset($t['amount']) ? (float) $t['amount'] : 0.0);
+        }
     }
 
-    return "Pro-rated({$startDm} - {$endDm})@monthly {$value}";
+    return "Pro-rated({$startDm} - {$endDm} || {$daysCount}days)@monthly {$value}";
 }
