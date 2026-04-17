@@ -4006,7 +4006,8 @@ function updateFormulaDataGrid() {
     }
     
     // 优先按当前编辑行获取在 JSON 中确切的数据行，使用 JSON row 直接生成内容以避免任何 DOM 偏移或文本匹配污染。
-    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue) : null;
+    // 并且强制要求锁定当前编辑行的父母账户身份 (forceOwnIdentity = true)，不要被 Data 下拉菜单干扰！
+    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue, true) : null;
     let targetJsonRow = null;
     if (activeRowIndexOverride !== null && parsedTableData && parsedTableData.rows) {
         targetJsonRow = parsedTableData.rows[activeRowIndexOverride];
@@ -5099,10 +5100,10 @@ function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
     return n;
 }
 
-function getEditFormulaDataCaptureRowIndexOverride(targetProcessValue = null) {
+function getEditFormulaDataCaptureRowIndexOverride(targetProcessValue = null, forceOwnIdentity = false) {
     const row = getActiveSummaryRowForEditFormula();
     let override = getDataCaptureRowIndexOverrideFromSummaryRow(row);
-    if (override !== null) return override;
+    if (!forceOwnIdentity && override !== null) return override;
 
     if (!row) return null;
 
@@ -5190,8 +5191,8 @@ function getEditFormulaDataCaptureRowIndexOverride(targetProcessValue = null) {
 
         const currentPosIndex = matchingSummaryRows.indexOf(targetMainRow);
         if (currentPosIndex >= 0) {
-            // Apply this rank to the target game (processValue), or the own game if no target provided
-            const targetGameToMatch = processValue || ownMainIdProduct;
+            // Apply this rank to the target game (processValue), or strictly the own game if forceOwnIdentity is requested
+            const targetGameToMatch = forceOwnIdentity ? ownMainIdProduct : (processValue || ownMainIdProduct);
             const normalizedTargetGame = normalizeIdProductText(targetGameToMatch);
             
             const matchingDataCaptureRows = [];
