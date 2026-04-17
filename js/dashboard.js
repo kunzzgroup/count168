@@ -948,11 +948,17 @@ function mergeGroupData(dataList) {
 
         // 收集各公司的 Earnings 信息
         const pct = parseFloat(d.ownership_percentage || 0);
+        const grpPct = parseFloat(d.group_equity_percentage || 0);
+        const hasGrp = !!d.has_group_ownership;
         const rawP = parseFloat(d?.period_total?.profit ?? d.profit) || 0;
         const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
-        companyEarnings.push({ netProfit, pct, earnings: netProfit * (pct / 100) });
+        // Two-tier: NET PROFIT × Group% × Account% ; single-tier: NET PROFIT × Account%
+        const earningsVal = hasGrp
+            ? netProfit * (grpPct / 100) * (pct / 100)
+            : netProfit * (pct / 100);
+        companyEarnings.push({ netProfit, pct, grpPct, hasGrp, earnings: earningsVal });
     });
 
     // 合计 Earnings = 各公司的 NET PROFIT × 各自 ownership_percentage 之和
@@ -1110,9 +1116,15 @@ function updateDashboard(data) {
                 // 规则：NET PROFIT = Profit(显示) + Expenses(显示)
                 const netProfitDisplay = displayProfitNum + displayExpensesNum;
 
-                // Earnings 卡片：(NET PROFIT) * (Ownership Percentage)
+                // Earnings 卡片：
+                // Two-tier: NET PROFIT × Group Equity % × Account Allocation %
+                // Single-tier: NET PROFIT × Ownership Percentage
                 const ownershipPercentage = parseFloat(data?.ownership_percentage) || 0;
-                const earningsDisplay = netProfitDisplay * (ownershipPercentage / 100);
+                const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
+                const hasGroupOwnership = !!data?.has_group_ownership;
+                const earningsDisplay = hasGroupOwnership
+                    ? netProfitDisplay * (groupEquityPercentage / 100) * (ownershipPercentage / 100)
+                    : netProfitDisplay * (ownershipPercentage / 100);
 
                 // 记录卡片显示值，供图表 tooltip 统一读取，避免口径不一致
                 chartMetadata.cardProfitDisplay = displayProfitNum;
@@ -1257,6 +1269,12 @@ async function updateChart(data) {
     const netProfitData = [];
     const earningsData = [];
     const ownershipPercentage = parseFloat(data?.ownership_percentage) || 0;
+    const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
+    const hasGroupOwnership = !!data?.has_group_ownership;
+    // Effective multiplier for earnings chart line
+    const earningsMultiplier = hasGroupOwnership
+        ? (groupEquityPercentage / 100) * (ownershipPercentage / 100)
+        : (ownershipPercentage / 100);
 
     // 初始化累计值（从 API 返回的 initial_balance 开始）
     // initial_balance 是起始日期之前的余额总和（B/F）
@@ -1325,7 +1343,7 @@ async function updateChart(data) {
             
             const monthNetProfit = monthProfit + monthExpenses;
             netProfitData.push(monthNetProfit);
-            earningsData.push(monthNetProfit * (ownershipPercentage / 100));
+            earningsData.push(monthNetProfit * earningsMultiplier);
         });
     } else {
         // 非年份范围：按天显示
@@ -1415,7 +1433,7 @@ async function updateChart(data) {
                 
                 const netProfit = displayProfit + displayExpenses;
                 netProfitData.push(netProfit);
-                earningsData.push(netProfit * (ownershipPercentage / 100));
+                earningsData.push(netProfit * earningsMultiplier);
 
                 // 如果需要 capital 数据（虽然当前图表不显示），也可以累计
                 const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;

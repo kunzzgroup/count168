@@ -38,29 +38,63 @@ $assetVer = function ($file) {
         <h1 class="own-page-title">Account Ownership</h1>
         <div class="own-separator-line"></div>
 
-        <!-- Group Filter Bar + Select Mode Button (same row) -->
-        <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
-            <span class="own-gfb-label">Group</span>
-            <div class="own-gfb-buttons" id="own-gfb-buttons">
-                <!-- Injected by JS -->
-            </div>
-            <div class="own-gfb-spacer"></div>
-            <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <path d="M14 17h7M17.5 14v7" />
+        <!-- ========== Tab Bar ========== -->
+        <div class="own-tab-bar">
+            <button class="own-tab-btn active" data-tab="account-ownership" onclick="switchOwnershipTab('account-ownership')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
-                Select
+                Account Ownership
+            </button>
+            <button class="own-tab-btn" data-tab="group-earnings" onclick="switchOwnershipTab('group-earnings')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+                Group Earnings
             </button>
         </div>
 
-        <!-- Companies will be injected here via JS -->
-        <div id="companyCardsContainer">
-            <!-- Loader -->
-            <div class="own-loader-container">
-                <div class="own-loader"></div>
+        <!-- ========== Tab Panel: Account Ownership ========== -->
+        <div id="tab-account-ownership" class="own-tab-panel">
+            <!-- Group Filter Bar + Select Mode Button (same row) -->
+            <div id="own-group-filter-bar" class="own-group-filter-bar" style="display:none;">
+                <span class="own-gfb-label">Group</span>
+                <div class="own-gfb-buttons" id="own-gfb-buttons">
+                    <!-- Injected by JS -->
+                </div>
+                <div class="own-gfb-spacer"></div>
+                <button id="own-select-mode-btn" class="own-select-mode-btn" onclick="_toggleSelectionMode()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <path d="M14 17h7M17.5 14v7" />
+                    </svg>
+                    Select
+                </button>
+            </div>
+
+            <!-- Companies will be injected here via JS -->
+            <div id="companyCardsContainer">
+                <!-- Loader -->
+                <div class="own-loader-container">
+                    <div class="own-loader"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== Tab Panel: Group Earnings ========== -->
+        <div id="tab-group-earnings" class="own-tab-panel" style="display:none;">
+            <div id="groupEarningsContainer">
+                <!-- Loader -->
+                <div class="own-loader-container">
+                    <div class="own-loader"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -226,6 +260,7 @@ $assetVer = function ($file) {
     </template>
 
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
+    <script src="js/ownership-group.js?v=<?php echo $assetVer('js/ownership-group.js'); ?>"></script>
 </body>
 
 </html>
