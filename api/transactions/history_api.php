@@ -1326,8 +1326,14 @@ try {
                     if ($periodType === 'day_end_tail') {
                         $description = bankProcessDayEndProratedDescription($t);
                     } elseif ($periodType === 'resend_consolidated_range') {
-                        // Resend consolidated range follows normal monthly wording in history modal
-                        $description = 'Monthly bill';
+                        // Resend 且带 day_end：沿用 DayEnd - Prorated 文案（仅展示变更，不影响算法）
+                        $bpDayEndText = trim((string) ($t['bp_day_end'] ?? ''));
+                        if ($bpDayEndText !== '') {
+                            $description = bankProcessDayEndProratedDescription($t);
+                        } else {
+                            // 无 day_end 的 resend 维持原本 monthly 文案
+                            $description = 'Monthly bill';
+                        }
                     } elseif ($periodType === 'manual_inactive') {
                         $description = 'Inactive bill';
                     } elseif ($periodType === 'monthly' || $periodType === '') {
