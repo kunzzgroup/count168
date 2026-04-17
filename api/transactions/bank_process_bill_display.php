@@ -160,8 +160,8 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
 
 /**
  * day_end 区间账单描述：
- * - $withPrefix=true  => DayEnd - Prorated(dd/mm - dd/mm | Ndays)@Monthly <value>
- * - $withPrefix=false => Prorated(dd/mm - dd/mm | Ndays)@Monthly <value>
+ * - $withPrefix=true  => DayEnd - Prorated(dd/mm - dd/mm | N days)@Monthly <value>
+ * - $withPrefix=false => Prorated(dd/mm - dd/mm | N days)@Monthly <value>
  */
 function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true): string
 {
@@ -208,5 +208,5 @@ function bankProcessDayEndProratedDescription(array $t, bool $withPrefix = true)
 
     $prefix = $withPrefix ? 'DayEnd - Prorated(' : 'Prorated(';
     $value = bankProcessResolveDisplayValueByAccount($t);
-    return $prefix . $startDm . ' - ' . $endDm . ' | ' . $daysCount . "days)@Monthly {$value}";
+    return $prefix . $startDm . ' - ' . $endDm . ' | ' . $daysCount . " days)@Monthly {$value}";
 }

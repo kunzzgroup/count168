@@ -1373,7 +1373,8 @@ try {
                     $description = bankProcessProRatedFirstMonthDescription($t);
                 } else {
                     if ($periodType === 'day_end_tail') {
-                        $description = bankProcessDayEndProratedDescription($t);
+                        // 统一 day_end 展示文案：Prorated(... | n days)@Monthly（不带 DayEnd 前缀）
+                        $description = bankProcessDayEndProratedDescription($t, false);
                     } elseif ($periodType === 'resend_consolidated_range') {
                         // Resend 且带 day_end：展示为 Prorated(daystart-dayend|days)@Monthly（不带 DayEnd 前缀）
                         $bpDayEndText = trim((string) ($t['bp_day_end'] ?? ''));
