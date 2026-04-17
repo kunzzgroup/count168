@@ -2386,13 +2386,16 @@ async function switchCompany(companyId, companyCode) {
 
             clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
+            let result = null;
+            try {
+                result = await response.json();
+            } catch (e) {
+                result = null;
             }
 
-            const result = await response.json();
-            if (!result.success) {
-                throw new Error(result.error || '更新 session 失败');
+            if (!response.ok || !result || !result.success) {
+                const apiMessage = (result && (result.error || result.message)) ? (result.error || result.message) : '';
+                throw new Error(apiMessage || `HTTP错误: ${response.status}`);
             }
             if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
                 window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
