@@ -1353,7 +1353,12 @@ try {
                         }
                     }
                     $bpFreq = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
-                    if ($isBankProcessTransaction && $bpFreq === 'monthly' && ($periodType === 'monthly' || $periodType === '')) {
+                    // 合同内整月账单（period_type=monthly）统一展示 Full Month 文案：
+                    // - day_start_frequency = monthly
+                    // - day_start_frequency = 1st_of_every_month（首月 partial 后的第2/3笔整月）
+                    if ($isBankProcessTransaction
+                        && ($periodType === 'monthly' || $periodType === '')
+                        && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)) {
                         $monthLabel = '';
                         $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
                         if ($monthTs !== false) {
