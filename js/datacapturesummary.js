@@ -4122,7 +4122,7 @@ function updateFormulaDataGrid() {
     };
 
     // 优先按当前编辑行匹配确切的数据行，防止多条重复记录时串台。
-    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride() : null;
+    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue) : null;
     if (activeRowIndexOverride !== null) {
         const targetRow = rows[activeRowIndexOverride];
         if (targetRow) {
@@ -5100,17 +5100,17 @@ function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
     return n;
 }
 
-function getEditFormulaDataCaptureRowIndexOverride() {
+function getEditFormulaDataCaptureRowIndexOverride(targetProcessValue = null) {
     const row = getActiveSummaryRowForEditFormula();
     let override = getDataCaptureRowIndexOverrideFromSummaryRow(row);
     if (override !== null) return override;
 
     if (!row) return null;
 
-    // Use dynamic positional matching to avoid stale data-preserved-row-index issues
+    // If targetProcessValue is provided, use it. Otherwise, fallback to the dropdown value.
+    // However, the *rank* must ALWAYS be calculated based on the currentActiveRow's OWN id_product!
     const processInput = document.getElementById('process');
-    const processValue = processInput ? processInput.value.trim() : '';
-    if (!processValue) return null;
+    const processValue = targetProcessValue !== null ? targetProcessValue : (processInput ? processInput.value.trim() : '');
     
     // Get table data
     let parsedTableData;
@@ -5126,10 +5126,11 @@ function getEditFormulaDataCaptureRowIndexOverride() {
     if (!summaryTableBody) return null;
 
     const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-    const normalizedProcessValue = normalizeIdProductText(processValue);
+    
+    // The rank of the sub-account is based on its OWN parent game
     const productType = row.getAttribute('data-product-type') || 'main';
-
     let targetMainRow = null;
+    let ownMainIdProduct = '';
 
     if (productType === 'sub') {
         const currentRowIndex = allRows.indexOf(row);
@@ -5171,27 +5172,36 @@ function getEditFormulaDataCaptureRowIndexOverride() {
     }
 
     if (targetMainRow) {
+        // Find the own id_product of the targetMainRow
+        const idProductCell = targetMainRow.querySelector('td:first-child');
+        const productValues = getProductValuesFromCell(idProductCell);
+        ownMainIdProduct = normalizeIdProductText(productValues.main || '');
+        
+        // Find all summary rows with the SAME id_product to calculate rank
         const matchingSummaryRows = [];
         allRows.forEach((r) => {
             const rProductType = r.getAttribute('data-product-type') || 'main';
             if (rProductType !== 'main') return;
-            const idProductCell = r.querySelector('td:first-child');
-            const productValues = getProductValuesFromCell(idProductCell);
-            const mainText = normalizeIdProductText(productValues.main || '');
-            if (mainText === normalizedProcessValue) {
+            const rCell = r.querySelector('td:first-child');
+            const rValues = getProductValuesFromCell(rCell);
+            if (normalizeIdProductText(rValues.main || '') === ownMainIdProduct) {
                 matchingSummaryRows.push(r);
             }
         });
 
         const currentPosIndex = matchingSummaryRows.indexOf(targetMainRow);
         if (currentPosIndex >= 0) {
+            // Apply this rank to the target game (processValue), or the own game if no target provided
+            const targetGameToMatch = processValue || ownMainIdProduct;
+            const normalizedTargetGame = normalizeIdProductText(targetGameToMatch);
+            
             const matchingDataCaptureRows = [];
             if (parsedTableData && parsedTableData.rows) {
                 parsedTableData.rows.forEach((r, idx) => {
                     if (r.length > 1 && r[1].type === 'data') {
                         const rowValue = r[1].value;
                         const normalizedRowValue = normalizeIdProductText(rowValue);
-                        if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                        if (rowValue === targetGameToMatch || (normalizedRowValue && normalizedRowValue === normalizedTargetGame)) {
                             matchingDataCaptureRows.push(idx);
                         }
                     }
@@ -5199,6 +5209,9 @@ function getEditFormulaDataCaptureRowIndexOverride() {
             }
             if (currentPosIndex < matchingDataCaptureRows.length) {
                 return matchingDataCaptureRows[currentPosIndex];
+            } else if (matchingDataCaptureRows.length > 0) {
+                // If it doesn't have duplicates, fallback to the first match
+                return matchingDataCaptureRows[0];
             }
         }
     }
