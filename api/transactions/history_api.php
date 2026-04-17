@@ -1359,12 +1359,27 @@ try {
                         }
                     }
                     $bpFreq = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
+                    // Resend 单期开账（尤其 1st_of_every_month + 自定义 day_start）会落在 monthly period_type，
+                    // 但描述应显示为 Prorated，而非 Monthly bill。
+                    $txnDay = 0;
+                    try {
+                        $txnDay = (int) date('j', strtotime((string) ($t['transaction_date'] ?? '')));
+                    } catch (Throwable $e) {
+                        $txnDay = 0;
+                    }
+                    if ($isBankProcessTransaction
+                        && ($periodType === 'monthly' || $periodType === '')
+                        && $bpFreq === '1st_of_every_month'
+                        && $txnDay > 1) {
+                        $description = bankProcessProRatedFirstMonthDescription($t);
+                    }
                     // 合同内整月账单（period_type=monthly）统一展示 Full Month 文案：
                     // - day_start_frequency = monthly
                     // - day_start_frequency = 1st_of_every_month（首月 partial 后的第2/3笔整月）
                     if ($isBankProcessTransaction
                         && ($periodType === 'monthly' || $periodType === '')
-                        && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)) {
+                        && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)
+                        && !($bpFreq === '1st_of_every_month' && $txnDay > 1)) {
                         $monthLabel = '';
                         $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
                         if ($monthTs !== false) {

@@ -1207,6 +1207,20 @@ try {
             if (!empty($item['is_manual_inactive'])) return 2;
             return 1; // regular monthly
         };
+        $normalizeBm = static function (array $item): string {
+            $bm = trim((string) ($item['monthly_billing_month'] ?? ''));
+            if (preg_match('/^(\d{4})-(\d{1,2})$/', $bm, $m)) {
+                return ((int) $m[1]) . '-' . ((int) $m[2]);
+            }
+            $ds = trim((string) ($item['day_start'] ?? ''));
+            if ($ds !== '') {
+                $ts = strtotime(str_replace('/', '-', $ds));
+                if ($ts !== false) {
+                    return date('Y-n', $ts);
+                }
+            }
+            return $bm;
+        };
         $typeOf = static function (array $item): string {
             if (!empty($item['is_resend_consolidated_range'])) return 'resend_consolidated_range';
             if (!empty($item['is_day_end_tail'])) return 'day_end_tail';
@@ -1218,10 +1232,7 @@ try {
         $unique = [];
         foreach ($needToday as $row) {
             $pid = (int) ($row['id'] ?? 0);
-            $bm = trim((string) ($row['monthly_billing_month'] ?? ''));
-            if ($bm === '') {
-                $bm = trim((string) ($row['day_start'] ?? ''));
-            }
+            $bm = $normalizeBm($row);
             $key = $pid . '|' . $bm . '|' . $typeOf($row);
 
             if (!isset($unique[$key])) {
@@ -1237,10 +1248,7 @@ try {
         $hasSpecialByProcessMonth = [];
         foreach ($unique as $row) {
             $pid = (int) ($row['id'] ?? 0);
-            $bm = trim((string) ($row['monthly_billing_month'] ?? ''));
-            if ($bm === '') {
-                $bm = trim((string) ($row['day_start'] ?? ''));
-            }
+            $bm = $normalizeBm($row);
             if ($bm === '') continue;
             if ($rankOf($row) > 1) {
                 $hasSpecialByProcessMonth[$pid . '|' . $bm] = true;
@@ -1250,10 +1258,7 @@ try {
         $deduped = [];
         foreach ($unique as $row) {
             $pid = (int) ($row['id'] ?? 0);
-            $bm = trim((string) ($row['monthly_billing_month'] ?? ''));
-            if ($bm === '') {
-                $bm = trim((string) ($row['day_start'] ?? ''));
-            }
+            $bm = $normalizeBm($row);
             $pmKey = $pid . '|' . $bm;
             if ($rankOf($row) === 1 && isset($hasSpecialByProcessMonth[$pmKey])) {
                 continue;
