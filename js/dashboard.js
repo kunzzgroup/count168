@@ -1141,9 +1141,29 @@ function shouldShowCompanyAccessModal(message) {
     return (
         msg.includes('company has expired') ||
         msg.includes('group has expired') ||
+        msg.includes('date is not set') ||
         msg.includes('not set') ||
         msg.includes('expiration')
     );
+}
+
+function getCompanyAccessModalMessage(reason, fallbackMessage) {
+    const normalizedReason = String(reason || '').toLowerCase();
+    if (normalizedReason === 'expired') {
+        return 'Cannot switch to this company because its login has expired.';
+    }
+    if (normalizedReason === 'no_set') {
+        return 'Cannot switch to this company because its expiration date is not set.';
+    }
+
+    const msg = String(fallbackMessage || '').toLowerCase();
+    if (msg.includes('date is not set') || msg.includes('not set')) {
+        return 'Cannot switch to this company because its expiration date is not set.';
+    }
+    if (msg.includes('expired') || msg.includes('expiration')) {
+        return 'Cannot switch to this company because its login has expired.';
+    }
+    return 'Cannot switch to this company due to company access restriction.';
 }
 
 function updateDashboard(data) {
@@ -2395,21 +2415,27 @@ async function switchCompany(companyId, companyCode) {
 
             if (!response.ok || !result || !result.success) {
                 const apiMessage = (result && (result.error || result.message)) ? (result.error || result.message) : '';
-                throw new Error(apiMessage || `HTTP错误: ${response.status}`);
+                const error = new Error(apiMessage || `HTTP错误: ${response.status}`);
+                if (result && result.data && result.data.reason) {
+                    error.reason = result.data.reason;
+                }
+                throw error;
             }
             if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
                 window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
             }
         } catch (error) {
             const errMessage = error && error.message ? error.message : '';
+            const errReason = error && error.reason ? error.reason : '';
             if (error.name === 'AbortError') {
                 console.error('更新 session 超时');
             } else {
                 console.error('更新 session 失败:', error);
             }
             if (shouldShowCompanyAccessModal(errMessage)) {
-                await showDashboardAlertModal('Notice', 'Company login has expired or expiration date is not set.');
-                showError('Company login has expired or expiration date is not set');
+                const modalMessage = getCompanyAccessModalMessage(errReason, errMessage);
+                await showDashboardAlertModal('Notice', modalMessage);
+                showError(modalMessage);
             } else {
                 showError('Failed to switch company, please refresh the page and try again');
             }
