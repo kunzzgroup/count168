@@ -4015,6 +4015,7 @@ function updateFormulaDataGrid() {
     // Falls back strictly to finding the DOM row directly if JSON resolution fails
     let fallbackDomRow = null;
     if (!targetJsonRow && currentActiveRow && capturedTableBody) {
+        const currentRowIndexCandidates = [
             currentActiveRow.getAttribute('data-preserved-row-index'),
             currentActiveRow.getAttribute('data-row-index')
         ];
