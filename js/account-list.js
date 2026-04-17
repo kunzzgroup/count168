@@ -2128,16 +2128,14 @@ async function switchAccountListCompany(companyId, companyCode) {
         const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
         const result = await response.json();
         if (!result.success) {
-            const blocked = (typeof window.handleCompanySwitchDenied === 'function')
-                ? await window.handleCompanySwitchDenied(result)
-                : false;
-            if (blocked) return;
             console.error('Failed to update session:', result.message);
-            // 非到期/未设置类错误：保持原行为
+            window.location.href = 'dashboard.php';
+            return;
         }
     } catch (error) {
         console.error('Error updating session:', error);
-        // 鍗充娇 API 澶辫触锛屼篃缁х画鍒锋柊椤甸潰锛圥HP 绔細澶勭悊锛?
+        window.location.href = 'dashboard.php';
+        return;
     }
 
     // 浣跨敤 URL 鍙傛暟浼犻€?company_id锛岀劧鍚庡埛鏂伴〉闈?
