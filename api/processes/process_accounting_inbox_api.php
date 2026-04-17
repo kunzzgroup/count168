@@ -1306,7 +1306,22 @@ try {
             $deduped[] = $row;
         }
 
-        $needToday = array_values($deduped);
+        // 最终强去重：同 process + 同 day_start + 同金额（cost/price/profit）只保留一条，避免 UI 出现“同账单两行”。
+        $byFingerprint = [];
+        foreach ($deduped as $row) {
+            $pid = (int) ($row['id'] ?? 0);
+            $ds = trim((string) ($row['day_start'] ?? ''));
+            $dsNorm = $ds !== '' ? (inboxBankProcessDateFieldToYmd($ds) ?? $ds) : '';
+            $c = number_format((float) ($row['cost'] ?? 0), 2, '.', '');
+            $p = number_format((float) ($row['price'] ?? 0), 2, '.', '');
+            $pr = number_format((float) ($row['profit'] ?? 0), 2, '.', '');
+            $fp = $pid . '|' . $dsNorm . '|' . $c . '|' . $p . '|' . $pr;
+            if (!isset($byFingerprint[$fp]) || $rankOf($row) >= $rankOf($byFingerprint[$fp])) {
+                $byFingerprint[$fp] = $row;
+            }
+        }
+
+        $needToday = array_values($byFingerprint);
     }
 
     if (!empty($needToday)) {
