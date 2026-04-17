@@ -36,7 +36,7 @@ let bankAddProcessDataLoaded = false;
 let currentQuickRemarkProcessId = null;
 let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
-const BANK_ALLOWED_ACCOUNT_ROLES = ['PARTNER', 'SUPPLIER', 'STAFF', 'AGENT', 'MEMBER', 'DEBTOR'];
+const BANK_ALLOWED_ACCOUNT_ROLES = ['PARTNER', 'SUPPLIER', 'UPLINE', 'STAFF', 'AGENT', 'MEMBER', 'DEBTOR'];
 
 function normalizeBankAccountRole(role) {
     return String(role || '').trim().toUpperCase();
