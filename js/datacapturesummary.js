@@ -9938,9 +9938,13 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
-        parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim())
+        // IMPORTANT: 只在启用 Source % 时才剥末尾嵌入的佣金乘子，避免与 Source % 重复叠乘。
+        // 当 Source % 未启用时，公式末尾的 *(0.12) 等是用户手写的结构（先乘除后加减），不能剥掉。
+        if (enableSourcePercent) {
+            parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim())
+        }
 
-        // If source percent is disabled, return parsed formula as-is
+        // If source percent is disabled, return parsed formula as-is (without stripping)
         if (!enableSourcePercent) {
             return formatNegativeNumbersInFormula(parsedFormula.trim());
         }
@@ -10066,21 +10070,28 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
             return 0;
         }
 
-        // 先解析 $/[id:n] 再剥末尾误写的占成小乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
+        // 先解析 $/[id:n] 引用为实际数值
         const afterRefs = parseReferenceFormula(String(formula).trim(), processValueForRefs, clickedCellRefsOverride, rowIndexOverride)
-        const strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim())
-        const formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
-        // If source percent is disabled, return formula result directly (without applying source percent)
+        // IMPORTANT: 只在启用 Source % 时才剥末尾乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
+        // 当 Source % 未启用时，公式末尾的 *(0.12) 等是用户手写的公式结构（先乘除后加减），
+        // 不能剥掉，否则会破坏运算符优先级（例如 a+b*c*(0.12) 被错误计算为 (a+b*c)*0.12）
+        let strippedBody, formulaResult;
         if (!enableSourcePercent) {
-            let result = formulaResult;
+            // Source % 未启用：直接对完整公式求值，保留所有乘子，确保运算优先级正确
+            strippedBody = afterRefs.trim();
+            formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
             // Apply input method transformation if enabled
+            let result = formulaResult;
             if (enableInputMethod && inputMethod) {
                 result = applyInputMethodTransformation(result, inputMethod);
             }
-            console.log('Formula result calculated from expression (source percent disabled):', result);
+            console.log('Formula result calculated from expression (source percent disabled, no strip):', result);
             return result;
         }
+        // Source % 启用时才剥末尾嵌入的佣金乘子，防止与 Source % 重复叠乘
+        strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim())
+        formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If enableSourcePercent is true but sourcePercentValue is empty, treat as 1 (100%)
         // IMPORTANT: Empty sourcePercentValue should be treated as 1 (100%), not 0, to avoid incorrect 0 results
