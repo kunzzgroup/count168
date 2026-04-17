@@ -93,7 +93,6 @@ function renderGroupCards() {
         header.innerHTML = `
             <div class="own-card-header-left">
                 <div class="own-company-name">${gid}</div>
-                <div class="own-company-date ge-company-list">${companyLabels}</div>
             </div>
             <div class="own-card-header-middle">
                 <div class="own-allocation-info">
