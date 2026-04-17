@@ -987,21 +987,45 @@ function restoreFormulaSourceFromRefresh() {
         if (resolvedRate != null && String(resolvedRate).trim() !== '' && cells[7]) {
             cells[7].textContent = String(resolvedRate).trim();
         }
-        // 用当前单元格中最终显示的公式（finalFormula）来重算 Processed Amount，
-        // 而非被 removeTrailingSourcePercentExpression 可能误截的 formula 变量。
-        // sourcePercent 优先使用 data-source-percent 属性值（srcPct），
-        // 而非 data.source（Source 列文本，不一定等于 sourcePercent）。
+        // 用当前单元格中最终显示的公式（finalFormula）来重算 Processed Amount。
+        // IMPORTANT: formulaForRecalc 是已经含 source percent 的 display 公式（如 "851.65*(0.08)"）。
+        // 不能再通过 calculateFormulaResultFromExpression 传入 enableSourcePercent=true，
+        // 否则 stripTrailingEmbeddedCommissionFactors 会先剥掉 *(0.08)，再重新乘一次 source percent → 双重叠加。
+        // 正确做法：直接 evaluateFormulaExpression 得到数值，再应用 Rate 和 InputMethod 变换。
         const formulaForRecalc = (cells[4] && cells[4].querySelector('.formula-text'))
             ? (cells[4].querySelector('.formula-text').textContent || '').trim()
             : formula;
-        recalculateAndRenderProcessedAmount(row, {
-            formula: formulaForRecalc,
-            sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
-            inputMethod,
-            enableInputMethod,
-            enableSourcePercent,
-            updateTotal: false
-        });
+
+        // 直接求值 display formula（它已经是纯数字表达式，不含 $n 引用）
+        let recalcBase = 0;
+        if (formulaForRecalc && formulaForRecalc !== 'Formula') {
+            try {
+                recalcBase = typeof evaluateFormulaExpression === 'function'
+                    ? Number(evaluateFormulaExpression(formulaForRecalc, null, '', null))
+                    : 0;
+                if (!Number.isFinite(recalcBase)) recalcBase = 0;
+            } catch (_re) { recalcBase = 0; }
+        }
+        row.setAttribute('data-base-processed-amount', String(recalcBase));
+
+        // Apply InputMethod transformation if enabled
+        let recalcFinal = recalcBase;
+        if (enableInputMethod && inputMethod && typeof applyInputMethodTransformation === 'function') {
+            recalcFinal = applyInputMethodTransformation(recalcBase, inputMethod);
+        }
+        // Apply Rate
+        if (typeof applyRateToProcessedAmount === 'function') {
+            recalcFinal = applyRateToProcessedAmount(row, recalcBase);
+        }
+        if (!Number.isFinite(recalcFinal)) recalcFinal = 0;
+
+        if (cells[8]) {
+            const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
+                ? roundProcessedAmountTo2Decimals(recalcFinal) : recalcFinal;
+            cells[8].textContent = typeof formatNumberWithThousands === 'function'
+                ? formatNumberWithThousands(rounded) : String(rounded);
+            cells[8].style.color = recalcFinal > 0 ? '#0D60FF' : (recalcFinal < 0 ? '#A91215' : '#000000');
+        }
     });
     if (typeof applyAccountDisplayByRoleToAllRows === 'function') applyAccountDisplayByRoleToAllRows();
     if (typeof rebuildUsedAccountIds === 'function') {
