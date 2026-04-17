@@ -262,13 +262,6 @@
             const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
             const result = await response.json();
             if (!result.success) {
-                const blocked = (typeof window.handleCompanySwitchDenied === 'function')
-                    ? await window.handleCompanySwitchDenied(result)
-                    : false;
-                if (blocked) {
-                    window.location.href = 'dashboard.php';
-                    return;
-                }
                 console.error('更新 session 失败:', result.error);
                 window.location.href = 'dashboard.php';
                 return;
