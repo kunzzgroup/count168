@@ -999,6 +999,24 @@ try {
     $stmt->execute($transactionParams);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 展示去重保护：若同一 process 同日已有非 day_end_tail 的银行账单，
+    // 则隐藏对应 day_end_tail，避免 resend + day_end 历史中出现重复两条。
+    $hasNonTailByKey = [];
+    foreach ($transactions as $txRow) {
+        $pid = (int) ($txRow['source_bank_process_id'] ?? 0);
+        $pt = trim((string) ($txRow['period_type'] ?? ''));
+        if ($pid <= 0) {
+            continue;
+        }
+        $dateKey = trim((string) ($txRow['transaction_date'] ?? ''));
+        $accKey = (int) ($txRow['account_id'] ?? 0);
+        $typeKey = trim((string) ($txRow['transaction_type'] ?? ''));
+        $amtKey = number_format((float) ($txRow['amount'] ?? 0), 2, '.', '');
+        if ($pt !== 'day_end_tail') {
+            $hasNonTailByKey[$pid . '|' . $dateKey . '|' . $accKey . '|' . $typeKey . '|' . $amtKey] = true;
+        }
+    }
+
     // 4. 构建历史记录数据
     $history = [];
 
@@ -1141,6 +1159,19 @@ try {
 
     $account_ids_int = array_map('intval', $account_ids);
     foreach ($transactions as $t) {
+        $ptCurrent = trim((string) ($t['period_type'] ?? ''));
+        $pidCurrent = (int) ($t['source_bank_process_id'] ?? 0);
+        if ($ptCurrent === 'day_end_tail' && $pidCurrent > 0) {
+            $dateKey = trim((string) ($t['transaction_date'] ?? ''));
+            $accKey = (int) ($t['account_id'] ?? 0);
+            $typeKey = trim((string) ($t['transaction_type'] ?? ''));
+            $amtKey = number_format((float) ($t['amount'] ?? 0), 2, '.', '');
+            $dupKey = $pidCurrent . '|' . $dateKey . '|' . $accKey . '|' . $typeKey . '|' . $amtKey;
+            if (isset($hasNonTailByKey[$dupKey])) {
+                continue;
+            }
+        }
+
         $is_to_account = in_array((int) $t['account_id'], $account_ids_int);
         $is_from_account = in_array((int) ($t['from_account_id'] ?? 0), $account_ids_int);
         $win_loss = 0;

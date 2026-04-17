@@ -1096,6 +1096,13 @@ try {
             if (!empty($r['accounting_resend_consolidated_range'])) {
                 continue;
             }
+            // Resend 弹窗显式填写了 day_start + day_end 的单期补账：由主账单行承接，不再额外排 day_end_tail，
+            // 否则会在 Accounting Due 出现重复（同期 Prorated + DayEnd）。
+            if (!empty($r['accounting_resend_relax_created_floor'])
+                && !empty($r['accounting_resend_schedule_day_start'])
+                && !empty($r['accounting_resend_schedule_day_end'])) {
+                continue;
+            }
             // Resend with an explicit single reopened period: do not also queue day_end_tail in the same pass
             // (would look like a duplicate bill alongside the monthly line).
             if (!empty($r['accounting_resend_single_period_from_schedule'])) {
