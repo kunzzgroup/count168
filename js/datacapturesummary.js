@@ -3997,10 +3997,24 @@ function updateFormulaDataGrid() {
 
     let idProduct = selectedIdProductValue;
     let rowLabel = null;
-
-    // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
-    // 让重复 id_product 的底部灰色块只显示自己那一行。
-    if (currentActiveRow && capturedTableBody) {
+    // 优先按当前编辑行获取在 JSON 中确切的数据行，从而提取精准的 rowLabel，避免 stale data-preserved-row-index 导致的 DOM 指向错误
+    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue) : null;
+    
+    // Get table data if not already mapped correctly by the wrapper
+    let parsedTableData;
+    if (window.transformedTableData) {
+        parsedTableData = window.transformedTableData;
+    } else {
+        const tableData = localStorage.getItem('capturedTableData');
+        if (tableData) parsedTableData = JSON.parse(tableData);
+    }
+    
+    if (activeRowIndexOverride !== null && parsedTableData && parsedTableData.rows) {
+        const jsonRow = parsedTableData.rows[activeRowIndexOverride];
+        if (jsonRow && jsonRow.length > 0 && jsonRow[0].type === 'header') {
+            rowLabel = jsonRow[0].value.trim();
+        }
+    } else if (currentActiveRow && capturedTableBody) {
         const currentRowIndexCandidates = [
             currentActiveRow.getAttribute('data-preserved-row-index'),
             currentActiveRow.getAttribute('data-row-index')
@@ -4011,9 +4025,8 @@ function updateFormulaDataGrid() {
             const currentRowIndex = Number(rowIndexAttr);
             const capturedRow = capturedTableBody.querySelectorAll('tr')[currentRowIndex];
             const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
-            const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
-            if (matchedRowLabel) {
-                rowLabel = matchedRowLabel;
+            if (rowHeaderCell) {
+                rowLabel = rowHeaderCell.textContent.trim();
                 break;
             }
         }
@@ -4035,19 +4048,7 @@ function updateFormulaDataGrid() {
     const isFullId = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
     const normalizedTargetIdProduct = isFullId ? normalizeSpaces(idProduct) : normalizeIdProductText(idProduct);
 
-    // Get table data
-    let parsedTableData;
-    if (window.transformedTableData) {
-        parsedTableData = window.transformedTableData;
-    } else {
-        const tableData = localStorage.getItem('capturedTableData');
-        if (!tableData) {
-            console.log('No table data found for formula data grid');
-            return;
-        }
-        parsedTableData = JSON.parse(tableData);
-    }
-
+    // Fetch operations were hoisted cleanly earlier
     const rows = capturedTableBody.querySelectorAll('tr');
 
     const appendFormulaGridItemsFromCapturedRow = function (row, rowIndex) {
@@ -4121,17 +4122,7 @@ function updateFormulaDataGrid() {
         return false;
     };
 
-    // 优先按当前编辑行匹配确切的数据行，防止多条重复记录时串台。
-    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue) : null;
-    if (activeRowIndexOverride !== null) {
-        const targetRow = rows[activeRowIndexOverride];
-        if (targetRow) {
-            appendFormulaGridItemsFromCapturedRow(targetRow, activeRowIndexOverride);
-            if (formulaDataGrid.children.length > 0) {
-                return;
-            }
-        }
-    }
+    // activeRowIndexOverride fetched rowLabel previously. Do not return early causing offset issues here.
 
     rows.forEach((row, rowIndex) => {
         // Try to get id_product from data-id-product attribute first
@@ -4165,7 +4156,7 @@ function updateFormulaDataGrid() {
             return;
         }
 
-        if (rowLabel) {
+        if (rowLabel !== null) {
             const rowHeaderCell = row.querySelector('.row-header');
             const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
             if (rowHeaderLabel !== rowLabel) {
