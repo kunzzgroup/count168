@@ -92,20 +92,23 @@ function bankProcessProfitSharingOriginalAmountByAccount(array $t): ?float
  */
 function bankProcessProRatedFirstMonthDescription(array $t): string
 {
-    $rawStart = $t['bp_day_start'] ?? null;
-    $startYmd = bankProcessParseDayStartToYmd($rawStart);
-    if ($startYmd === null) {
-        $td = trim((string) ($t['transaction_date'] ?? ''));
-        if ($td !== '') {
-            if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m)) {
-                $startYmd = $m[1];
-            } else {
-                $ts = strtotime(str_replace('/', '-', $td));
-                if ($ts !== false) {
-                    $startYmd = date('Y-m-d', $ts);
-                }
+    // Resend 场景下，transaction_date 会锚到本次执行的 daystart；
+    // 这里优先用 transaction_date，确保 Pro-rated 的月份/天数随 resend daystart 变化。
+    $startYmd = null;
+    $td = trim((string) ($t['transaction_date'] ?? ''));
+    if ($td !== '') {
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m)) {
+            $startYmd = $m[1];
+        } else {
+            $ts = strtotime(str_replace('/', '-', $td));
+            if ($ts !== false) {
+                $startYmd = date('Y-m-d', $ts);
             }
         }
+    }
+    if ($startYmd === null) {
+        $rawStart = $t['bp_day_start'] ?? null;
+        $startYmd = bankProcessParseDayStartToYmd($rawStart);
     }
     if ($startYmd === null) {
         return 'Pro-rated@monthly';
