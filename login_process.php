@@ -40,6 +40,23 @@ if (!isset($pdo) || !$pdo) {
     exit;
 }
 
+/**
+ * 规则：未设置到期日（Not set）或已过期，都视为不可登录。
+ */
+function isCompanyExpiredOrUnset($expirationDate): bool
+{
+    if ($expirationDate === null || trim((string)$expirationDate) === '') {
+        return true;
+    }
+
+    $expTs = strtotime((string)$expirationDate);
+    if ($expTs === false) {
+        return true;
+    }
+
+    return $expTs < strtotime(date('Y-m-d'));
+}
+
 try {
     if ($_POST) {
         $password = trim($_POST['password']);
@@ -77,7 +94,7 @@ try {
         foreach ($matched_accounts as $row) {
             if (!empty($row['password']) && $password === $row['password']) {
                 $password_match = true;
-                if (!empty($row['expiration_date']) && strtotime($row['expiration_date']) < strtotime(date('Y-m-d'))) {
+                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null)) {
                     $has_expired = true;
                 } else {
                     $account = $row;
@@ -146,7 +163,7 @@ try {
     foreach ($matched_users as $row) {
         if (password_verify($password, $row['password'])) {
             $user_password_match = true;
-            if (!empty($row['expiration_date']) && strtotime($row['expiration_date']) < strtotime(date('Y-m-d'))) {
+            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null)) {
                 $user_has_expired = true;
             } else {
                 $user = $row;
@@ -241,7 +258,7 @@ try {
 
             if ($is_pwd_valid) {
                 $owner_password_match = true;
-                if (!empty($row['expiration_date']) && strtotime($row['expiration_date']) < strtotime(date('Y-m-d'))) {
+                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null)) {
                     $owner_has_expired = true;
                 } else {
                     $owner = $row;
