@@ -9970,7 +9970,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
-        parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim())
+        parsedFormula = enableSourcePercent ? stripTrailingEmbeddedCommissionFactors(parsedFormula.trim()) : parsedFormula.trim();
 
         // If source percent is disabled, return parsed formula as-is
         if (!enableSourcePercent) {
