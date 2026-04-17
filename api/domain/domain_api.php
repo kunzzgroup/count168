@@ -174,6 +174,40 @@ function ensureCompanyFeeShareColumn(PDO $pdo): void {
 }
 
 /**
+ * account 表：标记账号来源（domain 自动建账 / 手动建账等）
+ * 注意：DDL 必须在事务外调用，避免隐式提交。
+ */
+function ensureAccountCreatedSourceColumn(PDO $pdo): void {
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM `account` LIKE 'created_source'");
+        if ($check && $check->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `account` ADD COLUMN `created_source` VARCHAR(50) NULL DEFAULT NULL COMMENT 'Account source, e.g. domain_auto/manual' AFTER `status`");
+        }
+    } catch (Exception $e) {
+        // 兼容旧环境
+    }
+    $ensured = true;
+}
+
+function domainApiHasAccountCreatedSourceColumn(PDO $pdo): bool {
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `account` LIKE 'created_source'");
+        $has = $stmt && $stmt->rowCount() > 0;
+    } catch (Exception $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+/**
  * @param mixed $raw
  * @return array{sales: list<array{account_id:int,percentage:float}>, cs: list, it: list}
  */
@@ -1710,11 +1744,21 @@ function domainApiAccountLooksLikeDomainProvisionedMember(PDO $pdo, int $account
         return false;
     }
     try {
-        $stmt = $pdo->prepare("SELECT role, password FROM account WHERE id = ? LIMIT 1");
+        $hasCreatedSource = domainApiHasAccountCreatedSourceColumn($pdo);
+        $sql = $hasCreatedSource
+            ? "SELECT role, password, created_source FROM account WHERE id = ? LIMIT 1"
+            : "SELECT role, password FROM account WHERE id = ? LIMIT 1";
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$accountDbId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
             return false;
+        }
+        if ($hasCreatedSource) {
+            $src = strtolower(trim((string) ($row['created_source'] ?? '')));
+            if ($src !== '') {
+                return $src === 'domain_auto';
+            }
         }
         $role = strtolower(trim((string) ($row['role'] ?? '')));
         $pw = (string) ($row['password'] ?? '');
@@ -1741,19 +1785,35 @@ function domainApiBuildDomainProvisionedMemberAccountId(string $ownerCodeUpper, 
  * 解析最终 account_id：优先 OWNER_COMPANY；若该 id 已被非 Domain MEMBER 模板占用，则顺延 OWNER_COMPANY_2、_3…
  * 若已是 Domain MEMBER 模板则复用该行（幂等）。
  */
-function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, string $ownerCodeUpper, string $companyCode): string {
+function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, int $c168CompanyId, string $ownerCodeUpper, string $companyCode): string {
     $base = domainApiBuildDomainProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
-    $chk = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
+    $chkInC168 = $pdo->prepare("
+        SELECT a.id
+        FROM account a
+        INNER JOIN account_company ac ON ac.account_id = a.id
+        WHERE ac.company_id = ?
+          AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
+        LIMIT 1
+    ");
+    $chkGlobal = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
     for ($i = 0; $i < 1000; $i++) {
         $code = $i === 0 ? $base : $base . '_' . $i;
-        $chk->execute([$code]);
-        $gid = (int) ($chk->fetchColumn() ?: 0);
+        $chkInC168->execute([$c168CompanyId, $code]);
+        $cid = (int) ($chkInC168->fetchColumn() ?: 0);
+        if ($cid > 0) {
+            if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $cid)) {
+                return $code;
+            }
+            continue;
+        }
+
+        $chkGlobal->execute([$code]);
+        $gid = (int) ($chkGlobal->fetchColumn() ?: 0);
         if ($gid <= 0) {
             return $code;
         }
-        if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $gid)) {
-            return $code;
-        }
+        // 全局已存在同 code（无论来源）都不复用，顺延后缀避免串号。
+        continue;
     }
     return $base . '_X' . substr(str_replace('.', '', uniqid('', true)), -10);
 }
@@ -1766,7 +1826,11 @@ function domainApiForceMemberDefaultsFromDomain(PDO $pdo, int $accountDbId, stri
         return;
     }
     try {
-        $stmt = $pdo->prepare("UPDATE account SET name = ?, role = 'MEMBER', password = '111' WHERE id = ?");
+        $hasCreatedSource = domainApiHasAccountCreatedSourceColumn($pdo);
+        $sql = $hasCreatedSource
+            ? "UPDATE account SET name = ?, role = 'MEMBER', password = '111', created_source = 'domain_auto' WHERE id = ?"
+            : "UPDATE account SET name = ?, role = 'MEMBER', password = '111' WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$ownerDisplayName, $accountDbId]);
     } catch (PDOException $e) {
         error_log('domainApiForceMemberDefaultsFromDomain: ' . $e->getMessage());
@@ -1893,11 +1957,21 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         $syncListPerm($accDbId, $permAccountCode);
     };
 
-    $findGlobalAccStmt = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
-    $insertStmt = $pdo->prepare("
-        INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
-        VALUES (?, ?, 'MEMBER', '111', 0, NULL, NULL, NULL, NULL, 'active', NULL)
+    $findC168ScopedAccStmt = $pdo->prepare("
+        SELECT a.id
+        FROM account a
+        INNER JOIN account_company ac ON ac.account_id = a.id
+        WHERE ac.company_id = ?
+          AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
+        LIMIT 1
     ");
+    $hasCreatedSource = domainApiHasAccountCreatedSourceColumn($pdo);
+    $insertSql = $hasCreatedSource
+        ? "INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, created_source, last_login)
+           VALUES (?, ?, 'MEMBER', '111', 0, NULL, NULL, NULL, NULL, 'active', 'domain_auto', NULL)"
+        : "INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
+           VALUES (?, ?, 'MEMBER', '111', 0, NULL, NULL, NULL, NULL, 'active', NULL)";
+    $insertStmt = $pdo->prepare($insertSql);
     $linkCoStmt = $pdo->prepare('INSERT INTO account_company (account_id, company_id) VALUES (?, ?)');
 
     foreach ($companyIdStrings as $raw) {
@@ -1905,10 +1979,10 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         if ($cid === '') {
             continue;
         }
-        $useAccountId = domainApiResolveProvisionedMemberAccountCode($pdo, $ownerCodeUpper, $cid);
+        $useAccountId = domainApiResolveProvisionedMemberAccountCode($pdo, $c168NumericCompanyId, $ownerCodeUpper, $cid);
 
-        $findGlobalAccStmt->execute([$useAccountId]);
-        $existingAccId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
+        $findC168ScopedAccStmt->execute([$c168NumericCompanyId, $useAccountId]);
+        $existingAccId = (int) ($findC168ScopedAccStmt->fetchColumn() ?: 0);
 
         if ($existingAccId > 0) {
             if (!domainApiAccountLooksLikeDomainProvisionedMember($pdo, $existingAccId)) {
@@ -1942,8 +2016,8 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
             $finalizeMember($newAccId, $useAccountId);
         } catch (PDOException $e) {
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                $findGlobalAccStmt->execute([$useAccountId]);
-                $retryId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
+                $findC168ScopedAccStmt->execute([$c168NumericCompanyId, $useAccountId]);
+                $retryId = (int) ($findC168ScopedAccStmt->fetchColumn() ?: 0);
                 if ($retryId > 0 && domainApiAccountLooksLikeDomainProvisionedMember($pdo, $retryId)) {
                     try {
                         $linkCoStmt->execute([$retryId, $c168NumericCompanyId]);
@@ -2027,6 +2101,7 @@ try {
             // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行
             ensureCompanyFeeShareColumn($pdo);
             ensureDomainListFeeSettingsTable($pdo);
+            ensureAccountCreatedSourceColumn($pdo);
 
             // Start transaction
             $pdo->beginTransaction();
@@ -2113,6 +2188,7 @@ try {
             // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行
             ensureCompanyFeeShareColumn($pdo);
             ensureDomainListFeeSettingsTable($pdo);
+            ensureAccountCreatedSourceColumn($pdo);
 
             // Start transaction
             $pdo->beginTransaction();

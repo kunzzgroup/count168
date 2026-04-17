@@ -68,11 +68,38 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
     }
 }
 
+function hasAccountCreatedSourceColumn(PDO $pdo): bool {
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `account` LIKE 'created_source'");
+        $has = $stmt && $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+function formatDomainAutoDisplayAccountId(string $rawAccountId): string {
+    $rawAccountId = trim($rawAccountId);
+    if ($rawAccountId === '' || strpos($rawAccountId, '_') === false) {
+        return $rawAccountId;
+    }
+    $parts = explode('_', $rawAccountId, 2);
+    $display = trim((string)($parts[1] ?? ''));
+    return $display !== '' ? $display : $rawAccountId;
+}
+
 function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, bool $showInactive, bool $showAll, ?array $accountIdFilter, ?array $rolesFilter = null): array {
+    $hasCreatedSource = hasAccountCreatedSourceColumn($pdo);
+    $selectCreatedSource = $hasCreatedSource ? ", a.created_source" : ", NULL AS created_source";
     $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.status, a.last_login, a.role,
             COALESCE(a.payment_alert, 0) AS payment_alert,
             a.alert_day, a.alert_day AS alert_type, a.alert_specific_date, a.alert_specific_date AS alert_start_date,
             a.alert_amount, a.remark
+            {$selectCreatedSource}
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             WHERE ac.company_id = ?";
@@ -114,7 +141,16 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     $sql .= " ORDER BY a.account_id ASC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as &$row) {
+        $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
+        if ($createdSource === 'domain_auto') {
+            $row['account_id'] = formatDomainAutoDisplayAccountId((string)($row['account_id'] ?? ''));
+        }
+        unset($row['created_source']);
+    }
+    unset($row);
+    return $rows;
 }
 
 function computeAlertStatus(array $accounts): array {
