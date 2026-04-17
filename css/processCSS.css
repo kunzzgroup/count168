@@ -1375,12 +1375,31 @@ body.process-page.process-page--show-all .process-cards {
     min-height: 0;
     max-height: none;
     overflow: hidden;
+    display: grid;
+    grid-template-rows: repeat(20, minmax(0, 1fr));
+    align-content: start;
 }
 
 .process-page:not(.process-page--bank) .process-card {
-    height: calc(100% / 20);
+    height: auto;
     min-height: 0;
     box-sizing: border-box;
+}
+
+/* No. column: fixed compact width and center alignment */
+.process-page:not(.process-page--bank) .table-header,
+.process-page:not(.process-page--bank) .process-card {
+    grid-template-columns: 56px 0.85fr 1fr 0.4fr 0.35fr 1.15fr 0.28fr !important;
+}
+
+.process-page:not(.process-page--bank) .table-header .header-item:first-child,
+.process-page:not(.process-page--bank) .process-card .card-item:first-child {
+    justify-content: center;
+    text-align: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    font-variant-numeric: tabular-nums;
+    min-height: 0;
 }
 
 .process-page .pagination-btn {
