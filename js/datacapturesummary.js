@@ -982,6 +982,7 @@ function restoreFormulaSourceFromRefresh() {
             : formula;
         recalculateAndRenderProcessedAmount(row, {
             formula: formulaForRecalc,
+            formulaOperators: data.formulaOperators,
             sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
             inputMethod,
             enableInputMethod,
