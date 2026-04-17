@@ -367,7 +367,7 @@
                 '.global-company-access-modal-box{background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.2);max-width:480px;width:100%;padding:36px 32px;text-align:center;transform:scale(.95);transition:transform .25s ease;}' +
                 '.global-company-access-modal-overlay.is-open .global-company-access-modal-box{transform:scale(1);}' +
                 '.global-company-access-modal-icon-wrap{width:80px;height:80px;margin:0 auto 20px;background:rgba(220,53,69,.12);border-radius:50%;display:flex;align-items:center;justify-content:center;}' +
-                '.global-company-access-modal-icon{font-size:42px;color:#dc3545;}' +
+                '.global-company-access-modal-icon{width:42px;height:42px;color:#dc3545;display:block;}' +
                 '.global-company-access-modal-title{font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:16px;line-height:1.3;}' +
                 '.global-company-access-modal-message{font-size:16px;color:#444;line-height:1.55;margin-bottom:28px;white-space:pre-line;}' +
                 '.global-company-access-modal-btn{min-width:120px;padding:12px 24px;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:background .2s,transform .1s;background:linear-gradient(135deg,#56ccf2,#004ff9);color:#fff;}' +
@@ -382,7 +382,13 @@
         overlay.setAttribute('aria-hidden', 'true');
         overlay.innerHTML =
             '<div class="global-company-access-modal-box" role="dialog" aria-labelledby="globalCompanyAccessModalTitle" aria-describedby="globalCompanyAccessModalMessage">' +
-            '<div class="global-company-access-modal-icon-wrap"><i class="fas fa-exclamation-triangle global-company-access-modal-icon" aria-hidden="true"></i></div>' +
+            '<div class="global-company-access-modal-icon-wrap">' +
+            '<svg class="global-company-access-modal-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+            '<path d="M12 3.5L21 19.5a1 1 0 0 1-.87 1.5H3.87A1 1 0 0 1 3 19.5l9-16a1 1 0 0 1 1.74 0z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>' +
+            '<path d="M12 8.2v5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>' +
+            '<circle cx="12" cy="17.2" r="1.1" fill="currentColor"></circle>' +
+            '</svg>' +
+            '</div>' +
             '<h3 id="globalCompanyAccessModalTitle" class="global-company-access-modal-title">Notice</h3>' +
             '<p id="globalCompanyAccessModalMessage" class="global-company-access-modal-message"></p>' +
             '<button type="button" id="globalCompanyAccessModalConfirmBtn" class="global-company-access-modal-btn">Confirm</button>' +
