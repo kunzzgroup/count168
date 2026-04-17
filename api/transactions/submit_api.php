@@ -248,8 +248,8 @@ try {
         throw new Exception('请选择 To Account');
     }
     
-    if ($amount <= 0) {
-        throw new Exception('金额必须大于 0');
+    if ($amount < 0) {
+        throw new Exception('金额不能小于 0');
         }
     }
     

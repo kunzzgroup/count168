@@ -3121,8 +3121,8 @@
 
             currency = rateCurrencyFrom;
         } else {
-            if (!amount || amount <= 0) {
-                showNotification('Please enter a valid amount', 'error');
+            if (!Number.isFinite(amount) || amount < 0) {
+                showNotification('Please enter a valid amount (>= 0)', 'error');
                 return;
             }
             const currencySelect = document.getElementById('transaction_currency');
