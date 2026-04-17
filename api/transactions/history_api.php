@@ -1326,10 +1326,10 @@ try {
                     if ($periodType === 'day_end_tail') {
                         $description = bankProcessDayEndProratedDescription($t);
                     } elseif ($periodType === 'resend_consolidated_range') {
-                        // Resend 且带 day_end：沿用 DayEnd - Prorated 文案（仅展示变更，不影响算法）
+                        // Resend 且带 day_end：展示为 Prorated(daystart-dayend|days)@Monthly（不带 DayEnd 前缀）
                         $bpDayEndText = trim((string) ($t['bp_day_end'] ?? ''));
                         if ($bpDayEndText !== '') {
-                            $description = bankProcessDayEndProratedDescription($t);
+                            $description = bankProcessDayEndProratedDescription($t, false);
                         } else {
                             // 无 day_end 的 resend 维持原本 monthly 文案
                             $description = 'Monthly bill';
@@ -1348,13 +1348,10 @@ try {
                         $customerId = (int) ($t['customer_id'] ?? 0);
                         $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
                         if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
-                            $description = 'Monthly bill';
                             $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
                         } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
-                            $description = 'Monthly bill';
                             $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
                         } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
-                            $description = 'Monthly bill';
                             $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
                         }
                     }
