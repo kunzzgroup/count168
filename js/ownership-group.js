@@ -82,6 +82,7 @@ function renderGroupCards() {
         const header = document.createElement('div');
         header.className = 'own-card-header';
         header.style.cursor = 'pointer';
+        header.dataset.action = 'toggle';
 
         // Build company list with per-company group equity
         const companyLabels = grp.companies.map(c => {
