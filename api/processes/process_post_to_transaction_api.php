@@ -1374,9 +1374,15 @@ try {
                 if ($storedYmdPc !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedYmdPc)) {
                     $tsPc = strtotime($storedYmdPc);
                     if ($tsPc !== false
-                        && (int) date('j', $tsPc) !== 1
-                        && !txnIsPartialFirstMonthPostedOrSkipped($pdo, $companyId, (int) $p['id'])) {
-                        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmdPc, 'partial_first_month_skipped', $has_period_type);
+                        && (int) date('j', $tsPc) !== 1) {
+                        if ($has_period_type) {
+                            if (!txnIsPartialFirstMonthPostedOrSkipped($pdo, $companyId, (int) $p['id'])) {
+                                recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmdPc, 'partial_first_month_skipped', $has_period_type);
+                            }
+                        } else {
+                            // 兼容无 period_type 结构：写入真实锚点日，避免 Resend 单期后立刻再排出首月/同锚点账单。
+                            recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmdPc, 'monthly', $has_period_type);
+                        }
                     }
                 }
             }
@@ -1385,7 +1391,6 @@ try {
         // Resend 弹窗锚点（如 1/1）入账整月 monthly 后，会清除暂存并回到库里真实 day_start（如 4/15）。
         // 「1st_of_every_month + 非 1 号真实 day_start」仍会排队首月 partial，与刚补的历史整月无关，易误判为重复 — 写入 skipped 抑制该幽灵行（与 dismiss 一致）。
         if ($periodType === 'monthly'
-            && $has_period_type
             && !empty($p['accounting_resend_single_period_from_schedule'])
             && ($frequency === '1st_of_every_month' || $frequency === 'monthly')) {
             $storedRaw = $p['bank_process_stored_day_start'] ?? null;
@@ -1393,9 +1398,15 @@ try {
             if ($storedYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedYmd)) {
                 $tsS = strtotime($storedYmd);
                 if ($tsS !== false
-                    && (int) date('j', $tsS) !== 1
-                    && !txnIsPartialFirstMonthPostedOrSkipped($pdo, $companyId, (int) $p['id'])) {
-                    recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmd, 'partial_first_month_skipped', $has_period_type);
+                    && (int) date('j', $tsS) !== 1) {
+                    if ($has_period_type) {
+                        if (!txnIsPartialFirstMonthPostedOrSkipped($pdo, $companyId, (int) $p['id'])) {
+                            recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmd, 'partial_first_month_skipped', $has_period_type);
+                        }
+                    } else {
+                        // 兼容无 period_type：用真实锚点日写一条 posted 作为去重锚点。
+                        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmd, 'monthly', $has_period_type);
+                    }
                 }
             }
         }
