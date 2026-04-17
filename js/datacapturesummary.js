@@ -946,11 +946,25 @@ function restoreFormulaSourceFromRefresh() {
             const existingSpan = cells[4].querySelector('.formula-text');
             const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
 
-            // IMPORTANT: localStorage 中保存的公式（Refresh 前一刻保存）优先于模板的 formulaDisplay。
-            // 模板的 formulaDisplay 是上一轮数据的计算结果（stale），若优先使用会导致 Refresh 后 total 错误。
-            // 规则：1) localStorage 保存的公式 > 2) 模板的公式 > 3) 空
-            const localSavedFormula = savedFormulaDisplay || formula;
-            const finalFormula = localSavedFormula || existingFormulaText;
+            // IMPORTANT: formula = data.formula 是 Refresh 前直接从公式单元格文本内容保存的值（e.g., "851.65"）。
+            // 这是最可信的 localStorage 值。
+            //
+            // savedFormulaDisplay = getPreferredFormulaDisplay() 会读 row.getAttribute('data-formula-display')，
+            // 而这个属性在模板应用时已被写入 stale 的 DB 值 ——因此不能作为 localStorage 来源。
+            //
+            // 正确优先级：1) data.formula（localStorage 原始文本） > 2) existingFormulaText（模板）
+            const finalFormula = formula || existingFormulaText;
+
+            // DEBUG: log formula source for each row to confirm priority
+            const _dbgId = row.querySelector('td:first-child')?.textContent?.trim()?.slice(0, 40) || '?';
+            if (formula && existingFormulaText && formula !== existingFormulaText) {
+                console.warn('[RestoreFormula] CONFLICT row:', _dbgId,
+                    '| localStorage formula:', formula,
+                    '| template formula:', existingFormulaText,
+                    '| using:', finalFormula);
+            } else {
+                console.log('[RestoreFormula] row:', _dbgId, '| finalFormula:', finalFormula);
+            }
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span>${getFormulaEditButtonHtml(finalFormula)}</div>`;
             const span = cells[4].querySelector('.formula-text');
