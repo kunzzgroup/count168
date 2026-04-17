@@ -1725,37 +1725,37 @@ function domainApiAccountLooksLikeDomainProvisionedMember(PDO $pdo, int $account
 }
 
 /**
- * 当首选 account_id（通常等于 company 代码）已被非 Domain 模板账户占用时，生成全局未占用的备用登录码。
+ * Domain 自动创建的 MEMBER 登录账号：OWNERCODE_公司代码（owner_code 仅保留字母数字；空则 DOM）。
+ * 与手动以「公司代码单字母」建账区分，避免窜改其他账户。
  */
-function domainApiAllocateAlternateMemberAccountCode(PDO $pdo, string $companyCode, string $ownerCodeUpper): string {
+function domainApiBuildDomainProvisionedMemberAccountId(string $ownerCodeUpper, string $companyCode): string {
     $cc = strtoupper(trim($companyCode));
-    $owner = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $ownerCodeUpper));
+    $owner = strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($ownerCodeUpper)));
     if ($owner === '') {
         $owner = 'DOM';
     }
+    return $owner . '_' . $cc;
+}
+
+/**
+ * 解析最终 account_id：优先 OWNER_COMPANY；若该 id 已被非 Domain MEMBER 模板占用，则顺延 OWNER_COMPANY_2、_3…
+ * 若已是 Domain MEMBER 模板则复用该行（幂等）。
+ */
+function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, string $ownerCodeUpper, string $companyCode): string {
+    $base = domainApiBuildDomainProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
     $chk = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
-    $candidates = [
-        $owner . '_' . $cc,
-        $cc . '_' . $owner,
-        'M_' . $owner . '_' . $cc,
-    ];
-    foreach ($candidates as $base) {
-        if ($base === '') {
-            continue;
+    for ($i = 0; $i < 1000; $i++) {
+        $code = $i === 0 ? $base : $base . '_' . $i;
+        $chk->execute([$code]);
+        $gid = (int) ($chk->fetchColumn() ?: 0);
+        if ($gid <= 0) {
+            return $code;
         }
-        $chk->execute([$base]);
-        if (!(int) ($chk->fetchColumn() ?: 0)) {
-            return $base;
+        if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $gid)) {
+            return $code;
         }
     }
-    for ($i = 2; $i < 1000; $i++) {
-        $cand = $owner . '_' . $cc . '_' . $i;
-        $chk->execute([$cand]);
-        if (!(int) ($chk->fetchColumn() ?: 0)) {
-            return $cand;
-        }
-    }
-    return $owner . '_' . $cc . '_' . substr(str_replace('.', '', uniqid('', true)), -10);
+    return $base . '_X' . substr(str_replace('.', '', uniqid('', true)), -10);
 }
 
 /**
@@ -1850,7 +1850,7 @@ function domainApiMergeAccountIntoUserCompanyPermissions(PDO $pdo, array $users,
  * C168 在 Add Domain 时为公司代码创建 MEMBER 账户：挂在当前 C168 公司 account list，并关联主账号 C168（account_link）。
  * 密码明文 111，与 login_process.php member 校验一致。
  *
- * @param string $ownerCodeUpper Owner.owner_code（大写），用于与公司代码冲突时生成备用 account_id（如 QS_G），避免覆盖手动账户。
+ * @param string $ownerCodeUpper Owner.owner_code；与 company 组成 account_id：OWNERCODE_公司代码（见 domainApiBuildDomainProvisionedMemberAccountId）。
  */
 function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168NumericCompanyId, string $ownerDisplayName, array $companyIdStrings, string $ownerCodeUpper = ''): void {
     if ($c168NumericCompanyId <= 0 || empty($companyIdStrings)) {
@@ -1893,17 +1893,6 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         $syncListPerm($accDbId, $permAccountCode);
     };
 
-    $existsStmt = $pdo->prepare("
-        SELECT COUNT(*) FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND UPPER(a.account_id) = UPPER(?)
-    ");
-    $findAccIdInC168Stmt = $pdo->prepare("
-        SELECT a.id FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
-        LIMIT 1
-    ");
     $findGlobalAccStmt = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
     $insertStmt = $pdo->prepare("
         INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
@@ -1916,106 +1905,29 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         if ($cid === '') {
             continue;
         }
-        $existsStmt->execute([$c168NumericCompanyId, $cid]);
-        if ((int) $existsStmt->fetchColumn() > 0) {
-            $findAccIdInC168Stmt->execute([$c168NumericCompanyId, $cid]);
-            $alreadyId = (int) ($findAccIdInC168Stmt->fetchColumn() ?: 0);
-            if ($alreadyId > 0) {
-                if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $alreadyId)) {
-                    $finalizeMember($alreadyId, $cid);
-                } else {
-                    $alt = domainApiAllocateAlternateMemberAccountCode($pdo, $cid, $ownerCodeUpper);
-                    try {
-                        $insertStmt->execute([$alt, $ownerDisplayName]);
-                        $newAccId = (int) $pdo->lastInsertId();
-                        if ($newAccId <= 0) {
-                            continue;
-                        }
-                        try {
-                            $linkCoStmt->execute([$newAccId, $c168NumericCompanyId]);
-                        } catch (PDOException $e) {
-                            if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
-                                throw $e;
-                            }
-                        }
-                        $finalizeMember($newAccId, $alt);
-                    } catch (PDOException $e) {
-                        if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                            $findGlobalAccStmt->execute([$alt]);
-                            $retryId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
-                            if ($retryId > 0 && domainApiAccountLooksLikeDomainProvisionedMember($pdo, $retryId)) {
-                                try {
-                                    $linkCoStmt->execute([$retryId, $c168NumericCompanyId]);
-                                } catch (PDOException $e2) {
-                                    if ((int) ($e2->errorInfo[1] ?? 0) !== 1062) {
-                                        throw $e2;
-                                    }
-                                }
-                                $finalizeMember($retryId, $alt);
-                            }
-                            continue;
-                        }
-                        throw $e;
-                    }
-                }
-            }
-            continue;
-        }
+        $useAccountId = domainApiResolveProvisionedMemberAccountCode($pdo, $ownerCodeUpper, $cid);
 
-        $findGlobalAccStmt->execute([$cid]);
+        $findGlobalAccStmt->execute([$useAccountId]);
         $existingAccId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
 
         if ($existingAccId > 0) {
-            if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $existingAccId)) {
-                // account_id 全局唯一：已存在且为本系统 Domain MEMBER 模板则补 account_company 并同步
-                try {
-                    $linkCoStmt->execute([$existingAccId, $c168NumericCompanyId]);
-                } catch (PDOException $e) {
-                    if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
-                        throw $e;
-                    }
-                }
-                $finalizeMember($existingAccId, $cid);
-            } else {
-                $alt = domainApiAllocateAlternateMemberAccountCode($pdo, $cid, $ownerCodeUpper);
-                try {
-                    $insertStmt->execute([$alt, $ownerDisplayName]);
-                    $newAccId = (int) $pdo->lastInsertId();
-                    if ($newAccId <= 0) {
-                        continue;
-                    }
-                    try {
-                        $linkCoStmt->execute([$newAccId, $c168NumericCompanyId]);
-                    } catch (PDOException $e) {
-                        if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
-                            throw $e;
-                        }
-                    }
-                    $finalizeMember($newAccId, $alt);
-                } catch (PDOException $e) {
-                    if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                        $findGlobalAccStmt->execute([$alt]);
-                        $retryId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
-                        if ($retryId > 0 && domainApiAccountLooksLikeDomainProvisionedMember($pdo, $retryId)) {
-                            try {
-                                $linkCoStmt->execute([$retryId, $c168NumericCompanyId]);
-                            } catch (PDOException $e2) {
-                                if ((int) ($e2->errorInfo[1] ?? 0) !== 1062) {
-                                    throw $e2;
-                                }
-                            }
-                            $finalizeMember($retryId, $alt);
-                        }
-                        continue;
-                    }
+            if (!domainApiAccountLooksLikeDomainProvisionedMember($pdo, $existingAccId)) {
+                error_log('domainApiAutoCreateMemberAccountsUnderC168Company: resolved code occupied by non-domain member: ' . $useAccountId);
+                continue;
+            }
+            try {
+                $linkCoStmt->execute([$existingAccId, $c168NumericCompanyId]);
+            } catch (PDOException $e) {
+                if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
                     throw $e;
                 }
             }
+            $finalizeMember($existingAccId, $useAccountId);
             continue;
         }
 
         try {
-            $insertStmt->execute([$cid, $ownerDisplayName]);
+            $insertStmt->execute([$useAccountId, $ownerDisplayName]);
             $newAccId = (int) $pdo->lastInsertId();
             if ($newAccId <= 0) {
                 continue;
@@ -2027,41 +1939,20 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
                     throw $e;
                 }
             }
-            $finalizeMember($newAccId, $cid);
+            $finalizeMember($newAccId, $useAccountId);
         } catch (PDOException $e) {
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                // 并发下可能已被他处插入：再尝试只关联
-                $findGlobalAccStmt->execute([$cid]);
+                $findGlobalAccStmt->execute([$useAccountId]);
                 $retryId = (int) ($findGlobalAccStmt->fetchColumn() ?: 0);
-                if ($retryId > 0) {
-                    if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $retryId)) {
-                        try {
-                            $linkCoStmt->execute([$retryId, $c168NumericCompanyId]);
-                        } catch (PDOException $e2) {
-                            if ((int) ($e2->errorInfo[1] ?? 0) !== 1062) {
-                                throw $e2;
-                            }
-                        }
-                        $finalizeMember($retryId, $cid);
-                    } else {
-                        $alt = domainApiAllocateAlternateMemberAccountCode($pdo, $cid, $ownerCodeUpper);
-                        try {
-                            $insertStmt->execute([$alt, $ownerDisplayName]);
-                            $altNewId = (int) $pdo->lastInsertId();
-                            if ($altNewId > 0) {
-                                try {
-                                    $linkCoStmt->execute([$altNewId, $c168NumericCompanyId]);
-                                } catch (PDOException $e3) {
-                                    if ((int) ($e3->errorInfo[1] ?? 0) !== 1062) {
-                                        throw $e3;
-                                    }
-                                }
-                                $finalizeMember($altNewId, $alt);
-                            }
-                        } catch (PDOException $e3) {
-                            error_log('domainApiAutoCreateMemberAccountsUnderC168Company: alternate insert failed: ' . $e3->getMessage());
+                if ($retryId > 0 && domainApiAccountLooksLikeDomainProvisionedMember($pdo, $retryId)) {
+                    try {
+                        $linkCoStmt->execute([$retryId, $c168NumericCompanyId]);
+                    } catch (PDOException $e2) {
+                        if ((int) ($e2->errorInfo[1] ?? 0) !== 1062) {
+                            throw $e2;
                         }
                     }
+                    $finalizeMember($retryId, $useAccountId);
                 }
                 continue;
             }
