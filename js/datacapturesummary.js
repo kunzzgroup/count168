@@ -4030,6 +4030,22 @@ function updateFormulaDataGrid() {
         targetJsonRow = parsedTableData.rows[activeRowIndexOverride];
     }
     
+    // NUCLEAR FIX: In cases where a Sub Account inherited an offset data-row-index (e.g. +1), targetJsonRow will load the wrong product.
+    // We enforce that the loaded JSON row MUST match the explicitly selectedIdProductValue (e.g., AD:ADVANT PLAY - D89M).
+    if (parsedTableData && parsedTableData.rows && selectedIdProductValue) {
+        const targetIdNormal = normalizeIdProductText(selectedIdProductValue);
+        const resolvedIdNormal = targetJsonRow && targetJsonRow.length > 1 && targetJsonRow[1].type === 'data' ? normalizeIdProductText(targetJsonRow[1].value) : '';
+        
+        // If the resolved row from the index override doesn't match the required game, or is null, auto-recover by searching JSON directly
+        if (!targetJsonRow || resolvedIdNormal !== targetIdNormal) {
+            const manualMatchRow = parsedTableData.rows.find(r => r.length > 1 && r[1].type === 'data' && normalizeIdProductText(r[1].value) === targetIdNormal);
+            if (manualMatchRow) {
+                targetJsonRow = manualMatchRow;
+                console.log('NUCLEAR FIX: Recovered targeted JSON row manually to match:', selectedIdProductValue);
+            }
+        }
+    }
+    
     console.log('targetJsonRow defined?', !!targetJsonRow);
     
     // Falls back strictly to finding the DOM row directly if JSON resolution fails
