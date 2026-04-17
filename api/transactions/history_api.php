@@ -926,7 +926,7 @@ try {
     }
     if ($has_source_bank_process_id) {
         $bpFrequencySql = $has_day_start_frequency ? "bp_t.day_start_frequency" : "''";
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.dts_created AS bp_dts_created";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.day_end AS bp_day_end, bp_t.dts_created AS bp_dts_created";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -1324,10 +1324,16 @@ try {
                     $description = bankProcessProRatedFirstMonthDescription($t);
                 } else {
                     if ($periodType === 'day_end_tail') {
-                        $description = 'Day end tail bill';
+                        $description = bankProcessDayEndProratedDescription($t);
                     } elseif ($periodType === 'resend_consolidated_range') {
-                        // Resend consolidated range follows normal monthly wording in history modal
-                        $description = 'Monthly bill';
+                        // Resend 且带 day_end：沿用 DayEnd - Prorated 文案（仅展示变更，不影响算法）
+                        $bpDayEndText = trim((string) ($t['bp_day_end'] ?? ''));
+                        if ($bpDayEndText !== '') {
+                            $description = bankProcessDayEndProratedDescription($t);
+                        } else {
+                            // 无 day_end 的 resend 维持原本 monthly 文案
+                            $description = 'Monthly bill';
+                        }
                     } elseif ($periodType === 'manual_inactive') {
                         $description = 'Inactive bill';
                     } elseif ($periodType === 'monthly' || $periodType === '') {
@@ -1353,11 +1359,33 @@ try {
                         }
                     }
                     $bpFreq = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
-                    if ($isBankProcessTransaction && $bpFreq === 'monthly' && ($periodType === 'monthly' || $periodType === '')) {
+                    // 合同内整月账单（period_type=monthly）统一展示 Full Month 文案：
+                    // - day_start_frequency = monthly
+                    // - day_start_frequency = 1st_of_every_month（首月 partial 后的第2/3笔整月）
+                    if ($isBankProcessTransaction
+                        && ($periodType === 'monthly' || $periodType === '')
+                        && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)) {
                         $monthLabel = '';
                         $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
                         if ($monthTs !== false) {
-                            $monthLabel = date('F/Y', $monthTs);
+                            $monthNo = (int) date('n', $monthTs);
+                            $yearNo = (int) date('Y', $monthTs);
+                            $monthMap = [
+                                1 => 'JAN',
+                                2 => 'FEB',
+                                3 => 'MAC',
+                                4 => 'APR',
+                                5 => 'MAY',
+                                6 => 'JUN',
+                                7 => 'JUL',
+                                8 => 'AUG',
+                                9 => 'SEP',
+                                10 => 'OCT',
+                                11 => 'NOV',
+                                12 => 'DEC',
+                            ];
+                            $monthShort = $monthMap[$monthNo] ?? strtoupper(date('M', $monthTs));
+                            $monthLabel = $monthShort . '/' . $yearNo;
                         }
                         $description = $monthLabel !== ''
                             ? ('Full Month (' . $monthLabel . ') @Monthly')
