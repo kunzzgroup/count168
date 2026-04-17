@@ -532,6 +532,7 @@ try {
     $ownership_percentage = 0;
     $has_ownership_setup = false;
     $group_equity_percentage = 0;
+    $group_account_percentage = 0;
     $has_group_ownership = false;
     try {
         $ownershipSchema = dashboardCompanyOwnershipSchema($pdo); // static 缓存
@@ -555,6 +556,7 @@ try {
                     $ownerTypeStr = 'user';
                 }
 
+                // Direct ownership: JK's own share in this company
                 $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?");
                 $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
                 $pct = $stmtPct->fetchColumn();
@@ -572,11 +574,11 @@ try {
                 }
             }
 
-            // ── Group Equity: Dashboard Earnings = NET PROFIT × Group Equity % × Account Allocation %
+            // ── Group Equity ──
             // Group equity is stored per-company in company_ownership (owner_type='group')
             // Account share is stored per-group in group_ownership
+            // Formula: Earnings = NET PROFIT × (direct% + group_equity% × group_account%)
             try {
-                // 1. Find group equity for this company from company_ownership
                 $stmtGrpEquity = $pdo->prepare("
                     SELECT partner_group_id, percentage 
                     FROM company_ownership 
@@ -590,7 +592,6 @@ try {
                     $companyGroupId = $grpEquityRow['partner_group_id'];
                     $group_equity_percentage = (float) $grpEquityRow['percentage'];
 
-                    // 2. Find current user's account share in this group from group_ownership
                     $hasGroupTable = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
                     if ($hasGroupTable) {
                         $stmtAccShare = $pdo->prepare("
@@ -600,7 +601,7 @@ try {
                         $stmtAccShare->execute([$companyGroupId, $userId, $ownerTypeStr ?? 'owner']);
                         $accSharePct = $stmtAccShare->fetchColumn();
                         if ($accSharePct !== false) {
-                            $ownership_percentage = (float) $accSharePct;
+                            $group_account_percentage = (float) $accSharePct;
                             $has_group_ownership = true;
                         }
                     }
@@ -623,6 +624,7 @@ try {
             'ownership_percentage' => $ownership_percentage,
             'has_ownership_setup' => $has_ownership_setup,
             'group_equity_percentage' => $group_equity_percentage,
+            'group_account_percentage' => $group_account_percentage,
             'has_group_ownership' => $has_group_ownership,
             'period_total' => [
                 'capital' => $result['capital']['period_total'],
