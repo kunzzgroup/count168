@@ -931,13 +931,23 @@ function restoreFormulaSourceFromRefresh() {
             // If formulaOperators itself contains $ notation, also set it as template version
             row.setAttribute('data-template-formula-operators', data.formulaOperators);
         }
+        const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
         const existingSourceAttr = String(row.getAttribute('data-source-percent') || '').trim();
         const existingSourceCellText = cells[5] ? String(cells[5].textContent || '').trim() : '';
-        const existingSourceForRow = existingSourceAttr || existingSourceCellText;
-        if (!existingSourceForRow && data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+        let resolvedSourcePercent = srcPct || existingSourceAttr;
+        if (!resolvedSourcePercent && existingSourceCellText) {
+            resolvedSourcePercent = typeof convertDisplayPercentToDecimal === 'function' ? convertDisplayPercentToDecimal(existingSourceCellText) : existingSourceCellText;
+        }
+
+        if (resolvedSourcePercent) {
+            row.setAttribute('data-source-percent', resolvedSourcePercent);
+        } else {
+            row.removeAttribute('data-source-percent');
+        }
+
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
-        const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
+        
         if (cells[4]) {
             const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
@@ -961,8 +971,8 @@ function restoreFormulaSourceFromRefresh() {
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         // Source 优先保留当前行（后端最新）值，避免被 refresh/localStorage 里的旧值覆盖
-        if (cells[5] && !existingSourceForRow) cells[5].textContent = source;
-        const sourcePercentText = existingSourceForRow || source;
+        if (cells[5] && !existingSourceCellText) cells[5].textContent = source;
+        const sourcePercentText = resolvedSourcePercent || source;
         const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
         const inputMethod = row.getAttribute('data-input-method') || '';
         const enableInputMethod = !!(inputMethod && inputMethod.trim());
@@ -983,7 +993,7 @@ function restoreFormulaSourceFromRefresh() {
         recalculateAndRenderProcessedAmount(row, {
             formula: formulaForRecalc,
             formulaOperators: data.formulaOperators,
-            sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
+            sourcePercent: resolvedSourcePercent || sourcePercentText,
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
