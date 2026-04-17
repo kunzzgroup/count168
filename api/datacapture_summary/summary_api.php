@@ -1412,6 +1412,98 @@ function resolveAccountDisplayInTemplates(PDO $pdo, int $companyId, array &$temp
     unset($group);
 }
 
+/**
+ * 把 Main Acc 的 Formula 动态派生一份给 Sub Acc，通过 account_link 表中的 unidirectional 映射。
+ */
+function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates): array {
+    try {
+        // 先检查是否存在 link_type，如果不存在直接退出（防止表结构过旧报错）
+        $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
+        if ($check_column_stmt->rowCount() === 0) {
+            return $templates;
+        }
+
+        // 查找所有 unidirectional 相关的连接关系
+        $stmt = $pdo->prepare("
+            SELECT account_id_1, account_id_2, source_account_id 
+            FROM account_link 
+            WHERE company_id = ? AND link_type = 'unidirectional'
+        ");
+        $stmt->execute([$companyId]);
+        $links = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 建立结构：Main Acc => [Sub Acc 1, Sub Acc 2, ...]
+        $inheritanceMap = [];
+        foreach ($links as $link) {
+            $source = (int)$link['source_account_id'];
+            $acc1 = (int)$link['account_id_1'];
+            $acc2 = (int)$link['account_id_2'];
+            if ($source > 0) {
+                $sub = ($acc1 === $source) ? $acc2 : $acc1;
+                $inheritanceMap[$source][] = $sub;
+            }
+        }
+
+        if (empty($inheritanceMap)) {
+            return $templates;
+        }
+
+        // 提取一下所有受影响的 Sub Acc 的 Display Name
+        $subAccountDisplayMap = [];
+        foreach ($inheritanceMap as $source => $subs) {
+            foreach ($subs as $sub) {
+                $subAccountDisplayMap[$sub] = null;
+            }
+        }
+        
+        if (!empty($subAccountDisplayMap)) {
+            $subIds = array_keys($subAccountDisplayMap);
+            $placeholders = implode(',', array_fill(0, count($subIds), '?'));
+            $accStmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id IN ($placeholders)");
+            $accStmt->execute($subIds);
+            foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $accRow) {
+                $display = trim((string)$accRow['account_id']);
+                if (!empty($accRow['name'])) {
+                    $display .= ' (' . trim((string)$accRow['name']) . ')';
+                }
+                $subAccountDisplayMap[(int)$accRow['id']] = $display;
+            }
+        }
+
+        // 遍历当前的模板，如果有 Main Acc 的模板，复制并塞入 Sub Acc
+        foreach ($templates as $mainKey => $templateGroup) {
+            $allMains = $templateGroup['allMains'] ?? [];
+            $newMains = $allMains;
+            $addedForSubAcc = [];
+
+            foreach ($allMains as $t) {
+                $accId = (int)$t['account_id'];
+                if (isset($inheritanceMap[$accId])) {
+                    foreach ($inheritanceMap[$accId] as $subAccId) {
+                        $subT = $t;
+                        $subT['account_id'] = $subAccId;
+                        $subT['account_display'] = $subAccountDisplayMap[$subAccId] ?? $t['account_display'];
+                        // 为了避免前端 JS 防止重复 ID，这里打个标记
+                        $subT['id'] = $t['id'] . '_' . $subAccId; 
+                        
+                        // 防止同一个模板被插入多次
+                        $dedupKey = $subAccId . '_' . ($t['process_id'] ?? 0) . '_' . ($t['formula_variant'] ?? 0);
+                        if (!isset($addedForSubAcc[$dedupKey])) {
+                            $newMains[] = $subT;
+                            $addedForSubAcc[$dedupKey] = true;
+                        }
+                    }
+                }
+            }
+            $templates[$mainKey]['allMains'] = $newMains;
+        }
+    } catch (Exception $e) {
+        error_log('inheritFormulasToSubAccounts Error: ' . $e->getMessage());
+    }
+
+    return $templates;
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
@@ -1621,6 +1713,10 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                 // Otherwise keep existing (existing is specific, current is generic)
             }
         }
+    }
+
+    if (isset($companyId) && $companyId > 0) {
+        $templates = inheritFormulasToSubAccounts($pdo, (int)$companyId, $templates);
     }
 
     return $templates;
