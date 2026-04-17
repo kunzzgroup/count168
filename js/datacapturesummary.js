@@ -3996,11 +3996,7 @@ function updateFormulaDataGrid() {
     }
 
     let idProduct = selectedIdProductValue;
-    let rowLabel = null;
-    // 优先按当前编辑行获取在 JSON 中确切的数据行，从而提取精准的 rowLabel，避免 stale data-preserved-row-index 导致的 DOM 指向错误
-    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue) : null;
-    
-    // Get table data if not already mapped correctly by the wrapper
+    // Get table data safely
     let parsedTableData;
     if (window.transformedTableData) {
         parsedTableData = window.transformedTableData;
@@ -4009,13 +4005,16 @@ function updateFormulaDataGrid() {
         if (tableData) parsedTableData = JSON.parse(tableData);
     }
     
+    // 优先按当前编辑行获取在 JSON 中确切的数据行，使用 JSON row 直接生成内容以避免任何 DOM 偏移或文本匹配污染。
+    const activeRowIndexOverride = currentActiveRow ? getEditFormulaDataCaptureRowIndexOverride(selectedIdProductValue) : null;
+    let targetJsonRow = null;
     if (activeRowIndexOverride !== null && parsedTableData && parsedTableData.rows) {
-        const jsonRow = parsedTableData.rows[activeRowIndexOverride];
-        if (jsonRow && jsonRow.length > 0 && jsonRow[0].type === 'header') {
-            rowLabel = jsonRow[0].value.trim();
-        }
-    } else if (currentActiveRow && capturedTableBody) {
-        const currentRowIndexCandidates = [
+        targetJsonRow = parsedTableData.rows[activeRowIndexOverride];
+    }
+    
+    // Falls back strictly to finding the DOM row directly if JSON resolution fails
+    let fallbackDomRow = null;
+    if (!targetJsonRow && currentActiveRow && capturedTableBody) {
             currentActiveRow.getAttribute('data-preserved-row-index'),
             currentActiveRow.getAttribute('data-row-index')
         ];
@@ -4025,21 +4024,9 @@ function updateFormulaDataGrid() {
             const currentRowIndex = Number(rowIndexAttr);
             const capturedRow = capturedTableBody.querySelectorAll('tr')[currentRowIndex];
             const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
-            if (rowHeaderCell) {
-                rowLabel = rowHeaderCell.textContent.trim();
+            if (capturedRow) {
+                fallbackDomRow = capturedRow;
                 break;
-            }
-        }
-    }
-
-    // 兼容旧行为：若 process 本身带 row_label（如 "ABC:A"），仍可解析使用。
-    if (!rowLabel) {
-        const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
-        if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
-            const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
-            if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
-                idProduct = selectedIdProductValue.substring(0, lastColonIndex).trim();
-                rowLabel = afterColon;
             }
         }
     }
@@ -4115,6 +4102,48 @@ function updateFormulaDataGrid() {
         });
 
         // Only append row container if it has items
+    const appendFormulaGridItemsFromJsonRow = function (jsonRow, rowIndex) {
+        if (!jsonRow || jsonRow.length <= 1) return false;
+        const rowContainer = document.createElement('div');
+        rowContainer.className = 'formula-data-grid-row';
+        
+        // Ensure styling applies
+        rowContainer.style.display = 'flex';
+        rowContainer.style.flexWrap = 'wrap';
+        rowContainer.style.gap = '8px';
+        rowContainer.style.marginBottom = '5px';
+
+        // Read columns starting from index 2 (skip header and id_product)
+        for (let i = 2; i < jsonRow.length; i++) {
+            const cellData = jsonRow[i];
+            const cellValue = cellData.value ? String(cellData.value).trim() : '';
+            if (cellValue !== '') {
+                const gridItem = document.createElement('div');
+                gridItem.className = 'formula-data-grid-item';
+                gridItem.textContent = `[${i}] ${cellValue}`;
+                gridItem.setAttribute('data-row-index', rowIndex); // DOM index is typically json rowIndex - 1
+                gridItem.setAttribute('data-column-index', i);
+
+                gridItem.addEventListener('click', function () {
+                    const targetColumnIndex = this.getAttribute('data-column-index');
+                    // Get the freshly queried DOM body to find the active td cell corresponding to JSON rowIndex
+                    const activeTableBody = document.getElementById('capturedTableBody');
+                    if (!activeTableBody) return;
+                    const domRows = activeTableBody.querySelectorAll('tr');
+                    // DOM is zero-indexed, JSON is 1-indexed (due to headers). So subtract 1.
+                    const domRowIndex = parseInt(this.getAttribute('data-row-index'), 10) - 1;
+                    const targetRow = domRows[domRowIndex];
+                    if (targetRow) {
+                        const targetCell = targetRow.querySelector(`td[data-column-index="${targetColumnIndex}"]`);
+                        if (targetCell) {
+                            insertCellValueToFormula(targetCell);
+                        }
+                    }
+                });
+                rowContainer.appendChild(gridItem);
+            }
+        }
+        
         if (rowContainer.children.length > 0) {
             formulaDataGrid.appendChild(rowContainer);
             return true;
@@ -4122,50 +4151,21 @@ function updateFormulaDataGrid() {
         return false;
     };
 
-    // activeRowIndexOverride fetched rowLabel previously. Do not return early causing offset issues here.
+    if (targetJsonRow) {
+        // Rendering accurately and purely from the calculated JSON array.
+        appendFormulaGridItemsFromJsonRow(targetJsonRow, activeRowIndexOverride);
+        return; // Complete halt prevents iteration overlap completely
+    }
 
-    rows.forEach((row, rowIndex) => {
-        // Try to get id_product from data-id-product attribute first
-        let rowIdProduct = row.getAttribute('data-id-product');
-
-        // If not found, try to get from first cell (id_product column)
-        if (!rowIdProduct || rowIdProduct.trim() === '') {
-            const cells = row.querySelectorAll('td');
-            // First cell (index 0) is row header, second cell (index 1) is id_product
-            if (cells.length > 1 && cells[1]) {
-                const idProductCell = cells[1];
-                rowIdProduct = idProductCell.textContent ? idProductCell.textContent.trim() : '';
-                // Store it for future use
-                if (rowIdProduct) {
-                    row.setAttribute('data-id-product', rowIdProduct);
-                }
-            }
-        }
-
-        const rowIdTrim = (rowIdProduct || '').trim();
-        const idTrim = (idProduct || '').trim();
-        const normalizedRowIdProduct = isFullId ? normalizeSpaces(rowIdProduct || '') : normalizeIdProductText(rowIdProduct || '');
-
-        const idProductMatches = isFullId
-            ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim)
-                || normalizeSpaces(rowIdTrim).toUpperCase() === normalizeSpaces(idTrim).toUpperCase())
-            : (normalizedRowIdProduct && (normalizedRowIdProduct === normalizedTargetIdProduct
-                || normalizedRowIdProduct.toUpperCase() === normalizedTargetIdProduct.toUpperCase()));
-
-        if (!idProductMatches) {
-            return;
-        }
-
-        if (rowLabel !== null) {
-            const rowHeaderCell = row.querySelector('.row-header');
-            const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-            if (rowHeaderLabel !== rowLabel) {
-                return;
-            }
-        }
-
-        appendFormulaGridItemsFromCapturedRow(row, rowIndex);
-    });
+    if (fallbackDomRow) {
+        // Fallback rendering using exactly the captured DOM row.
+        const rIndexNum = [
+            currentActiveRow.getAttribute('data-preserved-row-index'),
+            currentActiveRow.getAttribute('data-row-index')
+        ].map(Number).find(n => !Number.isNaN(n) && n != null) || 0;
+        appendFormulaGridItemsFromCapturedRow(fallbackDomRow, rIndexNum);
+        return; 
+    }
 }
 
 // Close add account modal (wrapper for compatibility)
