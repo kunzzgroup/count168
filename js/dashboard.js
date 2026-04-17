@@ -1135,15 +1135,20 @@ function showDashboardAlertModal(title, message) {
     });
 }
 
-function shouldShowCompanyAccessModal(message) {
+function shouldShowCompanyAccessModal(message, reason) {
+    const normalizedReason = String(reason || '').toLowerCase();
+    if (normalizedReason === 'expired' || normalizedReason === 'no_set') {
+        return true;
+    }
+
     const msg = String(message || '').toLowerCase();
     if (!msg) return false;
+    // 仅在「已到期 / 未续期(未设置到期日)」场景弹窗
     return (
         msg.includes('company has expired') ||
         msg.includes('group has expired') ||
-        msg.includes('date is not set') ||
-        msg.includes('not set') ||
-        msg.includes('expiration')
+        msg.includes('company expiration date is not set') ||
+        msg.includes('date is not set')
     );
 }
 
@@ -2432,7 +2437,7 @@ async function switchCompany(companyId, companyCode) {
             } else {
                 console.error('更新 session 失败:', error);
             }
-            if (shouldShowCompanyAccessModal(errMessage)) {
+            if (shouldShowCompanyAccessModal(errMessage, errReason)) {
                 const modalMessage = getCompanyAccessModalMessage(errReason, errMessage);
                 await showDashboardAlertModal('Notice', modalMessage);
                 showError(modalMessage);
