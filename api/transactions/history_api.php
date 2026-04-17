@@ -1369,7 +1369,7 @@ try {
                     }
                     if ($isBankProcessTransaction
                         && ($periodType === 'monthly' || $periodType === '')
-                        && $bpFreq === '1st_of_every_month'
+                        && in_array($bpFreq, ['1st_of_every_month', ''], true)
                         && $txnDay > 1) {
                         $description = bankProcessProRatedFirstMonthDescription($t);
                     }
@@ -1379,7 +1379,7 @@ try {
                     if ($isBankProcessTransaction
                         && ($periodType === 'monthly' || $periodType === '')
                         && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)
-                        && !($bpFreq === '1st_of_every_month' && $txnDay > 1)) {
+                        && $txnDay <= 1) {
                         $monthLabel = '';
                         $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
                         if ($monthTs !== false) {
