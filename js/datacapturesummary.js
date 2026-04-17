@@ -10100,7 +10100,10 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
 
         // 先解析 $/[id:n] 再剥末尾误写的占成小乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
         const afterRefs = parseReferenceFormula(String(formula).trim(), processValueForRefs, clickedCellRefsOverride, rowIndexOverride)
-        const strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim())
+        
+        // ONLY strip if we are actively applying an external Source Percent to avoid destroying hardcoded formula percentages
+        const strippedBody = enableSourcePercent ? stripTrailingEmbeddedCommissionFactors(afterRefs.trim()) : afterRefs.trim();
+        
         const formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If source percent is disabled, return formula result directly (without applying source percent)
