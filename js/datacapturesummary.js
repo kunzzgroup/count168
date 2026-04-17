@@ -4153,8 +4153,10 @@ function updateFormulaDataGrid() {
         const normalizedRowIdProduct = isFullId ? normalizeSpaces(rowIdProduct || '') : normalizeIdProductText(rowIdProduct || '');
 
         const idProductMatches = isFullId
-            ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim))
-            : (normalizedRowIdProduct && normalizedRowIdProduct === normalizedTargetIdProduct);
+            ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim)
+               || normalizeSpaces(rowIdTrim).toUpperCase() === normalizeSpaces(idTrim).toUpperCase())
+            : (normalizedRowIdProduct && (normalizedRowIdProduct === normalizedTargetIdProduct
+               || normalizedRowIdProduct.toUpperCase() === normalizedTargetIdProduct.toUpperCase()));
 
         if (!idProductMatches) {
             return;
@@ -7354,13 +7356,15 @@ function extractRowDataForTemplate(row, formData) {
                 const capturedTableBody = document.getElementById('capturedTableBody');
                 if (capturedTableBody) {
                     const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                    // Find the first matching row in Data Capture Table
+                    // Find the first matching row in Data Capture Table (case-insensitive)
+                    const normalizedIdProductUpper = normalizedIdProduct.toUpperCase();
                     for (let i = 0; i < capturedRows.length; i++) {
                         const capturedRow = capturedRows[i];
                         const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                         if (capturedIdProductCell) {
                             const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                            if (capturedIdProduct === normalizedIdProduct) {
+                            // Use case-insensitive comparison to handle e.g. summary="CM:CMD SPORTSBOOK - XBFSG" vs captured="Cm:Cmd Sportsbook - XBFSG"
+                            if (capturedIdProduct === normalizedIdProduct || capturedIdProduct.toUpperCase() === normalizedIdProductUpper) {
                                 rowIndex = i;
                                 console.log('Computed row_index from Data Capture Table position:', rowIndex, 'for id_product:', normalizedIdProduct);
                                 // Set the data attribute for future use
@@ -8834,6 +8838,8 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
 
     // 完整 id_product（ALLBET95MS(SV)MYR / (KM) / (SEXY) 等）只做精确或去空格匹配，不归一成同一 base
     const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
+    const processValueResolvedUpper = processValueResolved.toUpperCase();
+    const normalizedProcessValueUpper = normalizedProcessValue.toUpperCase();
     console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
     for (let i = 0; i < tableData.rows.length; i++) {
         const row = tableData.rows[i];
@@ -8843,14 +8849,28 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
                 console.log('findProcessRow: Found row at index:', i, 'by exact match');
                 return row;
             }
+            // Case-insensitive exact match (e.g. "CM:CMD SPORTSBOOK - XBFSG" vs "Cm:Cmd Sportsbook - XBFSG")
+            if (rowValue && rowValue.toUpperCase() === processValueResolvedUpper) {
+                console.log('findProcessRow: Found row at index:', i, 'by case-insensitive exact match');
+                return row;
+            }
             if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) {
                 console.log('findProcessRow: Found row at index:', i, 'by normalize-spaces match');
+                return row;
+            }
+            if (useExactOnly && normalizeSpaces(rowValue).toUpperCase() === normalizeSpaces(processValueResolved).toUpperCase()) {
+                console.log('findProcessRow: Found row at index:', i, 'by case-insensitive normalize-spaces match');
                 return row;
             }
             if (!useExactOnly) {
                 const normalizedRowValue = normalizeIdProductText(rowValue);
                 if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
                     console.log('findProcessRow: Found row at index:', i, 'by normalized match');
+                    return row;
+                }
+                // Case-insensitive normalized match
+                if (normalizedRowValue && normalizedRowValue.toUpperCase() === normalizedProcessValueUpper) {
+                    console.log('findProcessRow: Found row at index:', i, 'by case-insensitive normalized match');
                     return row;
                 }
             }
@@ -8863,6 +8883,7 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
         const fallbackTarget = (typeof normalizeIdProductText === 'function')
             ? normalizeIdProductText(processValueResolved)
             : processValueResolved.trim();
+        const fallbackTargetUpper = fallbackTarget.toUpperCase();
         if (fallbackTarget) {
             for (let i = 0; i < tableData.rows.length; i++) {
                 const row = tableData.rows[i];
@@ -8871,7 +8892,7 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
                     const candidate = (typeof normalizeIdProductText === 'function')
                         ? normalizeIdProductText(raw)
                         : String(raw || '').trim();
-                    if (candidate && candidate === fallbackTarget) {
+                    if (candidate && (candidate === fallbackTarget || candidate.toUpperCase() === fallbackTargetUpper)) {
                         console.log('findProcessRow: Fallback matched row at index:', i, 'by normalized id_product only (ignoring description)');
                         return row;
                     }
@@ -15242,13 +15263,21 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             const idProductToRowIndex = new Map(); // Cache id_product -> row_index mapping
 
             // First pass: Build mapping from Data Capture Table
+            // 使用大写 key（toUpperCase）实现大小写不敏感匹配，避免 Summary 行（如 CM:CMD SPORTSBOOK）与
+            // Data Capture 行（如 Cm:Cmd Sportsbook）因大小写不同而无法匹配，导致 data-row-index=999999
             capturedRows.forEach((capturedRow, capturedIndex) => {
                 const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                 if (capturedIdProductCell) {
-                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                    if (capturedIdProduct && !idProductToRowIndex.has(capturedIdProduct)) {
-                        // Store the first occurrence (position in Data Capture Table)
-                        idProductToRowIndex.set(capturedIdProduct, capturedIndex);
+                    const capturedIdProductRaw = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                    // Store both original-case key AND uppercase key for case-insensitive lookup
+                    const capturedIdProductUpper = capturedIdProductRaw.toUpperCase();
+                    if (capturedIdProductRaw && !idProductToRowIndex.has(capturedIdProductRaw)) {
+                        // Store the first occurrence (position in Data Capture Table) with original key
+                        idProductToRowIndex.set(capturedIdProductRaw, capturedIndex);
+                    }
+                    if (capturedIdProductUpper && !idProductToRowIndex.has(capturedIdProductUpper)) {
+                        // Also store uppercase version for case-insensitive fallback
+                        idProductToRowIndex.set(capturedIdProductUpper, capturedIndex);
                     }
                 }
             });
@@ -15285,8 +15314,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     return;
                 }
 
-                // Get row_index from cache (all rows with same id_product get same row_index)
-                const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
+                // Get row_index from cache: try exact match first, then case-insensitive uppercase fallback
+                const matchedIndex = idProductToRowIndex.get(summaryIdProduct)
+                    ?? idProductToRowIndex.get(summaryIdProduct.toUpperCase());
 
                 // Set row_index based on Data Capture Table position (only if not already set)
                 const idProductFullForLog = (productValues.main || '').trim() || summaryIdProduct;
