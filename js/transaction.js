@@ -2763,7 +2763,7 @@
             return Math.abs(n);
         };
         // 有真实交易记录（例如 PROFIT 0.00）时，不应被“隐藏 0 balance”吃掉。
-        const hasTxnFlag = flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_crdr_transactions);
+        const hasTxnFlag = flagToBool(row.has_win_loss_history) || flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_crdr_transactions);
         return hasTxnFlag || absVal(row.bf) > eps || absVal(row.win_loss) > eps || absVal(row.cr_dr) > eps;
     }
 
