@@ -158,12 +158,27 @@
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${newCompanyId}`);
                 const result = await response.json();
                 if (!result.success) {
+                    const blocked = (typeof window.handleCompanySwitchDenied === 'function')
+                        ? await window.handleCompanySwitchDenied(result)
+                        : false;
+                    if (blocked) {
+                        window.location.href = 'dashboard.php';
+                        return;
+                    }
                     console.error('更新 session 失败:', result.error);
+                    window.location.href = 'dashboard.php';
+                    return;
                 } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
                     window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+                    if (result.data.has_gambling === false) {
+                        window.location.href = 'dashboard.php';
+                        return;
+                    }
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
+                window.location.href = 'dashboard.php';
+                return;
             }
             
             loadCompanyCurrencies()
@@ -650,6 +665,10 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
+                window.location.href = 'dashboard.php';
+                return;
+            }
             // Initialize date pickers
             initDatePickers();
             initMaintenanceDropdownHover();

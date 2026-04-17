@@ -262,12 +262,23 @@
             const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
             const result = await response.json();
             if (!result.success) {
+                const blocked = (typeof window.handleCompanySwitchDenied === 'function')
+                    ? await window.handleCompanySwitchDenied(result)
+                    : false;
+                if (blocked) {
+                    window.location.href = 'dashboard.php';
+                    return;
+                }
                 console.error('更新 session 失败:', result.error);
+                window.location.href = 'dashboard.php';
+                return;
             } else if (result.data && result.data.has_gambling !== undefined) {
                 hasGamblingFromSession = result.data.has_gambling;
             }
         } catch (error) {
             console.error('更新 session 时出错:', error);
+            window.location.href = 'dashboard.php';
+            return;
         }
         currentCompanyId = companyId;
         const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(companyId, 10));
