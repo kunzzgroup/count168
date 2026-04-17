@@ -428,10 +428,10 @@
         if (result && result.data && result.data.reason) reason = String(result.data.reason).toLowerCase();
         var text = String((result && (result.error || result.message)) || '').toLowerCase();
         if (reason === 'expired' || text.indexOf('expired') !== -1) {
-            return 'Cannot switch to this company because its login has expired.';
+            return 'This company since login has expired. Please contact the Customer Service.';
         }
         if (reason === 'no_set' || text.indexOf('not set') !== -1 || text.indexOf('date is not set') !== -1) {
-            return 'Cannot switch to this company because its expiration date is not set.';
+            return 'Please contact the Customer Service to set the expiration date.';
         }
         return '';
     }
