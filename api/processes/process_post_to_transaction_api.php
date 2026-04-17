@@ -1250,6 +1250,17 @@ try {
         }
 
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ''));
+        $resendEndMarker = '';
+        if ($periodType === 'resend_consolidated_range') {
+            $endRawForMarker = $p['day_end'] ?? null;
+            $endYmdForMarker = $endRawForMarker !== null && trim((string) $endRawForMarker) !== ''
+                ? bankProcessDateFieldToYmd((string) $endRawForMarker)
+                : null;
+            if ($endYmdForMarker !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $endYmdForMarker)) {
+                // 保留在原始 description 供 history 展示层读取 resend 的临时 day_end（入账后该字段会被清除）
+                $resendEndMarker = ' [RESEND_END=' . $endYmdForMarker . ']';
+            }
+        }
         $compMonthLabel = getCompensationMonthLabelFromContract($p['contract'] ?? null);
         // Cost → Supplier(card_merchant)，Price → Customer，Profit → Company；首月按比例时三笔均用折算后的 cost/price/profit
         if (!empty($p['card_merchant_id']) && $cost > 0) {
@@ -1258,7 +1269,7 @@ try {
             $txn['amount'] = $cost;
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . (($cost == floor($cost)) ? (string) (int) $cost : number_format($cost, 2, '.', '')))
-                : ("Process: Buy Price for $processLabel" . $suffix);
+                : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1270,7 +1281,7 @@ try {
             $txn['amount'] = round($price, 2);
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . (($price == floor($price)) ? (string) (int) $price : number_format($price, 2, '.', '')))
-                : ("Process: Sell Price for $processLabel" . $suffix);
+                : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1318,7 +1329,7 @@ try {
             $txn['amount'] = $companyProfit;
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . (($profit == floor($profit)) ? (string) (int) $profit : number_format($profit, 2, '.', '')))
-                : ("Process: Profit for $processLabel" . $suffix);
+                : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1328,7 +1339,7 @@ try {
             $txn['amount'] = $ps['amount'];
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . (($ps['amount'] == floor($ps['amount'])) ? (string) (int) $ps['amount'] : number_format((float) $ps['amount'], 2, '.', '')))
-                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix);
+                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }

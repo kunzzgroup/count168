@@ -806,6 +806,39 @@ try {
             }
             continue;
         }
+        // Resend 单期开账（弹窗同时填 day_start + day_end）：统一走 consolidated 一条，避免与 monthly/day_end_tail 重复入列。
+        if (!empty($r['accounting_resend_relax_created_floor'])
+            && !empty($r['accounting_resend_single_period_from_schedule'])
+            && !empty($r['accounting_resend_schedule_day_start'])
+            && !empty($r['accounting_resend_schedule_day_end'])) {
+            $dayStartRaw = $r['day_start'] ?? null;
+            $dayEndRaw = $r['day_end'] ?? null;
+            $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
+            $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
+            if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
+                $baseCost = (float) ($r['cost'] ?? 0);
+                $basePrice = (float) ($r['price'] ?? 0);
+                $baseProfit = (float) ($r['profit'] ?? 0);
+                $tot = prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
+                $needToday[] = [
+                    'id' => (int) $r['id'],
+                    'name' => $r['name'] ?? '',
+                    'bank' => $r['bank'] ?? '',
+                    'country' => $r['country'] ?? '',
+                    'day_start' => $dayStartRaw,
+                    'contract' => $r['contract'] ?? '',
+                    'cost' => $tot['cost'],
+                    'price' => $tot['price'],
+                    'profit' => $tot['profit'],
+                    'already_posted_today' => false,
+                    'is_partial_first_month' => false,
+                    'is_manual_inactive' => false,
+                    'is_day_end_tail' => false,
+                    'is_resend_consolidated_range' => true,
+                ];
+            }
+            continue;
+        }
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
         $resendSinglePeriod = !empty($r['accounting_resend_single_period_from_schedule']);
