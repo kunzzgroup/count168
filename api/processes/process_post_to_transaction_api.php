@@ -1110,15 +1110,13 @@ try {
                         $firstMonthOnFirstHandled = true;
                     }
                 }
-                // monthly：按「对日对月」服务区间（上一应付日到本期应付前一日）比例，不使用自然月末截断
+                // monthly：按「对日对月」完整服务区间（上一应付日到本期应付前一日）入账，
+                // 不再因创建日晚于区间起点而按比例截断，确保整期金额固定为 process 原值。
                 if ($frequency === 'monthly' && $dayStartYmd) {
                     $dueYmdM = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, 'monthly');
                     if ($dueYmdM !== null) {
                         [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmdM, $dayStartYmd);
                         $from = $p0;
-                        if (!$resendRelax && $createdYmd > $from) {
-                            $from = $createdYmd;
-                        }
                         if ($from <= $p1) {
                             $pr = prorateMonthlyAnniversaryPeriodLinear($p0, $p1, $from, $cost, $price, $profit);
                             $cost = $pr['cost'];
