@@ -135,7 +135,7 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
     if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
         $value = bankProcessBillFormatTripartNumber($buy);
     } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
-        $value = '-' . bankProcessBillFormatTripartNumber(abs($sell));
+        $value = bankProcessBillFormatTripartNumber(abs($sell));
     } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
         $value = bankProcessBillFormatTripartNumber($profit);
     } else {
