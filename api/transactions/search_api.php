@@ -1461,11 +1461,35 @@ try {
             }
         }
 
+        // 首月 partial 的 Sell（LOSE、Customer）：不计入 Win/Loss 汇总，改计入 Cr/Dr（与 history_api 一致）
+        $pfSellWinLossExcludeSql = '';
+        $pfSellCrDrJoinSql = '';
+        $pfSellCrDrWhenSql = '';
+        $pfSellCrDrWhereOrLose = '';
+        if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+            $pfSellWinLossExcludeSql = " AND NOT (COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month' AND t.account_id = bp.customer_id AND bp.customer_id IS NOT NULL) ";
+            $pfSellCrDrJoinSql = ' LEFT JOIN bank_process bp_pf ON t.source_bank_process_id = bp_pf.id';
+            $pfSellCrDrWhenSql = "
+                        WHEN t.transaction_type = 'LOSE'
+                          AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %')
+                          AND COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month'
+                          AND t.account_id = bp_pf.customer_id
+                          AND bp_pf.customer_id IS NOT NULL
+                        THEN -ROUND(t.amount, 2)";
+            $pfSellCrDrWhereOrLose = " OR (
+                        t.transaction_type = 'LOSE'
+                        AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %')
+                        AND COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month'
+                        AND t.account_id = bp_pf.customer_id
+                        AND bp_pf.customer_id IS NOT NULL
+                    )";
+        }
+
         $sql = "SELECT t.account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
                     CASE 
                         WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %'){$pfSellWinLossExcludeSql} THEN -ROUND(t.amount, 2)
                         WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
                         WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
                         ELSE 0 
@@ -1474,7 +1498,7 @@ try {
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
                     CASE 
                         WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN ROUND(t.amount, 2)
-                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN -ROUND(t.amount, 2)
+                        WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %'){$pfSellWinLossExcludeSql} THEN -ROUND(t.amount, 2)
                         WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
                         WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
                         ELSE 0 
@@ -1509,6 +1533,7 @@ try {
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        {$pfSellCrDrWhenSql}
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS bf_cr_dr,
@@ -1522,13 +1547,14 @@ try {
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        {$pfSellCrDrWhenSql}
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
                  SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
-                FROM transactions t
+                FROM transactions t{$pfSellCrDrJoinSql}
                 WHERE t.company_id = ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND (t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM'){$pfSellCrDrWhereOrLose})
                   AND t.currency_id IS NOT NULL 
                   $contra_where_t
                 GROUP BY t.account_id, t.currency_id";
@@ -2139,6 +2165,29 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         }
     }
 
+    $pfSellWinLossExcludeSqlBf = '';
+    $pfSellCrDrJoinSqlBf = '';
+    $pfSellCrDrWhenSqlBf = '';
+    $pfSellCrDrWhereOrLoseBf = '';
+    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        $pfSellWinLossExcludeSqlBf = " AND NOT (COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month' AND t.account_id = bp.customer_id AND bp.customer_id IS NOT NULL) ";
+        $pfSellCrDrJoinSqlBf = ' LEFT JOIN bank_process bp_pf ON t.source_bank_process_id = bp_pf.id';
+        $pfSellCrDrWhenSqlBf = "
+                        WHEN t.transaction_type = 'LOSE'
+                          AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %')
+                          AND COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month'
+                          AND t.account_id = bp_pf.customer_id
+                          AND bp_pf.customer_id IS NOT NULL
+                        THEN -ROUND(t.amount, 2)";
+        $pfSellCrDrWhereOrLoseBf = " OR (
+                        t.transaction_type = 'LOSE'
+                        AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %')
+                        AND COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month'
+                        AND t.account_id = bp_pf.customer_id
+                        AND bp_pf.customer_id IS NOT NULL
+                    )";
+    }
+
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
     // 必须与 calculateWinLossByCurrency 一致：SUM(ROUND(processed_amount,2))，否则「当日 Balance」与「次日 B/F」会因舍入顺序差 0.01
     $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
@@ -2162,7 +2211,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
         $sql = "SELECT COALESCE(SUM(CASE
                   WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %'){$pfSellWinLossExcludeSqlBf} THEN -ROUND(t.amount, 2)
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
@@ -2186,7 +2235,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
         $bf += $stmt->fetchColumn();
 
-        // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分
+        // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分（含首月 partial Sell 的 LOSE）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
@@ -2196,13 +2245,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        {$pfSellCrDrWhenSqlBf}
                         ELSE 0
                     END), 0) as cr_dr
-                FROM transactions t
+                FROM transactions t{$pfSellCrDrJoinSqlBf}
                 WHERE t.company_id = ?
                   AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND (t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM'){$pfSellCrDrWhereOrLoseBf})
                   AND t.currency_id = ?"
             . contraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
@@ -2212,7 +2262,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
         $sql = "SELECT COALESCE(SUM(CASE
                   WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %'){$pfSellWinLossExcludeSqlBf} THEN -ROUND(t.amount, 2)
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
@@ -2236,13 +2286,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        {$pfSellCrDrWhenSqlBf}
                         ELSE 0
                     END), 0) as cr_dr
-                FROM transactions t
+                FROM transactions t{$pfSellCrDrJoinSqlBf}
                 WHERE t.company_id = ?
                   AND t.account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND (t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM'){$pfSellCrDrWhereOrLoseBf})
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
@@ -2415,6 +2466,11 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         }
     }
 
+    $pfSellWinLossExcludeSqlWl = '';
+    if ($has_source_bank_process_id && $has_source_bank_process_period_type) {
+        $pfSellWinLossExcludeSqlWl = " AND NOT (COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month' AND t.account_id = bp.customer_id AND bp.customer_id IS NOT NULL) ";
+    }
+
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
     $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total, COUNT(*) AS cnt
             FROM data_capture_details dcd
@@ -2433,10 +2489,13 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss += (float) ($dcdRow['total'] ?? 0);
     $wl_row_count += (int) ($dcdRow['cnt'] ?? 0);
 
-    // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
+    // 2. 所有 Bank Process 的 WIN/LOSE（首月 partial 的 Sell 计入 Cr/Dr，不计入此处 Win/Loss）
     if (searchApiTxnHasCurrencyId($pdo)) {
         // 与 history_api 的事件口径一致：每条 transaction 金额先 round(2) 再求和
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN ROUND(t.amount, 2) WHEN t.transaction_type = 'LOSE' THEN -ROUND(t.amount, 2) ELSE 0 END), 0) as total, COUNT(*) AS cnt
+        $sql = "SELECT COALESCE(SUM(CASE
+                    WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %') THEN ROUND(t.amount, 2)
+                    WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %'){$pfSellWinLossExcludeSqlWl} THEN -ROUND(t.amount, 2)
+                    ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
                   AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
@@ -2613,6 +2672,34 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $cr_dr += (float) ($row['cr_dr'] ?? 0);
         $transaction_count += (int) ($row['txn_count'] ?? 0);
+
+        // 首月 partial 的 Process Sell（LOSE、Customer）：与 bulk/history 一致计入 Cr/Dr
+        if (searchApiHasSourceBankProcessId($pdo) && searchApiHasSourceBankProcessPeriodType($pdo)) {
+            $pfSql = "
+                SELECT COALESCE(SUM(-ROUND(t.amount, 2)), 0) AS cr_dr_pf
+                FROM transactions t
+                LEFT JOIN bank_process bp_pf ON t.source_bank_process_id = bp_pf.id
+                WHERE t.company_id = :company_id
+                  AND t.transaction_date BETWEEN :date_from AND :date_to
+                  AND t.currency_id = :currency_id
+                  AND t.account_id = :acc_id
+                  AND t.transaction_type = 'LOSE'
+                  AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %')
+                  AND COALESCE(t.source_bank_process_period_type,'') = 'partial_first_month'
+                  AND t.account_id = bp_pf.customer_id
+                  AND bp_pf.customer_id IS NOT NULL
+                  " . (hasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
+            ";
+            $stmtPf = $pdo->prepare($pfSql);
+            $stmtPf->execute([
+                ':company_id' => $company_id,
+                ':date_from' => $date_from,
+                ':date_to' => $date_to,
+                ':currency_id' => $currency_id,
+                ':acc_id' => $account_id,
+            ]);
+            $cr_dr += (float) ($stmtPf->fetchColumn() ?: 0);
+        }
     } else {
         // 旧环境（没有 currency_id 字段）：Cr/Dr 仅 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM；WIN/LOSE 计入 Win/Loss
         $sql = "SELECT 

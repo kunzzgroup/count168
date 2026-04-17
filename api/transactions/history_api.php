@@ -12,6 +12,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/bank_process_bill_display.php';
 
 /**
  * Contra 审批：过滤/标记未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -38,35 +39,7 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
 /** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
 function historyParseBankProcessDayStartToYmd($raw): ?string
 {
-    if ($raw === null) {
-        return null;
-    }
-    $s = trim((string) $raw);
-    if ($s === '') {
-        return null;
-    }
-    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
-        $y = (int) $m[1];
-        $mo = (int) $m[2];
-        $d = (int) $m[3];
-        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
-            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
-        }
-    }
-    if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
-        $d = (int) $m[1];
-        $mo = (int) $m[2];
-        $y = (int) $m[3];
-        if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
-            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
-        }
-    }
-    $dateStr = str_replace('/', '-', $s);
-    if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
-        $dateStr .= '-' . date('Y');
-    }
-    $ts = strtotime($dateStr);
-    return $ts !== false ? date('Y-m-d', $ts) : null;
+    return bankProcessParseDayStartToYmd($raw);
 }
 
 /**
@@ -1320,10 +1293,23 @@ try {
         }
 
         // Bank process 的 WIN/LOSE + 手动 PROFIT：
-        // History 中金额统一显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
+        // 默认 History 与主表一致：金额进 Win/Loss、Cr/Dr 为 0。
+        // 首月 partial 的 Sell Price（LOSE、Customer）：与主表一致进 Cr/Dr（右侧负号），Win/Loss 为 0。
         if (($isBankProcessTransaction || $isManualProfit) && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
-            $win_loss = $cr_dr;
-            $cr_dr = 0;
+            $ptBl = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
+            $customerIdBl = (int) ($t['customer_id'] ?? 0);
+            $txAccBl = (int) ($t['account_id'] ?? 0);
+            if ($isBankProcessTransaction
+                && $ptBl === 'partial_first_month'
+                && $t['transaction_type'] === 'LOSE'
+                && $customerIdBl > 0
+                && $txAccBl === $customerIdBl
+            ) {
+                $win_loss = 0;
+            } else {
+                $win_loss = $cr_dr;
+                $cr_dr = 0;
+            }
         }
 
         // 动态调整 description
@@ -1338,38 +1324,40 @@ try {
                 $description = trim((string) $rawDescription);
             } else {
                 if ($periodType === 'partial_first_month') {
-                    $description = 'Remaining days bill';
-                } elseif ($periodType === 'day_end_tail') {
-                    $description = 'Day end tail bill';
-                } elseif ($periodType === 'resend_consolidated_range') {
-                    // Resend consolidated range follows normal monthly wording in history modal
-                    $description = 'Monthly bill';
-                } elseif ($periodType === 'manual_inactive') {
-                    $description = 'Inactive bill';
-                } elseif ($periodType === 'monthly' || $periodType === '') {
-                    $description = 'Monthly bill';
+                    $description = bankProcessProRatedFirstMonthDescription($t);
                 } else {
-                    $description = 'Monthly bill';
-                }
-                $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
-                if ($isBankProcessTransaction && $is_to_account) {
-                    $txAccountId = (int) ($t['account_id'] ?? 0);
-                    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
-                    $customerId = (int) ($t['customer_id'] ?? 0);
-                    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
-                    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+                    if ($periodType === 'day_end_tail') {
+                        $description = 'Day end tail bill';
+                    } elseif ($periodType === 'resend_consolidated_range') {
+                        // Resend consolidated range follows normal monthly wording in history modal
                         $description = 'Monthly bill';
-                        $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
-                    } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
+                    } elseif ($periodType === 'manual_inactive') {
+                        $description = 'Inactive bill';
+                    } elseif ($periodType === 'monthly' || $periodType === '') {
                         $description = 'Monthly bill';
-                        $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
-                    } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+                    } else {
                         $description = 'Monthly bill';
-                        $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
                     }
+                    $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
+                    if ($isBankProcessTransaction && $is_to_account) {
+                        $txAccountId = (int) ($t['account_id'] ?? 0);
+                        $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+                        $customerId = (int) ($t['customer_id'] ?? 0);
+                        $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+                        if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+                            $description = 'Monthly bill';
+                            $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
+                        } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
+                            $description = 'Monthly bill';
+                            $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
+                        } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+                            $description = 'Monthly bill';
+                            $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
+                        }
+                    }
+                    $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+                    $description = $description . ' ' . $billAmount;
                 }
-                $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
-                $description = $description . ' ' . $billAmount;
             }
         }
 
