@@ -1357,7 +1357,24 @@ try {
                         $monthLabel = '';
                         $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
                         if ($monthTs !== false) {
-                            $monthLabel = date('F/Y', $monthTs);
+                            $monthNo = (int) date('n', $monthTs);
+                            $yearNo = (int) date('Y', $monthTs);
+                            $monthMap = [
+                                1 => 'JAN',
+                                2 => 'FEB',
+                                3 => 'MAC',
+                                4 => 'APR',
+                                5 => 'MAY',
+                                6 => 'JUN',
+                                7 => 'JUL',
+                                8 => 'AUG',
+                                9 => 'SEP',
+                                10 => 'OCT',
+                                11 => 'NOV',
+                                12 => 'DEC',
+                            ];
+                            $monthShort = $monthMap[$monthNo] ?? strtoupper(date('M', $monthTs));
+                            $monthLabel = $monthShort . '/' . $yearNo;
                         }
                         $description = $monthLabel !== ''
                             ? ('Full Month (' . $monthLabel . ') @Monthly')
