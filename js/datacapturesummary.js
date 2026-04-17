@@ -5172,11 +5172,19 @@ function getEditFormulaDataCaptureRowIndexOverride(targetProcessValue = null, fo
     }
 
     if (targetMainRow) {
+        if (forceOwnIdentity) {
+            // 杀手锏：主账号在生成表格时 100% 被赋予了正确的 data-row-index 指向源 JSON 数组
+            // 我们直接抽取父母账号自带的绝对索引位置，彻底无视任何文字拼写、有无 R 的误差！
+            const mainRowIndex = getDataCaptureRowIndexOverrideFromSummaryRow(targetMainRow);
+            if (mainRowIndex !== null) {
+                return mainRowIndex;
+            }
+        }
+
         // Find the own id_product of the targetMainRow
         const idProductCell = targetMainRow.querySelector('td:first-child');
         const productValues = getProductValuesFromCell(idProductCell);
         ownMainIdProduct = normalizeIdProductText(productValues.main || '');
-        
         // Find all summary rows with the SAME id_product to calculate rank
         const matchingSummaryRows = [];
         allRows.forEach((r) => {
