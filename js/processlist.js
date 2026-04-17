@@ -36,6 +36,27 @@ let bankAddProcessDataLoaded = false;
 let currentQuickRemarkProcessId = null;
 let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
+const BANK_ALLOWED_ACCOUNT_ROLES = ['PARTNER', 'SUPPLIER', 'STAFF', 'AGENT', 'MEMBER', 'DEBTOR'];
+
+function normalizeBankAccountRole(role) {
+    return String(role || '').trim().toUpperCase();
+}
+
+function isAllowedBankAccountRole(role) {
+    return BANK_ALLOWED_ACCOUNT_ROLES.includes(normalizeBankAccountRole(role));
+}
+
+function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
+    const code = String(codeRaw || '').trim();
+    const name = String(nameRaw || '').trim();
+    const fallback = String(fallbackRaw || '').trim();
+    if (code) {
+        const safeName = name || code;
+        return code + '[' + safeName + ']';
+    }
+    if (name) return name;
+    return fallback;
+}
 
 function notifyTransactionDataChanged(sourceTag) {
     const ts = String(Date.now());
@@ -1400,15 +1421,21 @@ async function openBankEditModal(id) {
             cardMerchantBtnEarly.setAttribute('data-value', process.card_merchant_id || '');
             const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
             const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-            cardMerchantBtnEarly.textContent = process.card_merchant_id ? (cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account')) : (cardMerchantBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+            cardMerchantBtnEarly.textContent = process.card_merchant_id
+                ? (formatBankAccountDisplay(cmCode, cmName, process.card_merchant_id) || 'Select Account')
+                : (cardMerchantBtnEarly.getAttribute('data-placeholder') || 'Select Account');
         }
         if (customerBtnEarly) {
             customerBtnEarly.setAttribute('data-value', process.customer_id || '');
-            customerBtnEarly.textContent = process.customer_id ? ((process.customer_account || process.customer_name || process.customer_id) || 'Select Account') : (customerBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+            customerBtnEarly.textContent = process.customer_id
+                ? (formatBankAccountDisplay(process.customer_account, process.customer_name, process.customer_id) || 'Select Account')
+                : (customerBtnEarly.getAttribute('data-placeholder') || 'Select Account');
         }
         if (profitAccountBtnEarly) {
             profitAccountBtnEarly.setAttribute('data-value', process.profit_account_id || '');
-            profitAccountBtnEarly.textContent = process.profit_account_id ? ((process.profit_account_name || process.profit_account_id) || 'Select Account') : (profitAccountBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+            profitAccountBtnEarly.textContent = process.profit_account_id
+                ? (formatBankAccountDisplay(process.profit_account_account_id || process.profit_account_name, process.profit_account_name, process.profit_account_id) || 'Select Account')
+                : (profitAccountBtnEarly.getAttribute('data-placeholder') || 'Select Account');
         }
 
         await bankDataRequest;
@@ -1445,14 +1472,14 @@ async function openBankEditModal(id) {
             cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
             const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
             const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-            cardMerchantBtn.textContent = cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
+            cardMerchantBtn.textContent = formatBankAccountDisplay(cmCode, cmName, process.card_merchant_id) || 'Select Account';
         } else if (cardMerchantBtn) {
             cardMerchantBtn.removeAttribute('data-value');
             cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
         }
         if (customerBtn && process.customer_id) {
             customerBtn.setAttribute('data-value', process.customer_id);
-            customerBtn.textContent = (process.customer_account || process.customer_name || process.customer_id) || 'Select Account';
+            customerBtn.textContent = formatBankAccountDisplay(process.customer_account, process.customer_name, process.customer_id) || 'Select Account';
         } else if (customerBtn) {
             customerBtn.removeAttribute('data-value');
             customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
@@ -1460,7 +1487,7 @@ async function openBankEditModal(id) {
         const profitAccountBtn = document.getElementById('bank_profit_account');
         if (profitAccountBtn && process.profit_account_id) {
             profitAccountBtn.setAttribute('data-value', process.profit_account_id);
-            profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || 'Select Account';
+            profitAccountBtn.textContent = formatBankAccountDisplay(process.profit_account_account_id || process.profit_account_name, process.profit_account_name, process.profit_account_id) || 'Select Account';
         } else if (profitAccountBtn) {
             profitAccountBtn.removeAttribute('data-value');
             profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
@@ -4754,7 +4781,7 @@ async function ensureAccountHasCountryCurrency(accountId) {
     }
 }
 
-// Load accounts for Bank form（不按 role 过滤，显示该公司下全部账户）
+// Load accounts for Bank form（仅显示允许的 role 账户）
 async function loadBankAccounts() {
     try {
         const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -4762,14 +4789,14 @@ async function loadBankAccounts() {
         if (currentCompanyId) {
             url.searchParams.set('company_id', currentCompanyId);
         }
-        // 不传 roles 参数，API 返回该公司下全部账户（含所有 role）
+        url.searchParams.set('roles', BANK_ALLOWED_ACCOUNT_ROLES.join(','));
 
         const response = await fetch(url.toString());
         const result = await response.json();
 
         if (result.success && result.data != null) {
-            // API 返回格式为 data: { accounts: [...], count, ... }，与 Account List 一致
-            window.bankAccounts = (result.data.accounts && Array.isArray(result.data.accounts)) ? result.data.accounts : [];
+            const rawAccounts = (result.data.accounts && Array.isArray(result.data.accounts)) ? result.data.accounts : [];
+            window.bankAccounts = rawAccounts.filter(account => isAllowedBankAccountRole(account.role));
         } else {
             window.bankAccounts = [];
         }
@@ -4780,8 +4807,7 @@ async function loadBankAccounts() {
 }
 
 // Initialize Bank Account Select (custom dropdown with search, like datacapturesummary Account)
-// showNameInParentheses: only for Supplier – display "account_id (name)" in dropdown
-function initBankAccountSelect(buttonId, dropdownId, showNameInParentheses) {
+function initBankAccountSelect(buttonId, dropdownId) {
     const accountButton = document.getElementById(buttonId);
     const accountDropdown = document.getElementById(dropdownId);
     const searchInput = accountDropdown?.querySelector('.custom-select-search input');
@@ -4855,15 +4881,9 @@ function initBankAccountSelect(buttonId, dropdownId, showNameInParentheses) {
             optionsContainer.appendChild(selectOpt);
         }
 
-        // Filter by the same text we display so search matches what user sees (exact match on displayed string)
-        // Supplier only: show name only (no id); others: show account_id only
+        // Display as "account_id[name]" to show both code and name
         function getDisplayText(account) {
-            const code = String(account.account_id ?? account.name ?? '').trim();
-            const nameStr = (account.name != null && String(account.name).trim() !== '') ? String(account.name).trim() : '';
-            if (showNameInParentheses) {
-                return nameStr !== '' ? nameStr : code;
-            }
-            return code;
+            return formatBankAccountDisplay(account.account_id, account.name, account.id);
         }
         let filteredAccounts = accounts.filter(account => {
             const displayText = getDisplayText(account).toLowerCase();
