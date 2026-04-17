@@ -147,5 +147,5 @@ function bankProcessProRatedFirstMonthDescription(array $t): string
         }
     }
 
-    return "Pro-rated({$startDm} - {$endDm} || {$daysCount}days)@monthly {$value}";
+    return "Pro-rated({$startDm} - {$endDm} | {$daysCount}days)@monthly {$value}";
 }

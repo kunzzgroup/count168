@@ -1143,13 +1143,15 @@ try {
         // 关联账户间内部转账：to 和 from 都在聚合列表内时，对聚合视图 Cr/Dr 为 0
         $is_internal_transfer = $is_to_account && $is_from_account;
         $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
-        $isInactiveCompensationSell = stripos(trim((string) $rawDescription), 'Inactive Compensation Sell Price') === 0;
+        $isCompensationDescription = preg_match('/^(Inactive\s+Compensation|Compensation)\s*/i', trim((string) $rawDescription)) === 1;
+        $isInactiveCompensationSell = preg_match('/^(Inactive\s+Compensation|Compensation)(?:\s*\([^)]*\)|\s+\w+\s+Month)?\s*Sell Price/i', trim((string) $rawDescription)) === 1
+            || stripos(trim((string) $rawDescription), 'Inactive Compensation Sell Price') === 0;
         // 手动 PROFIT：WIN/LOSE 且非 Bank Process，且不是系统生成的 Process/Auto/赔款文案
         $isManualProfit = in_array($t['transaction_type'], ['WIN', 'LOSE'], true)
             && !$isBankProcessTransaction
             && stripos((string) $rawDescription, 'Process: ') !== 0
             && stripos((string) $rawDescription, 'Auto: ') !== 0
-            && !$isInactiveCompensationSell;
+            && !$isCompensationDescription;
 
         // 为手动 PROFIT 尝试找出对应的对手账户（另一条相反类型、相同日期和金额的交易）
         $otherAccountCodeForManualProfit = null;
@@ -1306,8 +1308,8 @@ try {
         // Description 金额展示 process 原始 Buy/Sell/Profit（不显示本笔 total amount）。
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
-            if ($isInactiveCompensationSell) {
-                // 赔款 Sell Price 保持原始文案，不再改写成 Inactive bill / PROFIT FROM
+            if ($isCompensationDescription) {
+                // 赔款文案保持原始描述（Compensation One/Two/Three Month ...）
                 $description = trim((string) $rawDescription);
             } else {
                 if ($periodType === 'partial_first_month') {

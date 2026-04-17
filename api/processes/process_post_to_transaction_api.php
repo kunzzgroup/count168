@@ -703,6 +703,22 @@ function getExtraMonthsFromContract(?string $contract): int
     return 0;
 }
 
+/** 赔款月份文案：1+1 => One Month, 1+2 => Two Month, 1+3 => Three Month */
+function getCompensationMonthLabelFromContract(?string $contract): string
+{
+    $extra = getExtraMonthsFromContract($contract);
+    if ($extra === 1) {
+        return 'One Month';
+    }
+    if ($extra === 2) {
+        return 'Two Month';
+    }
+    if ($extra === 3) {
+        return 'Three Month';
+    }
+    return 'One Month';
+}
+
 /** 日期加 N 个月，返回 Y-m-d */
 function addMonthsToDate(?string $dateStr, int $months): ?string
 {
@@ -1236,13 +1252,14 @@ try {
         }
 
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ''));
+        $compMonthLabel = getCompensationMonthLabelFromContract($p['contract'] ?? null);
         // Cost → Supplier(card_merchant)，Price → Customer，Profit → Company；首月按比例时三笔均用折算后的 cost/price/profit
         if (!empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['card_merchant_id'];
             $txn['amount'] = $cost;
             $txn['description'] = $isManualInactiveCompensation
-                ? "Inactive Compensation Buy Price"
+                ? ("Compensation " . $compMonthLabel . " Buy Price")
                 : ("Process: Buy Price for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1254,7 +1271,7 @@ try {
             $txn['account_id'] = (int) $p['customer_id'];
             $txn['amount'] = round($price, 2);
             $txn['description'] = $isManualInactiveCompensation
-                ? "Inactive Compensation Sell Price"
+                ? ("Compensation " . $compMonthLabel . " Sell Price")
                 : ("Process: Sell Price for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1302,7 +1319,7 @@ try {
             $txn['account_id'] = (int) $p['profit_account_id'];
             $txn['amount'] = $companyProfit;
             $txn['description'] = $isManualInactiveCompensation
-                ? "Inactive Compensation Profit"
+                ? ("Compensation " . $compMonthLabel . " Profit")
                 : ("Process: Profit for $processLabel" . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1312,7 +1329,7 @@ try {
             $txn['account_id'] = (int) $ps['account_id'];
             $txn['amount'] = $ps['amount'];
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Inactive Compensation Profit Sharing (" . $ps['account_text'] . ' ' . $ps['amount'] . ')')
+                ? ("Compensation " . $compMonthLabel . " Profit Sharing (" . $ps['account_text'] . ' ' . $ps['amount'] . ')')
                 : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
