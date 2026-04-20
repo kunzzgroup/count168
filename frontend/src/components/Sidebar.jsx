@@ -8,7 +8,7 @@ const MENU_ITEMS = [
   { key: 'admin', label: 'Admin', href: '#/admin' },
   { key: 'account', label: 'Account', href: '#/account' },
   { key: 'ownership', label: 'Ownership', href: '/ownership.php' },
-  { key: 'process', label: 'Process', href: '/processlist.php' },
+  { key: 'process', label: 'Process', href: '#/process' },
   { key: 'datacapture', label: 'Data Capture', href: '/datacapture.php' },
   { key: 'payment', label: 'Transaction Payment', href: '/transaction.php' }
 ]

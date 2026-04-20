@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import AdminPage from './pages/AdminPage'
 import AccountPage from './pages/AccountPage'
+import ProcessPage from './pages/ProcessPage'
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -242,6 +243,8 @@ function App() {
           <AdminPage />
         ) : currentRoute === '#/account' ? (
           <AccountPage />
+        ) : currentRoute === '#/process' ? (
+          <ProcessPage />
         ) : (
           <section className="announcement-page">
             <header className="page-header">
