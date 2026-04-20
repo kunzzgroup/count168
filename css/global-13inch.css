@@ -145,14 +145,6 @@
         letter-spacing: 0.015em !important;
     }
 
-    /* Native Table Rows */
-    .transaction-table td,
-    .datacapture-table td,
-    table td {
-        font-size: 14px !important;
-        padding: 10px 14px !important;
-        line-height: 1.5 !important;
-    }
 
     /* SPECIFIC FIX: Bank Process List (15 columns) MUST be ultra-dense */
     .process-page.process-page--bank .bank-data-table th {
