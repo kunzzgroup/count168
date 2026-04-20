@@ -7,6 +7,8 @@
  */
 function eazycount_sidebar_bootstrap(PDO $pdo): array
 {
+    require_once __DIR__ . '/c168_staff_roles.php';
+
     $isMember = isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member';
 
     $user_id = $_SESSION['user_id'];
@@ -43,10 +45,10 @@ function eazycount_sidebar_bootstrap(PDO $pdo): array
     }
 
     $roleLower = strtolower(trim((string) $role));
-    // Domain / Announcement：当前选中公司为 C168 且角色为 owner/admin（与 sidebar.php 一致）
-    $hasC168Access = $isCurrentCompanyC168 && in_array($roleLower, ['owner', 'admin'], true);
+    // Domain / Announcement：仅当前公司为 C168，且角色为 C168 后台职员（见 c168_staff_roles.php）
+    $hasC168Access = $isCurrentCompanyC168 && eazycount_is_c168_sidebar_staff_role($roleLower);
 
-    // user.permissions 为白名单时若漏配 domain，C168 的 owner/admin 仍应看到 Domain 菜单
+    // user.permissions 为白名单时若漏配 domain，C168 职员仍应看到 Domain 菜单
     if ($hasC168Access && !empty($permissions) && !in_array('domain', $permissions, true)) {
         $permissions[] = 'domain';
     }
