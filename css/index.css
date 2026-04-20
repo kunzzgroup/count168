@@ -177,3 +177,10 @@
 .modal-btn-primary:hover {
     background: linear-gradient(135deg, #45b8e0, #003dd4);
 }
+
+/* Keep login page typography original (override global-13inch font force) */
+body.bg,
+body.bg * {
+    font-size: revert !important;
+    font-weight: revert !important;
+}
