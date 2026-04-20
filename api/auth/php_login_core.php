@@ -125,7 +125,7 @@ function eazycount_php_login_member(PDO $pdo, string $password, string $companyI
             'company_id' => (int) $account['company_numeric_id'],
             'last_activity' => time(),
         ];
-        return ['ok' => true, 'session' => $session, 'next_redirect' => 'index.php?r=/member'];
+        return ['ok' => true, 'session' => $session, 'next_redirect' => '/?r=/member'];
     }
     if ($passwordMatch && $hasExpired) {
         return ['ok' => false, 'message' => 'Company or Group has expired.'];
@@ -215,10 +215,10 @@ function eazycount_php_finalize_user(PDO $pdo, array $user, bool $rememberMe): a
     }
 
     if ($needsSecondary) {
-        $next = 'api/users/user_secondary_password.php';
+        $next = '/?r=/owner-secondary-password';
     } else {
         $session['secondary_password_verified'] = true;
-        $next = 'index.php?r=/dashboard';
+        $next = '/?r=/dashboard';
     }
 
     return ['ok' => true, 'session' => $session, 'next_redirect' => $next, 'remember_cookie' => $rememberCookie];
@@ -283,7 +283,7 @@ function eazycount_php_login_owner(PDO $pdo, string $password, string $companyId
             'company_code' => $coCode,
             'last_activity' => time(),
         ];
-        return ['ok' => true, 'session' => $session, 'next_redirect' => 'index.php?r=/dashboard', 'remember_cookie' => null];
+        return ['ok' => true, 'session' => $session, 'next_redirect' => '/?r=/dashboard', 'remember_cookie' => null];
     }
     if ($ownerPasswordMatch && $ownerHasExpired) {
         return ['ok' => false, 'message' => 'Company or Group has expired.'];

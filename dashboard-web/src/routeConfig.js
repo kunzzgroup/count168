@@ -5,7 +5,7 @@
  */
 
 export const routeConfig = [
-  { path: '/login', legacyFile: 'index.php', title: 'Login', migrated: true },
+  { path: '/login', legacyFile: 'index.html', title: 'Login', migrated: true },
   { path: '/reset-password', legacyFile: 'reset-password.php', title: 'Reset password', migrated: false, fullPage: true },
   {
     path: '/owner-secondary-password',
@@ -14,8 +14,8 @@ export const routeConfig = [
     migrated: false,
     fullPage: true
   },
-  { path: '/dashboard', legacyFile: 'index.php', title: 'Transaction Dashboard', migrated: true },
-  { path: '/member', legacyFile: 'index.php', title: 'Member', migrated: true },
+  { path: '/dashboard', legacyFile: 'index.html', title: 'Transaction Dashboard', migrated: true },
+  { path: '/member', legacyFile: 'index.html', title: 'Member', migrated: true },
   { path: '/account-list', legacyFile: 'account-list.php', title: 'Account list', migrated: false },
   { path: '/add-account', legacyFile: 'add-account.php', title: 'Add account', migrated: false },
   { path: '/announcement', legacyFile: 'announcement.php', title: 'Announcement', migrated: false },

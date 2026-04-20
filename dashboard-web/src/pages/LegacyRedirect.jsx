@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 export default function LegacyRedirect({ legacyFile }) {
   useEffect(() => {
     const base = typeof window.__COUNT_ASSET_BASE === 'string' ? window.__COUNT_ASSET_BASE : ''
-    const target = base + (legacyFile || 'index.php')
+    const target = base + (legacyFile || 'index.html')
     window.location.replace(target)
   }, [legacyFile])
 

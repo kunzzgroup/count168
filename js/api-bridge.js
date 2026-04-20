@@ -16,6 +16,11 @@
     return pathname.replace(/[^/]*$/, '') || '/'
   }
 
+  function isPhpDocumentEntry() {
+    var last = (window.location.pathname || '').split('/').pop() || ''
+    return last.indexOf('.php', last.length - 4) !== -1
+  }
+
   window.resolveApiPath = function (pathAndQuery) {
     if (!pathAndQuery || typeof pathAndQuery !== 'string') {
       return pathAndQuery
@@ -31,7 +36,10 @@
       return springBase + REWRITE[path] + qs
     }
     if (!springBase && path === 'api/auth/login') {
-      return new URL('api/auth/spring_login_proxy.php' + qs, window.location.origin + phpBasePath()).href
+      if (isPhpDocumentEntry()) {
+        return new URL('api/auth/spring_login_proxy.php' + qs, window.location.origin + phpBasePath()).href
+      }
+      return new URL('api/auth/login' + qs, window.location.origin + phpBasePath()).href
     }
     return new URL(pathAndQuery, window.location.origin + phpBasePath()).href
   }

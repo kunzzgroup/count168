@@ -20,7 +20,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $token = isset($_GET['t']) ? (string) $_GET['t'] : '';
 if ($token === '') {
-    header('Location: index.php');
+    header('Location: index.html');
     exit();
 }
 
@@ -69,13 +69,13 @@ foreach (eazycount_spring_internal_bases() as $base) {
 
 if (!$ok) {
     error_log('login_bootstrap: session fetch failed, http=' . ($httpStatus !== null ? (string) $httpStatus : 'unknown') . ' url=' . $springBase);
-    header('Location: index.php');
+    header('Location: index.html');
     exit();
 }
 
 $data = json_decode($raw, true);
 if (!is_array($data) || empty($data['session']) || !is_array($data['session']) || empty($data['nextRedirect'])) {
-    header('Location: index.php');
+    header('Location: index.html');
     exit();
 }
 

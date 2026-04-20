@@ -179,7 +179,7 @@
 
     function handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
-            window.location.href = 'index.php?logout=1';
+            window.location.href = 'index.html?logout=1';
         }
     }
 

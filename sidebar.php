@@ -8,7 +8,7 @@ if (session_status() == PHP_SESSION_NONE) {
 if (!isset($_SESSION['user_id'])) {
     // 如果未登录，输出 JavaScript 重定向到登录页
     // 这样可以确保整个页面都停止工作，而不仅仅是 sidebar 消失
-    echo '<script>window.location.href = "index.php";</script>';
+    echo '<script>window.location.href = "index.html";</script>';
     exit();
 }
 
@@ -19,7 +19,7 @@ extract(eazycount_sidebar_bootstrap($pdo), EXTR_SKIP);
 <!--
 ================================================================================
   sidebar.php 为被 include 的片段，不在此处添加 <link> / <script src>。
-  请在主页面（如 account-list.php、index.php 等）的 <head> 中加入：
+  请在主页面（如 account-list.php、index.html 等）的 <head> 中加入：
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>" defer></script>
   如需 favicon 与头像预加载，可在主页面 <head> 中按需添加。
@@ -166,7 +166,7 @@ extract(eazycount_sidebar_bootstrap($pdo), EXTR_SKIP);
             <!-- Member Win/Loss -->
             <div class="informationmenu-section">
                 <div class="informationmenu-section-title account-direct" data-page="member.php"
-                    onclick="window.location.href='index.php?r=/member'">
+                    onclick="window.location.href='index.html?r=/member'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path
                             d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
@@ -179,7 +179,7 @@ extract(eazycount_sidebar_bootstrap($pdo), EXTR_SKIP);
             <?php if (empty($permissions) || in_array('home', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="dashboard.php"
-                        onclick="window.location.href='index.php?r=/dashboard'">
+                        onclick="window.location.href='index.html?r=/dashboard'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                         </svg>

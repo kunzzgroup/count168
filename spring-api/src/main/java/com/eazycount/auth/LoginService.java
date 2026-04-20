@@ -134,7 +134,7 @@ public class LoginService {
       session.put("company_id", ((Number) account.get("company_numeric_id")).intValue());
       session.put("last_activity", (int) (System.currentTimeMillis() / 1000));
 
-      String token = bootstrapStore.put(new Payload("index.php?r=/member", session));
+      String token = bootstrapStore.put(new Payload("/?r=/member", session));
       return new LoginResult(true, null, token);
     }
 
@@ -217,10 +217,10 @@ public class LoginService {
 
     String nextRedirect;
     if (needsSecondary) {
-      nextRedirect = "api/users/user_secondary_password.php";
+      nextRedirect = "/?r=/owner-secondary-password";
     } else {
       session.put("secondary_password_verified", true);
-      nextRedirect = "index.php?r=/dashboard";
+      nextRedirect = "/?r=/dashboard";
     }
 
     String token = bootstrapStore.put(new Payload(nextRedirect, session));
@@ -284,7 +284,7 @@ public class LoginService {
       session.put("company_code", companyCode);
       session.put("last_activity", (int) (System.currentTimeMillis() / 1000));
 
-      String token = bootstrapStore.put(new Payload("index.php?r=/dashboard", session));
+      String token = bootstrapStore.put(new Payload("/?r=/dashboard", session));
       return new LoginResult(true, null, token);
     }
 
