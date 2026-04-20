@@ -49,8 +49,8 @@ if (!$user_id || !$hasC168Context || !userHasC168DomainPageAccess($user_role)) {
     exit();
 }
 
-// 前端二级密码编辑区：仍仅 owner/admin（与 domain_api 一致）
-$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
+// 前端二级密码编辑区：owner/admin/partnership（与 domain_api 一致）
+$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin', 'partnership'], true);
 
 // Get owners (domains) data
 try {

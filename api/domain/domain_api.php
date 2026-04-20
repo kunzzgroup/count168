@@ -39,12 +39,12 @@ if (in_array($action, ['get_domains', 'create', 'update', 'delete', 'get_domain_
     // session 写入完成，立即释放锁，允许并发请求执行
     session_write_close();
     
-    // C168：$canUseC168DomainActions = userlist 角色白名单；修改他人二级密码仍用 $isOwnerOrAdmin
+    // C168：$canUseC168DomainActions = userlist 角色白名单；修改他人二级密码用 owner/admin/partnership
     $user_role = strtolower($_SESSION['role'] ?? '');
     $company_id = $_SESSION['company_id'] ?? null;
     $company_code = strtoupper($_SESSION['company_code'] ?? '');
     
-    $isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
+    $isOwnerOrAdmin = in_array($user_role, ['owner', 'admin', 'partnership'], true);
     $isC168ByCode = ($company_code === 'C168');
     $isC168ById = isC168Company($pdo, $company_id);
     $hasC168Context = ($isC168ByCode || $isC168ById);
