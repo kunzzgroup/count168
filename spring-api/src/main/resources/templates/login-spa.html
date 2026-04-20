@@ -29,10 +29,6 @@
         window.__API_BASE_URL__ = 'http://127.0.0.1:8090'
         return
       }
-      if (/^(www\.)?count168\.site$/i.test(h)) {
-        window.__API_BASE_URL__ = location.protocol + '//api.count168.site'
-        return
-      }
       window.__API_BASE_URL__ = location.origin
     })()
   </script>

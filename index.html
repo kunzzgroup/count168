@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Spring 根（无尾斜杠）。count168.site 默认走 https://api.count168.site；若 API 与页面同域反代，改为 https://count168.site -->
+  <!-- Spring 根（无尾斜杠）。留空=与当前页同协议同主机（须 Nginx 把 /api 反代到 Spring，见 nginx-api-proxy.example.conf） -->
   <meta name="eazycount-api-base" content="" />
   <title>EazyCount</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -48,11 +48,7 @@
         window.__API_BASE_URL__ = 'http://127.0.0.1:8090'
         return
       }
-      if (/^(www\.)?count168\.site$/i.test(h)) {
-        window.__API_BASE_URL__ = window.location.protocol + '//api.count168.site'
-        return
-      }
-      window.__API_BASE_URL__ = ''
+      window.__API_BASE_URL__ = window.location.origin
     })()
   </script>
   <script src="js/api-bridge.js"></script>
