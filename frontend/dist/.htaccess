@@ -1,0 +1,13 @@
+RewriteEngine On
+
+# Forward /api/* to Spring Boot (same server).
+# If your backend is on another host, replace 127.0.0.1:8082 accordingly.
+RewriteRule ^api/(.*)$ http://127.0.0.1:8082/api/$1 [P,L]
+
+# Keep existing files/directories as-is.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Fallback to SPA entry for non-file routes.
+RewriteRule ^ index.html [L]
