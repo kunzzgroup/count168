@@ -86,6 +86,10 @@ export default function LoginView() {
         loginRole: role,
         rememberMe
       });
+      if (!data || typeof data !== "object" || !("status" in data)) {
+        showModal("API not connected. Please check backend URL/proxy.");
+        return;
+      }
       if (data.status === "success" && data.redirect) {
         navigate(data.redirect);
         return;
