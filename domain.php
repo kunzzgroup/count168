@@ -103,7 +103,6 @@ try {
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
         window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
-        window.DOMAIN_INITIAL_DATA = <?php echo json_encode($domains, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
     <script src="js/domain.js?v=<?php echo $assetVer('js/domain.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
@@ -144,8 +143,62 @@ try {
                 <div class="header-item">Action:</div>
             </div>
             
-            <!-- Owner卡片列表（React JSX 渲染） -->
-            <div class="domain-cards" id="domainTableBody"></div>
+            <!-- Owner卡片列表 -->
+            <div class="domain-cards" id="domainTableBody">
+                <?php foreach($domains as $index => $domain): ?>
+                <div class="domain-card" data-id="<?php echo $domain['id']; ?>">
+                    <div class="card-item"><?php echo $index + 1; ?></div>
+                    <div class="card-item uppercase-text"><?php echo htmlspecialchars($domain['owner_code']); ?></div>
+                    <div class="card-item"><?php echo htmlspecialchars($domain['name']); ?></div>
+                    <div class="card-item"><?php echo htmlspecialchars($domain['email']); ?></div>
+                    <div class="card-item"><?php echo htmlspecialchars($domain['group_ids'] ?: '-'); ?></div>
+                    <div class="card-item companies-column" data-companies='<?php echo json_encode($domain['companies_full'] ?? []); ?>'>
+                        <?php 
+                        if (!empty($domain['companies'])) {
+                            $companyList = explode(', ', $domain['companies']);
+                            $maxVisible = 3;
+                            $visible    = array_slice($companyList, 0, $maxVisible);
+                            $hidden     = array_slice($companyList, $maxVisible);
+
+                            echo '<div class="chip-group">';
+                            // 渲染可见项
+                            foreach ($visible as $companyId) {
+                                $companyId = trim($companyId);
+                                $expDate = null;
+                                if (!empty($domain['companies_full'])) {
+                                    foreach ($domain['companies_full'] as $comp) {
+                                        if ($comp['company_id'] === $companyId) {
+                                            $expDate = $comp['expiration_date'];
+                                            break;
+                                        }
+                                    }
+                                }
+                                $expAttr = $expDate ? ' data-exp="' . htmlspecialchars($expDate) . '"' : '';
+                                echo '<span class="chip company-badge"' . $expAttr . '>' . htmlspecialchars($companyId) . '</span>';
+                            }
+                            // 渲染 +N chip
+                            if (!empty($hidden)) {
+                                $hiddenNames = implode(', ', array_map('trim', $hidden));
+                                echo '<span class="chip-more" title="' . htmlspecialchars($hiddenNames) . '">+' . count($hidden) . '</span>';
+                            }
+                            echo '</div>';
+                        } else {
+                            echo '-';
+                        }
+                        ?>
+                    </div>
+                    <div class="card-item uppercase-text"><?php echo strtoupper(htmlspecialchars($domain['created_by'] ?? '-')); ?></div>
+                    <div class="card-item">
+                        <button class="btn btn-edit edit-btn" onclick="editDomain(<?php echo $domain['id']; ?>)" aria-label="Edit">
+                            <img src="images/edit.svg" alt="Edit">
+                        </button>
+                        <?php if (strtoupper($domain['owner_code']) !== 'K'): ?>
+                        <input type="checkbox" class="domain-checkbox" value="<?php echo $domain['id']; ?>" onchange="updateDeleteButton()">
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
         </div>
         <!-- 分页控件 -->
         <div class="pagination-container" id="paginationContainer">
@@ -497,9 +550,5 @@ try {
 
     <!-- 通知容器：内联 z-index 最高，确保压过所有弹窗（含 inline 10001~10003） -->
     <div id="notificationContainer" class="notification-container" style="z-index: 2147483647;"></div>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="js/domain.jsx?v=<?php echo $assetVer('js/domain.jsx'); ?>"></script>
 </body>
 </html>
