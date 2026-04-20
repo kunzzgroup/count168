@@ -151,13 +151,16 @@ export default function LoginPage() {
       }
       if (rememberMe) fd.append('remember_me', '1')
 
-      const response = await fetch('login_process.php', {
+      const response = await fetch(resolveApiPath('api/auth/login'), {
         method: 'POST',
         body: fd,
         credentials: 'include'
       })
       const data = await response.json()
-      if (data.status === 'success' && data.redirect) {
+      if (data.status === 'success' && data.bootstrapToken) {
+        const dir = window.location.pathname.replace(/[^/]*$/, '') || '/'
+        window.location.href = dir + 'login_bootstrap.php?t=' + encodeURIComponent(data.bootstrapToken)
+      } else if (data.status === 'success' && data.redirect) {
         window.location.href = data.redirect
       } else {
         await showAlertModal('Notice', data.message || 'Login failed')

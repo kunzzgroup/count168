@@ -16,7 +16,9 @@ server:
 # CORS：前端页面所在源（多个用逗号）
 app:
   cors:
-    allowed-origins: ${APP_CORS_ORIGINS:http://localhost,http://127.0.0.1,http://localhost:5173}
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost,http://127.0.0.1,http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080}
+  # 与 PHP login_bootstrap.php 请求头 X-Eazycount-Internal 一致；勿留空在生产环境
+  internal-bootstrap-key: ${APP_INTERNAL_BOOTSTRAP_KEY:dev-local-only-change-me}
 
 logging:
   level:

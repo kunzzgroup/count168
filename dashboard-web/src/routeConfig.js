@@ -43,7 +43,7 @@ export const routeConfig = [
 
 /** 仅后端/脚本入口，无独立 SPA 页，仅在文档中追踪 */
 export const apiOnlyPhp = [
-  'login_process.php',
+  'login_bootstrap.php',
   'getaccountapi.php',
   'domainapi.php',
   'roleapi.php',

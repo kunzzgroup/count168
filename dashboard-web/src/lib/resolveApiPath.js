@@ -1,5 +1,6 @@
 const REWRITE = {
-  'api/company/verify_api.php': '/api/company/verify'
+  'api/company/verify_api.php': '/api/company/verify',
+  'api/auth/login': '/api/auth/login'
 }
 
 function phpBasePath() {
