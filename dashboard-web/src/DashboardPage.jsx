@@ -1,34 +1,51 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
-function loadScript(src) {
+function loadDashboardScript(src) {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script')
     s.src = src
     s.async = false
+    s.setAttribute('data-dashboard-legacy', '1')
     s.onload = () => resolve()
     s.onerror = () => reject(new Error(`Failed to load ${src}`))
     document.body.appendChild(s)
   })
 }
 
-export default function DashboardPage() {
-  const legacyStarted = useRef(false)
+function runDashboardBootstrap() {
+  if (typeof window.__dashboardLegacyBootstrap === 'function') {
+    window.__dashboardLegacyBootstrap()
+  }
+}
 
+export default function DashboardPage() {
   useEffect(() => {
-    if (legacyStarted.current) return
-    legacyStarted.current = true
+    // 必须在加载 dashboard.js 之前设置，否则脚本末尾会自行 init 一次（与 React 重复）
+    window.__DASHBOARD_SPA_DEFER_INIT = true
 
     const ver =
       typeof window.__DASHBOARD_JS_VER !== 'undefined' && window.__DASHBOARD_JS_VER !== null
         ? String(window.__DASHBOARD_JS_VER)
         : String(Date.now())
     const base = typeof window.__COUNT_ASSET_BASE === 'string' ? window.__COUNT_ASSET_BASE : ''
-
     const url = `${base}js/dashboard.js?v=${encodeURIComponent(ver)}`
 
-    loadScript(url).catch((e) => {
-      console.error(e)
-    })
+    const existing = document.querySelector('script[data-dashboard-legacy="1"]')
+    if (existing) {
+      if (window.__dashboardLegacyBootstrap) {
+        runDashboardBootstrap()
+      } else {
+        existing.addEventListener('load', runDashboardBootstrap, { once: true })
+      }
+      return undefined
+    }
+
+    loadDashboardScript(url)
+      .then(runDashboardBootstrap)
+      .catch((e) => {
+        console.error(e)
+      })
+    return undefined
   }, [])
 
   return (

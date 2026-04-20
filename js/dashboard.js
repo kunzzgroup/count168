@@ -109,11 +109,14 @@ function initEnhancedDatePickers() {
     updateDateDisplay('month');
     updateDateRangeDisplay();
 
-    document.addEventListener('click', function (e) {
-        if (!e.target.closest('.enhanced-date-picker')) {
-            hideAllDropdowns();
-        }
-    });
+    if (!window.__dashboardEnhancedPickerOutsideBound) {
+        window.__dashboardEnhancedPickerOutsideBound = true;
+        document.addEventListener('click', function dashboardEnhancedPickerOutsideClick(e) {
+            if (!e.target.closest('.enhanced-date-picker')) {
+                hideAllDropdowns();
+            }
+        });
+    }
 }
 
 // 兼容性：保留旧函数名
@@ -787,18 +790,21 @@ async function selectQuickRange(range) {
     }
 }
 
-// 点击外部关闭日历和下拉菜单
-document.addEventListener('click', function (e) {
-    const calendar = document.getElementById('date-range-picker');
-    const popup = document.getElementById('calendar-popup');
-    if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target)) {
-        popup.style.display = 'none';
-    }
-    if (!e.target.closest('.dropdown')) {
-        const quickDropdown = document.getElementById('quick-select-dropdown');
-        if (quickDropdown) quickDropdown.classList.remove('show');
-    }
-});
+// 点击外部关闭日历和下拉菜单（全局只绑定一次，供 SPA 多次 bootstrap）
+if (!window.__dashboardCalendarOutsideClickBound) {
+    window.__dashboardCalendarOutsideClickBound = true;
+    document.addEventListener('click', function dashboardCalendarOutsideClick(e) {
+        const calendar = document.getElementById('date-range-picker');
+        const popup = document.getElementById('calendar-popup');
+        if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target)) {
+            popup.style.display = 'none';
+        }
+        if (!e.target.closest('.dropdown')) {
+            const quickDropdown = document.getElementById('quick-select-dropdown');
+            if (quickDropdown) quickDropdown.classList.remove('show');
+        }
+    });
+}
 
 // 防抖函数，避免频繁调用
 let loadDataTimeout = null;
@@ -2483,10 +2489,12 @@ async function switchCompany(companyId, companyCode) {
 function initChartDataButtons() {
     const buttons = document.querySelectorAll('.chart-toggle-btn');
     buttons.forEach(btn => {
+        if (btn.dataset.dashboardChartToggleBound === '1') return;
+        btn.dataset.dashboardChartToggleBound = '1';
         btn.addEventListener('click', function () {
             this.classList.toggle('active');
-            const datasetIndex = parseInt(this.dataset.dataset);
-            
+            const datasetIndex = parseInt(this.dataset.dataset, 10);
+
             if (trendChart) {
                 const isHidden = !this.classList.contains('active');
                 trendChart.setDatasetVisibility(datasetIndex, !isHidden);
@@ -2498,31 +2506,35 @@ function initChartDataButtons() {
 
 // 页面可见性优化：当页面不可见时，暂停自动刷新
 let isPageVisible = true;
-document.addEventListener('visibilitychange', function () {
-    isPageVisible = !document.hidden;
-    if (isPageVisible && dateRange.startDate && dateRange.endDate) {
-        // 页面重新可见时，重置请求参数，允许重新加载
-        lastRequestParams = null;
-        loadData();
-    }
-});
+if (!window.__dashboardVisibilityBound) {
+    window.__dashboardVisibilityBound = true;
+    document.addEventListener('visibilitychange', function dashboardVisibilityHandler() {
+        isPageVisible = !document.hidden;
+        if (isPageVisible && dateRange.startDate && dateRange.endDate) {
+            // 页面重新可见时，重置请求参数，允许重新加载
+            lastRequestParams = null;
+            loadData();
+        }
+    });
+}
 
-// 图表容器尺寸变化时重绘图表，保证一屏内完整显示
-(function setupChartResizeObserver() {
-    function observeChartContainer() {
-        const container = document.querySelector('.dashboard-chart-container');
-        if (!container || typeof ResizeObserver === 'undefined') return;
-        const ro = new ResizeObserver(function () {
-            if (trendChart) trendChart.resize();
-        });
-        ro.observe(container);
+// 图表容器尺寸变化时重绘（每次 bootstrap 后绑定当前 DOM，供 SPA 二次进入）
+function bindDashboardChartResizeObserver() {
+    const container = document.querySelector('.dashboard-chart-container');
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    if (window.__dashboardChartResizeObserver) {
+        try {
+            window.__dashboardChartResizeObserver.disconnect();
+        } catch (e) {
+            /* ignore */
+        }
+        window.__dashboardChartResizeObserver = null;
     }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', observeChartContainer);
-    } else {
-        observeChartContainer();
-    }
-})();
+    window.__dashboardChartResizeObserver = new ResizeObserver(function () {
+        if (trendChart) trendChart.resize();
+    });
+    window.__dashboardChartResizeObserver.observe(container);
+}
 
 // 初始化 - 使用防抖避免多次调用（支持由 React 在 DOM 就绪后动态加载本脚本）
 let isInitializing = false;
@@ -2531,22 +2543,26 @@ async function dashboardLegacyBootstrap() {
     isInitializing = true;
 
     try {
-        // 添加全局错误处理
-        window.addEventListener('error', function (event) {
-            console.error('全局错误:', event.error);
-            if (event.error && event.error.message) {
-                showError('Page error: ' + event.error.message);
-            } else {
-                showError('Page error, please refresh the page');
-            }
-            event.preventDefault(); // 阻止默认错误处理
-        });
+        lastRequestParams = null;
 
-        window.addEventListener('unhandledrejection', function (event) {
-            console.error('未处理的Promise拒绝:', event.reason);
-            showError('Request failed, please refresh the page');
-            event.preventDefault(); // 阻止默认错误处理
-        });
+        if (!window.__dashboardWindowErrorHandlersBound) {
+            window.__dashboardWindowErrorHandlersBound = true;
+            window.addEventListener('error', function dashboardWindowErrorHandler(event) {
+                console.error('全局错误:', event.error);
+                if (event.error && event.error.message) {
+                    showError('Page error: ' + event.error.message);
+                } else {
+                    showError('Page error, please refresh the page');
+                }
+                event.preventDefault(); // 阻止默认错误处理
+            });
+
+            window.addEventListener('unhandledrejection', function dashboardUnhandledRejectionHandler(event) {
+                console.error('未处理的Promise拒绝:', event.reason);
+                showError('Request failed, please refresh the page');
+                event.preventDefault(); // 阻止默认错误处理
+            });
+        }
 
         // 提前发起公司列表请求，与 initDatePickers 并行，减少首屏等待
         const loadCompaniesPromise = loadOwnerCompanies();
@@ -2565,6 +2581,7 @@ async function dashboardLegacyBootstrap() {
             await loadCurrencies();
             showError('Missing required parameters, please refresh the page');
         }
+        bindDashboardChartResizeObserver();
     } catch (error) {
         console.error('初始化失败:', error);
         showError('Page initialization failed, please refresh the page');
@@ -2573,8 +2590,12 @@ async function dashboardLegacyBootstrap() {
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', dashboardLegacyBootstrap);
-} else {
-    dashboardLegacyBootstrap();
+window.__dashboardLegacyBootstrap = dashboardLegacyBootstrap;
+
+if (!window.__DASHBOARD_SPA_DEFER_INIT) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', dashboardLegacyBootstrap);
+    } else {
+        dashboardLegacyBootstrap();
+    }
 }
