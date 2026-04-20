@@ -2521,9 +2521,9 @@ document.addEventListener('visibilitychange', function () {
     }
 })();
 
-// 初始化 - 使用防抖避免多次调用
+// 初始化 - 使用防抖避免多次调用（支持由 React 在 DOM 就绪后动态加载本脚本）
 let isInitializing = false;
-document.addEventListener('DOMContentLoaded', async function () {
+async function dashboardLegacyBootstrap() {
     if (isInitializing) return;
     isInitializing = true;
 
@@ -2568,4 +2568,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     } finally {
         isInitializing = false;
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', dashboardLegacyBootstrap);
+} else {
+    dashboardLegacyBootstrap();
+}
