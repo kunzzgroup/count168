@@ -817,7 +817,7 @@
 .sidebar-lang-option {
     position: relative;
     z-index: 1;
-    font-size: clamp(8px, 0.68vw, 13px);
+    font-size: clamp(6px, 0.58vw, 12px);
     font-weight: 600;
     letter-spacing: 0.2px;
     color: #dbeafe;
