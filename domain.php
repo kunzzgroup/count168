@@ -1,12 +1,13 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once __DIR__ . '/includes/c168_domain_access.php';
 
 // 强制浏览器使用最新 JS/CSS，避免旧缓存导致 permission/Expiration Date 行为异常
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-// 检查当前登录用户是否为 owner/admin 且与 c168 相关
+// 检查当前用户是否为 C168 上下文下的 Domain 白名单角色
 $user_id      = $_SESSION['user_id']  ?? null;
 $user_role    = strtolower($_SESSION['role'] ?? '');
 $company_id   = $_SESSION['company_id'] ?? null;      // company 表数字主键
@@ -24,9 +25,6 @@ if ($company_id) {
     }
 }
 $company_code = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选的公司代码
-
-// 角色必须是 owner 或 admin
-$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
 
 // 条件1：当前 session 的 company_code 就是 c168（登录时选 c168）
 $isC168ByCode = ($company_code === 'C168');
@@ -46,11 +44,13 @@ if ($company_id) {
 
 $hasC168Context = ($isC168ByCode || $isC168ById);
 
-if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
-    // 不是登录用户，或角色不是 owner/admin，或当前公司/登录公司不是 c168，拒绝访问
+if (!$user_id || !$hasC168Context || !userHasC168DomainPageAccess($user_role)) {
     header("Location: dashboard.php");
     exit();
 }
+
+// 前端二级密码编辑区：仍仅 owner/admin（与 domain_api 一致）
+$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
 
 // Get owners (domains) data
 try {

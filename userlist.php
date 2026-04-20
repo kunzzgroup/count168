@@ -471,6 +471,7 @@ try {
                                     <option value="accountant">Accountant</option>
                                     <option value="audit">Audit</option>
                                     <option value="customer service">Customer Service</option>
+                                    <option value="company">Company</option>
 
                                 </select>
                             </div>

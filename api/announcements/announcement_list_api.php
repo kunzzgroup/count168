@@ -1,10 +1,11 @@
 <?php
 /**
- * 公告列表 API：获取管理端公告列表（需 C168 + owner/admin）
+ * 公告列表 API：获取管理端公告列表（需 C168 + userlist 角色白名单）
  * 路径: api/announcements/announcement_list_api.php
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/c168_domain_access.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
@@ -72,7 +73,7 @@ try {
     }
 
     $userRole = strtolower($_SESSION['role'] ?? '');
-    if (!in_array($userRole, ['owner', 'admin'], true)) {
+    if (!userHasC168AnnouncementPageAccess($userRole)) {
         http_response_code(403);
         jsonResponse(false, 'No permission to access this function', null);
         return;

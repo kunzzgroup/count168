@@ -2,6 +2,7 @@
 session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/c168_domain_access.php';
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -38,7 +39,7 @@ if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 
     // session 写入完成，立即释放锁，允许并发请求执行
     session_write_close();
     
-    // 检查C168权限（用于二级密码修改权限判断）
+    // C168：$canUseC168DomainActions = userlist 角色白名单；修改他人二级密码仍用 $isOwnerOrAdmin
     $user_role = strtolower($_SESSION['role'] ?? '');
     $company_id = $_SESSION['company_id'] ?? null;
     $company_code = strtoupper($_SESSION['company_code'] ?? '');
@@ -47,6 +48,7 @@ if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 
     $isC168ByCode = ($company_code === 'C168');
     $isC168ById = isC168Company($pdo, $company_id);
     $hasC168Context = ($isC168ByCode || $isC168ById);
+    $canUseC168DomainActions = $hasC168Context && userHasC168DomainPageAccess($user_role);
 } else {
     // 不需要写 session，直接释放锁
     session_write_close();
@@ -1426,8 +1428,8 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
  */
-function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bool $hasC168Context, bool $isOwnerOrAdmin): void {
-    if (!$hasC168Context || !$isOwnerOrAdmin || !isset($_SESSION['user_id'])) {
+function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bool $hasC168Context, bool $domainActorAllowed): void {
+    if (!$hasC168Context || !$domainActorAllowed || !isset($_SESSION['user_id'])) {
         return;
     }
     $rows = domainApiNormalizeCompaniesPayload($companies);
@@ -1642,10 +1644,10 @@ function domainApiExtractProvisionCompanyIds($companies): array {
 }
 
 /**
- * 是否允许为 C168 主公司自动建 MEMBER：owner/admin，且（当前为 C168 上下文，或用户有权访问 C168 主公司）
+ * 是否允许为 C168 主公司自动建 MEMBER：C168 Domain 白名单角色，且（当前为 C168 上下文，或用户有权访问 C168 主公司）
  */
-function domainApiMayProvisionC168MemberAccounts(PDO $pdo, bool $hasC168Context, bool $isOwnerOrAdmin): bool {
-    if (!$isOwnerOrAdmin) {
+function domainApiMayProvisionC168MemberAccounts(PDO $pdo, bool $hasC168Context, bool $domainActorAllowed): bool {
+    if (!$domainActorAllowed) {
         return false;
     }
     if ($hasC168Context) {
@@ -2131,14 +2133,14 @@ try {
                 }
 
                 $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies);
-                if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
+                if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
                         domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionCompanyIds, $owner_code);
                     }
                 }
 
-                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isOwnerOrAdmin);
+                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
 
                 $pdo->commit();
 
@@ -2416,7 +2418,7 @@ try {
 
                 // 对该 domain 表单中所有带 company_id 的公司同步 C168 下 MEMBER（幂等；便于历史数据补建）
                 $provisionFromUpdate = domainApiExtractProvisionCompanyIds($companies);
-                if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
+                if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
                         $ocStmt = $pdo->prepare('SELECT UPPER(TRIM(owner_code)) FROM owner WHERE id = ? LIMIT 1');
@@ -2442,7 +2444,7 @@ try {
                     }
                 }
 
-                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isOwnerOrAdmin);
+                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
                 
                 $pdo->commit();
                 
@@ -2748,7 +2750,7 @@ try {
             break;
 
         case 'get_company_share_settings':
-            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isOwnerOrAdmin) {
+            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$canUseC168DomainActions) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
@@ -2782,7 +2784,7 @@ try {
             break;
 
         case 'save_company_share_settings':
-            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isOwnerOrAdmin) {
+            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$canUseC168DomainActions) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
@@ -2960,7 +2962,7 @@ try {
             break;
 
         case 'get_domain_fee_settings':
-            if (!$hasC168Context || !$isOwnerOrAdmin) {
+            if (!$hasC168Context || !$canUseC168DomainActions) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
@@ -2978,7 +2980,7 @@ try {
             break;
 
         case 'save_domain_fee_settings':
-            if (!$hasC168Context || !$isOwnerOrAdmin) {
+            if (!$hasC168Context || !$canUseC168DomainActions) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }

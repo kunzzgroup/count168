@@ -1,19 +1,16 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once __DIR__ . '/includes/c168_domain_access.php';
 
 // 不缓存 HTML，部署后刷新即可拿到带最新 ?v= 的页面
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-// 检查当前登录用户是否为 owner/admin 且与 c168 相关
 $user_id      = $_SESSION['user_id']  ?? null;
 $user_role    = strtolower($_SESSION['role'] ?? '');
 $company_id   = $_SESSION['company_id'] ?? null;
 $company_code = strtoupper($_SESSION['company_code'] ?? '');
-
-// 角色必须是 owner 或 admin
-$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
 
 // 检查是否为C168
 $isC168ByCode = ($company_code === 'C168');
@@ -31,7 +28,7 @@ if ($company_id) {
 
 $hasC168Context = ($isC168ByCode || $isC168ById);
 
-if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
+if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_role)) {
     header("Location: dashboard.php");
     exit();
 }

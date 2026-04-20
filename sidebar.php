@@ -21,6 +21,7 @@ $name = $_SESSION['name'] ?? '';
 $role = $_SESSION['role'] ?? '';
 
 require_once 'config.php';
+require_once __DIR__ . '/includes/c168_domain_access.php';
 $permissions = [];
 
 // 获取用户权限（仅针对 member 用户）
@@ -31,30 +32,7 @@ if (!$isMember) {
     $permissions = $userPermissions ? json_decode($userPermissions, true) : [];
 }
 
-// 检查当前登录用户是否为 owner/admin 并与 c168 相关（仅当前选中公司）
-$hasC168Access = false;
-$companyId = $_SESSION['company_id'] ?? null;  // company 的数字主键（移到外边，确保作用域正确）
-if ($user_id) {
-    $roleLower = strtolower($role ?? '');
-    $companyCode = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选择的公司代码
-
-    if (in_array($roleLower, ['owner', 'admin'], true)) {
-        // 条件1：登录时选择的公司代码就是 c168
-        if ($companyCode === 'C168') {
-            $hasC168Access = true;
-        } elseif ($companyId) {
-            // 条件2：当前选中公司在 company 表中确认为 c168
-            try {
-                $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-                $stmt->execute([$companyId]);
-                $hasC168Access = $stmt->fetchColumn() > 0;
-            } catch (PDOException $e) {
-                error_log("检查 c168 权限失败: " . $e->getMessage());
-                $hasC168Access = false;
-            }
-        }
-    }
-}
+$companyId = $_SESSION['company_id'] ?? null;  // company 的数字主键
 
 // 当前选中公司是否为 C168（用于侧边栏菜单显示控制，不受角色限制）
 $isCurrentCompanyC168 = false;
@@ -72,8 +50,8 @@ if ($currentCompanyCode === 'C168') {
     }
 }
 
-// 仅当“当前公司是 C168”且“角色为 owner/admin”时，才启用 C168 专属菜单
-$hasC168Access = $isCurrentCompanyC168 && in_array(strtolower($role ?? ''), ['owner', 'admin'], true);
+// C168：Domain / Announcement 等，当前公司为 C168 且角色在 userlist 白名单（含 owner）
+$hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($role ?? '')));
 
 $avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
 
@@ -348,8 +326,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                 </div>
             <?php endif; ?>
 
-            <!-- Domain Section - 只有与 c168 相关且角色为 owner/admin 的用户可见 -->
-            <?php if ((empty($permissions) || in_array('domain', $permissions)) && $hasC168Access): ?>
+            <!-- Domain：C168 + userlist 角色白名单（不再要求 permissions 勾选 domain） -->
+            <?php if ($hasC168DomainPageAccess): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="domain.php"
                         onclick="window.location.href='domain.php'">
@@ -362,9 +340,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                 </div>
             <?php endif; ?>
 
-            <!-- Announcement Section - Only C168 owner/admin can see and access (to publish/manage announcements) -->
-            <!-- All users can view announcements in dashboard, but only C168 can publish/manage -->
-            <?php if ($hasC168Access): ?>
+            <!-- Announcement：C168 + 与 Domain 相同的 userlist 角色白名单 -->
+            <?php if ($hasC168DomainPageAccess): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="announcement.php"
                         onclick="window.location.href='announcement.php'">
