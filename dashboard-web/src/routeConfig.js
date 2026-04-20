@@ -13,7 +13,7 @@ export const routeConfig = [
     migrated: false
   },
   { path: '/dashboard', legacyFile: 'dashboard.php', title: 'Transaction Dashboard', migrated: true },
-  { path: '/member', legacyFile: 'member.php', title: 'Member', migrated: false },
+  { path: '/member', legacyFile: 'member.php', title: 'Member', migrated: true },
   { path: '/account-list', legacyFile: 'account-list.php', title: 'Account list', migrated: false },
   { path: '/add-account', legacyFile: 'add-account.php', title: 'Add account', migrated: false },
   { path: '/announcement', legacyFile: 'announcement.php', title: 'Announcement', migrated: false },

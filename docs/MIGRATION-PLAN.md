@@ -50,7 +50,7 @@
 
 建议顺序（可按你业务调整）：
 
-1. `member.php`
+1. ✅ `member.php` → React `MemberPage.jsx`（`#/member`），`member.js` 仍负责 Flatpickr、汇总与表格；PHP 注入 `__MEMBER_BOOTSTRAP`（公司列表、日期默认值、debug 开关）。
 2. `transaction.php`、`processlist.php`
 3. `datacapture.php`、`datacapturesummary.php`
 4. `account-list.php`、`add-account.php`

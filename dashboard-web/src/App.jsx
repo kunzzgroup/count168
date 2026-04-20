@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import DashboardPage from './DashboardPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import MemberPage from './pages/MemberPage.jsx'
 import PlaceholderPage from './pages/PlaceholderPage.jsx'
 import { routeConfig } from './routeConfig.js'
 
@@ -21,10 +22,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/member" element={<MemberPage />} />
         <Route path="/" element={<RootRedirect />} />
 
         {routeConfig
-          .filter((r) => r.path !== '/dashboard' && r.path !== '/login')
+          .filter((r) => r.path !== '/dashboard' && r.path !== '/login' && r.path !== '/member')
           .map((r) => (
             <Route
               key={r.path}

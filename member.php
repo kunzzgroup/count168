@@ -148,6 +148,28 @@ $days_to_monday = $day_of_week === 0 ? 6 : $day_of_week - 1;
 $monday_dt = (clone $today_dt)->modify("-{$days_to_monday} days");
 $default_date_from = $monday_dt->format('d/m/Y');
 $default_date_to = $today_dt->format('d/m/Y');
+
+$hasIntegrityWarnings = !empty($debugInfo['missing_company_ids']) || !empty($debugInfo['error']) || !empty($debugInfo['exception']);
+$showMemberDebug = isset($debugInfo) && is_array($debugInfo) && ((empty($memberCompanies) && !empty($debugInfo)) || $hasIntegrityWarnings);
+
+$memberBootstrap = [
+    'defaultDateFrom' => $default_date_from,
+    'defaultDateTo' => $default_date_to,
+    'captureDateRangeDisplay' => $default_date_from . ' - ' . $default_date_to,
+    'memberCompanies' => array_values(is_array($memberCompanies) ? $memberCompanies : []),
+    'currentCompanyId' => (int)$currentCompanyId,
+    'showCompanyFilter' => (!empty($memberCompanies) && is_array($memberCompanies) && count($memberCompanies) > 1),
+    'showDebug' => $showMemberDebug,
+    'debugInfo' => $debugInfo,
+];
+
+$assetVer = function ($file) {
+    $path = __DIR__ . '/' . $file;
+    return file_exists($path) ? filemtime($path) : time();
+};
+$reactBundlePath = __DIR__ . '/dashboard-app/assets/dashboard-react.js';
+$reactBundleOk = is_file($reactBundlePath);
+$reactBundleVer = $reactBundleOk ? filemtime($reactBundlePath) : time();
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -158,146 +180,33 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/member.css?v=<?php echo file_exists('css/member.css') ? filemtime('css/member.css') : time(); ?>">
-    <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
-    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
+    <link rel="stylesheet" href="css/member.css?v=<?php echo $assetVer('css/member.css'); ?>">
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
+    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists(__DIR__ . '/css/global-13inch.css') ? filemtime(__DIR__ . '/css/global-13inch.css') : time(); ?>">
 </head>
 <body class="transaction-page member-winloss-page">
     <?php include 'sidebar.php'; ?>
-    <!-- member-page-v2: Currency + Report section always rendered -->
-    <div class="transaction-container">
-        <h1 class="transaction-title">Win/Loss</h1>
-        <div class="transaction-separator-line"></div>
 
-        <div class="transaction-main-content">
-            <div class="transaction-search-section" style="flex:1;">
-                <div class="transaction-form-group transaction-capture-date-group">
-                    <label class="transaction-label transaction-date-range-label">Capture Date</label>
-                    <div class="transaction-capture-date-row">
-                        <div class="transaction-date-range-wrap" id="capture_date_range_wrap">
-                            <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-                            <input type="text" id="capture_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
-                        </div>
-                        <div class="transaction-quick-select-wrap">
-                            <div class="dropdown transaction-quick-select-dropdown">
-                                <button type="button" class="btn btn-secondary dropdown-toggle transaction-quick-select-btn" onclick="toggleQuickSelectDropdown()">
-                                    <i class="fas fa-calendar-alt"></i>
-                                    <span id="quick-select-text">Period</span>
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
-                                <div class="dropdown-menu" id="quick-select-dropdown">
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <input type="hidden" id="date_from" value="<?php echo $default_date_from; ?>">
-                    <input type="hidden" id="date_to" value="<?php echo $default_date_to; ?>">
-                </div>
-                <?php
-                try {
-                    // 仅在有 2 个及以上公司时显示 Company 选项；0/1 个时隐藏
-                    if (!empty($memberCompanies) && is_array($memberCompanies) && count($memberCompanies) > 1):
-                        $currentCompanyIdSafe = (int)($currentCompanyId ?? 0);
-                ?>
-                <div class="member-company-filter" id="member_company_filter" style="display:flex;visibility:visible;">
-                    <span class="transaction-company-label">Company:</span>
-                    <div id="member_company_buttons" class="transaction-company-buttons member-currency-buttons">
-                        <?php foreach ($memberCompanies as $company):
-                            $company = is_array($company) ? $company : [];
-                            $compId   = (int)($company['id'] ?? 0);
-                            $compCode = strtoupper((string)($company['company_id'] ?? ''));
-                            $compName = (string)($company['company_name'] ?? $compCode);
-                            $isActive = ($compId > 0 && $compId === $currentCompanyIdSafe);
-                            if ($compId <= 0) continue;
-                        ?>
-                            <button
-                                type="button"
-                                class="transaction-company-btn<?php echo $isActive ? ' active' : ''; ?>"
-                                data-company-id="<?php echo $compId; ?>"
-                                data-company-label="<?php echo htmlspecialchars($compCode ?: $compName, ENT_QUOTES); ?>"
-                            >
-                                <?php echo htmlspecialchars($compCode ?: $compName, ENT_QUOTES); ?>
-                            </button>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php else: ?>
-                <?php
-                    // 0 个公司时显示 debug；或有数据完整性警告（missing_company_ids/error/exception）时也显示，不因“仅 1 个公司”而隐藏
-                    $hasIntegrityWarnings = !empty($debugInfo['missing_company_ids']) || !empty($debugInfo['error']) || !empty($debugInfo['exception']);
-                    $showDebug = isset($debugInfo) && is_array($debugInfo) && ((empty($memberCompanies) && !empty($debugInfo)) || $hasIntegrityWarnings);
-                ?>
-                <?php if ($showDebug): ?>
-                <div class="member-alert member-alert-error" style="display: block; margin-top: 12px;">
-                    <strong>Debug Info:</strong> <?php echo empty($memberCompanies) ? 'No associated companies found.' : 'Company data integrity warning.'; ?>
-                    <br>User ID: <?php echo htmlspecialchars($debugInfo['user_id'] ?? 'N/A'); ?>,
-                    User Type: <?php echo htmlspecialchars($debugInfo['user_type'] ?? 'N/A'); ?>,
-                    Account Company Records: <?php echo htmlspecialchars($debugInfo['account_company_count'] ?? '0'); ?>
-                    <?php if (!empty($debugInfo['stored_company_ids'])): ?>
-                        <br>Stored Company IDs: <?php echo htmlspecialchars(implode(', ', (array)$debugInfo['stored_company_ids'])); ?>
-                    <?php endif; ?>
-                    <?php if (!empty($debugInfo['existing_company_ids'])): ?>
-                        <br>Existing Company IDs: <?php echo htmlspecialchars(implode(', ', (array)$debugInfo['existing_company_ids'])); ?>
-                    <?php endif; ?>
-                    <?php if (!empty($debugInfo['missing_company_ids'])): ?>
-                        <br><strong style="color: red;">Missing Company IDs: <?php echo htmlspecialchars(implode(', ', (array)$debugInfo['missing_company_ids'])); ?></strong>
-                    <?php endif; ?>
-                    <?php if (isset($debugInfo['companies_found'])): ?>
-                        <br>Companies Found: <?php echo htmlspecialchars($debugInfo['companies_found']); ?>
-                    <?php endif; ?>
-                    <?php if (!empty($debugInfo['used_direct_query'])): ?>
-                        <br><strong style="color: orange;">Used direct query (skipped JOIN)</strong>
-                    <?php endif; ?>
-                    <?php if (!empty($debugInfo['error'])): ?>
-                        <br><strong>Error:</strong> <?php echo htmlspecialchars($debugInfo['error']); ?>
-                    <?php endif; ?>
-                </div>
-                <?php endif; ?>
-                <?php endif; ?>
-                <?php
-                } catch (Throwable $e) {
-                    error_log('Member page company block: ' . $e->getMessage());
-                    echo '<div class="member-alert member-alert-error" style="display:block;margin-top:12px;">Company list unavailable.</div>';
-                }
-                ?>
-                <div class="member-account-filter transaction-company-filter" id="member_account_filter" style="display:none;">
-                    <span class="transaction-company-label">Account:</span>
-                    <div id="member_account_buttons" class="transaction-company-buttons member-currency-buttons">
-                        <span class="member-account-loading" id="member_account_loading">Loading...</span>
-                    </div>
-                </div>
-                <div class="transaction-company-filter member-currency-filter" id="member_currency_filter" style="display:flex;visibility:visible;">
-                    <span class="transaction-company-label">Currency:</span>
-                    <div id="member_currency_buttons" class="transaction-company-buttons member-currency-buttons"></div>
-                </div>
-            </div>
+    <?php if (!$reactBundleOk): ?>
+        <div style="padding: 2rem; font-family: system-ui, sans-serif; max-width: 40rem;">
+            <p><strong>React 未构建。</strong>请在 <code>dashboard-web</code> 执行 <code>npm install</code> 与 <code>npm run build</code>。</p>
+            <p>产物：<code>dashboard-app/assets/dashboard-react.js</code></p>
         </div>
+    <?php else: ?>
+        <script>
+            window.MEMBER_ACCOUNT_ID = <?php echo (int)$accountDbId; ?>;
+            window.MEMBER_ACCOUNT_CODE = <?php echo json_encode($accountCode ?? ''); ?>;
+            window.MEMBER_ACCOUNT_NAME = <?php echo json_encode($accountName ?? ''); ?>;
+            window.MEMBER_COMPANY_ID = <?php echo (int)$currentCompanyId; ?>;
+            window.__MEMBER_BOOTSTRAP = <?php echo json_encode($memberBootstrap, JSON_UNESCAPED_UNICODE); ?>;
+            window.__SPA_DEFAULT_ROUTE = '/member';
+            window.__COUNT_ASSET_BASE = '';
+            window.__MEMBER_JS_VER = <?php echo (int)$assetVer('js/member.js'); ?>;
+        </script>
+        <div id="root"></div>
+        <script type="module" src="dashboard-app/assets/dashboard-react.js?v=<?php echo (int)$reactBundleVer; ?>"></script>
+    <?php endif; ?>
 
-        <div class="member-currency-section" id="member_currency_tables_section" style="display:flex;visibility:visible;">
-            <div id="member_currency_tables" class="member-currency-tables">
-                <p class="member-currency-empty" style="margin:0;">Loading...</p>
-            </div>
-        </div>
-
-        <div id="notificationContainer" class="transaction-notification-container"></div>
-    </div>
-
-    <script>
-        window.MEMBER_ACCOUNT_ID = <?php echo $accountDbId; ?>;
-        window.MEMBER_ACCOUNT_CODE = <?php echo json_encode($accountCode ?? ''); ?>;
-        window.MEMBER_ACCOUNT_NAME = <?php echo json_encode($accountName ?? ''); ?>;
-        window.MEMBER_COMPANY_ID = <?php echo (int)$currentCompanyId; ?>;
-    </script>
-    <script src="js/member.js?v=<?php echo file_exists('js/member.js') ? filemtime('js/member.js') : time(); ?>"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>

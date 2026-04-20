@@ -11,7 +11,7 @@ let memberCurrencyDisplayOrder = null;
 const memberSelectedCurrencies = new Set();
 let memberIsAllSelected = true;
 
-document.addEventListener('DOMContentLoaded', () => {
+function memberLegacyBootstrap() {
     const filterEl = document.getElementById('member_currency_filter');
     const sectionEl = document.getElementById('member_currency_tables_section');
     console.log('Member page: currency_filter exists=', !!filterEl, 'tables_section exists=', !!sectionEl);
@@ -29,7 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMemberLinkedAccounts();
     // 立即发起数据请求，不等待 150ms，缩短首屏加载时间
     performMemberSearch();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', memberLegacyBootstrap);
+} else {
+    memberLegacyBootstrap();
+}
 
 function performMemberSearch() {
     fetchMemberSummary()
