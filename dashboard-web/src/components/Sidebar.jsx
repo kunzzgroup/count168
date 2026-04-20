@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { applySidebarGlobals } from '../lib/applySidebarGlobals.js'
+import { spaPathForLegacyPhp } from '../lib/spaLegacyNav.js'
 
 const MALE_IDS = ['male1', 'male2', 'male3', 'male4', 'male5', 'male6', 'male7', 'male8', 'male9']
 const FEMALE_IDS = ['female1', 'female2', 'female3', 'female4', 'female5', 'female6', 'female7', 'female8', 'female9']
@@ -62,8 +63,15 @@ export default function Sidebar() {
     window.closeSidebar?.()
   }
 
-  const goPhp = (href) => () => {
-    window.location.href = href
+  /** 已在 routeConfig 登记的 legacy 页走 HashRouter，其余仍整页 PHP */
+  const goShellOrPhp = (legacyFile) => () => {
+    const path = spaPathForLegacyPhp(legacyFile)
+    if (path) {
+      navigate(path)
+      window.closeSidebar?.()
+    } else {
+      window.location.href = legacyFile
+    }
   }
 
   useEffect(() => {
@@ -339,7 +347,7 @@ export default function Sidebar() {
 
           {canPerm(p, 'domain') && b.hasC168Access && showNav('domain') ? (
             <div className="informationmenu-section">
-              <div className="informationmenu-section-title" data-page="domain.php" onClick={goPhp('domain.php')} role="button" tabIndex={0}>
+              <div className="informationmenu-section-title" data-page="domain.php" onClick={goShellOrPhp('domain.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                 </svg>
@@ -353,7 +361,7 @@ export default function Sidebar() {
               <div
                 className="informationmenu-section-title account-direct"
                 data-page="announcement.php"
-                onClick={goPhp('announcement.php')}
+                onClick={goShellOrPhp('announcement.php')}
                 role="button"
                 tabIndex={0}
               >
@@ -367,7 +375,7 @@ export default function Sidebar() {
 
           {canPerm(p, 'admin') && showNav('admin') ? (
             <div className="informationmenu-section">
-              <div className="informationmenu-section-title account-direct" data-page="userlist.php" onClick={goPhp('userlist.php')} role="button" tabIndex={0}>
+              <div className="informationmenu-section-title account-direct" data-page="userlist.php" onClick={goShellOrPhp('userlist.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                 </svg>
@@ -382,7 +390,7 @@ export default function Sidebar() {
                 <div
                   className="informationmenu-section-title account-direct"
                   data-page="account-list.php"
-                  onClick={goPhp('account-list.php')}
+                  onClick={goShellOrPhp('account-list.php')}
                   role="button"
                   tabIndex={0}
                 >
@@ -393,7 +401,7 @@ export default function Sidebar() {
                 </div>
               </div>
               <div className="informationmenu-section">
-                <div className="informationmenu-section-title account-direct" data-page="ownership.php" onClick={goPhp('ownership.php')} role="button" tabIndex={0}>
+                <div className="informationmenu-section-title account-direct" data-page="ownership.php" onClick={goShellOrPhp('ownership.php')} role="button" tabIndex={0}>
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
                   </svg>
@@ -405,7 +413,7 @@ export default function Sidebar() {
 
           {canPerm(p, 'process') && showNav('process') ? (
             <div className="informationmenu-section">
-              <div className="informationmenu-section-title" data-page="processlist.php" onClick={goPhp('processlist.php')} role="button" tabIndex={0}>
+              <div className="informationmenu-section-title" data-page="processlist.php" onClick={goShellOrPhp('processlist.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                 </svg>
@@ -416,7 +424,7 @@ export default function Sidebar() {
 
           {canPerm(p, 'datacapture') && showNav('datacapture') ? (
             <div className="informationmenu-section" id="sidebar-datacapture-section" style={{ display: b.companyHasGambling ? undefined : 'none' }}>
-              <div className="informationmenu-section-title" data-page="datacapture.php" onClick={goPhp('datacapture.php')} role="button" tabIndex={0}>
+              <div className="informationmenu-section-title" data-page="datacapture.php" onClick={goShellOrPhp('datacapture.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
                 </svg>
@@ -427,7 +435,7 @@ export default function Sidebar() {
 
           {canPerm(p, 'payment') && showNav('payment') ? (
             <div className="informationmenu-section">
-              <div className="informationmenu-section-title" data-page="transaction.php" onClick={goPhp('transaction.php')} role="button" tabIndex={0}>
+              <div className="informationmenu-section-title" data-page="transaction.php" onClick={goShellOrPhp('transaction.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
                 </svg>
@@ -448,12 +456,12 @@ export default function Sidebar() {
                 </div>
                 <div className="submenu" id="report-submenu">
                   <div className="submenu-content">
-                    <a href="customer_report.php" className="submenu-item">
+                    <Link to="/customer-report" className="submenu-item" onClick={() => window.closeSidebar?.()}>
                       <span>Customer Report</span>
-                    </a>
-                    <a href="domain_report.php" className="submenu-item">
+                    </Link>
+                    <Link to="/domain-report" className="submenu-item" onClick={() => window.closeSidebar?.()}>
                       <span>Domain Report</span>
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -473,34 +481,45 @@ export default function Sidebar() {
                 <div className="submenu" id="maintenance-submenu">
                   <div className="submenu-content">
                     {b.companyHasGambling && b.hasMaintenance ? (
-                      <a href="capture_maintenance.php" className="submenu-item" id="maintenance-capture-link">
+                      <Link
+                        to="/capture-maintenance"
+                        className="submenu-item"
+                        id="maintenance-capture-link"
+                        onClick={() => window.closeSidebar?.()}
+                      >
                         <span>Data Capture</span>
-                      </a>
+                      </Link>
                     ) : null}
                     {b.companyHasGambling && b.hasMaintenance ? (
-                      <a href="transaction_maintenance.php" className="submenu-item" id="maintenance-transaction-link">
+                      <Link
+                        to="/transaction-maintenance"
+                        className="submenu-item"
+                        id="maintenance-transaction-link"
+                        onClick={() => window.closeSidebar?.()}
+                      >
                         <span>Transaction</span>
-                      </a>
+                      </Link>
                     ) : null}
                     {b.hasMaintenance ? (
-                      <a href="payment_maintenance.php" className="submenu-item">
+                      <Link to="/payment-maintenance" className="submenu-item" onClick={() => window.closeSidebar?.()}>
                         <span>Payment</span>
-                      </a>
+                      </Link>
                     ) : null}
                     {b.companyHasGambling ? (
-                      <a href="formula_maintenance.php" className="submenu-item" id="maintenance-formula-link">
+                      <Link to="/formula-maintenance" className="submenu-item" id="maintenance-formula-link" onClick={() => window.closeSidebar?.()}>
                         <span>Formula</span>
-                      </a>
+                      </Link>
                     ) : null}
                     {b.hasMaintenance ? (
-                      <a
-                        href="bankprocess_maintenance.php"
+                      <Link
+                        to="/bankprocess-maintenance"
                         className="submenu-item"
                         id="maintenance-process-link"
                         style={{ display: b.companyHasBank ? undefined : 'none' }}
+                        onClick={() => window.closeSidebar?.()}
                       >
                         <span>Process</span>
-                      </a>
+                      </Link>
                     ) : null}
                   </div>
                 </div>
