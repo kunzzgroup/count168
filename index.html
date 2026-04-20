@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Spring 根（无尾斜杠）。留空=与当前页同协议同主机（须 Nginx 把 /api 反代到 Spring，见 nginx-api-proxy.example.conf） -->
+  <meta name="eazycount-api-base" content="" />
+  <title>EazyCount</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/index.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/global-13inch.css" />
+  <script>
+    (function () {
+      var q = new URLSearchParams(window.location.search || '')
+      if (q.get('logout') === '1') {
+        document.cookie = 'remember_token=; path=/; max-age=0'
+        var clean = window.location.pathname || '/'
+        window.history.replaceState(null, '', clean)
+      }
+      var r = q.get('r')
+      if (r && r.charAt(0) === '/') {
+        if (!window.location.hash || window.location.hash === '#') {
+          window.location.hash = '#' + r
+        }
+      }
+    })()
+    window.__SPA_DEFAULT_ROUTE = '/login'
+    ;(function () {
+      var m = document.querySelector('meta[name="eazycount-api-base"]')
+      var fromMeta = m && m.getAttribute('content')
+      if (fromMeta != null && String(fromMeta).trim() !== '') {
+        window.__API_BASE_URL__ = String(fromMeta).trim().replace(/\/$/, '')
+        return
+      }
+      var h = window.location.hostname || ''
+      if (!h && window.location.protocol === 'file:') {
+        window.__API_BASE_URL__ = 'http://127.0.0.1:8090'
+        return
+      }
+      var local =
+        /^(127\.0\.0\.1|localhost)$/i.test(h) ||
+        h === '[::1]' ||
+        /^192\.168\.\d{1,3}\.\d{1,3}$/.test(h) ||
+        /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)
+      if (local) {
+        window.__API_BASE_URL__ = 'http://127.0.0.1:8090'
+        return
+      }
+      window.__API_BASE_URL__ = window.location.origin
+    })()
+  </script>
+  <script src="js/api-bridge.js"></script>
+  <link rel="stylesheet" href="dashboard-app/assets/dashboard-react.css" />
+  <!-- 若登录仍 404：① Nginx 见 nginx-count168.site.example.conf；② Apache 用 .htaccess + spring-api-bridge.php；③ 或在 meta eazycount-api-base 填可访问的 Spring 根 -->
+</head>
+<body class="bg">
+  <div id="root"></div>
+  <script type="module" src="dashboard-app/assets/dashboard-react.js"></script>
+</body>
+</html>

@@ -1,10 +1,11 @@
 <?php
 /**
- * 公告列表 API：获取管理端公告列表（需 C168 + owner/admin）
+ * 公告列表 API：获取管理端公告列表（需 C168 + 后台职员角色）
  * 路径: api/announcements/announcement_list_api.php
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../inc/c168_staff_roles.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
@@ -71,8 +72,8 @@ try {
         return;
     }
 
-    $userRole = strtolower($_SESSION['role'] ?? '');
-    if (!in_array($userRole, ['owner', 'admin'], true)) {
+    $userRole = strtolower(trim($_SESSION['role'] ?? ''));
+    if (!eazycount_is_c168_sidebar_staff_role($userRole)) {
         http_response_code(403);
         jsonResponse(false, 'No permission to access this function', null);
         return;

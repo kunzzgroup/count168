@@ -8,178 +8,18 @@ if (session_status() == PHP_SESSION_NONE) {
 if (!isset($_SESSION['user_id'])) {
     // 如果未登录，输出 JavaScript 重定向到登录页
     // 这样可以确保整个页面都停止工作，而不仅仅是 sidebar 消失
-    echo '<script>window.location.href = "index.php";</script>';
+    echo '<script>window.location.href = "index.html";</script>';
     exit();
 }
 
-$isMember = isset($_SESSION['user_type']) && strtolower($_SESSION['user_type']) === 'member';
-
-// 获取用户信息
-$user_id = $_SESSION['user_id'];
-$login_id = $_SESSION['login_id'] ?? '';
-$name = $_SESSION['name'] ?? '';
-$role = $_SESSION['role'] ?? '';
-
-require_once 'config.php';
-$permissions = [];
-
-// 获取用户权限（仅针对 member 用户）
-if (!$isMember) {
-    $stmt = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
-    $stmt->execute([$user_id]);
-    $userPermissions = $stmt->fetchColumn();
-    $permissions = $userPermissions ? json_decode($userPermissions, true) : [];
-}
-
-// 检查当前登录用户是否为 owner/admin 并与 c168 相关（仅当前选中公司）
-$hasC168Access = false;
-$companyId = $_SESSION['company_id'] ?? null;  // company 的数字主键（移到外边，确保作用域正确）
-if ($user_id) {
-    $roleLower = strtolower($role ?? '');
-    $companyCode = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选择的公司代码
-
-    if (in_array($roleLower, ['owner', 'admin'], true)) {
-        // 条件1：登录时选择的公司代码就是 c168
-        if ($companyCode === 'C168') {
-            $hasC168Access = true;
-        } elseif ($companyId) {
-            // 条件2：当前选中公司在 company 表中确认为 c168
-            try {
-                $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-                $stmt->execute([$companyId]);
-                $hasC168Access = $stmt->fetchColumn() > 0;
-            } catch (PDOException $e) {
-                error_log("检查 c168 权限失败: " . $e->getMessage());
-                $hasC168Access = false;
-            }
-        }
-    }
-}
-
-// 当前选中公司是否为 C168（用于侧边栏菜单显示控制，不受角色限制）
-$isCurrentCompanyC168 = false;
-$currentCompanyCode = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
-if ($currentCompanyCode === 'C168') {
-    $isCurrentCompanyC168 = true;
-} elseif ($companyId) {
-    try {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-        $stmt->execute([$companyId]);
-        $isCurrentCompanyC168 = $stmt->fetchColumn() > 0;
-    } catch (PDOException $e) {
-        error_log("检查当前公司是否 c168 失败: " . $e->getMessage());
-        $isCurrentCompanyC168 = false;
-    }
-}
-
-// 仅当“当前公司是 C168”且“角色为 owner/admin”时，才启用 C168 专属菜单
-$hasC168Access = $isCurrentCompanyC168 && in_array(strtolower($role ?? ''), ['owner', 'admin'], true);
-
-$avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
-
-// 头像 ID 与路径映射（与前端 avatarImages 一致，用于服务端输出初始 src 避免切换页面混乱）
-$avatarImages = [
-    'male1' => 'images/avatar1.png',
-    'male2' => 'images/avatar2.png',
-    'male3' => 'images/avatar3.png',
-    'male4' => 'images/avatar4.png',
-    'male5' => 'images/avatar5.png',
-    'male6' => 'images/avatar6.png',
-    'male7' => 'images/avatar7.png',
-    'male8' => 'images/avatar8.png',
-    'male9' => 'images/avatar9.png',
-    'female1' => 'images/female1.png',
-    'female2' => 'images/female2.png',
-    'female3' => 'images/female3.png',
-    'female4' => 'images/female4.png',
-    'female5' => 'images/female5.png',
-    'female6' => 'images/female6.png',
-    'female7' => 'images/female7.png',
-    'female8' => 'images/female8.png',
-    'female9' => 'images/female9.png'
-];
-$avatarId = isset($_COOKIE['selectedAvatar']) && isset($avatarImages[$_COOKIE['selectedAvatar']])
-    ? $_COOKIE['selectedAvatar']
-    : 'male1';
-$initialAvatarSrc = $avatarImages[$avatarId];
-
-// 获取当前公司的到期日期
-$company_expiration_date = null;
-$expiration_countdown_text = '';
-$expiration_status = 'normal';
-if ($companyId) {
-    try {
-        $stmt = $pdo->prepare("SELECT expiration_date FROM company WHERE id = ?");
-        $stmt->execute([$companyId]);
-        $company_expiration_date = $stmt->fetchColumn();
-
-        // 在 PHP 端计算倒计时（使用 $now 避免覆盖包含页的 $today，如 member.php 的日期显示）
-        if ($company_expiration_date) {
-            $now = new DateTime();
-            $now->setTime(0, 0, 0);
-            $expiration = new DateTime($company_expiration_date);
-            $expiration->setTime(0, 0, 0);
-
-            $diff = $now->diff($expiration);
-            $diffDays = (int) $diff->format('%r%a'); // 带符号的天数差
-
-            if ($diffDays < 0) {
-                $expiration_countdown_text = 'Expired';
-                $expiration_status = 'expired';
-            } else if ($diffDays === 0) {
-                $expiration_countdown_text = 'Expires today';
-                $expiration_status = 'warning';
-            } else if ($diffDays <= 7) {
-                $expiration_countdown_text = $diffDays . ' day' . ($diffDays > 1 ? 's' : '') . ' left';
-                $expiration_status = 'warning';
-            } else if ($diffDays <= 30) {
-                $expiration_countdown_text = $diffDays . ' days left';
-                $expiration_status = 'normal';
-            } else {
-                $months = floor($diffDays / 30);
-                $days = $diffDays % 30;
-                if ($days === 0) {
-                    $expiration_countdown_text = $months . ' month' . ($months > 1 ? 's' : '') . ' left';
-                } else {
-                    $expiration_countdown_text = $months . 'm ' . $days . 'd left';
-                }
-                $expiration_status = 'normal';
-            }
-        } else {
-            $expiration_countdown_text = 'No expiration date';
-            $expiration_status = 'normal';
-        }
-    } catch (PDOException $e) {
-        error_log("获取公司到期日期失败: " . $e->getMessage());
-        $company_expiration_date = null;
-        $expiration_countdown_text = 'No expiration date';
-        $expiration_status = 'normal';
-    }
-}
-
-// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 在 hasMaintenance 时始终输出 DOM（无 Bank 则默认隐藏），切换公司后由 has_bank + js/sidebar.js 控制；含 Games 时 Process 仅 Category=Bank（localStorage）显示；Bank 视图下 Data Capture/Transaction/Formula 由 js 隐藏
-$companyHasGambling = false;
-$companyCategories = [];
-if ($companyId) {
-    try {
-        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
-        $stmt->execute([$companyId]);
-        $permsJson = $stmt->fetchColumn();
-        if ($permsJson) {
-            $companyPerms = json_decode($permsJson, true);
-            $companyCategories = is_array($companyPerms) ? $companyPerms : [];
-            $companyHasGambling = in_array('Games', $companyCategories) || in_array('Gambling', $companyCategories);
-        }
-    } catch (PDOException $e) {
-        error_log("获取公司权限失败: " . $e->getMessage());
-    }
-}
-$companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategories);
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/inc/sidebar_bootstrap.php';
+extract(eazycount_sidebar_bootstrap($pdo), EXTR_SKIP);
 ?>
 <!--
 ================================================================================
   sidebar.php 为被 include 的片段，不在此处添加 <link> / <script src>。
-  请在主页面（如 account-list.php、dashboard.php 等）的 <head> 中加入：
+  请在主页面（如 account-list.php、index.html 等）的 <head> 中加入：
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>" defer></script>
   如需 favicon 与头像预加载，可在主页面 <head> 中按需添加。
@@ -326,7 +166,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <!-- Member Win/Loss -->
             <div class="informationmenu-section">
                 <div class="informationmenu-section-title account-direct" data-page="member.php"
-                    onclick="window.location.href='member.php'">
+                    onclick="window.location.href='index.html?r=/member'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path
                             d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
@@ -339,7 +179,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php if (empty($permissions) || in_array('home', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="dashboard.php"
-                        onclick="window.location.href='dashboard.php'">
+                        onclick="window.location.href='index.html?r=/dashboard'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                         </svg>
@@ -495,7 +335,6 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
-            <?php $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions)); ?>
             <div class="informationmenu-section">
                 <div class="menu-item-wrapper">
                     <div class="informationmenu-section-title" data-section="maintenance">

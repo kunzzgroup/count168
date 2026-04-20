@@ -5,13 +5,17 @@ const memberConfig = {
     companyId: (typeof window.MEMBER_COMPANY_ID !== 'undefined' ? window.MEMBER_COMPANY_ID : 0)
 };
 
+function apiUrl(pathAndQuery) {
+    return typeof window.resolveApiPath === 'function' ? window.resolveApiPath(pathAndQuery) : pathAndQuery;
+}
+
 let memberCurrencySummary = [];
 const memberCurrencySortOrder = new Map();
 let memberCurrencyDisplayOrder = null;
 const memberSelectedCurrencies = new Set();
 let memberIsAllSelected = true;
 
-document.addEventListener('DOMContentLoaded', () => {
+function memberLegacyBootstrap() {
     const filterEl = document.getElementById('member_currency_filter');
     const sectionEl = document.getElementById('member_currency_tables_section');
     console.log('Member page: currency_filter exists=', !!filterEl, 'tables_section exists=', !!sectionEl);
@@ -29,7 +33,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMemberLinkedAccounts();
     // 立即发起数据请求，不等待 150ms，缩短首屏加载时间
     performMemberSearch();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', memberLegacyBootstrap);
+} else {
+    memberLegacyBootstrap();
+}
 
 function performMemberSearch() {
     fetchMemberSummary()
@@ -179,7 +189,7 @@ function setupCompanyButtons() {
             return;
         }
 
-        const url = `api/session/update_company_session_api.php?company_id=${companyId}&_t=${Date.now()}`;
+        const url = apiUrl(`api/session/update_company_session_api.php?company_id=${companyId}&_t=${Date.now()}`);
         fetch(url, { cache: 'no-cache' })
             .then(res => res.text())
             .then(text => parseJsonResponse(text))
@@ -222,7 +232,7 @@ function loadMemberLinkedAccounts() {
         if (filterEl) filterEl.style.display = 'none';
         return;
     }
-    fetch(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
+    fetch(apiUrl(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`), { cache: 'no-cache' })
         .then(res => res.text())
         .then(text => {
             let data;
@@ -283,7 +293,7 @@ function setupAccountButtons() {
             const code = btn.dataset.accountCode || '';
             const name = btn.dataset.accountName || '';
             if (!accountId || accountId === memberConfig.accountId) return;
-            fetch(`api/session/update_account_session_api.php?account_id=${accountId}&_t=${Date.now()}`, { cache: 'no-cache' })
+            fetch(apiUrl(`api/session/update_account_session_api.php?account_id=${accountId}&_t=${Date.now()}`), { cache: 'no-cache' })
                 .then(res => res.text())
                 .then(text => parseJsonResponse(text))
                 .then(data => {
@@ -434,7 +444,7 @@ function fetchMemberSummary() {
             hide_zero_balance: '0'
         });
 
-        const url = `api/transactions/search_api.php?${params.toString()}&_t=${Date.now()}`;
+        const url = apiUrl(`api/transactions/search_api.php?${params.toString()}&_t=${Date.now()}`);
         fetch(url, { cache: 'no-cache' })
             .then(res => res.text())
             .then(text => parseJsonResponse(text))
@@ -546,7 +556,7 @@ function getAvailableCurrencies() {
 }
 
 function loadMemberCurrencyOrder() {
-    return fetch('api/transactions/user_currency_order_api.php?_t=' + Date.now(), { cache: 'no-cache' })
+    return fetch(apiUrl('api/transactions/user_currency_order_api.php?_t=' + Date.now()), { cache: 'no-cache' })
         .then(res => res.text())
         .then(text => {
             try {
@@ -564,7 +574,7 @@ function loadMemberCurrencyOrder() {
 }
 
 function saveMemberCurrencyOrder(order) {
-    return fetch('api/transactions/user_currency_order_api.php', {
+    return fetch(apiUrl('api/transactions/user_currency_order_api.php'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: order })
@@ -748,7 +758,7 @@ function fetchMemberHistory(forcedFilter) {
             date_to: dateTo,
             company_id: memberConfig.companyId
         });
-        const urlFallback = `api/transactions/history_api.php?${paramsFallback.toString()}&_t=${Date.now()}`;
+        const urlFallback = apiUrl(`api/transactions/history_api.php?${paramsFallback.toString()}&_t=${Date.now()}`);
         fetch(urlFallback, { cache: 'no-cache' })
             .then(res => res.text())
             .then(text => parseJsonResponse(text))
@@ -797,7 +807,7 @@ function fetchMemberHistory(forcedFilter) {
     } else if (targetCurrencies[0]) {
         params.append('currency', targetCurrencies[0]);
     }
-    const url = `api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`;
+    const url = apiUrl(`api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`);
 
     fetch(url, { cache: 'no-cache' })
         .then(res => res.text())

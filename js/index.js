@@ -16,6 +16,8 @@
             overlay.classList.add('is-open');
             overlay.setAttribute('aria-hidden', 'false');
             function close() {
+                const active = document.activeElement;
+                if (active && overlay.contains(active) && typeof active.blur === 'function') active.blur();
                 overlay.classList.remove('is-open');
                 overlay.setAttribute('aria-hidden', 'true');
                 confirmBtn.removeEventListener('click', onConfirm);
@@ -135,14 +137,28 @@
         const currentRole = memberTab.classList.contains('active') ? 'member' : 'admin';
         formData.append('login_role', currentRole);
 
-        fetch('login_process.php', {
+        function loginApiUrl() {
+            var b = typeof window !== 'undefined' && window.__API_BASE_URL__ ? String(window.__API_BASE_URL__).replace(/\/$/, '') : '';
+            if (b) return b + '/api/auth/login';
+            var path = window.location.pathname || '/';
+            var basePath = path.replace(/[^/]*$/, '') || '/';
+            return new URL('api/auth/spring_login_proxy.php', window.location.origin + basePath).href;
+        }
+
+        fetch(loginApiUrl(), {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         })
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.bootstrapToken) {
+                var dir = window.location.pathname.replace(/[^/]*$/, '') || '/';
+                window.location.href = dir + 'login_bootstrap.php?t=' + encodeURIComponent(data.bootstrapToken);
+            } else if (data.status === 'success' && data.redirect) {
                 window.location.href = data.redirect;
+            } else if (data.status === 'success') {
+                showAlertModal('Notice', 'Login response incomplete');
             } else {
                 showAlertModal('Notice', data.message);
             }

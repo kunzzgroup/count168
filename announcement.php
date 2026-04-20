@@ -1,19 +1,19 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once __DIR__ . '/inc/c168_staff_roles.php';
 
 // 不缓存 HTML，部署后刷新即可拿到带最新 ?v= 的页面
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-// 检查当前登录用户是否为 owner/admin 且与 c168 相关
+// 检查当前登录用户是否为 C168 后台职员角色且当前公司为 C168
 $user_id      = $_SESSION['user_id']  ?? null;
-$user_role    = strtolower($_SESSION['role'] ?? '');
+$user_role    = strtolower(trim($_SESSION['role'] ?? ''));
 $company_id   = $_SESSION['company_id'] ?? null;
 $company_code = strtoupper($_SESSION['company_code'] ?? '');
 
-// 角色必须是 owner 或 admin
-$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
+$isC168Staff = eazycount_is_c168_sidebar_staff_role($user_role);
 
 // 检查是否为C168
 $isC168ByCode = ($company_code === 'C168');
@@ -31,8 +31,8 @@ if ($company_id) {
 
 $hasC168Context = ($isC168ByCode || $isC168ById);
 
-if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
-    header("Location: dashboard.php");
+if (!$user_id || !$isC168Staff || !$hasC168Context) {
+    header("Location: index.php?r=/dashboard");
     exit();
 }
 ?>

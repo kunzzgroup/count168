@@ -1,14 +1,15 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once __DIR__ . '/inc/c168_staff_roles.php';
 
 // 强制浏览器使用最新 JS/CSS，避免旧缓存导致 permission/Expiration Date 行为异常
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-// 检查当前登录用户是否为 owner/admin 且与 c168 相关
+// 检查当前登录用户是否为 C168 后台职员且当前公司为 C168
 $user_id      = $_SESSION['user_id']  ?? null;
-$user_role    = strtolower($_SESSION['role'] ?? '');
+$user_role    = strtolower(trim($_SESSION['role'] ?? ''));
 $company_id   = $_SESSION['company_id'] ?? null;      // company 表数字主键
 // 按 id 同步 company_code，避免 Remember me 等场景下 code 缺失导致无法进入本页
 if ($company_id) {
@@ -25,8 +26,8 @@ if ($company_id) {
 }
 $company_code = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选的公司代码
 
-// 角色必须是 owner 或 admin
-$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
+$isC168Staff = eazycount_is_c168_sidebar_staff_role($user_role);
+$isOwnerOrAdminStrict = eazycount_is_c168_owner_or_admin($user_role);
 
 // 条件1：当前 session 的 company_code 就是 c168（登录时选 c168）
 $isC168ByCode = ($company_code === 'C168');
@@ -46,9 +47,9 @@ if ($company_id) {
 
 $hasC168Context = ($isC168ByCode || $isC168ById);
 
-if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
-    // 不是登录用户，或角色不是 owner/admin，或当前公司/登录公司不是 c168，拒绝访问
-    header("Location: dashboard.php");
+if (!$user_id || !$isC168Staff || !$hasC168Context) {
+    // 非 C168 公司或非允许角色时拒绝访问
+    header("Location: index.php?r=/dashboard");
     exit();
 }
 
@@ -102,7 +103,7 @@ try {
     <link rel="stylesheet" href="css/domain.css?v=<?php echo $assetVer('css/domain.css'); ?>">
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
-        window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
+        window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdminStrict ? 'true' : 'false'; ?>;
     </script>
     <script src="js/domain.js?v=<?php echo $assetVer('js/domain.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
