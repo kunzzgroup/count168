@@ -3,46 +3,41 @@ import Sidebar from './components/Sidebar'
 import AdminPage from './pages/AdminPage'
 import './App.css'
 
-const API_URL = import.meta.env.VITE_DOMAIN_API_URL || '/api/domain/domain_api.php'
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 
-const defaultForm = {
-  id: '',
-  owner_code: '',
-  name: '',
-  email: '',
-  password: '',
-  secondary_password: '',
-  companiesText: '',
+const API = {
+  announcementList: `${API_BASE}/api/announcements/announcement_list_api.php`,
+  announcementCreate: `${API_BASE}/api/announcements/announcement_create_api.php`,
+  announcementUpdate: `${API_BASE}/api/announcements/announcement_update_api.php`,
+  announcementDelete: `${API_BASE}/api/announcements/announcement_delete_api.php`,
+  maintenanceList: `${API_BASE}/api/maintenance/list_api.php`,
+  maintenanceCreate: `${API_BASE}/api/maintenance/create_api.php`,
+  maintenanceUpdate: `${API_BASE}/api/maintenance/update_api.php`,
+  maintenanceDelete: `${API_BASE}/api/maintenance/delete_api.php`,
 }
 
-function parseCompanies(companiesText) {
-  const uniqueIds = Array.from(
-    new Set(
-      companiesText
-        .split(/[\n,]+/)
-        .map((value) => value.trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  )
+async function getJson(url) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+  })
 
-  return uniqueIds.map((companyId) => ({
-    company_id: companyId,
-    expiration_date: null,
-    permissions: [],
-    group_id: null,
-    fee_share_allocations: { sales: [], cs: [], it: [] },
-    apply_commission_payments_on_domain_save: false,
-  }))
+  const json = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(json.message || 'API request failed')
+  }
+  return json
 }
 
-async function apiRequest(payload) {
-  const response = await fetch(API_URL, {
+async function postForm(url, payload) {
+  const formData = new FormData()
+  Object.entries(payload).forEach(([key, value]) => {
+    formData.append(key, String(value))
+  })
+
+  const response = await fetch(url, {
     method: 'POST',
     credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+    body: formData,
   })
 
   const json = await response.json()
@@ -54,17 +49,20 @@ async function apiRequest(payload) {
 
 function App() {
   const [currentRoute, setCurrentRoute] = useState(window.location.hash || '#/')
-  const [domains, setDomains] = useState([])
+  const [activeTab, setActiveTab] = useState('announcement')
+  const [announcements, setAnnouncements] = useState([])
+  const [maintenanceList, setMaintenanceList] = useState([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [deletingIds, setDeletingIds] = useState([])
-  const [selectedIds, setSelectedIds] = useState([])
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [form, setForm] = useState(defaultForm)
+  const [announcementTitle, setAnnouncementTitle] = useState('')
+  const [announcementContent, setAnnouncementContent] = useState('')
+  const [maintenanceContent, setMaintenanceContent] = useState('')
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null)
+  const [editingMaintenance, setEditingMaintenance] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
     const onHashChange = () => setCurrentRoute(window.location.hash || '#/')
@@ -72,34 +70,21 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  const filteredDomains = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase()
-    if (!term) return domains
-
-    return domains.filter((domain) => {
-      const companyText = Array.isArray(domain.companies_full)
-        ? domain.companies_full.map((item) => item.company_id).join(' ')
-        : domain.companies || ''
-      return (
-        domain.owner_code?.toLowerCase().includes(term) ||
-        domain.name?.toLowerCase().includes(term) ||
-        domain.email?.toLowerCase().includes(term) ||
-        companyText.toLowerCase().includes(term)
-      )
-    })
-  }, [domains, searchTerm])
-
   const resetMessages = () => {
     setError('')
     setNotice('')
   }
 
-  const loadDomains = async () => {
+  const loadData = async () => {
     try {
       setLoading(true)
       setError('')
-      const result = await apiRequest({ action: 'get_domains' })
-      setDomains(Array.isArray(result.data?.domains) ? result.data.domains : [])
+      const [announcementRes, maintenanceRes] = await Promise.all([
+        getJson(API.announcementList),
+        getJson(API.maintenanceList),
+      ])
+      setAnnouncements(Array.isArray(announcementRes.data) ? announcementRes.data : [])
+      setMaintenanceList(Array.isArray(maintenanceRes.data) ? maintenanceRes.data : [])
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -109,123 +94,142 @@ function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      loadDomains()
+      loadData()
     }, 0)
     return () => window.clearTimeout(timer)
   }, [])
 
-  const openCreateModal = () => {
-    resetMessages()
-    setIsEditMode(false)
-    setForm(defaultForm)
-    setIsModalOpen(true)
-  }
+  const maintenanceExists = useMemo(() => maintenanceList.length > 0, [maintenanceList])
 
-  const openEditModal = async (domain) => {
-    resetMessages()
-    setIsEditMode(true)
-    setSaving(true)
-    try {
-      const companiesResult = await apiRequest({
-        action: 'get_companies',
-        owner_id: domain.id,
-      })
-      const companies = Array.isArray(companiesResult.data?.companies)
-        ? companiesResult.data.companies
-        : []
-      const companyIds = companies
-        .map((item) => item.company_id)
-        .filter(Boolean)
-        .join(', ')
-
-      setForm({
-        id: String(domain.id),
-        owner_code: domain.owner_code || '',
-        name: domain.name || '',
-        email: domain.email || '',
-        password: '',
-        secondary_password: '',
-        companiesText: companyIds,
-      })
-      setIsModalOpen(true)
-    } catch (requestError) {
-      setError(requestError.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const closeModal = () => {
-    setIsModalOpen(false)
-    setForm(defaultForm)
-  }
-
-  const onInputChange = (event) => {
-    const { name, value } = event.target
-    setForm((previous) => ({
-      ...previous,
-      [name]: name === 'email' ? value.toLowerCase() : value,
-    }))
-  }
-
-  const onSubmit = async (event) => {
+  const submitAnnouncement = async (event) => {
     event.preventDefault()
     resetMessages()
-    setSaving(true)
+    const title = announcementTitle.trim()
+    const content = announcementContent.trim()
+
+    if (!title || !content) {
+      setError('Please fill in both title and content')
+      return
+    }
 
     try {
-      const payload = {
-        action: isEditMode ? 'update' : 'create',
-        id: isEditMode ? Number(form.id) : undefined,
-        owner_code: form.owner_code.trim().toUpperCase(),
-        name: form.name.trim().toUpperCase(),
-        email: form.email.trim().toLowerCase(),
-        companies: JSON.stringify(parseCompanies(form.companiesText)),
-      }
-
-      if (form.password.trim()) {
-        payload.password = form.password.trim()
-      }
-      if (form.secondary_password.trim()) {
-        payload.secondary_password = form.secondary_password.trim()
-      }
-
-      if (!isEditMode && (!payload.password || !payload.secondary_password)) {
-        throw new Error('新增时 Password 和 Secondary Password 必填')
-      }
-
-      await apiRequest(payload)
-      setNotice(isEditMode ? 'Domain 更新成功' : 'Domain 新增成功')
-      closeModal()
-      await loadDomains()
+      setSubmitting(true)
+      await postForm(API.announcementCreate, { title, content })
+      setNotice('Announcement published successfully')
+      setAnnouncementTitle('')
+      setAnnouncementContent('')
+      await loadData()
     } catch (requestError) {
       setError(requestError.message)
     } finally {
-      setSaving(false)
+      setSubmitting(false)
     }
   }
 
-  const toggleSelect = (id) => {
-    setSelectedIds((previous) =>
-      previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id],
-    )
-  }
-
-  const onDeleteSelected = async () => {
-    if (selectedIds.length === 0) return
-    if (!window.confirm(`确认删除 ${selectedIds.length} 条 Domain 记录？`)) return
-
+  const submitMaintenance = async (event) => {
+    event.preventDefault()
     resetMessages()
-    setDeletingIds(selectedIds)
+    const content = maintenanceContent.trim()
+    if (!content) {
+      setError('Please fill in the content')
+      return
+    }
     try {
-      await Promise.all(selectedIds.map((id) => apiRequest({ action: 'delete', id })))
-      setNotice('删除成功')
-      setSelectedIds([])
-      await loadDomains()
+      setSubmitting(true)
+      await postForm(API.maintenanceCreate, { content })
+      setNotice('Maintenance content published successfully')
+      setMaintenanceContent('')
+      await loadData()
     } catch (requestError) {
       setError(requestError.message)
     } finally {
-      setDeletingIds([])
+      setSubmitting(false)
+    }
+  }
+
+  const deleteAnnouncement = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this announcement? This action cannot be undone.')) {
+      return
+    }
+    resetMessages()
+    try {
+      setDeletingId(id)
+      await postForm(API.announcementDelete, { id })
+      setNotice('Announcement deleted successfully')
+      await loadData()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const deleteMaintenance = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this maintenance content? This action cannot be undone.')) {
+      return
+    }
+    resetMessages()
+    try {
+      setDeletingId(id)
+      await postForm(API.maintenanceDelete, { id })
+      setNotice('Maintenance content deleted successfully')
+      await loadData()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const saveAnnouncementEdit = async (event) => {
+    event.preventDefault()
+    if (!editingAnnouncement) return
+    resetMessages()
+    const title = editingAnnouncement.title.trim()
+    const content = editingAnnouncement.content.trim()
+    if (!title || !content) {
+      setError('Please fill in both title and content')
+      return
+    }
+    try {
+      setSavingEdit(true)
+      await postForm(API.announcementUpdate, {
+        id: editingAnnouncement.id,
+        title,
+        content,
+      })
+      setNotice('Announcement updated successfully')
+      setEditingAnnouncement(null)
+      await loadData()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const saveMaintenanceEdit = async (event) => {
+    event.preventDefault()
+    if (!editingMaintenance) return
+    resetMessages()
+    const content = editingMaintenance.content.trim()
+    if (!content) {
+      setError('Please fill in the content')
+      return
+    }
+    try {
+      setSavingEdit(true)
+      await postForm(API.maintenanceUpdate, {
+        id: editingMaintenance.id,
+        content,
+      })
+      setNotice('Maintenance content updated successfully')
+      setEditingMaintenance(null)
+      await loadData()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -236,152 +240,245 @@ function App() {
         {currentRoute === '#/admin' ? (
           <AdminPage />
         ) : (
-          <section className="domain-page">
+          <section className="announcement-page">
             <header className="page-header">
-              <h1>Domain List (React)</h1>
-              <p>前端已改为 React，后端继续使用 `api/domain/domain_api.php`。</p>
+              <h1>Announcement and Maintenance Management</h1>
+              <div className="page-tabs">
+                <button
+                  type="button"
+                  className={activeTab === 'announcement' ? 'active' : ''}
+                  onClick={() => setActiveTab('announcement')}
+                >
+                  Announcement
+                </button>
+                <button
+                  type="button"
+                  className={activeTab === 'maintenance' ? 'active' : ''}
+                  onClick={() => setActiveTab('maintenance')}
+                >
+                  Maintenance
+                </button>
+              </div>
             </header>
-
-            <section className="toolbar">
-              <button type="button" onClick={openCreateModal}>
-                Add Domain
-              </button>
-              <input
-                type="text"
-                placeholder="Search by owner / name / email / company"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-              <button
-                type="button"
-                onClick={onDeleteSelected}
-                disabled={selectedIds.length === 0 || deletingIds.length > 0}
-              >
-                Delete Selected ({selectedIds.length})
-              </button>
-            </section>
 
             {error ? <div className="message error">{error}</div> : null}
             {notice ? <div className="message success">{notice}</div> : null}
-
-            <section className="table-wrap">
-              <table className="domain-table">
-                <thead>
-                  <tr>
-                    <th />
-                    <th>No</th>
-                    <th>Owner Code</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Group ID</th>
-                    <th>Companies</th>
-                    <th>Created By</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={9}>Loading...</td>
-                    </tr>
-                  ) : null}
-                  {!loading && filteredDomains.length === 0 ? (
-                    <tr>
-                      <td colSpan={9}>No data</td>
-                    </tr>
-                  ) : null}
-                  {!loading &&
-                    filteredDomains.map((domain, index) => (
-                      <tr key={domain.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(domain.id)}
-                            onChange={() => toggleSelect(domain.id)}
-                          />
-                        </td>
-                        <td>{index + 1}</td>
-                        <td>{domain.owner_code}</td>
-                        <td>{domain.name}</td>
-                        <td>{domain.email}</td>
-                        <td>{domain.group_ids || '-'}</td>
-                        <td>{domain.companies || '-'}</td>
-                        <td>{String(domain.created_by || '-').toUpperCase()}</td>
-                        <td>
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(domain)}
-                            disabled={saving || deletingIds.includes(domain.id)}
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </section>
-
-            {isModalOpen ? (
-              <div className="modal-mask" onClick={closeModal}>
-                <div className="modal" onClick={(event) => event.stopPropagation()}>
-                  <h2>{isEditMode ? 'Edit Domain' : 'Add Domain'}</h2>
-                  <form onSubmit={onSubmit} className="domain-form">
+            {activeTab === 'announcement' ? (
+              <section className="split-layout">
+                <article className="panel">
+                  <h2>Create New Announcement</h2>
+                  <form onSubmit={submitAnnouncement} className="entity-form">
                     <label>
-                      Owner Code
+                      Title *
                       <input
-                        name="owner_code"
-                        value={form.owner_code}
-                        onChange={onInputChange}
-                        disabled={isEditMode}
+                        value={announcementTitle}
+                        onChange={(event) => setAnnouncementTitle(event.target.value)}
+                        maxLength={500}
+                        required
+                        placeholder="Enter announcement title"
+                      />
+                    </label>
+                    <label>
+                      Content *
+                      <textarea
+                        value={announcementContent}
+                        onChange={(event) => setAnnouncementContent(event.target.value)}
+                        rows={8}
+                        required
+                        placeholder="Enter announcement content"
+                      />
+                    </label>
+                    <button type="submit" disabled={submitting}>
+                      {submitting ? 'Publishing...' : 'Publish Announcement'}
+                    </button>
+                  </form>
+                </article>
+
+                <article className="panel">
+                  <h2>Published Announcements</h2>
+                  {loading ? <p>Loading...</p> : null}
+                  {!loading && announcements.length === 0 ? (
+                    <p className="empty-state">No announcements</p>
+                  ) : null}
+                  <div className="card-list">
+                    {announcements.map((item) => (
+                      <div className="item-card" key={item.id}>
+                        <div className="item-card-head">
+                          <h3>{item.title}</h3>
+                          <div className="row-actions">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingAnnouncement({
+                                  id: item.id,
+                                  title: item.title,
+                                  content: item.content,
+                                })
+                              }
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteAnnouncement(item.id)}
+                              disabled={deletingId === item.id}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        <pre className="content-text">{item.content}</pre>
+                        <div className="meta-row">
+                          <span>Created by: {item.created_by}</span>
+                          <span>Created at: {item.created_at}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            ) : null}
+
+            {activeTab === 'maintenance' ? (
+              <section className="split-layout">
+                <article className="panel">
+                  <h2>Create New Maintenance Content</h2>
+                  {maintenanceExists ? (
+                    <div className="message warn">
+                      <strong>Notice:</strong> Maintenance content already exists. Please delete
+                      the existing content before creating a new one.
+                    </div>
+                  ) : null}
+                  <form onSubmit={submitMaintenance} className="entity-form">
+                    <label>
+                      Content *
+                      <textarea
+                        value={maintenanceContent}
+                        onChange={(event) => setMaintenanceContent(event.target.value)}
+                        rows={8}
+                        required
+                        disabled={maintenanceExists}
+                        placeholder="Enter maintenance content"
+                      />
+                    </label>
+                    <button type="submit" disabled={submitting || maintenanceExists}>
+                      {submitting ? 'Publishing...' : 'Publish Maintenance Content'}
+                    </button>
+                  </form>
+                </article>
+
+                <article className="panel">
+                  <h2>Published Maintenance Content</h2>
+                  {loading ? <p>Loading...</p> : null}
+                  {!loading && maintenanceList.length === 0 ? (
+                    <p className="empty-state">No maintenance content</p>
+                  ) : null}
+                  <div className="card-list">
+                    {maintenanceList.map((item) => (
+                      <div className="item-card" key={item.id}>
+                        <div className="item-card-head">
+                          <h3>Maintenance</h3>
+                          <div className="row-actions">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingMaintenance({
+                                  id: item.id,
+                                  content: item.content,
+                                })
+                              }
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteMaintenance(item.id)}
+                              disabled={deletingId === item.id}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        <pre className="content-text">{item.content}</pre>
+                        <div className="meta-row">
+                          <span>Created by: {item.created_by}</span>
+                          <span>Created at: {item.created_at}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            ) : null}
+
+            {editingAnnouncement ? (
+              <div className="modal-mask" onClick={() => setEditingAnnouncement(null)}>
+                <div className="modal" onClick={(event) => event.stopPropagation()}>
+                  <h2>Edit Announcement</h2>
+                  <form onSubmit={saveAnnouncementEdit} className="entity-form">
+                    <label>
+                      Title *
+                      <input
+                        value={editingAnnouncement.title}
+                        onChange={(event) =>
+                          setEditingAnnouncement((prev) =>
+                            prev ? { ...prev, title: event.target.value } : prev,
+                          )
+                        }
+                        maxLength={500}
                         required
                       />
                     </label>
                     <label>
-                      Name
-                      <input name="name" value={form.name} onChange={onInputChange} required />
-                    </label>
-                    <label>
-                      Email
-                      <input name="email" value={form.email} onChange={onInputChange} required />
-                    </label>
-                    <label>
-                      Password {isEditMode ? '(留空则不修改)' : ''}
-                      <input
-                        name="password"
-                        type="password"
-                        value={form.password}
-                        onChange={onInputChange}
-                        required={!isEditMode}
-                      />
-                    </label>
-                    <label>
-                      Secondary Password {isEditMode ? '(留空则不修改)' : ''}
-                      <input
-                        name="secondary_password"
-                        type="password"
-                        maxLength={6}
-                        value={form.secondary_password}
-                        onChange={onInputChange}
-                        required={!isEditMode}
-                      />
-                    </label>
-                    <label>
-                      Companies (comma/new line separated)
+                      Content *
                       <textarea
-                        name="companiesText"
-                        value={form.companiesText}
-                        onChange={onInputChange}
-                        rows={4}
-                        placeholder="AA, BB, CC"
+                        value={editingAnnouncement.content}
+                        onChange={(event) =>
+                          setEditingAnnouncement((prev) =>
+                            prev ? { ...prev, content: event.target.value } : prev,
+                          )
+                        }
+                        rows={8}
+                        required
                       />
                     </label>
                     <div className="form-actions">
-                      <button type="submit" disabled={saving}>
-                        {saving ? 'Saving...' : 'Confirm'}
-                      </button>
-                      <button type="button" onClick={closeModal}>
+                      <button type="button" onClick={() => setEditingAnnouncement(null)}>
                         Cancel
+                      </button>
+                      <button type="submit" disabled={savingEdit}>
+                        {savingEdit ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            ) : null}
+
+            {editingMaintenance ? (
+              <div className="modal-mask" onClick={() => setEditingMaintenance(null)}>
+                <div className="modal" onClick={(event) => event.stopPropagation()}>
+                  <h2>Edit Maintenance Content</h2>
+                  <form onSubmit={saveMaintenanceEdit} className="entity-form">
+                    <label>
+                      Content *
+                      <textarea
+                        value={editingMaintenance.content}
+                        onChange={(event) =>
+                          setEditingMaintenance((prev) =>
+                            prev ? { ...prev, content: event.target.value } : prev,
+                          )
+                        }
+                        rows={8}
+                        required
+                      />
+                    </label>
+                    <div className="form-actions">
+                      <button type="button" onClick={() => setEditingMaintenance(null)}>
+                        Cancel
+                      </button>
+                      <button type="submit" disabled={savingEdit}>
+                        {savingEdit ? 'Saving...' : 'Save Changes'}
                       </button>
                     </div>
                   </form>

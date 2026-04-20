@@ -9,70 +9,154 @@
   box-sizing: border-box;
 }
 
-.domain-page {
-  padding: 24px;
+.announcement-page {
+  padding: 12px 18px;
   font-family: Arial, Helvetica, sans-serif;
   color: #0f172a;
 }
 
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
 .page-header h1 {
-  margin: 0 0 8px;
+  margin: 0;
+  font-size: 34px;
+  color: #003152;
 }
 
-.page-header p {
-  margin: 0 0 20px;
-  color: #475569;
+.page-tabs {
+  display: flex;
+  gap: 8px;
 }
 
-.toolbar {
+.page-tabs button {
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.page-tabs button.active {
+  background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
+  color: #fff;
+  border-color: #0f61ff;
+}
+
+.split-layout {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: minmax(300px, 0.95fr) minmax(440px, 1.45fr);
+  gap: 16px;
 }
 
-.toolbar input,
-.toolbar button,
-.domain-form input,
-.domain-form textarea,
-.domain-form button {
+.panel {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+  color: #003152;
+}
+
+.entity-form {
+  display: grid;
+  gap: 12px;
+}
+
+.entity-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.entity-form input,
+.entity-form textarea,
+.entity-form button {
   padding: 8px 10px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   font-size: 14px;
 }
 
-.toolbar button,
-.domain-form button {
+.entity-form button,
+.row-actions button,
+.form-actions button {
   cursor: pointer;
-  background: #0f172a;
+  background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
   color: #fff;
+  border: none;
 }
 
-.toolbar button[disabled],
-.domain-form button[disabled] {
+.entity-form button[disabled],
+.row-actions button[disabled],
+.form-actions button[disabled] {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.table-wrap {
-  overflow: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+.card-list {
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
-.domain-table {
-  width: 100%;
-  border-collapse: collapse;
+.item-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+
+.item-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.item-card-head h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.content-text {
+  margin: 10px 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  color: #334155;
   font-size: 14px;
 }
 
-.domain-table th,
-.domain-table td {
-  border-bottom: 1px solid #e2e8f0;
-  padding: 10px;
-  text-align: left;
-  white-space: nowrap;
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 12px;
+  gap: 12px;
+}
+
+.empty-state {
+  color: #64748b;
+  font-size: 14px;
+  margin: 6px 0;
 }
 
 .message {
@@ -91,6 +175,11 @@
   color: #166534;
 }
 
+.message.warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .modal-mask {
   position: fixed;
   inset: 0;
@@ -101,24 +190,39 @@
 }
 
 .modal {
-  width: min(560px, 100%);
+  width: min(620px, 100%);
   background: #fff;
   border-radius: 10px;
   padding: 16px;
 }
 
-.domain-form {
-  display: grid;
-  gap: 12px;
-}
-
-.domain-form label {
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
+.modal h2 {
+  margin: 0 0 10px;
+  color: #003152;
 }
 
 .form-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
+}
+
+@media (max-width: 1024px) {
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header h1 {
+    font-size: 28px;
+  }
+
+  .meta-row {
+    flex-direction: column;
+    gap: 4px;
+  }
 }
