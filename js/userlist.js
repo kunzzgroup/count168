@@ -16,7 +16,8 @@ let allRows = [];
 let sortColumn = 'loginId'; // 'loginId' 或 'role'
 let sortDirection = 'asc'; // 'asc' 或 'desc'
 
-// Show inactive 状态
+// Show inactive / Show all（与 account-list、processlist 行为对齐）
+let showAll = (typeof window.USERLIST_SHOW_ALL !== 'undefined' && !!window.USERLIST_SHOW_ALL);
 let showInactive = false;
 
 // 当前用户信息
@@ -311,6 +312,12 @@ function initializePagination() {
     // 获取当前搜索过滤的行
     filteredRows = allRows.filter(row => !row.classList.contains('table-row-hidden'));
 
+    if (showAll) {
+        updatePagination();
+        showCurrentPage();
+        return;
+    }
+
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
 
     // 如果当前页超过总页数，回到第一页
@@ -344,6 +351,12 @@ function closeConfirmModal() {
 
 // 更新分页控件
 function updatePagination() {
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (showAll) {
+        if (paginationContainer) paginationContainer.style.display = 'none';
+        return;
+    }
+
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
 
     // 更新分页控件信息
@@ -357,8 +370,6 @@ function updatePagination() {
     document.getElementById('nextBtn').disabled = isNextDisabled;
 
     // 如果只有一页或没有数据，隐藏分页控件
-    const paginationContainer = document.getElementById('paginationContainer');
-
     if (filteredRows.length === 0) {
         paginationContainer.style.display = 'none';
     } else {
@@ -372,6 +383,15 @@ function showCurrentPage() {
     allRows.forEach(row => {
         row.classList.remove('show-card');
     });
+
+    if (showAll) {
+        filteredRows.forEach((row, i) => {
+            row.classList.add('show-card');
+            const noCell = row.querySelector('.card-item');
+            if (noCell) noCell.textContent = String(i + 1);
+        });
+        return;
+    }
 
     // 计算当前页的起始和结束索引
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -390,6 +410,8 @@ function showCurrentPage() {
 
 // 切换页面
 function changePage(direction) {
+    if (showAll) return;
+
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
 
     if (direction === -1 && currentPage > 1) {
@@ -400,6 +422,29 @@ function changePage(direction) {
 
     updatePagination();
     showCurrentPage();
+}
+
+function syncUserListShowAllUrl() {
+    try {
+        const url = new URL(window.location.href);
+        if (showAll) {
+            url.searchParams.set('showAll', '1');
+        } else {
+            url.searchParams.delete('showAll');
+        }
+        history.replaceState({}, '', url);
+    } catch (e) {
+        /* ignore */
+    }
+}
+
+function updateUserListScrollMode() {
+    if (!document.body) return;
+    if (showAll) {
+        document.body.classList.add('user-page--show-all');
+    } else {
+        document.body.classList.remove('user-page--show-all');
+    }
 }
 
 let isEditMode = false;
@@ -1966,9 +2011,10 @@ function filterUsers() {
             email.includes(searchTerm);
 
         // Show Inactive 过滤：
-        // - 未勾选（showInactive = false）：只显示 active 用户
-        // - 勾选（showInactive = true）：只显示 inactive 用户
-        const matchesInactiveFilter = showInactive ? isInactive : !isInactive;
+        // - Show All：不按状态过滤（active + inactive 均可）
+        // - 未勾选 Show Inactive：只显示 active
+        // - 勾选 Show Inactive：只显示 inactive
+        const matchesInactiveFilter = showAll ? true : (showInactive ? isInactive : !isInactive);
 
         // 只有当两个条件都满足时才显示
         if (matchesSearch && matchesInactiveFilter) {
@@ -2025,6 +2071,28 @@ function setupSearch() {
     if (showInactiveCheckbox) {
         showInactiveCheckbox.addEventListener('change', function () {
             showInactive = this.checked;
+            if (showInactive && showAll) {
+                showAll = false;
+                const sa = document.getElementById('showAll');
+                if (sa) sa.checked = false;
+                syncUserListShowAllUrl();
+                updateUserListScrollMode();
+            }
+            filterUsers();
+        });
+    }
+
+    const showAllCheckbox = document.getElementById('showAll');
+    if (showAllCheckbox) {
+        showAllCheckbox.addEventListener('change', function () {
+            showAll = this.checked;
+            if (showAll) {
+                showInactive = false;
+                if (showInactiveCheckbox) showInactiveCheckbox.checked = false;
+            }
+            currentPage = 1;
+            syncUserListShowAllUrl();
+            updateUserListScrollMode();
             filterUsers();
         });
     }
@@ -2066,6 +2134,12 @@ document.addEventListener('DOMContentLoaded', function () {
     extractUsersData();
     applySorting(); // 应用默认排序
     updateSortIndicators(); // 初始化排序指示器
+    if (showAll) {
+        showInactive = false;
+        const si = document.getElementById('showInactive');
+        if (si) si.checked = false;
+    }
+    updateUserListScrollMode();
     setupSearch();
     filterUsers(); // 初始化过滤（默认隐藏 inactive 用户）
     updateDeleteButton(); // 初始化删除按钮状态

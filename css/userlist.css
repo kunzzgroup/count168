@@ -19,6 +19,13 @@ body {
     /* 添加这行，禁止垂直滚动 */
 }
 
+/* 矮屏下 global-13inch 会对 body.user-page 放开滚动，此处强制列表页保持一屏（Show All 时由 body.user-page--show-all 覆盖） */
+body.user-page:not(.user-page--show-all) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    height: 100vh !important;
+}
+
 .container {
     max-width: none;
     margin: 0;
@@ -29,6 +36,61 @@ body {
     box-sizing: border-box;
     overflow: hidden;
     /* 添加这行 */
+}
+
+/* 与 processlist / account-list 一致：主区域 flex 占满一屏，中间列表不触发整页滚动 */
+.user-page .content {
+    height: calc(100vh - 22px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.user-page .user-table-wrapper {
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 52px;
+    box-sizing: border-box;
+}
+
+.user-page .user-table-wrapper .table-header {
+    flex-shrink: 0;
+}
+
+/* Show All：整页纵向滚动，展示全部过滤结果（与 account / process 一致） */
+body.user-page.user-page--show-all {
+    overflow-y: auto !important;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.user-page.user-page--show-all .container {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: visible;
+}
+
+body.user-page.user-page--show-all .content {
+    height: auto;
+    min-height: calc(100vh - 22px);
+    overflow: visible;
+}
+
+body.user-page.user-page--show-all .user-table-wrapper {
+    flex: 0 1 auto;
+    overflow: visible;
+    padding-bottom: 72px;
+}
+
+body.user-page.user-page--show-all .user-cards {
+    display: flex;
+    flex-direction: column;
+    max-height: none;
+    overflow-y: visible;
 }
 
 h1 {
@@ -75,10 +137,8 @@ h1 {
     margin-top: 0;
     border: none;
     border-radius: 0;
-    max-height: calc(100vh - 200px);
-    /* 添加这行，限制最大高度 */
-    overflow-y: auto;
-    /* 添加这行，允许表格内部滚动 */
+    max-height: none;
+    overflow-y: visible;
 }
 
 .btn:hover {
@@ -941,8 +1001,20 @@ h1 {
 .user-cards {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 250px);
-    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* 非 Show All：20 行等分，与 processlist Games 一致 */
+body.user-page:not(.user-page--show-all) .user-cards {
+    display: grid;
+    grid-template-rows: repeat(20, minmax(0, 1fr));
+    align-content: start;
+}
+
+body.user-page:not(.user-page--show-all) .user-card.show-card {
+    min-height: 0;
 }
 
 .user-card {
@@ -997,8 +1069,8 @@ h1 {
 /* 分页样式 - 修改为图片中的设计 */
 .pagination-container {
     position: fixed;
-    bottom: clamp(15px, 1.56vw, 30px);
-    right: 40px;
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    right: max(40px, env(safe-area-inset-right, 0px));
     display: flex;
     align-items: center;
     gap: 0;

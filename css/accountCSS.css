@@ -29,12 +29,34 @@ body {
     overflow: hidden;
 }
 
-/* 固定一屏布局：标题/筛选/表头/列表20行/分页 */
+/* account-list：在 global-13inch 等使用 !important 时仍保持一屏无滚动 */
+body.account-page:not(.account-page--show-all) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    height: 100vh !important;
+}
+
+/* 固定一屏布局：标题/筛选/表头/列表20行/分页（与 processlist Games 一致） */
 .account-page .content {
     height: calc(100vh - 22px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+/* 表头 + 数据区：占据中间剩余高度，避免整页滚动 */
+.account-page .account-table-wrapper {
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 52px;
+    box-sizing: border-box;
+}
+
+.account-page .account-table-header {
+    flex-shrink: 0;
 }
 
 .page-header {
@@ -342,17 +364,37 @@ body.account-page--show-all .container {
 }
 
 body.account-page--show-all .account-cards {
+    display: flex;
+    flex-direction: column;
     max-height: none;
     overflow-y: visible;
 }
 
-/* Account Cards - copied from userlist */
+body.account-page--show-all .content {
+    height: auto;
+    min-height: calc(100vh - 22px);
+    overflow: visible;
+}
+
+body.account-page--show-all .account-table-wrapper {
+    flex: 0 1 auto;
+    overflow: visible;
+    padding-bottom: 72px;
+}
+
+/* Account Cards - 默认与 processlist 相同：20 行等分网格，无内部纵向滚动 */
 .account-cards {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
     overflow: hidden;
+}
+
+body.account-page:not(.account-page--show-all) .account-cards {
+    display: grid;
+    grid-template-rows: repeat(20, minmax(0, 1fr));
+    align-content: start;
 }
 
 .account-card {
@@ -364,9 +406,12 @@ body.account-page--show-all .account-cards {
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
     transition: all 0.2s ease;
-    height: calc(100% / 20);
     min-height: 0;
     box-sizing: border-box;
+}
+
+body.account-page:not(.account-page--show-all) .account-card {
+    height: auto;
 }
 
 .account-card:hover {
@@ -1558,11 +1603,12 @@ body.account-page--show-all .account-cards {
     pointer-events: none;
 }
 
-/* Pagination Button Styles */
+/* Pagination：固定在视口右下角（与 userlist / bank processlist 一致） */
 .account-pagination-container {
-    position: relative;
-    margin-top: 6px;
-    margin-left: auto;
+    position: fixed;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    margin: 0;
     width: fit-content;
     display: flex;
     align-items: center;
@@ -1573,7 +1619,7 @@ body.account-page--show-all .account-cards {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: 1;
+    z-index: 120;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     flex-shrink: 0;
 }

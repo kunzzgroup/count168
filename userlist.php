@@ -158,6 +158,8 @@ try {
     error_log("Process query failed: " . $e->getMessage());
     $processes = [];
 }
+
+$showAllUsers = isset($_GET['showAll']);
 ?>
 
 <!DOCTYPE html>
@@ -201,6 +203,10 @@ try {
                         <input type="checkbox" id="showInactive" name="showInactive">
                         <label for="showInactive">Show Inactive</label>
                     </div>
+                    <div class="checkbox-section">
+                        <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllUsers ? 'checked' : ''; ?>>
+                        <label for="showAll">Show All</label>
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()">Delete</button>
@@ -223,28 +229,27 @@ try {
             </div>
         </div>    
         
-        <!-- 表头 -->
-        <div class="table-header">
-            <div class="header-item">No</div>
-            <div class="header-item header-sortable" onclick="sortByLoginId()">
-                Login Id
-                <span class="sort-indicator" id="sortLoginIdIndicator">▲</span>
+        <div class="user-table-wrapper" id="userTableWrapper">
+            <!-- 表头 -->
+            <div class="table-header">
+                <div class="header-item">No</div>
+                <div class="header-item header-sortable" onclick="sortByLoginId()">
+                    Login Id
+                    <span class="sort-indicator" id="sortLoginIdIndicator">▲</span>
+                </div>
+                <div class="header-item">Name</div>
+                <div class="header-item">Email</div>
+                <div class="header-item header-sortable" onclick="sortByRole()">
+                    Role
+                    <span class="sort-indicator" id="sortRoleIndicator"></span>
+                </div>
+                <div class="header-item">Status</div>
+                <div class="header-item">Last Login</div>
+                <div class="header-item">Created By</div>
+                <div class="header-item">Action
+                    <input type="checkbox" id="selectAllUsers" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllUsers()">
+                </div>
             </div>
-            <div class="header-item">Name</div>
-            <div class="header-item">Email</div>
-            <div class="header-item header-sortable" onclick="sortByRole()">
-                Role
-                <span class="sort-indicator" id="sortRoleIndicator"></span>
-            </div>
-            <div class="header-item">Status</div>
-            <div class="header-item">Last Login</div>
-            <div class="header-item">Created By</div>
-            <div class="header-item">Action
-                <input type="checkbox" id="selectAllUsers" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllUsers()">
-            </div>
-        </div>
-        
-        <div class="table-container">
             <!-- 用户卡片列表 -->
             <div class="user-cards" id="userTableBody">
                 <?php foreach($users as $index => $user): 
@@ -582,6 +587,7 @@ try {
         window.USERLIST_CURRENT_USER_ID = <?php echo json_encode($current_user_id); ?>;
         window.USERLIST_CURRENT_USER_ROLE = '<?php echo strtolower($current_user_role); ?>';
         window.USERLIST_CURRENT_COMPANY_ID = <?php echo json_encode($_SESSION['company_id'] ?? null); ?>;
+        window.USERLIST_SHOW_ALL = <?php echo $showAllUsers ? 'true' : 'false'; ?>;
     </script>
     <script src="js/userlist.js?v=<?php echo $assetVer('js/userlist.js'); ?>"></script>
 </body>

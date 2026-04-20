@@ -265,31 +265,33 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 </script>
             </div>
             
-            <!-- Table Header -->
-            <div class="account-table-header">
-                <div class="account-header-item">No</div>
-                <div class="account-header-item account-header-sortable" onclick="sortByAccount()">
-                    Account
-                    <span class="account-sort-indicator" id="sortAccountIndicator">▲</span>
+            <div class="account-table-wrapper" id="accountTableWrapper">
+                <!-- Table Header -->
+                <div class="account-table-header">
+                    <div class="account-header-item">No</div>
+                    <div class="account-header-item account-header-sortable" onclick="sortByAccount()">
+                        Account
+                        <span class="account-sort-indicator" id="sortAccountIndicator">▲</span>
+                    </div>
+                    <div class="account-header-item">Name</div>
+                    <div class="account-header-item account-header-sortable" onclick="sortByRole()">
+                        Role
+                        <span class="account-sort-indicator" id="sortRoleIndicator"></span>
+                    </div>
+                    <div class="account-header-item">Alert</div>
+                    <div class="account-header-item">Status</div>
+                    <div class="account-header-item">Last Login</div>
+                    <div class="account-header-item">Remark</div>
+                    <div class="account-header-item">Action
+                        <input type="checkbox" id="selectAllAccounts" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
+                    </div>
                 </div>
-                <div class="account-header-item">Name</div>
-                <div class="account-header-item account-header-sortable" onclick="sortByRole()">
-                    Role
-                    <span class="account-sort-indicator" id="sortRoleIndicator"></span>
-                </div>
-                <div class="account-header-item">Alert</div>
-                <div class="account-header-item">Status</div>
-                <div class="account-header-item">Last Login</div>
-                <div class="account-header-item">Remark</div>
-                <div class="account-header-item">Action
-                    <input type="checkbox" id="selectAllAccounts" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
-                </div>
-            </div>
-            
-            <!-- Account Cards List -->
-            <div class="account-cards" id="accountTableBody">
-                <div class="account-card">
-                    <div class="account-card-item">Loading...</div>
+                
+                <!-- Account Cards List -->
+                <div class="account-cards" id="accountTableBody">
+                    <div class="account-card">
+                        <div class="account-card-item">Loading...</div>
+                    </div>
                 </div>
             </div>
             <!-- 分页控件 - 浮动在右下角 -->

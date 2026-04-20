@@ -491,6 +491,28 @@
         /* Absolute guarantee we never cut off the bottom element */
     }
 
+    /* Account / User 列表页（非 Show All）：恢复一屏锁定，避免被下方规则放开后出现整页滚动 */
+    body.account-page:not(.account-page--show-all),
+    body.user-page:not(.user-page--show-all) {
+        overflow-y: hidden !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .container,
+    body.user-page:not(.user-page--show-all) .container {
+        height: 100vh !important;
+        overflow: hidden !important;
+    }
+
+    /* 抵消上方对 .content 的 height:auto !important，否则列表页 flex 一屏布局失效 */
+    body.account-page:not(.account-page--show-all) .content,
+    body.user-page:not(.user-page--show-all) .content {
+        height: calc(100vh - 22px) !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
     /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
     .table-container,
     .account-cards,
@@ -505,6 +527,11 @@
         max-height: none !important;
         overflow: visible !important;
         /* This forces the data to completely render out, triggering the global browser scrollbar */
+    }
+
+    body.account-page:not(.account-page--show-all) .account-cards,
+    body.user-page:not(.user-page--show-all) .user-cards {
+        overflow: hidden !important;
     }
 
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
