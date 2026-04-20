@@ -583,6 +583,13 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 
     if (window.isExternalView) {
         document.addEventListener('DOMContentLoaded', () => {
+            // Domain / 公告：C168 信息页需可编辑保存；勿对这两页套用 Partnership 只读全局按钮锁（会禁用含 Confirm/Save 的按钮）
+            var __path = (window.location.pathname || '').replace(/\\/g, '/');
+            var __tail = (__path.split('/').pop() || '').toLowerCase();
+            if (__tail === 'domain.php' || __tail === 'announcement.php') {
+                return;
+            }
+
             console.log("External Partner Mode Active: Read-Only");
 
             // Hide non-view categories
