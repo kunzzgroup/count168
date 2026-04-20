@@ -2,7 +2,6 @@ package com.eazycount.web;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,7 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class HomeController {
 
-  @GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
+  /**
+   * 不能写 produces = application/json only：浏览器访问根 URL 时 Accept 以 text/html 为主，会匹配不到而 404。
+   */
+  @GetMapping("/")
   public ResponseEntity<Map<String, Object>> root() {
     Map<String, Object> body = new LinkedHashMap<>();
     body.put("service", "eazycount-api");
