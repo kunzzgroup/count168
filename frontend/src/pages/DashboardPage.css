@@ -1,0 +1,59 @@
+.dashboard-page {
+  text-align: left;
+}
+
+.dashboard-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+}
+
+.dashboard-filters input {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.dashboard-card {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fff;
+}
+
+.dashboard-card h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.dashboard-card p {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.dashboard-meta {
+  margin-top: 12px;
+  color: #555;
+}
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './ProcessPage.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -114,15 +114,15 @@ function ProcessPage() {
     setNotice('')
   }
 
-  const loadFormData = async () => {
+  const loadFormData = useCallback(async () => {
     const result = await getJson(API.form)
     const payload = result.data || result
     setCurrencies(Array.isArray(payload.currencies) ? payload.currencies : [])
     setDescriptions(Array.isArray(payload.descriptions) ? payload.descriptions : [])
     setDays(Array.isArray(payload.days) ? payload.days : [])
-  }
+  }, [])
 
-  const loadRows = async () => {
+  const loadRows = useCallback(async () => {
     try {
       setLoading(true)
       resetMessages()
@@ -140,12 +140,15 @@ function ProcessPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchTerm, showInactive, showAll])
 
   useEffect(() => {
-    loadFormData().catch((err) => setError(err.message))
-    loadRows()
-  }, [showInactive, showAll])
+    const timer = window.setTimeout(() => {
+      loadFormData().catch((err) => setError(err.message))
+      loadRows()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadFormData, loadRows])
 
   const filteredRows = useMemo(() => {
     const keyword = searchTerm.trim().toUpperCase()
@@ -168,15 +171,12 @@ function ProcessPage() {
   }, [rows, searchTerm, sortBy, sortDirection])
 
   const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE))
+  const effectivePage = Math.min(currentPage, totalPages)
   const pagedRows = useMemo(() => {
     if (showAll) return filteredRows
-    const start = (currentPage - 1) * ROWS_PER_PAGE
+    const start = (effectivePage - 1) * ROWS_PER_PAGE
     return filteredRows.slice(start, start + ROWS_PER_PAGE)
-  }, [filteredRows, currentPage, showAll])
-
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(1)
-  }, [currentPage, totalPages])
+  }, [filteredRows, effectivePage, showAll])
 
   const toggleSort = (key) => {
     if (sortBy === key) {
@@ -407,7 +407,7 @@ function ProcessPage() {
           <div className='process-react-table-body'>
             {pagedRows.map((item, index) => (
               <div className='process-react-row' key={item.id}>
-                <div>{showAll ? index + 1 : (currentPage - 1) * ROWS_PER_PAGE + index + 1}</div>
+                <div>{showAll ? index + 1 : (effectivePage - 1) * ROWS_PER_PAGE + index + 1}</div>
                 <div>{item.process_name}</div>
                 <div>{item.description}</div>
                 <div>
@@ -445,13 +445,13 @@ function ProcessPage() {
 
       {!showAll && filteredRows.length > 0 ? (
         <div className='process-react-pagination'>
-          <button type='button' disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+          <button type='button' disabled={effectivePage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
             ◀
           </button>
-          <span>{`${currentPage} of ${totalPages}`}</span>
+          <span>{`${effectivePage} of ${totalPages}`}</span>
           <button
             type='button'
-            disabled={currentPage >= totalPages}
+            disabled={effectivePage >= totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
           >
             ▶
