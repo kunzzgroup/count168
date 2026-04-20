@@ -1,0 +1,151 @@
+.informationmenu,
+.informationmenu * {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.informationmenu {
+  width: 235px;
+  height: 100vh;
+  background: #002d49;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.informationmenu-header {
+  padding: 14px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header-logo-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.header-logo {
+  height: 44px;
+  object-fit: contain;
+  width: auto;
+}
+
+.informationmenu-content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-separator {
+  height: 1px;
+  margin: 0 20px 10px 20px;
+  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 1) 50%, transparent 100%);
+}
+
+.informationmenu-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 12px 20px;
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 25px 0 0 25px;
+  transition: all 0.2s ease;
+}
+
+.informationmenu-section-title:hover {
+  color: white;
+  transform: translateX(5px);
+  box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
+}
+
+.informationmenu-section-title.current-page {
+  background: #0e93f3;
+  color: white;
+  transform: translateX(5px);
+}
+
+.sidebar-toggle-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.section-arrow {
+  margin-left: auto;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  transition: transform 0.2s ease;
+}
+
+.section-arrow.open {
+  transform: rotate(90deg);
+}
+
+.submenu-content {
+  margin: 0 10px 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 0;
+}
+
+.submenu-item {
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+}
+
+.submenu-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.submenu-item.current-page {
+  background: rgba(14, 147, 243, 0.9);
+  color: white;
+}
+
+.informationmenu-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 25px;
+  margin-top: auto;
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
+  color: white;
+  padding: 8px 20px;
+  font-size: 14px;
+  width: 120px;
+  border: none;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.logout-btn:hover {
+  background: linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%);
+}
