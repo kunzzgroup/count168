@@ -772,102 +772,54 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     margin-top: clamp(2px, 0.31vw, 6px);
+    margin-bottom: clamp(6px, 0.42vw, 10px);
     padding: clamp(0px, 0.21vw, 4px) 8px;
 }
 
-.language-dropdown {
-    position: relative;
-    display: inline-block;
-}
-
-.language-btn {
-    display: flex;
+.sidebar-lang-btn {
+    display: inline-flex;
     align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
-    background: #9abff7;
-    border: none;
-    border-radius: clamp(4px, 0.42vw, 8px);
+    justify-content: center;
+    gap: 6px;
+    min-width: clamp(84px, 5.52vw, 106px);
+    padding: clamp(5px, 0.47vw, 9px) clamp(8px, 0.73vw, 14px);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #8fd7f7;
+    border-radius: 999px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    justify-content: space-between;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 3px 10px rgba(0, 79, 249, 0.12);
+    color: #2f63d6;
 }
 
-.language-btn:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.sidebar-lang-btn:hover {
+    box-shadow: 0 8px 16px rgba(0, 79, 249, 0.2);
     transform: translateY(-1px);
 }
 
-.flag-icon {
-    width: clamp(15px, 1.04vw, 20px);
-    height: clamp(10px, 0.78vw, 15px);
-    object-fit: cover;
-    border-radius: clamp(0px, 0.1vw, 2px);
+.sidebar-lang-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(86, 204, 242, 0.35);
 }
 
-.language-text {
-    font-size: clamp(7px, 0.63vw, 12px);
+.sidebar-lang-flag {
+    font-size: clamp(12px, 0.93vw, 18px);
+    line-height: 1;
+}
+
+.sidebar-lang-label {
+    font-size: clamp(8px, 0.63vw, 12px);
     font-weight: 600;
-    color: #333;
+    line-height: 1;
 }
 
-.dropdown-arrow {
-    font-size: clamp(6px, 0.52vw, 10px);
-    color: #002c65;
-    transition: transform 0.3s ease;
-}
-
-.language-btn.active .dropdown-arrow {
-    transform: rotate(180deg);
-}
-
-.language-dropdown-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: #9abff7;
-    border-radius: clamp(4px, 0.42vw, 8px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
-    z-index: 1000;
-    margin-top: 4px;
-    overflow: hidden;
-}
-
-.language-dropdown-list.show {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.language-option {
-    display: flex;
-    align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.language-option:last-child {
-    border-bottom: none;
-}
-
-.language-option:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.language-option span {
-    font-size: clamp(7px, 0.63vw, 12px);
-    font-weight: 600;
-    color: #333;
+.sidebar-lang-btn.active {
+    background: linear-gradient(135deg, #56ccf2, #004ff9);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 10px 20px rgba(0, 79, 249, 0.35);
 }
 
 /* 通知铃铛样式 */
