@@ -772,7 +772,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: clamp(6px, 0.52vw, 10px);
     padding: clamp(0px, 0.21vw, 4px) 8px;
 }
 
@@ -781,8 +780,8 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: center;
-    min-width: clamp(158px, 10.1vw, 194px);
-    height: clamp(34px, 2.29vw, 44px);
+    min-width: clamp(158px, 9.1vw, 194px);
+    height:clamp(34px, 1.29vw, 44px);
     padding: 0;
     background: rgba(255, 255, 255, 0.18);
     border: 1px solid #8fd7f7;
