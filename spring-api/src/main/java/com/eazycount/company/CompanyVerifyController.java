@@ -36,7 +36,7 @@ public class CompanyVerifyController {
     }
 
     String sql =
-        "SELECT id, company_name FROM company WHERE UPPER(company_id) = UPPER(?) OR UPPER(group_id) = UPPER(?) LIMIT 1";
+        "SELECT id, company_id AS company_name FROM company WHERE UPPER(company_id) = UPPER(?) OR UPPER(group_id) = UPPER(?) LIMIT 1";
     String companyName;
     try {
       companyName = jdbc.queryForObject(sql, (rs, rowNum) -> rs.getString("company_name"), companyId, companyId);

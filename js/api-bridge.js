@@ -7,7 +7,8 @@
 
   /** PHP 相对路径 -> Spring 路径（不含 host） */
   var REWRITE = {
-    'api/company/verify_api.php': '/api/company/verify'
+    'api/company/verify_api.php': '/api/company/verify',
+    'api/auth/login': '/api/auth/login'
   }
 
   function phpBasePath() {

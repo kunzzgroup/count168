@@ -33,11 +33,12 @@ public class SecurityConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration c = new CorsConfiguration();
-    List<String> origins = Arrays.stream(allowedOrigins.split(","))
+    List<String> patterns = Arrays.stream(allowedOrigins.split(","))
         .map(String::trim)
         .filter(s -> !s.isEmpty())
         .toList();
-    c.setAllowedOrigins(origins);
+    // 使用 pattern 才能匹配带端口的页面源（如 http://localhost:8080 与 http://127.0.0.1:8090）
+    patterns.forEach(c::addAllowedOriginPattern);
     c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     c.setAllowedHeaders(List.of("*"));
     c.setAllowCredentials(true);

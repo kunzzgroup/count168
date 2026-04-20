@@ -27,7 +27,11 @@ $assetVer = function ($file) {
 $reactBundlePath = __DIR__ . '/dashboard-app/assets/dashboard-react.js';
 $reactBundleOk = is_file($reactBundlePath);
 $reactBundleVer = $reactBundleOk ? filemtime($reactBundlePath) : time();
-$springApiBase = getenv('SPRING_API_BASE') !== false && getenv('SPRING_API_BASE') !== '' ? rtrim(getenv('SPRING_API_BASE'), '/') : '';
+// 未配置时默认本机 Spring，避免前端请求同源 /api/auth/login 404；生产请设置 SPRING_API_BASE
+$springApiBaseRaw = getenv('SPRING_API_BASE');
+$springApiBase = ($springApiBaseRaw !== false && $springApiBaseRaw !== '')
+    ? rtrim($springApiBaseRaw, '/')
+    : 'http://127.0.0.1:8090';
 
 // 与 dashboard-web/src/routeConfig.js 中 path 列一致（用于 ?r= 白名单）
 $knownSpaPaths = [
