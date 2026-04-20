@@ -48,7 +48,6 @@
             if (hashPath.indexOf('/member') === 0) return 'member.php';
             if (hashPath.indexOf('/dashboard') === 0) return 'dashboard.php';
             var spaToFile = {
-                '/domain': 'domain.php',
                 '/announcement': 'announcement.php',
                 '/user-list': 'userlist.php',
                 '/account-list': 'account-list.php',

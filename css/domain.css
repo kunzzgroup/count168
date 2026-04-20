@@ -2609,12 +2609,6 @@ h1 {
     display: block;
 }
 
-/* Dashboard SPA 内 iframe（?spa_embed=1）：无 PHP 侧栏，勿再为侧栏预留左侧大留白 */
-body.domain-spa-embed .container {
-    padding-left: clamp(12px, 1.5vw, 40px);
-    padding-right: clamp(12px, 1.5vw, 40px);
-}
-
 /* Responsive: collapse to single column on small screens */
 @media (max-width: 768px) {
     .modal-container-wide {

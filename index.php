@@ -45,7 +45,7 @@ $knownSpaPaths = [
     '/login', '/reset-password', '/owner-secondary-password', '/dashboard', '/member',
     '/account-list', '/add-account', '/announcement', '/bank-process-list', '/games-process-list',
     '/process-list', '/bankprocess-maintenance', '/capture-maintenance', '/datacapture', '/datacapture-summary',
-    '/transaction', '/transaction-maintenance', '/customer-report', '/domain-report', '/domain',
+    '/transaction', '/transaction-maintenance', '/customer-report', '/domain-report',
     '/formula-maintenance', '/payment-maintenance', '/ownership', '/permissions', '/user-access',
     '/user-list', '/auto-monthly-accounting', '/check-php-config', '/debug-ag110', '/scratch-db',
 ];
