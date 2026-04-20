@@ -3,4 +3,8 @@ DirectoryIndex index.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^index\.php$ index.html [R=301,L,QSA]
+  # 无 mod_proxy 时：/api/*（且非已存在的物理文件）→ spring-api-bridge.php → 本机 Spring
+  RewriteCond %{REQUEST_URI} ^/api/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^api/(.*)$ spring-api-bridge.php?__forward=/api/$1 [QSA,L]
 </IfModule>

@@ -53,7 +53,7 @@
   </script>
   <script src="js/api-bridge.js"></script>
   <link rel="stylesheet" href="dashboard-app/assets/dashboard-react.css" />
-  <!-- 若登录仍 404：在 eazycount-api-base meta 填 Spring 根 URL，或 Nginx 反代 /api 到 8090（见 nginx-api-proxy.example.conf）；跨域时 Spring 设 APP_CORS_ORIGINS -->
+  <!-- 若登录仍 404：① Nginx 见 nginx-count168.site.example.conf；② Apache 用 .htaccess + spring-api-bridge.php；③ 或在 meta eazycount-api-base 填可访问的 Spring 根 -->
 </head>
 <body class="bg">
   <div id="root"></div>
