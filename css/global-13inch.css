@@ -582,8 +582,8 @@
 }
 
 /* Global font override for all pages */
-/* body,
+body,
 body * {
     font-size: 0.80em !important;
     font-weight: bold !important;
-} */
+}
