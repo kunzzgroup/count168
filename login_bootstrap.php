@@ -1,7 +1,7 @@
 <?php
 /**
  * Spring 登录成功后的一次性会话桥接：从 Spring 拉取 session 字段写入 PHP $_SESSION，再跳转业务页。
- * 需与 Spring 同环境变量：APP_INTERNAL_BOOTSTRAP_KEY；服务端拉 Spring 优先 SPRING_INTERNAL_BASE，否则 SPRING_API_BASE，默认 http://127.0.0.1:8090。
+ * 需与 Spring 同环境变量：APP_INTERNAL_BOOTSTRAP_KEY；Spring 根 URL 见 spring_internal_bases.php。
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -24,41 +24,47 @@ if ($token === '') {
     exit();
 }
 
-$internalRaw = getenv('SPRING_INTERNAL_BASE');
-if ($internalRaw !== false && $internalRaw !== '') {
-    $springBase = rtrim($internalRaw, '/');
-} elseif (getenv('SPRING_API_BASE') !== false && getenv('SPRING_API_BASE') !== '') {
-    $springBase = rtrim(getenv('SPRING_API_BASE'), '/');
-} else {
-    $springBase = 'http://127.0.0.1:8090';
-}
+require_once __DIR__ . '/spring_internal_bases.php';
+
 $internalKey = getenv('APP_INTERNAL_BOOTSTRAP_KEY') !== false && getenv('APP_INTERNAL_BOOTSTRAP_KEY') !== ''
     ? getenv('APP_INTERNAL_BOOTSTRAP_KEY')
     : 'dev-local-only-change-me';
 
-$url = $springBase . '/api/internal/session-bootstrap/' . rawurlencode($token);
-$ctx = stream_context_create([
+$ctxTemplate = [
     'http' => [
         'method' => 'GET',
         'header' => 'X-Eazycount-Internal: ' . $internalKey . "\r\n",
         'timeout' => 10,
         'ignore_errors' => true,
     ],
-]);
+];
 
-$raw = @file_get_contents($url, false, $ctx);
+$raw = false;
 $httpStatus = null;
 $ok = false;
-if ($raw !== false && isset($http_response_header) && is_array($http_response_header)) {
-    foreach ($http_response_header as $h) {
-        if (preg_match('#^HTTP/\S+\s+(\d{3})\s#', $h, $m)) {
-            $httpStatus = (int) $m[1];
-        }
-        if (preg_match('#^HTTP/\S+\s+200\s#', $h)) {
-            $ok = true;
-            break;
+$springBase = '';
+foreach (eazycount_spring_internal_bases() as $base) {
+    $springBase = $base;
+    $url = $springBase . '/api/internal/session-bootstrap/' . rawurlencode($token);
+    $ctx = stream_context_create($ctxTemplate);
+    $raw = @file_get_contents($url, false, $ctx);
+    $httpStatus = null;
+    $ok = false;
+    if ($raw === false) {
+        continue;
+    }
+    if (isset($http_response_header) && is_array($http_response_header)) {
+        foreach ($http_response_header as $h) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})\s#', $h, $m)) {
+                $httpStatus = (int) $m[1];
+            }
+            if (preg_match('#^HTTP/\S+\s+200\s#', $h)) {
+                $ok = true;
+                break;
+            }
         }
     }
+    break;
 }
 
 if (!$ok) {
