@@ -3,6 +3,9 @@
 require_once 'session_check.php';
 require_once __DIR__ . '/inc/c168_staff_roles.php';
 
+// React 壳内 iframe 嵌入：不重复输出 PHP 侧栏（外层已有 React Sidebar）
+$spaEmbed = isset($_GET['spa_embed']) && (string) $_GET['spa_embed'] === '1';
+
 // 强制浏览器使用最新 JS/CSS，避免旧缓存导致 permission/Expiration Date 行为异常
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
@@ -97,9 +100,11 @@ try {
         return file_exists($path) ? filemtime($path) : time();
     };
     ?>
+    <?php if (!$spaEmbed): ?>
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <?php endif; ?>
     <link rel="stylesheet" href="css/domain.css?v=<?php echo $assetVer('css/domain.css'); ?>">
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
@@ -108,7 +113,7 @@ try {
     <script src="js/domain.js?v=<?php echo $assetVer('js/domain.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
-<body>
+<body<?php echo $spaEmbed ? ' class="domain-spa-embed"' : ''; ?>>
     <div class="container">
         <h1>Domain List</h1>
         

@@ -30,7 +30,7 @@ export const routeConfig = [
   { path: '/transaction-maintenance', legacyFile: 'transaction_maintenance.php', title: 'Transaction maintenance', migrated: false },
   { path: '/customer-report', legacyFile: 'customer_report.php', title: 'Customer report', migrated: false },
   { path: '/domain-report', legacyFile: 'domain_report.php', title: 'Domain report', migrated: false },
-  { path: '/domain', legacyFile: 'domain.php', title: 'Domain', migrated: false },
+  { path: '/domain', legacyFile: 'domain.php', title: 'Domain', migrated: false, legacyEmbed: true },
   { path: '/formula-maintenance', legacyFile: 'formula_maintenance.php', title: 'Formula maintenance', migrated: false },
   { path: '/payment-maintenance', legacyFile: 'payment_maintenance.php', title: 'Payment maintenance', migrated: false },
   { path: '/ownership', legacyFile: 'ownership.php', title: 'Ownership', migrated: false },

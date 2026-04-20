@@ -3,6 +3,7 @@ import DashboardPage from './DashboardPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import MemberPage from './pages/MemberPage.jsx'
 import PlaceholderPage from './pages/PlaceholderPage.jsx'
+import LegacyEmbedPage from './pages/LegacyEmbedPage.jsx'
 import LegacyRedirect from './pages/LegacyRedirect.jsx'
 import AppLayout from './layout/AppLayout.jsx'
 import { routeConfig } from './routeConfig.js'
@@ -52,7 +53,13 @@ export default function App() {
               <Route
                 key={r.path}
                 path={routePath(r.path)}
-                element={<PlaceholderPage title={r.title} legacyFile={r.legacyFile} />}
+                element={
+                  r.legacyEmbed ? (
+                    <LegacyEmbedPage title={r.title} legacyFile={r.legacyFile} />
+                  ) : (
+                    <PlaceholderPage title={r.title} legacyFile={r.legacyFile} />
+                  )
+                }
               />
             ))}
           <Route path="*" element={<Navigate to={defaultSpaPath()} replace />} />
