@@ -4,7 +4,7 @@
  */
 
 export const routeConfig = [
-  { path: '/login', legacyFile: 'index.php', title: 'Login', migrated: false },
+  { path: '/login', legacyFile: 'index.php', title: 'Login', migrated: true },
   { path: '/reset-password', legacyFile: 'reset-password.php', title: 'Reset password', migrated: false },
   {
     path: '/owner-secondary-password',

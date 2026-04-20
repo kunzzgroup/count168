@@ -39,11 +39,12 @@
 
 **本地预览 SPA（无 PHP 侧栏）**：`cd dashboard-web && npm run dev`，浏览器打开 `http://localhost:5173/#/dashboard`（需自行代理 `/api` 等到后端，见 `vite.config.js`）。
 
-### Phase 1 — 认证与壳
+### Phase 1 — 认证与壳（进行中）
 
-- `index.php`、`login_process.php` → `/login` React 页 + 仍调现有登录 API（或 Spring 登录）
-- `owner_secondary_password.php` → 独立路由
-- 侧栏：`sidebar.php` → `Sidebar.jsx`（菜单数据来自 `/api/me` 类接口或内嵌 JSON）
+- ✅ **`index.php` → React**：`#/login`，`LoginPage.jsx` 对接 `login_process.php`（`fetch` + `credentials: 'include'`），维护跑马灯与 Admin/Member 切换逻辑与原 `js/index.js` 一致；未构建时仍提示运行 `npm run build`。
+- ✅ **入口变量**：`index.php` 设置 `window.__SPA_DEFAULT_ROUTE = '/login'`；`dashboard.php` 设置 `'/dashboard'`，`App.jsx` 根路径与 `*` 回退据此跳转。
+- ⏳ `owner_secondary_password.php` → 独立路由（下一步可做）
+- ⏳ 侧栏：`sidebar.php` → `Sidebar.jsx`
 
 ### Phase 2 — 核心业务页（按流量与依赖排序）
 

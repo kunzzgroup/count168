@@ -145,6 +145,7 @@ $reactBundleVer = $reactBundleOk ? filemtime($reactBundlePath) : time();
         window.companyId = <?php echo isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : 'null'; ?>;
         window.__DASHBOARD_JS_VER = <?php echo (int) $assetVer('js/dashboard.js'); ?>;
         window.__COUNT_ASSET_BASE = '';
+        window.__SPA_DEFAULT_ROUTE = '/dashboard';
     </script>
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <link rel="stylesheet"

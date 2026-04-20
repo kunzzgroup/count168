@@ -27,7 +27,8 @@ export default defineConfig({
       '/api': { target: 'http://127.0.0.1:8080', changeOrigin: true },
       '/js': { target: 'http://127.0.0.1:8080', changeOrigin: true },
       '/css': { target: 'http://127.0.0.1:8080', changeOrigin: true },
-      '/images': { target: 'http://127.0.0.1:8080', changeOrigin: true }
+      '/images': { target: 'http://127.0.0.1:8080', changeOrigin: true },
+      '/login_process.php': { target: 'http://127.0.0.1:8080', changeOrigin: true }
     }
   }
 })
