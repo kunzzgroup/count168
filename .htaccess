@@ -2,11 +2,14 @@
   RewriteEngine On
   RewriteBase /
 
-  # Keep existing files/directories untouched
+  # 1) API 不走前端路由（按你的后端部署方式处理）
+  RewriteRule ^api/ - [L]
+
+  # 2) 静态资源照常
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # SPA fallback for routes like /login, /dashboard
+  # 3) 其余交给 React
   RewriteRule ^ index.html [L]
 </IfModule>
