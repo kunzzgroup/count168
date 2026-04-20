@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { resolveApiPath } from '../lib/resolveApiPath.js'
 
 function showAlertModal(title, message) {
   return new Promise((resolve) => {
@@ -60,7 +61,7 @@ export default function LoginPage() {
     if (!value || value.trim() === '') return
     const fd = new FormData()
     fd.append('company_id', value)
-    fetch('api/company/verify_api.php', { method: 'POST', body: fd, credentials: 'include' }).catch(() => {})
+    fetch(resolveApiPath('api/company/verify_api.php'), { method: 'POST', body: fd, credentials: 'include' }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -72,7 +73,7 @@ export default function LoginPage() {
   useEffect(() => {
     async function loadMaintenance() {
       try {
-        const response = await fetch('api/maintenance/get_public_api.php', { credentials: 'include' })
+        const response = await fetch(resolveApiPath('api/maintenance/get_public_api.php'), { credentials: 'include' })
         const result = await response.json()
         const wrapper = document.getElementById('maintenanceMarqueeWrapper')
         const track = document.getElementById('maintenanceMarqueeTrack')

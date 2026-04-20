@@ -1,5 +1,8 @@
-// 构造 API 绝对 URL（与 processlist/datacapture 一致，避免 404）
+// 构造 API 绝对 URL（与 processlist/datacapture 一致，避免 404）；若存在 api-bridge.js 则支持 Spring 重写
 function buildApiUrl(pathAndQuery) {
+    if (typeof window.resolveApiPath === 'function') {
+        return window.resolveApiPath(pathAndQuery);
+    }
     const pathname = window.location.pathname || '/';
     const basePath = pathname.replace(/[^/]*$/, '') || '/';
     const base = window.location.origin + basePath;
@@ -2236,7 +2239,7 @@ function loadCurrencies() {
     }
     return Promise.all([
         fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${window.companyId}`)).then(res => res.json()),
-        fetch(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
+        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`)).then(res => res.json()).catch(() => null)
     ])
         .then(([data, orderData]) => {
             const wrapper = document.getElementById('currency-buttons-wrapper');
@@ -2365,7 +2368,7 @@ function initDashboardCurrencyDragDrop() {
             localStorage.setItem('transaction_currency_order_global', serialized);
 
             // 同时永久保存到数据库
-            fetch('api/transactions/user_currency_order_api.php', {
+            fetch(buildApiUrl('api/transactions/user_currency_order_api.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ order: newOrder })

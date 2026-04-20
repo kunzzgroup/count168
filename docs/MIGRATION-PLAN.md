@@ -25,6 +25,12 @@
 
 **过渡期**（常见）：React 仍请求 **同源 `/api/*.php`**，`credentials: 'include'`，直到接口逐条迁到 Java。
 
+### Spring Boot 工程（已落地骨架）
+
+- 目录：`count168test/spring-api/`（Maven，`mvn spring-boot:run`，默认端口 **8090**）。
+- 环境变量：`SPRING_DATASOURCE_*`、`SERVER_PORT`、`APP_CORS_ORIGINS`（见 `spring-api/README.md`）。
+- PHP / 前端：设置 **`SPRING_API_BASE`**（如 `http://127.0.0.1:8090`）或 Vite **`VITE_API_BASE_URL`**；`js/api-bridge.js` 将 **已登记** 的 PHP 路径重写为 Java（当前含 **公司校验** → `POST /api/company/verify`），其余仍走 PHP。
+
 ---
 
 ## 3. 分阶段路线

@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: eazycount-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/your_database?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kuala_Lumpur&characterEncoding=utf8}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${SERVER_PORT:8090}
+
+# CORS：前端页面所在源（多个用逗号）
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost,http://127.0.0.1,http://localhost:5173}
+
+logging:
+  level:
+    org.springframework.security: INFO
+    com.eazycount: DEBUG

@@ -70,6 +70,7 @@ $assetVer = function ($file) {
 $reactBundlePath = __DIR__ . '/dashboard-app/assets/dashboard-react.js';
 $reactBundleOk = is_file($reactBundlePath);
 $reactBundleVer = $reactBundleOk ? filemtime($reactBundlePath) : time();
+$springApiBase = getenv('SPRING_API_BASE') !== false && getenv('SPRING_API_BASE') !== '' ? rtrim(getenv('SPRING_API_BASE'), '/') : '';
 ?>
 
 <!DOCTYPE html>
@@ -87,7 +88,9 @@ $reactBundleVer = $reactBundleOk ? filemtime($reactBundlePath) : time();
         href="css/global-13inch.css?v=<?php echo file_exists(__DIR__ . '/css/global-13inch.css') ? filemtime(__DIR__ . '/css/global-13inch.css') : time(); ?>">
     <script>
         window.__SPA_DEFAULT_ROUTE = '/login';
+        window.__API_BASE_URL__ = <?php echo json_encode($springApiBase); ?>;
     </script>
+    <script src="js/api-bridge.js?v=<?php echo $assetVer('js/api-bridge.js'); ?>"></script>
 </head>
 
 <body class="bg">
