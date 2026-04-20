@@ -1006,14 +1006,14 @@ h1 {
     overflow: hidden;
 }
 
-/* 非 Show All：20 行等分，与 processlist Games 一致 */
+/* 非 Show All：可见行均分列表高度（不用 repeat(20,1fr) 网格，否则少于 20 人时空行仍占 fr，会把数据行压扁） */
 body.user-page:not(.user-page--show-all) .user-cards {
-    display: grid;
-    grid-template-rows: repeat(20, minmax(0, 1fr));
-    align-content: start;
+    display: flex;
+    flex-direction: column;
 }
 
 body.user-page:not(.user-page--show-all) .user-card.show-card {
+    flex: 1 1 0;
     min-height: 0;
 }
 

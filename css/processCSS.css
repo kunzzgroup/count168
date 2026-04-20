@@ -1374,12 +1374,12 @@ body.process-page.process-page--show-all .process-cards {
     min-height: 0;
     max-height: none;
     overflow: hidden;
-    display: grid;
-    grid-template-rows: repeat(20, minmax(0, 1fr));
-    align-content: start;
+    display: flex;
+    flex-direction: column;
 }
 
 .process-page:not(.process-page--bank) .process-card {
+    flex: 1 1 0;
     height: auto;
     min-height: 0;
     box-sizing: border-box;
