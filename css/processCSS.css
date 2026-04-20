@@ -1355,7 +1355,7 @@ body.process-page.process-page--show-all .process-cards {
 }
 
 .process-page:not(.process-page--bank) .action-buttons-container {
-    margin-top: 8px;
+    margin-top: 20px;
 }
 
 .process-page:not(.process-page--bank) .table-header {
