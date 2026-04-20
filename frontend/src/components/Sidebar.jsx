@@ -5,7 +5,7 @@ const MENU_ITEMS = [
   { key: 'home', label: 'Home', href: '/dashboard.php' },
   { key: 'domain', label: 'Domain', href: '/domain.php' },
   { key: 'announcement', label: 'Announcement', href: '/announcement.php' },
-  { key: 'admin', label: 'Admin', href: '/userlist.php' },
+  { key: 'admin', label: 'Admin', href: '#/admin' },
   { key: 'account', label: 'Account', href: '/account-list.php' },
   { key: 'ownership', label: 'Ownership', href: '/ownership.php' },
   { key: 'process', label: 'Process', href: '/processlist.php' },
@@ -26,13 +26,16 @@ const MAINTENANCE_ITEMS = [
   { key: 'bankprocess_maintenance', label: 'Process', href: '/bankprocess_maintenance.php' }
 ]
 
-function Sidebar() {
+function Sidebar({ currentRoute = '#/' }) {
   const [openReport, setOpenReport] = useState(false)
   const [openMaintenance, setOpenMaintenance] = useState(false)
 
   const currentPath = useMemo(() => window.location.pathname.toLowerCase(), [])
 
-  const isMenuActive = (href) => currentPath.endsWith(href.toLowerCase())
+  const isMenuActive = (href) => {
+    if (href.startsWith('#/')) return currentRoute === href
+    return currentPath.endsWith(href.toLowerCase())
+  }
   const isSubmenuActive = (items) => items.some((item) => isMenuActive(item.href))
 
   return (
