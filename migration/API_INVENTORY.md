@@ -236,4 +236,18 @@
 - 新增 PHP API 时：**先补本文档第 3 节列表**，再实现 Spring 与前端切换。  
 - 删除 PHP 时：**从第 3、4 节移除并记录 PR 链接**，便于审计。
 
+---
+
+## 7. 前端 API 引用扫描（自动化）
+
+从 `js/`、`dashboard-web/src` 提取字符串中的 `api/.../*.php`（及少数根级 `*.php`、`api/auth/login`），生成 **`migration/generated/frontend-api-refs.json`**（含文件:行号，便于迁 Spring 时改调用点）。
+
+在 **`count168test`** 目录执行：
+
+```bash
+node migration/scripts/scan-frontend-api-refs.mjs
+```
+
+迁完一条 Spring 接口后：在 `resolveApiPath.js` / `api-bridge.js` 增加 `REWRITE`，并全局搜该 `api/...` 字符串确认无遗漏。
+
 更新日期：以仓库最后一次编辑本文件为准。

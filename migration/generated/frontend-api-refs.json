@@ -1,0 +1,488 @@
+{
+  "generatedAt": "2026-04-20T04:32:21.552Z",
+  "scanRoots": [
+    "js",
+    "dashboard-web/src"
+  ],
+  "totalUniqueRefs": 88,
+  "refs": {
+    "api/accounts/account_company_api.php": [
+      "js/account-list.js:2053",
+      "js/account-list.js:916",
+      "js/account-list.js:917",
+      "js/bank_process_list.js:2748",
+      "js/bank_process_list.js:2749",
+      "js/bank_process_list.js:2921",
+      "js/datacapturesummary.js:4614",
+      "js/datacapturesummary.js:4615",
+      "js/datacapturesummary.js:4934",
+      "js/processlist.js:4333",
+      "js/processlist.js:4334",
+      "js/processlist.js:4505"
+    ],
+    "api/accounts/account_currency_api.php": [
+      "js/account-list.js:1904",
+      "js/account-list.js:2023",
+      "js/account-list.js:2462",
+      "js/account-list.js:579",
+      "js/account-list.js:580",
+      "js/account-list.js:778",
+      "js/account-list.js:853",
+      "js/bank_process_list.js:2619",
+      "js/bank_process_list.js:2620",
+      "js/bank_process_list.js:2695",
+      "js/bank_process_list.js:2832",
+      "js/bank_process_list.js:2908",
+      "js/bank_process_list.js:3047",
+      "js/bank_process_list.js:3215",
+      "js/bank_process_list.js:3222",
+      "js/datacapturesummary.js:3283",
+      "js/datacapturesummary.js:4277",
+      "js/datacapturesummary.js:4278",
+      "js/datacapturesummary.js:4476",
+      "js/datacapturesummary.js:4551",
+      "js/datacapturesummary.js:4802",
+      "js/datacapturesummary.js:4904",
+      "js/processlist.js:4204",
+      "js/processlist.js:4205",
+      "js/processlist.js:4280",
+      "js/processlist.js:4417",
+      "js/processlist.js:4492",
+      "js/processlist.js:4594",
+      "js/processlist.js:4762",
+      "js/processlist.js:4769"
+    ],
+    "api/accounts/account_link_api.php": [
+      "js/account-list.js:1064",
+      "js/account-list.js:1086",
+      "js/account-list.js:1108",
+      "js/account-list.js:1133",
+      "js/account-list.js:1206",
+      "js/member.js:235"
+    ],
+    "api/accounts/accountlistapi.php": [
+      "js/account-list.js:1183",
+      "js/account-list.js:94",
+      "js/bank_process_list.js:3241",
+      "js/processlist.js:4788"
+    ],
+    "api/accounts/addaccountapi.php": [
+      "js/account-list.js:2007",
+      "js/bank_process_list.js:2899",
+      "js/datacapturesummary.js:4886",
+      "js/processlist.js:4483"
+    ],
+    "api/accounts/addcurrencyapi.php": [
+      "js/bank_process_list.js:2821",
+      "js/bank_process_list.js:3195",
+      "js/datacapturesummary.js:4775",
+      "js/processlist.js:4406",
+      "js/processlist.js:4742"
+    ],
+    "api/accounts/bulk_account_currency_api.php": [
+      "js/account-list.js:2508",
+      "js/account-list.js:2684"
+    ],
+    "api/accounts/create_currency_api.php": [
+      "js/account-list.js:1877",
+      "js/account-list.js:2427"
+    ],
+    "api/accounts/delete_accounts_api.php": [
+      "js/account-list.js:1645"
+    ],
+    "api/accounts/delete_currency_api.php": [
+      "js/account-list.js:696",
+      "js/bank_process_list.js:2718",
+      "js/datacapturesummary.js:4394",
+      "js/processlist.js:4303"
+    ],
+    "api/accounts/toggle_account_status_api.php": [
+      "js/account-list.js:1472"
+    ],
+    "api/accounts/toggle_payment_alert_api.php": [
+      "js/account-list.js:1429"
+    ],
+    "api/accounts/update_api.php": [
+      "js/account-list.js:1814",
+      "js/bank_process_list.js:2986",
+      "js/processlist.js:4570"
+    ],
+    "api/announcements/announcement_create_api.php": [
+      "js/announcement.js:157"
+    ],
+    "api/announcements/announcement_delete_api.php": [
+      "js/announcement.js:120"
+    ],
+    "api/announcements/announcement_get_dashboard_api.php": [
+      "js/sidebar.js:217"
+    ],
+    "api/announcements/announcement_list_api.php": [
+      "js/announcement.js:39"
+    ],
+    "api/announcements/announcement_update_api.php": [
+      "js/announcement.js:245"
+    ],
+    "api/auth/login": [
+      "dashboard-web/src/lib/resolveApiPath.js:3",
+      "js/api-bridge.js:11",
+      "js/index.js:140"
+    ],
+    "api/auth/spring_login_proxy.php": [
+      "dashboard-web/src/lib/resolveApiPath.js:28",
+      "js/api-bridge.js:34",
+      "js/index.js:143"
+    ],
+    "api/bankprocess_maintenance/delete_api.php": [
+      "js/bankprocess_maintenance.js:427"
+    ],
+    "api/bankprocess_maintenance/resend_accounting_due_api.php": [
+      "js/bank_process_list.js:395",
+      "js/processlist.js:2098"
+    ],
+    "api/bankprocess_maintenance/search_api.php": [
+      "js/bankprocess_maintenance.js:282"
+    ],
+    "api/capture_maintenance/delete_api.php": [
+      "js/capture_maintenance.js:649"
+    ],
+    "api/capture_maintenance/search_api.php": [
+      "js/capture_maintenance.js:469"
+    ],
+    "api/company/verify_api.php": [
+      "dashboard-web/src/lib/resolveApiPath.js:2",
+      "dashboard-web/src/pages/LoginPage.jsx:64",
+      "js/api-bridge.js:10",
+      "js/index.js:74"
+    ],
+    "api/datacapture_summary/summary_api.php": [
+      "js/datacapturesummary.js:15363",
+      "js/datacapturesummary.js:19974",
+      "js/datacapturesummary.js:20361",
+      "js/datacapturesummary.js:20362",
+      "js/datacapturesummary.js:3147",
+      "js/datacapturesummary.js:652",
+      "js/datacapturesummary.js:674",
+      "js/datacapturesummary.js:7613",
+      "js/datacapturesummary.js:7867"
+    ],
+    "api/domain/domain_api.php": [
+      "js/bankprocess_maintenance.js:209",
+      "js/capture_maintenance.js:128",
+      "js/customer_report.js:55",
+      "js/datacapture.js:24610",
+      "js/domain.js:1103",
+      "js/domain.js:1258",
+      "js/domain.js:1272",
+      "js/domain.js:1667",
+      "js/domain.js:1687",
+      "js/domain.js:1716",
+      "js/domain.js:1861",
+      "js/domain.js:2071",
+      "js/domain.js:2401",
+      "js/domain.js:937",
+      "js/domain_report.js:50",
+      "js/formula_maintenance_v2.js:387",
+      "js/formula_maintenance_v2.js:428",
+      "js/payment_maintenance.js:87",
+      "js/processlist.js:6597",
+      "js/transaction_maintenance.js:21"
+    ],
+    "api/editdata/editdata_api.php": [
+      "js/account-list.js:495",
+      "js/bank_process_list.js:2542",
+      "js/datacapturesummary.js:3516",
+      "js/processlist.js:4127"
+    ],
+    "api/formula_maintenance/delete_api.php": [
+      "js/formula_maintenance_v2.js:1211"
+    ],
+    "api/formula_maintenance/list_api.php": [
+      "js/formula_maintenance_v2.js:631"
+    ],
+    "api/formula_maintenance/update_api.php": [
+      "js/formula_maintenance_v2.js:1096"
+    ],
+    "api/get_companies_helper.php": [
+      "js/refactor.js:30"
+    ],
+    "api/maintenance/create_api.php": [
+      "js/announcement.js:388"
+    ],
+    "api/maintenance/delete_api.php": [
+      "js/announcement.js:353"
+    ],
+    "api/maintenance/get_public_api.php": [
+      "dashboard-web/src/pages/LoginPage.jsx:76",
+      "js/index.js:203"
+    ],
+    "api/maintenance/list_api.php": [
+      "js/announcement.js:285"
+    ],
+    "api/maintenance/update_api.php": [
+      "js/announcement.js:443"
+    ],
+    "api/ownership/add_external_partner_api.php": [
+      "js/ownership.js:1055"
+    ],
+    "api/ownership/add_group_external_partner_api.php": [
+      "js/ownership-group.js:569"
+    ],
+    "api/ownership/batch_save_group_owners_api.php": [
+      "js/ownership-group.js:532"
+    ],
+    "api/ownership/batch_save_owners_api.php": [
+      "js/ownership.js:682"
+    ],
+    "api/ownership/get_available_accounts_api.php": [
+      "js/ownership.js:297"
+    ],
+    "api/ownership/get_companies_api.php": [
+      "js/ownership.js:56"
+    ],
+    "api/ownership/get_group_available_accounts_api.php": [
+      "js/ownership-group.js:209"
+    ],
+    "api/ownership/get_group_earnings_api.php": [
+      "js/ownership-group.js:41"
+    ],
+    "api/ownership/get_group_owners_api.php": [
+      "js/ownership-group.js:210"
+    ],
+    "api/ownership/get_owners_api.php": [
+      "js/ownership.js:298"
+    ],
+    "api/ownership/update_company_group_api.php": [
+      "js/ownership.js:1003",
+      "js/ownership.js:1025",
+      "js/ownership.js:857",
+      "js/ownership.js:893"
+    ],
+    "api/payment_maintenance/delete_api.php": [
+      "js/payment_maintenance.js:512"
+    ],
+    "api/payment_maintenance/search_api.php": [
+      "js/payment_maintenance.js:290"
+    ],
+    "api/processes/addprocess_api.php": [
+      "js/bank_process_list.js:2098",
+      "js/bank_process_list.js:2366",
+      "js/bank_process_list.js:3187",
+      "js/datacapture.js:22074",
+      "js/datacapture.js:2458",
+      "js/datacapture.js:2685",
+      "js/datacapture.js:2844",
+      "js/datacapture.js:3080",
+      "js/processlist.js:2662",
+      "js/processlist.js:2876",
+      "js/processlist.js:2934",
+      "js/processlist.js:3048",
+      "js/processlist.js:3501",
+      "js/processlist.js:3685",
+      "js/processlist.js:3951",
+      "js/processlist.js:4734",
+      "js/processlist.js:6227"
+    ],
+    "api/processes/delete_processes_api.php": [
+      "js/processlist.js:3296"
+    ],
+    "api/processes/dismiss_accounting_due_api.php": [
+      "js/bank_process_list.js:1666",
+      "js/processlist.js:2354"
+    ],
+    "api/processes/process_accounting_inbox_api.php": [
+      "js/bank_process_list.js:1441",
+      "js/processlist.js:1816"
+    ],
+    "api/processes/process_post_to_transaction_api.php": [
+      "js/bank_process_list.js:1594",
+      "js/bank_process_list.js:1702",
+      "js/processlist.js:1976",
+      "js/processlist.js:2394"
+    ],
+    "api/processes/processlist_api.php": [
+      "js/bank_process_list.js:1241",
+      "js/bank_process_list.js:2083",
+      "js/bank_process_list.js:2322",
+      "js/bank_process_list.js:2420",
+      "js/bank_process_list.js:3064",
+      "js/bank_process_list.js:3070",
+      "js/bank_process_list.js:3141",
+      "js/bank_process_list.js:3598",
+      "js/bank_process_list.js:3626",
+      "js/bank_process_list.js:3830",
+      "js/bank_process_list.js:3888",
+      "js/bank_process_list.js:3933",
+      "js/bank_process_list.js:4018",
+      "js/bank_process_list.js:4232",
+      "js/bank_process_list.js:4248",
+      "js/bank_process_list.js:484",
+      "js/capture_maintenance.js:232",
+      "js/datacapture.js:2476",
+      "js/formula_maintenance_v2.js:110",
+      "js/processlist.js:1342",
+      "js/processlist.js:1512",
+      "js/processlist.js:3670",
+      "js/processlist.js:3907",
+      "js/processlist.js:4005",
+      "js/processlist.js:4611",
+      "js/processlist.js:4617",
+      "js/processlist.js:4688",
+      "js/processlist.js:5145",
+      "js/processlist.js:5173",
+      "js/processlist.js:5377",
+      "js/processlist.js:5435",
+      "js/processlist.js:5480",
+      "js/processlist.js:5565",
+      "js/processlist.js:5779",
+      "js/processlist.js:5795",
+      "js/processlist.js:642",
+      "js/transaction_maintenance.js:326"
+    ],
+    "api/processes/submitted_processes_api.php": [
+      "js/datacapture.js:1018",
+      "js/datacapture.js:2138",
+      "js/datacapture.js:2722",
+      "js/datacapturesummary.js:20221"
+    ],
+    "api/processes/toggle_process_status_api.php": [
+      "js/bank_process_list.js:1733",
+      "js/processlist.js:2422"
+    ],
+    "api/processes/update_bank_issue_flag_api.php": [
+      "js/bank_process_list.js:769",
+      "js/processlist.js:534"
+    ],
+    "api/processes/update_bank_remark_api.php": [
+      "js/bank_process_list.js:1194",
+      "js/processlist.js:1221"
+    ],
+    "api/reports/customer_report_api.php": [
+      "js/customer_report.js:593"
+    ],
+    "api/reports/domain_report_api.php": [
+      "js/domain_report.js:126",
+      "js/domain_report.js:396"
+    ],
+    "api/session/update_account_session_api.php": [
+      "js/member.js:296"
+    ],
+    "api/session/update_company_session_api.php": [
+      "js/account-list.js:2128",
+      "js/bankprocess_maintenance.js:100",
+      "js/capture_maintenance.js:187",
+      "js/customer_report.js:82",
+      "js/dashboard.js:2418",
+      "js/datacapture.js:24688",
+      "js/domain_report.js:76",
+      "js/formula_maintenance_v2.js:476",
+      "js/member.js:192",
+      "js/payment_maintenance.js:158",
+      "js/processlist.js:6756",
+      "js/remote_userlist.js:2004",
+      "js/transaction.js:1194",
+      "js/transaction_maintenance.js:263",
+      "js/userlist.js:2043"
+    ],
+    "api/transactions/contra_approve_api.php": [
+      "js/transaction.js:226"
+    ],
+    "api/transactions/contra_inbox_api.php": [
+      "js/transaction.js:189"
+    ],
+    "api/transactions/contra_reject_api.php": [
+      "js/transaction.js:260"
+    ],
+    "api/transactions/dashboard_api.php": [
+      "js/dashboard.js:11"
+    ],
+    "api/transactions/get_accounts_api.php": [
+      "js/customer_report.js:301",
+      "js/customer_report.js:302",
+      "js/formula_maintenance_v2.js:943",
+      "js/transaction.js:838",
+      "js/transaction.js:839"
+    ],
+    "api/transactions/get_categories_api.php": [
+      "js/transaction.js:543"
+    ],
+    "api/transactions/get_company_currencies_api.php": [
+      "js/bankprocess_maintenance.js:136",
+      "js/customer_report.js:125",
+      "js/dashboard.js:2247",
+      "js/payment_maintenance.js:205",
+      "js/transaction.js:1382"
+    ],
+    "api/transactions/get_owner_companies_api.php": [
+      "js/dashboard.js:2000",
+      "js/remote_userlist.js:653",
+      "js/transaction_maintenance.js:140",
+      "js/userlist.js:673"
+    ],
+    "api/transactions/history_api.php": [
+      "js/member.js:761",
+      "js/member.js:810",
+      "js/transaction.js:3370"
+    ],
+    "api/transactions/maintenance_search_api.php": [
+      "js/transaction_maintenance.js:544"
+    ],
+    "api/transactions/search_api.php": [
+      "js/member.js:447",
+      "js/transaction.js:1803",
+      "js/transaction.js:1916",
+      "js/transaction.js:1971"
+    ],
+    "api/transactions/submit_api.php": [
+      "js/transaction.js:3282"
+    ],
+    "api/transactions/user_currency_order_api.php": [
+      "js/dashboard.js:2248",
+      "js/dashboard.js:2377",
+      "js/member.js:559",
+      "js/member.js:577",
+      "js/transaction.js:1396",
+      "js/transaction.js:1697"
+    ],
+    "api/useraccess/useraccess_api.php": [
+      "js/useraccess.js:232"
+    ],
+    "api/users/reset_password_api.php": [
+      "js/reset-password.js:159"
+    ],
+    "api/users/send_reset_tac_api.php": [
+      "js/reset-password.js:93"
+    ],
+    "api/users/toggle_status_api.php": [
+      "js/remote_userlist.js:1860",
+      "js/userlist.js:1899"
+    ],
+    "api/users/userlist_api.php": [
+      "js/remote_userlist.js:1590",
+      "js/remote_userlist.js:2265",
+      "js/remote_userlist.js:874",
+      "js/userlist.js:1629",
+      "js/userlist.js:2323",
+      "js/userlist.js:894"
+    ],
+    "domainapi.php": [
+      "dashboard-web/src/routeConfig.js:50"
+    ],
+    "getaccountapi.php": [
+      "dashboard-web/src/routeConfig.js:49",
+      "js/account-list.js:1339",
+      "js/bank_process_list.js:4319",
+      "js/processlist.js:5866"
+    ],
+    "login_bootstrap.php": [
+      "dashboard-web/src/pages/LoginPage.jsx:172",
+      "dashboard-web/src/routeConfig.js:48",
+      "js/index.js:155"
+    ],
+    "roleapi.php": [
+      "dashboard-web/src/routeConfig.js:51"
+    ],
+    "session_check.php": [
+      "dashboard-web/src/routeConfig.js:52"
+    ]
+  }
+}
