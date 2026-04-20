@@ -382,13 +382,14 @@ body.account-page--show-all .account-table-wrapper {
     padding-bottom: 72px;
 }
 
-/* Account Cards：纵向 flex；非 Show All 时每行 flex 均分高度（避免 20 行网格空行压扁数据行） */
+/* Account Cards：纵向 flex；行高随内容，空白留在列表底部（与 userlist 一致） */
 .account-cards {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    justify-content: flex-start;
 }
 
 .account-card {
@@ -405,7 +406,7 @@ body.account-page--show-all .account-table-wrapper {
 }
 
 body.account-page:not(.account-page--show-all) .account-card {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-height: 0;
     height: auto;
 }

@@ -1376,10 +1376,11 @@ body.process-page.process-page--show-all .process-cards {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
 }
 
 .process-page:not(.process-page--bank) .process-card {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     height: auto;
     min-height: 0;
     box-sizing: border-box;

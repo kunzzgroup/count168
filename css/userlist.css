@@ -1004,16 +1004,12 @@ h1 {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    justify-content: flex-start;
 }
 
-/* 非 Show All：可见行均分列表高度（不用 repeat(20,1fr) 网格，否则少于 20 人时空行仍占 fr，会把数据行压扁） */
-body.user-page:not(.user-page--show-all) .user-cards {
-    display: flex;
-    flex-direction: column;
-}
-
+/* 非 Show All：行高随内容；仅当行数多、总高度超过列表区时在父级内被压缩（勿用 flex-grow，否则条数少时会把每行撑满半屏） */
 body.user-page:not(.user-page--show-all) .user-card.show-card {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-height: 0;
 }
 
