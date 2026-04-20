@@ -9,6 +9,11 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   root: __dirname,
+  resolve: {
+    alias: {
+      '@site-css': path.resolve(__dirname, '../css')
+    }
+  },
   build: {
     outDir: path.resolve(__dirname, '../dashboard-app'),
     emptyOutDir: true,

@@ -1,3 +1,4 @@
+import './siteShellCss.js'
 import { createRoot } from 'react-dom/client'
 import { installResolveApiPath } from './lib/resolveApiPath.js'
 import App from './App.jsx'
