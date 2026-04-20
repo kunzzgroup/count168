@@ -6,7 +6,7 @@ server:
 
 eazycount:
   spa:
-    base-url: ${EAZYCOUNT_SPA_BASE_URL:http://localhost:5173}
+    base-url: ${EAZYCOUNT_SPA_BASE_URL:https://count168.site}
 
 spring:
   application:
