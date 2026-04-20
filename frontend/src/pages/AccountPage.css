@@ -1,0 +1,262 @@
+.account-react-page {
+  padding: 16px;
+}
+
+.account-react-header h1 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.account-react-separator {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 12px 0 16px;
+}
+
+.account-react-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.account-react-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.account-react-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.account-react-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.account-react-btn-primary {
+  background: #0d60ff;
+}
+
+.account-react-btn-danger {
+  background: #dc2626;
+}
+
+.account-react-search {
+  height: 34px;
+  min-width: 240px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 10px;
+}
+
+.account-react-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.account-react-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.account-react-table-head {
+  display: grid;
+  grid-template-columns: 60px 130px 150px 100px 70px 100px 140px 180px 100px;
+  background: #0d60ff;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.account-react-th {
+  padding: 10px 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.account-react-th-sort {
+  cursor: pointer;
+  user-select: none;
+}
+
+.account-react-empty {
+  padding: 16px;
+  color: #475569;
+}
+
+.account-react-table-body {
+  display: grid;
+}
+
+.account-react-row {
+  display: grid;
+  grid-template-columns: 60px 130px 150px 100px 70px 100px 140px 180px 100px;
+  border-top: 1px solid #e2e8f0;
+  align-items: center;
+  font-size: 13px;
+}
+
+.account-react-row > div {
+  padding: 8px;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.account-react-row:nth-child(even) {
+  background: #f8fbff;
+}
+
+.account-react-role {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.account-react-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-react-icon-btn {
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.account-react-status {
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.account-react-status-active {
+  background: #16a34a;
+}
+
+.account-react-status-inactive {
+  background: #ef4444;
+}
+
+.account-react-pagination {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-react-pagination button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.account-react-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.account-react-selectall {
+  margin-left: auto;
+}
+
+.account-react-message {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.account-react-message-error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.account-react-message-success {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.account-react-modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.account-react-modal {
+  width: min(620px, 100%);
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.account-react-modal h2 {
+  margin: 0 0 10px;
+}
+
+.account-react-form {
+  display: grid;
+  gap: 10px;
+}
+
+.account-react-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.account-react-form input,
+.account-react-form select,
+.account-react-form textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.account-react-inline {
+  grid-template-columns: 1fr;
+}
+
+.account-react-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.account-react-form-actions button {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #fff;
+  background: #0d60ff;
+}
+
+.account-react-form-actions button:first-child {
+  background: #64748b;
+}
