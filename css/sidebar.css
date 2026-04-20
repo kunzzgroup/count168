@@ -773,7 +773,7 @@
     align-items: center;
     justify-content: center;
     margin-top: clamp(6px, 0.52vw, 10px);
-    padding: clamp(2px, 0.31vw, 6px) 10px;
+    padding: clamp(0px, 0.21vw, 4px) 8px;
 }
 
 .sidebar-lang-toggle {
@@ -781,10 +781,8 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: center;
-    width: calc(100% - 20px);
-    max-width: 300px;
-    min-width: 0;
-    height: clamp(42px, 2.9vw, 54px);
+    min-width: clamp(158px, 10.1vw, 194px);
+    height: clamp(34px, 2.29vw, 44px);
     padding: 0;
     background: rgba(255, 255, 255, 0.18);
     border: 1px solid #8fd7f7;
@@ -820,7 +818,7 @@
 .sidebar-lang-option {
     position: relative;
     z-index: 1;
-    font-size: clamp(11px, 0.93vw, 18px);
+    font-size: clamp(8px, 0.68vw, 13px);
     font-weight: 600;
     letter-spacing: 0.2px;
     color: #dbeafe;
