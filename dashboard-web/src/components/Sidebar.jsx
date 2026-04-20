@@ -6,8 +6,6 @@ import { spaPathForLegacyPhp } from '../lib/spaLegacyNav.js'
 const MALE_IDS = ['male1', 'male2', 'male3', 'male4', 'male5', 'male6', 'male7', 'male8', 'male9']
 const FEMALE_IDS = ['female1', 'female2', 'female3', 'female4', 'female5', 'female6', 'female7', 'female8', 'female9']
 
-const PARTNER_HIDE = new Set(['admin', 'account', 'process', 'datacapture', 'payment', 'maintenance'])
-
 function canPerm(permissions, key) {
   return !permissions?.length || permissions.includes(key)
 }
@@ -133,11 +131,6 @@ export default function Sidebar() {
       obs2.disconnect()
     }
   }, [b.isExternalView])
-
-  const showNav = (key) => {
-    if (!b.isExternalView) return true
-    return !PARTNER_HIDE.has(key)
-  }
 
   const av = b.avatarImages || {}
 
@@ -328,7 +321,7 @@ export default function Sidebar() {
         <div className="informationmenu-content">
           <div className="content-separator" />
 
-          {canPerm(p, 'home') && showNav('home') ? (
+          {canPerm(p, 'home') ? (
             <div className="informationmenu-section">
               <div
                 className="informationmenu-section-title"
@@ -345,7 +338,7 @@ export default function Sidebar() {
             </div>
           ) : null}
 
-          {canPerm(p, 'domain') && b.hasC168Access && showNav('domain') ? (
+          {canPerm(p, 'domain') && b.hasC168Access ? (
             <div className="informationmenu-section">
               <div className="informationmenu-section-title" data-page="domain.php" onClick={goShellOrPhp('domain.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -373,7 +366,7 @@ export default function Sidebar() {
             </div>
           ) : null}
 
-          {canPerm(p, 'admin') && showNav('admin') ? (
+          {canPerm(p, 'admin') ? (
             <div className="informationmenu-section">
               <div className="informationmenu-section-title account-direct" data-page="userlist.php" onClick={goShellOrPhp('userlist.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -384,7 +377,7 @@ export default function Sidebar() {
             </div>
           ) : null}
 
-          {canPerm(p, 'account') && showNav('account') ? (
+          {canPerm(p, 'account') ? (
             <>
               <div className="informationmenu-section">
                 <div
@@ -411,7 +404,7 @@ export default function Sidebar() {
             </>
           ) : null}
 
-          {canPerm(p, 'process') && showNav('process') ? (
+          {canPerm(p, 'process') ? (
             <div className="informationmenu-section">
               <div className="informationmenu-section-title" data-page="processlist.php" onClick={goShellOrPhp('processlist.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -422,7 +415,7 @@ export default function Sidebar() {
             </div>
           ) : null}
 
-          {canPerm(p, 'datacapture') && showNav('datacapture') ? (
+          {canPerm(p, 'datacapture') ? (
             <div className="informationmenu-section" id="sidebar-datacapture-section" style={{ display: b.companyHasGambling ? undefined : 'none' }}>
               <div className="informationmenu-section-title" data-page="datacapture.php" onClick={goShellOrPhp('datacapture.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -433,7 +426,7 @@ export default function Sidebar() {
             </div>
           ) : null}
 
-          {canPerm(p, 'payment') && showNav('payment') ? (
+          {canPerm(p, 'payment') ? (
             <div className="informationmenu-section">
               <div className="informationmenu-section-title" data-page="transaction.php" onClick={goShellOrPhp('transaction.php')} role="button" tabIndex={0}>
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -478,8 +471,7 @@ export default function Sidebar() {
             </div>
           ) : null}
 
-          {showNav('maintenance') ? (
-            <div className="informationmenu-section">
+          <div className="informationmenu-section">
               <div className="menu-item-wrapper">
                 <div className="informationmenu-section-title" data-section="maintenance">
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -549,7 +541,6 @@ export default function Sidebar() {
                 </div>
               </div>
             </div>
-          ) : null}
         </div>
 
         <div className="informationmenu-footer">
