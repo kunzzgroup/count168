@@ -23,7 +23,7 @@ mybatis:
 # CORS：逗号分隔；公网静态页调 Spring 时设置 APP_CORS_ORIGINS=https://你的前端域名（可多条）
 app:
   cors:
-    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://count168.site,https://www.count168.site,http://count168.site,http://www.count168.site}
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://count168.site}
   # 与 PHP login_bootstrap.php 请求头 X-Eazycount-Internal 一致；勿留空在生产环境
   internal-bootstrap-key: ${APP_INTERNAL_BOOTSTRAP_KEY:dev-local-only-change-me}
   # Thymeleaf 登录壳：登录成功后跳转 PHP login_bootstrap 的完整 URL（可选）。空则前端用相对路径 login_bootstrap.php
