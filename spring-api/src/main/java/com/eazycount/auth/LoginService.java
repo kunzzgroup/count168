@@ -3,7 +3,6 @@ package com.eazycount.auth;
 import com.eazycount.auth.SessionBootstrapStore.Payload;
 import java.security.SecureRandom;
 import java.sql.Date;
-import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -12,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -226,11 +226,14 @@ public class LoginService {
 
     boolean needsSecondary = false;
     if ("C168".equalsIgnoreCase(companyCode)) {
-      String sec =
-          jdbc.query(
-              "SELECT secondary_password FROM user WHERE id = ?",
-              (ResultSet rs, int rowNum) -> rs.getString("secondary_password"),
-              userId);
+      String sec = null;
+      try {
+        sec =
+            jdbc.queryForObject(
+                "SELECT secondary_password FROM user WHERE id = ?", String.class, userId);
+      } catch (EmptyResultDataAccessException ignored) {
+        // no row
+      }
       needsSecondary = sec != null && !sec.isEmpty();
     }
 
