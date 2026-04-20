@@ -1,6 +1,8 @@
 spring:
   application:
     name: eazycount-api
+  thymeleaf:
+    cache: false
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/your_database?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kuala_Lumpur&characterEncoding=utf8}
     username: ${SPRING_DATASOURCE_USERNAME:root}
@@ -13,6 +15,11 @@ spring:
 server:
   port: ${SERVER_PORT:8090}
 
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: false
+
 # CORS：前端页面所在源（多个用逗号）
 app:
   cors:
@@ -20,6 +27,8 @@ app:
     allowed-origins: ${APP_CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   # 与 PHP login_bootstrap.php 请求头 X-Eazycount-Internal 一致；勿留空在生产环境
   internal-bootstrap-key: ${APP_INTERNAL_BOOTSTRAP_KEY:dev-local-only-change-me}
+  # Thymeleaf 登录壳：登录成功后跳转 PHP login_bootstrap 的完整 URL（可选）。空则前端用相对路径 login_bootstrap.php
+  public-login-bootstrap-url: ${APP_PUBLIC_LOGIN_BOOTSTRAP_URL:}
 
 logging:
   level:

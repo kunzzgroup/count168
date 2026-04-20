@@ -168,8 +168,19 @@ export default function LoginPage() {
       }
       const data = await response.json()
       if (data.status === 'success' && data.bootstrapToken) {
-        const dir = window.location.pathname.replace(/[^/]*$/, '') || '/'
-        window.location.href = dir + 'login_bootstrap.php?t=' + encodeURIComponent(data.bootstrapToken)
+        const t = encodeURIComponent(data.bootstrapToken)
+        const explicit =
+          typeof window.__LOGIN_BOOTSTRAP_URL__ === 'string' && window.__LOGIN_BOOTSTRAP_URL__.trim() !== ''
+            ? window.__LOGIN_BOOTSTRAP_URL__.trim()
+            : ''
+        let target
+        if (explicit) {
+          target = explicit.includes('?') ? `${explicit}&t=${t}` : `${explicit}?t=${t}`
+        } else {
+          const dir = window.location.pathname.replace(/[^/]*$/, '') || '/'
+          target = new URL(`login_bootstrap.php?t=${t}`, window.location.origin + dir).href
+        }
+        window.location.href = target
       } else if (data.status === 'success' && data.redirect) {
         window.location.href = data.redirect
       } else {

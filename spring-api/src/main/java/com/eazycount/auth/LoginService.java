@@ -1,6 +1,7 @@
 package com.eazycount.auth;
 
 import com.eazycount.auth.SessionBootstrapStore.Payload;
+import com.eazycount.auth.mapper.LoginMapper;
 import java.security.SecureRandom;
 import java.sql.Date;
 import java.time.LocalDate;
@@ -11,8 +12,6 @@ import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +22,13 @@ public class LoginService {
   private static final Logger log = LoggerFactory.getLogger(LoginService.class);
   private static final SecureRandom RANDOM = new SecureRandom();
 
-  private final JdbcTemplate jdbc;
+  private final LoginMapper loginMapper;
   private final PasswordEncoder passwordEncoder;
   private final SessionBootstrapStore bootstrapStore;
 
-  public LoginService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, SessionBootstrapStore bootstrapStore) {
-    this.jdbc = jdbc;
+  public LoginService(
+      LoginMapper loginMapper, PasswordEncoder passwordEncoder, SessionBootstrapStore bootstrapStore) {
+    this.loginMapper = loginMapper;
     this.passwordEncoder = passwordEncoder;
     this.bootstrapStore = bootstrapStore;
   }
@@ -98,17 +98,7 @@ public class LoginService {
       return new LoginResult(false, "Please enter account ID", null);
     }
 
-    String sql =
-        """
-        SELECT a.*, c.id AS company_numeric_id, c.company_id AS company_code, c.expiration_date
-        FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        INNER JOIN company c ON ac.company_id = c.id
-        WHERE UPPER(a.account_id) = UPPER(?)
-        AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?)
-        AND a.status = 'active'
-        """;
-    List<Map<String, Object>> rows = jdbc.queryForList(sql, accountId, companyId, companyId);
+    List<Map<String, Object>> rows = loginMapper.selectMemberCandidates(accountId, companyId);
 
     Map<String, Object> account = null;
     boolean passwordMatch = false;
@@ -131,7 +121,7 @@ public class LoginService {
 
     if (account != null) {
       int aid = ((Number) account.get("id")).intValue();
-      jdbc.update("UPDATE account SET last_login = NOW() WHERE id = ?", aid);
+      loginMapper.updateAccountLastLogin(aid);
 
       Map<String, Object> session = new HashMap<>();
       session.put("member_login_account_id", aid);
@@ -160,15 +150,7 @@ public class LoginService {
       return new LoginResult(false, "Please enter username", null);
     }
 
-    String userSql =
-        """
-        SELECT u.*, c.id AS company_numeric_id, c.company_id AS company_code, c.expiration_date
-        FROM user u
-        INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-        INNER JOIN company c ON ucm.company_id = c.id
-        WHERE u.login_id = ? AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?) AND u.status = 'active'
-        """;
-    List<Map<String, Object>> users = jdbc.queryForList(userSql, loginId, companyId, companyId);
+    List<Map<String, Object>> users = loginMapper.selectUsersForAdmin(loginId, companyId);
 
     Map<String, Object> user = null;
     boolean userPasswordMatch = false;
@@ -204,15 +186,12 @@ public class LoginService {
     int companyNumericId = ((Number) user.get("company_numeric_id")).intValue();
     String companyCode = user.get("company_code") != null ? String.valueOf(user.get("company_code")) : "";
 
-    jdbc.update("UPDATE user SET last_login = NOW() WHERE id = ?", userId);
+    loginMapper.updateUserLastLogin(userId);
 
     String rememberToken = null;
     if (rememberMe) {
       rememberToken = randomRememberToken();
-      jdbc.update(
-          "UPDATE user SET remember_token = ?, remember_token_expires = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = ?",
-          rememberToken,
-          userId);
+      loginMapper.updateUserRememberToken(rememberToken, userId);
     }
 
     Map<String, Object> session = new HashMap<>();
@@ -232,14 +211,7 @@ public class LoginService {
 
     boolean needsSecondary = false;
     if ("C168".equalsIgnoreCase(companyCode)) {
-      String sec = null;
-      try {
-        sec =
-            jdbc.queryForObject(
-                "SELECT secondary_password FROM user WHERE id = ?", String.class, userId);
-      } catch (EmptyResultDataAccessException ignored) {
-        // no row
-      }
+      String sec = loginMapper.selectSecondaryPassword(userId);
       needsSecondary = sec != null && !sec.isEmpty();
     }
 
@@ -256,14 +228,7 @@ public class LoginService {
   }
 
   private LoginResult loginOwner(String password, String companyId, String loginId) {
-    String ownerSql =
-        """
-        SELECT o.*, c.id AS company_numeric_id, c.company_id AS company_code, c.expiration_date
-        FROM owner o
-        INNER JOIN company c ON c.owner_id = o.id
-        WHERE UPPER(o.owner_code) = UPPER(?) AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?)
-        """;
-    List<Map<String, Object>> owners = jdbc.queryForList(ownerSql, loginId, companyId, companyId);
+    List<Map<String, Object>> owners = loginMapper.selectOwnersForLogin(loginId, companyId);
 
     Map<String, Object> owner = null;
     Map<String, Object> ownerPlainUpgrade = null;
@@ -298,7 +263,7 @@ public class LoginService {
       int oid = ((Number) owner.get("id")).intValue();
       if (ownerPlainUpgrade != null && oid == ((Number) ownerPlainUpgrade.get("id")).intValue()) {
         String newHash = passwordEncoder.encode(password);
-        jdbc.update("UPDATE owner SET password = ? WHERE id = ?", newHash, oid);
+        loginMapper.updateOwnerPassword(newHash, oid);
       }
 
       int companyNum = ((Number) owner.get("company_numeric_id")).intValue();

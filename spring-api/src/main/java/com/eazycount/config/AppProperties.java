@@ -10,6 +10,12 @@ public class AppProperties {
    */
   private String internalBootstrapKey = "";
 
+  /**
+   * 浏览器登录成功后跳转的 PHP login_bootstrap 完整地址（含 scheme/host/path）。空字符串表示由前端使用相对路径
+   * login_bootstrap.php（页面若由 Thymeleaf 同域提供则需配置此项指向线上 PHP）。
+   */
+  private String publicLoginBootstrapUrl = "";
+
   public String getInternalBootstrapKey() {
     return internalBootstrapKey;
   }
@@ -17,5 +23,14 @@ public class AppProperties {
   @SuppressWarnings("unused")
   public void setInternalBootstrapKey(String internalBootstrapKey) {
     this.internalBootstrapKey = internalBootstrapKey;
+  }
+
+  public String getPublicLoginBootstrapUrl() {
+    return publicLoginBootstrapUrl;
+  }
+
+  @SuppressWarnings("unused")
+  public void setPublicLoginBootstrapUrl(String publicLoginBootstrapUrl) {
+    this.publicLoginBootstrapUrl = publicLoginBootstrapUrl;
   }
 }
