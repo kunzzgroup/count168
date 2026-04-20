@@ -772,102 +772,73 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: clamp(2px, 0.31vw, 6px);
+    margin-top: clamp(6px, 0.52vw, 10px);
     padding: clamp(0px, 0.21vw, 4px) 8px;
 }
 
-.language-dropdown {
+.sidebar-lang-toggle {
     position: relative;
-    display: inline-block;
-}
-
-.language-btn {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
-    background: #9abff7;
-    border: none;
-    border-radius: clamp(4px, 0.42vw, 8px);
+    min-width: clamp(158px, 10.1vw, 194px);
+    height: clamp(34px, 2.29vw, 44px);
+    padding: 0;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid #8fd7f7;
+    border-radius: 999px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    justify-content: space-between;
+    overflow: hidden;
+    outline: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 3px 10px rgba(0, 79, 249, 0.12);
 }
 
-.language-btn:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.sidebar-lang-toggle:hover {
+    box-shadow: 0 8px 16px rgba(0, 79, 249, 0.2);
     transform: translateY(-1px);
 }
 
-.flag-icon {
-    width: clamp(15px, 1.04vw, 20px);
-    height: clamp(10px, 0.78vw, 15px);
-    object-fit: cover;
-    border-radius: clamp(0px, 0.1vw, 2px);
+.sidebar-lang-toggle:focus-visible {
+    box-shadow: 0 0 0 3px rgba(86, 204, 242, 0.35);
 }
 
-.language-text {
-    font-size: clamp(7px, 0.63vw, 12px);
-    font-weight: 600;
-    color: #333;
-}
-
-.dropdown-arrow {
-    font-size: clamp(6px, 0.52vw, 10px);
-    color: #002c65;
-    transition: transform 0.3s ease;
-}
-
-.language-btn.active .dropdown-arrow {
-    transform: rotate(180deg);
-}
-
-.language-dropdown-list {
+.sidebar-lang-thumb {
     position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: #9abff7;
-    border-radius: clamp(4px, 0.42vw, 8px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
-    z-index: 1000;
-    margin-top: 4px;
-    overflow: hidden;
+    top: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    height: calc(100% - 4px);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #56ccf2, #004ff9);
+    box-shadow: 0 8px 18px rgba(0, 79, 249, 0.35);
+    transition: transform 0.22s ease;
 }
 
-.language-dropdown-list.show {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.language-option {
-    display: flex;
-    align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.language-option:last-child {
-    border-bottom: none;
-}
-
-.language-option:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.language-option span {
-    font-size: clamp(7px, 0.63vw, 12px);
+.sidebar-lang-option {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(8px, 0.68vw, 13px);
     font-weight: 600;
-    color: #333;
+    letter-spacing: 0.2px;
+    color: #dbeafe;
+    transition: color 0.22s ease;
+}
+
+.sidebar-lang-toggle .sidebar-lang-option-en {
+    color: #fff;
+}
+
+.sidebar-lang-toggle.is-zh .sidebar-lang-thumb {
+    transform: translateX(100%);
+}
+
+.sidebar-lang-toggle.is-zh .sidebar-lang-option-en {
+    color: #dbeafe;
+}
+
+.sidebar-lang-toggle.is-zh .sidebar-lang-option-zh {
+    color: #fff;
 }
 
 /* 通知铃铛样式 */

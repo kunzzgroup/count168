@@ -175,7 +175,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
         <div class="header-logo-section">
             <img src="images/count_whitelogo.png" alt="EAZYCOUNT Logo" class="header-logo">
             <!-- 通知铃铛 -->
-            <div class="notification-bell" title="Notifications" onclick="toggleNotificationPanel(event)">
+            <div class="notification-bell" data-i18n-title="notifications" title="Notifications" onclick="toggleNotificationPanel(event)">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path
                         d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
@@ -196,12 +196,12 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                 </div>
 
                 <div class="avatar-options" id="avatarOptions">
-                    <div class="options-title">Choose Avatar</div>
+                    <div class="options-title" data-i18n="chooseAvatar">Choose Avatar</div>
 
                     <!-- 性别选择 -->
                     <div class="gender-selection" id="genderSelection">
-                        <button type="button" class="gender-btn active" onclick="selectGender('male')">Male</button>
-                        <button type="button" class="gender-btn" onclick="selectGender('female')">Female</button>
+                        <button type="button" class="gender-btn active" data-gender="male" data-i18n="male" onclick="selectGender('male')">Male</button>
+                        <button type="button" class="gender-btn" data-gender="female" data-i18n="female" onclick="selectGender('female')">Female</button>
                     </div>
 
                     <!-- 男性头像列表-->
@@ -275,6 +275,13 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                 </div>
             </div>
         </div>
+        <div class="language-switcher" aria-label="Sidebar language switch">
+            <button type="button" class="sidebar-lang-toggle" id="sidebarLangToggle" aria-label="Language switch" aria-checked="false">
+                <span class="sidebar-lang-thumb" aria-hidden="true"></span>
+                <span class="sidebar-lang-option sidebar-lang-option-en">English</span>
+                <span class="sidebar-lang-option sidebar-lang-option-zh">中文</span>
+            </button>
+        </div>
         <!-- 语言切换按钮 -->
         <!-- <div class="language-switcher">
             <div class="language-dropdown">
@@ -309,7 +316,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         <path
                             d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
                     </svg>
-                    Win/Loss
+                    <span data-i18n="winLoss">Win/Loss</span>
                 </div>
             </div>
         <?php else: ?>
@@ -321,7 +328,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                         </svg>
-                        Home
+                        <span data-i18n="home">Home</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -335,7 +342,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                             <path
                                 d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                         </svg>
-                        Domain
+                        <span data-i18n="domain">Domain</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -349,7 +356,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                             <path
                                 d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                         </svg>
-                        Announcement
+                        <span data-i18n="announcement">Announcement</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -372,7 +379,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                         </svg>
-                        Admin
+                        <span data-i18n="admin">Admin</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -386,7 +393,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                             <path
                                 d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                         </svg>
-                        Account
+                        <span data-i18n="account">Account</span>
                     </div>
                 </div>
 
@@ -398,7 +405,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                             <path
                                 d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
                         </svg>
-                        Ownership
+                        <span data-i18n="ownership">Ownership</span>
                     </div>
                 </div>
 
@@ -412,7 +419,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                         </svg>
-                        Process
+                        <span data-i18n="process">Process</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -426,7 +433,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                             <path
                                 d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
                         </svg>
-                        Data Capture
+                        <span data-i18n="dataCapture">Data Capture</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -440,7 +447,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                             <path
                                 d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
                         </svg>
-                        Transaction Payment
+                        <span data-i18n="transactionPayment">Transaction Payment</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -454,16 +461,16 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                 <path
                                     d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                             </svg>
-                            Report
+                            <span data-i18n="report">Report</span>
                             <span class="section-arrow">▶</span>
                         </div>
                         <div class="submenu" id="report-submenu">
                             <div class="submenu-content">
                                 <a href="customer_report.php" class="submenu-item">
-                                    <span>Customer Report</span>
+                                    <span data-i18n="customerReport">Customer Report</span>
                                 </a>
                                 <a href="domain_report.php" class="submenu-item">
-                                    <span>Domain Report</span>
+                                    <span data-i18n="domainReport">Domain Report</span>
                                 </a>
                             </div>
                         </div>
@@ -480,34 +487,34 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                             <path
                                 d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
                         </svg>
-                        Maintenance
+                        <span data-i18n="maintenance">Maintenance</span>
                         <span class="section-arrow">▶</span>
                     </div>
                     <div class="submenu" id="maintenance-submenu">
                         <div class="submenu-content">
                             <?php if ($companyHasGambling && $hasMaintenance): ?>
                                 <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
-                                    <span>Data Capture</span>
+                                    <span data-i18n="dataCapture">Data Capture</span>
                                 </a>
                             <?php endif; ?>
                             <?php if ($companyHasGambling && $hasMaintenance): ?>
                                 <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
-                                    <span>Transaction</span>
+                                    <span data-i18n="transaction">Transaction</span>
                                 </a>
                             <?php endif; ?>
                             <?php if ($hasMaintenance): ?>
                                 <a href="payment_maintenance.php" class="submenu-item">
-                                    <span>Payment</span>
+                                    <span data-i18n="payment">Payment</span>
                                 </a>
                             <?php endif; ?>
                             <?php if ($companyHasGambling): ?>
                                 <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
-                                    <span>Formula</span>
+                                    <span data-i18n="formula">Formula</span>
                                 </a>
                             <?php endif; ?>
                             <?php if ($hasMaintenance): ?>
                                 <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link"<?php echo $companyHasBank ? '' : ' style="display:none;"'; ?>>
-                                    <span>Process</span>
+                                    <span data-i18n="process">Process</span>
                                 </a>
                             <?php endif; ?>
                         </div>
@@ -526,14 +533,14 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                     <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
                 <div class="expiration-content">
-                    <span class="expiration-label">Exp:</span>
+                    <span class="expiration-label" data-i18n="exp">Exp:</span>
                     <span class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
                         <?php echo htmlspecialchars($expiration_countdown_text); ?>
                     </span>
                 </div>
             </div>
         <?php endif; ?>
-        <button class="btn logout-btn" onclick="handleLogout()">
+        <button class="btn logout-btn" data-i18n="logout" onclick="handleLogout()">
             Logout
         </button>
     </div>
@@ -545,8 +552,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 <!-- 通知面板遮罩 -->
 <div class="notification-panel" id="notificationPanel">
     <div class="notification-header">
-        <h2>Announcements</h2>
-        <button class="notification-close" onclick="closeNotificationPanel()" title="关闭">
+        <h2 data-i18n="announcements">Announcements</h2>
+        <button class="notification-close" data-i18n-title="close" onclick="closeNotificationPanel()" title="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
