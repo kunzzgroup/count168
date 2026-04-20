@@ -30,8 +30,9 @@
 | POST | `/api/auth/login` | 登录 JSON |
 | POST | `/api/company/verify` | 公司码校验（对应 `api/company/verify_api.php`） |
 | GET | `/api/internal/session-bootstrap/{token}` | 登录后 PHP bootstrap 用（内部） |
+| POST | `/api/domain` | **部分**：`action`=`get_company_permissions` \| `get_companies`（与 `domain_api.php` JSON 契约对齐）；其余 `action` 返回 **501**，仍走 PHP |
 
-**说明**：其余业务 API 均在 PHP `api/` 下，待迁移。
+**说明**：其余业务 API 均在 PHP `api/` 下，待迁移。Domain 全量 11 个 action 见 `api/domain/domain_api.php` switch；**未把 `api/domain/domain_api.php` 写入 `resolveApiPath` REWRITE 前**，前端默认仍请求 PHP，避免未完成 action 打到 Spring。
 
 ---
 
