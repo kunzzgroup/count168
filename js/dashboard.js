@@ -2409,6 +2409,7 @@ async function switchCurrency(currencyCode) {
 // ==================== 切换 Company ====================
 async function switchCompany(companyId, companyCode) {
     try {
+        let sessionApiData = null;
         // 先更新 session
         try {
             const controller = new AbortController();
@@ -2435,8 +2436,9 @@ async function switchCompany(companyId, companyCode) {
                 }
                 throw error;
             }
-            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
-                window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
+            sessionApiData = result.data || null;
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && sessionApiData) {
+                window.updateSidebarDataCaptureVisibility(sessionApiData.has_gambling, sessionApiData.has_bank);
             }
         } catch (error) {
             const errMessage = error && error.message ? error.message : '';
@@ -2461,7 +2463,7 @@ async function switchCompany(companyId, companyCode) {
         // 更新按钮状态
         const buttons = document.querySelectorAll('.transaction-company-btn');
         buttons.forEach(btn => {
-            if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
+            if (parseInt(btn.dataset.companyId, 10) === parseInt(companyId, 10)) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
@@ -2470,15 +2472,32 @@ async function switchCompany(companyId, companyCode) {
 
         console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
 
-        // 切换公司后刷新页面，使侧栏根据新 session 重新渲染（选 C168 时显示 Domain / Announcement）
-        window.location.reload();
-        return;
+        if (sessionApiData) {
+            if (sessionApiData.company_code) {
+                window.SIDEBAR_COMPANY_CODE = sessionApiData.company_code;
+            }
+            window.SIDEBAR_COMPANY_HAS_GAMBLING = !!sessionApiData.has_gambling;
+            window.SIDEBAR_COMPANY_HAS_BANK = !!sessionApiData.has_bank;
+            if (typeof window.__SIDEBAR_BOOTSTRAP === 'object' && window.__SIDEBAR_BOOTSTRAP) {
+                Object.assign(window.__SIDEBAR_BOOTSTRAP, {
+                    companyId: parseInt(companyId, 10),
+                    currentCompanyCode: (sessionApiData.company_code || '').toUpperCase(),
+                    companyHasGambling: !!sessionApiData.has_gambling,
+                    companyHasBank: !!sessionApiData.has_bank,
+                    hasC168Access: !!sessionApiData.has_c168_sidebar
+                });
+            }
+            window.dispatchEvent(new Event('eazycount:sidebar-bootstrap-patch'));
+        }
 
-        // 以下在 reload 后由页面重新加载时执行
+        lastRequestParams = null;
+        if (dailyCardPointCache && typeof dailyCardPointCache.clear === 'function') {
+            dailyCardPointCache.clear();
+        }
         window.dashboardCurrency = 'MYR';
         await loadCurrencies();
-        lastRequestParams = null;
         await loadData(true);
+        bindDashboardChartResizeObserver();
     } catch (error) {
         console.error('切换公司失败:', error);
         showError('Error switching company');

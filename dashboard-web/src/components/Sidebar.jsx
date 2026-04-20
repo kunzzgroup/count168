@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { applySidebarGlobals } from '../lib/applySidebarGlobals.js'
 
@@ -11,31 +11,46 @@ function canPerm(permissions, key) {
   return !permissions?.length || permissions.includes(key)
 }
 
+function defaultSidebarBootstrap() {
+  return {
+    isMember: false,
+    login_id: '',
+    name: '',
+    role: '',
+    permissions: [],
+    hasC168Access: false,
+    companyId: null,
+    currentCompanyCode: '',
+    avatarId: 'male1',
+    initialAvatarSrc: 'images/avatar1.png',
+    company_expiration_date: null,
+    expiration_countdown_text: '',
+    expiration_status: 'normal',
+    companyHasGambling: false,
+    companyHasBank: false,
+    hasMaintenance: false,
+    isExternalView: false
+  }
+}
+
+function readSidebarBootstrap() {
+  const w = typeof window !== 'undefined' ? window.__SIDEBAR_BOOTSTRAP : null
+  if (w && typeof w === 'object') {
+    return { ...w }
+  }
+  return defaultSidebarBootstrap()
+}
+
 function useSidebarBootstrap() {
-  return useMemo(() => {
-    const w = typeof window !== 'undefined' ? window.__SIDEBAR_BOOTSTRAP : null
-    return w && typeof w === 'object'
-      ? w
-      : {
-          isMember: false,
-          login_id: '',
-          name: '',
-          role: '',
-          permissions: [],
-          hasC168Access: false,
-          companyId: null,
-          currentCompanyCode: '',
-          avatarId: 'male1',
-          initialAvatarSrc: 'images/avatar1.png',
-          company_expiration_date: null,
-          expiration_countdown_text: '',
-          expiration_status: 'normal',
-          companyHasGambling: false,
-          companyHasBank: false,
-          hasMaintenance: false,
-          isExternalView: false
-        }
+  const [b, setB] = useState(readSidebarBootstrap)
+
+  useEffect(() => {
+    const onPatch = () => setB(readSidebarBootstrap())
+    window.addEventListener('eazycount:sidebar-bootstrap-patch', onPatch)
+    return () => window.removeEventListener('eazycount:sidebar-bootstrap-patch', onPatch)
   }, [])
+
+  return b
 }
 
 export default function Sidebar() {

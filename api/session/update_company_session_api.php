@@ -217,14 +217,30 @@ try {
         $_SESSION['company_code'] = $company_code;
     }
 
+    // 与 inc/sidebar_bootstrap.php 一致：当前公司为 C168 且角色为 owner/admin 时侧栏显示 Domain / Announcement（SPA 无刷新切换公司时依赖此字段）
+    $role_for_c168 = strtolower((string) ($_SESSION['role'] ?? ''));
+    $cc_upper = $company_code !== null ? strtoupper(trim((string) $company_code)) : '';
+    $is_current_company_c168 = ($cc_upper === 'C168');
+    if (!$is_current_company_c168 && $requested_company_id > 0) {
+        try {
+            $stc = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+            $stc->execute([$requested_company_id]);
+            $is_current_company_c168 = ((int) $stc->fetchColumn() > 0);
+        } catch (PDOException $e) {
+            /* ignore */
+        }
+    }
+    $has_c168_sidebar = $is_current_company_c168 && in_array($role_for_c168, ['owner', 'admin'], true);
+
     // 写入完成，立即释放 session 锁
     session_write_close();
 
     jsonResponse(true, 'Company 已更新', [
-        'company_id'   => $requested_company_id,
-        'company_code' => $company_code,
-        'has_gambling' => $has_gambling,
-        'has_bank'     => $has_bank
+        'company_id'         => $requested_company_id,
+        'company_code'       => $company_code,
+        'has_gambling'       => $has_gambling,
+        'has_bank'           => $has_bank,
+        'has_c168_sidebar'   => $has_c168_sidebar,
     ]);
 } catch (Exception $e) {
     session_write_close();
