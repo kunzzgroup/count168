@@ -37,11 +37,36 @@
 
     function getCurrentPageName() {
         var path = window.location.pathname;
-        var file = path.split('/').pop();
-        if (file === 'index.php') {
-            var hash = (window.location.hash || '').replace(/^#/, '');
-            if (hash.indexOf('/member') === 0) return 'member.php';
-            if (hash.indexOf('/dashboard') === 0) return 'dashboard.php';
+        var file = path.split('/').pop() || '';
+        var hash = (window.location.hash || '').replace(/^#/, '');
+        var hashPath = hash.split('?')[0];
+        if (hashPath && hashPath.charAt(0) !== '/') {
+            hashPath = '/' + hashPath;
+        }
+        // React HashRouter：index.html / index.php 下的 #/route 映射到与 data-page 一致的 legacy 文件名
+        if (file === 'index.php' || file === 'index.html' || file === '') {
+            if (hashPath.indexOf('/member') === 0) return 'member.php';
+            if (hashPath.indexOf('/dashboard') === 0) return 'dashboard.php';
+            var spaToFile = {
+                '/domain': 'domain.php',
+                '/announcement': 'announcement.php',
+                '/user-list': 'userlist.php',
+                '/account-list': 'account-list.php',
+                '/ownership': 'ownership.php',
+                '/process-list': 'processlist.php',
+                '/datacapture': 'datacapture.php',
+                '/transaction': 'transaction.php',
+                '/customer-report': 'customer_report.php',
+                '/domain-report': 'domain_report.php',
+                '/capture-maintenance': 'capture_maintenance.php',
+                '/transaction-maintenance': 'transaction_maintenance.php',
+                '/payment-maintenance': 'payment_maintenance.php',
+                '/formula-maintenance': 'formula_maintenance.php',
+                '/bankprocess-maintenance': 'bankprocess_maintenance.php',
+                '/bank-process-list': 'bank_process_list.php',
+                '/games-process-list': 'games_process_list.php'
+            };
+            if (spaToFile[hashPath]) return spaToFile[hashPath];
         }
         return file;
     }
@@ -558,7 +583,31 @@
                 }
                 var targetId = this.getAttribute('data-target');
                 var section = this.getAttribute('data-section');
-                if (section === 'report' || section === 'maintenance') return;
+                // Report / Maintenance：原仅 hover 出子菜单，点击无反应；改为点击切换（触控/鼠标均可用）
+                if (section === 'report' || section === 'maintenance') {
+                    e.preventDefault();
+                    var wrap = this.closest('.menu-item-wrapper');
+                    if (wrap) {
+                        var sub = wrap.querySelector('.submenu');
+                        if (sub) {
+                            positionSubmenu(wrap);
+                            var cs = window.getComputedStyle(sub);
+                            var open = cs.visibility === 'visible' && parseFloat(cs.opacity) > 0.5;
+                            if (open) {
+                                sub.style.opacity = '0';
+                                sub.style.visibility = 'hidden';
+                                sub.style.transform = 'translateX(-10px)';
+                                sub.style.pointerEvents = 'none';
+                            } else {
+                                sub.style.opacity = '1';
+                                sub.style.visibility = 'visible';
+                                sub.style.transform = 'translateX(0)';
+                                sub.style.pointerEvents = 'auto';
+                            }
+                        }
+                    }
+                    return;
+                }
                 var targetDropdown = document.getElementById(targetId);
                 document.querySelectorAll('.dropdown-menu-items').forEach(function (dropdown) {
                     if (dropdown.id !== targetId) dropdown.classList.remove('show');

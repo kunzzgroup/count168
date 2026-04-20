@@ -456,10 +456,20 @@ export default function Sidebar() {
                 </div>
                 <div className="submenu" id="report-submenu">
                   <div className="submenu-content">
-                    <Link to="/customer-report" className="submenu-item" onClick={() => window.closeSidebar?.()}>
+                    <Link
+                      to="/customer-report"
+                      className="submenu-item"
+                      data-page="customer_report.php"
+                      onClick={() => window.closeSidebar?.()}
+                    >
                       <span>Customer Report</span>
                     </Link>
-                    <Link to="/domain-report" className="submenu-item" onClick={() => window.closeSidebar?.()}>
+                    <Link
+                      to="/domain-report"
+                      className="submenu-item"
+                      data-page="domain_report.php"
+                      onClick={() => window.closeSidebar?.()}
+                    >
                       <span>Domain Report</span>
                     </Link>
                   </div>
@@ -485,6 +495,7 @@ export default function Sidebar() {
                         to="/capture-maintenance"
                         className="submenu-item"
                         id="maintenance-capture-link"
+                        data-page="capture_maintenance.php"
                         onClick={() => window.closeSidebar?.()}
                       >
                         <span>Data Capture</span>
@@ -495,18 +506,30 @@ export default function Sidebar() {
                         to="/transaction-maintenance"
                         className="submenu-item"
                         id="maintenance-transaction-link"
+                        data-page="transaction_maintenance.php"
                         onClick={() => window.closeSidebar?.()}
                       >
                         <span>Transaction</span>
                       </Link>
                     ) : null}
                     {b.hasMaintenance ? (
-                      <Link to="/payment-maintenance" className="submenu-item" onClick={() => window.closeSidebar?.()}>
+                      <Link
+                        to="/payment-maintenance"
+                        className="submenu-item"
+                        data-page="payment_maintenance.php"
+                        onClick={() => window.closeSidebar?.()}
+                      >
                         <span>Payment</span>
                       </Link>
                     ) : null}
                     {b.companyHasGambling ? (
-                      <Link to="/formula-maintenance" className="submenu-item" id="maintenance-formula-link" onClick={() => window.closeSidebar?.()}>
+                      <Link
+                        to="/formula-maintenance"
+                        className="submenu-item"
+                        id="maintenance-formula-link"
+                        data-page="formula_maintenance.php"
+                        onClick={() => window.closeSidebar?.()}
+                      >
                         <span>Formula</span>
                       </Link>
                     ) : null}
@@ -515,6 +538,7 @@ export default function Sidebar() {
                         to="/bankprocess-maintenance"
                         className="submenu-item"
                         id="maintenance-process-link"
+                        data-page="bankprocess_maintenance.php"
                         style={{ display: b.companyHasBank ? undefined : 'none' }}
                         onClick={() => window.closeSidebar?.()}
                       >
