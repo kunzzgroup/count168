@@ -50,6 +50,10 @@
   background: #dc2626;
 }
 
+.account-react-btn-secondary {
+  background: #475569;
+}
+
 .account-react-search {
   height: 34px;
   min-width: 240px;
@@ -259,4 +263,120 @@
 
 .account-react-form-actions button:first-child {
   background: #64748b;
+}
+
+.account-react-modal-wide {
+  width: min(980px, 100%);
+}
+
+.account-react-currency-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.account-react-currency-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.account-react-currency-add input {
+  flex: 1;
+}
+
+.account-react-currency-add button {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #0d60ff;
+  color: #fff;
+  cursor: pointer;
+}
+
+.account-react-currency-list {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.account-react-currency-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.account-react-currency-item.active {
+  background: #eff6ff;
+}
+
+.account-react-currency-item button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.account-react-currency-item button:last-child {
+  color: #dc2626;
+}
+
+.account-react-currency-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.account-react-currency-filters input,
+.account-react-currency-filters select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.account-react-currency-filters input {
+  flex: 1;
+}
+
+.account-react-currency-accounts,
+.account-react-link-list {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.account-react-currency-account-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 2px;
+}
+
+.account-react-link-title {
+  margin-bottom: 8px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.account-react-link-type {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.account-react-link-type label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
 }
