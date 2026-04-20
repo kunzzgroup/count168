@@ -1,0 +1,24 @@
+{
+  "name": "eazycount-frontend",
+  "description": "EazyCount SPA (React + Vite). Backend: Spring Boot + MyBatis + Thymeleaf under ../ (port 8082, proxy /api).",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "chart.js": "^4.5.1",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.14.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.10"
+  }
+}

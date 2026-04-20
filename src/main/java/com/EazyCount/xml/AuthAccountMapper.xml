@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.EazyCount.dao.AuthAccountMapper">
+
+    <select id="selectMemberAccounts" resultType="com.EazyCount.entity.MemberAccountRow">
+        SELECT
+            a.id,
+            a.account_id AS accountId,
+            a.name,
+            a.role,
+            a.password,
+            c.id AS companyNumericId,
+            c.company_id AS companyCode,
+            c.expiration_date AS expirationDate
+        FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        INNER JOIN company c ON ac.company_id = c.id
+        WHERE UPPER(a.account_id) = UPPER(#{accountId})
+          AND a.status = 'active'
+          AND UPPER(TRIM(c.company_id)) = #{companyId}
+    </select>
+
+    <update id="updateAccountLastLogin">
+        UPDATE account SET last_login = NOW() WHERE id = #{accountId}
+    </update>
+</mapper>

@@ -1,0 +1,6 @@
+/* SPA: allow vertical scroll on dashboard (PHP page used overflow:hidden for fixed layout). */
+body.dashboard-page {
+  height: auto !important;
+  min-height: 100vh;
+  overflow-y: auto !important;
+}

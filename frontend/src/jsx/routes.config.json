@@ -1,0 +1,692 @@
+﻿[
+    {
+        "urlPath":  "account-list",
+        "php":  "account-list.php",
+        "module":  "./pages/AccountList.jsx"
+    },
+    {
+        "urlPath":  "add-account",
+        "php":  "add-account.php",
+        "module":  "./pages/AddAccount.jsx"
+    },
+    {
+        "urlPath":  "announcement",
+        "php":  "announcement.php",
+        "module":  "./pages/Announcement.jsx"
+    },
+    {
+        "urlPath":  "auto_monthly_accounting",
+        "php":  "auto_monthly_accounting.php",
+        "module":  "./pages/AutoMonthlyAccounting.jsx"
+    },
+    {
+        "urlPath":  "bankprocess_maintenance",
+        "php":  "bankprocess_maintenance.php",
+        "module":  "./pages/BankprocessMaintenance.jsx"
+    },
+    {
+        "urlPath":  "bank_process_list",
+        "php":  "bank_process_list.php",
+        "module":  "./pages/BankProcessList.jsx"
+    },
+    {
+        "urlPath":  "capture_maintenance",
+        "php":  "capture_maintenance.php",
+        "module":  "./pages/CaptureMaintenance.jsx"
+    },
+    {
+        "urlPath":  "check_php_config",
+        "php":  "check_php_config.php",
+        "module":  "./pages/CheckPhpConfig.jsx"
+    },
+    {
+        "urlPath":  "config",
+        "php":  "config.php",
+        "module":  "./pages/Config.jsx"
+    },
+    {
+        "urlPath":  "customer_report",
+        "php":  "customer_report.php",
+        "module":  "./pages/CustomerReport.jsx"
+    },
+    {
+        "urlPath":  "dashboard",
+        "php":  "dashboard.php",
+        "module":  "./pages/Dashboard.jsx"
+    },
+    {
+        "urlPath":  "datacapture",
+        "php":  "datacapture.php",
+        "module":  "./pages/Datacapture.jsx"
+    },
+    {
+        "urlPath":  "datacapturesummary",
+        "php":  "datacapturesummary.php",
+        "module":  "./pages/Datacapturesummary.jsx"
+    },
+    {
+        "urlPath":  "db",
+        "php":  "db.php",
+        "module":  "./pages/Db.jsx"
+    },
+    {
+        "urlPath":  "debug_ag110",
+        "php":  "debug_ag110.php",
+        "module":  "./pages/DebugAg110.jsx"
+    },
+    {
+        "urlPath":  "domain",
+        "php":  "domain.php",
+        "module":  "./pages/Domain.jsx"
+    },
+    {
+        "urlPath":  "domainapi",
+        "php":  "domainapi.php",
+        "module":  "./pages/Domainapi.jsx"
+    },
+    {
+        "urlPath":  "domain_report",
+        "php":  "domain_report.php",
+        "module":  "./pages/DomainReport.jsx"
+    },
+    {
+        "urlPath":  "formula_maintenance",
+        "php":  "formula_maintenance.php",
+        "module":  "./pages/FormulaMaintenance.jsx"
+    },
+    {
+        "urlPath":  "games_process_list",
+        "php":  "games_process_list.php",
+        "module":  "./pages/GamesProcessList.jsx"
+    },
+    {
+        "urlPath":  "getaccountapi",
+        "php":  "getaccountapi.php",
+        "module":  "./pages/Getaccountapi.jsx"
+    },
+    {
+        "urlPath":  "index",
+        "php":  "index.php",
+        "module":  "./pages/Index.jsx"
+    },
+    {
+        "urlPath":  "login_process",
+        "php":  "login_process.php",
+        "module":  "./pages/LoginProcess.jsx"
+    },
+    {
+        "urlPath":  "member",
+        "php":  "member.php",
+        "module":  "./pages/Member.jsx"
+    },
+    {
+        "urlPath":  "ownership",
+        "php":  "ownership.php",
+        "module":  "./pages/Ownership.jsx"
+    },
+    {
+        "urlPath":  "owner_secondary_password",
+        "php":  "owner_secondary_password.php",
+        "module":  "./pages/OwnerSecondaryPassword.jsx"
+    },
+    {
+        "urlPath":  "payment_maintenance",
+        "php":  "payment_maintenance.php",
+        "module":  "./pages/PaymentMaintenance.jsx"
+    },
+    {
+        "urlPath":  "permissions",
+        "php":  "permissions.php",
+        "module":  "./pages/Permissions.jsx"
+    },
+    {
+        "urlPath":  "processlist",
+        "php":  "processlist.php",
+        "module":  "./pages/Processlist.jsx"
+    },
+    {
+        "urlPath":  "reset-password",
+        "php":  "reset-password.php",
+        "module":  "./pages/ResetPassword.jsx"
+    },
+    {
+        "urlPath":  "roleapi",
+        "php":  "roleapi.php",
+        "module":  "./pages/Roleapi.jsx"
+    },
+    {
+        "urlPath":  "scratch_db",
+        "php":  "scratch_db.php",
+        "module":  "./pages/ScratchDb.jsx"
+    },
+    {
+        "urlPath":  "session_check",
+        "php":  "session_check.php",
+        "module":  "./pages/SessionCheck.jsx"
+    },
+    {
+        "urlPath":  "sidebar",
+        "php":  "sidebar.php",
+        "module":  "./pages/Sidebar.jsx"
+    },
+    {
+        "urlPath":  "transaction",
+        "php":  "transaction.php",
+        "module":  "./pages/Transaction.jsx"
+    },
+    {
+        "urlPath":  "transaction_maintenance",
+        "php":  "transaction_maintenance.php",
+        "module":  "./pages/TransactionMaintenance.jsx"
+    },
+    {
+        "urlPath":  "useraccess",
+        "php":  "useraccess.php",
+        "module":  "./pages/Useraccess.jsx"
+    },
+    {
+        "urlPath":  "userlist",
+        "php":  "userlist.php",
+        "module":  "./pages/Userlist.jsx"
+    },
+    {
+        "urlPath":  "api/api_response",
+        "php":  "api/api_response.php",
+        "module":  "./pages/api/ApiResponse.jsx"
+    },
+    {
+        "urlPath":  "api/get_companies_helper",
+        "php":  "api/get_companies_helper.php",
+        "module":  "./pages/api/GetCompaniesHelper.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/accountlistapi",
+        "php":  "api/accounts/accountlistapi.php",
+        "module":  "./pages/api/accounts/Accountlistapi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/account_company_api",
+        "php":  "api/accounts/account_company_api.php",
+        "module":  "./pages/api/accounts/AccountCompanyApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/account_currency_api",
+        "php":  "api/accounts/account_currency_api.php",
+        "module":  "./pages/api/accounts/AccountCurrencyApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/account_link_api",
+        "php":  "api/accounts/account_link_api.php",
+        "module":  "./pages/api/accounts/AccountLinkApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/addaccountapi",
+        "php":  "api/accounts/addaccountapi.php",
+        "module":  "./pages/api/accounts/Addaccountapi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/addcurrencyapi",
+        "php":  "api/accounts/addcurrencyapi.php",
+        "module":  "./pages/api/accounts/Addcurrencyapi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/bulk_account_currency_api",
+        "php":  "api/accounts/bulk_account_currency_api.php",
+        "module":  "./pages/api/accounts/BulkAccountCurrencyApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/create_currency_api",
+        "php":  "api/accounts/create_currency_api.php",
+        "module":  "./pages/api/accounts/CreateCurrencyApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/currencyapi",
+        "php":  "api/accounts/currencyapi.php",
+        "module":  "./pages/api/accounts/Currencyapi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/delete_accounts_api",
+        "php":  "api/accounts/delete_accounts_api.php",
+        "module":  "./pages/api/accounts/DeleteAccountsApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/delete_currency_api",
+        "php":  "api/accounts/delete_currency_api.php",
+        "module":  "./pages/api/accounts/DeleteCurrencyApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/toggle_account_status_api",
+        "php":  "api/accounts/toggle_account_status_api.php",
+        "module":  "./pages/api/accounts/ToggleAccountStatusApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/toggle_payment_alert_api",
+        "php":  "api/accounts/toggle_payment_alert_api.php",
+        "module":  "./pages/api/accounts/TogglePaymentAlertApi.jsx"
+    },
+    {
+        "urlPath":  "api/accounts/update_api",
+        "php":  "api/accounts/update_api.php",
+        "module":  "./pages/api/accounts/UpdateApi.jsx"
+    },
+    {
+        "urlPath":  "api/announcements/announcement_create_api",
+        "php":  "api/announcements/announcement_create_api.php",
+        "module":  "./pages/api/announcements/AnnouncementCreateApi.jsx"
+    },
+    {
+        "urlPath":  "api/announcements/announcement_delete_api",
+        "php":  "api/announcements/announcement_delete_api.php",
+        "module":  "./pages/api/announcements/AnnouncementDeleteApi.jsx"
+    },
+    {
+        "urlPath":  "api/announcements/announcement_get_dashboard_api",
+        "php":  "api/announcements/announcement_get_dashboard_api.php",
+        "module":  "./pages/api/announcements/AnnouncementGetDashboardApi.jsx"
+    },
+    {
+        "urlPath":  "api/announcements/announcement_list_api",
+        "php":  "api/announcements/announcement_list_api.php",
+        "module":  "./pages/api/announcements/AnnouncementListApi.jsx"
+    },
+    {
+        "urlPath":  "api/announcements/announcement_update_api",
+        "php":  "api/announcements/announcement_update_api.php",
+        "module":  "./pages/api/announcements/AnnouncementUpdateApi.jsx"
+    },
+    {
+        "urlPath":  "api/bankprocess_maintenance/delete_api",
+        "php":  "api/bankprocess_maintenance/delete_api.php",
+        "module":  "./pages/api/bankprocess_maintenance/DeleteApi.jsx"
+    },
+    {
+        "urlPath":  "api/bankprocess_maintenance/maintenance_accounting_resend_lib",
+        "php":  "api/bankprocess_maintenance/maintenance_accounting_resend_lib.php",
+        "module":  "./pages/api/bankprocess_maintenance/MaintenanceAccountingResendLib.jsx"
+    },
+    {
+        "urlPath":  "api/bankprocess_maintenance/resend_accounting_due_api",
+        "php":  "api/bankprocess_maintenance/resend_accounting_due_api.php",
+        "module":  "./pages/api/bankprocess_maintenance/ResendAccountingDueApi.jsx"
+    },
+    {
+        "urlPath":  "api/bankprocess_maintenance/search_api",
+        "php":  "api/bankprocess_maintenance/search_api.php",
+        "module":  "./pages/api/bankprocess_maintenance/SearchApi.jsx"
+    },
+    {
+        "urlPath":  "api/capture_maintenance/delete_api",
+        "php":  "api/capture_maintenance/delete_api.php",
+        "module":  "./pages/api/capture_maintenance/DeleteApi.jsx"
+    },
+    {
+        "urlPath":  "api/capture_maintenance/search_api",
+        "php":  "api/capture_maintenance/search_api.php",
+        "module":  "./pages/api/capture_maintenance/SearchApi.jsx"
+    },
+    {
+        "urlPath":  "api/capture_maintenance/update_api",
+        "php":  "api/capture_maintenance/update_api.php",
+        "module":  "./pages/api/capture_maintenance/UpdateApi.jsx"
+    },
+    {
+        "urlPath":  "api/company/verify_api",
+        "php":  "api/company/verify_api.php",
+        "module":  "./pages/api/company/VerifyApi.jsx"
+    },
+    {
+        "urlPath":  "api/datacapture_summary/summary_api",
+        "php":  "api/datacapture_summary/summary_api.php",
+        "module":  "./pages/api/datacapture_summary/SummaryApi.jsx"
+    },
+    {
+        "urlPath":  "api/domain/domain_api",
+        "php":  "api/domain/domain_api.php",
+        "module":  "./pages/api/domain/DomainApi.jsx"
+    },
+    {
+        "urlPath":  "api/editdata/editdata_api",
+        "php":  "api/editdata/editdata_api.php",
+        "module":  "./pages/api/editdata/EditdataApi.jsx"
+    },
+    {
+        "urlPath":  "api/formula_maintenance/delete_api",
+        "php":  "api/formula_maintenance/delete_api.php",
+        "module":  "./pages/api/formula_maintenance/DeleteApi.jsx"
+    },
+    {
+        "urlPath":  "api/formula_maintenance/formula_fields_helper",
+        "php":  "api/formula_maintenance/formula_fields_helper.php",
+        "module":  "./pages/api/formula_maintenance/FormulaFieldsHelper.jsx"
+    },
+    {
+        "urlPath":  "api/formula_maintenance/list_api",
+        "php":  "api/formula_maintenance/list_api.php",
+        "module":  "./pages/api/formula_maintenance/ListApi.jsx"
+    },
+    {
+        "urlPath":  "api/formula_maintenance/search_api",
+        "php":  "api/formula_maintenance/search_api.php",
+        "module":  "./pages/api/formula_maintenance/SearchApi.jsx"
+    },
+    {
+        "urlPath":  "api/formula_maintenance/update_api",
+        "php":  "api/formula_maintenance/update_api.php",
+        "module":  "./pages/api/formula_maintenance/UpdateApi.jsx"
+    },
+    {
+        "urlPath":  "api/maintenance/create_api",
+        "php":  "api/maintenance/create_api.php",
+        "module":  "./pages/api/maintenance/CreateApi.jsx"
+    },
+    {
+        "urlPath":  "api/maintenance/delete_api",
+        "php":  "api/maintenance/delete_api.php",
+        "module":  "./pages/api/maintenance/DeleteApi.jsx"
+    },
+    {
+        "urlPath":  "api/maintenance/get_public_api",
+        "php":  "api/maintenance/get_public_api.php",
+        "module":  "./pages/api/maintenance/GetPublicApi.jsx"
+    },
+    {
+        "urlPath":  "api/maintenance/list_api",
+        "php":  "api/maintenance/list_api.php",
+        "module":  "./pages/api/maintenance/ListApi.jsx"
+    },
+    {
+        "urlPath":  "api/maintenance/update_api",
+        "php":  "api/maintenance/update_api.php",
+        "module":  "./pages/api/maintenance/UpdateApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/add_external_partner_api",
+        "php":  "api/ownership/add_external_partner_api.php",
+        "module":  "./pages/api/ownership/AddExternalPartnerApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/add_group_external_partner_api",
+        "php":  "api/ownership/add_group_external_partner_api.php",
+        "module":  "./pages/api/ownership/AddGroupExternalPartnerApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/batch_save_group_owners_api",
+        "php":  "api/ownership/batch_save_group_owners_api.php",
+        "module":  "./pages/api/ownership/BatchSaveGroupOwnersApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/batch_save_owners_api",
+        "php":  "api/ownership/batch_save_owners_api.php",
+        "module":  "./pages/api/ownership/BatchSaveOwnersApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/get_available_accounts_api",
+        "php":  "api/ownership/get_available_accounts_api.php",
+        "module":  "./pages/api/ownership/GetAvailableAccountsApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/get_companies_api",
+        "php":  "api/ownership/get_companies_api.php",
+        "module":  "./pages/api/ownership/GetCompaniesApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/get_group_available_accounts_api",
+        "php":  "api/ownership/get_group_available_accounts_api.php",
+        "module":  "./pages/api/ownership/GetGroupAvailableAccountsApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/get_group_earnings_api",
+        "php":  "api/ownership/get_group_earnings_api.php",
+        "module":  "./pages/api/ownership/GetGroupEarningsApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/get_group_owners_api",
+        "php":  "api/ownership/get_group_owners_api.php",
+        "module":  "./pages/api/ownership/GetGroupOwnersApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/get_owners_api",
+        "php":  "api/ownership/get_owners_api.php",
+        "module":  "./pages/api/ownership/GetOwnersApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/remove_owner_api",
+        "php":  "api/ownership/remove_owner_api.php",
+        "module":  "./pages/api/ownership/RemoveOwnerApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/save_owner_api",
+        "php":  "api/ownership/save_owner_api.php",
+        "module":  "./pages/api/ownership/SaveOwnerApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/update_company_group_api",
+        "php":  "api/ownership/update_company_group_api.php",
+        "module":  "./pages/api/ownership/UpdateCompanyGroupApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/update_read_only_api",
+        "php":  "api/ownership/update_read_only_api.php",
+        "module":  "./pages/api/ownership/UpdateReadOnlyApi.jsx"
+    },
+    {
+        "urlPath":  "api/ownership/upsert_group_ownership_api",
+        "php":  "api/ownership/upsert_group_ownership_api.php",
+        "module":  "./pages/api/ownership/UpsertGroupOwnershipApi.jsx"
+    },
+    {
+        "urlPath":  "api/payment_maintenance/delete_api",
+        "php":  "api/payment_maintenance/delete_api.php",
+        "module":  "./pages/api/payment_maintenance/DeleteApi.jsx"
+    },
+    {
+        "urlPath":  "api/payment_maintenance/search_api",
+        "php":  "api/payment_maintenance/search_api.php",
+        "module":  "./pages/api/payment_maintenance/SearchApi.jsx"
+    },
+    {
+        "urlPath":  "api/payment_maintenance/update_api",
+        "php":  "api/payment_maintenance/update_api.php",
+        "module":  "./pages/api/payment_maintenance/UpdateApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/addprocessapi",
+        "php":  "api/processes/addprocessapi.php",
+        "module":  "./pages/api/processes/Addprocessapi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/addprocess_api",
+        "php":  "api/processes/addprocess_api.php",
+        "module":  "./pages/api/processes/AddprocessApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/billing_schedule",
+        "php":  "api/processes/billing_schedule.php",
+        "module":  "./pages/api/processes/BillingSchedule.jsx"
+    },
+    {
+        "urlPath":  "api/processes/contract_billing_addon",
+        "php":  "api/processes/contract_billing_addon.php",
+        "module":  "./pages/api/processes/ContractBillingAddon.jsx"
+    },
+    {
+        "urlPath":  "api/processes/delete_processes_api",
+        "php":  "api/processes/delete_processes_api.php",
+        "module":  "./pages/api/processes/DeleteProcessesApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/dismiss_accounting_due_api",
+        "php":  "api/processes/dismiss_accounting_due_api.php",
+        "module":  "./pages/api/processes/DismissAccountingDueApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/processlist_api",
+        "php":  "api/processes/processlist_api.php",
+        "module":  "./pages/api/processes/ProcesslistApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/process_accounting_inbox_api",
+        "php":  "api/processes/process_accounting_inbox_api.php",
+        "module":  "./pages/api/processes/ProcessAccountingInboxApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/process_post_to_transaction_api",
+        "php":  "api/processes/process_post_to_transaction_api.php",
+        "module":  "./pages/api/processes/ProcessPostToTransactionApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/submitted_processes_api",
+        "php":  "api/processes/submitted_processes_api.php",
+        "module":  "./pages/api/processes/SubmittedProcessesApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/toggle_process_status_api",
+        "php":  "api/processes/toggle_process_status_api.php",
+        "module":  "./pages/api/processes/ToggleProcessStatusApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/update_bank_issue_flag_api",
+        "php":  "api/processes/update_bank_issue_flag_api.php",
+        "module":  "./pages/api/processes/UpdateBankIssueFlagApi.jsx"
+    },
+    {
+        "urlPath":  "api/processes/update_bank_remark_api",
+        "php":  "api/processes/update_bank_remark_api.php",
+        "module":  "./pages/api/processes/UpdateBankRemarkApi.jsx"
+    },
+    {
+        "urlPath":  "api/reports/customer_report_api",
+        "php":  "api/reports/customer_report_api.php",
+        "module":  "./pages/api/reports/CustomerReportApi.jsx"
+    },
+    {
+        "urlPath":  "api/reports/domain_report_api",
+        "php":  "api/reports/domain_report_api.php",
+        "module":  "./pages/api/reports/DomainReportApi.jsx"
+    },
+    {
+        "urlPath":  "api/session/update_account_session_api",
+        "php":  "api/session/update_account_session_api.php",
+        "module":  "./pages/api/session/UpdateAccountSessionApi.jsx"
+    },
+    {
+        "urlPath":  "api/session/update_company_session_api",
+        "php":  "api/session/update_company_session_api.php",
+        "module":  "./pages/api/session/UpdateCompanySessionApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/bank_process_bill_display",
+        "php":  "api/transactions/bank_process_bill_display.php",
+        "module":  "./pages/api/transactions/BankProcessBillDisplay.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/contra_approve_api",
+        "php":  "api/transactions/contra_approve_api.php",
+        "module":  "./pages/api/transactions/ContraApproveApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/contra_inbox_api",
+        "php":  "api/transactions/contra_inbox_api.php",
+        "module":  "./pages/api/transactions/ContraInboxApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/contra_reject_api",
+        "php":  "api/transactions/contra_reject_api.php",
+        "module":  "./pages/api/transactions/ContraRejectApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/dashboard_api",
+        "php":  "api/transactions/dashboard_api.php",
+        "module":  "./pages/api/transactions/DashboardApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/get_accounts_api",
+        "php":  "api/transactions/get_accounts_api.php",
+        "module":  "./pages/api/transactions/GetAccountsApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/get_categories_api",
+        "php":  "api/transactions/get_categories_api.php",
+        "module":  "./pages/api/transactions/GetCategoriesApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/get_company_currencies_api",
+        "php":  "api/transactions/get_company_currencies_api.php",
+        "module":  "./pages/api/transactions/GetCompanyCurrenciesApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/get_currencies_api",
+        "php":  "api/transactions/get_currencies_api.php",
+        "module":  "./pages/api/transactions/GetCurrenciesApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/get_owner_companies_api",
+        "php":  "api/transactions/get_owner_companies_api.php",
+        "module":  "./pages/api/transactions/GetOwnerCompaniesApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/history_api",
+        "php":  "api/transactions/history_api.php",
+        "module":  "./pages/api/transactions/HistoryApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/maintenance_delete_api",
+        "php":  "api/transactions/maintenance_delete_api.php",
+        "module":  "./pages/api/transactions/MaintenanceDeleteApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/maintenance_search_api",
+        "php":  "api/transactions/maintenance_search_api.php",
+        "module":  "./pages/api/transactions/MaintenanceSearchApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/search_api",
+        "php":  "api/transactions/search_api.php",
+        "module":  "./pages/api/transactions/SearchApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/submit_api",
+        "php":  "api/transactions/submit_api.php",
+        "module":  "./pages/api/transactions/SubmitApi.jsx"
+    },
+    {
+        "urlPath":  "api/transactions/user_currency_order_api",
+        "php":  "api/transactions/user_currency_order_api.php",
+        "module":  "./pages/api/transactions/UserCurrencyOrderApi.jsx"
+    },
+    {
+        "urlPath":  "api/useraccess/useraccess_api",
+        "php":  "api/useraccess/useraccess_api.php",
+        "module":  "./pages/api/useraccess/UseraccessApi.jsx"
+    },
+    {
+        "urlPath":  "api/users/reset_password_api",
+        "php":  "api/users/reset_password_api.php",
+        "module":  "./pages/api/users/ResetPasswordApi.jsx"
+    },
+    {
+        "urlPath":  "api/users/send_reset_tac_api",
+        "php":  "api/users/send_reset_tac_api.php",
+        "module":  "./pages/api/users/SendResetTacApi.jsx"
+    },
+    {
+        "urlPath":  "api/users/toggle_status_api",
+        "php":  "api/users/toggle_status_api.php",
+        "module":  "./pages/api/users/ToggleStatusApi.jsx"
+    },
+    {
+        "urlPath":  "api/users/userlist_api",
+        "php":  "api/users/userlist_api.php",
+        "module":  "./pages/api/users/UserlistApi.jsx"
+    },
+    {
+        "urlPath":  "api/users/user_secondary_password",
+        "php":  "api/users/user_secondary_password.php",
+        "module":  "./pages/api/users/UserSecondaryPassword.jsx"
+    },
+    {
+        "urlPath":  "includes/company_filter",
+        "php":  "includes/company_filter.php",
+        "module":  "./pages/includes/CompanyFilter.jsx"
+    }
+]
