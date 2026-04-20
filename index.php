@@ -99,33 +99,37 @@ if (isset($_COOKIE['remember_token'])) {
         <div class="login-card">
             
             <div class="form-content">
+                <div class="language-switch-container" aria-label="Language switch">
+                    <button type="button" class="lang-btn active" id="lang-en" data-lang="en">EN</button>
+                    <button type="button" class="lang-btn" id="lang-zh" data-lang="zh">中文</button>
+                </div>
                 <form class="login-form" id="loginForm" method="POST">
                     <div class="input-group">
                         <i class="fas fa-building input-icon"></i>
-                        <input type="text" placeholder="Company / Group ID" id="company-id" name="company_id" required />
+                        <input type="text" placeholder="Company / Group ID" id="company-id" name="company_id" data-i18n-placeholder="companyId" required />
                     </div>
                     
                     <div class="input-group">
                         <i class="fas fa-user input-icon"></i>
-                        <input type="text" placeholder="Username" id="user-id" name="login_id" data-account-field="account_id" required />
+                        <input type="text" placeholder="Username" id="user-id" name="login_id" data-account-field="account_id" data-i18n-placeholder="username" required />
                     </div>
                     
                     <div class="input-group">
                         <i class="fas fa-lock input-icon"></i>
-                        <input type="password" placeholder="Password" id="password" name="password" required />
+                        <input type="password" placeholder="Password" id="password" name="password" data-i18n-placeholder="password" required />
                     </div>
 
                     <div class="form-options">
                         <label class="remember-switch">
                             <input type="checkbox" name="remember_me" value="1" />
                             <span class="slider"></span>
-                            <span class="remember-text">Remember me</span>
+                            <span class="remember-text" data-i18n="rememberMe">Remember me</span>
                         </label>
-                        <a href="reset-password.php" class="forgot-link" style="display: <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'none' : 'block'; ?>">Forget Password?</a>
+                        <a href="reset-password.php" class="forgot-link" data-i18n="forgetPassword" style="display: <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'none' : 'block'; ?>">Forget Password?</a>
                     </div>
 
                     <button type="submit" class="login-btn">
-                        <span>Login</span>
+                        <span data-i18n="login">Login</span>
                     </button>
 
                     <!-- <div class="language-switch-container">
@@ -148,10 +152,10 @@ if (isset($_COOKIE['remember_token'])) {
             <div class="modal-icon-wrap">
                 <i class="fas fa-exclamation-triangle modal-icon" aria-hidden="true"></i>
             </div>
-            <h3 id="modalTitle" class="modal-title">Notice</h3>
+            <h3 id="modalTitle" class="modal-title" data-i18n="notice">Notice</h3>
             <p id="modalMessage" class="modal-message"></p>
             <div class="modal-actions">
-                <button type="button" id="modalConfirmBtn" class="modal-btn modal-btn-primary">Confirm</button>
+                <button type="button" id="modalConfirmBtn" class="modal-btn modal-btn-primary" data-i18n="confirm">Confirm</button>
             </div>
         </div>
     </div>

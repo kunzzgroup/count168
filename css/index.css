@@ -79,6 +79,31 @@
     }
 }
 
+.language-switch-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin: 0 0 10px;
+}
+
+.lang-btn {
+    border: 1px solid #56ccf2;
+    background: #fff;
+    color: #2a6bdc;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lang-btn.active {
+    background: linear-gradient(135deg, #56ccf2, #004ff9);
+    color: #fff;
+    border-color: transparent;
+}
+
 /* 登录页自定义弹窗 - 与确认删除弹窗风格一致 */
 .modal-overlay {
     position: fixed;
