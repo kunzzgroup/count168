@@ -16,6 +16,12 @@ body.transaction-page {
     overflow-y: auto;
 }
 
+.transaction-page,
+.transaction-page * {
+    font-size: 0.80em !important;
+    font-weight: bold !important;
+}
+
 .transaction-page .transaction-container {
     max-width: none;
     margin: 0;
