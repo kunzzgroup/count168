@@ -25,27 +25,7 @@ function eazycount_sidebar_bootstrap(PDO $pdo): array
         }
     }
 
-    $hasC168Access = false;
     $companyId = $_SESSION['company_id'] ?? null;
-    if ($user_id) {
-        $roleLower = strtolower((string) $role);
-        $companyCodeSess = strtoupper((string) ($_SESSION['company_code'] ?? ''));
-
-        if (in_array($roleLower, ['owner', 'admin'], true)) {
-            if ($companyCodeSess === 'C168') {
-                $hasC168Access = true;
-            } elseif ($companyId) {
-                try {
-                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-                    $stmt->execute([$companyId]);
-                    $hasC168Access = $stmt->fetchColumn() > 0;
-                } catch (PDOException $e) {
-                    error_log('检查 c168 权限失败: ' . $e->getMessage());
-                    $hasC168Access = false;
-                }
-            }
-        }
-    }
 
     $isCurrentCompanyC168 = false;
     $currentCompanyCode = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
@@ -62,7 +42,14 @@ function eazycount_sidebar_bootstrap(PDO $pdo): array
         }
     }
 
-    $hasC168Access = $isCurrentCompanyC168 && in_array(strtolower((string) $role), ['owner', 'admin'], true);
+    $roleLower = strtolower(trim((string) $role));
+    // Domain / Announcement：当前选中公司为 C168 且角色为 owner/admin（与 sidebar.php 一致）
+    $hasC168Access = $isCurrentCompanyC168 && in_array($roleLower, ['owner', 'admin'], true);
+
+    // user.permissions 为白名单时若漏配 domain，C168 的 owner/admin 仍应看到 Domain 菜单
+    if ($hasC168Access && !empty($permissions) && !in_array('domain', $permissions, true)) {
+        $permissions[] = 'domain';
+    }
 
     $avatarLetter = $login_id !== '' ? strtoupper($login_id[0]) : 'U';
 

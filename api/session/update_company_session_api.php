@@ -218,7 +218,7 @@ try {
     }
 
     // 与 inc/sidebar_bootstrap.php 一致：当前公司为 C168 且角色为 owner/admin 时侧栏显示 Domain / Announcement（SPA 无刷新切换公司时依赖此字段）
-    $role_for_c168 = strtolower((string) ($_SESSION['role'] ?? ''));
+    $role_for_c168 = strtolower(trim((string) ($_SESSION['role'] ?? '')));
     $cc_upper = $company_code !== null ? strtoupper(trim((string) $company_code)) : '';
     $is_current_company_c168 = ($cc_upper === 'C168');
     if (!$is_current_company_c168 && $requested_company_id > 0) {
