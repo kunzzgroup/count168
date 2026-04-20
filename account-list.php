@@ -289,9 +289,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 
                 <!-- Account Cards List -->
                 <div class="account-cards" id="accountTableBody">
-                    <div class="account-card">
-                        <div class="account-card-item">Loading...</div>
-                    </div>
+                    <!-- 首屏保持静默，数据由 js/account-list.js 注入 -->
                 </div>
             </div>
             <!-- 分页控件 - 浮动在右下角 -->
