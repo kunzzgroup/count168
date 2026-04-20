@@ -174,6 +174,8 @@ if ($rawR !== '' && ($rawR[0] ?? '') !== '/') {
 if ($isMemberShell) {
     $spaDefault = '/member';
     require_once __DIR__ . '/inc/spa_member_context.php';
+    require_once __DIR__ . '/inc/sidebar_bootstrap.php';
+    $sidebarBootstrap = eazycount_sidebar_bootstrap($pdo);
     ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -186,13 +188,14 @@ if ($isMemberShell) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/member.css?v=<?php echo $assetVer('css/member.css'); ?>">
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
+    <script>window.__SIDEBAR_REACT_DEFER = true;</script>
+    <script>window.__SIDEBAR_BOOTSTRAP = <?php echo json_encode($sidebarBootstrap, JSON_UNESCAPED_UNICODE); ?>;</script>
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists(__DIR__ . '/css/global-13inch.css') ? filemtime(__DIR__ . '/css/global-13inch.css') : time(); ?>">
     <script>window.__API_BASE_URL__ = <?php echo json_encode($springApiBase); ?>;</script>
     <script src="js/api-bridge.js?v=<?php echo $assetVer('js/api-bridge.js'); ?>"></script>
 </head>
 <body class="transaction-page member-winloss-page">
-    <?php include __DIR__ . '/sidebar.php'; ?>
 
     <?php if (!$reactBundleOk): ?>
         <div style="padding: 2rem; font-family: system-ui, sans-serif; max-width: 40rem;">
@@ -246,6 +249,9 @@ if ($rawR !== '' && $rawR !== '/login' && $rawR !== '/member' && in_array($rawR,
     $spaDefault = $rawR;
 }
 
+require_once __DIR__ . '/inc/sidebar_bootstrap.php';
+$sidebarBootstrap = eazycount_sidebar_bootstrap($pdo);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -267,6 +273,8 @@ if ($rawR !== '' && $rawR !== '/login' && $rawR !== '/member' && in_array($rawR,
         window.__COUNT_ASSET_BASE = '';
         window.__SPA_DEFAULT_ROUTE = <?php echo json_encode($spaDefault); ?>;
         window.__API_BASE_URL__ = <?php echo json_encode($springApiBase); ?>;
+        window.__SIDEBAR_REACT_DEFER = true;
+        window.__SIDEBAR_BOOTSTRAP = <?php echo json_encode($sidebarBootstrap, JSON_UNESCAPED_UNICODE); ?>;
     </script>
     <script src="js/api-bridge.js?v=<?php echo $assetVer('js/api-bridge.js'); ?>"></script>
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
@@ -275,7 +283,6 @@ if ($rawR !== '' && $rawR !== '/login' && $rawR !== '/member' && in_array($rawR,
 </head>
 
 <body class="dashboard-page">
-    <?php include __DIR__ . '/sidebar.php'; ?>
 
     <?php if (!$reactBundleOk): ?>
         <div style="padding: 2rem; font-family: system-ui, sans-serif; max-width: 40rem;">

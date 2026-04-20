@@ -730,7 +730,11 @@
         });
     }
 
-    if (document.readyState === 'loading') {
+    window.__sidebarInit = init;
+
+    if (window.__SIDEBAR_REACT_DEFER) {
+        // React 挂载 Sidebar 后再调用 window.__sidebarInit()
+    } else if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
