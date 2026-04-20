@@ -2,7 +2,6 @@
 session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/app_user_roles.php';
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -14,41 +13,44 @@ $data = json_decode($json, true);
 
 $action = $data['action'] ?? '';
 
-$actionsRequiringLogin = ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'];
-
-// 根据 company_id 回填 company_code（须在任何 session_write_close 之前写入 session）
-if (isset($_SESSION['user_id']) && !empty($_SESSION['company_id'])) {
-    $sessCoId = $_SESSION['company_id'];
-    try {
-        $ccStmt = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
-        $ccStmt->execute([(int) $sessCoId]);
-        $ccVal = $ccStmt->fetchColumn();
-        if ($ccVal !== false && $ccVal !== null && trim((string) $ccVal) !== '') {
-            $_SESSION['company_code'] = trim((string) $ccVal);
-        }
-    } catch (PDOException $e) {
-        // ignore
-    }
-}
-
-$user_role = strtolower($_SESSION['role'] ?? '');
-$company_id = $_SESSION['company_id'] ?? null;
-$company_code = strtoupper($_SESSION['company_code'] ?? '');
-$isC168ByCode = ($company_code === 'C168');
-$isC168ById = isC168Company($pdo, $company_id);
-$hasC168Context = ($isC168ByCode || $isC168ById);
-$isC168DomainManager = isset($_SESSION['user_id']) && app_user_has_c168_domain_access($_SESSION['role'] ?? '');
-$isOwnerOrAdmin = isset($_SESSION['user_id']) && app_user_has_c168_announcement_access($_SESSION['role'] ?? '');
-
-if (in_array($action, $actionsRequiringLogin, true)) {
+// 检查用户是否已登录（对于需要权限的操作）
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
         exit;
     }
-}
 
-session_write_close();
+    // 根据 company_id 回填 company_code（Remember me、仅更新了 id 等情况下 session 可能缺 code，导致误判非 C168）
+    $sessCoId = $_SESSION['company_id'] ?? null;
+    if ($sessCoId) {
+        try {
+            $ccStmt = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
+            $ccStmt->execute([(int) $sessCoId]);
+            $ccVal = $ccStmt->fetchColumn();
+            if ($ccVal !== false && $ccVal !== null && trim((string) $ccVal) !== '') {
+                $_SESSION['company_code'] = trim((string) $ccVal);
+            }
+        } catch (PDOException $e) {
+            // ignore
+        }
+    }
+    // session 写入完成，立即释放锁，允许并发请求执行
+    session_write_close();
+    
+    // 检查C168权限（用于二级密码修改权限判断）
+    $user_role = strtolower($_SESSION['role'] ?? '');
+    $company_id = $_SESSION['company_id'] ?? null;
+    $company_code = strtoupper($_SESSION['company_code'] ?? '');
+    
+    $isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
+    $isC168ByCode = ($company_code === 'C168');
+    $isC168ById = isC168Company($pdo, $company_id);
+    $hasC168Context = ($isC168ByCode || $isC168ById);
+} else {
+    // 不需要写 session，直接释放锁
+    session_write_close();
+}
 
 /**
  * 将 ID 数组标准化为唯一的整型列表
@@ -1424,8 +1426,8 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
  * EDIT DOMAIN 按下 Confirm 後：對 companies 中標記 apply_commission_payments_on_domain_save 的公司
  * 寫入 domain list fee 與 Share% 佣金（transactions.PAYMENT），與 Transaction Payment / Payment History 同一數據源。
  */
-function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bool $hasC168Context, bool $isC168DomainManager): void {
-    if (!$hasC168Context || !$isC168DomainManager || !isset($_SESSION['user_id'])) {
+function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bool $hasC168Context, bool $isOwnerOrAdmin): void {
+    if (!$hasC168Context || !$isOwnerOrAdmin || !isset($_SESSION['user_id'])) {
         return;
     }
     $rows = domainApiNormalizeCompaniesPayload($companies);
@@ -1640,10 +1642,10 @@ function domainApiExtractProvisionCompanyIds($companies): array {
 }
 
 /**
- * 是否允许为 C168 主公司自动建 MEMBER：具备 C168 Domain 管理角色，且（当前为 C168 上下文，或用户有权访问 C168 主公司）
+ * 是否允许为 C168 主公司自动建 MEMBER：owner/admin，且（当前为 C168 上下文，或用户有权访问 C168 主公司）
  */
-function domainApiMayProvisionC168MemberAccounts(PDO $pdo, bool $hasC168Context, bool $isC168DomainManager): bool {
-    if (!$isC168DomainManager) {
+function domainApiMayProvisionC168MemberAccounts(PDO $pdo, bool $hasC168Context, bool $isOwnerOrAdmin): bool {
+    if (!$isOwnerOrAdmin) {
         return false;
     }
     if ($hasC168Context) {
@@ -2072,11 +2074,6 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 try {
     switch($action) {
         case 'create':
-            if (!$hasC168Context || !$isC168DomainManager) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Forbidden', 'data' => null]);
-                exit;
-            }
             // Create new owner
             $owner_code = strtoupper(trim($data['owner_code'] ?? ''));
             $name = trim($data['name'] ?? '');
@@ -2134,14 +2131,14 @@ try {
                 }
 
                 $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies);
-                if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isC168DomainManager)) {
+                if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
                         domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionCompanyIds, $owner_code);
                     }
                 }
 
-                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isC168DomainManager);
+                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isOwnerOrAdmin);
 
                 $pdo->commit();
 
@@ -2161,11 +2158,6 @@ try {
             break;
             
         case 'update':
-            if (!$hasC168Context || !$isC168DomainManager) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Forbidden', 'data' => null]);
-                exit;
-            }
             // Update existing owner
             $id = $data['id'] ?? 0;
             $name = trim($data['name'] ?? '');
@@ -2424,7 +2416,7 @@ try {
 
                 // 对该 domain 表单中所有带 company_id 的公司同步 C168 下 MEMBER（幂等；便于历史数据补建）
                 $provisionFromUpdate = domainApiExtractProvisionCompanyIds($companies);
-                if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isC168DomainManager)) {
+                if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $isOwnerOrAdmin)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
                         $ocStmt = $pdo->prepare('SELECT UPPER(TRIM(owner_code)) FROM owner WHERE id = ? LIMIT 1');
@@ -2450,8 +2442,8 @@ try {
                     }
                 }
 
-                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isC168DomainManager);
-
+                domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $isOwnerOrAdmin);
+                
                 $pdo->commit();
                 
                 $owner = getOwnerWithCompanies($pdo, $id);
@@ -2470,11 +2462,6 @@ try {
             break;
             
         case 'delete':
-            if (!$hasC168Context || !$isC168DomainManager) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Forbidden', 'data' => null]);
-                exit;
-            }
             // Delete owner and cascade delete all related data手動
             $id = $data['id'] ?? 0;
             
@@ -2624,11 +2611,6 @@ try {
             break;
             
         case 'get_companies':
-            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isC168DomainManager) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Forbidden', 'data' => null]);
-                exit;
-            }
             // Get companies for a specific owner with expiration dates
             $owner_id = $data['owner_id'] ?? ($_GET['owner_id'] ?? 0);
             
@@ -2716,11 +2698,6 @@ try {
             break;
             
         case 'update_company_permissions':
-            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isC168DomainManager) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Forbidden', 'data' => null]);
-                exit;
-            }
             // Update permissions for a specific company
             $company_id = $data['company_id'] ?? '';
             $permissions = $data['permissions'] ?? [];
@@ -2771,7 +2748,7 @@ try {
             break;
 
         case 'get_company_share_settings':
-            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isC168DomainManager) {
+            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isOwnerOrAdmin) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
@@ -2805,7 +2782,7 @@ try {
             break;
 
         case 'save_company_share_settings':
-            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isC168DomainManager) {
+            if (!isset($_SESSION['user_id']) || !$hasC168Context || !$isOwnerOrAdmin) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
@@ -2983,7 +2960,7 @@ try {
             break;
 
         case 'get_domain_fee_settings':
-            if (!$hasC168Context || !$isC168DomainManager) {
+            if (!$hasC168Context || !$isOwnerOrAdmin) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
@@ -3001,7 +2978,7 @@ try {
             break;
 
         case 'save_domain_fee_settings':
-            if (!$hasC168Context || !$isC168DomainManager) {
+            if (!$hasC168Context || !$isOwnerOrAdmin) {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }

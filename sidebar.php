@@ -21,7 +21,6 @@ $name = $_SESSION['name'] ?? '';
 $role = $_SESSION['role'] ?? '';
 
 require_once 'config.php';
-require_once __DIR__ . '/includes/app_user_roles.php';
 $permissions = [];
 
 // 获取用户权限（仅针对 member 用户）
@@ -73,11 +72,8 @@ if ($currentCompanyCode === 'C168') {
     }
 }
 
-// 仅当“当前公司是 C168”且具备 Announcement 管理角色时（与 Domain 菜单分离，角色表见 includes/app_user_roles.php）
-$hasC168Access = $isCurrentCompanyC168 && app_user_has_c168_announcement_access($role);
-
-// Domain：当前公司为 C168 且角色允许访问 Domain（与 api/domain/domain_api.php、userlist 同源）
-$hasC168DomainMenuAccess = $isCurrentCompanyC168 && app_user_has_c168_domain_access($role);
+// 仅当“当前公司是 C168”且“角色为 owner/admin”时，才启用 C168 专属菜单
+$hasC168Access = $isCurrentCompanyC168 && in_array(strtolower($role ?? ''), ['owner', 'admin'], true);
 
 $avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
 
@@ -353,7 +349,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Domain Section - 只有与 c168 相关且角色为 owner/admin 的用户可见 -->
-            <?php if ((empty($permissions) || in_array('domain', $permissions)) && $hasC168DomainMenuAccess): ?>
+            <?php if ((empty($permissions) || in_array('domain', $permissions)) && $hasC168Access): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="domain.php"
                         onclick="window.location.href='domain.php'">
