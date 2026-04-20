@@ -1234,7 +1234,7 @@ body.transaction-page .expiration-countdown-text {
     padding: clamp(2px, 0.21vw, 4px) 8px;
     line-height: 1.1;
     font-weight: 600;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: 0.83vw;
 }
 
 .transaction-table td {
