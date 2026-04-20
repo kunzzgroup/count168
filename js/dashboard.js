@@ -2426,8 +2426,8 @@ async function switchCompany(companyId, companyCode) {
                 }
                 throw error;
             }
-            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-                window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
+                window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
             }
         } catch (error) {
             const errMessage = error && error.message ? error.message : '';

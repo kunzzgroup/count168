@@ -162,8 +162,8 @@
                     window.location.href = 'dashboard.php';
                     return;
                 }
-                if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+                if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
+                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);

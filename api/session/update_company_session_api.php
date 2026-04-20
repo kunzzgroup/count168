@@ -190,9 +190,10 @@ try {
         }
     }
 
-    // 返回当前公司是否有 Games 权限，供侧边栏即时显示/隐藏 Data Capture
+    // 返回当前公司是否有 Games / Bank 权限，供侧边栏即时显示/隐藏 Data Capture、Maintenance > Process 等
     // 同时更新 session 中的 company_code，避免使用 C168 登录后切到其他公司时仍被视为 C168
     $has_gambling = false;
+    $has_bank = false;
     $company_code = null;
     try {
         $stmt = $pdo->prepare("SELECT company_id, permissions FROM company WHERE id = ?");
@@ -204,6 +205,7 @@ try {
             if ($permsJson) {
                 $perms = json_decode($permsJson, true);
                 $has_gambling = is_array($perms) && (in_array('Games', $perms) || in_array('Gambling', $perms));
+                $has_bank = is_array($perms) && in_array('Bank', $perms);
             }
         }
     } catch (PDOException $e) {
@@ -221,7 +223,8 @@ try {
     jsonResponse(true, 'Company 已更新', [
         'company_id'   => $requested_company_id,
         'company_code' => $company_code,
-        'has_gambling' => $has_gambling
+        'has_gambling' => $has_gambling,
+        'has_bank'     => $has_bank
     ]);
 } catch (Exception $e) {
     session_write_close();

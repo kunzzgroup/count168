@@ -387,9 +387,9 @@ if (!empty($session_company_id)) {
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-                    hasGamblingFromSession = result.data.has_gambling;
-                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+                } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
+                    if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
+                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);

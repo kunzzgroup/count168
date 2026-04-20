@@ -157,7 +157,7 @@ if ($companyId) {
     }
 }
 
-// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 凡有 Bank 即输出 DOM；含 Games 时仅 Category=Bank（localStorage）显示，由 js/sidebar.js 控制；Bank 视图下 Data Capture/Transaction/Formula 亦由 js 隐藏
+// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture；Maintenance > Process 在 hasMaintenance 时始终输出 DOM（无 Bank 则默认隐藏），切换公司后由 has_bank + js/sidebar.js 控制；含 Games 时 Process 仅 Category=Bank（localStorage）显示；Bank 视图下 Data Capture/Transaction/Formula 由 js 隐藏
 $companyHasGambling = false;
 $companyCategories = [];
 if ($companyId) {
@@ -174,6 +174,7 @@ if ($companyId) {
         error_log("获取公司权限失败: " . $e->getMessage());
     }
 }
+$companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategories);
 ?>
 <!--
 ================================================================================
@@ -527,8 +528,8 @@ if ($companyId) {
                                     <span>Formula</span>
                                 </a>
                             <?php endif; ?>
-                            <?php if ($hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
-                                <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link">
+                            <?php if ($hasMaintenance): ?>
+                                <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link"<?php echo $companyHasBank ? '' : ' style="display:none;"'; ?>>
                                     <span>Process</span>
                                 </a>
                             <?php endif; ?>
@@ -585,6 +586,7 @@ if ($companyId) {
     window.SIDEBAR_IS_MEMBER = <?php echo $isMember ? 'true' : 'false'; ?>;
     window.SIDEBAR_EXPIRATION_DATE = '<?php echo $company_expiration_date ? addslashes($company_expiration_date) : ''; ?>';
     window.SIDEBAR_COMPANY_HAS_GAMBLING = <?php echo $companyHasGambling ? 'true' : 'false'; ?>;
+    window.SIDEBAR_COMPANY_HAS_BANK = <?php echo $companyHasBank ? 'true' : 'false'; ?>;
     window.SIDEBAR_COMPANY_CODE = <?php echo json_encode($currentCompanyCode); ?>;
     (function () {
         if (typeof updateExpirationCountdown === 'function') {
@@ -594,7 +596,7 @@ if ($companyId) {
             }
         }
         if (typeof updateSidebarDataCaptureVisibility === 'function' && window.SIDEBAR_COMPANY_HAS_GAMBLING !== undefined) {
-            updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
+            updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING, window.SIDEBAR_COMPANY_HAS_BANK);
         }
     })();
 </script>

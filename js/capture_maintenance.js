@@ -182,6 +182,7 @@ let ownerCompanies = [];
         async function switchCompany(companyId, companyCode) {
             if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
             let hasGamblingFromSession = undefined;
+            let hasBankFromSession = undefined;
             try {
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
@@ -189,8 +190,9 @@ let ownerCompanies = [];
                     console.error('更新 session 失败:', result.error);
                     window.location.href = 'dashboard.php';
                     return;
-                } else if (result.data && result.data.has_gambling !== undefined) {
-                    hasGamblingFromSession = result.data.has_gambling;
+                } else if (result.data) {
+                    if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
+                    if (result.data.has_bank !== undefined) hasBankFromSession = result.data.has_bank;
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
@@ -210,7 +212,7 @@ let ownerCompanies = [];
                 const hg = hasGamblingFromSession !== undefined
                     ? hasGamblingFromSession
                     : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
-                window.updateSidebarDataCaptureVisibility(hg);
+                window.updateSidebarDataCaptureVisibility(hg, hasBankFromSession);
             }
             loadPermissionButtons();
             loadProcesses();

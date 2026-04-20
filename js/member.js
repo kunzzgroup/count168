@@ -187,8 +187,8 @@ function setupCompanyButtons() {
                 if (!data.success) {
                     throw new Error(data.error || 'Failed to switch company');
                 }
-                if (typeof window.updateSidebarDataCaptureVisibility === 'function' && data.data && data.data.has_gambling !== undefined) {
-                    window.updateSidebarDataCaptureVisibility(data.data.has_gambling);
+                if (typeof window.updateSidebarDataCaptureVisibility === 'function' && data.data) {
+                    window.updateSidebarDataCaptureVisibility(data.data.has_gambling, data.data.has_bank);
                 }
                 memberConfig.companyId = companyId;
 

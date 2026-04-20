@@ -1200,8 +1200,8 @@
                 if (blocked) return;
                 console.error('更新 session 失败:', result.error);
                 // 非到期/未设置类错误：保持原行为
-            } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-                window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+            } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
+                window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
             }
         } catch (error) {
             console.error('更新 session 时出错:', error);

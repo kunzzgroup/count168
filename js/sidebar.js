@@ -300,8 +300,13 @@
     // - Maintenance 子菜单里 Games 才能用的项
     // - Category 为 Bank（localStorage）时隐藏 Maintenance > Data Capture / Transaction / Formula
     // - 侧边栏 Report 区块（仅 Games 可见）
-    // - Maintenance > Process：无 Games 始终显示；有 Games 仅 Category=Bank 时显示
-    function updateSidebarDataCaptureVisibility(hasGambling) {
+    // - Maintenance > Process：公司需含 Bank 权限；无 Games 时始终显示（若 has_bank）；有 Games 时仅 Category=Bank（localStorage）显示
+    // hasBank 由 session 切换 API 或 sidebar.php 注入；未传第二参时不覆盖 window.SIDEBAR_COMPANY_HAS_BANK
+    function updateSidebarDataCaptureVisibility(hasGambling, hasBank) {
+        if (typeof hasBank === 'boolean') {
+            window.SIDEBAR_COMPANY_HAS_BANK = hasBank;
+        }
+        var bankPerm = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' ? !!window.SIDEBAR_COMPANY_HAS_BANK : false;
         var isBankCategory = isMaintenanceCategoryBankFromStorage();
 
         var dcSection = document.getElementById('sidebar-datacapture-section');
@@ -336,7 +341,9 @@
 
         var maintProcess = document.getElementById('maintenance-process-link');
         if (maintProcess) {
-            if (hasGambling) {
+            if (!bankPerm) {
+                maintProcess.style.display = 'none';
+            } else if (hasGambling) {
                 maintProcess.style.display = isBankCategory ? '' : 'none';
             } else {
                 maintProcess.style.display = '';

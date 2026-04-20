@@ -6740,7 +6740,7 @@ function switchPermission(permission) {
     updateAccountingInboxVisibility();
 
     if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
-        window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
+        window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING, window.SIDEBAR_COMPANY_HAS_BANK);
     }
 
     updateBankListScrollMode();
