@@ -22,6 +22,8 @@ public class SpaLoginController {
     model.addAttribute("spaDefaultRoute", "/login");
     String bootstrap = appProperties.getPublicLoginBootstrapUrl();
     model.addAttribute("loginBootstrapUrl", bootstrap != null ? bootstrap : "");
+    String apiBase = appProperties.getBrowserApiBase();
+    model.addAttribute("browserApiBase", apiBase != null ? apiBase : "");
     return "login-spa";
   }
 }

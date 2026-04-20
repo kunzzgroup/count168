@@ -16,6 +16,9 @@ public class AppProperties {
    */
   private String publicLoginBootstrapUrl = "";
 
+  /** 浏览器请求 API 的 Spring 根地址（无尾斜杠）；空则页内脚本推断（本机→8090，否则与页面同 origin）。 */
+  private String browserApiBase = "";
+
   public String getInternalBootstrapKey() {
     return internalBootstrapKey;
   }
@@ -32,5 +35,14 @@ public class AppProperties {
   @SuppressWarnings("unused")
   public void setPublicLoginBootstrapUrl(String publicLoginBootstrapUrl) {
     this.publicLoginBootstrapUrl = publicLoginBootstrapUrl;
+  }
+
+  public String getBrowserApiBase() {
+    return browserApiBase;
+  }
+
+  @SuppressWarnings("unused")
+  public void setBrowserApiBase(String browserApiBase) {
+    this.browserApiBase = browserApiBase;
   }
 }
