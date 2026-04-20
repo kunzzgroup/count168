@@ -42,9 +42,13 @@ $ctx = stream_context_create([
 ]);
 
 $raw = @file_get_contents($url, false, $ctx);
+$httpStatus = null;
 $ok = false;
 if ($raw !== false && isset($http_response_header) && is_array($http_response_header)) {
     foreach ($http_response_header as $h) {
+        if (preg_match('#^HTTP/\S+\s+(\d{3})\s#', $h, $m)) {
+            $httpStatus = (int) $m[1];
+        }
         if (preg_match('#^HTTP/\S+\s+200\s#', $h)) {
             $ok = true;
             break;
@@ -53,6 +57,7 @@ if ($raw !== false && isset($http_response_header) && is_array($http_response_he
 }
 
 if (!$ok) {
+    error_log('login_bootstrap: session fetch failed, http=' . ($httpStatus !== null ? (string) $httpStatus : 'unknown') . ' url=' . $springBase);
     header('Location: index.php');
     exit();
 }

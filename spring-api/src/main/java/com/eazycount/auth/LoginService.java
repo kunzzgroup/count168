@@ -69,10 +69,16 @@ public class LoginService {
     String password = passwordRaw == null ? "" : passwordRaw.trim();
     String companyId = companyIdRaw == null ? "" : companyIdRaw.trim().toUpperCase(Locale.ROOT);
     String loginRole = loginRoleRaw == null ? "" : loginRoleRaw.trim().toLowerCase(Locale.ROOT);
+    if (loginRole.isEmpty()) {
+      loginRole = "admin";
+    }
     boolean rememberMe = "1".equals(rememberMeRaw) || "true".equalsIgnoreCase(rememberMeRaw);
 
     if (companyId.isEmpty()) {
       return new LoginResult(false, "Invalid request", null);
+    }
+    if (password.isEmpty()) {
+      return new LoginResult(false, "Please enter password", null);
     }
 
     try {
@@ -81,7 +87,7 @@ public class LoginService {
       }
       return loginAdminOrOwner(password, companyId, loginIdRaw, rememberMe);
     } catch (Exception e) {
-      log.error("Login error", e);
+      log.error("Login error for companyId={}", companyId, e);
       return new LoginResult(false, "Database error, please try again later", null);
     }
   }

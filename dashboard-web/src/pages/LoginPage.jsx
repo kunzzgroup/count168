@@ -156,6 +156,16 @@ export default function LoginPage() {
         body: fd,
         credentials: 'include'
       })
+      const ct = response.headers.get('content-type') || ''
+      if (!ct.includes('application/json')) {
+        await showAlertModal(
+          'Notice',
+          response.ok
+            ? 'Login service returned non-JSON. Is Spring API running and SPRING_API_BASE set?'
+            : `Login request failed (${response.status}). Check Spring API and network.`
+        )
+        return
+      }
       const data = await response.json()
       if (data.status === 'success' && data.bootstrapToken) {
         const dir = window.location.pathname.replace(/[^/]*$/, '') || '/'
