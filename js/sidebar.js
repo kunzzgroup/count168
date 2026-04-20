@@ -449,6 +449,8 @@
             overlay.setAttribute('aria-hidden', 'false');
 
             function close() {
+                var active = document.activeElement;
+                if (active && overlay.contains(active) && typeof active.blur === 'function') active.blur();
                 overlay.classList.remove('is-open');
                 overlay.setAttribute('aria-hidden', 'true');
                 confirmBtn.removeEventListener('click', onConfirm);
