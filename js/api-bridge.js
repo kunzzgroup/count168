@@ -30,6 +30,9 @@
     if (springBase && Object.prototype.hasOwnProperty.call(REWRITE, path)) {
       return springBase + REWRITE[path] + qs
     }
+    if (!springBase && path === 'api/auth/login') {
+      return new URL('api/auth/spring_login_proxy.php' + qs, window.location.origin + phpBasePath()).href
+    }
     return new URL(pathAndQuery, window.location.origin + phpBasePath()).href
   }
 })()

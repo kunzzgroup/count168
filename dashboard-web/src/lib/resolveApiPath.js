@@ -24,6 +24,9 @@ export function resolveApiPath(pathAndQuery) {
   if (springBase && Object.prototype.hasOwnProperty.call(REWRITE, path)) {
     return springBase + REWRITE[path] + qs
   }
+  if (!springBase && path === 'api/auth/login' && typeof window !== 'undefined') {
+    return new URL('api/auth/spring_login_proxy.php' + qs, window.location.origin + phpBasePath()).href
+  }
   if (typeof window === 'undefined') {
     return pathAndQuery
   }

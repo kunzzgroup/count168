@@ -1,7 +1,7 @@
 <?php
 /**
  * Spring 登录成功后的一次性会话桥接：从 Spring 拉取 session 字段写入 PHP $_SESSION，再跳转业务页。
- * 需与 Spring 同环境变量：APP_INTERNAL_BOOTSTRAP_KEY；SPRING_API_BASE 指向 Spring 根 URL（如 http://127.0.0.1:8090）。
+ * 需与 Spring 同环境变量：APP_INTERNAL_BOOTSTRAP_KEY；服务端拉 Spring 优先 SPRING_INTERNAL_BASE，否则 SPRING_API_BASE，默认 http://127.0.0.1:8090。
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -24,9 +24,14 @@ if ($token === '') {
     exit();
 }
 
-$springBase = getenv('SPRING_API_BASE') !== false && getenv('SPRING_API_BASE') !== ''
-    ? rtrim(getenv('SPRING_API_BASE'), '/')
-    : 'http://127.0.0.1:8090';
+$internalRaw = getenv('SPRING_INTERNAL_BASE');
+if ($internalRaw !== false && $internalRaw !== '') {
+    $springBase = rtrim($internalRaw, '/');
+} elseif (getenv('SPRING_API_BASE') !== false && getenv('SPRING_API_BASE') !== '') {
+    $springBase = rtrim(getenv('SPRING_API_BASE'), '/');
+} else {
+    $springBase = 'http://127.0.0.1:8090';
+}
 $internalKey = getenv('APP_INTERNAL_BOOTSTRAP_KEY') !== false && getenv('APP_INTERNAL_BOOTSTRAP_KEY') !== ''
     ? getenv('APP_INTERNAL_BOOTSTRAP_KEY')
     : 'dev-local-only-change-me';

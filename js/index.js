@@ -140,7 +140,7 @@
             if (b) return b + '/api/auth/login';
             var path = window.location.pathname || '/';
             var basePath = path.replace(/[^/]*$/, '') || '/';
-            return new URL('api/auth/login', window.location.origin + basePath).href;
+            return new URL('api/auth/spring_login_proxy.php', window.location.origin + basePath).href;
         }
 
         fetch(loginApiUrl(), {

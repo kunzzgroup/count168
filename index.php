@@ -27,11 +27,18 @@ $assetVer = function ($file) {
 $reactBundlePath = __DIR__ . '/dashboard-app/assets/dashboard-react.js';
 $reactBundleOk = is_file($reactBundlePath);
 $reactBundleVer = $reactBundleOk ? filemtime($reactBundlePath) : time();
-// 未配置时默认本机 Spring，避免前端请求同源 /api/auth/login 404；生产请设置 SPRING_API_BASE
+// 浏览器端 __API_BASE_URL__：公网站点禁止注入 loopback（浏览器会拦截 Private Network Access）。
+// 仅本机访问（localhost / 127.0.0.1 / ::1）且未配置时默认直连本机 Spring；公网请留空走 api/auth/spring_login_proxy.php。
+// 若 Spring 有公网/同域反代地址，可设置 SPRING_API_BASE。
 $springApiBaseRaw = getenv('SPRING_API_BASE');
-$springApiBase = ($springApiBaseRaw !== false && $springApiBaseRaw !== '')
-    ? rtrim($springApiBaseRaw, '/')
-    : 'http://127.0.0.1:8090';
+if ($springApiBaseRaw !== false && $springApiBaseRaw !== '') {
+    $springApiBase = rtrim($springApiBaseRaw, '/');
+} else {
+    $httpHost = $_SERVER['HTTP_HOST'] ?? '';
+    $isLocalHost = (bool) preg_match('/^(127\.0\.0\.1|localhost)(:\d+)?$/', $httpHost)
+        || (bool) preg_match('/^\[::1\](:\d+)?$/', $httpHost);
+    $springApiBase = $isLocalHost ? 'http://127.0.0.1:8090' : '';
+}
 
 // 与 dashboard-web/src/routeConfig.js 中 path 列一致（用于 ?r= 白名单）
 $knownSpaPaths = [
