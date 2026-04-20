@@ -2461,15 +2461,12 @@ async function switchCompany(companyId, companyCode) {
 
         console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
 
-        // 切换公司后刷新页面，使侧栏根据新 session 重新渲染（选 C168 时显示 Domain / Announcement）
-        window.location.reload();
-        return;
-
-        // 以下在 reload 后由页面重新加载时执行
-        window.dashboardCurrency = 'MYR';
+        // 无刷新切换：重置币别并重新拉取币别与仪表板数据，避免整页闪烁
+        window.dashboardCurrency = '';
         await loadCurrencies();
         lastRequestParams = null;
         await loadData(true);
+        return;
     } catch (error) {
         console.error('切换公司失败:', error);
         showError('Error switching company');
