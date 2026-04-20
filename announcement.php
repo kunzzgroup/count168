@@ -32,7 +32,7 @@ if ($company_id) {
 $hasC168Context = ($isC168ByCode || $isC168ById);
 
 if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
-    header("Location: dashboard.php");
+    header("Location: index.php?r=/dashboard");
     exit();
 }
 ?>

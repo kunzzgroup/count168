@@ -12,8 +12,8 @@ export const routeConfig = [
     title: 'Owner secondary password',
     migrated: false
   },
-  { path: '/dashboard', legacyFile: 'dashboard.php', title: 'Transaction Dashboard', migrated: true },
-  { path: '/member', legacyFile: 'member.php', title: 'Member', migrated: true },
+  { path: '/dashboard', legacyFile: 'index.php', title: 'Transaction Dashboard', migrated: true },
+  { path: '/member', legacyFile: 'index.php', title: 'Member', migrated: true },
   { path: '/account-list', legacyFile: 'account-list.php', title: 'Account list', migrated: false },
   { path: '/add-account', legacyFile: 'add-account.php', title: 'Add account', migrated: false },
   { path: '/announcement', legacyFile: 'announcement.php', title: 'Announcement', migrated: false },

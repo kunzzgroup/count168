@@ -113,7 +113,7 @@ if ($companyId) {
         $stmt->execute([$companyId]);
         $company_expiration_date = $stmt->fetchColumn();
 
-        // 在 PHP 端计算倒计时（使用 $now 避免覆盖包含页的 $today，如 member.php 的日期显示）
+        // 在 PHP 端计算倒计时（使用 $now 避免覆盖包含页的 $today，如 Member SPA 页的日期显示）
         if ($company_expiration_date) {
             $now = new DateTime();
             $now->setTime(0, 0, 0);
@@ -179,7 +179,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 <!--
 ================================================================================
   sidebar.php 为被 include 的片段，不在此处添加 <link> / <script src>。
-  请在主页面（如 account-list.php、dashboard.php 等）的 <head> 中加入：
+  请在主页面（如 account-list.php、index.php 等）的 <head> 中加入：
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>" defer></script>
   如需 favicon 与头像预加载，可在主页面 <head> 中按需添加。
@@ -326,7 +326,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <!-- Member Win/Loss -->
             <div class="informationmenu-section">
                 <div class="informationmenu-section-title account-direct" data-page="member.php"
-                    onclick="window.location.href='member.php'">
+                    onclick="window.location.href='index.php?r=/member'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path
                             d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
@@ -339,7 +339,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php if (empty($permissions) || in_array('home', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="dashboard.php"
-                        onclick="window.location.href='dashboard.php'">
+                        onclick="window.location.href='index.php?r=/dashboard'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                         </svg>

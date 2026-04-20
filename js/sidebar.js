@@ -37,7 +37,13 @@
 
     function getCurrentPageName() {
         var path = window.location.pathname;
-        return path.split('/').pop();
+        var file = path.split('/').pop();
+        if (file === 'index.php') {
+            var hash = (window.location.hash || '').replace(/^#/, '');
+            if (hash.indexOf('/member') === 0) return 'member.php';
+            if (hash.indexOf('/dashboard') === 0) return 'dashboard.php';
+        }
+        return file;
     }
 
     function setCurrentPageHighlight() {
@@ -149,7 +155,7 @@
 
     function handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
-            window.location.href = 'dashboard.php?logout=1';
+            window.location.href = 'index.php?logout=1';
         }
     }
 
@@ -681,6 +687,7 @@
         });
 
         setCurrentPageHighlight();
+        window.addEventListener('hashchange', setCurrentPageHighlight);
 
         document.querySelectorAll('.menu-item-wrapper').forEach(function (wrapper) {
             var submenu = wrapper.querySelector('.submenu');

@@ -13,7 +13,7 @@ if ($session_company_id) {
         $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
         $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
         if ($isBankOnlyCategory) {
-            header('Location: dashboard.php');
+            header('Location: index.php?r=/dashboard');
             exit;
         }
         if (!$hasGamesPermission) {
@@ -401,12 +401,12 @@ if (!empty($session_company_id)) {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
             if (hasGamblingFromSession === false) {
-                window.location.href = 'dashboard.php';
+                window.location.href = 'index.php?r=/dashboard';
                 return;
             }
             const permissions = await fetchCompanyPermissions(currentCompanyCode);
             if (isBankOnlyCategoryCompany(permissions)) {
-                window.location.href = 'dashboard.php';
+                window.location.href = 'index.php?r=/dashboard';
                 return;
             }
             loadProcesses();
@@ -803,7 +803,7 @@ if (!empty($session_company_id)) {
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
-                window.location.href = 'dashboard.php';
+                window.location.href = 'index.php?r=/dashboard';
                 return;
             }
             // Initialize date pickers

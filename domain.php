@@ -48,7 +48,7 @@ $hasC168Context = ($isC168ByCode || $isC168ById);
 
 if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     // 不是登录用户，或角色不是 owner/admin，或当前公司/登录公司不是 c168，拒绝访问
-    header("Location: dashboard.php");
+    header("Location: index.php?r=/dashboard");
     exit();
 }
 

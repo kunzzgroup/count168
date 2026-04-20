@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION[
 
 // 如果已经通过二级密码验证，直接跳转到dashboard
 if (isset($_SESSION['secondary_password_verified']) && $_SESSION['secondary_password_verified'] === true) {
-    header("Location: dashboard.php");
+    header("Location: index.php?r=/dashboard");
     exit();
 }
 
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (password_verify($secondary_password, $owner['secondary_password'])) {
                     // 二级密码验证成功
                     $_SESSION['secondary_password_verified'] = true;
-                    header("Location: dashboard.php");
+                    header("Location: index.php?r=/dashboard");
                     exit();
                 } else {
                     $error_message = 'Secondary password is incorrect';
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // owner没有设置二级密码（不应该发生，但如果发生，允许通过）
                 $_SESSION['secondary_password_verified'] = true;
-                header("Location: dashboard.php");
+                header("Location: index.php?r=/dashboard");
                 exit();
             }
         } catch (PDOException $e) {
