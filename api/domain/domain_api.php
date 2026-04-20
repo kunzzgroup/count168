@@ -2076,6 +2076,10 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 try {
     switch($action) {
         case 'create':
+            if (!$hasC168Context || !$canUseC168DomainActions) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
             // Create new owner
             $owner_code = strtoupper(trim($data['owner_code'] ?? ''));
             $name = trim($data['name'] ?? '');
@@ -2160,6 +2164,10 @@ try {
             break;
             
         case 'update':
+            if (!$hasC168Context || !$canUseC168DomainActions) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
             // Update existing owner
             $id = $data['id'] ?? 0;
             $name = trim($data['name'] ?? '');
@@ -2464,6 +2472,10 @@ try {
             break;
             
         case 'delete':
+            if (!$hasC168Context || !$canUseC168DomainActions) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
             // Delete owner and cascade delete all related data手動
             $id = $data['id'] ?? 0;
             

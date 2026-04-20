@@ -28,3 +28,42 @@ function userHasC168AnnouncementPageAccess(string $roleLower): bool
 {
     return userHasC168DomainPageAccess($roleLower);
 }
+
+/**
+ * 当前 session 是否处于 C168 公司上下文（与 announcement / maintenance 各 API 的 company 校验一致）。
+ */
+function userSessionHasC168CompanyContext(PDO $pdo): bool
+{
+    $companyCode = strtoupper($_SESSION['company_code'] ?? '');
+    if ($companyCode === 'C168') {
+        return true;
+    }
+    $companyId = $_SESSION['company_id'] ?? null;
+    if (!$companyId) {
+        return false;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+        $stmt->execute([(int) $companyId]);
+        return (int) $stmt->fetchColumn() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * C168 下 Information 类功能（Domain 页、公告、维护跑马灯）的 API 总闸：
+ * 角色须在 c168DomainPageAllowedRoles() 内，且当前公司为 C168。
+ * 含 manager / supervisor / customer service（与页面 sidebar 一致）。
+ */
+function userCanAccessC168InformationApis(PDO $pdo): bool
+{
+    if (!isset($_SESSION['user_id'])) {
+        return false;
+    }
+    $role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+    if (!userHasC168AnnouncementPageAccess($role)) {
+        return false;
+    }
+    return userSessionHasC168CompanyContext($pdo);
+}
