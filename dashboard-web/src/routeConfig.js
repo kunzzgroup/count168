@@ -1,16 +1,18 @@
 /**
  * 与根目录 *.php 对应的路由表（Hash 路径，不含 #）。
  * migrated: true 表示已有 React 实现（或部分实现）。
+ * fullPage: true 表示无侧栏全屏 PHP 页，走 LegacyRedirect，不包在 AppLayout 内。
  */
 
 export const routeConfig = [
   { path: '/login', legacyFile: 'index.php', title: 'Login', migrated: true },
-  { path: '/reset-password', legacyFile: 'reset-password.php', title: 'Reset password', migrated: false },
+  { path: '/reset-password', legacyFile: 'reset-password.php', title: 'Reset password', migrated: false, fullPage: true },
   {
     path: '/owner-secondary-password',
     legacyFile: 'owner_secondary_password.php',
     title: 'Owner secondary password',
-    migrated: false
+    migrated: false,
+    fullPage: true
   },
   { path: '/dashboard', legacyFile: 'index.php', title: 'Transaction Dashboard', migrated: true },
   { path: '/member', legacyFile: 'index.php', title: 'Member', migrated: true },
