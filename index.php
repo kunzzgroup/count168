@@ -130,11 +130,9 @@ if (isset($_COOKIE['remember_token'])) {
 
                     <div class="language-switch-container" aria-label="Language switch">
                         <button type="button" class="lang-btn active" id="lang-en" data-lang="en" aria-label="English">
-                            <span class="lang-flag" aria-hidden="true">🇺🇸</span>
                             <span class="lang-label">English</span>
                         </button>
                         <button type="button" class="lang-btn" id="lang-zh" data-lang="zh" aria-label="中文">
-                            <span class="lang-flag" aria-hidden="true">🇨🇳</span>
                             <span class="lang-label">中文</span>
                         </button>
                     </div>
