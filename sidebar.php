@@ -579,7 +579,15 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 </script>
 <script>
     // B2B Cross-Account Sharing & Partnership: Partner Read-Only Mode
-    window.isExternalView = <?php echo (isset($_SESSION['is_external_view']) && $_SESSION['is_external_view']) || (isset($_SESSION['role']) && strtolower($_SESSION['role']) === 'partnership' && (!isset($_SESSION['read_only']) || $_SESSION['read_only'] == 1)) ? 'true' : 'false'; ?>;
+    window.isExternalView = <?php
+        $isDomainPage = basename($_SERVER['PHP_SELF'] ?? '') === 'domain.php';
+        $isPartnershipRole = isset($_SESSION['role']) && strtolower((string)$_SESSION['role']) === 'partnership';
+        $isReadOnlyPartner = $isPartnershipRole && (isset($_SESSION['read_only']) && (int)$_SESSION['read_only'] === 1);
+        $isForcedExternalView = isset($_SESSION['is_external_view']) && $_SESSION['is_external_view'];
+        // Domain 页允许 partnership 在 C168 下进行 CRUD，因此不在此页启用只读拦截。
+        $useExternalView = $isForcedExternalView || (!$isDomainPage && $isReadOnlyPartner);
+        echo $useExternalView ? 'true' : 'false';
+    ?>;
 
     if (window.isExternalView) {
         document.addEventListener('DOMContentLoaded', () => {
