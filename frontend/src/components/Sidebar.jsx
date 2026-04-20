@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import './Sidebar.css'
+import { API, postJson } from '../lib/apiClient'
 
 const MENU_ITEMS = [
-  { key: 'home', label: 'Home', href: '/dashboard.php' },
+  { key: 'home', label: 'Home', href: '#/dashboard' },
   { key: 'domain', label: 'Domain', href: '/domain.php' },
   { key: 'announcement', label: 'Announcement', href: '/announcement.php' },
   { key: 'admin', label: 'Admin', href: '#/admin' },
@@ -26,7 +27,7 @@ const MAINTENANCE_ITEMS = [
   { key: 'bankprocess_maintenance', label: 'Process', href: '/bankprocess_maintenance.php' }
 ]
 
-function Sidebar({ currentRoute = '#/' }) {
+function Sidebar({ currentRoute = '#/dashboard', currentUser = null }) {
   const [openReport, setOpenReport] = useState(false)
   const [openMaintenance, setOpenMaintenance] = useState(false)
 
@@ -37,6 +38,17 @@ function Sidebar({ currentRoute = '#/' }) {
     return currentPath.endsWith(href.toLowerCase())
   }
   const isSubmenuActive = (items) => items.some((item) => isMenuActive(item.href))
+
+  const handleLogout = async (event) => {
+    event.preventDefault()
+    try {
+      await postJson(API.authLogout, {})
+    } catch {
+      // logout should continue even when API returns error
+    } finally {
+      window.location.href = '/index.php'
+    }
+  }
 
   return (
     <aside className='informationmenu' aria-label='Sidebar'>
@@ -110,7 +122,8 @@ function Sidebar({ currentRoute = '#/' }) {
       </div>
 
       <div className='informationmenu-footer'>
-        <a className='logout-btn' href='/dashboard.php?logout=1'>
+        {currentUser ? <div className='sidebar-user'>{currentUser.login_id || currentUser.name}</div> : null}
+        <a className='logout-btn' href='/index.php' onClick={handleLogout}>
           Logout
         </a>
       </div>

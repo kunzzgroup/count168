@@ -28,6 +28,7 @@ $isApiRequest = (
 );
 
 require_once 'config.php';
+require_once __DIR__ . '/api/api_response.php';
 
 // 统一的超时时间（秒）- 1小时
 define('SESSION_TIMEOUT', 3600);
@@ -102,10 +103,7 @@ if (isset($_SESSION['user_id'])) {
         
         // 如果是API请求，返回JSON错误
         if ($isApiRequest) {
-            if (!headers_sent()) {
-                header('Content-Type: application/json');
-            }
-            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => 'index.php']);
+            api_session_expired('Session expired. Please login again.', ['redirect' => 'index.php']);
             exit();
         }
         
@@ -120,10 +118,7 @@ if (isset($_SESSION['user_id'])) {
         if (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true) {
             // Owner未通过二级密码验证，重定向到二级密码验证页面
             if ($isApiRequest) {
-                if (!headers_sent()) {
-                    header('Content-Type: application/json');
-                }
-                echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'owner_secondary_password.php']);
+                api_secondary_required('Secondary password verification required.', ['redirect' => 'owner_secondary_password.php']);
                 exit();
             }
             
@@ -166,10 +161,7 @@ if (isset($_SESSION['user_id'])) {
                     if (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true) {
                         // User未通过二级密码验证，重定向到二级密码验证页面
                         if ($isApiRequest) {
-                            if (!headers_sent()) {
-                                header('Content-Type: application/json');
-                            }
-                            echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'api/users/user_secondary_password.php']);
+                            api_secondary_required('Secondary password verification required.', ['redirect' => 'api/users/user_secondary_password.php']);
                             exit();
                         }
                         
@@ -226,10 +218,7 @@ if (isset($_SESSION['user_id'])) {
     // 未登录
     // 如果是API请求，返回JSON错误
     if ($isApiRequest) {
-        if (!headers_sent()) {
-            header('Content-Type: application/json');
-        }
-        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => 'index.php']);
+        api_unauthorized('Please login first.', ['redirect' => 'index.php']);
         exit();
     }
     

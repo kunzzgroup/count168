@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './AdminPage.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -75,7 +75,7 @@ function AdminPage() {
     setNotice('')
   }
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true)
       resetMessages()
@@ -88,11 +88,14 @@ function AdminPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadUsers()
-  }, [])
+    const timer = window.setTimeout(() => {
+      loadUsers()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadUsers])
 
   const filteredUsers = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase()
@@ -120,16 +123,13 @@ function AdminPage() {
   }, [users, searchTerm, showInactive, showAll, sortBy, sortDirection])
 
   const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filteredUsers.length / ROWS_PER_PAGE))
+  const effectivePage = Math.min(currentPage, totalPages)
 
   const pagedUsers = useMemo(() => {
     if (showAll) return filteredUsers
-    const start = (currentPage - 1) * ROWS_PER_PAGE
+    const start = (effectivePage - 1) * ROWS_PER_PAGE
     return filteredUsers.slice(start, start + ROWS_PER_PAGE)
-  }, [filteredUsers, currentPage, showAll])
-
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(1)
-  }, [currentPage, totalPages])
+  }, [filteredUsers, effectivePage, showAll])
 
   const toggleSort = (key) => {
     if (sortBy === key) {
@@ -351,7 +351,7 @@ function AdminPage() {
           <div className='admin-table-body'>
             {pagedUsers.map((user, index) => (
               <div className='admin-row' key={user.id}>
-                <div>{showAll ? index + 1 : (currentPage - 1) * ROWS_PER_PAGE + index + 1}</div>
+                <div>{showAll ? index + 1 : (effectivePage - 1) * ROWS_PER_PAGE + index + 1}</div>
                 <div>{user.login_id}</div>
                 <div>{user.name}</div>
                 <div>{user.email || '-'}</div>
@@ -391,13 +391,13 @@ function AdminPage() {
 
       {!showAll && filteredUsers.length > 0 ? (
         <div className='admin-pagination'>
-          <button type='button' disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+          <button type='button' disabled={effectivePage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
             ◀
           </button>
-          <span>{`${currentPage} of ${totalPages}`}</span>
+          <span>{`${effectivePage} of ${totalPages}`}</span>
           <button
             type='button'
-            disabled={currentPage >= totalPages}
+            disabled={effectivePage >= totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
           >
             ▶
