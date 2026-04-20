@@ -9891,16 +9891,24 @@ function hasBinaryAdditiveAtDepthZero(prefix) {
     return false
 }
 
-// 去掉解析后公式末尾已「写进式子」的占成小乘子（如 *0.18、*(0.14)），避免再拼 Source 列时叠成 1000*0.18*(0.14)；只剥典型占成区间 (0,1] 及 [0,1] 的 *(x) 尾段
-function stripTrailingEmbeddedCommissionFactors(expr) {
+// 仅当尾段乘子与当前 Source 数值相同时才剥掉，避免「公式里已乘 Source、外面再乘 Source」叠两层。
+// 不再按 (0,1] 盲剥，否则会误删用户刻意写的 *0.2（Source=1 时）。
+// 与 Source 同值时仍用 hasBinaryAdditiveAtDepthZero，避免误剥加法表达式末尾项上的占成。
+function stripTrailingEmbeddedCommissionFactors(expr, sourceDecimal, options) {
     if (!expr || typeof expr !== 'string') return ''
+    const stripDuplicateOfSource = options && options.stripDuplicateOfSource === true
+    if (!stripDuplicateOfSource || sourceDecimal == null || !Number.isFinite(Number(sourceDecimal))) {
+        return expr.trim()
+    }
+    const src = Number(sourceDecimal)
+    const eps = 0.0001
     let s = expr.trim().replace(/\s+/g, '')
     const maxIter = 24
     for (let i = 0; i < maxIter && s.length > 0; i++) {
         const mParen = s.match(/^(.*)\*\(([0-9.]+)\)$/)
         if (mParen) {
             const v = parseFloat(mParen[2])
-            if (!Number.isNaN(v) && v >= 0 && v <= 1) {
+            if (!Number.isNaN(v) && Math.abs(v - src) < eps) {
                 const nextPrefix = mParen[1].trim()
                 if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
                     break
@@ -9912,7 +9920,7 @@ function stripTrailingEmbeddedCommissionFactors(expr) {
         const mStar = s.match(/^(.*)\*([0-9.]+)$/)
         if (mStar) {
             const v = parseFloat(mStar[2])
-            if (!Number.isNaN(v) && v > 0 && v <= 1) {
+            if (!Number.isNaN(v) && Math.abs(v - src) < eps) {
                 const nextPrefix = mStar[1].trim()
                 if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
                     break
@@ -9938,11 +9946,21 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
-        // IMPORTANT: 只在启用 Source % 时才剥末尾嵌入的佣金乘子，避免与 Source % 重复叠乘。
-        // 当 Source % 未启用时，公式末尾的 *(0.12) 等是用户手写的结构（先乘除后加减），不能剥掉。
-        if (enableSourcePercent) {
-            parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim())
+        // IMPORTANT: 仅在 Source≠1 且启用 Source % 时剥「与 Source 同值」的尾段乘子，避免与 Source 列叠乘；
+        // Source≈1 时不剥，以免误删公式内手写的 *0.2。
+        let shouldStripDuplicateOfSource = false
+        let sourceDecimalForStrip = 1
+        if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
+            try {
+                const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
+                const sp = evaluateExpression(sanitizedForStrip)
+                if (Number.isFinite(sp) && Math.abs(sp - 1) >= 0.0001) {
+                    shouldStripDuplicateOfSource = true
+                    sourceDecimalForStrip = sp
+                }
+            } catch (e) { /* ignore */ }
         }
+        parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim(), sourceDecimalForStrip, { stripDuplicateOfSource: shouldStripDuplicateOfSource })
 
         // If source percent is disabled, return parsed formula as-is (without stripping)
         if (!enableSourcePercent) {
@@ -10070,8 +10088,21 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
             return 0;
         }
 
-        // 先解析 $/[id:n] 引用为实际数值
+        // 先解析 $/[id:n]；仅当尾段与 Source 同值时才剥，避免与 Source 叠乘，且不剥用户手写的 *0.2（Source≈1 时）
         const afterRefs = parseReferenceFormula(String(formula).trim(), processValueForRefs, clickedCellRefsOverride, rowIndexOverride)
+
+        let shouldStripDuplicateOfSource = false
+        let sourceDecimalForStrip = 1
+        if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
+            try {
+                const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
+                const sp = evaluateExpression(sanitizedForStrip)
+                if (Number.isFinite(sp) && Math.abs(sp - 1) >= 0.0001) {
+                    shouldStripDuplicateOfSource = true
+                    sourceDecimalForStrip = sp
+                }
+            } catch (e) { /* ignore */ }
+        }
 
         // IMPORTANT: 只在启用 Source % 时才剥末尾乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
         // 当 Source % 未启用时，公式末尾的 *(0.12) 等是用户手写的公式结构（先乘除后加减），
@@ -10089,8 +10120,8 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
             console.log('Formula result calculated from expression (source percent disabled, no strip):', result);
             return result;
         }
-        // Source % 启用时才剥末尾嵌入的佣金乘子，防止与 Source % 重复叠乘
-        strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim())
+        // Source % 启用时才剥与 Source 同值的末尾乘子，防止与 Source % 重复叠乘
+        strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim(), sourceDecimalForStrip, { stripDuplicateOfSource: shouldStripDuplicateOfSource })
         formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If enableSourcePercent is true but sourcePercentValue is empty, treat as 1 (100%)
