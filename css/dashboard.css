@@ -292,9 +292,9 @@ body.dashboard-page {
 }
 
 .dashboard-kpi-card .kpi-label {
-    font-size: clamp(10px, 0.72vw, 13px);
+    font-size: clamp(18px, 1.4vw, 26px) !important;
     color: #6b7280;
-    font-weight: 600;
+    font-weight: 700 !important;
     letter-spacing: 0.04em;
     font-family: 'Amaranth', sans-serif;
 }
@@ -305,8 +305,8 @@ body.dashboard-page {
 }
 
 .dashboard-kpi-card .kpi-value {
-    font-size: clamp(18px, 1.4vw, 26px);
-    font-weight: 700;
+    font-size: clamp(18px, 1.4vw, 26px) !important;
+    font-weight: 700 !important;
     color: #111827;
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
