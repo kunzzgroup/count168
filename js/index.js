@@ -1,4 +1,42 @@
 (function() {
+    const I18N = {
+        en: {
+            admin: 'Admin',
+            member: 'Member',
+            companyId: 'Company / Group ID',
+            username: 'Username',
+            accountId: 'Account Id',
+            password: 'Password',
+            rememberMe: 'Remember me',
+            forgetPassword: 'Forget Password?',
+            login: 'Login',
+            notice: 'Notice',
+            confirm: 'Confirm',
+            loginError: 'An error occurred during login',
+            maintenanceLabel: 'System Maintenance:'
+        },
+        zh: {
+            admin: '管理员',
+            member: '会员',
+            companyId: '公司 / 集团 ID',
+            username: '用户名',
+            accountId: '账号 ID',
+            password: '密码',
+            rememberMe: '记住我',
+            forgetPassword: '忘记密码？',
+            login: '登录',
+            notice: '提示',
+            confirm: '确认',
+            loginError: '登录时发生错误',
+            maintenanceLabel: '系统维护中:'
+        }
+    };
+    let currentLang = 'en';
+
+    function getText(key) {
+        return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en && I18N.en[key]) || '';
+    }
+
     // 自定义弹窗（与重置密码页风格一致，替代原生 alert）
     function showAlertModal(title, message) {
         return new Promise(function(resolve) {
@@ -11,8 +49,9 @@
                 resolve();
                 return;
             }
-            titleEl.textContent = title || 'Notice';
+            titleEl.textContent = title || getText('notice');
             messageEl.textContent = message || '';
+            confirmBtn.textContent = getText('confirm');
             overlay.classList.add('is-open');
             overlay.setAttribute('aria-hidden', 'false');
             function close() {
@@ -40,6 +79,28 @@
     const memberTab = document.getElementById("member-tab");
     const companyId = document.getElementById("company-id");
     const forgotLink = document.querySelector(".forgot-link");
+    const langButtons = document.querySelectorAll('.lang-btn');
+
+    function applyLanguage(lang) {
+        currentLang = lang === 'zh' ? 'zh' : 'en';
+        langButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.lang === currentLang);
+        });
+
+        const roleIsMember = memberTab.classList.contains('active');
+        adminTab.textContent = getText('admin');
+        memberTab.textContent = getText('member');
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            el.textContent = getText(el.dataset.i18n);
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            el.placeholder = getText(el.dataset.i18nPlaceholder);
+        });
+
+        const userInput = document.getElementById('user-id');
+        userInput.placeholder = roleIsMember ? getText('accountId') : getText('username');
+    }
 
     let verifyTimeout;
     let companyIdValid = false;
@@ -49,7 +110,7 @@
         memberTab.classList.remove("active");
         forgotLink.style.display = "block";
         const userInput = document.getElementById("user-id");
-        userInput.placeholder = "Username";
+        userInput.placeholder = getText('username');
         userInput.name = "login_id";
     });
 
@@ -58,7 +119,7 @@
         adminTab.classList.remove("active");
         forgotLink.style.display = "none";
         const userInput = document.getElementById("user-id");
-        userInput.placeholder = "Account Id";
+        userInput.placeholder = getText('accountId');
         userInput.name = "account_id";
     });
 
@@ -117,14 +178,22 @@
         adminTab.classList.remove("active");
         forgotLink.style.display = "none";
         const userInput = document.getElementById("user-id");
-        userInput.placeholder = "Account Id";
+        userInput.placeholder = getText('accountId');
         userInput.name = "account_id";
     } else {
         forgotLink.style.display = "block";
         const userInput = document.getElementById("user-id");
-        userInput.placeholder = "Username";
+        userInput.placeholder = getText('username');
         userInput.name = "login_id";
     }
+
+    langButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            applyLanguage(this.dataset.lang || 'en');
+        });
+    });
+
+    applyLanguage('en');
 
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -144,12 +213,12 @@
             if (data.status === 'success') {
                 window.location.href = data.redirect;
             } else {
-                showAlertModal('Notice', data.message);
+                showAlertModal(getText('notice'), data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showAlertModal('Notice', 'An error occurred during login');
+            showAlertModal(getText('notice'), getText('loginError'));
         });
     });
 
@@ -200,7 +269,7 @@
                     item1.className = 'maintenance-marquee-item';
                     item1.innerHTML = `
                         <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
+                        <span class="maintenance-marquee-label">${escapeHtml(getText('maintenanceLabel'))}</span>
                         <span>${escapeHtml(maintenance.content)}</span>
                     `;
                     track.appendChild(item1);
@@ -209,7 +278,7 @@
                     item2.className = 'maintenance-marquee-item';
                     item2.innerHTML = `
                         <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
+                        <span class="maintenance-marquee-label">${escapeHtml(getText('maintenanceLabel'))}</span>
                         <span>${escapeHtml(maintenance.content)}</span>
                     `;
                     track.appendChild(item2);

@@ -8,6 +8,11 @@ const API = {
   update: `${API_BASE}/api/accounts/update_api.php`,
   delete: `${API_BASE}/api/accounts/delete_accounts_api.php`,
   toggleStatus: `${API_BASE}/api/accounts/toggle_account_status_api.php`,
+  accountCurrency: `${API_BASE}/api/accounts/account_currency_api.php`,
+  bulkAccountCurrency: `${API_BASE}/api/accounts/bulk_account_currency_api.php`,
+  createCurrency: `${API_BASE}/api/accounts/create_currency_api.php`,
+  deleteCurrency: `${API_BASE}/api/accounts/delete_currency_api.php`,
+  accountLink: `${API_BASE}/api/accounts/account_link_api.php`,
 }
 
 const ROLE_OPTIONS = ['PARTNER', 'STAFF', 'DEBTOR', 'UPLINE', 'SUPPLIER']
@@ -92,9 +97,24 @@ function AccountPage() {
   const [sortDirection, setSortDirection] = useState('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState([])
+  const [currentCompanyId, setCurrentCompanyId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [currencyModalOpen, setCurrencyModalOpen] = useState(false)
+  const [currencies, setCurrencies] = useState([])
+  const [selectedCurrencyId, setSelectedCurrencyId] = useState(null)
+  const [currencyAccountLinkedIds, setCurrencyAccountLinkedIds] = useState([])
+  const [currencyAccountInitialIds, setCurrencyAccountInitialIds] = useState([])
+  const [currencySearch, setCurrencySearch] = useState('')
+  const [currencyRoleFilter, setCurrencyRoleFilter] = useState('')
+  const [newCurrencyCode, setNewCurrencyCode] = useState('')
+  const [linkModalOpen, setLinkModalOpen] = useState(false)
+  const [linkAccountId, setLinkAccountId] = useState(null)
+  const [linkAccountName, setLinkAccountName] = useState('')
+  const [linkType, setLinkType] = useState('bidirectional')
+  const [linkedIds, setLinkedIds] = useState([])
+  const [initialLinkedIds, setInitialLinkedIds] = useState([])
   const [form, setForm] = useState({
     account_id: '',
     name: '',
@@ -126,6 +146,7 @@ function AccountPage() {
       const result = await getJson(url)
       const list = Array.isArray(result.data?.accounts) ? result.data.accounts.map(normalizeAccount) : []
       setAccounts(list)
+      setCurrentCompanyId(result.data?.company_id ? Number(result.data.company_id) : null)
       setSelectedIds([])
     } catch (requestError) {
       setError(requestError.message)
@@ -299,6 +320,152 @@ function AccountPage() {
     }
   }
 
+  const loadCurrencies = async () => {
+    const result = await getJson(`${API.accountCurrency}?action=get_available_currencies`)
+    const list = Array.isArray(result.data) ? result.data : []
+    setCurrencies(list)
+    if (!selectedCurrencyId && list.length > 0) setSelectedCurrencyId(list[0].id)
+  }
+
+  const loadLinkedAccountsByCurrency = async (currencyId) => {
+    if (!currencyId) return
+    const result = await getJson(
+      `${API.bulkAccountCurrency}?action=get_linked_accounts_by_currency&currency_id=${currencyId}`,
+    )
+    const ids = Array.isArray(result.data?.linked_account_ids)
+      ? result.data.linked_account_ids.map((id) => Number(id))
+      : []
+    setCurrencyAccountLinkedIds(ids)
+    setCurrencyAccountInitialIds(ids)
+  }
+
+  const openCurrencyModal = async () => {
+    try {
+      resetMessages()
+      await loadCurrencies()
+      setCurrencyModalOpen(true)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
+  useEffect(() => {
+    if (!currencyModalOpen) return
+    if (selectedCurrencyId) {
+      loadLinkedAccountsByCurrency(selectedCurrencyId).catch((err) => setError(err.message))
+    }
+  }, [currencyModalOpen, selectedCurrencyId])
+
+  const saveCurrencySetting = async () => {
+    if (!selectedCurrencyId) return
+    try {
+      resetMessages()
+      const toLink = currencyAccountLinkedIds.filter((id) => !currencyAccountInitialIds.includes(id))
+      const toUnlink = currencyAccountInitialIds.filter((id) => !currencyAccountLinkedIds.includes(id))
+      await postJson(`${API.bulkAccountCurrency}?action=bulk_update`, {
+        currency_id: selectedCurrencyId,
+        linked_account_ids: toLink,
+        unlinked_account_ids: toUnlink,
+      })
+      setNotice('Currency setting saved')
+      setCurrencyAccountInitialIds(currencyAccountLinkedIds)
+      setCurrencyModalOpen(false)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
+  const createCurrency = async () => {
+    const code = newCurrencyCode.trim().toUpperCase()
+    if (!code) return
+    try {
+      resetMessages()
+      await postJson(API.createCurrency, { code })
+      setNewCurrencyCode('')
+      await loadCurrencies()
+      setNotice(`Currency ${code} created`)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
+  const deleteCurrency = async (currencyId, code) => {
+    if (!window.confirm(`Delete currency ${code}?`)) return
+    try {
+      resetMessages()
+      await postJson(API.deleteCurrency, { id: currencyId })
+      if (selectedCurrencyId === currencyId) {
+        setSelectedCurrencyId(null)
+        setCurrencyAccountLinkedIds([])
+        setCurrencyAccountInitialIds([])
+      }
+      await loadCurrencies()
+      setNotice(`Currency ${code} deleted`)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
+  const openLinkModal = async (account) => {
+    if (!currentCompanyId) {
+      setError('Current company is not available')
+      return
+    }
+    try {
+      resetMessages()
+      const result = await getJson(
+        `${API.accountLink}?action=get_linked_accounts&account_id=${account.id}&company_id=${currentCompanyId}`,
+      )
+      const rows = Array.isArray(result.data?.accounts) ? result.data.accounts : []
+      const ids = rows.map((row) => Number(row.id))
+      setLinkAccountId(account.id)
+      setLinkAccountName(`${account.account_id} - ${account.name}`)
+      setLinkType(result.data?.link_type_info?.link_type || 'bidirectional')
+      setLinkedIds(ids)
+      setInitialLinkedIds(ids)
+      setLinkModalOpen(true)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
+  const saveLinkAccount = async () => {
+    if (!linkAccountId || !currentCompanyId) return
+    try {
+      resetMessages()
+      const toLink = linkedIds.filter((id) => !initialLinkedIds.includes(id))
+      const toUnlink = initialLinkedIds.filter((id) => !linkedIds.includes(id))
+
+      await Promise.all(
+        toUnlink.map((targetId) =>
+          postJson(`${API.accountLink}?action=unlink_accounts`, {
+            account_id_1: linkAccountId,
+            account_id_2: targetId,
+            company_id: currentCompanyId,
+          }),
+        ),
+      )
+
+      await Promise.all(
+        linkedIds.map((targetId) => {
+          const action = initialLinkedIds.includes(targetId) ? 'update_link_type' : 'link_accounts'
+          return postJson(`${API.accountLink}?action=${action}`, {
+            account_id_1: linkAccountId,
+            account_id_2: targetId,
+            company_id: currentCompanyId,
+            link_type: linkType,
+            source_account_id: linkType === 'unidirectional' ? linkAccountId : null,
+          })
+        }),
+      )
+
+      setNotice('Account links saved')
+      setLinkModalOpen(false)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
+
   const inactiveIdsOnPage = pagedAccounts.filter((item) => item.status === 'inactive').map((item) => item.id)
   const allChecked =
     inactiveIdsOnPage.length > 0 && inactiveIdsOnPage.every((accountId) => selectedIds.includes(accountId))
@@ -361,6 +528,9 @@ function AccountPage() {
         >
           {selectedIds.length > 0 ? `Delete (${selectedIds.length})` : 'Delete'}
         </button>
+        <button type='button' className='account-react-btn account-react-btn-secondary' onClick={openCurrencyModal}>
+          Currency Setting
+        </button>
       </div>
 
       <div className='account-react-table-wrap'>
@@ -406,6 +576,9 @@ function AccountPage() {
                 <div className='account-react-actions'>
                   <button type='button' className='account-react-icon-btn' onClick={() => openEditModal(item)}>
                     Edit
+                  </button>
+                  <button type='button' className='account-react-icon-btn' onClick={() => openLinkModal(item)}>
+                    Link
                   </button>
                   {item.status === 'inactive' ? (
                     <input
@@ -560,6 +733,146 @@ function AccountPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {currencyModalOpen ? (
+        <div className='account-react-modal-mask' onClick={() => setCurrencyModalOpen(false)}>
+          <div className='account-react-modal account-react-modal-wide' onClick={(event) => event.stopPropagation()}>
+            <h2>Currency Setting</h2>
+            <div className='account-react-currency-layout'>
+              <div>
+                <div className='account-react-currency-add'>
+                  <input
+                    value={newCurrencyCode}
+                    placeholder='Add currency code'
+                    onChange={(event) => setNewCurrencyCode(event.target.value)}
+                  />
+                  <button type='button' onClick={createCurrency}>
+                    Add
+                  </button>
+                </div>
+                <div className='account-react-currency-list'>
+                  {currencies.map((currency) => (
+                    <div
+                      key={currency.id}
+                      className={`account-react-currency-item ${selectedCurrencyId === currency.id ? 'active' : ''}`}
+                    >
+                      <button type='button' onClick={() => setSelectedCurrencyId(currency.id)}>
+                        {String(currency.code || '').toUpperCase()}
+                      </button>
+                      <button type='button' onClick={() => deleteCurrency(currency.id, currency.code)}>
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className='account-react-currency-filters'>
+                  <input
+                    placeholder='Search account'
+                    value={currencySearch}
+                    onChange={(event) => setCurrencySearch(event.target.value)}
+                  />
+                  <select value={currencyRoleFilter} onChange={(event) => setCurrencyRoleFilter(event.target.value)}>
+                    <option value=''>All Roles</option>
+                    {Array.from(new Set(accounts.map((item) => item.role))).map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className='account-react-currency-accounts'>
+                  {accounts
+                    .filter((item) => {
+                      const okKeyword =
+                        !currencySearch.trim() ||
+                        item.account_id.toUpperCase().includes(currencySearch.trim().toUpperCase()) ||
+                        item.name.toUpperCase().includes(currencySearch.trim().toUpperCase())
+                      const okRole = !currencyRoleFilter || item.role === currencyRoleFilter
+                      return okKeyword && okRole
+                    })
+                    .map((item) => (
+                      <label key={item.id} className='account-react-currency-account-item'>
+                        <input
+                          type='checkbox'
+                          checked={currencyAccountLinkedIds.includes(item.id)}
+                          onChange={(event) => {
+                            setCurrencyAccountLinkedIds((prev) =>
+                              event.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id),
+                            )
+                          }}
+                        />
+                        <span>{`${item.account_id} - ${item.name}`}</span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+            </div>
+            <div className='account-react-form-actions'>
+              <button type='button' onClick={() => setCurrencyModalOpen(false)}>
+                Cancel
+              </button>
+              <button type='button' onClick={saveCurrencySetting}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {linkModalOpen ? (
+        <div className='account-react-modal-mask' onClick={() => setLinkModalOpen(false)}>
+          <div className='account-react-modal account-react-modal-wide' onClick={(event) => event.stopPropagation()}>
+            <h2>Link Account</h2>
+            <div className='account-react-link-title'>{linkAccountName}</div>
+            <div className='account-react-link-type'>
+              <label>
+                <input
+                  type='radio'
+                  checked={linkType === 'bidirectional'}
+                  onChange={() => setLinkType('bidirectional')}
+                />
+                <span>Bidirectional</span>
+              </label>
+              <label>
+                <input
+                  type='radio'
+                  checked={linkType === 'unidirectional'}
+                  onChange={() => setLinkType('unidirectional')}
+                />
+                <span>Unidirectional</span>
+              </label>
+            </div>
+            <div className='account-react-link-list'>
+              {accounts
+                .filter((item) => item.id !== linkAccountId)
+                .map((item) => (
+                  <label key={item.id} className='account-react-currency-account-item'>
+                    <input
+                      type='checkbox'
+                      checked={linkedIds.includes(item.id)}
+                      onChange={(event) => {
+                        setLinkedIds((prev) =>
+                          event.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id),
+                        )
+                      }}
+                    />
+                    <span>{`${item.account_id} - ${item.name}`}</span>
+                  </label>
+                ))}
+            </div>
+            <div className='account-react-form-actions'>
+              <button type='button' onClick={() => setLinkModalOpen(false)}>
+                Cancel
+              </button>
+              <button type='button' onClick={saveLinkAccount}>
+                Save
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
