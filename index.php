@@ -99,10 +99,6 @@ if (isset($_COOKIE['remember_token'])) {
         <div class="login-card">
             
             <div class="form-content">
-                <div class="language-switch-container" aria-label="Language switch">
-                    <button type="button" class="lang-btn active" id="lang-en" data-lang="en">EN</button>
-                    <button type="button" class="lang-btn" id="lang-zh" data-lang="zh">中文</button>
-                </div>
                 <form class="login-form" id="loginForm" method="POST">
                     <div class="input-group">
                         <i class="fas fa-building input-icon"></i>
@@ -131,6 +127,11 @@ if (isset($_COOKIE['remember_token'])) {
                     <button type="submit" class="login-btn">
                         <span data-i18n="login">Login</span>
                     </button>
+
+                    <div class="language-switch-container" aria-label="Language switch">
+                        <button type="button" class="lang-btn active" id="lang-en" data-lang="en">EN</button>
+                        <button type="button" class="lang-btn" id="lang-zh" data-lang="zh">中文</button>
+                    </div>
 
                     <!-- <div class="language-switch-container">
                         <a href="/cn/index.php" class="lang-switch" id="lang-switch" title="Switch Language">

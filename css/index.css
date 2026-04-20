@@ -81,9 +81,9 @@
 
 .language-switch-container {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 6px;
-    margin: 0 0 10px;
+    margin: 12px 0 0;
 }
 
 .lang-btn {
