@@ -275,6 +275,13 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                 </div>
             </div>
         </div>
+        <div class="language-switcher" aria-label="Sidebar language switch">
+            <button type="button" class="sidebar-lang-toggle" id="sidebarLangToggle" aria-label="Language switch" aria-checked="false">
+                <span class="sidebar-lang-thumb" aria-hidden="true"></span>
+                <span class="sidebar-lang-option sidebar-lang-option-en">English</span>
+                <span class="sidebar-lang-option sidebar-lang-option-zh">中文</span>
+            </button>
+        </div>
         <!-- 语言切换按钮 -->
         <!-- <div class="language-switcher">
             <div class="language-dropdown">
@@ -518,16 +525,6 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
     </div>
 
     <div class="informationmenu-footer">
-        <div class="language-switcher" aria-label="Sidebar language switch">
-            <button type="button" class="sidebar-lang-btn active" data-lang="en" aria-label="English">
-                <span class="sidebar-lang-flag" aria-hidden="true">🇺🇸</span>
-                <span class="sidebar-lang-label">English</span>
-            </button>
-            <button type="button" class="sidebar-lang-btn" data-lang="zh" aria-label="中文">
-                <span class="sidebar-lang-flag" aria-hidden="true">🇨🇳</span>
-                <span class="sidebar-lang-label">中文</span>
-            </button>
-        </div>
         <?php if ($company_expiration_date): ?>
             <div class="company-expiration-countdown <?php echo $expiration_status; ?>" id="companyExpirationCountdown">
                 <svg class="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"

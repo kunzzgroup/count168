@@ -117,9 +117,11 @@
 
     function applySidebarLanguage(lang) {
         currentSidebarLang = lang === 'zh' ? 'zh' : 'en';
-        document.querySelectorAll('.sidebar-lang-btn').forEach(function (btn) {
-            btn.classList.toggle('active', btn.getAttribute('data-lang') === currentSidebarLang);
-        });
+        var langToggle = document.getElementById('sidebarLangToggle');
+        if (langToggle) {
+            langToggle.classList.toggle('is-zh', currentSidebarLang === 'zh');
+            langToggle.setAttribute('aria-checked', currentSidebarLang === 'zh' ? 'true' : 'false');
+        }
         document.querySelectorAll('[data-i18n]').forEach(function (el) {
             var key = el.getAttribute('data-i18n');
             if (key) el.textContent = t(key);
@@ -723,11 +725,12 @@
             });
         });
 
-        document.querySelectorAll('.sidebar-lang-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                selectLanguage(this.getAttribute('data-lang') || 'en');
+        var langToggle = document.getElementById('sidebarLangToggle');
+        if (langToggle) {
+            langToggle.addEventListener('click', function () {
+                selectLanguage(currentSidebarLang === 'zh' ? 'en' : 'zh');
             });
-        });
+        }
         var savedLanguage = 'en';
         try { savedLanguage = localStorage.getItem('selectedLanguage') || 'en'; } catch (e) { }
         applySidebarLanguage(savedLanguage);
