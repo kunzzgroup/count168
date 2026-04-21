@@ -65,6 +65,9 @@ function DashboardPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [dashboardData, setDashboardData] = useState(null)
+  const [showCapital, setShowCapital] = useState(true)
+  const [showExpenses, setShowExpenses] = useState(true)
+  const [showProfit, setShowProfit] = useState(true)
 
   const loadCompanies = async () => {
     const result = await fetchJson(API.companies)
@@ -109,6 +112,38 @@ function DashboardPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    document.body.classList.add('dashboard-page')
+    return () => document.body.classList.remove('dashboard-page')
+  }, [])
+
+  useEffect(() => {
+    const cssId = 'legacy-dashboard-css'
+    const faId = 'legacy-fa-css'
+    const fontId = 'legacy-amaranth-font'
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement('link')
+      link.id = cssId
+      link.rel = 'stylesheet'
+      link.href = `${API_BASE}/css/dashboard.css`
+      document.head.appendChild(link)
+    }
+    if (!document.getElementById(faId)) {
+      const link = document.createElement('link')
+      link.id = faId
+      link.rel = 'stylesheet'
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
+      document.head.appendChild(link)
+    }
+    if (!document.getElementById(fontId)) {
+      const link = document.createElement('link')
+      link.id = fontId
+      link.rel = 'stylesheet'
+      link.href = 'https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap'
+      document.head.appendChild(link)
+    }
+  }, [])
 
   useEffect(() => {
     loadCompanies().catch((requestError) => setError(requestError.message))
@@ -168,111 +203,180 @@ function DashboardPage() {
     }
   }
 
+  const chartDateRangeText = `${fromDate || '-'} to ${toDate || '-'}`
+
   return (
-    <section className='dashboard-page'>
-      <header className='dashboard-header'>
-        <h1>Transaction Dashboard</h1>
-      </header>
-      <div className='dashboard-separator' />
+    <section className='dashboard-page-root'>
+      <div className='dashboard-container'>
+        <h1 className='dashboard-title'>Transaction Dashboard</h1>
+        <div id='app' className='dashboard-content'>
+          {error ? <div className='dashboard-message dashboard-message-error'>{error}</div> : null}
+          {notice ? <div className='dashboard-message dashboard-message-success'>{notice}</div> : null}
 
-      {error ? <div className='dashboard-message dashboard-message-error'>{error}</div> : null}
-      {notice ? <div className='dashboard-message dashboard-message-success'>{notice}</div> : null}
+          <div className='dashboard-top-row'>
+            <div className='dashboard-card dashboard-card--filters'>
+              <div className='dashboard-card-body'>
+                <div className='dashboard-date-controls'>
+                  <div>
+                    <label className='form-label'>Company</label>
+                    <div className='date-range-picker'>
+                      <i className='fas fa-building' />
+                      <select
+                        value={selectedCompanyId}
+                        onChange={(event) => switchCompany(event.target.value)}
+                        className='legacy-inline-select'
+                      >
+                        {companies.map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.company_id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-      <div className='dashboard-toolbar'>
-        <label>
-          Company
-          <select value={selectedCompanyId} onChange={(event) => switchCompany(event.target.value)}>
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.company_id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Currency
-          <select value={selectedCurrency} onChange={(event) => setSelectedCurrency(event.target.value)}>
-            <option value=''>All</option>
-            {currencies.map((currency) => (
-              <option key={currency.id} value={currency.code}>
-                {currency.code}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          From
-          <input type='date' value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-        </label>
-        <label>
-          To
-          <input type='date' value={toDate} onChange={(event) => setToDate(event.target.value)} />
-        </label>
-        <button type='button' onClick={loadDashboard} disabled={loading}>
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
-      </div>
+                  <div className='divider' />
 
-      <div className='dashboard-cards'>
-        <article className='dashboard-card'>
-          <h3>Capital</h3>
-          <div className='dashboard-card-value'>{money(dashboardData?.capital)}</div>
-          <p>Period: {money(dashboardData?.period_total?.capital)}</p>
-          <p>B/F: {money(dashboardData?.initial_balance?.capital)}</p>
-        </article>
-        <article className='dashboard-card'>
-          <h3>Expenses</h3>
-          <div className='dashboard-card-value'>{money(dashboardData?.expenses)}</div>
-          <p>Period: {money(dashboardData?.period_total?.expenses)}</p>
-          <p>B/F: {money(dashboardData?.initial_balance?.expenses)}</p>
-        </article>
-        <article className='dashboard-card'>
-          <h3>Net Profit</h3>
-          <div className='dashboard-card-value'>{money(dashboardData?.profit)}</div>
-          <p>Period: {money(dashboardData?.period_total?.profit)}</p>
-          <p>B/F: {money(dashboardData?.initial_balance?.profit)}</p>
-        </article>
-      </div>
+                  <div>
+                    <label className='form-label'>Currency</label>
+                    <div className='date-range-picker'>
+                      <i className='fas fa-coins' />
+                      <select
+                        value={selectedCurrency}
+                        onChange={(event) => setSelectedCurrency(event.target.value)}
+                        className='legacy-inline-select'
+                      >
+                        <option value=''>All</option>
+                        {currencies.map((currency) => (
+                          <option key={currency.id} value={currency.code}>
+                            {currency.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-      <div className='dashboard-chart-wrap'>
-        <h2>Daily Trend</h2>
-        <div className='dashboard-chart'>
-          <svg viewBox='0 0 100 100' preserveAspectRatio='none'>
-            <line x1='0' y1='50' x2='100' y2='50' className='chart-axis' />
-            <polyline points={chartPoints.capital} className='chart-line chart-line-capital' />
-            <polyline points={chartPoints.expenses} className='chart-line chart-line-expenses' />
-            <polyline points={chartPoints.profit} className='chart-line chart-line-profit' />
-          </svg>
-          <div className='dashboard-legend'>
-            <span className='capital'>Capital</span>
-            <span className='expenses'>Expenses</span>
-            <span className='profit'>Profit</span>
-          </div>
-        </div>
-      </div>
+                  <div className='divider' />
 
-      <div className='dashboard-table-wrap'>
-        <div className='dashboard-table-head'>
-          <div>Date</div>
-          <div>Capital</div>
-          <div>Expenses</div>
-          <div>Profit</div>
-          <div>Profit Payment Flow</div>
-        </div>
-        <div className='dashboard-table-body'>
-          {dailySeries.length === 0 ? (
-            <div className='dashboard-empty'>No data in selected date range</div>
-          ) : (
-            dailySeries.map((row) => (
-              <div className='dashboard-row' key={row.day}>
-                <div>{row.day}</div>
-                <div>{money(row.capital)}</div>
-                <div>{money(row.expenses)}</div>
-                <div>{money(row.profit)}</div>
-                <div>{money(row.paymentFlow)}</div>
+                  <div>
+                    <label className='form-label'>Date Range</label>
+                    <div className='legacy-date-fields'>
+                      <input type='date' value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+                      <span>to</span>
+                      <input type='date' value={toDate} onChange={(event) => setToDate(event.target.value)} />
+                    </div>
+                  </div>
+
+                  <button type='button' className='btn btn-secondary' onClick={loadDashboard} disabled={loading}>
+                    <i className='fas fa-sync-alt' />
+                    {loading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
               </div>
-            ))
-          )}
+            </div>
+          </div>
+
+          <div className='dashboard-kpi-grid'>
+            <div className='dashboard-kpi-card dashboard-kpi-card--blue'>
+              <div className='kpi-icon'>
+                <i className='fas fa-wallet' />
+              </div>
+              <div className='kpi-text'>
+                <div className='kpi-label'>Profit</div>
+                <div className='kpi-value'>{money(dashboardData?.capital)}</div>
+              </div>
+            </div>
+            <div className='dashboard-kpi-card dashboard-kpi-card--red'>
+              <div className='kpi-icon'>
+                <i className='fas fa-arrow-down' />
+              </div>
+              <div className='kpi-text'>
+                <div className='kpi-label'>Expenses</div>
+                <div className='kpi-value'>{money(dashboardData?.expenses)}</div>
+              </div>
+            </div>
+            <div className='dashboard-kpi-card dashboard-kpi-card--green'>
+              <div className='kpi-icon'>
+                <i className='fas fa-chart-line' />
+              </div>
+              <div className='kpi-text'>
+                <div className='kpi-label'>NET PROFIT</div>
+                <div className='kpi-value'>{money(dashboardData?.profit)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className='dashboard-chart-section'>
+            <div className='dashboard-chart-header'>
+              <div>
+                <div className='dashboard-chart-title'>Trend Chart</div>
+                <div className='dashboard-date-info' id='chart-date-range'>
+                  {chartDateRangeText}
+                </div>
+              </div>
+              <div className='dashboard-chart-buttons'>
+                <button
+                  className={`chart-toggle-btn ${showCapital ? 'active' : ''}`}
+                  onClick={() => setShowCapital((v) => !v)}
+                  type='button'
+                  style={{ '--btn-color': '#3b82f6' }}
+                >
+                  Profit
+                </button>
+                <button
+                  className={`chart-toggle-btn ${showExpenses ? 'active' : ''}`}
+                  onClick={() => setShowExpenses((v) => !v)}
+                  type='button'
+                  style={{ '--btn-color': '#ef4444' }}
+                >
+                  Expenses
+                </button>
+                <button
+                  className={`chart-toggle-btn ${showProfit ? 'active' : ''}`}
+                  onClick={() => setShowProfit((v) => !v)}
+                  type='button'
+                  style={{ '--btn-color': '#10b981' }}
+                >
+                  Net Profit
+                </button>
+              </div>
+            </div>
+            <div className='dashboard-chart-container'>
+              <svg viewBox='0 0 100 100' preserveAspectRatio='none'>
+                <line x1='0' y1='50' x2='100' y2='50' className='chart-axis' />
+                {showCapital ? <polyline points={chartPoints.capital} className='chart-line chart-line-capital' /> : null}
+                {showExpenses ? (
+                  <polyline points={chartPoints.expenses} className='chart-line chart-line-expenses' />
+                ) : null}
+                {showProfit ? <polyline points={chartPoints.profit} className='chart-line chart-line-profit' /> : null}
+              </svg>
+            </div>
+          </div>
+
+          <div className='dashboard-table-wrap'>
+            <div className='dashboard-table-head'>
+              <div>Date</div>
+              <div>Profit</div>
+              <div>Expenses</div>
+              <div>Net Profit</div>
+              <div>Profit Payment Flow</div>
+            </div>
+            <div className='dashboard-table-body'>
+              {dailySeries.length === 0 ? (
+                <div className='dashboard-empty'>No data in selected date range</div>
+              ) : (
+                dailySeries.map((row) => (
+                  <div className='dashboard-row' key={row.day}>
+                    <div>{row.day}</div>
+                    <div>{money(row.capital)}</div>
+                    <div>{money(row.expenses)}</div>
+                    <div>{money(row.profit)}</div>
+                    <div>{money(row.paymentFlow)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </section>

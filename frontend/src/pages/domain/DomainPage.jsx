@@ -81,6 +81,30 @@ function DomainPage() {
   const [shareSaving, setShareSaving] = useState(false)
   const [applyCommissionPayments, setApplyCommissionPayments] = useState(true)
 
+  useEffect(() => {
+    document.body.classList.add('domain-page-body')
+    return () => document.body.classList.remove('domain-page-body')
+  }, [])
+
+  useEffect(() => {
+    const cssId = 'legacy-domain-css'
+    const fontId = 'legacy-amaranth-font'
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement('link')
+      link.id = cssId
+      link.rel = 'stylesheet'
+      link.href = `${API_BASE}/css/domain.css`
+      document.head.appendChild(link)
+    }
+    if (!document.getElementById(fontId)) {
+      const link = document.createElement('link')
+      link.id = fontId
+      link.rel = 'stylesheet'
+      link.href = 'https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap'
+      document.head.appendChild(link)
+    }
+  }, [])
+
   const loadDomains = async () => {
     setLoading(true)
     setError('')
@@ -323,90 +347,109 @@ function DomainPage() {
   }
 
   return (
-    <section className='domain-page'>
-      <header className='domain-header'>
+    <section className='domain-page-root'>
+      <div className='container'>
         <h1>Domain List</h1>
-      </header>
-      <div className='domain-separator' />
 
       {error ? <div className='domain-message domain-message-error'>{error}</div> : null}
       {notice ? <div className='domain-message domain-message-success'>{notice}</div> : null}
 
-      <section className='domain-fee-panel'>
-        <h2>Domain Fee Settings</h2>
-        <div className='domain-fee-row'>
-          <input
-            value={domainFeePrice}
-            onChange={(event) => setDomainFeePrice(event.target.value)}
-            placeholder='Price'
-            inputMode='decimal'
-          />
-          <button type='button' onClick={saveDomainFeeSettings} disabled={savingFee}>
-            {savingFee ? 'Saving...' : 'Save Fee'}
-          </button>
-        </div>
-      </section>
-
-      <div className='domain-toolbar'>
-        <button type='button' className='domain-btn domain-btn-primary' onClick={openCreateModal}>
-          Add Domain
-        </button>
-        <input
-          className='domain-search'
-          value={searchTerm}
-          onChange={(event) => {
-            setSearchTerm(event.target.value)
-            setCurrentPage(1)
-          }}
-          placeholder='Search by owner/company/email'
-        />
-      </div>
-
-      <div className='domain-table-wrap'>
-        <div className='domain-table-head'>
-          <div>No</div>
-          <div>Owner Code</div>
-          <div>Name</div>
-          <div>Email</div>
-          <div>Groups</div>
-          <div>Companies</div>
-          <div>Actions</div>
-        </div>
-        {loading ? <div className='domain-empty'>Loading...</div> : null}
-        {!loading && pagedRows.length === 0 ? <div className='domain-empty'>No domains found</div> : null}
-        {!loading && pagedRows.length > 0 ? (
-          <div className='domain-table-body'>
-            {pagedRows.map((row, index) => (
-              <div className='domain-row' key={row.id}>
-                <div>{(currentPage - 1) * PAGE_SIZE + index + 1}</div>
-                <div>{row.owner_code}</div>
-                <div>{row.name}</div>
-                <div>{row.email}</div>
-                <div>{row.groups.length ? row.groups.join(', ') : '-'}</div>
-                <div className='domain-company-cell'>
-                  {row.companies.length ? row.companies.join(', ') : '-'}
-                </div>
-                <div className='domain-actions'>
-                  <button type='button' onClick={() => openEditModal(row)}>
-                    Edit
-                  </button>
-                  <button type='button' className='danger' onClick={() => deleteDomain(row.id)}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+        <div className='action-buttons'>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button type='button' className='btn btn-add' onClick={openCreateModal}>
+              Add Domain
+            </button>
+            <div className='search-container'>
+              <input
+                className='search-input'
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value)
+                  setCurrentPage(1)
+                }}
+                placeholder='Search by Owner/Name/Email'
+              />
+            </div>
+            <button type='button' className='btn btn-fee-settings' onClick={saveDomainFeeSettings} disabled={savingFee}>
+              {savingFee ? 'Saving...' : 'Price'}
+            </button>
+            <input
+              value={domainFeePrice}
+              onChange={(event) => setDomainFeePrice(event.target.value)}
+              placeholder='0.00'
+              inputMode='decimal'
+              className='legacy-fee-inline-input'
+            />
           </div>
-        ) : null}
-      </div>
+        </div>
+
+        <div className='separator-line' />
+
+        <div className='table-container'>
+          <div className='table-header'>
+            <div className='header-item'>No:</div>
+            <div className='header-item'>Owner Code:</div>
+            <div className='header-item'>Name:</div>
+            <div className='header-item'>Email:</div>
+            <div className='header-item'>GroupID:</div>
+            <div className='header-item'>Companies:</div>
+            <div className='header-item'>Action:</div>
+            <div className='header-item'>Delete:</div>
+          </div>
+
+          <div className='domain-cards' id='domainTableBody'>
+            {loading ? <div className='domain-empty'>Loading...</div> : null}
+            {!loading && pagedRows.length === 0 ? <div className='domain-empty'>No domains found</div> : null}
+            {!loading && pagedRows.length > 0
+              ? pagedRows.map((row, index) => (
+                  <div className='domain-card show-card' key={row.id}>
+                    <div className='card-item'>{(currentPage - 1) * PAGE_SIZE + index + 1}</div>
+                    <div className='card-item uppercase-text'>{row.owner_code}</div>
+                    <div className='card-item'>{row.name}</div>
+                    <div className='card-item'>{row.email}</div>
+                    <div className='card-item'>{row.groups.length ? row.groups.join(', ') : '-'}</div>
+                    <div className='card-item companies-column'>
+                      {row.companies.length ? (
+                        <div className='chip-group'>
+                          {row.companies.slice(0, 3).map((company) => (
+                            <span className='chip company-badge' key={`${row.id}-${company}`}>
+                              {company}
+                            </span>
+                          ))}
+                          {row.companies.length > 3 ? (
+                            <span className='chip-more' title={row.companies.slice(3).join(', ')}>
+                              +{row.companies.length - 3}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </div>
+                    <div className='card-item'>
+                      <button className='btn btn-edit edit-btn' type='button' onClick={() => openEditModal(row)}>
+                        Edit
+                      </button>
+                    </div>
+                    <div className='card-item'>
+                      <button type='button' className='btn btn-delete' onClick={() => deleteDomain(row.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              : null}
+          </div>
+        </div>
 
       {filteredRows.length > 0 ? (
-        <div className='domain-pagination'>
-          <button type='button' disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+        <div className='pagination-container' id='paginationContainer'>
+          <button className='pagination-btn' type='button' disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
             ◀
           </button>
-          <span>{`${currentPage} of ${totalPages}`}</span>
+          <span className='pagination-info'>{`${currentPage} of ${totalPages}`}</span>
           <button
+            className='pagination-btn'
             type='button'
             disabled={currentPage >= totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -416,11 +459,24 @@ function DomainPage() {
         </div>
       ) : null}
 
-      {modalOpen ? (
+        {modalOpen ? (
         <div className='domain-modal-mask' onClick={() => (!saving ? setModalOpen(false) : null)}>
-          <div className='domain-modal' onClick={(event) => event.stopPropagation()}>
-            <h2>{form.id ? 'Edit Domain Owner' : 'Add Domain Owner'}</h2>
-            <form className='domain-form' onSubmit={submitForm}>
+          <div className='modal-container-wide' onClick={(event) => event.stopPropagation()}>
+            <div className='modal-header-wide'>
+              <h2>{form.id ? 'EDIT DOMAIN' : 'ADD DOMAIN'}</h2>
+              <button className='modal-close-btn' type='button' onClick={() => setModalOpen(false)}>
+                &times;
+              </button>
+            </div>
+            <form id='domainForm' onSubmit={submitForm}>
+              <div className='modal-body-wide'>
+                <div className='section-titles-row'>
+                  <div className='section-title'>DOMAIN INFORMATION</div>
+                  <div className='section-title'>COMPANY INFORMATION</div>
+                </div>
+                <div className='section-divider' />
+                <div className='two-columns'>
+                  <div className='column-left'>
               {!form.id ? (
                 <label>
                   Owner Code *
@@ -462,14 +518,16 @@ function DomainPage() {
                   maxLength={6}
                 />
               </label>
+                  </div>
 
-              <div className='domain-company-editor'>
-                <div className='domain-company-editor-head'>
-                  <strong>Companies</strong>
-                  <button type='button' onClick={addCompanyRow}>
-                    + Add Company
-                  </button>
-                </div>
+                  <div className='column-right'>
+                    <div className='domain-company-editor'>
+                      <div className='domain-company-editor-head'>
+                        <strong>Companies</strong>
+                        <button type='button' onClick={addCompanyRow}>
+                          + Add Company
+                        </button>
+                      </div>
                 {form.companies.map((company, index) => (
                   <div className='domain-company-row' key={`${index}-${company.company_id || 'new'}`}>
                     <input
@@ -511,9 +569,12 @@ function DomainPage() {
                     </div>
                   </div>
                 ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className='domain-form-actions'>
+              <div className='modal-footer-wide'>
                 <button type='button' onClick={() => setModalOpen(false)} disabled={saving}>
                   Cancel
                 </button>
@@ -526,7 +587,7 @@ function DomainPage() {
         </div>
       ) : null}
 
-      {shareModalOpen ? (
+        {shareModalOpen ? (
         <div className='domain-modal-mask' onClick={() => (!shareSaving ? setShareModalOpen(false) : null)}>
           <div className='domain-modal domain-share-modal' onClick={(event) => event.stopPropagation()}>
             <h2>Share Settings: {shareCompanyCode}</h2>
@@ -585,6 +646,7 @@ function DomainPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </section>
   )
 }
