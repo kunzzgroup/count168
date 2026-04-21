@@ -324,7 +324,8 @@ function loadCompanyData(companyId) {
         const accounts = accountsRes.status === 'success' ? accountsRes.data : [];
 
         // If company has a group, add Group ID as a selectable entry (G_ prefix)
-        if (compGroupId) {
+        // only when backend result does not already include it.
+        if (compGroupId && !accounts.some(a => String(a.id) === `G_${compGroupId}`)) {
             accounts.push({
                 id: `G_${compGroupId}`,
                 account_name: `Group: ${compGroupId}`,
@@ -335,8 +336,17 @@ function loadCompanyData(companyId) {
             });
         }
 
+        // Final safeguard: dedupe options by id to avoid duplicate Group rows.
+        const seenIds = new Set();
+        const uniqueAccounts = accounts.filter(acc => {
+            const key = String(acc.id || '');
+            if (!key || seenIds.has(key)) return false;
+            seenIds.add(key);
+            return true;
+        });
+
         companyStates[companyId] = {
-            accounts: accounts,
+            accounts: uniqueAccounts,
             rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
                 account_id: o.account_id,
                 percentage: parseFloat(o.percentage),
