@@ -600,6 +600,7 @@ let shareModalAccounts = [];
 let domainAddAccountEditData = { roles: [], currencies: [] };
 let domainAddSelectedCurrencyIds = [];
 let domainAddSelectedCompanyIds = [];
+let domainAddDeletedCurrencyIds = [];
 let domainAddPreferredRole = '';
 let domainAddAccountEventsBound = false;
 let domainFeePriceCache = 0;
@@ -709,7 +710,7 @@ function ensureDomainAddAccountModalExists() {
         '            <div class="account-form-group"><label for="domain_add_remark">Remark</label><textarea id="domain_add_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea></div>' +
         '          </div>' +
         '        </div>' +
-        '        <div class="account-form-section"><div class="account-advance-section"><h3>Advanced Account</h3><div class="account-other-currency"><label>Other Currency:</label><div class="account-currency-list" id="domainAddCurrencyList"></div></div><div class="account-other-currency" style="margin-top: 20px;"><label>Company:</label><div class="account-currency-list" id="domainAddCompanyList"></div></div></div></div>' +
+        '        <div class="account-form-section"><div class="account-advance-section"><h3>Advanced Account</h3><div class="account-other-currency"><label>Other Currency:</label><div style="display: flex; gap: 8px; margin-bottom: 12px;"><input type="text" id="domainAddCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"><button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputDomain(); return false;">Create Currency</button></div><div class="account-currency-list" id="domainAddCurrencyList"></div></div><div class="account-other-currency" style="margin-top: 20px;"><label>Company:</label><div class="account-currency-list" id="domainAddCompanyList"></div></div></div></div>' +
         '        <div class="account-form-actions"><button type="submit" class="account-btn account-btn-save">Add Account</button><button type="button" class="account-btn account-btn-cancel" onclick="closeDomainAddAccountModal()">Cancel</button></div>' +
         '      </form>' +
         '    </div>' +
@@ -729,6 +730,18 @@ function bindDomainAddAccountModalEvents() {
     document.querySelectorAll('input[name="add_payment_alert"]').forEach(function (el) {
         el.addEventListener('change', toggleDomainAddAlertFields);
     });
+    var currencyInput = document.getElementById('domainAddCurrencyInput');
+    if (currencyInput) {
+        currencyInput.addEventListener('input', function () {
+            this.value = String(this.value || '').toUpperCase();
+        });
+        currencyInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCurrencyFromInputDomain();
+            }
+        });
+    }
     domainAddAccountEventsBound = true;
 }
 
@@ -745,6 +758,7 @@ async function showDomainAddAccountModal(role) {
     form.reset();
     domainAddSelectedCurrencyIds = [];
     domainAddSelectedCompanyIds = [];
+    domainAddDeletedCurrencyIds = [];
     toggleDomainAddAlertFields();
     modal.style.display = 'block';
     modal.classList.add('show');
@@ -765,6 +779,7 @@ function closeDomainAddAccountModal() {
     }
     domainAddSelectedCurrencyIds = [];
     domainAddSelectedCompanyIds = [];
+    domainAddDeletedCurrencyIds = [];
 }
 
 function toggleDomainAddAlertFields() {
@@ -820,21 +835,41 @@ async function loadDomainAddCurrencies() {
             wrap.innerHTML = '<div class="currency-toggle-note">No currencies available.</div>';
             return;
         }
-        var auto = list.find(function (c) { return String(c.code || '').toUpperCase() === 'MYR'; }) || list[0];
-        domainAddSelectedCurrencyIds = auto ? [auto.id] : [];
+        if (!domainAddSelectedCurrencyIds.length) {
+            var auto = list.find(function (c) { return String(c.code || '').toUpperCase() === 'MYR'; }) || list[0];
+            domainAddSelectedCurrencyIds = auto ? [auto.id] : [];
+        }
         list.forEach(function (currency) {
+            if (domainAddDeletedCurrencyIds.indexOf(currency.id) !== -1) return;
             var item = document.createElement('div');
             item.className = 'account-currency-item currency-toggle-item';
-            item.textContent = String(currency.code || '').toUpperCase();
-            item.classList.toggle('active', domainAddSelectedCurrencyIds.indexOf(currency.id) !== -1);
-            item.addEventListener('click', function () {
+            var code = String(currency.code || '').toUpperCase();
+            var codeSpan = document.createElement('span');
+            codeSpan.className = 'currency-code-text';
+            codeSpan.textContent = code;
+            var delBtn = document.createElement('button');
+            delBtn.className = 'currency-delete-btn';
+            delBtn.type = 'button';
+            delBtn.title = 'Delete currency permanently';
+            delBtn.innerHTML = '&times;';
+            delBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteCurrencyPermanentlyDomain(currency.id, code, item);
+            });
+            item.appendChild(codeSpan);
+            item.appendChild(delBtn);
+            item.classList.toggle('selected', domainAddSelectedCurrencyIds.indexOf(currency.id) !== -1);
+            codeSpan.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
                 var idx = domainAddSelectedCurrencyIds.indexOf(currency.id);
                 if (idx === -1) {
                     domainAddSelectedCurrencyIds.push(currency.id);
-                    item.classList.add('active');
+                    item.classList.add('selected');
                 } else {
                     domainAddSelectedCurrencyIds.splice(idx, 1);
-                    item.classList.remove('active');
+                    item.classList.remove('selected');
                 }
             });
             wrap.appendChild(item);
@@ -848,35 +883,81 @@ async function loadDomainAddCompanies() {
     var wrap = document.getElementById('domainAddCompanyList');
     if (!wrap) return;
     wrap.innerHTML = '';
+    var companyId = (typeof window.DOMAIN_SESSION_COMPANY_ID !== 'undefined') ? parseInt(window.DOMAIN_SESSION_COMPANY_ID, 10) : 0;
+    var companyCode = String(window.DOMAIN_SESSION_COMPANY_CODE || 'C168').toUpperCase() || 'C168';
+    domainAddSelectedCompanyIds = companyId ? [companyId] : [];
+    var item = document.createElement('div');
+    item.className = 'account-currency-item currency-toggle-item selected';
+    item.textContent = companyCode;
+    wrap.appendChild(item);
+}
+
+async function addCurrencyFromInputDomain() {
+    var input = document.getElementById('domainAddCurrencyInput');
+    var currencyCode = String((input && input.value) || '').trim().toUpperCase();
+    if (!currencyCode) {
+        showAlert('Please enter currency code', 'danger');
+        if (input) input.focus();
+        return false;
+    }
+    var exists = (domainAddAccountEditData.currencies || []).some(function (c) {
+        return String(c.code || '').toUpperCase() === currencyCode;
+    });
+    if (exists) {
+        showAlert('Currency ' + currencyCode + ' already exists');
+        if (input) input.value = '';
+        return false;
+    }
     try {
-        var res = await fetch('api/accounts/account_company_api.php?action=get_available_companies', { cache: 'no-cache' });
+        var companyId = (typeof window.DOMAIN_SESSION_COMPANY_ID !== 'undefined') ? window.DOMAIN_SESSION_COMPANY_ID : null;
+        var res = await fetch('api/accounts/addcurrencyapi.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: currencyCode, company_id: companyId })
+        });
         var json = await res.json();
-        var list = json.success && Array.isArray(json.data) ? json.data : [];
-        if (!list.length) {
-            wrap.innerHTML = '<div class="currency-toggle-note">No companies available.</div>';
+        if (!json.success || !json.data || !json.data.id) {
+            showAlert(json.error || json.message || 'Failed to create currency', 'danger');
+            return false;
+        }
+        domainAddAccountEditData.currencies.push({ id: json.data.id, code: json.data.code });
+        if (domainAddSelectedCurrencyIds.indexOf(json.data.id) === -1) {
+            domainAddSelectedCurrencyIds.push(json.data.id);
+        }
+        if (input) input.value = '';
+        await loadDomainAddCurrencies();
+        showAlert('Currency ' + currencyCode + ' created successfully');
+    } catch (e) {
+        showAlert('Failed to create currency', 'danger');
+    }
+    return true;
+}
+
+async function deleteCurrencyPermanentlyDomain(currencyId, currencyCode, itemElement) {
+    if (!confirm('Are you sure you want to permanently delete currency ' + currencyCode + '? This action cannot be undone.')) {
+        return;
+    }
+    try {
+        var res = await fetch('api/accounts/delete_currency_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currencyId })
+        });
+        var json = await res.json();
+        if (!json.success) {
+            showAlert(json.error || json.message || 'Failed to delete currency', 'danger');
             return;
         }
-        domainAddSelectedCompanyIds = [];
-        list.forEach(function (company) {
-            var item = document.createElement('div');
-            item.className = 'account-currency-item currency-toggle-item';
-            item.textContent = String(company.company_code || company.company_id || company.name || company.id || '');
-            item.addEventListener('click', function () {
-                var id = parseInt(company.id, 10);
-                if (!id) return;
-                var idx = domainAddSelectedCompanyIds.indexOf(id);
-                if (idx === -1) {
-                    domainAddSelectedCompanyIds.push(id);
-                    item.classList.add('active');
-                } else {
-                    domainAddSelectedCompanyIds.splice(idx, 1);
-                    item.classList.remove('active');
-                }
-            });
-            wrap.appendChild(item);
-        });
+        if (domainAddDeletedCurrencyIds.indexOf(currencyId) === -1) {
+            domainAddDeletedCurrencyIds.push(currencyId);
+        }
+        domainAddSelectedCurrencyIds = domainAddSelectedCurrencyIds.filter(function (id) { return id !== currencyId; });
+        if (itemElement && itemElement.parentNode) {
+            itemElement.parentNode.removeChild(itemElement);
+        }
+        showAlert('Currency ' + currencyCode + ' deleted successfully!');
     } catch (e) {
-        wrap.innerHTML = '<div class="currency-toggle-note">Failed to load companies.</div>';
+        showAlert('Failed to delete currency', 'danger');
     }
 }
 
@@ -897,6 +978,11 @@ async function submitDomainAddAccountForm(e) {
     }
     if (domainAddSelectedCompanyIds.length) {
         fd.set('company_ids', JSON.stringify(domainAddSelectedCompanyIds));
+    } else {
+        var companyId = (typeof window.DOMAIN_SESSION_COMPANY_ID !== 'undefined') ? parseInt(window.DOMAIN_SESSION_COMPANY_ID, 10) : 0;
+        if (companyId) {
+            fd.set('company_ids', JSON.stringify([companyId]));
+        }
     }
 
     try {

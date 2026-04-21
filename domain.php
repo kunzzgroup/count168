@@ -104,6 +104,8 @@ try {
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
         window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
+        window.DOMAIN_SESSION_COMPANY_ID = <?php echo $company_id ? (int)$company_id : 'null'; ?>;
+        window.DOMAIN_SESSION_COMPANY_CODE = <?php echo json_encode($company_code ?: ''); ?>;
     </script>
     <script src="js/domain.js?v=<?php echo $assetVer('js/domain.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
@@ -630,6 +632,10 @@ try {
                             <h3>Advanced Account</h3>
                             <div class="account-other-currency">
                                 <label>Other Currency:</label>
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                    <input type="text" id="domainAddCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputDomain(); return false;">Create Currency</button>
+                                </div>
                                 <div class="account-currency-list" id="domainAddCurrencyList"></div>
                             </div>
                             <div class="account-other-currency" style="margin-top: 20px;">
