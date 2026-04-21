@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -51,7 +51,6 @@ function AlertModal({ open, title, message, onClose }) {
 }
 
 export default function LoginPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roleFromUrl = searchParams.get("role") === "member" ? "member" : "admin";
 
@@ -149,7 +148,7 @@ export default function LoginPage() {
         }
 
         if (/dashboard\.php/i.test(redirect)) {
-          navigate("dashboard", { replace: true });
+          window.location.assign(new URL("/frontend/dist/dashboard", window.location.origin).toString());
           return;
         }
 
