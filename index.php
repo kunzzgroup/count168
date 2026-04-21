@@ -27,7 +27,7 @@ if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
         header('Location: member.php');
     } else {
-        if ($requestPath === '/login' || $requestPath === '/dashboard' || $requestPath === '/domain') {
+        if ($requestPath === '/login' || $requestPath === '/dashboard' || $requestPath === '/domain' || $requestPath === '/announcement') {
             serveSpaIndex();
         }
         header('Location: /dashboard');
@@ -81,7 +81,7 @@ if (isset($_COOKIE['remember_token'])) {
         if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
             header('Location: member.php');
         } else {
-            if ($requestPath === '/login' || $requestPath === '/dashboard' || $requestPath === '/domain') {
+            if ($requestPath === '/login' || $requestPath === '/dashboard' || $requestPath === '/domain' || $requestPath === '/announcement') {
                 serveSpaIndex();
             }
             header('Location: /dashboard');
@@ -92,7 +92,7 @@ if (isset($_COOKIE['remember_token'])) {
     setcookie('remember_token', '', time() - 3600, '/', '', false, true);
 }
 
-if ($requestPath === '/dashboard' || $requestPath === '/domain') {
+if ($requestPath === '/dashboard' || $requestPath === '/domain' || $requestPath === '/announcement') {
     header('Location: /login');
     exit();
 }
