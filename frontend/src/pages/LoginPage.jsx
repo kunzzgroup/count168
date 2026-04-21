@@ -148,7 +148,7 @@ export default function LoginPage() {
         }
 
         if (/dashboard\.php/i.test(redirect)) {
-          window.location.assign(new URL("/frontend/dist/dashboard", window.location.origin).toString());
+          window.location.assign(new URL("/dashboard", window.location.origin).toString());
           return;
         }
 

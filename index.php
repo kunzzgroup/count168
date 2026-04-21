@@ -1,16 +1,36 @@
 <?php
 /**
- * Entry: session / remember-me bootstrap only (no HTML UI).
- * Login UI is the Vite React SPA under frontend/dist/index.html — run `npm run build` in /frontend.
+ * Entry router for SPA + session bootstrap.
+ * Canonical login URL: /login
  */
 session_start();
 require_once __DIR__ . '/config.php';
+
+$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+
+function serveSpaIndex(): void
+{
+    $spaIndexPath = __DIR__ . '/frontend/dist/index.html';
+    if (!file_exists($spaIndexPath)) {
+        http_response_code(503);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "SPA build missing. Run: cd frontend && npm run build";
+        exit();
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    readfile($spaIndexPath);
+    exit();
+}
 
 if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
         header('Location: member.php');
     } else {
-        header('Location: frontend/dist/dashboard');
+        if ($requestPath === '/login' || $requestPath === '/dashboard') {
+            serveSpaIndex();
+        }
+        header('Location: /dashboard');
     }
     exit();
 }
@@ -61,7 +81,10 @@ if (isset($_COOKIE['remember_token'])) {
         if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
             header('Location: member.php');
         } else {
-            header('Location: frontend/dist/dashboard');
+            if ($requestPath === '/login' || $requestPath === '/dashboard') {
+                serveSpaIndex();
+            }
+            header('Location: /dashboard');
         }
         exit();
     }
@@ -69,9 +92,19 @@ if (isset($_COOKIE['remember_token'])) {
     setcookie('remember_token', '', time() - 3600, '/', '', false, true);
 }
 
-$target = 'frontend/dist/index.html';
-if (isset($_GET['role']) && $_GET['role'] === 'member') {
-    $target .= '?role=member';
+if ($requestPath === '/dashboard') {
+    header('Location: /login');
+    exit();
 }
-header('Location: ' . $target);
+
+if ($requestPath === '/' || $requestPath === '/index.php') {
+    header('Location: /login');
+    exit();
+}
+
+if ($requestPath === '/login') {
+    serveSpaIndex();
+}
+
+header('Location: /login');
 exit();

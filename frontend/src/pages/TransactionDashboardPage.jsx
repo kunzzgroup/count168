@@ -213,7 +213,7 @@ export default function TransactionDashboardPage() {
       const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) {
-        navigate("/", { replace: true });
+        navigate("/login", { replace: true });
         return;
       }
       const u = json.data;
@@ -266,7 +266,7 @@ export default function TransactionDashboardPage() {
       }
       setCompanyId(cid ? parseInt(cid, 10) : null);
     } catch {
-      navigate("/", { replace: true });
+      navigate("/login", { replace: true });
     }
   }, [navigate]);
 

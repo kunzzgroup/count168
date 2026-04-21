@@ -5,9 +5,10 @@ import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<LoginPage />} />
-      <Route path="dashboard" element={<TransactionDashboardPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/dashboard" element={<TransactionDashboardPage />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
