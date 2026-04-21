@@ -26,8 +26,14 @@ foreach ($user_companies as $comp) {
 $shared_groups = array_keys($shared_groups);
 sort($shared_groups);
 
-// 统一行为：有 Group 筛选时，默认不预选任何 Group（需用户手动点击）
+// Determine active group based on $company_id
 $active_group_id = null;
+foreach ($user_companies as $comp) {
+    if ($comp['id'] == $company_id) {
+        $active_group_id = strtoupper(trim($comp['group_id'] ?? ''));
+        break;
+    }
+}
 
 // 检查 sessionStorage 中的状态以避免首次加载页面时服务器知道的和浏览器 session 不一致。
 // 这里我们在 JS 中处理，SSR 默认渲染 当前 company_id 的组别。
@@ -40,7 +46,7 @@ $active_group_id = null;
     <div id="group-buttons-container" class="<?php echo $filter_prefix; ?>-company-buttons">
         <?php foreach ($shared_groups as $gid): ?>
             <button type="button" 
-                    class="<?php echo $filter_prefix; ?>-company-btn shared-group-btn" 
+                    class="<?php echo $filter_prefix; ?>-company-btn shared-group-btn <?php echo ($active_group_id === $gid) ? 'active' : ''; ?>" 
                     data-group-id="<?php echo htmlspecialchars($gid); ?>">
                 <?php echo htmlspecialchars($gid); ?>
             </button>
@@ -60,14 +66,7 @@ $active_group_id = null;
             if ($hide_group_filter) {
                 $display_style = '';
             } else {
-                if (count($shared_groups) > 0) {
-                    // 有 Group 的页面：未选中 Group 前，Company 全部隐藏
-                    if (!empty($active_group_id)) {
-                        $display_style = ($c_gid === $active_group_id) ? '' : 'display: none;';
-                    } else {
-                        $display_style = 'display: none;';
-                    }
-                } else if (!empty($active_group_id)) {
+                if (!empty($active_group_id)) {
                     $display_style = ($c_gid === $active_group_id) ? '' : 'display: none;';
                 } else {
                     $display_style = empty($c_gid) ? '' : 'display: none;';
