@@ -24,17 +24,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 sessionStorage.removeItem('dashboard_group_filter');
                 groupBtns.forEach(b => b.classList.remove('active'));
 
-                // 呈现没有 Group 的独立公司
+                // 与 dashboard 行为统一：未选中 Group 时不显示 Company
                 companyBtns.forEach(cBtn => {
-                    const cGroupId = cBtn.getAttribute('data-group-id');
-                    if (!cGroupId || cGroupId.trim() === '') {
-                        cBtn.style.display = '';
-                    } else {
-                        cBtn.style.display = 'none';
-                    }
+                    cBtn.style.display = 'none';
                 });
+                companyBtns.forEach(b => b.classList.remove('active'));
 
-                triggerFirstVisibleCompany();
+                // 这里不触发切换公司，避免出现空 company_id 跳转
             } else {
                 // 选中新的 Group
                 currentSelectedGroup = clickedGroup;
@@ -95,11 +91,6 @@ document.addEventListener('DOMContentLoaded', function () {
             
             if (typeof window.onSharedCompanyFilterChanged === 'function') {
                 window.onSharedCompanyFilterChanged(companyId, companyCode);
-            }
-        } else {
-            // 如果该分组下没有任何公司（或者由于只有独立公司的情况下被选中），可以触发一下空 id 回调清理列表
-            if (typeof window.onSharedCompanyFilterChanged === 'function') {
-                window.onSharedCompanyFilterChanged(null, null);
             }
         }
     }
