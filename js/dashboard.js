@@ -620,7 +620,7 @@ async function updateDateRange() {
         updateDateDisplay('start');
         updateDateDisplay('end');
         lastRequestParams = null;
-        if (dateRange.startDate && dateRange.endDate && window.companyId) {
+        if (dateRange.startDate && dateRange.endDate && isDashboardDataScopeValid()) {
             await loadData(true); // 立即执行
         }
     }
@@ -665,7 +665,7 @@ async function handleMonthPickerChange() {
         return;
     }
     lastRequestParams = null;
-    if (dateRange.startDate && dateRange.endDate && window.companyId) {
+    if (dateRange.startDate && dateRange.endDate && isDashboardDataScopeValid()) {
         await loadData(true); // 立即执行
     }
 }
@@ -779,7 +779,7 @@ async function selectQuickRange(range) {
     const dropdown = document.getElementById('quick-select-dropdown');
     if (dropdown) dropdown.classList.remove('show');
     lastRequestParams = null;
-    if (dateRange.startDate && dateRange.endDate && window.companyId) {
+    if (dateRange.startDate && dateRange.endDate && isDashboardDataScopeValid()) {
         await loadData(true); // 立即执行
     }
 }
@@ -806,6 +806,13 @@ let dailyCardPointCache = new Map(); // key: company|currency|date
 // 实际执行数据加载的函数
 async function executeLoadData() {
     if (!dateRange.startDate || !dateRange.endDate) {
+        return;
+    }
+
+    if (!isDashboardDataScopeValid()) {
+        lastRequestParams = null;
+        setLoadingState(false);
+        clearDashboardForInvalidScope();
         return;
     }
 
@@ -1012,6 +1019,12 @@ async function loadData(immediate = false) {
     if (loadDataTimeout) {
         clearTimeout(loadDataTimeout);
         loadDataTimeout = null;
+    }
+
+    if (!isDashboardDataScopeValid()) {
+        lastRequestParams = null;
+        clearDashboardForInvalidScope();
+        return Promise.resolve();
     }
 
     // 如果正在加载，直接返回
@@ -1987,6 +2000,85 @@ let allOwnerCompanies = [];
 let selectedDashboardGroup = null; // null = 显示所有
 let isDashboardGroupAllMode = false; // true = 全选 group 旗下所有公司汇总
 
+// 账户下是否存在「Group 筛选」语义（有任意公司带 group_id）
+function dashboardOwnerHasGroupFilterUI() {
+    if (!Array.isArray(allOwnerCompanies) || allOwnerCompanies.length === 0) return false;
+    return allOwnerCompanies.some(c => c.group_id && String(c.group_id).trim() !== '');
+}
+
+// 是否允许拉取 Dashboard 数据 / 高亮币别：未选 Group 时，session 公司不能仍挂在某个 Group 下（否则 UI 上无 Group/Company 却仍显示数据）
+function isDashboardDataScopeValid() {
+    if (!window.companyId) return false;
+    if (!dashboardOwnerHasGroupFilterUI()) return true;
+
+    if (selectedDashboardGroup) {
+        if (isDashboardGroupAllMode) {
+            const groupCompanies = allOwnerCompanies.filter(c =>
+                c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup &&
+                c.company_id && String(c.company_id).trim() !== ''
+            );
+            return groupCompanies.length > 0;
+        }
+        const cur = allOwnerCompanies.find(c => parseInt(c.id) === parseInt(window.companyId));
+        if (!cur) return false;
+        return !!(cur.group_id && String(cur.group_id).trim() !== '' &&
+            cur.group_id.toUpperCase() === selectedDashboardGroup);
+    }
+
+    const cur = allOwnerCompanies.find(c => parseInt(c.id) === parseInt(window.companyId));
+    if (!cur) return false;
+    return !cur.group_id || String(cur.group_id).trim() === '';
+}
+
+function clearDashboardForInvalidScope() {
+    lastRequestParams = null;
+    window.dashboardCurrency = '';
+    const cw = document.getElementById('currency-buttons-wrapper');
+    const cc = document.getElementById('currency-buttons-container');
+    if (cc) cc.innerHTML = '';
+    if (cw) cw.style.display = 'none';
+
+    const capitalEl = document.getElementById('capital-value');
+    const expensesEl = document.getElementById('expenses-value');
+    const profitEl = document.getElementById('profit-value');
+    const earningsEl = document.getElementById('earnings-value');
+    if (capitalEl) capitalEl.textContent = '0.00';
+    if (expensesEl) expensesEl.textContent = '0.00';
+    if (profitEl) profitEl.textContent = '0.00';
+    if (earningsEl) earningsEl.textContent = '0.00';
+
+    chartMetadata = {
+        sortedDates: [],
+        capitalData: [],
+        expensesData: [],
+        profitData: [],
+        netProfitData: [],
+        earningsData: [],
+        cardProfitDisplay: 0,
+        cardExpensesDisplay: 0
+    };
+
+    const chartCanvas = document.getElementById('trend-chart');
+    if (trendChart) {
+        try {
+            trendChart.destroy();
+        } catch (e) {
+            console.warn('销毁趋势图时出错:', e);
+        }
+        trendChart = null;
+    }
+    if (chartCanvas && typeof Chart !== 'undefined') {
+        createChart(chartCanvas, { labels: [], datasets: [] });
+    }
+
+    const chartDateRangeEl = document.getElementById('chart-date-range');
+    if (chartDateRangeEl && dateRange && dateRange.startDate && dateRange.endDate) {
+        chartDateRangeEl.textContent =
+            `${formatDateForDisplay(dateRange.startDate)} to ${formatDateForDisplay(dateRange.endDate)}`;
+        chartDateRangeEl.style.color = '#9ca3af';
+    }
+}
+
 function loadOwnerCompanies() {
     return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php?all=1'))
         .then(response => response.json())
@@ -2070,6 +2162,7 @@ function renderGroupButtons(groups) {
         btn.addEventListener('click', async function () {
             if (selectedDashboardGroup === groupId) {
                 // 再次点击 → 取消选择，默认选择首个独立公司
+                isDashboardGroupAllMode = false;
                 selectedDashboardGroup = null;
                 sessionStorage.removeItem('dashboard_group_filter');
                 btn.classList.remove('active');
@@ -2087,6 +2180,13 @@ function renderGroupButtons(groups) {
                     }
                 } else {
                     renderCompanyButtons(allOwnerCompanies);
+                }
+                lastRequestParams = null;
+                await loadCurrencies();
+                if (isDashboardDataScopeValid()) {
+                    await loadData(true);
+                } else {
+                    clearDashboardForInvalidScope();
                 }
             } else {
                 // 选择该 group
@@ -2179,12 +2279,10 @@ function renderCompanyButtons(companies) {
             } else {
                 // 激活 All 模式
                 isDashboardGroupAllMode = true;
-                window.dashboardCurrency = '';
                 // 只亮 All 按钮自己，公司按钮都不亮（与 transaction.php All 行为一致）
                 container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                 allBtn.classList.add('active');
                 lastRequestParams = null;
-                await loadCurrencies();
                 await loadData(true);
             }
         });
@@ -2231,13 +2329,17 @@ async function loadGroupCurrencies() {
 window.dashboardCurrency = '';
 
 function loadCurrencies() {
-    // 未选单一公司：无 companyId，或 Group 下选了「All」汇总模式 — 不显示 Currency 行、不按单一货币筛选
-    if (!window.companyId || isDashboardGroupAllMode) {
+    if (!window.companyId) {
+        const wrapper = document.getElementById('currency-buttons-wrapper');
+        if (wrapper) wrapper.style.display = 'none';
+        return Promise.resolve();
+    }
+    if (!isDashboardDataScopeValid()) {
+        window.dashboardCurrency = '';
         const wrapper = document.getElementById('currency-buttons-wrapper');
         const container = document.getElementById('currency-buttons-container');
         if (container) container.innerHTML = '';
         if (wrapper) wrapper.style.display = 'none';
-        window.dashboardCurrency = '';
         return Promise.resolve();
     }
     return Promise.all([
@@ -2503,7 +2605,7 @@ function initChartDataButtons() {
 let isPageVisible = true;
 document.addEventListener('visibilitychange', function () {
     isPageVisible = !document.hidden;
-    if (isPageVisible && dateRange.startDate && dateRange.endDate) {
+    if (isPageVisible && dateRange.startDate && dateRange.endDate && isDashboardDataScopeValid()) {
         // 页面重新可见时，重置请求参数，允许重新加载
         lastRequestParams = null;
         loadData();
@@ -2563,10 +2665,16 @@ document.addEventListener('DOMContentLoaded', async function () {
             // 否则两者并行时 loadData 会在 dashboardCurrency 尚未赋值时就发出请求，
             // 导致不同货币（MYR / SGD）的数据混合在一起显示。
             await loadCurrencies();
-            await loadData(true);
+            if (isDashboardDataScopeValid()) {
+                await loadData(true);
+            } else {
+                clearDashboardForInvalidScope();
+            }
         } else {
             await loadCurrencies();
-            showError('Missing required parameters, please refresh the page');
+            if (!window.companyId) {
+                showError('Missing required parameters, please refresh the page');
+            }
         }
     } catch (error) {
         console.error('初始化失败:', error);
