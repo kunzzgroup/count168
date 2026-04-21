@@ -36,6 +36,23 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
     return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
 }
 
+/**
+ * 截断到2位小数（不四舍五入）
+ */
+function historyTrunc2($value): float
+{
+    $n = (float) $value;
+    if ($n >= 0) {
+        return floor($n * 100) / 100;
+    }
+    return ceil($n * 100) / 100;
+}
+
+function historyFormat2($value): string
+{
+    return number_format(historyTrunc2($value), 2, '.', '');
+}
+
 /** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
 function historyParseBankProcessDayStartToYmd($raw): ?string
 {
@@ -394,7 +411,7 @@ function buildVirtualDomainListFeeHistory(
             'rate' => '-',
             'win_loss' => '-',
             'cr_dr' => '-',
-            'balance' => number_format(0, 2),
+            'balance' => historyFormat2(0),
             'description' => 'OPENING BALANCE',
             'sms' => '-',
             'remark' => '-',
@@ -412,7 +429,7 @@ function buildVirtualDomainListFeeHistory(
         $cid = (int) ($r['currency_id'] ?? 0);
         $cur = $cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency;
         $cr = -$amt;
-        $running = round($running + $cr, 2);
+        $running = historyTrunc2($running + $cr);
         $history[] = [
             'date' => date('d/m/Y', strtotime((string) $r['transaction_date'])),
             'product' => 'PAYMENT',
@@ -421,9 +438,9 @@ function buildVirtualDomainListFeeHistory(
             'currency' => $cur,
             'percent' => '-',
             'rate' => '-',
-            'win_loss' => number_format(0, 2),
-            'cr_dr' => number_format($cr, 2),
-            'balance' => number_format($running, 2),
+            'win_loss' => historyFormat2(0),
+            'cr_dr' => historyFormat2($cr),
+            'balance' => historyFormat2($running),
             'description' => $src . ' Pay For ' . $ownerCode,
             'sms' => '-',
             'remark' => '-',
@@ -525,7 +542,7 @@ function buildVirtualDomainNetProfitHistory(
                 continue;
             $fee = round((float) ($ar['fee_total'] ?? 0), 2);
             $comm = round((float) ($ar['comm_total'] ?? 0), 2);
-            $net = round($fee - $comm, 2);
+            $net = historyTrunc2($fee - $comm);
             if ($net <= 0)
                 continue;
             $rows[] = [
@@ -559,7 +576,7 @@ function buildVirtualDomainNetProfitHistory(
             'rate' => '-',
             'win_loss' => '-',
             'cr_dr' => '-',
-            'balance' => number_format(0, 2),
+            'balance' => historyFormat2(0),
             'description' => 'OPENING BALANCE',
             'sms' => '-',
             'remark' => '-',
@@ -577,7 +594,7 @@ function buildVirtualDomainNetProfitHistory(
         $cid = (int) ($r['currency_id'] ?? 0);
         $cur = $cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency;
         $cr = $amt;
-        $running = round($running + $cr, 2);
+        $running = historyTrunc2($running + $cr);
         $history[] = [
             'date' => date('d/m/Y', strtotime((string) $r['transaction_date'])),
             'product' => 'PROFIT',
@@ -586,9 +603,9 @@ function buildVirtualDomainNetProfitHistory(
             'currency' => $cur,
             'percent' => '-',
             'rate' => '-',
-            'win_loss' => number_format(0, 2),
-            'cr_dr' => number_format($cr, 2),
-            'balance' => number_format($running, 2),
+            'win_loss' => historyFormat2(0),
+            'cr_dr' => historyFormat2($cr),
+            'balance' => historyFormat2($running),
             'description' => 'PROFIT BY ' . $owner,
             'sms' => '-',
             'remark' => '-',
@@ -1061,7 +1078,7 @@ try {
         'rate' => '-',
         'win_loss' => '-',
         'cr_dr' => '-',
-        'balance' => number_format($bf, 2),
+        'balance' => historyFormat2($bf),
         'description' => $bfDescription,
         'sms' => '-',
         'created_by' => '-'
@@ -1457,7 +1474,7 @@ try {
                             ? ('Full Month (' . $monthLabel . ') @Monthly')
                             : 'Full Month @Monthly';
                     }
-                    $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+                    $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : historyFormat2($amt);
                     if (stripos((string) $description, 'Pro-rated(') === 0
                         || stripos((string) $description, 'Prorated(') === 0
                         || stripos((string) $description, 'DayEnd - Prorated(') === 0
@@ -1831,10 +1848,10 @@ try {
         if (!isset($balance_by_currency[$curKey])) {
             $balance_by_currency[$curKey] = 0;
         }
-        $eventWinLoss = round((float) ($event['win_loss'] ?? 0), 2);
-        $eventCrDr = round((float) ($event['cr_dr'] ?? 0), 2);
+        $eventWinLoss = historyTrunc2((float) ($event['win_loss'] ?? 0));
+        $eventCrDr = historyTrunc2((float) ($event['cr_dr'] ?? 0));
         $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
-        $row_balance = $balance_by_currency[$curKey];
+        $row_balance = historyTrunc2($balance_by_currency[$curKey]);
 
         // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化
         $finalDescription = $event['description'];
@@ -1913,9 +1930,9 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $eventWinLoss != 0 ? number_format($eventWinLoss, 2) : '0.00',
-            'cr_dr' => $eventCrDr != 0 ? number_format($eventCrDr, 2) : '0.00',
-            'balance' => number_format($row_balance, 2),
+            'win_loss' => $eventWinLoss != 0 ? historyFormat2($eventWinLoss) : '0.00',
+            'cr_dr' => $eventCrDr != 0 ? historyFormat2($eventCrDr) : '0.00',
+            'balance' => historyFormat2($row_balance),
             'description' => $finalDescription,
             'sms' => $event['sms'],
             'remark' => $event['remark'] ?? null,

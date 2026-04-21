@@ -43,10 +43,8 @@
         const number = parseFloat(cleaned);
         if (isNaN(number)) return '0.00';
 
-        // Round to 2 decimal places for display (四舍五入到2位小数用于显示)
-        // This ensures consistent display formatting while database stores raw values
-        // 这确保了一致的显示格式，而数据库存储原始值
-        const rounded = Math.round(number * 100) / 100;
+        // Truncate to 2 decimal places for display (只截断到2位小数，不做四舍五入)
+        const rounded = Math.trunc(number * 100) / 100;
 
         // 使用 toLocaleString 添加千分位逗号
         return rounded.toLocaleString('en-US', {

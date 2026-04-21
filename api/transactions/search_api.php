@@ -96,6 +96,18 @@ function searchApiHasAccountCurrencyTable(PDO $pdo): bool
 }
 
 /**
+ * 截断到2位小数（不四舍五入）
+ */
+function trunc2($value): float
+{
+    $n = (float) $value;
+    if ($n >= 0) {
+        return floor($n * 100) / 100;
+    }
+    return ceil($n * 100) / 100;
+}
+
+/**
  * 将 currency 加入列表（根据 currency_id 去重）
  */
 function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $currencyCode): void
@@ -231,12 +243,12 @@ function searchApiAppendDomainNetProfitVirtualRows(
                      t.currency_id,
                      SUM(CASE
                            WHEN t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
-                           THEN ROUND(t.amount, 2)
+                          THEN TRUNCATE(t.amount, 2)
                            ELSE 0
                          END) AS fee_total,
                      SUM(CASE
                            WHEN t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
-                           THEN ROUND(t.amount, 2)
+                          THEN TRUNCATE(t.amount, 2)
                            ELSE 0
                          END) AS comm_total
                    FROM transactions t
@@ -250,9 +262,9 @@ function searchApiAppendDomainNetProfitVirtualRows(
             $cid = (int) ($ar['currency_id'] ?? 0);
             if ($cid <= 0)
                 continue;
-            $fee = round((float) ($ar['fee_total'] ?? 0), 2);
-            $comm = round((float) ($ar['comm_total'] ?? 0), 2);
-            $net = round($fee - $comm, 2);
+            $fee = trunc2((float) ($ar['fee_total'] ?? 0));
+            $comm = trunc2((float) ($ar['comm_total'] ?? 0));
+            $net = trunc2($fee - $comm);
             if ($net <= 0)
                 continue;
             if (!empty($currencyFilterIds) && !in_array($cid, $currencyFilterIds, true)) {
@@ -267,7 +279,7 @@ function searchApiAppendDomainNetProfitVirtualRows(
     }
 
     while ($row = (is_array($rows) ? array_shift($rows) : null)) {
-        $amt = round((float) ($row['amount'] ?? 0), 2);
+        $amt = trunc2((float) ($row['amount'] ?? 0));
         if (abs($amt) < 0.00001)
             continue;
         $cid = (int) ($row['currency_id'] ?? 0);
@@ -384,7 +396,7 @@ function searchApiAppendDomainListFeeVirtualRows(
         if ($cur === '')
             continue;
 
-        $amt = round((float) ($row['amount'] ?? 0), 2);
+        $amt = trunc2((float) ($row['amount'] ?? 0));
         if (abs($amt) < 0.00001)
             continue;
 
@@ -571,7 +583,7 @@ function searchApiApplyDomainSourceCompanyRows(
             $sourceLabel[$srcU]['name'] = $oname;
         }
 
-        $amt = round((float) ($row['amount'] ?? 0), 2);
+        $amt = trunc2((float) ($row['amount'] ?? 0));
         if (abs($amt) < 0.00001) {
             continue;
         }
@@ -605,8 +617,8 @@ function searchApiApplyDomainSourceCompanyRows(
         $cur = strtoupper((string) ($row['currency'] ?? ''));
         if ($aid > 0 && $cur !== '' && isset($poolAdjust[$aid][$cur])) {
             $delta = (float) $poolAdjust[$aid][$cur];
-            $row['cr_dr'] = round((float) $row['cr_dr'] + $delta, 2);
-            $row['balance'] = round((float) $row['balance'] + $delta, 2);
+            $row['cr_dr'] = trunc2((float) $row['cr_dr'] + $delta);
+            $row['balance'] = trunc2((float) $row['balance'] + $delta);
             $row['has_crdr_transactions'] = (abs((float) $row['cr_dr']) > 0.00001) ? 1 : (int) $row['has_crdr_transactions'];
         }
     }
@@ -621,7 +633,7 @@ function searchApiApplyDomainSourceCompanyRows(
         $labelCode = $sourceLabel[$src]['code'] ?? $src;
         $labelName = $sourceLabel[$src]['name'] ?? $labelCode;
         foreach ($curMap as $cur => $sumAmt) {
-            $sumAmt = round((float) $sumAmt, 2);
+            $sumAmt = trunc2((float) $sumAmt);
             if (abs($sumAmt) < 0.00001) {
                 continue;
             }
@@ -1663,12 +1675,12 @@ try {
         }
 
         // 4. 计算 Balance（显示口径）
-        // 公式：Balance = round(B/F,2) + round(Win/Loss,2) + round(Cr/Dr,2)
+        // 公式：Balance = trunc(B/F,2) + trunc(Win/Loss,2) + trunc(Cr/Dr,2)
         // 这样与表格上可见列值的手算结果一致，避免 0.01 浮点尾差
-        $bf_display = round((float) $bf, 2);
-        $win_loss_display = round((float) $win_loss, 2);
-        $cr_dr_display = round((float) $cr_dr, 2);
-        $balance = round($bf_display + $win_loss_display + $cr_dr_display, 2);
+        $bf_display = trunc2((float) $bf);
+        $win_loss_display = trunc2((float) $win_loss);
+        $cr_dr_display = trunc2((float) $cr_dr);
+        $balance = trunc2($bf_display + $win_loss_display + $cr_dr_display);
 
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
@@ -1780,7 +1792,7 @@ try {
             'bf' => $bf_display,
             'win_loss' => $win_loss_display,
             'cr_dr' => $cr_dr_display,
-            'balance' => round((float) $balance, 2),
+            'balance' => trunc2((float) $balance),
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
             'has_win_loss_history' => $has_win_loss_history ? 1 : 0,
