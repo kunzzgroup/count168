@@ -15,7 +15,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['get_domains', 'create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -39,12 +39,12 @@ if (in_array($action, ['get_domains', 'create', 'update', 'delete', 'get_domain_
     // session 写入完成，立即释放锁，允许并发请求执行
     session_write_close();
     
-    // C168：$canUseC168DomainActions = userlist 角色白名单；修改他人二级密码用 owner/admin/partnership
+    // C168：$canUseC168DomainActions = userlist 角色白名单；修改他人二级密码仍用 $isOwnerOrAdmin
     $user_role = strtolower($_SESSION['role'] ?? '');
     $company_id = $_SESSION['company_id'] ?? null;
     $company_code = strtoupper($_SESSION['company_code'] ?? '');
     
-    $isOwnerOrAdmin = in_array($user_role, ['owner', 'admin', 'partnership'], true);
+    $isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
     $isC168ByCode = ($company_code === 'C168');
     $isC168ById = isC168Company($pdo, $company_id);
     $hasC168Context = ($isC168ByCode || $isC168ById);
@@ -2075,30 +2075,6 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 
 try {
     switch($action) {
-        case 'get_domains':
-            if (!$hasC168Context || !$canUseC168DomainActions) {
-                jsonResponse(false, 'Forbidden', null, 403);
-                exit;
-            }
-            $stmt = $pdo->query("
-                SELECT 
-                    o.id,
-                    o.owner_code,
-                    o.name,
-                    o.email,
-                    o.created_by,
-                    o.created_at,
-                    GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
-                    GROUP_CONCAT(NULLIF(TRIM(c.company_id), '') ORDER BY c.company_id SEPARATOR ', ') as companies
-                FROM owner o
-                LEFT JOIN company c ON o.id = c.owner_id
-                GROUP BY o.id
-                ORDER BY o.owner_code ASC
-            ");
-            $domains = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            jsonResponse(true, 'OK', ['domains' => $domains]);
-            break;
-
         case 'create':
             if (!$hasC168Context || !$canUseC168DomainActions) {
                 jsonResponse(false, 'Forbidden', null, 403);

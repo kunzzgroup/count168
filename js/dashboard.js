@@ -1,11 +1,8 @@
 // 构造 API 绝对 URL（与 processlist/datacapture 一致，避免 404）
-// 注意：/dashboard/、/domain/ 等「末尾带斜杠」的路径若只 strip 文件名会得到错误目录
-//（例如 /dashboard/api/...），会导致空响应与 JSON 解析报错（Unexpected end of input）。
 function buildApiUrl(pathAndQuery) {
-    const raw = window.location.pathname || '/';
-    const path = raw.replace(/\/+$/, '') || '/';
-    const dir = path === '/' ? '/' : path.slice(0, path.lastIndexOf('/') + 1);
-    const base = window.location.origin + dir;
+    const pathname = window.location.pathname || '/';
+    const basePath = pathname.replace(/[^/]*$/, '') || '/';
+    const base = window.location.origin + basePath;
     return new URL(pathAndQuery, base).href;
 }
 const API_BASE_URL = 'api/transactions/dashboard_api.php';
@@ -814,13 +811,6 @@ async function executeLoadData() {
 
     // Group-All 模式：不需要 window.companyId，只需要 selectedDashboardGroup
     if (!isDashboardGroupAllMode && !window.companyId) return;
-
-    if (shouldSuppressDashboardForGroupedWithoutGroup()) {
-        window.dashboardCurrency = '';
-        lastRequestParams = buildCacheKey();
-        updateDashboard(buildEmptyDashboardPayload());
-        return;
-    }
 
     // 检查参数是否仍然有效
     const checkParams = buildCacheKey();
@@ -1720,56 +1710,52 @@ async function updateChart(data) {
 
         Promise.allSettled(keyDates.map((d) => fetchCardPointByDate(d)))
             .then((results) => {
-                try {
-                    const requestKeyNow = JSON.stringify({
-                        date_from: dateRange.startDate,
-                        date_to: dateRange.endDate,
-                        company_id: window.companyId,
-                        currency: window.dashboardCurrency || ''
-                    });
-                    if (requestKeyNow !== requestKeyAtStart) return;
+                const requestKeyNow = JSON.stringify({
+                    date_from: dateRange.startDate,
+                    date_to: dateRange.endDate,
+                    company_id: window.companyId,
+                    currency: window.dashboardCurrency || ''
+                });
+                if (requestKeyNow !== requestKeyAtStart) return;
 
-                    const pointMap = new Map();
-                    let appliedCount = 0;
-                    for (let i = 0; i < results.length; i++) {
-                        const item = results[i];
-                        if (item.status === 'fulfilled' && item.value) {
-                            pointMap.set(keyDates[i], item.value);
-                            appliedCount++;
-                        }
+                const pointMap = new Map();
+                let appliedCount = 0;
+                for (let i = 0; i < results.length; i++) {
+                    const item = results[i];
+                    if (item.status === 'fulfilled' && item.value) {
+                        pointMap.set(keyDates[i], item.value);
+                        appliedCount++;
                     }
+                }
 
-                    // 仅覆盖命中的日期，未命中日期保持原本的按日值（通常为 0）
-                    for (let i = 0; i < dates.length; i++) {
-                        const dateKey = dates[i];
-                        if (pointMap.has(dateKey)) {
-                            const p = pointMap.get(dateKey);
-                            profitData[i] = parseFloat(p.profit || 0) || 0;
-                            expensesData[i] = parseFloat(p.expenses || 0) || 0;
-                            netProfitData[i] = profitData[i] + expensesData[i];
-                            earningsData[i] = netProfitData[i] * (ownershipPercentage / 100);
-                        }
+                // 仅覆盖命中的日期，未命中日期保持原本的按日值（通常为 0）
+                for (let i = 0; i < dates.length; i++) {
+                    const dateKey = dates[i];
+                    if (pointMap.has(dateKey)) {
+                        const p = pointMap.get(dateKey);
+                        profitData[i] = parseFloat(p.profit || 0) || 0;
+                        expensesData[i] = parseFloat(p.expenses || 0) || 0;
+                        netProfitData[i] = profitData[i] + expensesData[i];
+                        earningsData[i] = netProfitData[i] * (ownershipPercentage / 100);
                     }
+                }
 
-                    chartMetadata.profitData = profitData;
-                    chartMetadata.expensesData = expensesData;
-                    chartMetadata.netProfitData = netProfitData;
-                    chartMetadata.earningsData = earningsData;
+                chartMetadata.profitData = profitData;
+                chartMetadata.expensesData = expensesData;
+                chartMetadata.netProfitData = netProfitData;
+                chartMetadata.earningsData = earningsData;
 
-                    if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 4) {
-                        trendChart.data.datasets[0].data = [...profitData];
-                        trendChart.data.datasets[1].data = [...expensesData];
-                        trendChart.data.datasets[2].data = [...netProfitData];
-                        trendChart.data.datasets[3].data = [...earningsData];
-                        trendChart.update('none');
-                    }
+                if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 4) {
+                    trendChart.data.datasets[0].data = [...profitData];
+                    trendChart.data.datasets[1].data = [...expensesData];
+                    trendChart.data.datasets[2].data = [...netProfitData];
+                    trendChart.data.datasets[3].data = [...earningsData];
+                    trendChart.update('none');
+                }
 
-                    const failedCount = results.length - appliedCount;
-                    if (failedCount > 0) {
-                        console.warn(`按日卡片口径关键日期覆盖部分失败: ${failedCount}/${results.length}`);
-                    }
-                } catch (e) {
-                    console.warn('按日卡片口径应用结果失败:', e);
+                const failedCount = results.length - appliedCount;
+                if (failedCount > 0) {
+                    console.warn(`按日卡片口径关键日期覆盖部分失败: ${failedCount}/${results.length}`);
                 }
             })
             .catch((pointError) => {
@@ -2001,43 +1987,6 @@ let allOwnerCompanies = [];
 let selectedDashboardGroup = null; // null = 显示所有
 let isDashboardGroupAllMode = false; // true = 全选 group 旗下所有公司汇总
 
-function dashboardHasGroupedCompanies() {
-    return allOwnerCompanies.some(c => c.group_id && String(c.group_id).trim() !== '');
-}
-
-/**
- * 存在 GroupID 时：未点选任何 Group（categories）且当前 session 公司属于某集团，
- * 则不应展示/选中 Currency，也不应按该公司拉取仪表盘（须先选 Group 或切到独立公司）。
- */
-function shouldSuppressDashboardForGroupedWithoutGroup() {
-    if (!dashboardHasGroupedCompanies()) return false;
-    if (selectedDashboardGroup) return false;
-    if (isDashboardGroupAllMode) return false;
-    if (!window.companyId) return false;
-    const cur = allOwnerCompanies.find(c => parseInt(c.id) === parseInt(window.companyId));
-    if (!cur) return false;
-    return !!(cur.group_id && String(cur.group_id).trim() !== '');
-}
-
-function buildEmptyDashboardPayload() {
-    return {
-        capital: 0,
-        expenses: 0,
-        profit: 0,
-        period_total: { capital: 0, expenses: 0, profit: 0 },
-        initial_balance: { capital: 0, expenses: 0, profit: 0 },
-        daily_data: {
-            capital: {},
-            expenses: {},
-            profit: {},
-            profit_payment_flow_daily: {}
-        },
-        date_range: { from: dateRange.startDate, to: dateRange.endDate },
-        ownership_percentage: 0,
-        has_ownership_setup: false
-    };
-}
-
 function loadOwnerCompanies() {
     return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php?all=1'))
         .then(response => response.json())
@@ -2132,18 +2081,12 @@ function renderGroupButtons(groups) {
                 if (independentCompanies.length > 0) {
                     const firstCompany = independentCompanies[0];
                     if (parseInt(firstCompany.id) !== parseInt(window.companyId)) {
-                        await switchCompany(firstCompany.id, firstCompany.company_id);
+                        switchCompany(firstCompany.id, firstCompany.company_id);
                     } else {
                         renderCompanyButtons(allOwnerCompanies);
-                        await loadCurrencies();
-                        lastRequestParams = null;
-                        await loadData(true);
                     }
                 } else {
                     renderCompanyButtons(allOwnerCompanies);
-                    await loadCurrencies();
-                    lastRequestParams = null;
-                    await loadData(true);
                 }
             } else {
                 // 选择该 group
@@ -2291,17 +2234,9 @@ function loadCurrencies() {
         if (wrapper) wrapper.style.display = 'none';
         return Promise.resolve();
     }
-    if (shouldSuppressDashboardForGroupedWithoutGroup()) {
-        window.dashboardCurrency = '';
-        const wrapper = document.getElementById('currency-buttons-wrapper');
-        const container = document.getElementById('currency-buttons-container');
-        if (container) container.innerHTML = '';
-        if (wrapper) wrapper.style.display = 'none';
-        return Promise.resolve();
-    }
     return Promise.all([
         fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${window.companyId}`)).then(res => res.json()),
-        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`)).then(res => res.json()).catch(() => null)
+        fetch(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
     ])
         .then(([data, orderData]) => {
             const wrapper = document.getElementById('currency-buttons-wrapper');
@@ -2430,7 +2365,7 @@ function initDashboardCurrencyDragDrop() {
             localStorage.setItem('transaction_currency_order_global', serialized);
 
             // 同时永久保存到数据库
-            fetch(buildApiUrl('api/transactions/user_currency_order_api.php'), {
+            fetch('api/transactions/user_currency_order_api.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ order: newOrder })
@@ -2526,12 +2461,15 @@ async function switchCompany(companyId, companyCode) {
 
         console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
 
-        // 无刷新切换：重置币别并重新拉取币别与仪表板数据，避免整页闪烁
-        window.dashboardCurrency = '';
+        // 切换公司后刷新页面，使侧栏根据新 session 重新渲染（选 C168 时显示 Domain / Announcement）
+        window.location.reload();
+        return;
+
+        // 以下在 reload 后由页面重新加载时执行
+        window.dashboardCurrency = 'MYR';
         await loadCurrencies();
         lastRequestParams = null;
         await loadData(true);
-        return;
     } catch (error) {
         console.error('切换公司失败:', error);
         showError('Error switching company');

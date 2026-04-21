@@ -2223,15 +2223,29 @@ function setupSearch() {
 
         tableRows.forEach(row => {
             const items = row.querySelectorAll('.card-item');
-            const ownerCode = items[1].textContent.toLowerCase();
-            const name = items[2].textContent.toLowerCase();
-            const email = items[3].textContent.toLowerCase();
-            const companies = items[4].textContent.toLowerCase();
+            const ownerCode = items[1] ? items[1].textContent.toLowerCase() : '';
+            const name = items[2] ? items[2].textContent.toLowerCase() : '';
+            const email = items[3] ? items[3].textContent.toLowerCase() : '';
+            const groupIds = items[4] ? items[4].textContent.toLowerCase() : '';
+            // Companies 在第 6 列；「+N」折叠的公司代号只在 data-companies JSON 里
+            const companiesCol = row.querySelector('.companies-column');
+            let companiesHaystack = companiesCol ? companiesCol.textContent.toLowerCase() : '';
+            if (companiesCol) {
+                try {
+                    const full = JSON.parse(companiesCol.getAttribute('data-companies') || '[]');
+                    if (Array.isArray(full)) {
+                        companiesHaystack += ' ' + full.map(function (c) {
+                            return String(c.company_id || '').toLowerCase();
+                        }).join(' ');
+                    }
+                } catch (err) { /* ignore bad JSON */ }
+            }
 
             const matches = ownerCode.includes(searchTerm) ||
                 name.includes(searchTerm) ||
                 email.includes(searchTerm) ||
-                companies.includes(searchTerm);
+                groupIds.includes(searchTerm) ||
+                companiesHaystack.includes(searchTerm);
 
             if (matches || searchTerm === '') {
                 row.classList.remove('table-row-hidden');

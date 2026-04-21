@@ -79,57 +79,6 @@
     }
 }
 
-.language-switch-container {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin: 14px 0 0;
-}
-
-.lang-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid #8fd7f7;
-    background: #f8fcff;
-    color: #2f63d6;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1;
-    padding: 8px 14px;
-    min-width: 108px;
-    justify-content: center;
-    cursor: pointer;
-    outline: none;
-    box-shadow: 0 4px 12px rgba(0, 79, 249, 0.08);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.lang-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 16px rgba(0, 79, 249, 0.16);
-}
-
-.lang-btn:focus-visible {
-    box-shadow: 0 0 0 3px rgba(86, 204, 242, 0.35);
-}
-
-.lang-flag {
-    font-size: 16px;
-}
-
-.lang-label {
-    letter-spacing: 0.2px;
-}
-
-.lang-btn.active {
-    background: linear-gradient(135deg, #56ccf2, #004ff9);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 8px 18px rgba(0, 79, 249, 0.32);
-}
-
 /* 登录页自定义弹窗 - 与确认删除弹窗风格一致 */
 .modal-overlay {
     position: fixed;

@@ -1,5 +1,5 @@
 <?php
-// 会话超时配置（单位：秒，这里为 1 小时，与 dashboard 主页面保持一致）
+// 会话超时配置（单位：秒，这里为 1 小时，与dashboard.php保持一致）
 $sessionTimeout = 3600;
 $cookieOptions = [
     'lifetime' => $sessionTimeout,
@@ -127,7 +127,7 @@ try {
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$account['id']]);
 
-            echo json_encode(['status' => 'success', 'redirect' => dashboard_entry_url()]);
+            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
             exit;
         } else {
             if ($password_match && $has_expired) {
@@ -225,7 +225,7 @@ try {
         } else {
             // 不需要二级密码验证，直接跳转到dashboard
             $_SESSION['secondary_password_verified'] = true; // 标记为已验证（对于不需要二级密码的用户）
-            echo json_encode(['status' => 'success', 'redirect' => dashboard_entry_url()]);
+            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
         }
         exit;
         
@@ -299,7 +299,7 @@ try {
                 // Owner 的 remember me 可以存在 session 或另外处理
             }
             
-            echo json_encode(['status' => 'success', 'redirect' => dashboard_entry_url()]);
+            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
         } else {
             if ($owner_password_match && $owner_has_expired) {
                 echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);

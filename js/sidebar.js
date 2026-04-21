@@ -21,117 +21,6 @@
         female7: 'images/female7.png', female8: 'images/female8.png', female9: 'images/female9.png'
     };
     var currentAvatarId = 'male1';
-    var currentSidebarLang = 'en';
-    var SIDEBAR_I18N = {
-        en: {
-            notifications: 'Notifications',
-            chooseAvatar: 'Choose Avatar',
-            male: 'Male',
-            female: 'Female',
-            winLoss: 'Win/Loss',
-            home: 'Home',
-            domain: 'Domain',
-            announcement: 'Announcement',
-            admin: 'Admin',
-            account: 'Account',
-            ownership: 'Ownership',
-            process: 'Process',
-            dataCapture: 'Data Capture',
-            transactionPayment: 'Transaction Payment',
-            report: 'Report',
-            customerReport: 'Customer Report',
-            domainReport: 'Domain Report',
-            maintenance: 'Maintenance',
-            transaction: 'Transaction',
-            payment: 'Payment',
-            formula: 'Formula',
-            exp: 'Exp:',
-            logout: 'Logout',
-            announcements: 'Announcements',
-            close: 'Close',
-            confirmLogout: 'Are you sure you want to logout?',
-            noAnnouncements: 'No announcements',
-            loadAnnouncementsFailed: 'Failed to load announcements',
-            expired: 'Expired',
-            expiresToday: 'Expires today',
-            dayLeft: 'day left',
-            daysLeft: 'days left',
-            monthLeft: 'month left',
-            monthsLeft: 'months left',
-            noExpirationDate: 'No expiration date',
-            notice: 'Notice',
-            confirm: 'Confirm',
-            companyAccessDenied: 'Company access denied.',
-            companyExpiredNotice: 'This company since login has expired. Please contact the Customer Service.',
-            companyDateNotSetNotice: 'Please contact the Customer Service to set the expiration date.'
-        },
-        zh: {
-            notifications: '通知',
-            chooseAvatar: '选择头像',
-            male: '男',
-            female: '女',
-            winLoss: '盈亏',
-            home: '首页',
-            domain: '域名',
-            announcement: '公告',
-            admin: '管理',
-            account: '账户',
-            ownership: '归属',
-            process: '流程',
-            dataCapture: '数据采集',
-            transactionPayment: '交易支付',
-            report: '报表',
-            customerReport: '客户报表',
-            domainReport: '域名报表',
-            maintenance: '维护',
-            transaction: '交易',
-            payment: '支付',
-            formula: '公式',
-            exp: '到期:',
-            logout: '登出',
-            announcements: '公告',
-            close: '关闭',
-            confirmLogout: '确定要登出吗？',
-            noAnnouncements: '暂无公告',
-            loadAnnouncementsFailed: '公告加载失败',
-            expired: '已过期',
-            expiresToday: '今日到期',
-            dayLeft: '天后到期',
-            daysLeft: '天后到期',
-            monthLeft: '个月后到期',
-            monthsLeft: '个月后到期',
-            noExpirationDate: '未设置到期日',
-            notice: '提示',
-            confirm: '确认',
-            companyAccessDenied: '公司访问被拒绝。',
-            companyExpiredNotice: '此公司在登录后已过期，请联系客服。',
-            companyDateNotSetNotice: '请联系客服设置到期日期。'
-        }
-    };
-
-    function t(key) {
-        return (SIDEBAR_I18N[currentSidebarLang] && SIDEBAR_I18N[currentSidebarLang][key]) ||
-            (SIDEBAR_I18N.en && SIDEBAR_I18N.en[key]) ||
-            key;
-    }
-
-    function applySidebarLanguage(lang) {
-        currentSidebarLang = lang === 'zh' ? 'zh' : 'en';
-        var langToggle = document.getElementById('sidebarLangToggle');
-        if (langToggle) {
-            langToggle.classList.toggle('is-zh', currentSidebarLang === 'zh');
-            langToggle.setAttribute('aria-checked', currentSidebarLang === 'zh' ? 'true' : 'false');
-        }
-        document.querySelectorAll('[data-i18n]').forEach(function (el) {
-            var key = el.getAttribute('data-i18n');
-            if (key) el.textContent = t(key);
-        });
-        document.querySelectorAll('[data-i18n-title]').forEach(function (el) {
-            var key = el.getAttribute('data-i18n-title');
-            if (key) el.setAttribute('title', t(key));
-        });
-        updateExpirationCountdown();
-    }
 
     function closeSidebar() {
         if (!sidebar) sidebar = document.querySelector('.informationmenu');
@@ -148,14 +37,7 @@
 
     function getCurrentPageName() {
         var path = window.location.pathname;
-        var last = path.split('/').pop() || '';
-        if (last === 'dashboard') {
-            return 'dashboard';
-        }
-        if (last === 'domain' || last === 'domain.php') {
-            return 'domain';
-        }
-        return last;
+        return path.split('/').pop();
     }
 
     function setCurrentPageHighlight() {
@@ -217,8 +99,7 @@
         var genderBtns = document.querySelectorAll('.gender-btn');
         genderBtns.forEach(function (btn) {
             btn.classList.remove('active');
-            var genderKey = btn.getAttribute('data-gender') || btn.textContent.toLowerCase();
-            if (genderKey === gender) btn.classList.add('active');
+            if (btn.textContent.toLowerCase() === gender) btn.classList.add('active');
         });
         if (gender === 'male') {
             if (maleList) maleList.classList.add('show');
@@ -267,13 +148,32 @@
     }
 
     function handleLogout() {
-        if (confirm(t('confirmLogout'))) {
-            window.location.href = (typeof window.__DASHBOARD_URL__ !== 'undefined' && window.__DASHBOARD_URL__ ? window.__DASHBOARD_URL__ : 'dashboard.php') + '?logout=1';
+        if (confirm('Are you sure you want to logout?')) {
+            window.location.href = 'dashboard.php?logout=1';
         }
     }
 
+    function toggleLanguageDropdown() {
+        var dropdown = document.getElementById('languageDropdown');
+        var button = document.querySelector('.language-btn');
+        if (dropdown) dropdown.classList.toggle('show');
+        if (button) button.classList.toggle('active');
+    }
+
     function selectLanguage(lang) {
-        applySidebarLanguage(lang);
+        var dropdown = document.getElementById('languageDropdown');
+        var button = document.querySelector('.language-btn');
+        var currentFlag = document.getElementById('current-flag');
+        var currentLang = document.getElementById('current-lang');
+        if (lang === 'en') {
+            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
+            if (currentLang) currentLang.textContent = 'English';
+        } else if (lang === 'zh') {
+            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
+            if (currentLang) currentLang.textContent = '中文';
+        }
+        if (dropdown) dropdown.classList.remove('show');
+        if (button) button.classList.remove('active');
         try { localStorage.setItem('selectedLanguage', lang); } catch (e) { }
     }
 
@@ -325,11 +225,11 @@
                 contentContainer.innerHTML = '<div class="notification-empty">' +
                     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
                     '<path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>' +
-                    '</svg><p>' + escapeHtml(t('noAnnouncements')) + '</p></div>';
+                    '</svg><p>No announcements</p></div>';
             }
         }).catch(function (error) {
             console.error('Failed to load announcements:', error);
-            contentContainer.innerHTML = '<div class="notification-empty"><p>' + escapeHtml(t('loadAnnouncementsFailed')) + '</p></div>';
+            contentContainer.innerHTML = '<div class="notification-empty"><p>Failed to load announcements</p></div>';
         });
     }
 
@@ -342,13 +242,13 @@
         exp.setHours(0, 0, 0, 0);
         var diffTime = exp - today;
         var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays < 0) return { text: t('expired'), days: diffDays, status: 'expired' };
-        if (diffDays === 0) return { text: t('expiresToday'), days: 0, status: 'warning' };
-        if (diffDays <= 30) return { text: diffDays + ' ' + t('daysLeft'), days: diffDays, status: diffDays <= 7 ? 'warning' : 'normal' };
+        if (diffDays < 0) return { text: 'Expired', days: diffDays, status: 'expired' };
+        if (diffDays === 0) return { text: 'Expires today', days: 0, status: 'warning' };
+        if (diffDays <= 7) return { text: diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' left', days: diffDays, status: 'warning' };
+        if (diffDays <= 30) return { text: diffDays + ' days left', days: diffDays, status: 'normal' };
         var months = Math.floor(diffDays / 30);
         var days = diffDays % 30;
-        if (days === 0) return { text: months + ' ' + (months > 1 ? t('monthsLeft') : t('monthLeft')), days: diffDays, status: 'normal' };
-        if (currentSidebarLang === 'zh') return { text: months + '个月 ' + days + '天后到期', days: diffDays, status: 'normal' };
+        if (days === 0) return { text: months + ' month' + (months > 1 ? 's' : '') + ' left', days: diffDays, status: 'normal' };
         return { text: months + 'm ' + days + 'd left', days: diffDays, status: 'normal' };
     }
 
@@ -358,7 +258,7 @@
         var countdownText = document.getElementById('expirationCountdownText');
         if (!expirationDate || expirationDate.trim() === '' || !countdownText || !countdownContainer) {
             if (countdownText) {
-                countdownText.textContent = t('noExpirationDate');
+                countdownText.textContent = 'No expiration date';
                 countdownText.className = 'expiration-countdown-text normal';
             }
             if (countdownContainer) countdownContainer.className = 'company-expiration-countdown normal';
@@ -370,7 +270,7 @@
             countdownText.className = 'expiration-countdown-text ' + countdown.status;
             countdownContainer.className = 'company-expiration-countdown ' + countdown.status;
         } else {
-            countdownText.textContent = t('noExpirationDate');
+            countdownText.textContent = 'No expiration date';
             countdownText.className = 'expiration-countdown-text normal';
             countdownContainer.className = 'company-expiration-countdown normal';
         }
@@ -496,9 +396,9 @@
             '<circle cx="12" cy="17.2" r="1.1" fill="currentColor"></circle>' +
             '</svg>' +
             '</div>' +
-            '<h3 id="globalCompanyAccessModalTitle" class="global-company-access-modal-title">' + t('notice') + '</h3>' +
+            '<h3 id="globalCompanyAccessModalTitle" class="global-company-access-modal-title">Notice</h3>' +
             '<p id="globalCompanyAccessModalMessage" class="global-company-access-modal-message"></p>' +
-            '<button type="button" id="globalCompanyAccessModalConfirmBtn" class="global-company-access-modal-btn">' + t('confirm') + '</button>' +
+            '<button type="button" id="globalCompanyAccessModalConfirmBtn" class="global-company-access-modal-btn">Confirm</button>' +
             '</div>';
         document.body.appendChild(overlay);
         return overlay;
@@ -509,15 +409,12 @@
             var overlay = ensureCompanyAccessModal();
             var messageEl = document.getElementById('globalCompanyAccessModalMessage');
             var confirmBtn = document.getElementById('globalCompanyAccessModalConfirmBtn');
-            var titleEl = document.getElementById('globalCompanyAccessModalTitle');
             if (!overlay || !messageEl || !confirmBtn) {
-                alert(message || t('companyAccessDenied'));
+                alert(message || 'Company access denied.');
                 resolve();
                 return;
             }
-            if (titleEl) titleEl.textContent = t('notice');
-            confirmBtn.textContent = t('confirm');
-            messageEl.textContent = message || t('companyAccessDenied');
+            messageEl.textContent = message || 'Company access denied.';
             overlay.classList.add('is-open');
             overlay.setAttribute('aria-hidden', 'false');
 
@@ -544,10 +441,10 @@
         if (result && result.data && result.data.reason) reason = String(result.data.reason).toLowerCase();
         var text = String((result && (result.error || result.message)) || '').toLowerCase();
         if (reason === 'expired' || text.indexOf('expired') !== -1) {
-            return t('companyExpiredNotice');
+            return 'This company since login has expired. Please contact the Customer Service.';
         }
         if (reason === 'no_set' || text.indexOf('not set') !== -1 || text.indexOf('date is not set') !== -1) {
-            return t('companyDateNotSetNotice');
+            return 'Please contact the Customer Service to set the expiration date.';
         }
         return '';
     }
@@ -566,6 +463,7 @@
     window.selectGender = selectGender;
     window.selectAvatar = selectAvatar;
     window.handleLogout = handleLogout;
+    window.toggleLanguageDropdown = toggleLanguageDropdown;
     window.selectLanguage = selectLanguage;
     window.toggleNotificationPanel = toggleNotificationPanel;
     window.closeNotificationPanel = closeNotificationPanel;
@@ -732,15 +630,27 @@
             });
         });
 
-        var langToggle = document.getElementById('sidebarLangToggle');
-        if (langToggle) {
-            langToggle.addEventListener('click', function () {
-                selectLanguage(currentSidebarLang === 'zh' ? 'en' : 'zh');
-            });
+        document.addEventListener('click', function (e) {
+            var languageDropdown = document.querySelector('.language-dropdown');
+            var dropdown = document.getElementById('languageDropdown');
+            var button = document.querySelector('.language-btn');
+            if (languageDropdown && !languageDropdown.contains(e.target)) {
+                if (dropdown) dropdown.classList.remove('show');
+                if (button) button.classList.remove('active');
+            }
+        });
+
+        var currentLang = window.location.pathname.indexOf('/cn/') !== -1 ? 'zh' : 'en';
+        var currentFlag = document.getElementById('current-flag');
+        var currentLangText = document.getElementById('current-lang');
+        if (currentLang === 'zh') {
+            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
+            if (currentLangText) currentLangText.textContent = '中文';
+        } else {
+            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
+            if (currentLangText) currentLangText.textContent = 'English';
         }
-        var savedLanguage = 'en';
-        try { savedLanguage = localStorage.getItem('selectedLanguage') || 'en'; } catch (e) { }
-        applySidebarLanguage(savedLanguage);
+        try { localStorage.setItem('selectedLanguage', currentLang); } catch (e) { }
 
         var savedAvatar = null;
         try { savedAvatar = localStorage.getItem('selectedAvatar'); } catch (e) { }

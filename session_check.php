@@ -105,12 +105,12 @@ if (isset($_SESSION['user_id'])) {
             if (!headers_sent()) {
                 header('Content-Type: application/json');
             }
-            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => login_entry_url()]);
+            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => 'index.php']);
             exit();
         }
         
         // 重定向到登录页
-        header('Location: ' . login_entry_url());
+        header("Location: index.php");
         exit();
     }
     
@@ -229,12 +229,12 @@ if (isset($_SESSION['user_id'])) {
         if (!headers_sent()) {
             header('Content-Type: application/json');
         }
-        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => login_entry_url()]);
+        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => 'index.php']);
         exit();
     }
     
     // 重定向到登录页
-    header('Location: ' . login_entry_url());
+    header("Location: index.php");
     exit();
 }
 

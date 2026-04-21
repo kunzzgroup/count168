@@ -132,19 +132,16 @@ async function fetchAccounts() {
 
 function renderTable() {
     const container = document.getElementById('accountTableBody');
-    if (!container) return;
-    const fragment = document.createDocumentFragment();
+    container.innerHTML = '';
 
     if (accounts.length === 0) {
-        const emptyCard = document.createElement('div');
-        emptyCard.className = 'account-card';
-        emptyCard.innerHTML = `
-            <div class="account-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
-                No account data found
-            </div>
-        `;
-        fragment.appendChild(emptyCard);
-        container.replaceChildren(fragment);
+        container.innerHTML = `
+                    <div class="account-card">
+                        <div class="account-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
+                            No account data found
+                        </div>
+                    </div>
+                `;
         renderPagination();
         return;
     }
@@ -216,9 +213,8 @@ function renderTable() {
                         ${account.status === 'active' ? '' : `<input type="checkbox" class="account-row-checkbox" data-id="${account.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                     </div>
                 `;
-        fragment.appendChild(card);
+        container.appendChild(card);
     });
-    container.replaceChildren(fragment);
     renderPagination();
     updateSelectAllAccountsVisibility();
 }

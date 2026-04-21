@@ -25,32 +25,3 @@ php_value memory_limit 256M
 # 3. 如果这些设置不生效，可能需要通过 php.ini 或服务器配置来设置
 # 4. 修改后可能需要等待几分钟让配置生效
 
-# ── React SPA 路由（无 .php）：/dashboard /domain ... 统一转发到 frontend/dist/index.html ──
-<IfModule mod_rewrite.c>
-RewriteEngine On
-
-# API 保持走 PHP 后端，不走前端 SPA
-RewriteRule ^api/ - [L]
-
-# Login SPA 静态资源（Vite base 为 /login/）
-RewriteRule ^login/(.*)$ frontend/login/dist/$1 [L]
-
-# Main React SPA 静态资源
-RewriteRule ^assets/(.*)$ frontend/dist/assets/$1 [L]
-RewriteRule ^favicon\.svg$ frontend/dist/favicon.svg [L]
-
-# 如果真实文件/目录存在，直接访问
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# React 前端路由入口（history API fallback）
-# 仅对非 API / 非 login / 非 dist 静态资源进行 fallback
-RewriteCond %{REQUEST_URI} !^/api/
-RewriteCond %{REQUEST_URI} !^/login/
-RewriteCond %{REQUEST_URI} !^/assets/
-RewriteCond %{REQUEST_URI} !^/frontend/dist/assets/
-RewriteCond %{REQUEST_URI} !^/favicon\.svg$
-RewriteRule ^ frontend/dist/index.html [L]
-</IfModule>
-

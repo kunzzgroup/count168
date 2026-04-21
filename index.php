@@ -4,7 +4,7 @@ require_once 'config.php';
 
 // 如果已经登录，直接跳转到dashboard
 if (isset($_SESSION['user_id'])) {
-    header('Location: ' . dashboard_entry_url());
+    header("Location: dashboard.php");
     exit();
 }
 
@@ -55,42 +55,108 @@ if (isset($_COOKIE['remember_token'])) {
         $stmt->execute([$user['id']]);
         
         // 跳转到dashboard
-        header('Location: ' . dashboard_entry_url());
+        header("Location: dashboard.php");
         exit();
     } else {
         // Token无效或过期，清除cookie
         setcookie('remember_token', '', time() - 3600, "/", "", false, true);
     }
 }
+?>
 
-/**
- * 输出已构建的 React 登录页。工程目录：frontend/login/（源码 src/，构建 dist/）。
- * 浏览器静态路径 /login/（.htaccess → frontend/login/dist/）；子目录部署时重写 HTML 内 /login/ 前缀。
- */
-function render_login_react_spa(): void
-{
-    $spaPath = __DIR__ . '/frontend/login/dist/index.html';
-    if (!is_readable($spaPath)) {
-        if (!headers_sent()) {
-            http_response_code(503);
-            header('Content-Type: text/html; charset=UTF-8');
-        }
-        echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>EazyCount</title></head><body>';
-        echo '<p>Login UI is missing on the server (<code>frontend/login/dist/</code>).</p>';
-        echo '<p>Either deploy that folder from your PC after <code>npm run build</code>, or on the server run:</p>';
-        echo '<pre>cd frontend/login && npm install && npm run build</pre>';
-        echo '<p style="margin-top:1em">中文：请把本机构建好的 <code>frontend/login/dist</code> 整个目录上传到服务器，或在服务器进入 <code>frontend/login</code> 执行上述命令。</p></body></html>';
-        return;
-    }
-    $html = file_get_contents($spaPath);
-    $base = app_url_base();
-    $prefix = ($base === '' ? '' : $base) . '/login/';
-    $html = str_replace('/login/', $prefix, $html);
-    $html = str_replace('__EASYCOUNT_APP_ROOT__', htmlspecialchars($base, ENT_QUOTES, 'UTF-8'), $html);
-    if (!headers_sent()) {
-        header('Content-Type: text/html; charset=UTF-8');
-    }
-    echo $html;
-}
+<!DOCTYPE html>
+<html lang="en">
 
-render_login_react_spa();
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EazyCount</title>
+    <link rel="stylesheet" href="css/style.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/index.css?v=<?php echo time(); ?>" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
+</head>
+
+<body class="bg">
+
+    
+
+    <div class="login-container">
+
+        <!-- 整个登录表单上方的跑马灯维护提示（不在 form 里面） -->
+        <div class="maintenance-marquee-wrapper" id="maintenanceMarqueeWrapper" style="display: none;">
+                <div class="maintenance-marquee-track" id="maintenanceMarqueeTrack">
+                    <!-- 维护内容将在这里动态加载 -->
+                </div>
+        </div>
+    
+        <div class="role-tabs">
+                <button class="role-tab <?php echo (!isset($_GET['role']) || $_GET['role'] === 'admin') ? 'active' : ''; ?>" id="admin-tab">Admin</button>
+                <button class="role-tab <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'active' : ''; ?>" id="member-tab">Member</button>
+        </div>
+
+        <div class="login-card">
+            
+            <div class="form-content">
+                <form class="login-form" id="loginForm" method="POST">
+                    <div class="input-group">
+                        <i class="fas fa-building input-icon"></i>
+                        <input type="text" placeholder="Company / Group ID" id="company-id" name="company_id" required />
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" placeholder="Username" id="user-id" name="login_id" data-account-field="account_id" required />
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" placeholder="Password" id="password" name="password" required />
+                    </div>
+
+                    <div class="form-options">
+                        <label class="remember-switch">
+                            <input type="checkbox" name="remember_me" value="1" />
+                            <span class="slider"></span>
+                            <span class="remember-text">Remember me</span>
+                        </label>
+                        <a href="reset-password.php" class="forgot-link" style="display: <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'none' : 'block'; ?>">Forget Password?</a>
+                    </div>
+
+                    <button type="submit" class="login-btn">
+                        <span>Login</span>
+                    </button>
+
+                    <!-- <div class="language-switch-container">
+                        <a href="/cn/index.php" class="lang-switch" id="lang-switch" title="Switch Language">
+                            <span class="lang-option">中文</span>
+                            <span class="lang-option active">English</span>
+                        </a>
+                    </div> -->
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Telegram 图片 - 固定在右下角 -->
+    <img src="images/telegram.png" alt="Telegram" class="telegram-icon" />
+
+    <!-- 登录页自定义弹窗（与重置密码页风格一致） -->
+    <div id="alertModalOverlay" class="modal-overlay" aria-hidden="true">
+        <div class="modal-box" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalMessage">
+            <div class="modal-icon-wrap">
+                <i class="fas fa-exclamation-triangle modal-icon" aria-hidden="true"></i>
+            </div>
+            <h3 id="modalTitle" class="modal-title">Notice</h3>
+            <p id="modalMessage" class="modal-message"></p>
+            <div class="modal-actions">
+                <button type="button" id="modalConfirmBtn" class="modal-btn modal-btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/index.js?v=<?php echo time(); ?>"></script>
+</body>
+
+</html>

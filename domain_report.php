@@ -19,12 +19,12 @@ try {
 $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
 $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
 if ($isBankOnlyCategory) {
-    header('Location: ' . dashboard_entry_url());
+    header('Location: dashboard.php');
     exit;
 }
 
 if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
-    header('Location: ' . login_entry_url() . '?error=unauthorized_category');
+    header('Location: index.php?error=unauthorized_category');
     exit;
 }
 

@@ -61,7 +61,7 @@
                     </div>
                     
                     <div class="back-to-login">
-                        <a href="./" class="back-link">
+                        <a href="index.php" class="back-link">
                             <i class="fas fa-arrow-left"></i>
                             Back to Login
                         </a>
