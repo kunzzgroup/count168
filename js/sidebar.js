@@ -152,6 +152,9 @@
         if (last === 'dashboard') {
             return 'dashboard';
         }
+        if (last === 'domain' || last === 'domain.php') {
+            return 'domain';
+        }
         return last;
     }
 

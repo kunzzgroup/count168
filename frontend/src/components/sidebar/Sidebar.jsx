@@ -3,7 +3,7 @@ import './Sidebar.css'
 
 const MENU_ITEMS = [
   { key: 'home', label: 'Home', href: '/dashboard' },
-  { key: 'domain', label: 'Domain', href: '/domain.php' },
+  { key: 'domain', label: 'Domain', href: '/domain' },
   { key: 'announcement', label: 'Announcement', href: '/announcement.php' },
   { key: 'admin', label: 'Admin', href: '#/admin' },
   { key: 'account', label: 'Account', href: '#/account' },
@@ -32,9 +32,13 @@ function Sidebar({ currentRoute = '#/' }) {
 
   const currentPath = useMemo(() => window.location.pathname.toLowerCase(), [])
 
+  const stripPhp = (p) => p.replace(/\.php$/i, '')
+
   const isMenuActive = (href) => {
     if (href.startsWith('#/')) return currentRoute === href
-    return currentPath.endsWith(href.toLowerCase())
+    const path = stripPhp(currentPath)
+    const target = stripPhp(href.toLowerCase())
+    return path === target || path.endsWith(target)
   }
   const isSubmenuActive = (items) => items.some((item) => isMenuActive(item.href))
 

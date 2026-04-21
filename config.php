@@ -79,4 +79,14 @@ function dashboard_entry_url(): string
     $b = app_url_base();
     return ($b === '' ? '' : $b) . '/dashboard';
 }
+
+/**
+ * Domain list page URL without .php (e.g. /domain or /subdir/domain).
+ * Requires Apache mod_rewrite rule: ^domain/?$ -> domain.php (see .htaccess).
+ */
+function domain_entry_url(): string
+{
+    $b = app_url_base();
+    return ($b === '' ? '' : $b) . '/domain';
+}
 ?>

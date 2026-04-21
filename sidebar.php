@@ -337,8 +337,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <!-- Domain：C168 + userlist 角色白名单（不再要求 permissions 勾选 domain） -->
             <?php if ($hasC168DomainPageAccess): ?>
                 <div class="informationmenu-section">
-                    <div class="informationmenu-section-title" data-page="domain.php"
-                        onclick="window.location.href='domain.php'">
+                    <div class="informationmenu-section-title" data-page="domain"
+                        onclick="window.location.href=<?php echo json_encode(domain_entry_url(), JSON_UNESCAPED_SLASHES); ?>">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path
                                 d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
@@ -588,7 +588,9 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 <script>
     // B2B Cross-Account Sharing & Partnership: Partner Read-Only Mode
     window.isExternalView = <?php
-        $isDomainPage = basename($_SERVER['PHP_SELF'] ?? '') === 'domain.php';
+        $reqPath = strtolower(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '');
+        $isDomainPage = basename($_SERVER['PHP_SELF'] ?? '') === 'domain.php'
+            || preg_match('#/domain/?$#', $reqPath) === 1;
         $isPartnershipRole = isset($_SESSION['role']) && strtolower((string)$_SESSION['role']) === 'partnership';
         $isReadOnlyPartner = $isPartnershipRole && (isset($_SESSION['read_only']) && (int)$_SESSION['read_only'] === 1);
         $isForcedExternalView = isset($_SESSION['is_external_view']) && $_SESSION['is_external_view'];

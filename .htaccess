@@ -29,6 +29,7 @@ php_value memory_limit 256M
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteRule ^dashboard/?$ dashboard.php [L,QSA]
+RewriteRule ^domain/?$ domain.php [L,QSA]
 # /login/* → frontend/login/dist/（Vite base 为 /login/）
 RewriteRule ^login/(.*)$ frontend/login/dist/$1 [L]
 </IfModule>
