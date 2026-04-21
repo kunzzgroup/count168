@@ -2,10 +2,13 @@
   "name": "frontend",
   "private": true,
   "version": "0.0.0",
+  "description": "All React: src/+dist/ = admin SPA; login/ (src/+dist/) = login bundle at URL /login/. Run npm run build:all before deploy.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:login": "npm --prefix login run build",
+    "build:all": "npm run build && npm run build:login",
     "lint": "eslint .",
     "preview": "vite preview"
   },

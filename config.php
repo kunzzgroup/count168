@@ -34,7 +34,7 @@ $smtp_from_name = 'EazyCount';
 
 /**
  * Public URL path to this application root (no trailing slash), e.g. "" or "/count168test".
- * Used for redirects to the login page and for rewriting asset paths in the React login bundle.
+ * Used for redirects to the login page and for rewriting asset paths in the React login bundle (frontend/login/dist).
  */
 function app_url_base(): string
 {

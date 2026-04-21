@@ -64,11 +64,12 @@ if (isset($_COOKIE['remember_token'])) {
 }
 
 /**
- * 输出已构建的 React 登录页（login-app/）。子目录部署时由 index.php 重写资源前缀。
+ * 输出已构建的 React 登录页。工程目录：frontend/login/（源码 src/，构建 dist/）。
+ * 浏览器静态路径 /login/（.htaccess → frontend/login/dist/）；子目录部署时重写 HTML 内 /login/ 前缀。
  */
 function render_login_react_spa(): void
 {
-    $spaPath = __DIR__ . '/login-app/index.html';
+    $spaPath = __DIR__ . '/frontend/login/dist/index.html';
     if (!is_readable($spaPath)) {
         if (!headers_sent()) {
             http_response_code(503);
@@ -76,13 +77,13 @@ function render_login_react_spa(): void
         }
         echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>EazyCount</title></head><body>';
         echo '<p>Login UI has not been built yet. From this folder run:</p>';
-        echo '<pre>cd login-spa && npm install && npm run build</pre></body></html>';
+        echo '<pre>cd frontend/login && npm install && npm run build</pre></body></html>';
         return;
     }
     $html = file_get_contents($spaPath);
     $base = app_url_base();
-    $prefix = ($base === '' ? '' : $base) . '/login-app/';
-    $html = str_replace('/login-app/', $prefix, $html);
+    $prefix = ($base === '' ? '' : $base) . '/login/';
+    $html = str_replace('/login/', $prefix, $html);
     $html = str_replace('__EASYCOUNT_APP_ROOT__', htmlspecialchars($base, ENT_QUOTES, 'UTF-8'), $html);
     if (!headers_sent()) {
         header('Content-Type: text/html; charset=UTF-8');
