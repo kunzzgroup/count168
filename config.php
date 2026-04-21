@@ -31,4 +31,42 @@ $smtp_user = 'maxjk77777@gmail.com';           // 你的 Gmail，如 yourname@gm
 $smtp_pass = 'icwe kjwy otmg pjkw';           // 上一步生成的应用专用密码（16 位）
 $smtp_from_email = '';     // 留空则用 smtp_user
 $smtp_from_name = 'EazyCount';
+
+/**
+ * Public URL path to this application root (no trailing slash), e.g. "" or "/count168test".
+ * Used for redirects to the login page and for rewriting asset paths in the React login bundle.
+ */
+function app_url_base(): string
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $docRoot = @realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
+    $appDir = @realpath(__DIR__);
+    $docNorm = $docRoot ? str_replace('\\', '/', $docRoot) : '';
+    $appNorm = $appDir ? str_replace('\\', '/', $appDir) : '';
+    if ($docNorm !== '' && $appNorm !== '' && strpos($appNorm, $docNorm) === 0) {
+        $rel = substr($appNorm, strlen($docNorm));
+        $cached = rtrim($rel, '/');
+    } else {
+        $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+        $dir = rtrim(dirname($script), '/');
+        if ($dir === '.' || $dir === '/') {
+            $cached = '';
+        } else {
+            $cached = $dir;
+        }
+    }
+    return $cached;
+}
+
+/**
+ * Login entry URL without index.php (directory URL). Ends with / except document root uses "/".
+ */
+function login_entry_url(): string
+{
+    $b = app_url_base();
+    return $b === '' ? '/' : $b . '/';
+}
 ?>

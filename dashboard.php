@@ -45,7 +45,7 @@ if (isset($_SESSION['user_id'])) {
         session_destroy();
 
         // 重定向到登录页
-        header("Location: index.php");
+        header('Location: ' . login_entry_url());
         exit();
     }
 
@@ -72,7 +72,7 @@ if (isset($_SESSION['user_id'])) {
         if (isset($_COOKIE['remember_token'])) {
             setcookie('remember_token', '', time() - 3600, "/", "", false, true);
         }
-        header("Location: index.php");
+        header('Location: ' . login_entry_url());
         exit();
     }
 
@@ -87,7 +87,7 @@ if (isset($_SESSION['user_id'])) {
 
 } else {
     // 未登录，重定向到登录页
-    header("Location: index.php");
+    header('Location: ' . login_entry_url());
     exit();
 }
 

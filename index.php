@@ -62,110 +62,32 @@ if (isset($_COOKIE['remember_token'])) {
         setcookie('remember_token', '', time() - 3600, "/", "", false, true);
     }
 }
-?>
 
-<!DOCTYPE html>
-<html lang="en">
+/**
+ * 输出已构建的 React 登录页（login-app/）。子目录部署时由 index.php 重写资源前缀。
+ */
+function render_login_react_spa(): void
+{
+    $spaPath = __DIR__ . '/login-app/index.html';
+    if (!is_readable($spaPath)) {
+        if (!headers_sent()) {
+            http_response_code(503);
+            header('Content-Type: text/html; charset=UTF-8');
+        }
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>EazyCount</title></head><body>';
+        echo '<p>Login UI has not been built yet. From this folder run:</p>';
+        echo '<pre>cd login-spa && npm install && npm run build</pre></body></html>';
+        return;
+    }
+    $html = file_get_contents($spaPath);
+    $base = app_url_base();
+    $prefix = ($base === '' ? '' : $base) . '/login-app/';
+    $html = str_replace('/login-app/', $prefix, $html);
+    $html = str_replace('__EASYCOUNT_APP_ROOT__', htmlspecialchars($base, ENT_QUOTES, 'UTF-8'), $html);
+    if (!headers_sent()) {
+        header('Content-Type: text/html; charset=UTF-8');
+    }
+    echo $html;
+}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EazyCount</title>
-    <link rel="stylesheet" href="css/style.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/index.css?v=<?php echo time(); ?>" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
-</head>
-
-<body class="bg">
-
-    
-
-    <div class="login-container">
-
-        <!-- 整个登录表单上方的跑马灯维护提示（不在 form 里面） -->
-        <div class="maintenance-marquee-wrapper" id="maintenanceMarqueeWrapper" style="display: none;">
-                <div class="maintenance-marquee-track" id="maintenanceMarqueeTrack">
-                    <!-- 维护内容将在这里动态加载 -->
-                </div>
-        </div>
-    
-        <div class="role-tabs">
-                <button class="role-tab <?php echo (!isset($_GET['role']) || $_GET['role'] === 'admin') ? 'active' : ''; ?>" id="admin-tab">Admin</button>
-                <button class="role-tab <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'active' : ''; ?>" id="member-tab">Member</button>
-        </div>
-
-        <div class="login-card">
-            
-            <div class="form-content">
-                <form class="login-form" id="loginForm" method="POST">
-                    <div class="input-group">
-                        <i class="fas fa-building input-icon"></i>
-                        <input type="text" placeholder="Company / Group ID" id="company-id" name="company_id" data-i18n-placeholder="companyId" required />
-                    </div>
-                    
-                    <div class="input-group">
-                        <i class="fas fa-user input-icon"></i>
-                        <input type="text" placeholder="Username" id="user-id" name="login_id" data-account-field="account_id" data-i18n-placeholder="username" required />
-                    </div>
-                    
-                    <div class="input-group">
-                        <i class="fas fa-lock input-icon"></i>
-                        <input type="password" placeholder="Password" id="password" name="password" data-i18n-placeholder="password" required />
-                    </div>
-
-                    <div class="form-options">
-                        <label class="remember-switch">
-                            <input type="checkbox" name="remember_me" value="1" />
-                            <span class="slider"></span>
-                            <span class="remember-text" data-i18n="rememberMe">Remember me</span>
-                        </label>
-                        <a href="reset-password.php" class="forgot-link" data-i18n="forgetPassword" style="display: <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'none' : 'block'; ?>">Forget Password?</a>
-                    </div>
-
-                    <button type="submit" class="login-btn">
-                        <span data-i18n="login">Login</span>
-                    </button>
-
-                    <div class="language-switch-container" aria-label="Language switch">
-                        <button type="button" class="lang-btn active" id="lang-en" data-lang="en" aria-label="English">
-                            <span class="lang-label">English</span>
-                        </button>
-                        <button type="button" class="lang-btn" id="lang-zh" data-lang="zh" aria-label="中文">
-                            <span class="lang-label">中文</span>
-                        </button>
-                    </div>
-
-                    <!-- <div class="language-switch-container">
-                        <a href="/cn/index.php" class="lang-switch" id="lang-switch" title="Switch Language">
-                            <span class="lang-option">中文</span>
-                            <span class="lang-option active">English</span>
-                        </a>
-                    </div> -->
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Telegram 图片 - 固定在右下角 -->
-    <img src="images/telegram.png" alt="Telegram" class="telegram-icon" />
-
-    <!-- 登录页自定义弹窗（与重置密码页风格一致） -->
-    <div id="alertModalOverlay" class="modal-overlay" aria-hidden="true">
-        <div class="modal-box" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalMessage">
-            <div class="modal-icon-wrap">
-                <i class="fas fa-exclamation-triangle modal-icon" aria-hidden="true"></i>
-            </div>
-            <h3 id="modalTitle" class="modal-title" data-i18n="notice">Notice</h3>
-            <p id="modalMessage" class="modal-message"></p>
-            <div class="modal-actions">
-                <button type="button" id="modalConfirmBtn" class="modal-btn modal-btn-primary" data-i18n="confirm">Confirm</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="js/index.js?v=<?php echo time(); ?>"></script>
-</body>
-
-</html>
+render_login_react_spa();

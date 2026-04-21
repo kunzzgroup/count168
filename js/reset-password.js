@@ -170,7 +170,7 @@
                 if (data.success) {
                     await showAlertModal('Success', 'Password reset successful! Redirecting to login...');
                     setTimeout(() => {
-                        window.location.href = 'index.php';
+                        window.location.href = './';
                     }, 1500);
                 } else {
                     await showAlertModal('Notice', data.message || 'Failed to reset password. Please try again.');

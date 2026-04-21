@@ -24,7 +24,7 @@ if ($isBankOnlyCategory) {
 }
 
 if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
-    header('Location: index.php?error=unauthorized_category');
+    header('Location: ' . login_entry_url() . '?error=unauthorized_category');
     exit;
 }
 

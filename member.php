@@ -8,7 +8,7 @@ header('Pragma: no-cache');
 
 // 检查用户类型是否为member
 if (strtolower($_SESSION['user_type'] ?? '') !== 'member') {
-    header('Location: index.php');
+    header('Location: ' . login_entry_url());
     exit();
 }
 

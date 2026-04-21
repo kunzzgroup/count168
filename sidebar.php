@@ -4,11 +4,13 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/config.php';
+
 // 检查用户是否已登录
 if (!isset($_SESSION['user_id'])) {
     // 如果未登录，输出 JavaScript 重定向到登录页
     // 这样可以确保整个页面都停止工作，而不仅仅是 sidebar 消失
-    echo '<script>window.location.href = "index.php";</script>';
+    echo '<script>window.location.href = ' . json_encode(login_entry_url()) . ';</script>';
     exit();
 }
 
@@ -19,8 +21,6 @@ $user_id = $_SESSION['user_id'];
 $login_id = $_SESSION['login_id'] ?? '';
 $name = $_SESSION['name'] ?? '';
 $role = $_SESSION['role'] ?? '';
-
-require_once 'config.php';
 require_once __DIR__ . '/includes/c168_domain_access.php';
 $permissions = [];
 

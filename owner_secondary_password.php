@@ -5,7 +5,7 @@ require_once 'config.php';
 // 检查用户是否已登录（必须是通过主密码验证的owner）
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'owner') {
     // 如果不是owner或未登录，跳转到登录页
-    header("Location: index.php");
+    header('Location: ' . login_entry_url());
     exit();
 }
 

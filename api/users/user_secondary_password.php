@@ -13,7 +13,7 @@ $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'], 2), '/');
 
 // 检查用户是否已登录（必须是user类型，且属于c168公司）
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'user') {
-    header("Location: {$basePath}/index.php");
+    header('Location: ' . login_entry_url());
     exit();
 }
 
