@@ -812,6 +812,13 @@ async function executeLoadData() {
     // Group-All 模式：不需要 window.companyId，只需要 selectedDashboardGroup
     if (!isDashboardGroupAllMode && !window.companyId) return;
 
+    if (shouldSuppressDashboardForGroupedWithoutGroup()) {
+        window.dashboardCurrency = '';
+        lastRequestParams = buildCacheKey();
+        updateDashboard(buildEmptyDashboardPayload());
+        return;
+    }
+
     // 检查参数是否仍然有效
     const checkParams = buildCacheKey();
     if (lastRequestParams === checkParams) {
@@ -1987,6 +1994,43 @@ let allOwnerCompanies = [];
 let selectedDashboardGroup = null; // null = 显示所有
 let isDashboardGroupAllMode = false; // true = 全选 group 旗下所有公司汇总
 
+function dashboardHasGroupedCompanies() {
+    return allOwnerCompanies.some(c => c.group_id && String(c.group_id).trim() !== '');
+}
+
+/**
+ * 存在 GroupID 时：未点选任何 Group（categories）且当前 session 公司属于某集团，
+ * 则不应展示/选中 Currency，也不应按该公司拉取仪表盘（须先选 Group 或切到独立公司）。
+ */
+function shouldSuppressDashboardForGroupedWithoutGroup() {
+    if (!dashboardHasGroupedCompanies()) return false;
+    if (selectedDashboardGroup) return false;
+    if (isDashboardGroupAllMode) return false;
+    if (!window.companyId) return false;
+    const cur = allOwnerCompanies.find(c => parseInt(c.id) === parseInt(window.companyId));
+    if (!cur) return false;
+    return !!(cur.group_id && String(cur.group_id).trim() !== '');
+}
+
+function buildEmptyDashboardPayload() {
+    return {
+        capital: 0,
+        expenses: 0,
+        profit: 0,
+        period_total: { capital: 0, expenses: 0, profit: 0 },
+        initial_balance: { capital: 0, expenses: 0, profit: 0 },
+        daily_data: {
+            capital: {},
+            expenses: {},
+            profit: {},
+            profit_payment_flow_daily: {}
+        },
+        date_range: { from: dateRange.startDate, to: dateRange.endDate },
+        ownership_percentage: 0,
+        has_ownership_setup: false
+    };
+}
+
 function loadOwnerCompanies() {
     return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php?all=1'))
         .then(response => response.json())
@@ -2081,12 +2125,18 @@ function renderGroupButtons(groups) {
                 if (independentCompanies.length > 0) {
                     const firstCompany = independentCompanies[0];
                     if (parseInt(firstCompany.id) !== parseInt(window.companyId)) {
-                        switchCompany(firstCompany.id, firstCompany.company_id);
+                        await switchCompany(firstCompany.id, firstCompany.company_id);
                     } else {
                         renderCompanyButtons(allOwnerCompanies);
+                        await loadCurrencies();
+                        lastRequestParams = null;
+                        await loadData(true);
                     }
                 } else {
                     renderCompanyButtons(allOwnerCompanies);
+                    await loadCurrencies();
+                    lastRequestParams = null;
+                    await loadData(true);
                 }
             } else {
                 // 选择该 group
@@ -2231,6 +2281,14 @@ window.dashboardCurrency = '';
 function loadCurrencies() {
     if (!window.companyId) {
         const wrapper = document.getElementById('currency-buttons-wrapper');
+        if (wrapper) wrapper.style.display = 'none';
+        return Promise.resolve();
+    }
+    if (shouldSuppressDashboardForGroupedWithoutGroup()) {
+        window.dashboardCurrency = '';
+        const wrapper = document.getElementById('currency-buttons-wrapper');
+        const container = document.getElementById('currency-buttons-container');
+        if (container) container.innerHTML = '';
         if (wrapper) wrapper.style.display = 'none';
         return Promise.resolve();
     }
