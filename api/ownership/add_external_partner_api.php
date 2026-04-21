@@ -154,10 +154,22 @@ try {
     }
 
     // 3. Link by inserting a 0% entry into company_ownership
-    // If matched by Group ID, we set the partner_group_id so the partner sees it under this group,
-    // while the original owner's dashboard remains completely unaffected.
-    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id) VALUES (?, 'owner', ?, 0, ?)");
-    $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
+    // Backward-compatible: if partner_group_id column is absent, fallback to legacy insert.
+    $hasPartnerGroupId = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'partner_group_id'")->rowCount() > 0;
+    if ($hasPartnerGroupId) {
+        // If matched by Group ID, set partner_group_id so partner sees this under that group.
+        $stmtInsert = $pdo->prepare("
+            INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id)
+            VALUES (?, 'owner', ?, 0, ?)
+        ");
+        $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
+    } else {
+        $stmtInsert = $pdo->prepare("
+            INSERT INTO company_ownership (company_id, owner_type, account_id, percentage)
+            VALUES (?, 'owner', ?, 0)
+        ");
+        $stmtInsert->execute([$company_id, $partnerId]);
+    }
 
     echo json_encode([
         'success' => true,
@@ -171,6 +183,7 @@ try {
     ]);
 
 } catch (PDOException $e) {
+    error_log('add_external_partner_api failed: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
         'status' => 'error',
