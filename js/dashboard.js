@@ -2179,10 +2179,12 @@ function renderCompanyButtons(companies) {
             } else {
                 // 激活 All 模式
                 isDashboardGroupAllMode = true;
+                window.dashboardCurrency = '';
                 // 只亮 All 按钮自己，公司按钮都不亮（与 transaction.php All 行为一致）
                 container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                 allBtn.classList.add('active');
                 lastRequestParams = null;
+                await loadCurrencies();
                 await loadData(true);
             }
         });
@@ -2229,9 +2231,13 @@ async function loadGroupCurrencies() {
 window.dashboardCurrency = '';
 
 function loadCurrencies() {
-    if (!window.companyId) {
+    // 未选单一公司：无 companyId，或 Group 下选了「All」汇总模式 — 不显示 Currency 行、不按单一货币筛选
+    if (!window.companyId || isDashboardGroupAllMode) {
         const wrapper = document.getElementById('currency-buttons-wrapper');
+        const container = document.getElementById('currency-buttons-container');
+        if (container) container.innerHTML = '';
         if (wrapper) wrapper.style.display = 'none';
+        window.dashboardCurrency = '';
         return Promise.resolve();
     }
     return Promise.all([
