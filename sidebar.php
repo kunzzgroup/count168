@@ -161,7 +161,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>" defer></script>
   如需 favicon 与头像预加载，可在主页面 <head> 中按需添加。
-    <link rel="icon" type="image/png" href="images/count_logo.png">
+    <link rel="icon" type="image/png" href="/images/count_logo.png">
     <link rel="preload" href="(当前用户头像 URL)" as="image">
 ================================================================================
 -->

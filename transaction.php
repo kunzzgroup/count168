@@ -48,7 +48,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Transaction Payment</title>
-    <link rel="icon" type="image/png" href="images/count_logo.png">
+    <link rel="icon" type="image/png" href="/images/count_logo.png">
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo file_exists('css/transaction.css') ? filemtime('css/transaction.css') : time(); ?>">
     <!-- Shared Date Range Picker (same UI/UX as dashboard) -->
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo file_exists('css/date-range-picker.css') ? filemtime('css/date-range-picker.css') : time(); ?>">
