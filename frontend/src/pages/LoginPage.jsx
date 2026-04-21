@@ -149,7 +149,7 @@ export default function LoginPage() {
         }
 
         if (/dashboard\.php/i.test(redirect)) {
-          navigate("/dashboard", { replace: true });
+          navigate("dashboard", { replace: true });
           return;
         }
 

@@ -6,7 +6,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
-      <Route path="/dashboard" element={<TransactionDashboardPage />} />
+      <Route path="dashboard" element={<TransactionDashboardPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
