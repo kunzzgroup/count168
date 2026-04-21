@@ -9,6 +9,7 @@ header('Content-Type: application/json; charset=utf-8');
 $pdo = null;
 try {
     require_once __DIR__ . '/../../config.php';
+    require_once __DIR__ . '/../../includes/c168_domain_access.php';
 } catch (Throwable $e) {
     // Do not fail bootstrap because of DB wiring errors; session data is still enough for routing.
     error_log('current_user_api config load failed: ' . $e->getMessage());
@@ -31,9 +32,38 @@ $needsOwnerSecondary = ($userType === 'owner')
 $companyId = isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : null;
 $expirationHint = 'No expiration date';
 $expirationStatus = 'normal';
+$permissions = [];
+$isCurrentCompanyC168 = false;
+$hasC168DomainPageAccess = false;
+$companyHasGambling = false;
+$companyHasBank = false;
 
 if ($companyId && $pdo instanceof PDO) {
     try {
+        $stmtPerm = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
+        $stmtPerm->execute([$_SESSION['user_id']]);
+        $userPermissions = $stmtPerm->fetchColumn();
+        $permissions = $userPermissions ? (json_decode((string) $userPermissions, true) ?: []) : [];
+
+        $companyCode = strtoupper(trim((string) ($_SESSION['company_code'] ?? '')));
+        if ($companyCode === 'C168') {
+            $isCurrentCompanyC168 = true;
+        } else {
+            $stmtC168 = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+            $stmtC168->execute([$companyId]);
+            $isCurrentCompanyC168 = ((int) $stmtC168->fetchColumn()) > 0;
+        }
+        $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($_SESSION['role'] ?? '')));
+
+        $stmtCompanyPerm = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+        $stmtCompanyPerm->execute([$companyId]);
+        $companyPermsRaw = $stmtCompanyPerm->fetchColumn();
+        $companyPerms = $companyPermsRaw ? (json_decode((string) $companyPermsRaw, true) ?: []) : [];
+        if (is_array($companyPerms)) {
+            $companyHasGambling = in_array('Games', $companyPerms, true) || in_array('Gambling', $companyPerms, true);
+            $companyHasBank = in_array('Bank', $companyPerms, true);
+        }
+
         $stmt = $pdo->prepare('SELECT expiration_date FROM company WHERE id = ?');
         $stmt->execute([$companyId]);
         $companyExpirationDate = $stmt->fetchColumn();
@@ -84,6 +114,11 @@ echo json_encode([
         'login_id' => (string) ($_SESSION['login_id'] ?? ''),
         'role' => (string) ($_SESSION['role'] ?? ''),
         'user_type' => $userType,
+        'permissions' => is_array($permissions) ? array_values($permissions) : [],
+        'is_current_company_c168' => $isCurrentCompanyC168,
+        'has_c168_domain_page_access' => $hasC168DomainPageAccess,
+        'company_has_gambling' => $companyHasGambling,
+        'company_has_bank' => $companyHasBank,
         'company_id' => $companyId ?: null,
         'needs_owner_secondary' => $needsOwnerSecondary,
         'expiration_hint' => $expirationHint,

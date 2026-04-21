@@ -428,6 +428,9 @@ export default function TransactionDashboardPage() {
   );
 
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
+  const permissions = Array.isArray(me?.permissions) ? me.permissions : [];
+  const hasFullPermissions = permissions.length === 0;
+  const canAccess = (key) => hasFullPermissions || permissions.includes(key);
 
   const onGroupClick = async (gid) => {
     if (selectedGroup === gid) {
@@ -486,104 +489,156 @@ export default function TransactionDashboardPage() {
 
         <div className="informationmenu-content">
           <div className="content-separator" />
-          <div className="informationmenu-section">
-            <div className="informationmenu-section-title current-page">
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-              </svg>
-              Home
+          {canAccess("home") && (
+            <div className="informationmenu-section">
+              <div className="informationmenu-section-title current-page">
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                </svg>
+                Home
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div
-              className="informationmenu-section-title account-direct"
-              onClick={() => window.location.assign(phpHref("userlist.php"))}
-              role="presentation"
-            >
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-              </svg>
-              Admin
+          )}
+          {me?.has_c168_domain_page_access && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title account-direct"
+                onClick={() => window.location.assign(phpHref("domain.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                </svg>
+                Domain
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div
-              className="informationmenu-section-title account-direct"
-              onClick={() => window.location.assign(phpHref("account-list.php"))}
-              role="presentation"
-            >
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
-              Account
+          )}
+          {me?.has_c168_domain_page_access && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title account-direct"
+                onClick={() => window.location.assign(phpHref("announcement.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                </svg>
+                Announcement
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div
-              className="informationmenu-section-title account-direct"
-              onClick={() => window.location.assign(phpHref("ownership.php"))}
-              role="presentation"
-            >
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-              </svg>
-              Ownership
+          )}
+          {canAccess("admin") && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title account-direct"
+                onClick={() => window.location.assign(phpHref("userlist.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                </svg>
+                Admin
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div
-              className="informationmenu-section-title"
-              onClick={() => window.location.assign(phpHref("processlist.php"))}
-              role="presentation"
-            >
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-              </svg>
-              Process
+          )}
+          {canAccess("account") && (
+            <>
+              <div className="informationmenu-section">
+                <div
+                  className="informationmenu-section-title account-direct"
+                  onClick={() => window.location.assign(phpHref("account-list.php"))}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  Account
+                </div>
+              </div>
+              <div className="informationmenu-section">
+                <div
+                  className="informationmenu-section-title account-direct"
+                  onClick={() => window.location.assign(phpHref("ownership.php"))}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                  </svg>
+                  Ownership
+                </div>
+              </div>
+            </>
+          )}
+          {canAccess("process") && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title"
+                onClick={() => window.location.assign(phpHref("processlist.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
+                Process
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div
-              className="informationmenu-section-title"
-              onClick={() => window.location.assign(phpHref("datacapture.php"))}
-              role="presentation"
-            >
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
-              </svg>
-              Data Capture
+          )}
+          {canAccess("datacapture") && me?.company_has_gambling && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title"
+                onClick={() => window.location.assign(phpHref("datacapture.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+                </svg>
+                Data Capture
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div
-              className="informationmenu-section-title"
-              onClick={() => window.location.assign(phpHref("transaction.php"))}
-              role="presentation"
-            >
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
-              </svg>
-              Transaction Payment
+          )}
+          {canAccess("payment") && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title"
+                onClick={() => window.location.assign(phpHref("transaction.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
+                </svg>
+                Transaction Payment
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div className="informationmenu-section-title">
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-              </svg>
-              Report
-              <span className="section-arrow">▶</span>
+          )}
+          {canAccess("report") && me?.company_has_gambling && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title"
+                onClick={() => window.location.assign(phpHref("customer_report.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                </svg>
+                Report
+              </div>
             </div>
-          </div>
-          <div className="informationmenu-section">
-            <div className="informationmenu-section-title">
-              <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-              </svg>
-              Maintenance
-              <span className="section-arrow">▶</span>
+          )}
+          {canAccess("maintenance") && (
+            <div className="informationmenu-section">
+              <div
+                className="informationmenu-section-title"
+                onClick={() => window.location.assign(phpHref("payment_maintenance.php"))}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                </svg>
+                Maintenance
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="informationmenu-footer">
