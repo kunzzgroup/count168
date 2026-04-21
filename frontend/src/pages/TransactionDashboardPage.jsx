@@ -521,7 +521,7 @@ export default function TransactionDashboardPage() {
                 role="presentation"
               >
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                  <path d="M3 10v4h4l5 5V5L7 10H3zm12.5 2c0-1.77-1-3.29-2.5-4.03v8.05A4.49 4.49 0 0 0 15.5 12z" />
                 </svg>
                 Announcement
               </div>
