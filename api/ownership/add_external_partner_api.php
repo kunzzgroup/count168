@@ -29,6 +29,7 @@ try {
     $stmtCheckNative = $pdo->prepare("SELECT owner_id FROM company WHERE id = ?");
     $stmtCheckNative->execute([$company_id]);
     $nativeOwner = $stmtCheckNative->fetchColumn();
+    $hasCompanyOwnership = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
 
     // 1. Check for Login ID (owner_code) match (excluding native owner)
     $partnerByLogin = null;
@@ -44,26 +45,39 @@ try {
     // - externally linked partner_group_id saved in company_ownership
     $partnerByGroup = null;
     if ($force_type === '' || $force_type === 'group') {
-        $stmtGrp = $pdo->prepare("
-            SELECT o.id, o.name, grp.group_id
-            FROM owner o
-            JOIN (
-                SELECT c.owner_id, TRIM(c.group_id) AS group_id
+        if ($hasCompanyOwnership) {
+            $stmtGrp = $pdo->prepare("
+                SELECT o.id, o.name, grp.group_id
+                FROM owner o
+                JOIN (
+                    SELECT c.owner_id, TRIM(c.group_id) AS group_id
+                    FROM company c
+                    WHERE c.group_id IS NOT NULL AND TRIM(c.group_id) <> ''
+                    UNION
+                    SELECT co.account_id AS owner_id, TRIM(co.partner_group_id) AS group_id
+                    FROM company_ownership co
+                    WHERE co.owner_type = 'owner'
+                      AND co.partner_group_id IS NOT NULL
+                      AND TRIM(co.partner_group_id) <> ''
+                ) grp ON grp.owner_id = o.id
+                WHERE UPPER(grp.group_id) = UPPER(TRIM(?))
+                  AND o.id != ?
+                  AND o.status = 'active'
+                LIMIT 1
+            ");
+            $stmtGrp->execute([$login_or_group_id, $nativeOwner]);
+        } else {
+            $stmtGrp = $pdo->prepare("
+                SELECT o.id, o.name, TRIM(c.group_id) AS group_id
                 FROM company c
-                WHERE c.group_id IS NOT NULL AND TRIM(c.group_id) <> ''
-                UNION
-                SELECT co.account_id AS owner_id, TRIM(co.partner_group_id) AS group_id
-                FROM company_ownership co
-                WHERE co.owner_type = 'owner'
-                  AND co.partner_group_id IS NOT NULL
-                  AND TRIM(co.partner_group_id) <> ''
-            ) grp ON grp.owner_id = o.id
-            WHERE UPPER(grp.group_id) = UPPER(TRIM(?))
-              AND o.id != ?
-              AND o.status = 'active'
-            LIMIT 1
-        ");
-        $stmtGrp->execute([$login_or_group_id, $nativeOwner]);
+                JOIN owner o ON c.owner_id = o.id
+                WHERE UPPER(TRIM(c.group_id)) = UPPER(TRIM(?))
+                  AND o.id != ?
+                  AND o.status = 'active'
+                LIMIT 1
+            ");
+            $stmtGrp->execute([$login_or_group_id, $nativeOwner]);
+        }
         $partnerByGroup = $stmtGrp->fetch(PDO::FETCH_ASSOC);
     }
 
