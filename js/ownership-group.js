@@ -557,7 +557,7 @@ function geConfirmEdit(groupId) {
 
 // ── External Partner ─────────────────────────────────────────
 
-function geLinkExternalPartner(groupId, event, forceType = '') {
+function geLinkExternalPartner(groupId, event, forceType = 'group') {
     const loginIdInput = document.getElementById(`ge-partner-login-${groupId}`);
     const loginId = loginIdInput.value.trim();
     if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }
@@ -581,8 +581,13 @@ function geLinkExternalPartner(groupId, event, forceType = '') {
                 geCancelEdit(groupId, true);
                 setTimeout(() => geToggleCard(groupId), 300);
             } else if (res.status === 'conflict') {
-                // Simplified conflict handling — just show the error
-                showToast('Multiple matches found. Please specify login or group ID more precisely.', 'error');
+                // Group Earnings context: user intent is usually linking by Group ID.
+                // Auto-retry once by forcing group match to avoid AP-like collision noise.
+                if (forceType !== 'group') {
+                    geLinkExternalPartner(groupId, event, 'group');
+                    return;
+                }
+                showToast('Group ID 与 Login ID 同时命中，请确认输入的是对方 Group ID。', 'error');
             } else {
                 showToast(res.message, 'error');
             }
