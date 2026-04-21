@@ -155,9 +155,21 @@ try {
         exit();
     }
 
-    // Insert 0% entry
-    $stmtInsert = $pdo->prepare("INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage, partner_group_id) VALUES (?, ?, ?, 'owner', 0, ?)");
-    $stmtInsert->execute([$group_id, $currentOwnerId, $partnerId, $matched_by_group]);
+    // Insert 0% entry (backward-compatible with old schema)
+    $hasPartnerGroupId = $pdo->query("SHOW COLUMNS FROM group_ownership LIKE 'partner_group_id'")->rowCount() > 0;
+    if ($hasPartnerGroupId) {
+        $stmtInsert = $pdo->prepare("
+            INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage, partner_group_id)
+            VALUES (?, ?, ?, 'owner', 0, ?)
+        ");
+        $stmtInsert->execute([$group_id, $currentOwnerId, $partnerId, $matched_by_group]);
+    } else {
+        $stmtInsert = $pdo->prepare("
+            INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage)
+            VALUES (?, ?, ?, 'owner', 0)
+        ");
+        $stmtInsert->execute([$group_id, $currentOwnerId, $partnerId]);
+    }
 
     echo json_encode([
         'success' => true,
@@ -171,10 +183,11 @@ try {
     ]);
 
 } catch (PDOException $e) {
+    error_log('add_group_external_partner_api failed: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
         'status' => 'error',
-        'message' => 'Database error: ' . $e->getMessage()
+        'message' => 'Database error'
     ]);
 }
 ?>
