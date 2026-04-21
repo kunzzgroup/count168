@@ -1187,9 +1187,34 @@
 
     // ==================== 切换 Company ====================
     async function switchCompany(companyId, companyCode) {
+        const normalizedCompanyId = (function (raw) {
+            if (raw === null || raw === undefined) return null;
+            const str = String(raw).trim();
+            if (!str || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') return null;
+            return str;
+        })(companyId);
+
+        // Group 取消选择后的空状态：不刷新整页，不带 company_id=null，直接清空当前页数据
+        if (!normalizedCompanyId) {
+            currentCompanyId = null;
+            selectedCurrencies = [];
+            showAllCurrencies = false;
+            currencyList = [];
+            lastSearchData = null;
+            currentDisplayData = { left_table: [], right_table: [] };
+
+            const currencyWrapper = document.getElementById('currency-buttons-wrapper');
+            const currencyContainer = document.getElementById('currency-buttons-container');
+            if (currencyContainer) currencyContainer.innerHTML = '';
+            if (currencyWrapper) currencyWrapper.style.display = 'none';
+
+            renderTables([], []);
+            return;
+        }
+
         // 先更新 session
         try {
-            const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
+            const response = await fetch(`/api/session/update_company_session_api.php?company_id=${normalizedCompanyId}`);
             const result = await response.json();
             if (!result.success) {
                 const blocked = (typeof window.handleCompanySwitchDenied === 'function')
@@ -1208,7 +1233,7 @@
 
         // 立即刷新整页，让 sidebar 按新 company 的 session 状态重渲染
         const url = new URL(window.location.href);
-        url.searchParams.set('company_id', companyId);
+        url.searchParams.set('company_id', normalizedCompanyId);
         window.location.href = url.toString();
         return;
 
