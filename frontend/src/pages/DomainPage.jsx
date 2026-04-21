@@ -173,6 +173,7 @@ export default function DomainPage() {
   const [me, setMe] = useState(null);
   const [domains, setDomains] = useState([]);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -188,10 +189,10 @@ export default function DomainPage() {
         const json = await res.json();
         if (!res.ok || !json.success || !json.data) return navigate("/login", { replace: true });
         const u = json.data;
-        if (u.user_type === "member") return window.location.assign(new URL("member.php", window.location.origin).href);
-        if (!u.has_c168_domain_page_access) return navigate("/dashboard", { replace: true });
         setMe(u);
-        window.DOMAIN_HAS_C168_CONTEXT = true;
+        // Stay in SPA /domain and render immediately.
+        setReady(true);
+        window.DOMAIN_HAS_C168_CONTEXT = !!u.has_c168_domain_page_access;
         window.DOMAIN_IS_OWNER_OR_ADMIN = ["owner", "admin"].includes(String(u.role || "").toLowerCase());
 
         const r2 = await fetch(buildApiUrl("api/domain/domain_api.php"), {
@@ -201,10 +202,16 @@ export default function DomainPage() {
           body: JSON.stringify({ action: "list" }),
         });
         const j2 = await r2.json();
+        if (!r2.ok || !j2?.success) {
+          setDomains([]);
+          setLoadError(j2?.message || "Failed to load domain data");
+          return;
+        }
         setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
-        setReady(true);
+        setLoadError("");
       } catch {
-        navigate("/login", { replace: true });
+        setReady(true);
+        setLoadError("Failed to load domain data");
       }
     })();
 
@@ -268,6 +275,11 @@ export default function DomainPage() {
 
       <div className="container">
         <h1>Domain List</h1>
+        {loadError && (
+          <div style={{ marginBottom: 10, color: "#b91c1c", fontWeight: 600 }}>
+            {loadError}
+          </div>
+        )}
         <div className="action-buttons" style={{ marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button className="btn btn-add" onClick={() => window.openAddModal?.()}>Add Domain</button>
