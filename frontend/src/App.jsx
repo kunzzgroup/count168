@@ -8,32 +8,44 @@ import DashboardPage from './pages/dashboard/DashboardPage.jsx'
 import DomainPage from './pages/domain/DomainPage.jsx'
 import './App.css'
 
+function normalizeRoute(pathname) {
+  const path = (pathname || '/').toLowerCase()
+  if (path.endsWith('/dashboard')) return '/dashboard'
+  if (path.endsWith('/domain')) return '/domain'
+  if (path.endsWith('/announcement')) return '/announcement'
+  if (path.endsWith('/admin')) return '/admin'
+  if (path.endsWith('/account')) return '/account'
+  if (path.endsWith('/process')) return '/process'
+  if (path.endsWith('/logout')) return '/logout'
+  return '/dashboard'
+}
+
 function App() {
-  const [currentRoute, setCurrentRoute] = useState(window.location.hash || '#/')
+  const [currentRoute, setCurrentRoute] = useState(normalizeRoute(window.location.pathname))
 
   useEffect(() => {
-    const onHashChange = () => setCurrentRoute(window.location.hash || '#/')
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
+    const onPopState = () => setCurrentRoute(normalizeRoute(window.location.pathname))
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
   return (
     <div className="app-layout">
       <Sidebar currentRoute={currentRoute} />
       <main className="app-content">
-        {currentRoute === '#/dashboard' ? (
+        {currentRoute === '/dashboard' ? (
           <DashboardPage />
-        ) : currentRoute === '#/domain' ? (
+        ) : currentRoute === '/domain' ? (
           <DomainPage />
-        ) : currentRoute === '#/announcement' ? (
+        ) : currentRoute === '/announcement' ? (
           <AnnouncementManagementPage />
-        ) : currentRoute === '#/admin' ? (
+        ) : currentRoute === '/admin' ? (
           <AdminPage />
-        ) : currentRoute === '#/account' ? (
+        ) : currentRoute === '/account' ? (
           <AccountPage />
-        ) : currentRoute === '#/process' ? (
+        ) : currentRoute === '/process' ? (
           <ProcessPage />
-        ) : currentRoute === '#/logout' ? (
+        ) : currentRoute === '/logout' ? (
           <section style={{ padding: '16px' }}>
             <h1 style={{ margin: 0, color: '#0f172a' }}>Logout</h1>
             <div style={{ height: 1, background: '#e2e8f0', margin: '12px 0 16px' }} />

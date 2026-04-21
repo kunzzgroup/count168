@@ -25,12 +25,21 @@ php_value memory_limit 256M
 # 3. 如果这些设置不生效，可能需要通过 php.ini 或服务器配置来设置
 # 4. 修改后可能需要等待几分钟让配置生效
 
-# ── 简洁 URL：/dashboard 内部转发到 dashboard.php（需启用 mod_rewrite）──
+# ── React SPA 路由（无 .php）：/dashboard /domain ... 统一转发到 frontend/dist/index.html ──
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteRule ^dashboard/?$ dashboard.php [L,QSA]
-RewriteRule ^domain/?$ domain.php [L,QSA]
-# /login/* → frontend/login/dist/（Vite base 为 /login/）
+
+# API 保持走 PHP 后端，不走前端 SPA
+RewriteRule ^api/ - [L]
+
+# Login SPA 静态资源（Vite base 为 /login/）
 RewriteRule ^login/(.*)$ frontend/login/dist/$1 [L]
+
+# Main React SPA 静态资源
+RewriteRule ^assets/(.*)$ frontend/dist/assets/$1 [L]
+RewriteRule ^favicon\.svg$ frontend/dist/favicon.svg [L]
+
+# React 前端路由入口（不依赖 PHP 前端页面）
+RewriteRule ^(dashboard|domain|announcement|admin|account|ownership|process|datacapture|payment|customer_report|domain_report|capture_maintenance|transaction_maintenance|payment_maintenance|formula_maintenance|bankprocess_maintenance|logout)/?$ frontend/dist/index.html [L]
 </IfModule>
 
