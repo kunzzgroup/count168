@@ -798,9 +798,46 @@ try {
     $date_from_db = date('Y-m-d 00:00:00', $from_ts);
     $date_to_db = date('Y-m-d 23:59:59', $to_ts);
 
-    // 修复：transaction payment 必须优先保证实时与日期归属准确；
-    // 先禁用文件缓存，避免 Resend/删除后短时间命中旧结果导致显示错位和同步延迟。
+    // 超短时微缓存（按用户 + 查询条件），用于吸收短时间内重复请求，减轻数据库压力。
+    // 仅缓存极短时间，兼顾实时性与加载速度。
     $cache_file = null;
+    $cache_ttl_seconds = 3;
+    $cache_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache';
+    if (!is_dir($cache_dir)) {
+        @mkdir($cache_dir, 0777, true);
+    }
+    if (is_dir($cache_dir)) {
+        $cache_key_payload = [
+            'user_id' => (int) ($_SESSION['user_id'] ?? 0),
+            'user_type' => strtolower((string) ($_SESSION['user_type'] ?? '')),
+            'role' => strtolower((string) ($_SESSION['role'] ?? '')),
+            'company_id' => (int) $company_id,
+            'date_from' => $date_from_db,
+            'date_to' => $date_to_db,
+            'show_inactive' => (int) $show_inactive,
+            'show_capture_only' => (int) $show_capture_only,
+            'hide_zero_balance' => (int) $hide_zero_balance,
+            'categories' => array_values($category_filters),
+            'currencies' => array_values($currency_filters),
+            'target_account_ids' => array_values($target_account_ids),
+        ];
+        sort($cache_key_payload['categories']);
+        sort($cache_key_payload['currencies']);
+        sort($cache_key_payload['target_account_ids']);
+        $cache_hash = sha1(json_encode($cache_key_payload, JSON_UNESCAPED_UNICODE));
+        $cache_file = $cache_dir . DIRECTORY_SEPARATOR . $cache_hash . '.json';
+
+        if (is_file($cache_file)) {
+            $age = time() - (int) @filemtime($cache_file);
+            if ($age >= 0 && $age <= $cache_ttl_seconds) {
+                $cached = @file_get_contents($cache_file);
+                if ($cached !== false && $cached !== '') {
+                    echo $cached;
+                    exit;
+                }
+            }
+        }
+    }
 
     // 构建账户查询条件
     $where_conditions = [];
