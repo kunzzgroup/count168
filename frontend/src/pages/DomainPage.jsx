@@ -28,26 +28,155 @@ const AVATAR_MAP = {
   female9: "/images/female9.png",
 };
 
+const LEGACY_MODAL_HTML = `
+<div id="domainFeeSettingsModal" class="modal" style="z-index: 10004;">
+  <div class="modal-content" style="max-width: 440px;">
+    <span class="close" onclick="closeDomainFeeSettingsModal()">&times;</span>
+    <h2>Price</h2>
+    <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
+      <p style="color: #64748b; font-size: clamp(10px, 0.78vw, 14px); margin: 0 0 10px 0;">Set default amounts for the domain list (saved for C168 admin use).</p>
+      <div id="domainFeeSummaryDisplay" class="domain-fee-summary-display" aria-live="polite"></div>
+      <p class="domain-fee-edit-hint">Edit fields below support up to 2 decimal places.</p>
+      <div class="form-group">
+        <label for="domainFeePrice">Price <span class="domain-fee-decimals-hint">(edit)</span></label>
+        <input type="number" id="domainFeePrice" class="form-group input" step="0.01" placeholder="0.00" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
+      </div>
+      <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-save" onclick="saveDomainFeeSettings()">Save</button>
+        <button type="button" class="btn btn-cancel" onclick="closeDomainFeeSettingsModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="confirmModal" class="modal">
+  <div class="confirm-modal-content">
+    <div class="confirm-icon-container">
+      <svg class="confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+    </div>
+    <h2 class="confirm-title">Confirm Delete</h2>
+    <p id="confirmMessage" class="confirm-message"></p>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-cancel confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button type="button" class="btn btn-delete confirm-delete" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="companyExpirationModal" class="modal" style="z-index: 10002;">
+  <div class="modal-content" style="max-width: 600px;">
+    <span class="close" onclick="closeCompanyExpirationModal()">&times;</span>
+    <h2>Company Expiration Status</h2>
+    <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
+      <div id="companyExpirationList" style="min-height: 100px; max-height: 400px; overflow-y: auto;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="companyExpDateModal" class="modal" style="z-index: 10003;">
+  <div class="modal-content company-settings-modal-content company-settings-modal-content--split">
+    <span class="close" onclick="closeCompanyExpDateModal(true)">&times;</span>
+    <h2>Company Settings</h2>
+    <div class="modal-body company-settings-modal-body">
+      <div class="company-settings-split">
+        <div id="companySettingsPanelGeneral" class="company-settings-split-left">
+          <h3 class="company-settings-column-title">Company settings</h3>
+          <div class="form-group">
+            <label id="expDateCompanyName" style="font-weight: bold; font-size: clamp(12px, 1.04vw, 16px); color: #1e293b; margin-bottom: 15px;">Company: </label>
+          </div>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 140px;">
+              <label for="expDateStartDate">Start Date</label>
+              <input type="date" id="expDateStartDate" class="form-group input" style="width: 100%; padding: clamp(4px, 0.31vw, 6px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
+              <small style="color: #64748b; font-size: clamp(7px, 0.52vw, 10px); margin-top: 4px; display: block;" id="expDateStartDateHelp">Select the start date for calculating expiration date</small>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 140px;">
+              <label for="expDatePeriod">Period</label>
+              <select id="expDatePeriod" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
+                <option value="">Select Period</option>
+                <option value="7days">7 Days</option><option value="1month">1 Month</option><option value="3months">3 Months</option><option value="6months">6 Months</option><option value="1year">1 Year</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label style="font-size: clamp(9px, 0.73vw, 13px);">Expiration Date</label>
+            <div style="padding: clamp(5px, 0.5vw, 8px); background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: clamp(4px, 0.42vw, 6px); font-size: clamp(10px, 0.78vw, 14px); font-weight: 600; color: #1e293b; text-align: center;" id="expDateDisplay">Not set</div>
+          </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label style="margin-bottom: 2px;">Permissions (for Process List & Data Capture)</label>
+            <div class="permission-toggle-row">
+              <label class="permission-toggle-btn" id="permissionLabelGambling"><input type="checkbox" value="Games" id="permissionGambling" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)"><span>Games</span></label>
+              <label class="permission-toggle-btn" id="permissionLabelBank"><input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)"><span>Bank</span></label>
+              <label class="permission-toggle-btn" id="permissionLabelLoan"><input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)"><span>Loan</span></label>
+              <label class="permission-toggle-btn" id="permissionLabelRate"><input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)"><span>Rate</span></label>
+              <label class="permission-toggle-btn" id="permissionLabelMoney"><input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)"><span>Money</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true"></div>
+        <div id="companySettingsPanelShare" class="company-settings-split-right">
+          <div class="company-settings-share-header">
+            <h3 class="company-settings-column-title company-settings-share-title">Share %</h3>
+            <div class="company-share-charge-on-save"><span class="company-share-charge-on-save__state" id="companyShareChargeState" aria-hidden="true">Off</span><label class="company-share-charge-switch"><input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" onchange="syncCompanyShareChargeToggleUi()"><span class="company-share-charge-switch__track" aria-hidden="true"><span class="company-share-charge-switch__thumb"></span></span></label></div>
+          </div>
+          <div class="company-share-scroll">
+            <div class="company-share-role-card" data-share-card="sales"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsSales" onclick="toggleShareRoleCard('sales')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--sales">Sales</span><span class="company-share-account-count-display" id="shareAccountSummary-sales">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalSales">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-sales"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('sales');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsSales" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add Account</button></div></div>
+            <div class="company-share-role-card" data-share-card="cs"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsCs" onclick="toggleShareRoleCard('cs')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--cs">CS</span><span class="company-share-account-count-display" id="shareAccountSummary-cs">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalCs">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-cs"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('cs');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsCs" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add Account</button></div></div>
+            <div class="company-share-role-card" data-share-card="it"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsIt" onclick="toggleShareRoleCard('it')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--it">IT</span><span class="company-share-account-count-display" id="shareAccountSummary-it">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalIt">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-it"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('it');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsIt" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add Account</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions company-settings-form-actions"><button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button><button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()">Reset</button><button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal(true)">Cancel</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="domainModal" class="modal">
+  <div class="modal-container-wide">
+    <div class="modal-header-wide"><h2 id="modalTitle">EDIT DOMAIN</h2><button class="modal-close-btn" onclick="closeModal()">&times;</button></div>
+    <form id="domainForm">
+      <input type="hidden" id="domainId" name="id">
+      <div class="modal-body-wide">
+        <div class="section-titles-row"><div class="section-title">DOMAIN INFORMATION</div><div class="section-title">COMPANY INFORMATION</div></div>
+        <div class="section-divider"></div>
+        <div class="two-columns">
+          <div class="column-left">
+            <div class="form-group"><label for="owner_code">Owner Code *</label><input type="text" id="owner_code" name="owner_code" required></div>
+            <div class="form-group"><label for="name">Name *</label><input type="text" id="name" name="name" required></div>
+            <div class="form-group"><label for="email">Email *</label><input type="email" id="email" name="email" required pattern=".*@gmail\\.com$"></div>
+            <div class="form-group" id="passwordGroup"><label for="password">Password *</label><input type="password" id="password" name="password"></div>
+            <div class="form-group" id="secondaryPasswordGroup"><label for="secondary_password">Secondary Password *</label><input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits only" required><small class="form-hint">Must be exactly 6 digits (0-9)</small></div>
+          </div>
+          <div class="column-right">
+            <div class="inputs-row">
+              <div class="form-group" style="flex:1;"><label for="groupInput">Group ID</label><div class="input-with-btn"><input type="text" id="groupInput" placeholder="GROUP ID" style="text-transform: uppercase;"><button type="button" class="btn-inline-add" onclick="addGroupToList()">Add</button></div></div>
+              <div class="form-group" style="flex:1;"><label for="companyInput">Company ID</label><div class="input-with-btn"><input type="text" id="companyInput" placeholder="COMPANY ID" style="text-transform: uppercase;"><button type="button" class="btn-inline-add" onclick="addCompanyToList()">Add</button></div></div>
+            </div>
+            <div class="form-group" id="groupPillsSection"><label>Group :</label><div class="group-pills" id="groupPillsContainer"><span style="color: #94a3b8; font-size: 12px;">No groups created</span></div></div>
+            <div class="form-group" style="flex:1;display:flex;flex-direction:column;"><div class="selected-companies-header"><label>Selected Companies :</label><button type="button" class="badge-multi" id="multipleChoiceBtn" onclick="toggleMultipleChoice()" style="border:none;cursor:pointer;">Multiple Choice</button></div><div class="companies-list-box" id="companyItems"><span style="color: #94a3b8; font-size: 12px;">No companies added yet</span></div></div>
+            <input type="hidden" id="companies" name="companies">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-wide"><button type="submit" class="btn-wide btn-wide-confirm">Confirm</button><button type="button" class="btn-wide btn-wide-cancel" onclick="closeModal()">Cancel</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="notificationContainer" class="notification-container" style="z-index:2147483647;"></div>
+`;
+
 export default function DomainPage() {
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
   const [domains, setDomains] = useState([]);
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [ownerCode, setOwnerCode] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [secondaryPassword, setSecondaryPassword] = useState("");
-  const [companiesText, setCompaniesText] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page");
-
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = "/css/domain.css";
@@ -57,28 +186,25 @@ export default function DomainPage() {
       try {
         const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
         const json = await res.json();
-
-        if (!res.ok || !json.success || !json.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-
+        if (!res.ok || !json.success || !json.data) return navigate("/login", { replace: true });
         const u = json.data;
-        if (u.user_type === "member") {
-          window.location.assign(new URL("member.php", window.location.origin).href);
-          return;
-        }
-        if (!u.has_c168_domain_page_access) {
-          navigate("/dashboard", { replace: true });
-          return;
-        }
-
+        if (u.user_type === "member") return window.location.assign(new URL("member.php", window.location.origin).href);
+        if (!u.has_c168_domain_page_access) return navigate("/dashboard", { replace: true });
         setMe(u);
-        await loadDomains();
+        window.DOMAIN_HAS_C168_CONTEXT = true;
+        window.DOMAIN_IS_OWNER_OR_ADMIN = ["owner", "admin"].includes(String(u.role || "").toLowerCase());
+
+        const r2 = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "list" }),
+        });
+        const j2 = await r2.json();
+        setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
+        setReady(true);
       } catch {
         navigate("/login", { replace: true });
-      } finally {
-        setLoading(false);
       }
     })();
 
@@ -89,127 +215,33 @@ export default function DomainPage() {
     };
   }, [navigate]);
 
-  async function loadDomains() {
-    const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "list" }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(json.message || "Failed to load domain list");
-    }
-    setDomains(Array.isArray(json.data?.domains) ? json.data.domains : []);
-  }
-
-  const visible = useMemo(() => {
-    const kw = q.trim().toLowerCase();
-    if (!kw) return domains;
-    return domains.filter((d) => {
-      const hay = [
-        d.owner_code,
-        d.name,
-        d.email,
-        d.group_ids,
-        d.companies,
-        ...(Array.isArray(d.companies_full) ? d.companies_full.map((c) => c.company_id) : []),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(kw);
-    });
-  }, [domains, q]);
-
-  function openAdd() {
-    setEditId(null);
-    setOwnerCode("");
-    setName("");
-    setEmail("");
-    setPassword("");
-    setSecondaryPassword("");
-    setCompaniesText("");
-    setModalOpen(true);
-  }
-
-  function openEdit(d) {
-    setEditId(d.id);
-    setOwnerCode((d.owner_code || "").toUpperCase());
-    setName((d.name || "").toUpperCase());
-    setEmail((d.email || "").toLowerCase());
-    setPassword("");
-    setSecondaryPassword("");
-    const all = Array.isArray(d.companies_full) ? d.companies_full.map((c) => c.company_id).filter(Boolean) : [];
-    setCompaniesText(all.join(", "));
-    setModalOpen(true);
-  }
-
-  function parseCompaniesSimple(text) {
-    return text
-      .split(",")
-      .map((x) => x.trim().toUpperCase())
-      .filter(Boolean)
-      .map((company_id) => ({ company_id, expiration_date: null, permissions: [], group_id: null }));
-  }
-
-  async function submitForm(e) {
-    e.preventDefault();
-    if (saving) return;
-    setSaving(true);
-    try {
-      const companies = parseCompaniesSimple(companiesText);
-      const payload = {
-        action: editId ? "update" : "create",
-        ...(editId ? { id: editId } : { owner_code: ownerCode.toUpperCase().trim() }),
-        name: name.toUpperCase().trim(),
-        email: email.toLowerCase().trim(),
-        companies: JSON.stringify(companies),
-      };
-      if (!editId) {
-        payload.password = password;
-        payload.secondary_password = secondaryPassword;
-      } else {
-        if (password.trim()) payload.password = password.trim();
-        if (secondaryPassword.trim()) payload.secondary_password = secondaryPassword.trim();
-      }
-      const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || "Save failed");
-      setModalOpen(false);
-      await loadDomains();
-    } catch (err) {
-      alert(String(err.message || err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function removeDomain(id) {
-    if (!window.confirm("Delete this owner?")) return;
-    const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete", id }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      alert(json.message || "Delete failed");
+  useEffect(() => {
+    if (!ready) return;
+    const scriptId = "legacy-domain-js";
+    const initLegacy = () => {
+      if (typeof window.refreshDomainFeeSummaryFromApi === "function") window.refreshDomainFeeSummaryFromApi();
+      if (typeof window.setupSearch === "function") window.setupSearch();
+      if (typeof window.initializePagination === "function") window.initializePagination();
+      if (typeof window.syncDeleteCheckboxProtection === "function") window.syncDeleteCheckboxProtection();
+      if (typeof window.updateDeleteButton === "function") window.updateDeleteButton();
+      if (typeof window.initializeCompanyClickHandlers === "function") window.initializeCompanyClickHandlers();
+    };
+    const existing = document.getElementById(scriptId);
+    if (existing) {
+      initLegacy();
       return;
     }
-    await loadDomains();
-  }
+    const s = document.createElement("script");
+    s.id = scriptId;
+    s.src = "/js/domain.js";
+    s.onload = () => {
+      document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+      initLegacy();
+    };
+    document.body.appendChild(s);
+  }, [ready, domains]);
 
-  if (loading) {
-    return <div style={{ padding: 24 }}>Loading domain...</div>;
-  }
-
-  const avatarSrc = AVATAR_MAP[readCookie("selectedAvatar")] || AVATAR_MAP.male1;
+  const avatarSrc = useMemo(() => AVATAR_MAP[readCookie("selectedAvatar")] || AVATAR_MAP.male1, [me]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
   const permissions = Array.isArray(me?.permissions) ? me.permissions : [];
   const hasFullPermissions = permissions.length === 0;
@@ -222,264 +254,81 @@ export default function DomainPage() {
       <div className="informationmenu-overlay" style={{ display: "none" }} aria-hidden="true" />
       <div className="informationmenu">
         <div className="informationmenu-header">
-          <div className="header-logo-section">
-            <img src="/images/count_whitelogo.png" alt="EAZYCOUNT" className="header-logo" />
-          </div>
-          <div className="user-info-container">
-            <div className="avatar-selector-container">
-              <div className="current-avatar">
-                <img className="current-avatar-img" src={avatarSrc} alt="" width={36} height={36} />
-              </div>
-            </div>
-            <div className="user-info">
-              <div className="user-name">{me?.name || me?.login_id || "-"}</div>
-              <div className="user-role">{roleLabel || "User"}</div>
-            </div>
-          </div>
+          <div className="header-logo-section"><img src="/images/count_whitelogo.png" alt="EAZYCOUNT" className="header-logo" /></div>
+          <div className="user-info-container"><div className="avatar-selector-container"><div className="current-avatar"><img className="current-avatar-img" src={avatarSrc} alt="" width={36} height={36} /></div></div><div className="user-info"><div className="user-name">{me?.name || me?.login_id || "-"}</div><div className="user-role">{roleLabel || "User"}</div></div></div>
         </div>
-
         <div className="informationmenu-content">
           <div className="content-separator" />
-          {canAccess("home") && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title account-direct" onClick={() => navigate("/dashboard")} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                </svg>
-                Home
-              </div>
-            </div>
-          )}
-          {me?.has_c168_domain_page_access && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title current-page">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
-                </svg>
-                Domain
-              </div>
-            </div>
-          )}
-          {me?.has_c168_domain_page_access && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title account-direct" onClick={() => window.location.assign(phpHref("announcement.php"))} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
-                </svg>
-                Announcement
-              </div>
-            </div>
-          )}
-          {canAccess("admin") && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title account-direct" onClick={() => window.location.assign(phpHref("userlist.php"))} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-                </svg>
-                Admin
-              </div>
-            </div>
-          )}
-          {canAccess("account") && (
-            <>
-              <div className="informationmenu-section">
-                <div className="informationmenu-section-title account-direct" onClick={() => window.location.assign(phpHref("account-list.php"))} role="presentation">
-                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  Account
-                </div>
-              </div>
-              <div className="informationmenu-section">
-                <div className="informationmenu-section-title account-direct" onClick={() => window.location.assign(phpHref("ownership.php"))} role="presentation">
-                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-                  </svg>
-                  Ownership
-                </div>
-              </div>
-            </>
-          )}
-          {canAccess("process") && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title" onClick={() => window.location.assign(phpHref("processlist.php"))} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
-                Process
-              </div>
-            </div>
-          )}
-          {canAccess("datacapture") && me?.company_has_gambling && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title" onClick={() => window.location.assign(phpHref("datacapture.php"))} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
-                </svg>
-                Data Capture
-              </div>
-            </div>
-          )}
-          {canAccess("payment") && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title" onClick={() => window.location.assign(phpHref("transaction.php"))} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
-                </svg>
-                Transaction Payment
-              </div>
-            </div>
-          )}
-          {canAccess("report") && me?.company_has_gambling && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title" onClick={() => window.location.assign(phpHref("customer_report.php"))} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                </svg>
-                Report
-              </div>
-            </div>
-          )}
-          {canAccess("maintenance") && (
-            <div className="informationmenu-section">
-              <div className="informationmenu-section-title" onClick={() => window.location.assign(phpHref("payment_maintenance.php"))} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-                </svg>
-                Maintenance
-              </div>
-            </div>
-          )}
+          {canAccess("home") && <div className="informationmenu-section"><div className="informationmenu-section-title account-direct" onClick={() => navigate("/dashboard")} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>Home</div></div>}
+          {me?.has_c168_domain_page_access && <div className="informationmenu-section"><div className="informationmenu-section-title current-page"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" /></svg>Domain</div></div>}
+          {me?.has_c168_domain_page_access && <div className="informationmenu-section"><div className="informationmenu-section-title account-direct" onClick={() => window.location.assign(phpHref("announcement.php"))} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" /></svg>Announcement</div></div>}
         </div>
-
-        <div className="informationmenu-footer">
-          <div className={`company-expiration-countdown ${me?.expiration_status || "normal"}`}>
-            <svg className="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <div className="expiration-content">
-              <span className="expiration-label">Exp:</span>
-              <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>
-                {me?.expiration_hint || "-"}
-              </span>
-            </div>
-          </div>
-          <button type="button" className="btn logout-btn" onClick={logout}>
-            Logout
-          </button>
-        </div>
+        <div className="informationmenu-footer"><div className={`company-expiration-countdown ${me?.expiration_status || "normal"}`}><svg className="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg><div className="expiration-content"><span className="expiration-label">Exp:</span><span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span></div></div><button type="button" className="btn logout-btn" onClick={logout}>Logout</button></div>
       </div>
 
       <div className="container">
         <h1>Domain List</h1>
         <div className="action-buttons" style={{ marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button className="btn btn-add" onClick={openAdd}>Add Domain</button>
+            <button className="btn btn-add" onClick={() => window.openAddModal?.()}>Add Domain</button>
             <div className="search-container">
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search by Owner Name/Company"
-                value={q}
-                onChange={(e) => setQ(e.target.value.toUpperCase().replace(/[^A-Z0-9]/gi, ""))}
-              />
+              <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+              <input type="text" id="searchInput" placeholder="Search by Owner Name/Company" className="search-input" />
             </div>
+            <button type="button" className="btn btn-fee-settings" id="domainFeeSettingsBtn" onClick={() => window.openDomainFeeSettingsModal?.()}>Price</button>
+            <span id="domainFeeInlineSummary" className="domain-fee-inline-summary" aria-live="polite" />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="btn btn-delete" id="deleteSelectedBtn" onClick={() => window.deleteSelected?.()}>Delete</button>
           </div>
         </div>
         <div className="separator-line" />
         <div className="table-container">
           <div className="table-header">
-            <div className="header-item">No:</div>
-            <div className="header-item">Owner Code:</div>
-            <div className="header-item">Name:</div>
-            <div className="header-item">Email:</div>
-            <div className="header-item">GroupID:</div>
-            <div className="header-item">Companies:</div>
-            <div className="header-item">Created By:</div>
-            <div className="header-item">Action:</div>
+            <div className="header-item">No:</div><div className="header-item">Owner Code:</div><div className="header-item">Name:</div><div className="header-item">Email:</div><div className="header-item">GroupID:</div><div className="header-item">Companies:</div><div className="header-item">Created By:</div><div className="header-item">Action:</div>
           </div>
-          <div className="domain-cards" style={{ maxHeight: "calc(100vh - 260px)" }}>
-            {visible.map((d, i) => {
-              const companyList = Array.isArray(d.companies_full) ? d.companies_full.map((c) => c.company_id).filter(Boolean) : [];
-              const preview = companyList.slice(0, 3);
-              const hidden = Math.max(0, companyList.length - 3);
+          <div className="domain-cards" id="domainTableBody">
+            {domains.map((domain, idx) => {
+              const companiesFull = Array.isArray(domain.companies_full) ? domain.companies_full : [];
+              const companyList = companiesFull.map((c) => c.company_id).filter(Boolean);
+              const visible = companyList.slice(0, 3);
+              const hidden = companyList.slice(3);
               return (
-                <div className="domain-card show-card" key={d.id} data-id={d.id}>
-                  <div className="card-item">{i + 1}</div>
-                  <div className="card-item uppercase-text">{d.owner_code}</div>
-                  <div className="card-item">{d.name}</div>
-                  <div className="card-item">{d.email}</div>
-                  <div className="card-item">{d.group_ids || "-"}</div>
-                  <div className="card-item companies-column">
-                    <div className="chip-group">
-                      {preview.map((c) => (
-                        <span key={c} className="chip company-badge">{c}</span>
-                      ))}
-                      {hidden > 0 && <span className="chip-more">+{hidden}</span>}
-                    </div>
+                <div className="domain-card" data-id={domain.id} key={domain.id}>
+                  <div className="card-item">{idx + 1}</div>
+                  <div className="card-item uppercase-text">{domain.owner_code}</div>
+                  <div className="card-item">{domain.name}</div>
+                  <div className="card-item">{domain.email}</div>
+                  <div className="card-item">{domain.group_ids || "-"}</div>
+                  <div className="card-item companies-column" data-companies={JSON.stringify(companiesFull)}>
+                    {companyList.length === 0 ? "-" : (
+                      <div className="chip-group">
+                        {visible.map((companyId) => {
+                          const exp = companiesFull.find((c) => c.company_id === companyId)?.expiration_date || "";
+                          return <span key={companyId} className="chip company-badge" data-exp={exp || undefined}>{companyId}</span>;
+                        })}
+                        {hidden.length > 0 && <span className="chip-more" title={hidden.join(", ")}>+{hidden.length}</span>}
+                      </div>
+                    )}
                   </div>
-                  <div className="card-item uppercase-text">{String(d.created_by || "-").toUpperCase()}</div>
-                  <div className="card-item" style={{ gap: 8 }}>
-                    <button className="btn btn-edit edit-btn" onClick={() => openEdit(d)} aria-label="Edit">
-                      <img src="/images/edit.svg" alt="Edit" />
-                    </button>
-                    <button className="btn btn-delete" style={{ width: "auto", marginLeft: 0 }} onClick={() => removeDomain(d.id)}>
-                      Delete
-                    </button>
+                  <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
+                  <div className="card-item">
+                    <button className="btn btn-edit edit-btn" onClick={() => window.editDomain?.(domain.id)} aria-label="Edit"><img src="/images/edit.svg" alt="Edit" /></button>
+                    {String(domain.owner_code || "").toUpperCase() !== "K" && <input type="checkbox" className="domain-checkbox" value={domain.id} onChange={() => window.updateDeleteButton?.()} />}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
-
-        {modalOpen && (
-          <div className="modal" style={{ display: "block" }}>
-            <div className="modal-content">
-              <span className="close" onClick={() => setModalOpen(false)}>&times;</span>
-              <h2>{editId ? "EDIT DOMAIN" : "ADD DOMAIN"}</h2>
-              <form className="modal-body" onSubmit={submitForm} style={{ display: "block", minHeight: 0 }}>
-                {!editId && (
-                  <div className="form-group">
-                    <label>Owner Code *</label>
-                    <input value={ownerCode} onChange={(e) => setOwnerCode(e.target.value.toUpperCase())} required />
-                  </div>
-                )}
-                <div className="form-group">
-                  <label>Name *</label>
-                  <input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} required />
-                </div>
-                <div className="form-group">
-                  <label>Email *</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} required />
-                </div>
-                <div className="form-group">
-                  <label>Password {editId ? "" : "*"}</label>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required={!editId} />
-                </div>
-                <div className="form-group">
-                  <label>Secondary Password {editId ? "" : "*"}</label>
-                  <input
-                    value={secondaryPassword}
-                    onChange={(e) => setSecondaryPassword(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
-                    required={!editId}
-                    maxLength={6}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Companies (comma separated)</label>
-                  <input value={companiesText} onChange={(e) => setCompaniesText(e.target.value.toUpperCase())} placeholder="C168, 95, AG" />
-                </div>
-                <div className="form-actions">
-                  <button className="btn btn-save" type="submit" disabled={saving}>{saving ? "Saving..." : "Confirm"}</button>
-                  <button className="btn btn-cancel" type="button" onClick={() => setModalOpen(false)}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <div className="pagination-container" id="paginationContainer">
+          <button className="pagination-btn" id="prevBtn" onClick={() => window.changePage?.(-1)}>◀</button>
+          <span className="pagination-info" id="paginationInfo">1 of 1</span>
+          <button className="pagination-btn" id="nextBtn" onClick={() => window.changePage?.(1)}>▶</button>
+        </div>
       </div>
+
+      <div dangerouslySetInnerHTML={{ __html: LEGACY_MODAL_HTML }} />
     </>
   );
 }
