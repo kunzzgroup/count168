@@ -79,17 +79,84 @@ if (isset($_COOKIE['remember_token'])) {
 </head>
 
 <body class="bg">
-    <div id="login-root"></div>
 
-    <script>
-        window.__LOGIN_BOOTSTRAP__ = {
-            defaultRole: "<?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'member' : 'admin'; ?>"
-        };
-    </script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="js/login-react-app.js?v=<?php echo time(); ?>"></script>
+    
+
+    <div class="login-container">
+
+        <!-- 整个登录表单上方的跑马灯维护提示（不在 form 里面） -->
+        <div class="maintenance-marquee-wrapper" id="maintenanceMarqueeWrapper" style="display: none;">
+                <div class="maintenance-marquee-track" id="maintenanceMarqueeTrack">
+                    <!-- 维护内容将在这里动态加载 -->
+                </div>
+        </div>
+    
+        <div class="role-tabs">
+                <button class="role-tab <?php echo (!isset($_GET['role']) || $_GET['role'] === 'admin') ? 'active' : ''; ?>" id="admin-tab">Admin</button>
+                <button class="role-tab <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'active' : ''; ?>" id="member-tab">Member</button>
+        </div>
+
+        <div class="login-card">
+            
+            <div class="form-content">
+                <form class="login-form" id="loginForm" method="POST">
+                    <div class="input-group">
+                        <i class="fas fa-building input-icon"></i>
+                        <input type="text" placeholder="Company / Group ID" id="company-id" name="company_id" required />
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" placeholder="Username" id="user-id" name="login_id" data-account-field="account_id" required />
+                    </div>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" placeholder="Password" id="password" name="password" required />
+                    </div>
+
+                    <div class="form-options">
+                        <label class="remember-switch">
+                            <input type="checkbox" name="remember_me" value="1" />
+                            <span class="slider"></span>
+                            <span class="remember-text">Remember me</span>
+                        </label>
+                        <a href="reset-password.php" class="forgot-link" style="display: <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'none' : 'block'; ?>">Forget Password?</a>
+                    </div>
+
+                    <button type="submit" class="login-btn">
+                        <span>Login</span>
+                    </button>
+
+                    <!-- <div class="language-switch-container">
+                        <a href="/cn/index.php" class="lang-switch" id="lang-switch" title="Switch Language">
+                            <span class="lang-option">中文</span>
+                            <span class="lang-option active">English</span>
+                        </a>
+                    </div> -->
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Telegram 图片 - 固定在右下角 -->
+    <img src="images/telegram.png" alt="Telegram" class="telegram-icon" />
+
+    <!-- 登录页自定义弹窗（与重置密码页风格一致） -->
+    <div id="alertModalOverlay" class="modal-overlay" aria-hidden="true">
+        <div class="modal-box" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalMessage">
+            <div class="modal-icon-wrap">
+                <i class="fas fa-exclamation-triangle modal-icon" aria-hidden="true"></i>
+            </div>
+            <h3 id="modalTitle" class="modal-title">Notice</h3>
+            <p id="modalMessage" class="modal-message"></p>
+            <div class="modal-actions">
+                <button type="button" id="modalConfirmBtn" class="modal-btn modal-btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/index.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
