@@ -503,7 +503,7 @@ export default function TransactionDashboardPage() {
             <div className="informationmenu-section">
               <div
                 className="informationmenu-section-title account-direct"
-                onClick={() => navigate("/domain")}
+                onClick={() => window.location.assign(phpHref("domain.php"))}
                 role="presentation"
               >
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
