@@ -970,11 +970,26 @@ function _applyGroupFilter() {
     if (activeGroupFilter === null) {
         // Independent: companies with no group
         companiesData = allCompaniesData.filter(c => !c.group_id || c.group_id.trim() === '');
+
+        // If no independent companies exist, automatically fall back to first group
+        // so the page doesn't look "stuck" with an empty list.
+        if (companiesData.length === 0 && allGroupIds.length > 0) {
+            activeGroupFilter = allGroupIds[0];
+            companiesData = allCompaniesData.filter(c =>
+                c.group_id && c.group_id.toLowerCase() === activeGroupFilter.toLowerCase()
+            );
+        }
     } else {
         companiesData = allCompaniesData.filter(c =>
             c.group_id && c.group_id.toLowerCase() === activeGroupFilter.toLowerCase()
         );
     }
+
+    // Keep filter button active state in sync for auto-fallback case
+    document.querySelectorAll('.own-gfb-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.group === (activeGroupFilter ?? ''));
+    });
+
     renderCompanyCards();
 }
 
