@@ -14,6 +14,10 @@
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
     let activeSearchController = null;
+    let isSearchInFlight = false;
+    let activeSearchKey = '';
+    let lastCompletedSearchKey = '';
+    let lastCompletedSearchTs = 0;
 
     function syncSubmitButtonState() {
         const confirmCheckbox = document.getElementById('confirm_submit');
@@ -1879,6 +1883,8 @@
                 if (summarySection) summarySection.style.display = 'flex';
                 applyZeroBalanceFilterAndRender();
                 saveTxListSearchToSession(searchData);
+                lastCompletedSearchKey = requestKey;
+                lastCompletedSearchTs = Date.now();
                 if (!quiet) {
                     showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
                 }
@@ -1906,6 +1912,8 @@
                 }
             }
             saveTxListSearchToSession(searchData);
+            lastCompletedSearchKey = requestKey;
+            lastCompletedSearchTs = Date.now();
         };
 
         const singleSelectedCurrency = (!showAllCurrencies && selectedCurrencies.length === 1)
@@ -1913,7 +1921,25 @@
             : '';
         const categoryParam = (selectedCategories.length > 0 && !selectedCategories.includes(''))
             ? selectedCategories.join(',')
-            : ''
+            : '';
+        const requestKey = JSON.stringify({
+            dateFrom,
+            dateTo,
+            categoryParam,
+            showInactive,
+            showCaptureOnly,
+            hideZero,
+            companyId: currentCompanyId || '',
+            showAllCurrencies: !!showAllCurrencies,
+            currencies: [...selectedCurrencies].sort().join(',')
+        });
+
+        if (isSearchInFlight && activeSearchKey === requestKey) {
+            return;
+        }
+        if (!isInitialLoad && lastCompletedSearchKey === requestKey && (Date.now() - lastCompletedSearchTs) < 1200) {
+            return;
+        }
 
         // 新的搜索发起前，取消尚未完成的旧请求，避免慢请求回写覆盖新结果
         if (activeSearchController) {
@@ -1921,6 +1947,8 @@
         }
         activeSearchController = new AbortController();
         const { signal } = activeSearchController;
+        isSearchInFlight = true;
+        activeSearchKey = requestKey;
 
         fetch(url, {
             method: 'GET',
@@ -2064,6 +2092,12 @@
                 if (!silent && tablesSection) tablesSection.style.display = 'none';
                 console.error('❌ 搜索失败:', error);
                 showNotification('Search failed: ' + error.message, 'error');
+            })
+            .finally(() => {
+                if (activeSearchKey === requestKey) {
+                    isSearchInFlight = false;
+                    activeSearchKey = '';
+                }
             });
     }
 
