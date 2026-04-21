@@ -2206,6 +2206,16 @@ function renderGroupButtons(groups) {
                     '| window.companyId:', window.companyId,
                     '| groupCompanies:', JSON.stringify(groupCompanies.map(c => ({id:c.id, name:c.company_id, gid:c.group_id}))));
 
+                async function refreshDashboardAfterGroupSelect() {
+                    lastRequestParams = null;
+                    await loadCurrencies();
+                    if (isDashboardDataScopeValid()) {
+                        await loadData(true);
+                    } else {
+                        clearDashboardForInvalidScope();
+                    }
+                }
+
                 if (groupCompanies.length > 0) {
                     const firstCompany = groupCompanies[0];
                     console.log('[Dashboard] firstCompany:', firstCompany.company_id, firstCompany.id, '| same?', parseInt(firstCompany.id) === parseInt(window.companyId));
@@ -2215,12 +2225,14 @@ function renderGroupButtons(groups) {
                         // 当前公司就是该 group 的第一家，直接渲染并高亮
                         console.log('[Dashboard] Already on first company, just re-rendering');
                         renderCompanyButtons(allOwnerCompanies);
+                        await refreshDashboardAfterGroupSelect();
                     }
                 } else {
                     // groupCompanies 为空（partner 公司 group_id 与 groupId 不一致）
                     // 直接渲染，显示当前公司，通过 fallback 逻辑高亮
                     console.log('[Dashboard] No groupCompanies found for', groupId, '— re-rendering with fallback');
                     renderCompanyButtons(allOwnerCompanies);
+                    await refreshDashboardAfterGroupSelect();
                 }
             }
         });
