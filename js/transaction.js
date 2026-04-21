@@ -2031,7 +2031,7 @@
     }
 
     // ==================== 渲染表格与总计 ====================
-    // 可选第三个参数 totalsFromApi：如果后端已经计算好总计，就直接使用，保证和数据库一致
+    // 可选第三个参数 totalsFromApi：仅当 left/right 与本次展示行完全一致时使用，跳过前端合计
     function renderTables(leftRows, rightRows, totalsFromApi) {
         const normalizedRows = normalizeRateRowsByCrDr(leftRows, rightRows);
         // 按 role 排序数据
@@ -2825,8 +2825,8 @@
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
 
-        // 使用后端 totals（不受前端过滤影响），保证和数据库一致
-        renderTables(filteredLeft, filteredRight, lastSearchData.totals);
+        // 合计必须与当前表格可见行一致（Show 0 balance / Show Payment Only 等过滤后）
+        renderTables(filteredLeft, filteredRight);
     }
 
     // ==================== 处理复选框变化（改为前端重新渲染） ====================
@@ -2918,8 +2918,7 @@
             return;
         }
 
-        // 使用后端 totals（不受前端过滤影响），保证和数据库一致
-        renderTables(filteredLeft, filteredRight, lastSearchData.totals);
+        renderTables(filteredLeft, filteredRight);
     }
 
     // 提交成功后清空右侧表单（保留 Remark，便于连续多笔填同一备注）
