@@ -69,4 +69,14 @@ function login_entry_url(): string
     $b = app_url_base();
     return $b === '' ? '/' : $b . '/';
 }
+
+/**
+ * Transaction dashboard URL without .php (e.g. /dashboard or /subdir/dashboard).
+ * Requires Apache mod_rewrite rule: ^dashboard/?$ -> dashboard.php (see .htaccess).
+ */
+function dashboard_entry_url(): string
+{
+    $b = app_url_base();
+    return ($b === '' ? '' : $b) . '/dashboard';
+}
 ?>

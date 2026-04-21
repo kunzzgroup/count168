@@ -159,7 +159,7 @@
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                    window.location.href = 'dashboard.php';
+                    window.location.href = (window.__DASHBOARD_URL__ || 'dashboard.php');
                     return;
                 }
                 if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
@@ -167,7 +167,7 @@
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
-                window.location.href = 'dashboard.php';
+                window.location.href = (window.__DASHBOARD_URL__ || 'dashboard.php');
                 return;
             }
             

@@ -41,12 +41,12 @@ function dbGetCompanyC168($pdo, $company_id) {
 if (!$is_c168) {
     $_SESSION['secondary_password_verified'] = true;
     session_write_close(); // 写入完成即释放 session 锁
-    header("Location: {$basePath}/dashboard.php");
+    header('Location: ' . dashboard_entry_url());
     exit();
 }
 
 if (isset($_SESSION['secondary_password_verified']) && $_SESSION['secondary_password_verified'] === true) {
-    header("Location: {$basePath}/dashboard.php");
+    header('Location: ' . dashboard_entry_url());
     exit();
 }
 
@@ -66,14 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (password_verify($secondary_password, $user['secondary_password'])) {
                     $_SESSION['secondary_password_verified'] = true;
                     session_write_close(); // 写入完成即释放 session 锁
-                    header("Location: {$basePath}/dashboard.php");
+                    header('Location: ' . dashboard_entry_url());
                     exit();
                 }
                 $error_message = 'Secondary password is incorrect';
             } else {
                 $_SESSION['secondary_password_verified'] = true;
                 session_write_close(); // 写入完成即释放 session 锁
-                header("Location: {$basePath}/dashboard.php");
+                header('Location: ' . dashboard_entry_url());
                 exit();
             }
         } catch (PDOException $e) {

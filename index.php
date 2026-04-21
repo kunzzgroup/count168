@@ -4,7 +4,7 @@ require_once 'config.php';
 
 // 如果已经登录，直接跳转到dashboard
 if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
+    header('Location: ' . dashboard_entry_url());
     exit();
 }
 
@@ -55,7 +55,7 @@ if (isset($_COOKIE['remember_token'])) {
         $stmt->execute([$user['id']]);
         
         // 跳转到dashboard
-        header("Location: dashboard.php");
+        header('Location: ' . dashboard_entry_url());
         exit();
     } else {
         // Token无效或过期，清除cookie

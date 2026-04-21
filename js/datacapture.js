@@ -16,7 +16,7 @@ function redirectToDashboardIfUnauthorizedCategory(errorMessage) {
     const normalized = errorMessage.toLowerCase();
     const isUnauthorizedCategory = normalized.includes('unauthorized category permission') || normalized.includes('games required');
     if (!isUnauthorizedCategory) return false;
-    window.location.href = buildApiUrl('dashboard.php');
+    window.location.href = (typeof window.__DASHBOARD_URL__ !== 'undefined' && window.__DASHBOARD_URL__) ? window.__DASHBOARD_URL__ : buildApiUrl('dashboard.php');
     return true;
 }
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import './Sidebar.css'
 
 const MENU_ITEMS = [
-  { key: 'home', label: 'Home', href: '/dashboard.php' },
+  { key: 'home', label: 'Home', href: '/dashboard' },
   { key: 'domain', label: 'Domain', href: '/domain.php' },
   { key: 'announcement', label: 'Announcement', href: '/announcement.php' },
   { key: 'admin', label: 'Admin', href: '#/admin' },
@@ -110,7 +110,7 @@ function Sidebar({ currentRoute = '#/' }) {
       </div>
 
       <div className='informationmenu-footer'>
-        <a className='logout-btn' href='/dashboard.php?logout=1'>
+        <a className='logout-btn' href='/dashboard?logout=1'>
           Logout
         </a>
       </div>

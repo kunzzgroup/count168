@@ -13,7 +13,7 @@ if ($session_company_id) {
         $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
         $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
         if ($isBankOnlyCategory) {
-            header('Location: dashboard.php');
+            header('Location: ' . dashboard_entry_url());
             exit;
         }
         if (!$hasGamesPermission) {
@@ -246,6 +246,7 @@ if (!empty($session_company_id)) {
         let currentCompanyId = <?php echo json_encode($session_company_id); ?>;
         let currentCompanyCode = <?php echo json_encode($session_company_code); ?>;
         let hasSearched = false;
+        const DASHBOARD_HOME = <?php echo json_encode(dashboard_entry_url(), JSON_UNESCAPED_SLASHES); ?>;
 
         async function fetchCompanyPermissions(companyCode) {
             if (!companyCode) return [];
@@ -401,12 +402,12 @@ if (!empty($session_company_id)) {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
             if (hasGamblingFromSession === false) {
-                window.location.href = 'dashboard.php';
+                window.location.href = DASHBOARD_HOME;
                 return;
             }
             const permissions = await fetchCompanyPermissions(currentCompanyCode);
             if (isBankOnlyCategoryCompany(permissions)) {
-                window.location.href = 'dashboard.php';
+                window.location.href = DASHBOARD_HOME;
                 return;
             }
             loadProcesses();
@@ -803,7 +804,7 @@ if (!empty($session_company_id)) {
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
-                window.location.href = 'dashboard.php';
+                window.location.href = DASHBOARD_HOME;
                 return;
             }
             // Initialize date pickers

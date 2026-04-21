@@ -2,6 +2,14 @@
 session_start();
 require_once 'config.php'; // 使用统一的数据库配置
 
+// 旧地址 dashboard.php 重定向到无后缀 /dashboard（保留查询串，如 ?logout=1）
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+if (strpos($requestUri, 'dashboard.php') !== false) {
+    $qs = isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== '' ? ('?' . $_SERVER['QUERY_STRING']) : '';
+    header('Location: ' . dashboard_entry_url() . $qs, true, 302);
+    exit();
+}
+
 // 不缓存 HTML，commit 后刷新即可拿到带最新 ?v= 的页面
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
@@ -58,7 +66,7 @@ if (isset($_SESSION['user_id'])) {
         }
     }
 
-    // 先处理 logout（member 也会通过 sidebar 跳转到 dashboard.php?logout=1，必须在此处理后再重定向）
+    // 先处理 logout（member 也会通过 sidebar 跳转到 /dashboard?logout=1，必须在此处理后再重定向）
     if (isset($_GET['logout'])) {
         if (isset($_SESSION['user_id'])) {
             try {

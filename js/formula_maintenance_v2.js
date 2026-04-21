@@ -491,7 +491,7 @@ async function switchCompany(companyId, companyCode) {
     }
     const permissions = await fetchCompanyPermissions(currentCompanyCode);
     if (isBankOnlyCategoryCompany(permissions)) {
-        window.location.href = 'dashboard.php';
+        window.location.href = (window.__DASHBOARD_URL__ || 'dashboard.php');
         return;
     }
     if (typeof window.updateSidebarDataCaptureVisibility === 'function') {

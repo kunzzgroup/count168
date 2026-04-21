@@ -148,7 +148,11 @@
 
     function getCurrentPageName() {
         var path = window.location.pathname;
-        return path.split('/').pop();
+        var last = path.split('/').pop() || '';
+        if (last === 'dashboard') {
+            return 'dashboard';
+        }
+        return last;
     }
 
     function setCurrentPageHighlight() {
@@ -261,7 +265,7 @@
 
     function handleLogout() {
         if (confirm(t('confirmLogout'))) {
-            window.location.href = 'dashboard.php?logout=1';
+            window.location.href = (typeof window.__DASHBOARD_URL__ !== 'undefined' && window.__DASHBOARD_URL__ ? window.__DASHBOARD_URL__ : 'dashboard.php') + '?logout=1';
         }
     }
 

@@ -157,7 +157,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 <!--
 ================================================================================
   sidebar.php 为被 include 的片段，不在此处添加 <link> / <script src>。
-  请在主页面（如 account-list.php、dashboard.php 等）的 <head> 中加入：
+  请在主页面（如 account-list.php、/dashboard 等）的 <head> 中加入：
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>" defer></script>
   如需 favicon 与头像预加载，可在主页面 <head> 中按需添加。
@@ -167,6 +167,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 -->
 <!-- Sidebar HTML (CSS 已移至 css/sidebar.css，JS 逻辑已移至 js/sidebar.js) -->
 <!-- Overlay -->
+<script>window.__DASHBOARD_URL__=<?php echo json_encode(dashboard_entry_url(), JSON_UNESCAPED_SLASHES); ?>;</script>
 <div class="informationmenu-overlay"></div>
 
 <!-- Sidebar Menu -->
@@ -323,8 +324,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <!-- Home Section -->
             <?php if (empty($permissions) || in_array('home', $permissions)): ?>
                 <div class="informationmenu-section">
-                    <div class="informationmenu-section-title" data-page="dashboard.php"
-                        onclick="window.location.href='dashboard.php'">
+                    <div class="informationmenu-section-title" data-page="dashboard"
+                        onclick="window.location.href=<?php echo json_encode(dashboard_entry_url(), JSON_UNESCAPED_SLASHES); ?>">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                         </svg>

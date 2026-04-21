@@ -89,7 +89,7 @@ async function switchCompany(companyId, companyCode) {
     currentCompanyId = companyId;
     const permissions = await fetchCompanyPermissions(companyCode || '');
     if (isBankOnlyCategoryCompany(permissions)) {
-        window.location.href = 'dashboard.php';
+        window.location.href = (window.__DASHBOARD_URL__ || 'dashboard.php');
         return;
     }
 
@@ -482,7 +482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (window.history.length > 1) {
                 window.history.back();
             } else {
-                window.location.href = 'dashboard.php';
+                window.location.href = (window.__DASHBOARD_URL__ || 'dashboard.php');
             }
             return;
         }

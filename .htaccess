@@ -25,3 +25,9 @@ php_value memory_limit 256M
 # 3. 如果这些设置不生效，可能需要通过 php.ini 或服务器配置来设置
 # 4. 修改后可能需要等待几分钟让配置生效
 
+# ── 简洁 URL：/dashboard 内部转发到 dashboard.php（需启用 mod_rewrite）──
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^dashboard/?$ dashboard.php [L,QSA]
+</IfModule>
+

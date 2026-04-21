@@ -45,7 +45,7 @@ if ($company_id) {
 $hasC168Context = ($isC168ByCode || $isC168ById);
 
 if (!$user_id || !$hasC168Context || !userHasC168DomainPageAccess($user_role)) {
-    header("Location: dashboard.php");
+    header('Location: ' . dashboard_entry_url());
     exit();
 }
 
