@@ -39,7 +39,18 @@ RewriteRule ^login/(.*)$ frontend/login/dist/$1 [L]
 RewriteRule ^assets/(.*)$ frontend/dist/assets/$1 [L]
 RewriteRule ^favicon\.svg$ frontend/dist/favicon.svg [L]
 
-# React 前端路由入口（不依赖 PHP 前端页面）
-RewriteRule ^(dashboard|domain|announcement|admin|account|ownership|process|datacapture|payment|customer_report|domain_report|capture_maintenance|transaction_maintenance|payment_maintenance|formula_maintenance|bankprocess_maintenance|logout)/?$ frontend/dist/index.html [L]
+# 如果真实文件/目录存在，直接访问
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# React 前端路由入口（history API fallback）
+# 仅对非 API / 非 login / 非 dist 静态资源进行 fallback
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteCond %{REQUEST_URI} !^/login/
+RewriteCond %{REQUEST_URI} !^/assets/
+RewriteCond %{REQUEST_URI} !^/frontend/dist/assets/
+RewriteCond %{REQUEST_URI} !^/favicon\.svg$
+RewriteRule ^ frontend/dist/index.html [L]
 </IfModule>
 
