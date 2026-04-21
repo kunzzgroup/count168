@@ -6,7 +6,13 @@ session_start();
 session_write_close();
 header('Content-Type: application/json; charset=utf-8');
 
-require_once __DIR__ . '/../../config.php';
+$pdo = null;
+try {
+    require_once __DIR__ . '/../../config.php';
+} catch (Throwable $e) {
+    // Do not fail bootstrap because of DB wiring errors; session data is still enough for routing.
+    error_log('current_user_api config load failed: ' . $e->getMessage());
+}
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -26,7 +32,7 @@ $companyId = isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : nu
 $expirationHint = 'No expiration date';
 $expirationStatus = 'normal';
 
-if ($companyId) {
+if ($companyId && $pdo instanceof PDO) {
     try {
         $stmt = $pdo->prepare('SELECT expiration_date FROM company WHERE id = ?');
         $stmt->execute([$companyId]);
