@@ -1,8 +1,11 @@
 // 构造 API 绝对 URL（与 processlist/datacapture 一致，避免 404）
+// 注意：/dashboard/、/domain/ 等「末尾带斜杠」的路径若只 strip 文件名会得到错误目录
+//（例如 /dashboard/api/...），会导致空响应与 JSON 解析报错（Unexpected end of input）。
 function buildApiUrl(pathAndQuery) {
-    const pathname = window.location.pathname || '/';
-    const basePath = pathname.replace(/[^/]*$/, '') || '/';
-    const base = window.location.origin + basePath;
+    const raw = window.location.pathname || '/';
+    const path = raw.replace(/\/+$/, '') || '/';
+    const dir = path === '/' ? '/' : path.slice(0, path.lastIndexOf('/') + 1);
+    const base = window.location.origin + dir;
     return new URL(pathAndQuery, base).href;
 }
 const API_BASE_URL = 'api/transactions/dashboard_api.php';
@@ -1717,52 +1720,56 @@ async function updateChart(data) {
 
         Promise.allSettled(keyDates.map((d) => fetchCardPointByDate(d)))
             .then((results) => {
-                const requestKeyNow = JSON.stringify({
-                    date_from: dateRange.startDate,
-                    date_to: dateRange.endDate,
-                    company_id: window.companyId,
-                    currency: window.dashboardCurrency || ''
-                });
-                if (requestKeyNow !== requestKeyAtStart) return;
+                try {
+                    const requestKeyNow = JSON.stringify({
+                        date_from: dateRange.startDate,
+                        date_to: dateRange.endDate,
+                        company_id: window.companyId,
+                        currency: window.dashboardCurrency || ''
+                    });
+                    if (requestKeyNow !== requestKeyAtStart) return;
 
-                const pointMap = new Map();
-                let appliedCount = 0;
-                for (let i = 0; i < results.length; i++) {
-                    const item = results[i];
-                    if (item.status === 'fulfilled' && item.value) {
-                        pointMap.set(keyDates[i], item.value);
-                        appliedCount++;
+                    const pointMap = new Map();
+                    let appliedCount = 0;
+                    for (let i = 0; i < results.length; i++) {
+                        const item = results[i];
+                        if (item.status === 'fulfilled' && item.value) {
+                            pointMap.set(keyDates[i], item.value);
+                            appliedCount++;
+                        }
                     }
-                }
 
-                // 仅覆盖命中的日期，未命中日期保持原本的按日值（通常为 0）
-                for (let i = 0; i < dates.length; i++) {
-                    const dateKey = dates[i];
-                    if (pointMap.has(dateKey)) {
-                        const p = pointMap.get(dateKey);
-                        profitData[i] = parseFloat(p.profit || 0) || 0;
-                        expensesData[i] = parseFloat(p.expenses || 0) || 0;
-                        netProfitData[i] = profitData[i] + expensesData[i];
-                        earningsData[i] = netProfitData[i] * (ownershipPercentage / 100);
+                    // 仅覆盖命中的日期，未命中日期保持原本的按日值（通常为 0）
+                    for (let i = 0; i < dates.length; i++) {
+                        const dateKey = dates[i];
+                        if (pointMap.has(dateKey)) {
+                            const p = pointMap.get(dateKey);
+                            profitData[i] = parseFloat(p.profit || 0) || 0;
+                            expensesData[i] = parseFloat(p.expenses || 0) || 0;
+                            netProfitData[i] = profitData[i] + expensesData[i];
+                            earningsData[i] = netProfitData[i] * (ownershipPercentage / 100);
+                        }
                     }
-                }
 
-                chartMetadata.profitData = profitData;
-                chartMetadata.expensesData = expensesData;
-                chartMetadata.netProfitData = netProfitData;
-                chartMetadata.earningsData = earningsData;
+                    chartMetadata.profitData = profitData;
+                    chartMetadata.expensesData = expensesData;
+                    chartMetadata.netProfitData = netProfitData;
+                    chartMetadata.earningsData = earningsData;
 
-                if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 4) {
-                    trendChart.data.datasets[0].data = [...profitData];
-                    trendChart.data.datasets[1].data = [...expensesData];
-                    trendChart.data.datasets[2].data = [...netProfitData];
-                    trendChart.data.datasets[3].data = [...earningsData];
-                    trendChart.update('none');
-                }
+                    if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 4) {
+                        trendChart.data.datasets[0].data = [...profitData];
+                        trendChart.data.datasets[1].data = [...expensesData];
+                        trendChart.data.datasets[2].data = [...netProfitData];
+                        trendChart.data.datasets[3].data = [...earningsData];
+                        trendChart.update('none');
+                    }
 
-                const failedCount = results.length - appliedCount;
-                if (failedCount > 0) {
-                    console.warn(`按日卡片口径关键日期覆盖部分失败: ${failedCount}/${results.length}`);
+                    const failedCount = results.length - appliedCount;
+                    if (failedCount > 0) {
+                        console.warn(`按日卡片口径关键日期覆盖部分失败: ${failedCount}/${results.length}`);
+                    }
+                } catch (e) {
+                    console.warn('按日卡片口径应用结果失败:', e);
                 }
             })
             .catch((pointError) => {
@@ -2294,7 +2301,7 @@ function loadCurrencies() {
     }
     return Promise.all([
         fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${window.companyId}`)).then(res => res.json()),
-        fetch(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
+        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`)).then(res => res.json()).catch(() => null)
     ])
         .then(([data, orderData]) => {
             const wrapper = document.getElementById('currency-buttons-wrapper');
@@ -2423,7 +2430,7 @@ function initDashboardCurrencyDragDrop() {
             localStorage.setItem('transaction_currency_order_global', serialized);
 
             // 同时永久保存到数据库
-            fetch('api/transactions/user_currency_order_api.php', {
+            fetch(buildApiUrl('api/transactions/user_currency_order_api.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ order: newOrder })
