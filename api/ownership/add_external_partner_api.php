@@ -39,13 +39,28 @@ try {
     }
 
     // 2. Check for Group ID match (excluding native owner)
+    // Support both:
+    // - native company.group_id
+    // - externally linked partner_group_id saved in company_ownership
     $partnerByGroup = null;
     if ($force_type === '' || $force_type === 'group') {
         $stmtGrp = $pdo->prepare("
-            SELECT o.id, o.name, c.group_id 
-            FROM company c
-            JOIN owner o ON c.owner_id = o.id
-            WHERE UPPER(c.group_id) = UPPER(?) AND o.id != ? AND o.status = 'active'
+            SELECT o.id, o.name, grp.group_id
+            FROM owner o
+            JOIN (
+                SELECT c.owner_id, TRIM(c.group_id) AS group_id
+                FROM company c
+                WHERE c.group_id IS NOT NULL AND TRIM(c.group_id) <> ''
+                UNION
+                SELECT co.account_id AS owner_id, TRIM(co.partner_group_id) AS group_id
+                FROM company_ownership co
+                WHERE co.owner_type = 'owner'
+                  AND co.partner_group_id IS NOT NULL
+                  AND TRIM(co.partner_group_id) <> ''
+            ) grp ON grp.owner_id = o.id
+            WHERE UPPER(grp.group_id) = UPPER(TRIM(?))
+              AND o.id != ?
+              AND o.status = 'active'
             LIMIT 1
         ");
         $stmtGrp->execute([$login_or_group_id, $nativeOwner]);
