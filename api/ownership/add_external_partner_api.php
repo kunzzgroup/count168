@@ -21,8 +21,25 @@ if (!$company_id || !$login_or_group_id) {
 }
 
 try {
-    $pdo->exec("ALTER TABLE company_ownership ADD COLUMN partner_group_id VARCHAR(50) DEFAULT NULL");
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS company_ownership (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            account_id INT NOT NULL,
+            owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account',
+            percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+            partner_group_id VARCHAR(50) DEFAULT NULL,
+            read_only TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
 } catch (Exception $e) {}
+
+try { $pdo->exec("ALTER TABLE company_ownership ADD COLUMN owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account'"); } catch (Exception $e) {}
+try { $pdo->exec("ALTER TABLE company_ownership MODIFY COLUMN owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account'"); } catch (Exception $e) {}
+try { $pdo->exec("ALTER TABLE company_ownership ADD COLUMN partner_group_id VARCHAR(50) DEFAULT NULL"); } catch (Exception $e) {}
+try { $pdo->exec("ALTER TABLE company_ownership ADD COLUMN read_only TINYINT(1) NOT NULL DEFAULT 1"); } catch (Exception $e) {}
 
 try {
     // Fetch native owner first
@@ -156,6 +173,6 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    echo json_encode(['status' => 'error', 'message' => 'Database error']);
+    echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
 }
 ?>
