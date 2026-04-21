@@ -30,6 +30,8 @@ try {
     $stmtCheckNative->execute([$company_id]);
     $nativeOwner = $stmtCheckNative->fetchColumn();
     $hasCompanyOwnership = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
+    $hasOwnerType = $hasCompanyOwnership && $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+    $hasPartnerGroupId = $hasCompanyOwnership && $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'partner_group_id'")->rowCount() > 0;
 
     // 1. Check for Login ID (owner_code) match (excluding native owner)
     $partnerByLogin = null;
@@ -45,7 +47,7 @@ try {
     // - externally linked partner_group_id saved in company_ownership
     $partnerByGroup = null;
     if ($force_type === '' || $force_type === 'group') {
-        if ($hasCompanyOwnership) {
+        if ($hasCompanyOwnership && $hasOwnerType && $hasPartnerGroupId) {
             $stmtGrp = $pdo->prepare("
                 SELECT o.id, o.name, grp.group_id
                 FROM owner o
@@ -118,7 +120,12 @@ try {
     }
 
     // 2. Check if already linked
-    $stmtLink = $pdo->prepare("SELECT id FROM company_ownership WHERE company_id = ? AND owner_type = 'owner' AND account_id = ?");
+    if ($hasCompanyOwnership && $hasOwnerType) {
+        $stmtLink = $pdo->prepare("SELECT id FROM company_ownership WHERE company_id = ? AND owner_type = 'owner' AND account_id = ?");
+    } else {
+        // Legacy table fallback (without owner_type)
+        $stmtLink = $pdo->prepare("SELECT id FROM company_ownership WHERE company_id = ? AND account_id = ?");
+    }
     $stmtLink->execute([$company_id, $partnerId]);
     if ($stmtLink->fetch()) {
         echo json_encode(['status' => 'error', 'message' => 'Partner is already linked to this company']);
@@ -128,8 +135,20 @@ try {
     // 3. Link by inserting a 0% entry into company_ownership
     // If matched by Group ID, we set the partner_group_id so the partner sees it under this group,
     // while the original owner's dashboard remains completely unaffected.
-    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id) VALUES (?, 'owner', ?, 0, ?)");
-    $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
+    if ($hasCompanyOwnership && $hasOwnerType && $hasPartnerGroupId) {
+        $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id) VALUES (?, 'owner', ?, 0, ?)");
+        $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
+    } elseif ($hasCompanyOwnership && $hasOwnerType) {
+        $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage) VALUES (?, 'owner', ?, 0)");
+        $stmtInsert->execute([$company_id, $partnerId]);
+    } elseif ($hasCompanyOwnership && $hasPartnerGroupId) {
+        $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, account_id, percentage, partner_group_id) VALUES (?, ?, 0, ?)");
+        $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
+    } else {
+        // Legacy table fallback (minimum columns only)
+        $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, account_id, percentage) VALUES (?, ?, 0)");
+        $stmtInsert->execute([$company_id, $partnerId]);
+    }
 
     echo json_encode([
         'status' => 'success',
