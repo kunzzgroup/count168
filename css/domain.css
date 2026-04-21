@@ -94,6 +94,11 @@ h1 {
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 0px;
     font-size: clamp(10px, 0.83vw, 16px);
+    line-height: 1.2;
+    min-height: clamp(24px, 1.98vw, 38px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
@@ -527,6 +532,17 @@ h1 {
     padding-top: clamp(12px, 1vw, 18px);
     border-top: 1px solid #e2e8f0;
     justify-content: center;
+    align-items: center;
+}
+
+.company-settings-form-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    min-height: clamp(26px, 2vw, 36px);
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 .company-settings-split-right .company-share-scroll {
