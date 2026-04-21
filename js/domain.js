@@ -597,8 +597,10 @@ let currentEditingCompanyId = null;
 let companySnapshotWhenModalOpened = null;
 // Company Settings → Share %：下拉账户列表（来自 API）
 let shareModalAccounts = [];
-let shareAccountAddPopup = null;
-let pendingShareAccountRefresh = false;
+let domainAddAccountEditData = { roles: [], currencies: [] };
+let domainAddSelectedCurrencyIds = [];
+let domainAddSelectedCompanyIds = [];
+let domainAddPreferredRole = '';
 let domainFeePriceCache = 0;
 
 function defaultFeeShareAllocations() {
@@ -666,26 +668,211 @@ function buildShareAccountOptionsHtml(selectedId) {
 }
 
 function openShareAccountAdd(role) {
-    var targetRole = (role || '').toUpperCase();
-    var addUrl = targetRole
-        ? ('add-account.php?role=' + encodeURIComponent(targetRole))
-        : 'add-account.php';
-    shareAccountAddPopup = window.open(addUrl, 'domainShareAddAccount');
-    pendingShareAccountRefresh = true;
-    if (!shareAccountAddPopup) {
-        showAlert('Popup blocked. Please allow popups and try again.', 'danger');
-        return;
-    }
-    showAlert('Add Account window opened. After saving, return here and account list will refresh.');
+    showDomainAddAccountModal(role);
 }
 
-function refreshShareAccountsAfterAddIfNeeded() {
-    if (!pendingShareAccountRefresh || !currentEditingCompanyId) {
+async function showDomainAddAccountModal(role) {
+    var modal = document.getElementById('domainAddAccountModal');
+    var form = document.getElementById('domainAddAccountForm');
+    if (!modal || !form) {
+        showAlert('Add Account modal is unavailable.', 'danger');
         return;
     }
-    // Refresh account options when user returns from Add Account window.
-    pendingShareAccountRefresh = false;
-    loadCompanyShareDataForModal(currentEditingCompanyId);
+    domainAddPreferredRole = (role || '').toUpperCase();
+    form.reset();
+    domainAddSelectedCurrencyIds = [];
+    domainAddSelectedCompanyIds = [];
+    toggleDomainAddAlertFields();
+    modal.style.display = 'block';
+    modal.classList.add('show');
+    await loadDomainAddAccountEditData();
+    await loadDomainAddCurrencies();
+    await loadDomainAddCompanies();
+}
+
+function closeDomainAddAccountModal() {
+    var modal = document.getElementById('domainAddAccountModal');
+    var form = document.getElementById('domainAddAccountForm');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+    if (form) {
+        form.reset();
+    }
+    domainAddSelectedCurrencyIds = [];
+    domainAddSelectedCompanyIds = [];
+}
+
+function toggleDomainAddAlertFields() {
+    var paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
+    var isOn = paymentAlert && paymentAlert.value === '1';
+    var fields = document.getElementById('domain_add_alert_fields');
+    var amountRow = document.getElementById('domain_add_alert_amount_row');
+    if (fields) fields.style.display = isOn ? 'grid' : 'none';
+    if (amountRow) amountRow.style.display = isOn ? 'block' : 'none';
+}
+
+async function loadDomainAddAccountEditData() {
+    try {
+        var res = await fetch('/api/editdata/editdata_api.php', { cache: 'no-cache' });
+        var json = await res.json();
+        if (json.success && json.data) {
+            domainAddAccountEditData.roles = Array.isArray(json.data.roles) ? json.data.roles : [];
+            domainAddAccountEditData.currencies = Array.isArray(json.data.currencies) ? json.data.currencies : [];
+            renderDomainAddRoles();
+        }
+    } catch (e) {
+        showAlert('Failed to load account form data.', 'danger');
+    }
+}
+
+function renderDomainAddRoles() {
+    var roleEl = document.getElementById('domain_add_role');
+    if (!roleEl) return;
+    roleEl.innerHTML = '<option value="">Select Role</option>';
+    domainAddAccountEditData.roles.forEach(function (role) {
+        var v = String(role || '').trim();
+        if (!v) return;
+        var opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v.toUpperCase() === 'UPLINE' ? 'SUPPLIER' : v;
+        roleEl.appendChild(opt);
+    });
+    if (domainAddPreferredRole) {
+        var wanted = domainAddPreferredRole === 'SUPPLIER' ? 'UPLINE' : domainAddPreferredRole;
+        roleEl.value = wanted;
+    }
+}
+
+async function loadDomainAddCurrencies() {
+    var wrap = document.getElementById('domainAddCurrencyList');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    try {
+        var res = await fetch('api/accounts/account_currency_api.php?action=get_available_currencies', { cache: 'no-cache' });
+        var json = await res.json();
+        var list = json.success && Array.isArray(json.data) ? json.data : [];
+        if (!list.length) {
+            wrap.innerHTML = '<div class="currency-toggle-note">No currencies available.</div>';
+            return;
+        }
+        var auto = list.find(function (c) { return String(c.code || '').toUpperCase() === 'MYR'; }) || list[0];
+        domainAddSelectedCurrencyIds = auto ? [auto.id] : [];
+        list.forEach(function (currency) {
+            var item = document.createElement('div');
+            item.className = 'account-currency-item currency-toggle-item';
+            item.textContent = String(currency.code || '').toUpperCase();
+            item.classList.toggle('active', domainAddSelectedCurrencyIds.indexOf(currency.id) !== -1);
+            item.addEventListener('click', function () {
+                var idx = domainAddSelectedCurrencyIds.indexOf(currency.id);
+                if (idx === -1) {
+                    domainAddSelectedCurrencyIds.push(currency.id);
+                    item.classList.add('active');
+                } else {
+                    domainAddSelectedCurrencyIds.splice(idx, 1);
+                    item.classList.remove('active');
+                }
+            });
+            wrap.appendChild(item);
+        });
+    } catch (e) {
+        wrap.innerHTML = '<div class="currency-toggle-note">Failed to load currencies.</div>';
+    }
+}
+
+async function loadDomainAddCompanies() {
+    var wrap = document.getElementById('domainAddCompanyList');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    try {
+        var res = await fetch('api/accounts/account_company_api.php?action=get_available_companies', { cache: 'no-cache' });
+        var json = await res.json();
+        var list = json.success && Array.isArray(json.data) ? json.data : [];
+        if (!list.length) {
+            wrap.innerHTML = '<div class="currency-toggle-note">No companies available.</div>';
+            return;
+        }
+        domainAddSelectedCompanyIds = [];
+        list.forEach(function (company) {
+            var item = document.createElement('div');
+            item.className = 'account-currency-item currency-toggle-item';
+            item.textContent = String(company.company_code || company.company_id || company.name || company.id || '');
+            item.addEventListener('click', function () {
+                var id = parseInt(company.id, 10);
+                if (!id) return;
+                var idx = domainAddSelectedCompanyIds.indexOf(id);
+                if (idx === -1) {
+                    domainAddSelectedCompanyIds.push(id);
+                    item.classList.add('active');
+                } else {
+                    domainAddSelectedCompanyIds.splice(idx, 1);
+                    item.classList.remove('active');
+                }
+            });
+            wrap.appendChild(item);
+        });
+    } catch (e) {
+        wrap.innerHTML = '<div class="currency-toggle-note">Failed to load companies.</div>';
+    }
+}
+
+async function submitDomainAddAccountForm(e) {
+    e.preventDefault();
+    var form = document.getElementById('domainAddAccountForm');
+    if (!form) return;
+    var fd = new FormData(form);
+    var paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
+    fd.set('payment_alert', paymentAlert ? paymentAlert.value : '0');
+    if (!paymentAlert || paymentAlert.value === '0') {
+        fd.set('alert_type', '');
+        fd.set('alert_start_date', '');
+        fd.set('alert_amount', '');
+    }
+    if (domainAddSelectedCurrencyIds.length) {
+        fd.set('currency_ids', JSON.stringify(domainAddSelectedCurrencyIds));
+    }
+    if (domainAddSelectedCompanyIds.length) {
+        fd.set('company_ids', JSON.stringify(domainAddSelectedCompanyIds));
+    }
+
+    try {
+        var res = await fetch('/api/accounts/addaccountapi.php', {
+            method: 'POST',
+            body: fd
+        });
+        var json = await res.json();
+        if (!json.success) {
+            showAlert(json.error || json.message || 'Failed to add account', 'danger');
+            return;
+        }
+        var newAccountId = json.data && json.data.id ? parseInt(json.data.id, 10) : 0;
+        if (newAccountId && domainAddSelectedCurrencyIds.length) {
+            await Promise.all(domainAddSelectedCurrencyIds.map(function (currencyId) {
+                return fetch('/api/accounts/account_currency_api.php?action=add_currency', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: newAccountId, currency_id: currencyId })
+                }).catch(function () { return null; });
+            }));
+        }
+        if (newAccountId && domainAddSelectedCompanyIds.length) {
+            await Promise.all(domainAddSelectedCompanyIds.map(function (companyId) {
+                return fetch('/api/accounts/account_company_api.php?action=add_company', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: newAccountId, company_id: companyId })
+                }).catch(function () { return null; });
+            }));
+        }
+        closeDomainAddAccountModal();
+        showAlert('Account added successfully.');
+        if (currentEditingCompanyId) {
+            loadCompanyShareDataForModal(currentEditingCompanyId);
+        }
+    } catch (err) {
+        showAlert('Failed to add account', 'danger');
+    }
 }
 
 function readFeeShareFromModalDom() {
@@ -2404,7 +2591,13 @@ function closeCompanyExpirationModal() {
 
 // 页面加载完成后初始化搜索功能及表单提交
 document.addEventListener('DOMContentLoaded', function () {
-    window.addEventListener('focus', refreshShareAccountsAfterAddIfNeeded);
+    var addForm = document.getElementById('domainAddAccountForm');
+    if (addForm) {
+        addForm.addEventListener('submit', submitDomainAddAccountForm);
+    }
+    document.querySelectorAll('input[name="add_payment_alert"]').forEach(function (el) {
+        el.addEventListener('change', toggleDomainAddAlertFields);
+    });
     setupSearch();
     initializePagination();
     // 确保现有列表的删除勾选框与受保护 Company 规则（如 C168）保持一致
