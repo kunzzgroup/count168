@@ -597,6 +597,8 @@ let currentEditingCompanyId = null;
 let companySnapshotWhenModalOpened = null;
 // Company Settings → Share %：下拉账户列表（来自 API）
 let shareModalAccounts = [];
+let shareAccountAddPopup = null;
+let pendingShareAccountRefresh = false;
 let domainFeePriceCache = 0;
 
 function defaultFeeShareAllocations() {
@@ -661,6 +663,29 @@ function buildShareAccountOptionsHtml(selectedId) {
         h += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + escapeHtmlShare(label) + '</option>';
     });
     return h;
+}
+
+function openShareAccountAdd(role) {
+    var targetRole = (role || '').toUpperCase();
+    var addUrl = targetRole
+        ? ('add-account.php?role=' + encodeURIComponent(targetRole))
+        : 'add-account.php';
+    shareAccountAddPopup = window.open(addUrl, 'domainShareAddAccount');
+    pendingShareAccountRefresh = true;
+    if (!shareAccountAddPopup) {
+        showAlert('Popup blocked. Please allow popups and try again.', 'danger');
+        return;
+    }
+    showAlert('Add Account window opened. After saving, return here and account list will refresh.');
+}
+
+function refreshShareAccountsAfterAddIfNeeded() {
+    if (!pendingShareAccountRefresh || !currentEditingCompanyId) {
+        return;
+    }
+    // Refresh account options when user returns from Add Account window.
+    pendingShareAccountRefresh = false;
+    loadCompanyShareDataForModal(currentEditingCompanyId);
 }
 
 function readFeeShareFromModalDom() {
@@ -856,9 +881,12 @@ function renderCompanySharePanel() {
                 ? row.percentage
                 : '';
             tr.innerHTML = '<div class="company-share-cell company-share-cell-account">' +
+                '<div class="company-share-account-inline">' +
                 '<select class="share-account-select company-share-select" aria-label="Account">' +
                 buildShareAccountOptionsHtml(row.account_id) +
-                '</select></div>' +
+                '</select>' +
+                '<button type="button" class="company-share-account-plus-btn" data-share-add-role="' + role + '" title="Add New Account" aria-label="Add New Account">+</button>' +
+                '</div></div>' +
                 '<div class="company-share-cell company-share-cell-pct">' +
                 '<div class="company-share-pct-wrap">' +
                 '<input type="number" class="share-pct-input company-share-pct-input" step="0.1" min="0" max="100" value="' +
@@ -873,6 +901,9 @@ function renderCompanySharePanel() {
             tbody.appendChild(tr);
             tr.querySelector('.company-share-remove-btn').addEventListener('click', function () {
                 removeCompanyShareRow(this.getAttribute('data-share-role'), parseInt(this.getAttribute('data-share-idx'), 10));
+            });
+            tr.querySelector('.company-share-account-plus-btn').addEventListener('click', function () {
+                openShareAccountAdd(this.getAttribute('data-share-add-role'));
             });
         });
         tbody.querySelectorAll('.share-account-select, .share-pct-input').forEach(function (el) {
@@ -2373,6 +2404,7 @@ function closeCompanyExpirationModal() {
 
 // 页面加载完成后初始化搜索功能及表单提交
 document.addEventListener('DOMContentLoaded', function () {
+    window.addEventListener('focus', refreshShareAccountsAfterAddIfNeeded);
     setupSearch();
     initializePagination();
     // 确保现有列表的删除勾选框与受保护 Company 规则（如 C168）保持一致
