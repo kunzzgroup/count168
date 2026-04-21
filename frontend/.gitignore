@@ -8,8 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
-login/dist
+# 仅忽略根目录下主 SPA 的 dist；勿用无斜杠的 dist，否则会误忽略 login/dist
+/dist
 dist-ssr
 *.local
 

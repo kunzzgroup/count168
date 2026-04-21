@@ -76,8 +76,10 @@ function render_login_react_spa(): void
             header('Content-Type: text/html; charset=UTF-8');
         }
         echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>EazyCount</title></head><body>';
-        echo '<p>Login UI has not been built yet. From this folder run:</p>';
-        echo '<pre>cd frontend/login && npm install && npm run build</pre></body></html>';
+        echo '<p>Login UI is missing on the server (<code>frontend/login/dist/</code>).</p>';
+        echo '<p>Either deploy that folder from your PC after <code>npm run build</code>, or on the server run:</p>';
+        echo '<pre>cd frontend/login && npm install && npm run build</pre>';
+        echo '<p style="margin-top:1em">中文：请把本机构建好的 <code>frontend/login/dist</code> 整个目录上传到服务器，或在服务器进入 <code>frontend/login</code> 执行上述命令。</p></body></html>';
         return;
     }
     $html = file_get_contents($spaPath);
