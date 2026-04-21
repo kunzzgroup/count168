@@ -7,7 +7,11 @@ session_start();
 require_once __DIR__ . '/config.php';
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: dashboard.php');
+    if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
+        header('Location: member.php');
+    } else {
+        header('Location: frontend/dist/dashboard');
+    }
     exit();
 }
 
@@ -54,7 +58,11 @@ if (isset($_COOKIE['remember_token'])) {
         $stmt = $pdo->prepare('UPDATE user SET last_login = NOW() WHERE id = ?');
         $stmt->execute([$user['id']]);
 
-        header('Location: dashboard.php');
+        if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
+            header('Location: member.php');
+        } else {
+            header('Location: frontend/dist/dashboard');
+        }
         exit();
     }
 

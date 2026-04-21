@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -51,6 +51,7 @@ function AlertModal({ open, title, message, onClose }) {
 }
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roleFromUrl = searchParams.get("role") === "member" ? "member" : "admin";
 
@@ -77,7 +78,10 @@ export default function LoginPage() {
     const ac = new AbortController();
     (async () => {
       try {
-        const res = await fetch("/api/maintenance/get_public_api.php", { signal: ac.signal });
+        const res = await fetch("/api/maintenance/get_public_api.php", {
+          signal: ac.signal,
+          credentials: "include",
+        });
         const result = await res.json();
         if (result.success && Array.isArray(result.data)) {
           setMaintenanceList(result.data);
@@ -133,10 +137,22 @@ export default function LoginPage() {
         if (rememberMe) fd.append("remember_me", "1");
       }
 
-      const res = await fetch("/login_process.php", { method: "POST", body: fd });
+      const res = await fetch("/login_process.php", { method: "POST", body: fd, credentials: "include" });
       const data = await res.json();
       if (data.status === "success" && data.redirect) {
         const redirect = String(data.redirect);
+        const userType = String(data.user_type || "").toLowerCase();
+
+        if (userType === "member" && /dashboard\.php/i.test(redirect)) {
+          window.location.assign(new URL("member.php", `${window.location.origin}/`).toString());
+          return;
+        }
+
+        if (/dashboard\.php/i.test(redirect)) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
         if (redirect.startsWith("http://") || redirect.startsWith("https://")) {
           window.location.href = redirect;
         } else {

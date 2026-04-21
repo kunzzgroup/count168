@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/login_process.php": { target: phpTarget, changeOrigin: true },
+        "/dashboard.php": { target: phpTarget, changeOrigin: true },
+        "/member.php": { target: phpTarget, changeOrigin: true },
+        "/owner_secondary_password.php": { target: phpTarget, changeOrigin: true },
         "/api": { target: phpTarget, changeOrigin: true },
         "/reset-password.php": { target: phpTarget, changeOrigin: true },
         "/css": { target: phpTarget, changeOrigin: true },

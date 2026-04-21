@@ -127,7 +127,11 @@ try {
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$account['id']]);
 
-            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => 'dashboard.php',
+                'user_type' => $_SESSION['user_type'] ?? 'member',
+            ]);
             exit;
         } else {
             if ($password_match && $has_expired) {
@@ -221,11 +225,19 @@ try {
 
         if ($needs_secondary_password) {
             // 需要二级密码验证，跳转到二级密码验证页面
-            echo json_encode(['status' => 'success', 'redirect' => 'api/users/user_secondary_password.php']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => 'api/users/user_secondary_password.php',
+                'user_type' => $_SESSION['user_type'] ?? 'user',
+            ]);
         } else {
             // 不需要二级密码验证，直接跳转到dashboard
             $_SESSION['secondary_password_verified'] = true; // 标记为已验证（对于不需要二级密码的用户）
-            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => 'dashboard.php',
+                'user_type' => $_SESSION['user_type'] ?? 'user',
+            ]);
         }
         exit;
         
@@ -299,7 +311,11 @@ try {
                 // Owner 的 remember me 可以存在 session 或另外处理
             }
             
-            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => 'dashboard.php',
+                'user_type' => $_SESSION['user_type'] ?? 'owner',
+            ]);
         } else {
             if ($owner_password_match && $owner_has_expired) {
                 echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);
