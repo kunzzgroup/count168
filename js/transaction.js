@@ -13,6 +13,7 @@
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
+    let activeSearchController = null;
 
     function syncSubmitButtonState() {
         const confirmCheckbox = document.getElementById('confirm_submit');
@@ -445,7 +446,7 @@
         setInterval(() => {
             if (document.visibilityState !== 'visible') return;
             refreshTransactionDataFromExternalChange();
-        }, 1000);
+        }, 5000);
 
         // 绑定右侧工作区的 Search 按钮：执行完整日期搜索（不受右侧 Type 选择影响）
         const actionSearchBtn = document.getElementById('action_search_btn');
@@ -1914,12 +1915,20 @@
             ? selectedCategories.join(',')
             : ''
 
+        // 新的搜索发起前，取消尚未完成的旧请求，避免慢请求回写覆盖新结果
+        if (activeSearchController) {
+            try { activeSearchController.abort(); } catch (e) { /* ignore */ }
+        }
+        activeSearchController = new AbortController();
+        const { signal } = activeSearchController;
+
         fetch(url, {
             method: 'GET',
             cache: 'no-cache',
             headers: {
                 'Cache-Control': 'no-cache'
-            }
+            },
+            signal
         })
             .then(response => response.json())
             .then(data => {
@@ -1954,7 +1963,8 @@
                             cache: 'no-cache',
                             headers: {
                                 'Cache-Control': 'no-cache'
-                            }
+                            },
+                            signal
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
@@ -1983,6 +1993,7 @@
                                 commitSearchData(rebuiltData, { quiet: silent });
                             })
                             .catch(error => {
+                                if (error && error.name === 'AbortError') return;
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 console.error('❌ 单币别兜底搜索失败:', error);
                                 commitSearchData(currentSearchData, { quiet: silent });
@@ -2013,7 +2024,8 @@
                             cache: 'no-cache',
                             headers: {
                                 'Cache-Control': 'no-cache'
-                            }
+                            },
+                            signal
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
@@ -2030,6 +2042,7 @@
                                 commitSearchData(rebuiltData, { quiet: silent });
                             })
                             .catch(error => {
+                                if (error && error.name === 'AbortError') return;
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 console.error('❌ Win/Loss 空结果 totals 兜底失败:', error);
                                 commitSearchData(currentSearchData, { quiet: silent });
@@ -2046,6 +2059,7 @@
                 }
             })
             .catch(error => {
+                if (error && error.name === 'AbortError') return;
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (!silent && tablesSection) tablesSection.style.display = 'none';
                 console.error('❌ 搜索失败:', error);
