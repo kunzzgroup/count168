@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './AccountPage.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -133,7 +133,7 @@ function AccountPage() {
     setNotice('')
   }
 
-  const loadAccounts = useCallback(async () => {
+  const loadAccounts = async () => {
     try {
       setLoading(true)
       resetMessages()
@@ -153,14 +153,11 @@ function AccountPage() {
     } finally {
       setLoading(false)
     }
-  }, [searchTerm, showInactive, showAll])
+  }
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadAccounts()
-    }, 0)
-    return () => window.clearTimeout(timer)
-  }, [loadAccounts])
+    loadAccounts()
+  }, [showInactive, showAll])
 
   const sortedAccounts = useMemo(() => {
     const keyword = searchTerm.trim().toUpperCase()
@@ -183,13 +180,16 @@ function AccountPage() {
   }, [accounts, searchTerm, sortBy, sortDirection])
 
   const totalPages = showAll ? 1 : Math.max(1, Math.ceil(sortedAccounts.length / ROWS_PER_PAGE))
-  const effectivePage = Math.min(currentPage, totalPages)
 
   const pagedAccounts = useMemo(() => {
     if (showAll) return sortedAccounts
-    const start = (effectivePage - 1) * ROWS_PER_PAGE
+    const start = (currentPage - 1) * ROWS_PER_PAGE
     return sortedAccounts.slice(start, start + ROWS_PER_PAGE)
-  }, [sortedAccounts, effectivePage, showAll])
+  }, [sortedAccounts, currentPage, showAll])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(1)
+  }, [currentPage, totalPages])
 
   const toggleSort = (key) => {
     if (sortBy === key) {
@@ -352,10 +352,7 @@ function AccountPage() {
   useEffect(() => {
     if (!currencyModalOpen) return
     if (selectedCurrencyId) {
-      const timer = window.setTimeout(() => {
-        loadLinkedAccountsByCurrency(selectedCurrencyId).catch((err) => setError(err.message))
-      }, 0)
-      return () => window.clearTimeout(timer)
+      loadLinkedAccountsByCurrency(selectedCurrencyId).catch((err) => setError(err.message))
     }
   }, [currencyModalOpen, selectedCurrencyId])
 
@@ -363,10 +360,11 @@ function AccountPage() {
     if (!selectedCurrencyId) return
     try {
       resetMessages()
+      const toLink = currencyAccountLinkedIds.filter((id) => !currencyAccountInitialIds.includes(id))
       const toUnlink = currencyAccountInitialIds.filter((id) => !currencyAccountLinkedIds.includes(id))
       await postJson(`${API.bulkAccountCurrency}?action=bulk_update`, {
         currency_id: selectedCurrencyId,
-        linked_account_ids: currencyAccountLinkedIds,
+        linked_account_ids: toLink,
         unlinked_account_ids: toUnlink,
       })
       setNotice('Currency setting saved')
@@ -435,6 +433,7 @@ function AccountPage() {
     if (!linkAccountId || !currentCompanyId) return
     try {
       resetMessages()
+      const toLink = linkedIds.filter((id) => !initialLinkedIds.includes(id))
       const toUnlink = initialLinkedIds.filter((id) => !linkedIds.includes(id))
 
       await Promise.all(
@@ -558,7 +557,7 @@ function AccountPage() {
           <div className='account-react-table-body'>
             {pagedAccounts.map((item, index) => (
               <div className='account-react-row' key={item.id}>
-                <div>{showAll ? index + 1 : (effectivePage - 1) * ROWS_PER_PAGE + index + 1}</div>
+                <div>{showAll ? index + 1 : (currentPage - 1) * ROWS_PER_PAGE + index + 1}</div>
                 <div>{item.account_id}</div>
                 <div>{item.name}</div>
                 <div className='account-react-role'>{item.role}</div>
@@ -601,13 +600,13 @@ function AccountPage() {
 
       {!showAll && sortedAccounts.length > 0 ? (
         <div className='account-react-pagination'>
-          <button type='button' disabled={effectivePage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+          <button type='button' disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
             ◀
           </button>
-          <span>{`${effectivePage} of ${totalPages}`}</span>
+          <span>{`${currentPage} of ${totalPages}`}</span>
           <button
             type='button'
-            disabled={effectivePage >= totalPages}
+            disabled={currentPage >= totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
           >
             ▶

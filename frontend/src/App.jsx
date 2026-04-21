@@ -3,15 +3,54 @@ import Sidebar from './components/Sidebar'
 import AdminPage from './pages/AdminPage'
 import AccountPage from './pages/AccountPage'
 import ProcessPage from './pages/ProcessPage'
-import DashboardPage from './pages/DashboardPage'
-import { API, getJson, postForm } from './lib/apiClient'
 import './App.css'
 
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+
+const API = {
+  announcementList: `${API_BASE}/api/announcements/announcement_list_api.php`,
+  announcementCreate: `${API_BASE}/api/announcements/announcement_create_api.php`,
+  announcementUpdate: `${API_BASE}/api/announcements/announcement_update_api.php`,
+  announcementDelete: `${API_BASE}/api/announcements/announcement_delete_api.php`,
+  maintenanceList: `${API_BASE}/api/maintenance/list_api.php`,
+  maintenanceCreate: `${API_BASE}/api/maintenance/create_api.php`,
+  maintenanceUpdate: `${API_BASE}/api/maintenance/update_api.php`,
+  maintenanceDelete: `${API_BASE}/api/maintenance/delete_api.php`,
+}
+
+async function getJson(url) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+  })
+
+  const json = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(json.message || 'API request failed')
+  }
+  return json
+}
+
+async function postForm(url, payload) {
+  const formData = new FormData()
+  Object.entries(payload).forEach(([key, value]) => {
+    formData.append(key, String(value))
+  })
+
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    body: formData,
+  })
+
+  const json = await response.json()
+  if (!response.ok || !json.success) {
+    throw new Error(json.message || 'API request failed')
+  }
+  return json
+}
+
 function App() {
-  const [currentRoute, setCurrentRoute] = useState(window.location.hash || '#/dashboard')
-  const [authLoading, setAuthLoading] = useState(true)
-  const [authError, setAuthError] = useState('')
-  const [currentUser, setCurrentUser] = useState(null)
+  const [currentRoute, setCurrentRoute] = useState(window.location.hash || '#/')
   const [activeTab, setActiveTab] = useState('announcement')
   const [announcements, setAnnouncements] = useState([])
   const [maintenanceList, setMaintenanceList] = useState([])
@@ -28,31 +67,9 @@ function App() {
   const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
-    const onHashChange = () => setCurrentRoute(window.location.hash || '#/dashboard')
+    const onHashChange = () => setCurrentRoute(window.location.hash || '#/')
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-
-  useEffect(() => {
-    let disposed = false
-    const bootstrapAuth = async () => {
-      try {
-        const authRes = await getJson(API.authMe)
-        if (!disposed) {
-          setCurrentUser(authRes.data || null)
-        }
-      } catch (err) {
-        if (!disposed) {
-          setAuthError(err.message)
-        }
-      } finally {
-        if (!disposed) setAuthLoading(false)
-      }
-    }
-    bootstrapAuth()
-    return () => {
-      disposed = true
-    }
   }, [])
 
   const resetMessages = () => {
@@ -220,18 +237,14 @@ function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar currentRoute={currentRoute} currentUser={currentUser} />
+      <Sidebar currentRoute={currentRoute} />
       <main className="app-content">
-        {authLoading ? <p>Checking session...</p> : null}
-        {!authLoading && authError ? <div className="message error">{authError}</div> : null}
-        {!authLoading && !authError && currentRoute === '#/admin' ? (
+        {currentRoute === '#/admin' ? (
           <AdminPage />
-        ) : !authLoading && !authError && currentRoute === '#/account' ? (
+        ) : currentRoute === '#/account' ? (
           <AccountPage />
-        ) : !authLoading && !authError && currentRoute === '#/process' ? (
+        ) : currentRoute === '#/process' ? (
           <ProcessPage />
-        ) : !authLoading && !authError && currentRoute === '#/dashboard' ? (
-          <DashboardPage />
         ) : (
           <section className="announcement-page">
             <header className="page-header">
