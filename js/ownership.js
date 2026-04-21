@@ -39,6 +39,27 @@ function $(el, bind) {
     return el.querySelector(`[data-bind="${bind}"]`);
 }
 
+function isApiSuccess(res) {
+    return res && (res.success === true || res.status === 'success');
+}
+
+function isApiConflict(res) {
+    return res && res.status === 'conflict';
+}
+
+function getApiMessage(res, fallback = 'Server error') {
+    if (!res) return fallback;
+    if (typeof res.message === 'string' && res.message.trim() !== '') return res.message;
+    if (typeof res.error === 'string' && res.error.trim() !== '') return res.error;
+    return fallback;
+}
+
+function getApiData(res, fallback = []) {
+    if (!res) return fallback;
+    if (res.data !== undefined) return res.data;
+    return fallback;
+}
+
 // ---------------------------------------------
 // Data Fetching
 // ---------------------------------------------
@@ -56,11 +77,11 @@ function fetchCompanies() {
     fetch('api/ownership/get_companies_api.php?all=1')
         .then(r => r.json())
         .then(res => {
-            if (res.status !== 'success') {
-                showToast(res.message || 'Failed to load companies', 'error');
+            if (!isApiSuccess(res)) {
+                showToast(getApiMessage(res, 'Failed to load companies'), 'error');
                 return;
             }
-            allCompaniesData = res.data;
+            allCompaniesData = getApiData(res, []);
             _rebuildGroupIds();
             _applyGroupFilter();   // sets companiesData then renders
             _renderGroupFilterBar();
@@ -688,13 +709,13 @@ function confirmEdit(companyId) {
         .then(res => {
             confirmBtn.disabled = false;
             confirmBtn.textContent = 'Confirm';
-            if (res.status === 'success') {
-                showToast(res.message, 'success');
+            if (isApiSuccess(res)) {
+                showToast(getApiMessage(res, 'Saved successfully'), 'success');
                 const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
                 if (compIdx >= 0) companiesData[compIdx].allocated_percentage = total;
                 cancelEdit(companyId, true);
             } else {
-                showToast(res.message, 'error');
+                showToast(getApiMessage(res, 'Save failed'), 'error');
             }
         })
         .catch(err => {
@@ -863,7 +884,7 @@ function _bulkJoinGroup() {
 
     Promise.all(requests)
         .then(results => {
-            const failed = results.filter(r => r.status !== 'success');
+            const failed = results.filter(r => !isApiSuccess(r));
             if (failed.length === 0) {
                 showToast(`${ids.length} compan${ids.length > 1 ? 'ies' : 'y'} joined group "${groupId}"`, 'success');
             } else {
@@ -899,7 +920,7 @@ function _bulkUngroupCompanies() {
 
     Promise.all(requests)
         .then(results => {
-            const failed = results.filter(r => r.status !== 'success');
+            const failed = results.filter(r => !isApiSuccess(r));
             if (failed.length === 0) {
                 showToast(`${ids.length} compan${ids.length > 1 ? 'ies' : 'y'} removed from group`, 'success');
             } else {
@@ -1007,12 +1028,12 @@ function joinCompanyGroup(companyId, groupId, companyName) {
     })
         .then(res => res.json())
         .then(res => {
-            if (res.status === 'success') {
+            if (isApiSuccess(res)) {
                 showToast(`"${companyName}" joined group "${groupId}"`, 'success');
                 // Re-fetch from server so the list immediately reflects the new group context
                 fetchCompanies();
             } else {
-                showToast(res.message, 'error');
+                showToast(getApiMessage(res, 'Join group failed'), 'error');
             }
         })
         .catch(err => {
@@ -1029,12 +1050,12 @@ function ungroupCompany(companyId, companyName) {
     })
         .then(res => res.json())
         .then(res => {
-            if (res.status === 'success') {
+            if (isApiSuccess(res)) {
                 showToast(`"${companyName}" removed from group`, 'success');
                 // Re-fetch from server so the list immediately reflects the new group context
                 fetchCompanies();
             } else {
-                showToast(res.message, 'error');
+                showToast(getApiMessage(res, 'Ungroup failed'), 'error');
             }
         })
         .catch(err => {
@@ -1061,15 +1082,15 @@ function linkExternalPartner(companyId, event, forceType = '') {
         .then(res => {
             btn.disabled = false;
             btn.textContent = 'Link Partner';
-            if (res.status === 'success') {
-                showToast(res.message, 'success');
+            if (isApiSuccess(res)) {
+                showToast(getApiMessage(res, 'Partner linked successfully'), 'success');
                 loginIdInput.value = '';
                 cancelEdit(companyId, true);
                 setTimeout(() => toggleCard(companyId, null), 300);
-            } else if (res.status === 'conflict') {
-                showConflictModal(companyId, event, res.data);
+            } else if (isApiConflict(res)) {
+                showConflictModal(companyId, event, getApiData(res, {}));
             } else {
-                showToast(res.message, 'error');
+                showToast(getApiMessage(res, 'Link partner failed'), 'error');
             }
         })
         .catch(err => {

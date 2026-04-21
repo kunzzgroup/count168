@@ -66,17 +66,17 @@ try {
                 SELECT o.id, o.name, grp.group_id
                 FROM owner o
                 JOIN (
-                    SELECT c.owner_id, TRIM(c.group_id) AS group_id
+                    SELECT c.owner_id, TRIM(c.group_id) COLLATE utf8mb4_unicode_ci AS group_id
                     FROM company c
                     WHERE c.group_id IS NOT NULL AND TRIM(c.group_id) <> ''
                     UNION
-                    SELECT co.account_id AS owner_id, TRIM(co.partner_group_id) AS group_id
+                    SELECT co.account_id AS owner_id, TRIM(co.partner_group_id) COLLATE utf8mb4_unicode_ci AS group_id
                     FROM company_ownership co
                     WHERE co.owner_type = 'owner'
                       AND co.partner_group_id IS NOT NULL
                       AND TRIM(co.partner_group_id) <> ''
                 ) grp ON grp.owner_id = o.id
-                WHERE UPPER(grp.group_id) = UPPER(TRIM(?))
+                WHERE UPPER(grp.group_id) = UPPER(TRIM(?) COLLATE utf8mb4_unicode_ci)
                   AND o.id != ?
                   AND o.status = 'active'
                 LIMIT 1
