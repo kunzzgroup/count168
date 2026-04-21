@@ -4,15 +4,15 @@
  * POST body: { "group_id": "AP", "login_id": "JK123", "force_type": "" }
  */
 session_start();
+session_write_close();
 require_once '../../config.php';
 
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success' => false, 'status' => 'error', 'message' => 'Unauthorized']);
+    echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit();
 }
-session_write_close();
 
 $data = json_decode(file_get_contents('php://input'), true);
 $group_id        = trim($data['group_id'] ?? '');
@@ -20,11 +20,7 @@ $login_or_group_id = trim($data['login_id'] ?? '');
 $force_type      = trim($data['force_type'] ?? '');
 
 if (!$group_id || !$login_or_group_id) {
-    echo json_encode([
-        'success' => false,
-        'status' => 'error',
-        'message' => 'Group ID and Login ID/Group ID are required'
-    ]);
+    echo json_encode(['status' => 'error', 'message' => 'Group ID and Login ID/Group ID are required']);
     exit();
 }
 
@@ -49,20 +45,12 @@ try {
 
 try {
     $currentOwnerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
-    $normalizedInput = strtoupper(preg_replace('/\s+/', '', $login_or_group_id));
 
     // 1. Check for Login ID (owner_code) match
     $partnerByLogin = null;
     if ($force_type === '' || $force_type === 'login') {
-        $stmtLogin = $pdo->prepare("
-            SELECT id, name, owner_code
-            FROM owner
-            WHERE UPPER(REPLACE(TRIM(owner_code), ' ', '')) = ?
-              AND id != ?
-              AND status = 'active'
-            LIMIT 1
-        ");
-        $stmtLogin->execute([$normalizedInput, $currentOwnerId]);
+        $stmtLogin = $pdo->prepare("SELECT id, name, owner_code FROM owner WHERE UPPER(owner_code) = UPPER(?) AND id != ? AND status = 'active'");
+        $stmtLogin->execute([$login_or_group_id, $currentOwnerId]);
         $partnerByLogin = $stmtLogin->fetch(PDO::FETCH_ASSOC);
     }
 
@@ -73,13 +61,10 @@ try {
             SELECT o.id, o.name, c.group_id 
             FROM company c
             JOIN owner o ON c.owner_id = o.id
-            WHERE UPPER(REPLACE(TRIM(c.group_id), ' ', '')) = ?
-              AND o.id != ?
-              AND o.status = 'active'
-              AND c.status = 'active'
+            WHERE UPPER(c.group_id) = UPPER(?) AND o.id != ? AND o.status = 'active'
             LIMIT 1
         ");
-        $stmtGrp->execute([$normalizedInput, $currentOwnerId]);
+        $stmtGrp->execute([$login_or_group_id, $currentOwnerId]);
         $partnerByGroup = $stmtGrp->fetch(PDO::FETCH_ASSOC);
     }
 
@@ -88,7 +73,6 @@ try {
 
     if ($partnerByLogin && $partnerByGroup) {
         echo json_encode([
-            'success' => false,
             'status'  => 'conflict',
             'message' => 'Multiple matches found.',
             'data'    => [
@@ -105,41 +89,14 @@ try {
     }
 
     if (!$partner) {
-        // Give a clearer reason when user enters their own group ID.
-        $stmtOwnGroup = $pdo->prepare("
-            SELECT 1
-            FROM company
-            WHERE owner_id = ?
-              AND UPPER(REPLACE(TRIM(group_id), ' ', '')) = ?
-              AND status = 'active'
-            LIMIT 1
-        ");
-        $stmtOwnGroup->execute([$currentOwnerId, $normalizedInput]);
-        if ($stmtOwnGroup->fetchColumn()) {
-            echo json_encode([
-                'success' => false,
-                'status' => 'error',
-                'message' => 'Cannot link your own Group ID as an external partner'
-            ]);
-            exit();
-        }
-
-        echo json_encode([
-            'success' => false,
-            'status' => 'error',
-            'message' => 'Owner account or Group ID not found or inactive'
-        ]);
+        echo json_encode(['status' => 'error', 'message' => 'Owner account or Group ID not found or inactive']);
         exit();
     }
 
     $partnerId = $partner['id'];
 
     if ($currentOwnerId == $partnerId) {
-        echo json_encode([
-            'success' => false,
-            'status' => 'error',
-            'message' => 'Cannot link yourself as an external partner'
-        ]);
+        echo json_encode(['status' => 'error', 'message' => 'Cannot link yourself as an external partner']);
         exit();
     }
 
@@ -147,47 +104,20 @@ try {
     $stmtLink = $pdo->prepare("SELECT id FROM group_ownership WHERE group_id = ? AND owner_type = 'owner' AND account_id = ?");
     $stmtLink->execute([$group_id, $partnerId]);
     if ($stmtLink->fetch()) {
-        echo json_encode([
-            'success' => false,
-            'status' => 'error',
-            'message' => 'Partner is already linked to this group'
-        ]);
+        echo json_encode(['status' => 'error', 'message' => 'Partner is already linked to this group']);
         exit();
     }
 
-    // Insert 0% entry (backward-compatible with old schema)
-    $hasPartnerGroupId = $pdo->query("SHOW COLUMNS FROM group_ownership LIKE 'partner_group_id'")->rowCount() > 0;
-    if ($hasPartnerGroupId) {
-        $stmtInsert = $pdo->prepare("
-            INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage, partner_group_id)
-            VALUES (?, ?, ?, 'owner', 0, ?)
-        ");
-        $stmtInsert->execute([$group_id, $currentOwnerId, $partnerId, $matched_by_group]);
-    } else {
-        $stmtInsert = $pdo->prepare("
-            INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage)
-            VALUES (?, ?, ?, 'owner', 0)
-        ");
-        $stmtInsert->execute([$group_id, $currentOwnerId, $partnerId]);
-    }
+    // Insert 0% entry
+    $stmtInsert = $pdo->prepare("INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage, partner_group_id) VALUES (?, ?, ?, 'owner', 0, ?)");
+    $stmtInsert->execute([$group_id, $currentOwnerId, $partnerId, $matched_by_group]);
 
     echo json_encode([
-        'success' => true,
         'status'  => 'success',
-        'message' => "Partner '{$partner['name']}' linked to group '{$group_id}' successfully",
-        'data' => [
-            'group_id' => $group_id,
-            'partner_id' => (int)$partnerId,
-            'partner_name' => $partner['name']
-        ]
+        'message' => "Partner '{$partner['name']}' linked to group '{$group_id}' successfully"
     ]);
 
 } catch (PDOException $e) {
-    error_log('add_group_external_partner_api failed: ' . $e->getMessage());
-    echo json_encode([
-        'success' => false,
-        'status' => 'error',
-        'message' => 'Database error'
-    ]);
+    echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
 }
 ?>

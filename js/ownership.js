@@ -1043,7 +1043,7 @@ function ungroupCompany(companyId, companyName) {
         });
 }
 
-function linkExternalPartner(companyId, event, forceType = 'group') {
+function linkExternalPartner(companyId, event, forceType = '') {
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);
     const loginId = loginIdInput.value.trim();
     if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }

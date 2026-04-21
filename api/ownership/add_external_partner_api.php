@@ -1,14 +1,14 @@
 <?php
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once '../../config.php';
 
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success' => false, 'status' => 'error', 'message' => 'Unauthorized']);
+    echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit();
 }
-session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 $data = json_decode(file_get_contents('php://input'), true);
 $company_id = intval($data['company_id'] ?? 0);
@@ -16,11 +16,7 @@ $login_or_group_id = trim($data['login_id'] ?? '');
 $force_type = trim($data['force_type'] ?? '');
 
 if (!$company_id || !$login_or_group_id) {
-    echo json_encode([
-        'success' => false,
-        'status' => 'error',
-        'message' => 'Valid Company ID and Login ID/Group ID are required'
-    ]);
+    echo json_encode(['status' => 'error', 'message' => 'Valid Company ID and Login ID/Group ID are required']);
     exit();
 }
 
@@ -29,34 +25,16 @@ try {
 } catch (Exception $e) {}
 
 try {
-    $normalizedInput = strtoupper(preg_replace('/\s+/', '', $login_or_group_id));
-
     // Fetch native owner first
     $stmtCheckNative = $pdo->prepare("SELECT owner_id FROM company WHERE id = ?");
     $stmtCheckNative->execute([$company_id]);
     $nativeOwner = $stmtCheckNative->fetchColumn();
 
-    if (!$nativeOwner) {
-        echo json_encode([
-            'success' => false,
-            'status' => 'error',
-            'message' => 'Company not found'
-        ]);
-        exit();
-    }
-
     // 1. Check for Login ID (owner_code) match (excluding native owner)
     $partnerByLogin = null;
     if ($force_type === '' || $force_type === 'login') {
-        $stmtLogin = $pdo->prepare("
-            SELECT id, name, owner_code
-            FROM owner
-            WHERE UPPER(REPLACE(TRIM(owner_code), ' ', '')) = ?
-              AND id != ?
-              AND status = 'active'
-            LIMIT 1
-        ");
-        $stmtLogin->execute([$normalizedInput, $nativeOwner]);
+        $stmtLogin = $pdo->prepare("SELECT id, name, owner_code FROM owner WHERE UPPER(owner_code) = UPPER(?) AND id != ? AND status = 'active'");
+        $stmtLogin->execute([$login_or_group_id, $nativeOwner]);
         $partnerByLogin = $stmtLogin->fetch(PDO::FETCH_ASSOC);
     }
 
@@ -67,13 +45,10 @@ try {
             SELECT o.id, o.name, c.group_id 
             FROM company c
             JOIN owner o ON c.owner_id = o.id
-            WHERE UPPER(REPLACE(TRIM(c.group_id), ' ', '')) = ?
-              AND o.id != ?
-              AND o.status = 'active'
-              AND c.status = 'active'
+            WHERE UPPER(c.group_id) = UPPER(?) AND o.id != ? AND o.status = 'active'
             LIMIT 1
         ");
-        $stmtGrp->execute([$normalizedInput, $nativeOwner]);
+        $stmtGrp->execute([$login_or_group_id, $nativeOwner]);
         $partnerByGroup = $stmtGrp->fetch(PDO::FETCH_ASSOC);
     }
 
@@ -84,7 +59,6 @@ try {
         // Collision: Match found in both Login ID and Group ID. 
         // We prompt the user so they can decide whether to just share (Login) or formally join the group.
         echo json_encode([
-            'success' => false,
             'status' => 'conflict', 
             'message' => 'Multiple matches found.',
             'data' => [
@@ -101,30 +75,7 @@ try {
     }
 
     if (!$partner) {
-        // 给出更明确的提示：输入的是自己名下 group 时不应误报 not found
-        $stmtOwnGroup = $pdo->prepare("
-            SELECT 1
-            FROM company
-            WHERE owner_id = ?
-              AND UPPER(REPLACE(TRIM(group_id), ' ', '')) = ?
-              AND status = 'active'
-            LIMIT 1
-        ");
-        $stmtOwnGroup->execute([(int)$nativeOwner, $normalizedInput]);
-        if ($stmtOwnGroup->fetchColumn()) {
-            echo json_encode([
-                'success' => false,
-                'status' => 'error',
-                'message' => 'Cannot link your own Group ID as an external partner'
-            ]);
-            exit();
-        }
-
-        echo json_encode([
-            'success' => false,
-            'status' => 'error',
-            'message' => 'Owner account or Group ID not found or inactive'
-        ]);
+        echo json_encode(['status' => 'error', 'message' => 'Owner account or Group ID not found or inactive']);
         exit();
     }
 
@@ -133,11 +84,7 @@ try {
     // Note: Self-linking check is now handled implicitly since we exclude nativeOwner in queries,
     // but we can keep it as a fallback.
     if ($nativeOwner == $partnerId) {
-        echo json_encode([
-            'success' => false,
-            'status' => 'error',
-            'message' => 'This account is already the main owner of the company'
-        ]);
+        echo json_encode(['status' => 'error', 'message' => 'This account is already the main owner of the company']);
         exit();
     }
 
@@ -145,49 +92,22 @@ try {
     $stmtLink = $pdo->prepare("SELECT id FROM company_ownership WHERE company_id = ? AND owner_type = 'owner' AND account_id = ?");
     $stmtLink->execute([$company_id, $partnerId]);
     if ($stmtLink->fetch()) {
-        echo json_encode([
-            'success' => false,
-            'status' => 'error',
-            'message' => 'Partner is already linked to this company'
-        ]);
+        echo json_encode(['status' => 'error', 'message' => 'Partner is already linked to this company']);
         exit();
     }
 
     // 3. Link by inserting a 0% entry into company_ownership
-    // Backward-compatible: if partner_group_id column is absent, fallback to legacy insert.
-    $hasPartnerGroupId = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'partner_group_id'")->rowCount() > 0;
-    if ($hasPartnerGroupId) {
-        // If matched by Group ID, set partner_group_id so partner sees this under that group.
-        $stmtInsert = $pdo->prepare("
-            INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id)
-            VALUES (?, 'owner', ?, 0, ?)
-        ");
-        $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
-    } else {
-        $stmtInsert = $pdo->prepare("
-            INSERT INTO company_ownership (company_id, owner_type, account_id, percentage)
-            VALUES (?, 'owner', ?, 0)
-        ");
-        $stmtInsert->execute([$company_id, $partnerId]);
-    }
+    // If matched by Group ID, we set the partner_group_id so the partner sees it under this group,
+    // while the original owner's dashboard remains completely unaffected.
+    $stmtInsert = $pdo->prepare("INSERT INTO company_ownership (company_id, owner_type, account_id, percentage, partner_group_id) VALUES (?, 'owner', ?, 0, ?)");
+    $stmtInsert->execute([$company_id, $partnerId, $matched_by_group]);
 
     echo json_encode([
-        'success' => true,
         'status' => 'success',
-        'message' => "Partner '{$partner['name']}' linked successfully",
-        'data' => [
-            'company_id' => (int)$company_id,
-            'partner_id' => (int)$partnerId,
-            'partner_name' => $partner['name']
-        ]
+        'message' => "Partner '{$partner['name']}' linked successfully"
     ]);
 
 } catch (PDOException $e) {
-    error_log('add_external_partner_api failed: ' . $e->getMessage());
-    echo json_encode([
-        'success' => false,
-        'status' => 'error',
-        'message' => 'Database error'
-    ]);
+    echo json_encode(['status' => 'error', 'message' => 'Database error']);
 }
 ?>
