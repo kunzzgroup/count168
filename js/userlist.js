@@ -2209,8 +2209,7 @@ if (window.USERLIST_SKIP_AUTO_INIT) {
     initUserListPageAfterDomReady();
 }
 
-// Close modal when clicking outside
-window.onclick = function () { }
+// 勿设置 window.onclick：在 SPA 与其它页面共存时会覆盖全局行为，导致 Dashboard/Domain 等控件异常。
 
 function bindUserListFormSubmit() {
     const userForm = document.getElementById('userForm');

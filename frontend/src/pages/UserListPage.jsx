@@ -125,17 +125,24 @@ export default function UserListPage() {
     if (typeof window.initUserListPageAfterDomReady === "function") window.initUserListPageAfterDomReady();
   }, [bootstrap, scriptsReady, applyWindowGlobals, wireCompanyFilterCallback]);
 
+  // 仅挂载 userlist 专用样式；离开 /admin 时必须移除，否则其中全局 body/.container 规则会污染 Dashboard、Domain。
+  // global-13inch 已在 index.html 引入，切勿重复插入。
   useEffect(() => {
-    const ids = ["legacy-css-userlist", "legacy-css-global-13"];
-    const hrefs = ["/css/userlist.css", "/css/global-13inch.css"];
-    hrefs.forEach((href, i) => {
-      if (document.getElementById(ids[i])) return;
-      const l = document.createElement("link");
-      l.id = ids[i];
-      l.rel = "stylesheet";
-      l.href = assetUrl(href.replace(/^\//, ""));
-      document.head.appendChild(l);
-    });
+    const dup = document.getElementById("legacy-css-global-13");
+    if (dup?.parentNode) dup.parentNode.removeChild(dup);
+
+    const id = "legacy-css-userlist";
+    let linkEl = null;
+    if (!document.getElementById(id)) {
+      linkEl = document.createElement("link");
+      linkEl.id = id;
+      linkEl.rel = "stylesheet";
+      linkEl.href = assetUrl("css/userlist.css");
+      document.head.appendChild(linkEl);
+    }
+    return () => {
+      if (linkEl?.parentNode) linkEl.parentNode.removeChild(linkEl);
+    };
   }, []);
 
   const users = bootstrap?.users || [];
