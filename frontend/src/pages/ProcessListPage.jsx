@@ -403,7 +403,9 @@ export default function ProcessListPage() {
                 <div className="card-item">{row.currency || "-"}</div>
                 <div className="card-item">{row.day_use || "-"}</div>
                 <div className="card-item">
-                  <button type="button" className="edit-btn" onClick={() => openEdit(row.id)}>Edit</button>
+                  <button type="button" className="edit-btn" onClick={() => openEdit(row.id)} aria-label="Edit" title="Edit">
+                    <img src="/images/edit.svg" alt="Edit" />
+                  </button>
                   {row.status === "inactive" && !row.has_transactions && (
                     <input
                       type="checkbox"
