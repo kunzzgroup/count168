@@ -265,6 +265,100 @@ function historyParseDomainNetProfitSourceCompany(string $sms): string
     return '';
 }
 
+/** sms 形如 [DOMAIN_LIST_FEE|QA] */
+function historyParseDomainListFeeSourceCompany(string $sms): string
+{
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^\]|]+)/i', trim($sms), $m)) {
+        return strtoupper(trim((string) ($m[1] ?? '')));
+    }
+    return '';
+}
+
+/**
+ * Share% Profit 池账号：将「入账 List Fee + 同源 Sales/CS/IT 佣金划出」合并为一条净 Profit 行（Payment History 展示口径）。
+ * @return array skip=txn id 集合, rollups=合并行元数据
+ */
+function historyCollectDomainHubProfitRollup(array $transactions, array $account_ids_int): array
+{
+    $skip = [];
+    $rollups = [];
+    $hubSet = [];
+    foreach ($account_ids_int as $hid) {
+        if ($hid > 0) {
+            $hubSet[$hid] = true;
+        }
+    }
+    if (empty($hubSet)) {
+        return ['skip' => $skip, 'rollups' => $rollups];
+    }
+    foreach ($transactions as $t) {
+        if (($t['transaction_type'] ?? '') !== 'PAYMENT') {
+            continue;
+        }
+        $sms = trim((string) ($t['sms'] ?? ''));
+        if (stripos($sms, '[DOMAIN_LIST_FEE|') !== 0) {
+            continue;
+        }
+        $hubId = (int) ($t['account_id'] ?? 0);
+        if (!isset($hubSet[$hubId])) {
+            continue;
+        }
+        $feeId = (int) ($t['id'] ?? 0);
+        if ($feeId <= 0) {
+            continue;
+        }
+        $src = historyParseDomainListFeeSourceCompany($sms);
+        if ($src === '') {
+            continue;
+        }
+        $feeAmt = round((float) ($t['amount'] ?? 0), 2);
+        $commTotal = 0.0;
+        $commIds = [];
+        foreach ($transactions as $t2) {
+            if (($t2['transaction_type'] ?? '') !== 'PAYMENT') {
+                continue;
+            }
+            $sms2 = trim((string) ($t2['sms'] ?? ''));
+            if (stripos($sms2, '[DOMAIN_SHARE_COMMISSION|') !== 0) {
+                continue;
+            }
+            if ((int) ($t2['from_account_id'] ?? 0) !== $hubId) {
+                continue;
+            }
+            $src2 = historyParseDomainShareCommissionSourceCompanyCode($sms2);
+            if ($src2 === null || strtoupper((string) $src2) !== $src) {
+                continue;
+            }
+            if (!preg_match('/\|ROLE:(SALES|CS|IT)\|/i', $sms2)) {
+                continue;
+            }
+            $id2 = (int) ($t2['id'] ?? 0);
+            if ($id2 <= 0 || $id2 === $feeId) {
+                continue;
+            }
+            $commTotal += round((float) ($t2['amount'] ?? 0), 2);
+            $commIds[] = $id2;
+        }
+        if (empty($commIds)) {
+            continue;
+        }
+        $net = historyTrunc2($feeAmt - $commTotal);
+        if (abs($net) < 0.00001) {
+            continue;
+        }
+        $skip[$feeId] = true;
+        foreach ($commIds as $cid) {
+            $skip[$cid] = true;
+        }
+        $rollups[] = [
+            'fee_tx' => $t,
+            'net' => (float) $net,
+            'src' => $src,
+        ];
+    }
+    return ['skip' => $skip, 'rollups' => $rollups];
+}
+
 function historyResolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
 {
     try {
@@ -1233,6 +1327,7 @@ try {
     }
 
     $account_ids_int = array_map('intval', $account_ids);
+    $domainHubRollup = historyCollectDomainHubProfitRollup($transactions, $account_ids_int);
     foreach ($transactions as $t) {
         $ptCurrent = trim((string) ($t['period_type'] ?? ''));
         $pidCurrent = (int) ($t['source_bank_process_id'] ?? 0);
@@ -1245,6 +1340,11 @@ try {
             if (isset($hasNonTailByKey[$dupKey])) {
                 continue;
             }
+        }
+
+        $tidRoll = (int) ($t['id'] ?? 0);
+        if ($tidRoll > 0 && !empty($domainHubRollup['skip'][$tidRoll])) {
+            continue;
         }
 
         $is_to_account = in_array((int) $t['account_id'], $account_ids_int);
@@ -1743,6 +1843,56 @@ try {
             'description' => $description,
             'sms' => ($isDomainShareCommission || $isDomainListFee) ? '-' : ($t['sms'] ?: '-'),
             'created_by' => $transactionCreatedBy
+        ];
+    }
+
+    // Share% Profit 池：List Fee 入账 + 同源 Sales/CS/IT 佣金划出 → 一条净 Profit（与主表余额一致）
+    foreach ($domainHubRollup['rollups'] as $rb) {
+        $ft = $rb['fee_tx'];
+        $netShow = (float) $rb['net'];
+        $srcU = strtoupper(trim((string) $rb['src']));
+        $displayDateYmdRb = trim((string) ($ft['transaction_date'] ?? ''));
+        $transactionTimestampRb = strtotime($displayDateYmdRb . ' ' . ($ft['created_at'] ?? '00:00:00'));
+        if ($transactionTimestampRb === false) {
+            $transactionTimestampRb = strtotime($displayDateYmdRb);
+        }
+        $transactionCurrencyRb = null;
+        if ($has_currency_id && !empty($ft['transaction_currency_code'])) {
+            $transactionCurrencyRb = $ft['transaction_currency_code'];
+        } elseif ($currency) {
+            $transactionCurrencyRb = $currency;
+        } else {
+            $transactionCurrencyRb = $bfCurrency ?: '-';
+        }
+        $transactionCreatedByRb = '-';
+        if (!empty($ft['created_by_login_id'])) {
+            $transactionCreatedByRb = trim((string) $ft['created_by_login_id']);
+        } elseif (!empty($ft['created_by_owner_code'])) {
+            $transactionCreatedByRb = trim((string) $ft['created_by_owner_code']);
+        } elseif (!empty($ft['created_by_name'])) {
+            $transactionCreatedByRb = trim((string) $ft['created_by_name']);
+        } elseif (!empty($ft['created_by_owner_name'])) {
+            $transactionCreatedByRb = trim((string) $ft['created_by_owner_name']);
+        }
+        $events[] = [
+            'row_type' => 'transaction',
+            'transaction_id' => (int) ($ft['id'] ?? 0),
+            'transaction_type' => 'PAYMENT',
+            'order_ts' => $transactionTimestampRb ?: 0,
+            'order_index' => $eventIndex++,
+            'win_loss' => 0,
+            'cr_dr' => $netShow,
+            'date' => $displayDateYmdRb !== '' ? date('d/m/Y', strtotime($displayDateYmdRb)) : '-',
+            'source' => 'PAYMENT',
+            'product' => 'PROFIT',
+            'card_owner' => '-',
+            'is_bank_process_transaction' => false,
+            'currency' => $transactionCurrencyRb,
+            'percent' => '-',
+            'rate' => '-',
+            'description' => 'Net Profit From ' . $srcU,
+            'sms' => '-',
+            'created_by' => $transactionCreatedByRb,
         ];
     }
 
