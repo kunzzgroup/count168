@@ -102,19 +102,32 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
             $flowsTo[$ln['source_group']][] = $ln['target_group'];
         }
 
-        $seen = [];
+        // Build dedupe keys by (group_id, id) AND (group_id, company_id). If the
+        // target group already contains a native company with the same `company_id`
+        // (name), we skip the virtual row — otherwise two buttons with the same
+        // label would share one filter and the first one clicked would dictate
+        // which underlying c.id is used, which is very confusing for the user.
+        $seenById   = [];
+        $seenByName = [];
         foreach ($rows as $r) {
-            $seen[$r['id'] . '|' . strtoupper((string) ($r['group_id'] ?? ''))] = true;
+            $gKey = strtoupper((string) ($r['group_id'] ?? ''));
+            $seenById[$r['id'] . '|' . $gKey] = true;
+            $cname = strtoupper(trim((string) ($r['company_id'] ?? '')));
+            if ($cname !== '') {
+                $seenByName[$cname . '|' . $gKey] = true;
+            }
         }
 
         $extra = [];
         foreach ($rows as $r) {
             $src = strtoupper(trim((string) ($r['group_id'] ?? '')));
             if ($src === '' || !isset($flowsTo[$src])) continue;
+            $cname = strtoupper(trim((string) ($r['company_id'] ?? '')));
             foreach ($flowsTo[$src] as $tgt) {
-                $k = $r['id'] . '|' . $tgt;
-                if (isset($seen[$k])) continue;
-                $seen[$k] = true;
+                if (isset($seenById[$r['id'] . '|' . $tgt])) continue;
+                if ($cname !== '' && isset($seenByName[$cname . '|' . $tgt])) continue;
+                $seenById[$r['id'] . '|' . $tgt] = true;
+                if ($cname !== '') $seenByName[$cname . '|' . $tgt] = true;
                 $virtual = $r;
                 $virtual['group_id'] = $tgt;
                 $extra[] = $virtual;
