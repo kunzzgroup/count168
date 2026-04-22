@@ -1012,11 +1012,22 @@ function mergeGroupData(dataList) {
         const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
-        // Combined: direct% + group_equity% × group_account%
-        const effectivePct = hasGrp
-            ? (pct / 100) + (grpPct / 100) * (grpAccPct / 100)
-            : (pct / 100);
-        const earningsVal = netProfit * effectivePct;
+        // When this row came through a group-link (e.g. IG company viewed under AP),
+        // its NET_PROFIT was already scaled by the link percentage in fetchDashboardForCompany.
+        // Treat the scaled NET_PROFIT itself as the earnings share and skip effectivePct.
+        const linkMul = parseFloat(d._link_multiplier);
+        const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
+        let earningsVal;
+        if (hasLink) {
+            earningsVal = netProfit;
+            hasOwnershipSetup = true;
+        } else {
+            // Combined: direct% + group_equity% × group_account%
+            const effectivePct = hasGrp
+                ? (pct / 100) + (grpPct / 100) * (grpAccPct / 100)
+                : (pct / 100);
+            earningsVal = netProfit * effectivePct;
+        }
         companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
     });
 
@@ -1264,10 +1275,20 @@ function updateDashboard(data) {
                 const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
                 const groupAccountPercentage = parseFloat(data?.group_account_percentage) || 0;
                 const hasGroupOwnership = !!data?.has_group_ownership;
-                const effectivePct = hasGroupOwnership
-                    ? (ownershipPercentage / 100) + (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
-                    : (ownershipPercentage / 100);
-                const earningsDisplay = netProfitDisplay * effectivePct;
+                // When the data has been scaled by a group-link multiplier (viewing a
+                // company through a different group via IG→AP N% pooling), the scaled
+                // NET_PROFIT IS the share — don't multiply by effectivePct on top.
+                const linkMul = parseFloat(data?._link_multiplier);
+                const hasLinkOwnership = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
+                let earningsDisplay;
+                if (hasLinkOwnership) {
+                    earningsDisplay = netProfitDisplay;
+                } else {
+                    const effectivePct = hasGroupOwnership
+                        ? (ownershipPercentage / 100) + (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
+                        : (ownershipPercentage / 100);
+                    earningsDisplay = netProfitDisplay * effectivePct;
+                }
 
                 // 记录卡片显示值，供图表 tooltip 统一读取，避免口径不一致
                 chartMetadata.cardProfitDisplay = displayProfitNum;
@@ -1280,7 +1301,7 @@ function updateDashboard(data) {
                     earningsEl.textContent = formatCurrency(earningsDisplay);
                     const earningsCard = document.getElementById('earnings-card-wrapper');
                     if (earningsCard) {
-                        const showEarnings = !!data?.has_ownership_setup;
+                        const showEarnings = !!data?.has_ownership_setup || hasLinkOwnership;
                         earningsCard.style.display = showEarnings ? 'flex' : 'none';
                         // Toggle top-row layout: 3-column grid when Earnings visible, full-width when hidden
                         const topRow = earningsCard.closest('.dashboard-top-row');
