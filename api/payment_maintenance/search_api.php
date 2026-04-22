@@ -263,9 +263,12 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
     $fromDisplay = remapPaymentMaintenanceAccountCode((string)$fromDisplay, $ownerCode, $profitCode);
     if (is_string($description) && $description !== '') {
         $ownerCodeUpper = strtoupper(trim($ownerCode));
-        // 净利润描述固定显示为 "PROFIT BY {ownerCode}"（如 PROFIT BY K），不替换成 PROFIT。
+        // 净利润：sms 含 [DOMAIN_NET_PROFIT|QA] 时显示 PROFIT BY QA（来源公司）；否则回退 ownerCode
         if (preg_match('/^\s*PROFIT\s+BY\b/i', $description)) {
-            if ($ownerCodeUpper !== '') {
+            $profitSrc = $remarkTrim !== '' ? paymentMaintenanceParseDomainSourceCodeFromSms($remarkTrim) : '';
+            if ($profitSrc !== '') {
+                $description = 'PROFIT BY ' . $profitSrc;
+            } elseif ($ownerCodeUpper !== '') {
                 $description = 'PROFIT BY ' . $ownerCodeUpper;
             } else {
                 $description = strtoupper(trim($description));
@@ -408,6 +411,58 @@ function resolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, st
     return '-';
 }
 
+/**
+ * 从 Domain 流水 sms 解析「来源公司短码」（如 QA），供净利润描述 PROFIT BY {QA} 使用。
+ */
+function paymentMaintenanceParseDomainSourceCodeFromSms(string $sms): string
+{
+    $t = trim($sms);
+    if (preg_match('/^\[DOMAIN_NET_PROFIT\|([^\]|]+)/i', $t, $m)) {
+        return strtoupper(trim((string) $m[1]));
+    }
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^\]|]+)/i', $t, $m)) {
+        return strtoupper(trim((string) $m[1]));
+    }
+    if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^\]|]+)/i', $t, $m)) {
+        return strtoupper(trim((string) $m[1]));
+    }
+    return '';
+}
+
+/**
+ * 将单笔 PAYMENT 归入「来源公司 × 币别」的 list fee / commission 桶（仅识别带 sms 标记的典型行）。
+ *
+ * @return array{src:string,cur:string,kind:string}|null  kind 为 fee|comm
+ */
+function paymentMaintenanceClassifyDomainFeeOrCommissionRow(array $row): ?array
+{
+    $sms = trim((string) ($row['sms'] ?? ''));
+    $cur = strtoupper(trim((string) ($row['currency_code'] ?? '')));
+    if ($cur === '') {
+        return null;
+    }
+    if ($sms !== '' && stripos($sms, '[DOMAIN_LIST_FEE|') === 0) {
+        $src = paymentMaintenanceParseDomainSourceCodeFromSms($sms);
+        if ($src !== '') {
+            return ['src' => $src, 'cur' => $cur, 'kind' => 'fee'];
+        }
+    }
+    if ($sms !== '' && stripos($sms, '[DOMAIN_SHARE_COMMISSION|') === 0) {
+        $src = paymentMaintenanceParseDomainSourceCodeFromSms($sms);
+        if ($src !== '') {
+            return ['src' => $src, 'cur' => $cur, 'kind' => 'comm'];
+        }
+    }
+    if (preg_match('/^\s*DOMAIN\s+LIST\s+FEE\s+FROM\s+(\S+)/i', (string) ($row['description'] ?? ''), $md)) {
+        $src = strtoupper(trim((string) ($md[1] ?? '')));
+        if ($src !== '') {
+            return ['src' => $src, 'cur' => $cur, 'kind' => 'fee'];
+        }
+    }
+
+    return null;
+}
+
 function appendVirtualDomainNetProfitItem(
     PDO $pdo,
     array &$data,
@@ -427,59 +482,71 @@ function appendVirtualDomainNetProfitItem(
 
     $profitCode = resolveProfitDisplayCode($pdo, $companyId);
     $submitter = resolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
+    $ownerCodeU = strtoupper(trim($ownerCode));
 
-    $sql = "SELECT
-                UPPER(COALESCE(c.code, '')) AS currency_code,
-                SUM(CASE
-                      WHEN t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
-                      THEN ROUND(t.amount, 2)
-                      ELSE 0
-                    END) AS fee_total,
-                SUM(CASE
-                      WHEN t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
-                      THEN ROUND(t.amount, 2)
-                      ELSE 0
-                    END) AS comm_total
+    $sql = "SELECT t.sms, t.description, t.amount, UPPER(COALESCE(c.code, '')) AS currency_code
             FROM transactions t
             LEFT JOIN currency c ON t.currency_id = c.id
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
-            GROUP BY UPPER(COALESCE(c.code, ''))";
+              AND (
+                    t.sms LIKE '[DOMAIN_LIST_FEE|%'
+                 OR t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                 OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
+                 OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
+                 OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISSION FOR %'
+              )";
     $st = $pdo->prepare($sql);
     $st->execute([$companyId, $dateFromDb, $dateToDb]);
-    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-
-    foreach ($rows as $r) {
-        $currencyCode = strtoupper(trim((string)($r['currency_code'] ?? '')));
-        if ($currencyCode === '') {
+    $agg = []; // [src][currency] => ['fee'=>float,'comm'=>float]
+    while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+        $cls = paymentMaintenanceClassifyDomainFeeOrCommissionRow($r);
+        if ($cls === null) {
             continue;
         }
+        $src = $cls['src'];
+        $currencyCode = $cls['cur'];
         if (!empty($currencyFilters) && !in_array($currencyCode, array_map('strtoupper', $currencyFilters), true)) {
             continue;
         }
-        $fee = round((float)($r['fee_total'] ?? 0), 2);
-        $comm = round((float)($r['comm_total'] ?? 0), 2);
-        $net = round($fee - $comm, 2);
-        if ($net <= 0) {
-            continue;
+        if (!isset($agg[$src][$currencyCode])) {
+            $agg[$src][$currencyCode] = ['fee' => 0.0, 'comm' => 0.0];
         }
-        $data[] = [
-            'transaction_id' => 0,
-            'date' => date('d/m/Y', strtotime($dateToDb)),
-            'account' => $profitCode,
-            'from_account' => '-',
-            'currency' => $currencyCode,
-            'amount' => $net,
-            'description' => 'PROFIT BY ' . (strtoupper(trim($ownerCode)) !== '' ? strtoupper(trim($ownerCode)) : $profitCode),
-            'remark' => '',
-            'dts_created' => date('d/m/Y H:i:s'),
-            'created_by' => $submitter,
-            'transaction_type' => 'PAYMENT',
-            'is_deleted' => 0,
-            'deleted_by' => null,
-            'dts_deleted' => null,
-        ];
+        $amt = round((float) ($r['amount'] ?? 0), 2);
+        if ($cls['kind'] === 'fee') {
+            $agg[$src][$currencyCode]['fee'] += $amt;
+        } else {
+            $agg[$src][$currencyCode]['comm'] += $amt;
+        }
+    }
+
+    foreach ($agg as $src => $curMap) {
+        foreach ($curMap as $currencyCode => $tot) {
+            $fee = round((float) ($tot['fee'] ?? 0), 2);
+            $comm = round((float) ($tot['comm'] ?? 0), 2);
+            $net = round($fee - $comm, 2);
+            if ($net <= 0) {
+                continue;
+            }
+            $labelSrc = $src !== '' ? $src : ($ownerCodeU !== '' ? $ownerCodeU : $profitCode);
+            $data[] = [
+                'transaction_id' => 0,
+                'date' => date('d/m/Y', strtotime($dateToDb)),
+                'account' => $profitCode,
+                'from_account' => '-',
+                'currency' => $currencyCode,
+                'amount' => $net,
+                'description' => 'PROFIT BY ' . $labelSrc,
+                'remark' => '',
+                'dts_created' => date('d/m/Y H:i:s'),
+                'created_by' => $submitter,
+                'transaction_type' => 'PAYMENT',
+                'is_deleted' => 0,
+                'deleted_by' => null,
+                'dts_deleted' => null,
+            ];
+        }
     }
 }
 
