@@ -685,12 +685,19 @@ export default function TransactionDashboardPage() {
                                 border: "1px solid #e2e8f0",
                                 borderRadius: 8,
                                 padding: "2px 4px",
+                                gap: 6,
                               }}
                             >
                               <select
                                 value={calendarYear}
                                 onChange={(e) => setCalendarYear(Number(e.target.value))}
-                                style={{ fontSize: 12, padding: "4px 6px", border: "none", background: "transparent" }}
+                                style={{
+                                  fontSize: 12,
+                                  padding: "4px 6px",
+                                  minWidth: 68,
+                                  border: "none",
+                                  background: "transparent",
+                                }}
                               >
                                 {yearOptions.map((y) => (
                                   <option key={y} value={y}>
@@ -701,7 +708,13 @@ export default function TransactionDashboardPage() {
                               <select
                                 value={calendarMonth}
                                 onChange={(e) => setCalendarMonth(Number(e.target.value))}
-                                style={{ fontSize: 12, padding: "4px 6px", border: "none", background: "transparent" }}
+                                style={{
+                                  fontSize: 12,
+                                  padding: "4px 6px",
+                                  minWidth: 58,
+                                  border: "none",
+                                  background: "transparent",
+                                }}
                               >
                                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                                   <option key={m} value={m}>
