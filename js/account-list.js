@@ -255,6 +255,11 @@ function changePage(newPage) {
     renderTable();
 }
 
+window.changeAccountListPageBy = function (delta) {
+    const step = Number(delta) || 0;
+    changePage(currentPage + step);
+};
+
 function showError(message) {
     const container = document.getElementById('accountTableBody');
     container.innerHTML = `

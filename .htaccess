@@ -33,5 +33,6 @@ RewriteRule ^login/?$ index.php [L,QSA]
 RewriteRule ^dashboard/?$ index.php [L,QSA]
 RewriteRule ^domain/?$ index.php [L,QSA]
 RewriteRule ^announcement/?$ index.php [L,QSA]
+RewriteRule ^account-list/?$ index.php [L,QSA]
 </IfModule>
 
