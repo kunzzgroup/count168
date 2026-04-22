@@ -413,6 +413,7 @@ function searchApiAppendDomainListFeeVirtualRows(
             continue;
 
         $realAccountId = 0;
+        $resolvedByExactCompanyCode = false;
         try {
             $sta = $pdo->prepare("
                 SELECT a.id
@@ -424,18 +425,46 @@ function searchApiAppendDomainListFeeVirtualRows(
             ");
             $sta->execute([$company_id, strtoupper($src)]);
             $realAccountId = (int) ($sta->fetchColumn() ?: 0);
+            if ($realAccountId > 0) {
+                $resolvedByExactCompanyCode = true;
+            }
+            // Domain 自动建账：C168 下常为 OWNERCODE_COMPANY（如 QAA_QA），sms 仍为公司短码（QA）
+            if ($realAccountId <= 0) {
+                try {
+                    $stOwn = $pdo->prepare("
+                        SELECT UPPER(TRIM(COALESCE(o.owner_code, ''))) AS oc
+                        FROM company co
+                        INNER JOIN owner o ON o.id = co.owner_id
+                        WHERE UPPER(TRIM(co.company_id)) = ?
+                        ORDER BY co.id ASC
+                        LIMIT 1
+                    ");
+                    $stOwn->execute([strtoupper(trim($src))]);
+                    $owRaw = trim((string) ($stOwn->fetchColumn() ?: ''));
+                    $owClean = strtoupper(preg_replace('/[^A-Z0-9]/', '', $owRaw));
+                    if ($owClean === '') {
+                        $owClean = 'DOM';
+                    }
+                    $provisionCode = $owClean . '_' . strtoupper(trim($src));
+                    $sta->execute([$company_id, $provisionCode]);
+                    $realAccountId = (int) ($sta->fetchColumn() ?: 0);
+                } catch (Exception $e) {
+                }
+            }
         } catch (PDOException $e) {
         }
 
         if ($realAccountId > 0) {
             $realKey = $realAccountId . '_' . $cur;
             if (isset($seen[$realKey])) {
-                // Already shown by real account row; merge list-fee movement into the real row.
-                $idx = $seenIndex[$realKey] ?? null;
-                if ($idx !== null && isset($results[$idx])) {
-                    $results[$idx]['cr_dr'] = trunc2((float) ($results[$idx]['cr_dr'] ?? 0) - $amt);
-                    $results[$idx]['balance'] = trunc2((float) ($results[$idx]['balance'] ?? 0) - $amt);
-                    $results[$idx]['has_crdr_transactions'] = 1;
+                // 公司短码=账号 id（如 QA）时合并一行；仅解析到 OWNER_QA 且主表已有该行时，主表已含 from 流水，勿再 merge 亦勿追加虚拟 QA（避免双 -2400）
+                if ($resolvedByExactCompanyCode) {
+                    $idx = $seenIndex[$realKey] ?? null;
+                    if ($idx !== null && isset($results[$idx])) {
+                        $results[$idx]['cr_dr'] = trunc2((float) ($results[$idx]['cr_dr'] ?? 0) - $amt);
+                        $results[$idx]['balance'] = trunc2((float) ($results[$idx]['balance'] ?? 0) - $amt);
+                        $results[$idx]['has_crdr_transactions'] = 1;
+                    }
                 }
                 continue;
             }

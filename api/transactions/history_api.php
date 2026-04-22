@@ -265,59 +265,6 @@ function historyParseDomainNetProfitSourceCompany(string $sms): string
     return '';
 }
 
-/**
- * 来源公司（如 QA）在 Share% 里配置的 Profit 入账账号（须在 C168 公司下），供 Payment History 标题与虚拟行对齐。
- */
-function historyResolveDomainShareProfitReceiverDisplay(PDO $pdo, int $c168CompanyPk, string $sourceCompanyCode): array
-{
-    $out = ['account_code' => '', 'account_name' => '', 'account_db_id' => 0];
-    $src = strtoupper(trim($sourceCompanyCode));
-    if ($src === '' || $c168CompanyPk <= 0) {
-        return $out;
-    }
-    try {
-        $st = $pdo->prepare("SELECT fee_share_allocations FROM company WHERE UPPER(TRIM(company_id)) = ? LIMIT 1");
-        $st->execute([$src]);
-        $raw = $st->fetchColumn();
-        if ($raw === false || $raw === null || $raw === '') {
-            return $out;
-        }
-        $decoded = json_decode((string) $raw, true);
-        if (!is_array($decoded)) {
-            return $out;
-        }
-        $profitRows = $decoded['profit'] ?? [];
-        if (!is_array($profitRows) || empty($profitRows)) {
-            return $out;
-        }
-        $first = $profitRows[0];
-        if (!is_array($first)) {
-            return $out;
-        }
-        $aid = (int) ($first['account_id'] ?? 0);
-        if ($aid <= 0) {
-            return $out;
-        }
-        $st2 = $pdo->prepare("
-            SELECT a.id, TRIM(COALESCE(a.account_id, '')) AS code, TRIM(COALESCE(a.name, '')) AS nm
-            FROM account a
-            INNER JOIN account_company ac ON ac.account_id = a.id
-            WHERE a.id = ? AND ac.company_id = ?
-            LIMIT 1
-        ");
-        $st2->execute([$aid, $c168CompanyPk]);
-        $row = $st2->fetch(PDO::FETCH_ASSOC);
-        if (!$row) {
-            return $out;
-        }
-        $out['account_db_id'] = (int) $row['id'];
-        $out['account_code'] = strtoupper(trim((string) ($row['code'] ?? '')));
-        $out['account_name'] = trim((string) ($row['nm'] ?? ''));
-    } catch (Exception $e) {
-    }
-    return $out;
-}
-
 function historyResolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
 {
     try {
@@ -664,10 +611,6 @@ function buildVirtualDomainNetProfitHistory(
         ]
     ];
 
-    $profitRxModal = historyResolveDomainShareProfitReceiverDisplay($pdo, $companyId, $srcCompanyParam);
-    $modalAccountCode = $profitRxModal['account_code'] !== '' ? $profitRxModal['account_code'] : $owner;
-    $modalAccountName = $profitRxModal['account_name'] !== '' ? $profitRxModal['account_name'] : $modalAccountCode;
-
     $running = 0.0;
     foreach ($rows as $r) {
         $amt = round((float) ($r['amount'] ?? 0), 2);
@@ -702,11 +645,31 @@ function buildVirtualDomainNetProfitHistory(
         ];
     }
 
+    // 弹窗标题与所点 DOMAIN 行一致（virtual_company_code = 公司代码或展示用 account_id），勿用 Share% Profit 账号替代
+    $titleCode = $srcCompanyParam !== '' ? $srcCompanyParam : $owner;
+    $titleName = $titleCode;
+    try {
+        $sto = $pdo->prepare("
+            SELECT TRIM(COALESCE(o.name, '')) AS n
+            FROM company c
+            INNER JOIN owner o ON o.id = c.owner_id
+            WHERE UPPER(TRIM(c.company_id)) = ? OR UPPER(TRIM(IFNULL(c.group_id, ''))) = ?
+            ORDER BY c.id ASC
+            LIMIT 1
+        ");
+        $sto->execute([$titleCode, $titleCode]);
+        $n = trim((string) ($sto->fetchColumn() ?: ''));
+        if ($n !== '') {
+            $titleName = $n;
+        }
+    } catch (Exception $e) {
+    }
+
     return [
         'account' => [
             'id' => 0,
-            'account_id' => $modalAccountCode,
-            'name' => $modalAccountName,
+            'account_id' => $titleCode,
+            'name' => $titleName,
             'currency' => $displayCurrency
         ],
         'history' => $history
