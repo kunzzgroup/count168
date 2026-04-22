@@ -997,23 +997,18 @@ function mergeGroupData(dataList) {
         const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
-        // Group All mode is always under a group filter. Earnings priority
-        // (same cascade as single-company view):
-        //   1. direct % (if > 0)
-        //   2. chain % (group_equity × group_account, if > 0)
-        //   3. link_multiplier (virtual row fallback)
-        //   4. 100% fallback (admin)
+        // Group All mode — same priority cascade as updateDashboard's single-company path.
         const linkMul = parseFloat(d._link_multiplier);
         const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
-        const directPct = pct / 100;
-        const chainPct  = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
         let effectivePct;
-        if (directPct > 0 || chainPct > 0) {
-            effectivePct = directPct + chainPct;
-        } else if (hasLink) {
-            effectivePct = linkMul;
+        if (hasLink) {
+            const viewerGroupShare = grpAccPct > 0 ? grpAccPct / 100 : 1;
+            effectivePct = linkMul * viewerGroupShare;
         } else {
-            effectivePct = 1;
+            const directPct = pct / 100;
+            const chainPct  = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
+            const combined  = directPct + chainPct;
+            effectivePct = combined === 0 ? 1 : combined;
         }
         const earningsVal = netProfit * effectivePct;
         hasOwnershipSetup = true;
@@ -1274,31 +1269,33 @@ function updateDashboard(data) {
                 const hasLinkOwnership = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
                 const inGroupView = !!selectedDashboardGroup;
 
-                // Earnings priority cascade (pick the FIRST applicable rule):
-                //   1. Direct ownership row for this user (owner_type='owner'/'user')
-                //      → `ownership_percentage`.
-                //   2. Chain via company→group→user (company_ownership owner_type='group'
-                //      + group_ownership owner_type='owner'/'user')
-                //      → `group_equity% × group_account%`.
-                //      (If both 1 & 2 exist — e.g. partnership has direct % AND chain —
-                //       they're summed.)
-                //   3. Virtual row via link (admin / self-owner same-owner link that has
-                //      no explicit user stake) → pre-computed `link_multiplier`.
-                //   4. Group view fallback (admin with nothing configured) → 100%.
-                const directPct = ownershipPercentage / 100;
-                const chainPct  = hasGroupOwnership
-                    ? (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
-                    : 0;
-
+                // Earnings priority cascade. The key split: when a company appears
+                // via a group-link (virtual row under a non-native group), Earnings
+                // only reflects the link chain — NOT the viewer's direct owner %
+                // (which belongs to the native-group view).
+                //
+                //   hasLinkOwnership (viewing through a link):
+                //     → Net Profit × link_multiplier × viewer_group_share
+                //       where viewer_group_share = group_account_percentage if set
+                //       (partnership / external owner), else 100% (self-owned group).
+                //
+                //   native (no link):
+                //     → Net Profit × (direct% + group_equity% × group_account%)
+                //       Falls back to 100% in group view when nothing is configured
+                //       (admin session).
                 let effectivePct;
-                if (directPct > 0 || chainPct > 0) {
-                    effectivePct = directPct + chainPct;
-                } else if (hasLinkOwnership) {
-                    effectivePct = linkMul;
-                } else if (inGroupView) {
-                    effectivePct = 1;
+                if (hasLinkOwnership) {
+                    const viewerGroupShare = groupAccountPercentage > 0
+                        ? groupAccountPercentage / 100
+                        : 1;
+                    effectivePct = linkMul * viewerGroupShare;
                 } else {
-                    effectivePct = 0;
+                    const directPct = ownershipPercentage / 100;
+                    const chainPct  = hasGroupOwnership
+                        ? (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
+                        : 0;
+                    const combined = directPct + chainPct;
+                    effectivePct = (combined === 0 && inGroupView) ? 1 : combined;
                 }
                 const earningsDisplay = netProfitDisplay * effectivePct;
 
