@@ -259,7 +259,12 @@ export default function AccountListPage() {
 
     document.body.appendChild(sharedScript);
     document.body.appendChild(accountScript);
-    document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+    accountScript.onload = () => {
+      document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+      if (window.location.pathname === "/add-account" && typeof window.addAccount === "function") {
+        setTimeout(() => window.addAccount(), 60);
+      }
+    };
 
     return () => {
       const s1 = document.getElementById(sharedScriptId);

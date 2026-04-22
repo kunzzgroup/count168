@@ -15,6 +15,7 @@ export default function App() {
         <Route path="/domain" element={<DomainPage />} />
         <Route path="/announcement" element={<AnnouncementPage />} />
         <Route path="/account-list" element={<AccountListPage />} />
+        <Route path="/add-account" element={<AccountListPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
