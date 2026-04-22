@@ -321,6 +321,7 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
             // 避免把描述中的正常账户名（如 K）错误地替换成其他账户名（如 ALBB）。
             $description = preg_replace('/\bC168\b/i', 'PROFIT', $description);
         }
+        $description = strtoupper($description);
     }
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
     $deletedBy = !empty($row['deleted_by_login']) ? $row['deleted_by_login'] : ($row['deleted_by_owner'] ?? null);
@@ -691,6 +692,7 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
                 $displayAmount = (float) $originalAmount;
             }
         }
+        $description = strtoupper((string) $description);
         $items[] = [
             'transaction_id' => (int) $rateRow['header_id'],
             'date' => $rateRow['transaction_date'],
