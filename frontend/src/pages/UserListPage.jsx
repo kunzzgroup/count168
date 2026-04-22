@@ -114,7 +114,12 @@ export default function UserListPage() {
 
   useEffect(() => {
     if (!companyId || loading) return;
-    refreshAll();
+    (async () => {
+      const ok = await syncSessionCompany(companyId);
+      if (ok) {
+        await refreshAll();
+      }
+    })();
   }, [companyId, loading]);
 
   useEffect(() => {
@@ -125,6 +130,23 @@ export default function UserListPage() {
 
   const refreshAll = async () => {
     await Promise.all([loadUsers(), loadAccounts(), loadProcesses()]);
+  };
+
+  const syncSessionCompany = async (targetCompanyId) => {
+    try {
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${targetCompanyId}`), {
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        notify(json.message || json.error || "Failed to sync company session", "danger");
+        return false;
+      }
+      return true;
+    } catch {
+      notify("Failed to sync company session", "danger");
+      return false;
+    }
   };
 
   const syncUrl = () => {
@@ -154,6 +176,9 @@ export default function UserListPage() {
       });
       const json = await res.json();
       const rows = Array.isArray(json?.data) ? json.data : [];
+      if (!json?.success) {
+        notify(json?.message || "Failed to load users", "danger");
+      }
       setUsers(rows.map((u) => ({ ...u, is_owner_shadow: false })));
       setSelectedDeleteIds(new Set());
       setCurrentPage(1);
@@ -234,9 +259,8 @@ export default function UserListPage() {
 
   const onSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
-    const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
-    const json = await res.json();
-    if (!res.ok || !json.success) return notify(json.message || json.error || "Failed to switch company", "danger");
+    const ok = await syncSessionCompany(c.id);
+    if (!ok) return;
     setCompanyId(Number(c.id));
     setCurrentPage(1);
   };
