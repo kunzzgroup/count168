@@ -884,8 +884,19 @@ function editUser(id, isOwnerShadow = false) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    if (!isEditMode) return;
+                    if (String(document.getElementById('userId').value) !== String(id)) return;
+
                     const permissions = data.data.permissions ? JSON.parse(data.data.permissions) : [];
                     setUserPermissions(permissions);
+
+                    const roleSelectForFallback = document.getElementById('role');
+                    if ((!permissions || !permissions.length) && roleSelectForFallback && !roleSelectForFallback.disabled) {
+                        const roleFromApi = (data.data.role || '').toLowerCase().trim();
+                        if (roleFromApi) {
+                            setDefaultPermissionsByRole(roleFromApi, { force: true });
+                        }
+                    }
 
                     // 加载 Account 和 Process 权限
                     // null 表示未设置（默认全选），[] 表示已设置但为空（不选），有值表示只选这些
@@ -1091,6 +1102,7 @@ function editUser(id, isOwnerShadow = false) {
 
 
 function closeModal() {
+    isEditMode = false;
     document.getElementById('userModal').style.display = 'none';
 
     // 清理隐藏的 login_id 字段
@@ -2055,8 +2067,10 @@ document.addEventListener('DOMContentLoaded', function () {
         roleSelect.addEventListener('change', function () {
             const selectedRole = this.value;
             if (selectedRole) {
-                // setDefaultPermissionsByRole 内部已经会处理权限限制（创建模式时）
-                setDefaultPermissionsByRole(selectedRole, { force: isEditMode });
+                setDefaultPermissionsByRole(selectedRole, { force: true });
+                if (isEditMode) {
+                    restrictPermissionsByCurrentUserRole();
+                }
             } else {
                 // 选择"Select Role"时，无论模式都清空权限
                 clearAllPermissions();

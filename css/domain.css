@@ -377,8 +377,8 @@ h1 {
 
 /* Company Settings modal: split pane (Company | Share %) */
 .modal-content.company-settings-modal-content--split {
-    width: min(980px, 96vw);
-    max-width: min(980px, 96vw);
+    width: min(1120px, 96vw);
+    max-width: min(1120px, 96vw);
 }
 
 .company-settings-modal-body {
@@ -769,6 +769,12 @@ h1 {
 }
 
 .company-share-role-badge--sales {
+    background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.company-share-role-badge--profit {
     background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
     color: #1d4ed8;
     border: 1px solid #bfdbfe;
