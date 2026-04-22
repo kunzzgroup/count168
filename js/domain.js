@@ -673,8 +673,7 @@ function buildShareAccountOptionsHtml(selectedId, accountList) {
         h += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + escapeHtmlShare(label) + '</option>';
     });
     if (sel && !seenSelected) {
-        h += '<option value="' + escapeHtmlShare(sel) + '" selected>' +
-            escapeHtmlShare('（非 profit 或未在 C168） #') + escapeHtmlShare(sel) + '</option>';
+        h += '<option value="' + escapeHtmlShare(sel) + '" selected>' + escapeHtmlShare(sel) + '</option>';
     }
     return h;
 }
