@@ -263,7 +263,16 @@ export default function AccountListPage() {
       try {
         await loadScript(sharedScriptId, assetUrl("js/shared_company_filter.js"));
         await loadScript(accountScriptId, assetUrl("js/account-list.js"));
-        document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+
+        window._sharedCompanyFilterInitialized = false;
+        window._accountListInitialized = false;
+        const fireLegacyInit = () => {
+          document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+        };
+        fireLegacyInit();
+        setTimeout(fireLegacyInit, 120);
+        setTimeout(fireLegacyInit, 360);
+
         if (window.location.pathname === "/add-account" && typeof window.addAccount === "function") {
           setTimeout(() => window.addAccount(), 60);
         }

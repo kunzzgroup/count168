@@ -2153,6 +2153,8 @@ async function switchAccountListCompany(companyId, companyCode) {
 
 // 椤甸潰鍔犺浇鏃惰幏鍙栨暟鎹?
 document.addEventListener('DOMContentLoaded', function () {
+    if (window._accountListInitialized) return;
+    window._accountListInitialized = true;
     loadEditData(); // Load currencies and roles for edit modal
     updateAccountListScrollMode(); // 初始化滚动模式
     fetchAccounts();
