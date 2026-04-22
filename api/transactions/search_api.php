@@ -340,8 +340,14 @@ function searchApiAppendDomainListFeeVirtualRows(
     array $currency_id_map
 ): void {
     $seen = [];
+    $seenIndex = [];
     foreach ($results as $r) {
-        $seen[$r['account_db_id'] . '_' . strtoupper((string) ($r['currency'] ?? ''))] = true;
+        $k = $r['account_db_id'] . '_' . strtoupper((string) ($r['currency'] ?? ''));
+        $seen[$k] = true;
+    }
+    foreach ($results as $idx => $r) {
+        $k = $r['account_db_id'] . '_' . strtoupper((string) ($r['currency'] ?? ''));
+        $seenIndex[$k] = $idx;
     }
 
     $currencyFilterIds = [];
