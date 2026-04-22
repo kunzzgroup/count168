@@ -1012,11 +1012,12 @@ function mergeGroupData(dataList) {
         const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
-        // Group All mode is always under a group filter — treat each company's
-        // (already-scaled) NET_PROFIT as its earnings contribution. Native companies
-        // have link_multiplier=1 so NET_PROFIT is unchanged; virtual companies have
-        // been scaled down by the IG→AP link percentage already.
-        const earningsVal = netProfit;
+        // Group All mode is always under a group filter.
+        //   Earnings per company = scaled NET_PROFIT × account_ownership%
+        //   (virtual companies already had the IG→AP link_multiplier applied; this
+        //    multiplier captures the company→group allocation layer.)
+        const accountOwnershipPct = grpPct > 0 ? (grpPct / 100) : 1;
+        const earningsVal = netProfit * accountOwnershipPct;
         hasOwnershipSetup = true;
         companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
     });
@@ -1260,25 +1261,29 @@ function updateDashboard(data) {
                 const netProfitDisplay = displayProfitNum + displayExpensesNum;
 
                 // Earnings 卡片：
-                // Combined: direct% + group_equity% × group_account%
+                //   Under a group filter:  Earnings = Net Profit × account_ownership% × group_earnings_link%
+                //     - account_ownership% = this company's equity going to its group
+                //       (from company_ownership owner_type='group'). Defaults to 100% if
+                //       the company has no explicit group_equity row.
+                //     - group_earnings_link% = IG→AP style link (already applied to
+                //       netProfitDisplay by scaleDashboardData). Nothing extra to do here.
+                //   Without a group filter: legacy per-user formula stays.
                 const ownershipPercentage = parseFloat(data?.ownership_percentage) || 0;
                 const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
                 const groupAccountPercentage = parseFloat(data?.group_account_percentage) || 0;
                 const hasGroupOwnership = !!data?.has_group_ownership;
-                // When the data has been scaled by a group-link multiplier (viewing a
-                // company through a different group via IG→AP N% pooling), the scaled
-                // NET_PROFIT IS the share — don't multiply by effectivePct on top.
                 const linkMul = parseFloat(data?._link_multiplier);
                 const hasLinkOwnership = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
-                // Under a group filter (AP/IG/etc.), the card represents the group
-                // owner's take-home from that group: Earnings = NET_PROFIT (already
-                // scaled by link_multiplier if the company came in via a group-link).
-                // This sidesteps the per-user effectivePct formula which returns 0
-                // for admin sessions whose user.id isn't keyed in company_ownership.
                 const inGroupView = !!selectedDashboardGroup;
+
                 let earningsDisplay;
-                if (hasLinkOwnership || inGroupView) {
-                    earningsDisplay = netProfitDisplay;
+                if (inGroupView || hasLinkOwnership) {
+                    // account_ownership% defaults to 100 when no explicit company_ownership
+                    // group-equity row exists (common for same-owner setups).
+                    const accountOwnershipPct = groupEquityPercentage > 0
+                        ? groupEquityPercentage / 100
+                        : 1;
+                    earningsDisplay = netProfitDisplay * accountOwnershipPct;
                 } else {
                     const effectivePct = hasGroupOwnership
                         ? (ownershipPercentage / 100) + (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
