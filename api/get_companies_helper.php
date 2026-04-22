@@ -55,17 +55,47 @@ if (!function_exists('getCompaniesByUser')) {
 
 if (!function_exists('getCompaniesByOwner')) {
     function getCompaniesByOwner(PDO $pdo, int $ownerId, bool $fetchAll): array {
+        // Check if group_ownership table exists (group-level partner linking)
+        $hasGroupOwnership = false;
+        try {
+            $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+        } catch (Exception $e) { /* ignore */ }
+
+        // Subquery: companies visible to this owner via group_ownership
+        // When TEST is linked to group 'IG' (with percentage > 0), TEST should see
+        // all companies whose c.group_id = 'IG'.
+        $groupVisibleSQL = $hasGroupOwnership
+            ? "OR EXISTS (
+                    SELECT 1 FROM group_ownership go
+                    WHERE go.owner_type = 'owner'
+                      AND go.account_id = ?
+                      AND go.percentage > 0
+                      AND c.group_id IS NOT NULL
+                      AND TRIM(c.group_id) <> ''
+                      AND LOWER(TRIM(go.group_id)) = LOWER(TRIM(c.group_id))
+                )"
+            : "";
+
         if ($fetchAll) {
-            $stmt = $pdo->prepare("
+            $sql = "
                 SELECT DISTINCT c.id, c.company_id, c.expiration_date,
                        COALESCE(co.partner_group_id, c.group_id) as group_id,
                        IF(c.owner_id = ?, 0, 1) as is_external
                 FROM company c
                 LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
-                WHERE (c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)) AND c.company_id != ''
+                WHERE (
+                    c.owner_id = ?
+                    OR (co.account_id = ? AND co.percentage > 0)
+                    $groupVisibleSQL
+                ) AND c.company_id != ''
                 ORDER BY is_external ASC, c.company_id ASC
-            ");
-            $stmt->execute([$ownerId, $ownerId, $ownerId, $ownerId]);
+            ";
+            $params = [$ownerId, $ownerId, $ownerId, $ownerId];
+            if ($hasGroupOwnership) {
+                $params[] = $ownerId;
+            }
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             $session_company_id = $_SESSION['company_id'] ?? null;
@@ -88,12 +118,32 @@ if (!function_exists('getCompaniesByOwner')) {
                 }
             }
 
+            // Check if this owner has group-level access to the native_group
+            // (linked via group_ownership, e.g. TEST linked to JK's group 'IG')
+            $hasGroupAccessToNative = false;
+            if ($hasGroupOwnership && $native_group !== null && trim($native_group) !== '') {
+                $stmtGo = $pdo->prepare("
+                    SELECT 1 FROM group_ownership
+                    WHERE owner_type = 'owner'
+                      AND account_id = ?
+                      AND percentage > 0
+                      AND LOWER(TRIM(group_id)) = LOWER(TRIM(?))
+                    LIMIT 1
+                ");
+                $stmtGo->execute([$ownerId, trim($native_group)]);
+                $hasGroupAccessToNative = (bool) $stmtGo->fetchColumn();
+            }
+
             $params = [];
             $whereParts = [];
 
             if ($partner_group !== null && trim($partner_group) !== '') {
                 $whereParts[] = "(c.owner_id != ? AND co.account_id = ? AND LOWER(co.partner_group_id) = LOWER(?) AND co.percentage > 0)";
                 $params = array_merge($params, [$ownerId, $ownerId, trim($partner_group)]);
+            } elseif ($hasGroupAccessToNative) {
+                // Group-level external access: show every company in this group regardless of owner
+                $whereParts[] = "(LOWER(TRIM(c.group_id)) = LOWER(TRIM(?)))";
+                $params[] = trim($native_group);
             } elseif ($native_group !== null && trim($native_group) !== '') {
                 $whereParts[] = "(c.owner_id = ? AND LOWER(c.group_id) = LOWER(?))";
                 $params = array_merge($params, [$ownerId, trim($native_group)]);
