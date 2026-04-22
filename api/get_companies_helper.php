@@ -15,7 +15,62 @@ if (!function_exists('getCompaniesByUser')) {
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$userId]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Reverse-direction visibility for self-group links (admin sessions):
+            //   If a group S has a row (owner_type='group', partner_group_id=T) pooling S into T,
+            //   then companies in group S should also appear under group T for users who can
+            //   already see those S-companies.
+            $hasGroupOwnership = false;
+            try {
+                $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+            } catch (Exception $e) { /* ignore */ }
+
+            if ($hasGroupOwnership && !empty($rows)) {
+                $stmtLinks = $pdo->query("
+                    SELECT DISTINCT
+                        UPPER(TRIM(group_id))            COLLATE utf8mb4_unicode_ci as source_group,
+                        UPPER(TRIM(partner_group_id))    COLLATE utf8mb4_unicode_ci as target_group
+                    FROM group_ownership
+                    WHERE owner_type = 'group'
+                      AND percentage > 0
+                      AND partner_group_id IS NOT NULL
+                      AND TRIM(partner_group_id) <> ''
+                ");
+                $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($links)) {
+                    // Index by source_group → list of target_groups it flows into
+                    $flowsTo = [];
+                    foreach ($links as $ln) {
+                        $flowsTo[$ln['source_group']][] = $ln['target_group'];
+                    }
+
+                    $seen = [];
+                    foreach ($rows as $r) {
+                        $seen[$r['id'] . '|' . strtoupper((string) $r['group_id'])] = true;
+                    }
+
+                    $extra = [];
+                    foreach ($rows as $r) {
+                        $src = strtoupper(trim((string) ($r['group_id'] ?? '')));
+                        if ($src === '' || !isset($flowsTo[$src])) continue;
+                        foreach ($flowsTo[$src] as $tgt) {
+                            $k = $r['id'] . '|' . $tgt;
+                            if (isset($seen[$k])) continue;
+                            $seen[$k] = true;
+                            $virtual = $r;
+                            $virtual['group_id'] = $tgt;
+                            $extra[] = $virtual;
+                        }
+                    }
+                    if (!empty($extra)) {
+                        $rows = array_merge($rows, $extra);
+                    }
+                }
+            }
+
+            return $rows;
         } else {
             $session_company_id = $_SESSION['company_id'] ?? null;
             $native_group  = null;
