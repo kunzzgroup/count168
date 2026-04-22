@@ -249,22 +249,28 @@ export default function AccountListPage() {
     const oldAccount = document.getElementById(accountScriptId);
     if (oldAccount?.parentNode) oldAccount.parentNode.removeChild(oldAccount);
 
-    const sharedScript = document.createElement("script");
-    sharedScript.id = sharedScriptId;
-    sharedScript.src = assetUrl("js/shared_company_filter.js");
+    const loadScript = (id, src) =>
+      new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.id = id;
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.body.appendChild(script);
+      });
 
-    const accountScript = document.createElement("script");
-    accountScript.id = accountScriptId;
-    accountScript.src = assetUrl("js/account-list.js");
-
-    document.body.appendChild(sharedScript);
-    document.body.appendChild(accountScript);
-    accountScript.onload = () => {
-      document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
-      if (window.location.pathname === "/add-account" && typeof window.addAccount === "function") {
-        setTimeout(() => window.addAccount(), 60);
+    (async () => {
+      try {
+        await loadScript(sharedScriptId, assetUrl("js/shared_company_filter.js"));
+        await loadScript(accountScriptId, assetUrl("js/account-list.js"));
+        document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+        if (window.location.pathname === "/add-account" && typeof window.addAccount === "function") {
+          setTimeout(() => window.addAccount(), 60);
+        }
+      } catch (e) {
+        console.error(e);
       }
-    };
+    })();
 
     return () => {
       const s1 = document.getElementById(sharedScriptId);
