@@ -997,20 +997,23 @@ function mergeGroupData(dataList) {
         const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
-        // Group All mode is always under a group filter.
-        //   Raw Profit / Expenses / Net Profit stay at the company's full value.
-        //   Earnings contribution:
-        //     - link row: Net Profit × link_multiplier
-        //     - native: Net Profit × (direct% + group_equity% × group_account%)
-        //       Falls back to 100% if nothing is configured (admin sessions).
+        // Group All mode is always under a group filter. Earnings priority
+        // (same cascade as single-company view):
+        //   1. direct % (if > 0)
+        //   2. chain % (group_equity × group_account, if > 0)
+        //   3. link_multiplier (virtual row fallback)
+        //   4. 100% fallback (admin)
         const linkMul = parseFloat(d._link_multiplier);
         const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
+        const directPct = pct / 100;
+        const chainPct  = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
         let effectivePct;
-        if (hasLink) {
+        if (directPct > 0 || chainPct > 0) {
+            effectivePct = directPct + chainPct;
+        } else if (hasLink) {
             effectivePct = linkMul;
         } else {
-            const total = (pct / 100) + (grpPct / 100) * (grpAccPct / 100);
-            effectivePct = total > 0 ? total : 1;
+            effectivePct = 1;
         }
         const earningsVal = netProfit * effectivePct;
         hasOwnershipSetup = true;
@@ -1271,23 +1274,33 @@ function updateDashboard(data) {
                 const hasLinkOwnership = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
                 const inGroupView = !!selectedDashboardGroup;
 
-                let earningsDisplay;
-                if (hasLinkOwnership) {
-                    // Virtual row (viewing a company through a group-link).
-                    // Profit / Expenses / Net Profit intentionally stay at the
-                    // company's real figures; Earnings is the portion that flows
-                    // through the link chain: Net Profit × link_multiplier.
-                    earningsDisplay = netProfitDisplay * linkMul;
+                // Earnings priority cascade (pick the FIRST applicable rule):
+                //   1. Direct ownership row for this user (owner_type='owner'/'user')
+                //      → `ownership_percentage`.
+                //   2. Chain via company→group→user (company_ownership owner_type='group'
+                //      + group_ownership owner_type='owner'/'user')
+                //      → `group_equity% × group_account%`.
+                //      (If both 1 & 2 exist — e.g. partnership has direct % AND chain —
+                //       they're summed.)
+                //   3. Virtual row via link (admin / self-owner same-owner link that has
+                //      no explicit user stake) → pre-computed `link_multiplier`.
+                //   4. Group view fallback (admin with nothing configured) → 100%.
+                const directPct = ownershipPercentage / 100;
+                const chainPct  = hasGroupOwnership
+                    ? (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
+                    : 0;
+
+                let effectivePct;
+                if (directPct > 0 || chainPct > 0) {
+                    effectivePct = directPct + chainPct;
+                } else if (hasLinkOwnership) {
+                    effectivePct = linkMul;
+                } else if (inGroupView) {
+                    effectivePct = 1;
                 } else {
-                    //   Earnings = Net Profit × (direct% + group_equity% × group_account%)
-                    // When both layers are zero (typical admin session — their user.id
-                    // isn't keyed in company_ownership), fall back to 100% so the card
-                    // still shows the full take-home under the active group filter.
-                    const effectivePct = (ownershipPercentage / 100)
-                        + (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
-                    const useEffective = (inGroupView && effectivePct === 0) ? 1 : effectivePct;
-                    earningsDisplay = netProfitDisplay * useEffective;
+                    effectivePct = 0;
                 }
+                const earningsDisplay = netProfitDisplay * effectivePct;
 
                 // 记录卡片显示值，供图表 tooltip 统一读取，避免口径不一致
                 chartMetadata.cardProfitDisplay = displayProfitNum;
