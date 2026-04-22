@@ -440,7 +440,7 @@ export default function ProcessListPage() {
       </div>
 
       {modalOpen && (
-        <div className="modal" style={{ display: "block" }}>
+        <div id={editMode ? "editModal" : "addModal"} className="modal" style={{ display: "block" }}>
           <div className="modal-content">
             <div className="modal-header">
               <h2>{editMode ? "Edit Process" : "Add Process"}</h2>
@@ -595,7 +595,7 @@ export default function ProcessListPage() {
                   <div className="form-row">
                     <div className="form-group">
                       <label>Remarks</label>
-                      <textarea rows={5} value={form.remark} onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))} placeholder="ENTER REMARKS..." />
+                      <textarea rows={4} value={form.remark} onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))} placeholder="ENTER REMARKS..." />
                     </div>
                   </div>
                 </div>
