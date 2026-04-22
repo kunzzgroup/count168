@@ -261,6 +261,52 @@ function feeShareAllocationsToJson(?array $normalized): ?string {
     return json_encode($normalized, JSON_UNESCAPED_UNICODE);
 }
 
+/**
+ * 读取某来源公司 Share% 中的 Profit 目标账号（必须是 C168 下 role=profit）。
+ */
+function resolveShareProfitTargetAccountId(PDO $pdo, string $sourceCompanyCode): ?int
+{
+    $src = strtoupper(trim($sourceCompanyCode));
+    if ($src === '') {
+        return null;
+    }
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare("SELECT fee_share_allocations FROM company WHERE UPPER(TRIM(company_id)) = ? LIMIT 1");
+        $st->execute([$src]);
+        $allocRaw = $st->fetchColumn();
+        $normalized = normalizeFeeShareAllocationsInput($allocRaw);
+        $profitRows = $normalized['profit'] ?? [];
+        if (!is_array($profitRows)) {
+            return null;
+        }
+        foreach ($profitRows as $row) {
+            $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+            if ($aid <= 0) {
+                continue;
+            }
+            $chk = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM account a
+                INNER JOIN account_company ac ON ac.account_id = a.id
+                WHERE a.id = ?
+                  AND ac.company_id = ?
+                  AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+            ");
+            $chk->execute([$aid, $c168Pk]);
+            if ((int) $chk->fetchColumn() > 0) {
+                return $aid;
+            }
+        }
+    } catch (PDOException $e) {
+        return null;
+    }
+    return null;
+}
+
 function collectUniqueAccountIdsFromFeeShare(array $normalized): array {
     $ids = [];
     foreach (['profit', 'sales', 'cs', 'it'] as $role) {
@@ -1009,9 +1055,15 @@ function createDomainListFeePayment(
         $out['skipped_no_c168'] = true;
         return $out;
     }
-    $poolEarly = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
-    if ($poolEarly) {
-        $out['pool_account_id'] = $poolEarly;
+    $poolEarly = resolveShareProfitTargetAccountId($pdo, $customerCompanyCode);
+    if (!$poolEarly || $poolEarly <= 0) {
+        $poolEarly = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
+    }
+    if (!$poolEarly || $poolEarly <= 0) {
+        $poolEarly = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
+    }
+    if ($poolEarly && $poolEarly > 0) {
+        $out['pool_account_id'] = (int) $poolEarly;
     }
     $today = date('Y-m-d');
     $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . ']';
@@ -1030,7 +1082,7 @@ function createDomainListFeePayment(
         return $out;
     }
     // 第一笔 Domain Fee：From=Domain company 对应账号；To=Profit(C168)（优先）
-    $toC168Pool = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
+    $toC168Pool = $poolEarly ? (int) $poolEarly : null;
     if (!$toC168Pool || $toC168Pool <= 0) {
         $toC168Pool = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
     }
@@ -1344,7 +1396,13 @@ function normalizeDomainListFeeTransactionParties(PDO $pdo, string $sourceCompan
     if (!$c168Pk || !$customerPk) {
         return false;
     }
-    $toOwner = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, 0);
+    $toOwner = resolveShareProfitTargetAccountId($pdo, $srcU);
+    if (!$toOwner || $toOwner <= 0) {
+        $toOwner = resolveC168ProfitRoleAccountId($pdo, (int)$c168Pk, 0);
+    }
+    if (!$toOwner || $toOwner <= 0) {
+        $toOwner = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, 0);
+    }
     $fromOwner = resolveDomainFeeSourceAccountId($pdo, (int)$c168Pk, $srcU, (int)$toOwner);
     if (!$toOwner || !$fromOwner || (int)$toOwner === (int)$fromOwner) {
         return false;
