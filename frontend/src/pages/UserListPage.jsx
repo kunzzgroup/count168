@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 function roleBadgeClass(role) {
   const r = String(role || "").replace(/\s+/g, "-").toLowerCase();
@@ -85,9 +85,15 @@ export default function UserListPage() {
         setScriptsReady(true);
         return;
       }
+      if (!document.getElementById("legacy-userlist-pre-js")) {
+        const pre = document.createElement("script");
+        pre.id = "legacy-userlist-pre-js";
+        pre.textContent = "window.USERLIST_SKIP_AUTO_INIT=true;";
+        document.body.appendChild(pre);
+      }
       const s = document.createElement("script");
       s.id = userlistId;
-      s.src = `/js/userlist.js?v=${v}`;
+      s.src = assetUrl(`js/userlist.js?v=${v}`);
       s.onload = () => setScriptsReady(true);
       s.onerror = () => setLoadError("Failed to load userlist.js");
       document.body.appendChild(s);
@@ -99,7 +105,7 @@ export default function UserListPage() {
     } else {
       const s1 = document.createElement("script");
       s1.id = sharedId;
-      s1.src = `/js/shared_company_filter.js?v=${v}`;
+      s1.src = assetUrl(`js/shared_company_filter.js?v=${v}`);
       s1.onload = () => ensureUserlistScript();
       s1.onerror = () => setLoadError("Failed to load shared_company_filter.js");
       document.body.appendChild(s1);
@@ -127,7 +133,7 @@ export default function UserListPage() {
       const l = document.createElement("link");
       l.id = ids[i];
       l.rel = "stylesheet";
-      l.href = href;
+      l.href = assetUrl(href.replace(/^\//, ""));
       document.head.appendChild(l);
     });
   }, []);

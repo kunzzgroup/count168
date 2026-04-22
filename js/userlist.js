@@ -2200,7 +2200,10 @@ function initUserListPageAfterDomReady() {
 
 window.initUserListPageAfterDomReady = initUserListPageAfterDomReady;
 
-if (document.readyState === 'loading') {
+// SPA 在加载本脚本前会设置 window.USERLIST_SKIP_AUTO_INIT，避免此处早于 USERLIST_* 注入而错误绑定（导致按钮/搜索全部失效）
+if (window.USERLIST_SKIP_AUTO_INIT) {
+    // 仅由宿主调用 initUserListPageAfterDomReady()
+} else if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initUserListPageAfterDomReady);
 } else {
     initUserListPageAfterDomReady();
