@@ -1850,16 +1850,22 @@ try {
     }
     $results = $deduplicated_results;
 
-    // 第一笔 Domain List Fee：以客户公司（如 LGA）展示在 Transaction Payment
-    searchApiAppendDomainListFeeVirtualRows(
-        $pdo,
-        $results,
-        $company_id,
-        $date_from_db,
-        $date_to_db,
-        $filter_currency_codes,
-        $currency_id_map
-    );
+    // 第一笔 Domain List Fee：以客户公司（如 LGA）展示在 Transaction Payment。
+    // 当分类仅选择 PROFIT 时，不追加 Domain 虚拟来源行，避免筛选结果混入非 PROFIT 行。
+    $isProfitOnlyCategory = (count($category_filters) === 1 && strtoupper((string) $category_filters[0]) === 'PROFIT');
+    if (!$isProfitOnlyCategory) {
+        searchApiAppendDomainListFeeVirtualRows(
+            $pdo,
+            $results,
+            $company_id,
+            $date_from_db,
+            $date_to_db,
+            $filter_currency_codes,
+            $currency_id_map
+        );
+    }
+    // 无论分类如何，都要执行池账号净额校正（List Fee - Commission），
+    // 否则 PROFIT only 会显示毛额，与 Payment History 的净额口径不一致。
     searchApiApplyDomainSourceCompanyRows(
         $pdo,
         $results,

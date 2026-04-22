@@ -1244,8 +1244,8 @@ function updateDashboard(data) {
                 const rawProfit = parseFloat(data?.period_total?.profit ?? data.profit) || 0
                 const rawExpenses = parseFloat(data?.period_total?.expenses ?? data.expenses) || 0;
 
-                // Profit 卡片：直接沿用 Payment 的符号（Payment 为负，这里也显示负）
-                const displayProfitNum = rawProfit;
+                // Dashboard 卡片口径：Profit 以正数显示（与业务展示预期一致）。
+                const displayProfitNum = Math.abs(rawProfit);
 
                 // Expenses 卡片：Payment 为正数时，Dashboard 用负数显示支出；如果本身是负数则保持
                 const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
