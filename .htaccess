@@ -32,5 +32,7 @@ RewriteEngine On
 RewriteRule ^login/?$ index.php [L,QSA]
 RewriteRule ^dashboard/?$ index.php [L,QSA]
 RewriteRule ^domain/?$ index.php [L,QSA]
+RewriteRule ^announcement/?$ index.php [L,QSA]
+RewriteRule ^admin/?$ index.php [L,QSA]
 </IfModule>
 

@@ -21,8 +21,8 @@ let showAll = (typeof window.USERLIST_SHOW_ALL !== 'undefined' && !!window.USERL
 let showInactive = false;
 
 // 当前用户信息
-const currentUserId = typeof window.USERLIST_CURRENT_USER_ID !== 'undefined' ? window.USERLIST_CURRENT_USER_ID : null;
-const currentUserRole = typeof window.USERLIST_CURRENT_USER_ROLE !== 'undefined' ? window.USERLIST_CURRENT_USER_ROLE : '';
+let currentUserId = typeof window.USERLIST_CURRENT_USER_ID !== 'undefined' ? window.USERLIST_CURRENT_USER_ID : null;
+let currentUserRole = typeof window.USERLIST_CURRENT_USER_ROLE !== 'undefined' ? window.USERLIST_CURRENT_USER_ROLE : '';
 
 // 用户数据数组（从页面中提取）
 let usersData = [];
@@ -2035,6 +2035,8 @@ function setupSearch() {
     const searchInput = document.getElementById('searchInput');
 
     if (!searchInput) return;
+    if (searchInput.dataset.userlistSearchBound === '1') return;
+    searchInput.dataset.userlistSearchBound = '1';
 
     // 强制大写和只允许字母数字
     searchInput.addEventListener('input', function (e) {
@@ -2129,8 +2131,12 @@ async function switchUserListCompany(companyId, companyCode) {
     window.location.href = url.toString();
 }
 
-// 页面加载完成后初始化搜索功能
-document.addEventListener('DOMContentLoaded', function () {
+// 页面加载完成后初始化搜索功能（可被 SPA /admin 在脚本已加载后再次调用）
+function initUserListPageAfterDomReady() {
+    currentUserId = typeof window.USERLIST_CURRENT_USER_ID !== 'undefined' ? window.USERLIST_CURRENT_USER_ID : null;
+    currentUserRole = typeof window.USERLIST_CURRENT_USER_ROLE !== 'undefined' ? String(window.USERLIST_CURRENT_USER_ROLE).toLowerCase() : '';
+    showAll = (typeof window.USERLIST_SHOW_ALL !== 'undefined' && !!window.USERLIST_SHOW_ALL);
+
     extractUsersData();
     applySorting(); // 应用默认排序
     updateSortIndicators(); // 初始化排序指示器
@@ -2148,7 +2154,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 为二级密码输入框添加限制（只允许6位数字）
     const secondaryPasswordInput = document.getElementById('secondary_password');
-    if (secondaryPasswordInput) {
+    if (secondaryPasswordInput && secondaryPasswordInput.dataset.userlistBound !== '1') {
+        secondaryPasswordInput.dataset.userlistBound = '1';
         secondaryPasswordInput.addEventListener('input', function () {
             // 只保留数字
             this.value = this.value.replace(/[^0-9]/g, '');
@@ -2168,7 +2175,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 为 role 下拉框添加 change 事件监听器
     const roleSelect = document.getElementById('role');
-    if (roleSelect) {
+    if (roleSelect && roleSelect.dataset.userlistRoleBound !== '1') {
+        roleSelect.dataset.userlistRoleBound = '1';
         roleSelect.addEventListener('change', function () {
             const selectedRole = this.value;
             // 显示/隐藏 Read Only toggle（只在 Partnership 角色时显示）
@@ -2186,12 +2194,27 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-});
+
+    bindUserListFormSubmit();
+}
+
+window.initUserListPageAfterDomReady = initUserListPageAfterDomReady;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initUserListPageAfterDomReady);
+} else {
+    initUserListPageAfterDomReady();
+}
 
 // Close modal when clicking outside
 window.onclick = function () { }
 
-document.getElementById('userForm').addEventListener('submit', function (e) {
+function bindUserListFormSubmit() {
+    const userForm = document.getElementById('userForm');
+    if (!userForm || userForm.dataset.userlistSubmitBound === '1') return;
+    userForm.dataset.userlistSubmitBound = '1';
+
+    userForm.addEventListener('submit', function (e) {
     e.preventDefault();
 
     // 前端验证：创建模式时必须填写密码
@@ -2448,6 +2471,7 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
             showAlert('An error occurred while saving user: ' + error.message, 'danger');
         });
 });
+}
 
 // Account and Process selection functions
 function updateAccountSelection() {
