@@ -348,19 +348,31 @@ export default function ProcessListPage() {
               <button type="button" className="btn btn-delete" disabled={!selectedIds.size} onClick={deleteSelected}>Delete</button>
             </div>
           </div>
-          <div>
-            <div className="company-group-buttons">
-              <button type="button" className={`company-group-btn ${selectedGroup === null ? "active" : ""}`} onClick={() => setSelectedGroup(null)}>AP</button>
-              {groupIds.map((g) => (
-                <button type="button" key={g} className={`company-group-btn ${selectedGroup === g ? "active" : ""}`} onClick={() => setSelectedGroup(g)}>{g}</button>
-              ))}
+          {groupIds.length > 0 && (
+            <div className="process-company-filter shared-group-wrapper">
+              <span className="process-company-label">GroupID:</span>
+              <div className="process-company-buttons">
+                {groupIds.map((g) => (
+                  <button
+                    type="button"
+                    key={g}
+                    className={`process-company-btn shared-group-btn ${selectedGroup === g ? "active" : ""}`}
+                    onClick={() => setSelectedGroup(g)}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="company-filter-buttons">
+          )}
+          <div className="process-company-filter shared-company-wrapper">
+            <span className="process-company-label">Company:</span>
+            <div className="process-company-buttons">
               {companyButtons.map((c) => (
                 <button
                   key={c.id}
                   type="button"
-                  className={`company-filter-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
+                  className={`process-company-btn shared-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
                   onClick={() => onSwitchCompany(c)}
                 >
                   {c.company_id}
