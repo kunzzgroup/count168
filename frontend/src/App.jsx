@@ -5,6 +5,7 @@ import DomainPage from "./pages/DomainPage.jsx";
 import AnnouncementPage from "./pages/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import AccountListPage from "./pages/AccountListPage.jsx";
+import UserListPage from "./pages/UserListPage.jsx";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/announcement" element={<AnnouncementPage />} />
         <Route path="/account-list" element={<AccountListPage />} />
         <Route path="/add-account" element={<AccountListPage />} />
+        <Route path="/user-list" element={<UserListPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
