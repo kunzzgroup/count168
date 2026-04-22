@@ -538,6 +538,13 @@ export default function TransactionDashboardPage() {
     setCalendarMonth((m) => m + 1);
   };
 
+  const toggleCalendarFromBar = () => {
+    setCalendarOpen((v) => !v);
+    setQuickOpen(false);
+    setPendingStart(null);
+    setHoverDate(null);
+  };
+
   return (
     <>
       <div className="dashboard-container">
@@ -581,19 +588,28 @@ export default function TransactionDashboardPage() {
                         padding: "4px 10px",
                         fontSize: 12,
                       }}
-                      onClick={() => {
-                        setCalendarOpen((v) => !v);
-                        setQuickOpen(false);
-                        setPendingStart(null);
-                        setHoverDate(null);
-                      }}
+                      onClick={toggleCalendarFromBar}
                     >
                       <i className="fas fa-calendar-alt" />
                     </button>
 
-                    <div style={{ textAlign: "center", fontWeight: 600, color: "#1f2937", fontSize: 13, lineHeight: 1.25 }}>
+                    <button
+                      type="button"
+                      onClick={toggleCalendarFromBar}
+                      style={{
+                        textAlign: "center",
+                        fontWeight: 600,
+                        color: "#1f2937",
+                        fontSize: 13,
+                        lineHeight: 1.25,
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
                       {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
-                    </div>
+                    </button>
 
                     <div className="dropdown" style={{ width: 140 }}>
                       <button
@@ -631,7 +647,10 @@ export default function TransactionDashboardPage() {
                     </div>
 
                     {calendarOpen && (
-                      <div className="calendar-popup" style={{ top: "calc(100% + 8px)", left: 0, position: "absolute" }}>
+                      <div
+                        className="calendar-popup"
+                        style={{ top: "calc(100% + 2px)", left: 0, right: "auto", position: "absolute" }}
+                      >
                         <div className="calendar-header">
                           <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
                             <i className="fas fa-chevron-left" />
