@@ -658,7 +658,7 @@ export default function TransactionDashboardPage() {
                           padding: "8px 10px",
                         }}
                       >
-                        <div style={{ width: "100%", maxWidth: 360, margin: "0 auto" }}>
+                        <div style={{ width: "100%", maxWidth: 320, margin: "0 auto" }}>
                           <div className="calendar-header" style={{ marginBottom: 6 }}>
                             <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
                               <i className="fas fa-chevron-left" />
