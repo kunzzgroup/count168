@@ -325,9 +325,22 @@ function historyParseDomainShareCommissionSourceCompanyCode(string $sms): ?strin
     return null;
 }
 
-function historyResolveDomainShareRoleLabel(string $description): string
+function historyResolveDomainShareRoleLabel(string $description, string $sms = ''): string
 {
+    $s = trim($sms);
+    if ($s !== '' && preg_match('/\|ROLE:(PROFIT|SALES|CS|IT)\|/i', $s, $mSms)) {
+        $code = strtoupper(trim((string) ($mSms[1] ?? '')));
+        if ($code === 'PROFIT') {
+            return 'PROFIT';
+        }
+        if (in_array($code, ['SALES', 'CS', 'IT'], true)) {
+            return $code;
+        }
+    }
     $d = trim($description);
+    if (preg_match('/^Profit\s+Commision\b/i', $d) || preg_match('/^Profit\s+Commission\b/i', $d) || preg_match('/^Profit\s+for\b/i', $d)) {
+        return 'PROFIT';
+    }
     if (preg_match('/^(Sales|CS|IT)\s+Commision\b/i', $d, $m)) {
         return strtoupper(trim((string) $m[1]));
     }
@@ -1633,6 +1646,8 @@ try {
             || stripos($smsText, '[DOMAIN_SHARE_COMMISSION|') === 0
             || stripos($descText, 'Commision FROM ') === 0
             || stripos($descText, 'Commision for ') === 0
+            || preg_match('/^Profit\s+(Commision|Commission|for)\b/i', $descText)
+            || (stripos($smsText, '[DOMAIN_SHARE_COMMISSION|') === 0 && preg_match('/\|ROLE:PROFIT\|/i', $smsText))
         ) {
             $isDomainShareCommission = true;
         }
@@ -1645,18 +1660,25 @@ try {
         ) {
             $isDomainListFee = true;
         }
+        $domainShareProductKind = null;
         if ($isDomainShareCommission) {
             $srcCompany = historyParseDomainShareCommissionSourceCompanyCode($smsText);
             if ($srcCompany === null || $srcCompany === '') {
                 $srcCompany = 'LAG';
             }
-            $roleLabel = historyResolveDomainShareRoleLabel((string) $description);
-            $description = $roleLabel . ' Commission From ' . strtoupper($srcCompany);
+            $roleLabel = historyResolveDomainShareRoleLabel((string) $description, $smsText);
+            if ($roleLabel === 'PROFIT') {
+                $description = 'Profit From ' . strtoupper($srcCompany);
+                $domainShareProductKind = 'Profit';
+            } else {
+                $description = $roleLabel . ' Commission From ' . strtoupper($srcCompany);
+                $domainShareProductKind = 'Commission';
+            }
         }
         if ($isDomainListFee) {
             $description = 'Pay Domain Fee';
         }
-        $productLabel = $isManualProfit ? 'PROFIT' : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']);
+        $productLabel = $isManualProfit ? 'PROFIT' : ($domainShareProductKind !== null ? $domainShareProductKind : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']));
 
         $events[] = [
             'row_type' => 'transaction',

@@ -1161,7 +1161,9 @@ function createDomainShareCommissionPayments(
             continue;
         }
         $roleLabel = $roleLabelMap[$role] ?? ucfirst($role);
-        $description = $roleLabel . ' Commision for ' . $c168OwnerCode;
+        $description = ($role === 'profit')
+            ? ('Profit for ' . $c168OwnerCode)
+            : ($roleLabel . ' Commision for ' . $c168OwnerCode);
         foreach ($rows as $row) {
             $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
             $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;

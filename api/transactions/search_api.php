@@ -349,7 +349,7 @@ function searchApiAppendDomainListFeeVirtualRows(
         $currencyFilterIds = array_values(array_unique(array_filter($currencyFilterIds)));
     }
 
-    $sql = "SELECT t.id, t.amount, t.currency_id, t.sms, t.description
+    $sql = "SELECT t.id, t.amount, t.currency_id, t.sms, t.description, t.from_account_id
             FROM transactions t
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
@@ -379,6 +379,7 @@ function searchApiAppendDomainListFeeVirtualRows(
 
     $st = $pdo->prepare($sql);
     $st->execute($par);
+    $fromFeeAdjust = [];
     while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
         $src = searchApiParseDomainListFeeCompanyCode((string) ($row['sms'] ?? ''));
         if ($src === null || $src === '') {
@@ -400,27 +401,22 @@ function searchApiAppendDomainListFeeVirtualRows(
         if (abs($amt) < 0.00001)
             continue;
 
-        $realAccountId = 0;
-        try {
-            $sta = $pdo->prepare("
-                SELECT a.id
-                FROM account a
-                INNER JOIN account_company ac ON ac.account_id = a.id
-                WHERE ac.company_id = ?
-                  AND UPPER(TRIM(a.account_id)) = ?
-                LIMIT 1
-            ");
-            $sta->execute([$company_id, $src]);
-            $realAccountId = (int) ($sta->fetchColumn() ?: 0);
-        } catch (PDOException $e) {
+        $fromAid = (int) ($row['from_account_id'] ?? 0);
+        if ($fromAid > 0) {
+            if (!isset($fromFeeAdjust[$fromAid])) {
+                $fromFeeAdjust[$fromAid] = [];
+            }
+            $fromFeeAdjust[$fromAid][$cur] = ($fromFeeAdjust[$fromAid][$cur] ?? 0.0) + $amt;
         }
 
-        $rowAccountId = $realAccountId > 0 ? $realAccountId : (-(int) ($row['id'] ?? 0));
-        if ($rowAccountId === 0)
+        $rowAccountId = -4000000 - (int) ($row['id'] ?? 0);
+        if ($rowAccountId === 0) {
             continue;
+        }
         $k = $rowAccountId . '_' . $cur;
-        if (isset($seen[$k]))
+        if (isset($seen[$k])) {
             continue;
+        }
         $seen[$k] = true;
 
         $name = $src;
@@ -455,6 +451,22 @@ function searchApiAppendDomainListFeeVirtualRows(
             'is_alert' => 0,
             'is_rate_middleman' => 0
         ];
+    }
+
+    foreach ($fromFeeAdjust as $payerAccId => $curMap) {
+        foreach ($results as &$resRow) {
+            if ((int) ($resRow['account_db_id'] ?? 0) !== (int) $payerAccId) {
+                continue;
+            }
+            $resCur = strtoupper((string) ($resRow['currency'] ?? ''));
+            if ($resCur === '' || !isset($curMap[$resCur])) {
+                continue;
+            }
+            $delta = (float) $curMap[$resCur];
+            $resRow['cr_dr'] = trunc2((float) $resRow['cr_dr'] + $delta);
+            $resRow['balance'] = trunc2((float) $resRow['balance'] + $delta);
+        }
+        unset($resRow);
     }
 }
 
