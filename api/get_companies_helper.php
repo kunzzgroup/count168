@@ -176,6 +176,32 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
             $flowsTo[$ln['source_group']][$ln['target_group']] = (float) $ln['link_percentage'];
         }
 
+        // Per-company Account-Ownership level links (company_ownership.owner_type='group').
+        // Each row means "this specific company pools P% into group T". Applies only
+        // to the viewer's own companies — same-owner scope.
+        $companyFlowsTo = []; // company_id -> target_group -> pct
+        try {
+            $hasCo = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
+        } catch (Exception $e) { $hasCo = false; }
+        if ($hasCo) {
+            $stmtCoLinks = $pdo->prepare("
+                SELECT co.company_id,
+                       UPPER(TRIM(co.partner_group_id)) COLLATE utf8mb4_unicode_ci as target_group,
+                       co.percentage as link_percentage
+                FROM company_ownership co
+                INNER JOIN company c ON co.company_id = c.id
+                WHERE co.owner_type = 'group'
+                  AND co.percentage > 0
+                  AND co.partner_group_id IS NOT NULL
+                  AND TRIM(co.partner_group_id) <> ''
+                  AND c.owner_id IN ($in)
+            ");
+            $stmtCoLinks->execute($viewerOwnerIds);
+            foreach ($stmtCoLinks->fetchAll(PDO::FETCH_ASSOC) as $ln) {
+                $companyFlowsTo[(int) $ln['company_id']][$ln['target_group']] = (float) $ln['link_percentage'];
+            }
+        }
+
         // Build dedupe keys by (group_id, id) AND (group_id, company_id). If the
         // target group already contains a native company with the same `company_id`
         // (name), we skip the virtual row — otherwise two buttons with the same
@@ -194,13 +220,29 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
 
         $extra = [];
         foreach ($rows as $r) {
-            $src = strtoupper(trim((string) ($r['group_id'] ?? '')));
-            if ($src === '' || !isset($flowsTo[$src])) continue;
+            $src  = strtoupper(trim((string) ($r['group_id'] ?? '')));
+            $cid  = (int) ($r['id'] ?? 0);
             $cname = strtoupper(trim((string) ($r['company_id'] ?? '')));
-            foreach ($flowsTo[$src] as $tgt => $pct) {
-                if (isset($seenById[$r['id'] . '|' . $tgt])) continue;
+
+            // Merge candidate targets from both sources. Company-level link takes
+            // precedence over the broader group-level link when both exist.
+            $targets = [];
+            if ($src !== '' && isset($flowsTo[$src])) {
+                foreach ($flowsTo[$src] as $tgt => $pct) {
+                    $targets[$tgt] = $pct;
+                }
+            }
+            if ($cid > 0 && isset($companyFlowsTo[$cid])) {
+                foreach ($companyFlowsTo[$cid] as $tgt => $pct) {
+                    $targets[$tgt] = $pct; // overwrite group-level
+                }
+            }
+            if (empty($targets)) continue;
+
+            foreach ($targets as $tgt => $pct) {
+                if (isset($seenById[$cid . '|' . $tgt])) continue;
                 if ($cname !== '' && isset($seenByName[$cname . '|' . $tgt])) continue;
-                $seenById[$r['id'] . '|' . $tgt] = true;
+                $seenById[$cid . '|' . $tgt] = true;
                 if ($cname !== '') $seenByName[$cname . '|' . $tgt] = true;
                 $virtual = $r;
                 $virtual['group_id'] = $tgt;

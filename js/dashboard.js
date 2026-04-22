@@ -1018,10 +1018,14 @@ function mergeGroupData(dataList) {
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
         // Group All mode is always under a group filter.
-        //   Earnings per company = scaled NET_PROFIT × account_ownership%
-        //   (virtual companies already had the IG→AP link_multiplier applied; this
-        //    multiplier captures the company→group allocation layer.)
-        const accountOwnershipPct = grpPct > 0 ? (grpPct / 100) : 1;
+        //   If this company came via a link (virtual row — _link_multiplier applied),
+        //   its NET_PROFIT already captures the full percentage chain, so earnings
+        //   equals the scaled NET_PROFIT directly.
+        //   Native companies are weighted by their company_ownership group_equity%
+        //   (defaults to 100%).
+        const linkMul = parseFloat(d._link_multiplier);
+        const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
+        const accountOwnershipPct = hasLink ? 1 : (grpPct > 0 ? (grpPct / 100) : 1);
         const earningsVal = netProfit * accountOwnershipPct;
         hasOwnershipSetup = true;
         companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
@@ -1282,9 +1286,16 @@ function updateDashboard(data) {
                 const inGroupView = !!selectedDashboardGroup;
 
                 let earningsDisplay;
-                if (inGroupView || hasLinkOwnership) {
-                    // account_ownership% defaults to 100 when no explicit company_ownership
-                    // group-equity row exists (common for same-owner setups).
+                if (hasLinkOwnership) {
+                    // Net Profit has already been scaled by the full chain's
+                    // link_multiplier (company→group or group→group). Don't
+                    // multiply by group_equity% again or we double-scale.
+                    earningsDisplay = netProfitDisplay;
+                } else if (inGroupView) {
+                    // Viewing a native company under its own group filter — the
+                    // Earnings is the slice of its Net Profit that flows into this
+                    // group via company_ownership's group equity setup (defaults to
+                    // 100% when no row).
                     const accountOwnershipPct = groupEquityPercentage > 0
                         ? groupEquityPercentage / 100
                         : 1;
