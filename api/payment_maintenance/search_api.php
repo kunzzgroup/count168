@@ -315,6 +315,7 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
                     $description = strtoupper(trim($description));
                 }
             }
+            
         } else {
             // 只将系统代码 C168 替换为 PROFIT；不替换 owner code，
             // 避免把描述中的正常账户名（如 K）错误地替换成其他账户名（如 ALBB）。
