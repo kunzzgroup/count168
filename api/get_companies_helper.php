@@ -229,33 +229,40 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
             $cid  = (int) ($r['id'] ?? 0);
             $cname = strtoupper(trim((string) ($r['company_id'] ?? '')));
 
-            // Merge candidate targets from both sources. Company-level link takes
-            // precedence over the broader group-level link when both exist.
-            $targets = [];
+            // Collect every target group either layer can reach.
+            $allTargets = [];
             if ($src !== '' && isset($flowsTo[$src])) {
-                foreach ($flowsTo[$src] as $tgt => $pct) {
-                    $targets[$tgt] = $pct;
-                }
+                foreach ($flowsTo[$src] as $tgt => $_) $allTargets[$tgt] = true;
             }
             if ($cid > 0 && isset($companyFlowsTo[$cid])) {
-                foreach ($companyFlowsTo[$cid] as $tgt => $pct) {
-                    $targets[$tgt] = $pct; // overwrite group-level
-                }
+                foreach ($companyFlowsTo[$cid] as $tgt => $_) $allTargets[$tgt] = true;
             }
-            if (empty($targets)) continue;
+            if (empty($allTargets)) continue;
 
-            foreach ($targets as $tgt => $pct) {
+            foreach (array_keys($allTargets) as $tgt) {
+                $companyPct = $companyFlowsTo[$cid][$tgt] ?? null; // Account Ownership company→group
+                $groupPct   = ($src !== '') ? ($flowsTo[$src][$tgt] ?? null) : null; // Group Earnings group→group
+                if ($companyPct === null && $groupPct === null) continue;
+
+                // User-facing formula:
+                //   Earnings = Net Profit × (Account Ownership %) × (Group Earnings %)
+                // Either % defaults to 100% when the corresponding row is absent.
+                $effCompany = $companyPct ?? 100.0;
+                $effGroup   = $groupPct   ?? 100.0;
+                $combinedPct = ($effCompany * $effGroup) / 100.0;
+
                 if (isset($seenById[$cid . '|' . $tgt])) continue;
                 if ($cname !== '' && isset($seenByName[$cname . '|' . $tgt])) continue;
                 $seenById[$cid . '|' . $tgt] = true;
                 if ($cname !== '') $seenByName[$cname . '|' . $tgt] = true;
+
                 $virtual = $r;
                 $virtual['group_id'] = $tgt;
-                // Marks a reverse-link virtual row so the dashboard can scale the
-                // displayed KPIs by this percentage (e.g. IG→AP 3% means VG under
-                // AP filter should show VG's numbers × 3%).
-                $virtual['link_source_group'] = $src;
-                $virtual['link_percentage']   = $pct;
+                // Earnings multiplier for the dashboard.
+                $virtual['link_source_group']   = $src;
+                $virtual['link_percentage']     = $combinedPct;      // combined chain %
+                $virtual['link_company_pct']    = $effCompany;       // Account Ownership leg
+                $virtual['link_group_pct']      = $effGroup;         // Group Earnings leg
                 $extra[] = $virtual;
             }
         }
