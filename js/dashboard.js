@@ -999,14 +999,19 @@ function mergeGroupData(dataList) {
         const netProfit = rawP + displayE;
         // Group All mode is always under a group filter.
         //   Raw Profit / Expenses / Net Profit stay at the company's full value.
-        //   The earnings contribution depends on how the company enters the group:
-        //     - via a link (virtual row): Net Profit × link_multiplier
-        //     - natively: Net Profit × company_ownership group_equity% (default 100%)
+        //   Earnings contribution:
+        //     - link row: Net Profit × link_multiplier
+        //     - native: Net Profit × (direct% + group_equity% × group_account%)
+        //       Falls back to 100% if nothing is configured (admin sessions).
         const linkMul = parseFloat(d._link_multiplier);
         const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
-        const effectivePct = hasLink
-            ? linkMul
-            : (grpPct > 0 ? (grpPct / 100) : 1);
+        let effectivePct;
+        if (hasLink) {
+            effectivePct = linkMul;
+        } else {
+            const total = (pct / 100) + (grpPct / 100) * (grpAccPct / 100);
+            effectivePct = total > 0 ? total : 1;
+        }
         const earningsVal = netProfit * effectivePct;
         hasOwnershipSetup = true;
         companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
@@ -1273,20 +1278,15 @@ function updateDashboard(data) {
                     // company's real figures; Earnings is the portion that flows
                     // through the link chain: Net Profit × link_multiplier.
                     earningsDisplay = netProfitDisplay * linkMul;
-                } else if (inGroupView) {
-                    // Viewing a native company under its own group filter — the
-                    // Earnings is the slice of its Net Profit that flows into this
-                    // group via company_ownership's group equity setup (defaults to
-                    // 100% when no row).
-                    const accountOwnershipPct = groupEquityPercentage > 0
-                        ? groupEquityPercentage / 100
-                        : 1;
-                    earningsDisplay = netProfitDisplay * accountOwnershipPct;
                 } else {
-                    const effectivePct = hasGroupOwnership
-                        ? (ownershipPercentage / 100) + (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
-                        : (ownershipPercentage / 100);
-                    earningsDisplay = netProfitDisplay * effectivePct;
+                    //   Earnings = Net Profit × (direct% + group_equity% × group_account%)
+                    // When both layers are zero (typical admin session — their user.id
+                    // isn't keyed in company_ownership), fall back to 100% so the card
+                    // still shows the full take-home under the active group filter.
+                    const effectivePct = (ownershipPercentage / 100)
+                        + (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+                    const useEffective = (inGroupView && effectivePct === 0) ? 1 : effectivePct;
+                    earningsDisplay = netProfitDisplay * useEffective;
                 }
 
                 // 记录卡片显示值，供图表 tooltip 统一读取，避免口径不一致
