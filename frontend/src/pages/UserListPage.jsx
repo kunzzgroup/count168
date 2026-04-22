@@ -23,10 +23,15 @@ export default function UserListPage() {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page", "user-page");
 
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "/css/userlist.css";
-    document.head.appendChild(link);
+    const userlistCss = document.createElement("link");
+    userlistCss.rel = "stylesheet";
+    userlistCss.href = "/css/userlist.css";
+    document.head.appendChild(userlistCss);
+
+    const globalCss = document.createElement("link");
+    globalCss.rel = "stylesheet";
+    globalCss.href = "/css/global-13inch.css";
+    document.head.appendChild(globalCss);
 
     (async () => {
       try {
@@ -63,12 +68,18 @@ export default function UserListPage() {
     return () => {
       document.body.classList.remove("dashboard-page", "user-page", "user-page--show-all");
       document.body.classList.add("bg");
-      if (link.parentNode) link.parentNode.removeChild(link);
+      if (userlistCss.parentNode) userlistCss.parentNode.removeChild(userlistCss);
+      if (globalCss.parentNode) globalCss.parentNode.removeChild(globalCss);
     };
   }, [navigate]);
 
   useEffect(() => {
     if (!data) return;
+    window.onSharedCompanyFilterChanged = function onSharedCompanyFilterChanged(companyId, companyCode) {
+      if (typeof window.switchUserListCompany === "function") {
+        window.switchUserListCompany(companyId, companyCode);
+      }
+    };
     const id = "legacy-userlist-js";
     const init = () => {
       document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
@@ -85,10 +96,39 @@ export default function UserListPage() {
     document.body.appendChild(s);
   }, [data]);
 
+  useEffect(() => {
+    if (!data) return;
+    const id = "shared-company-filter-js";
+    const existing = document.getElementById(id);
+    if (existing) {
+      document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+      return;
+    }
+    const s = document.createElement("script");
+    s.id = id;
+    s.src = "/js/shared_company_filter.js";
+    s.onload = () => {
+      document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+    };
+    document.body.appendChild(s);
+  }, [data]);
+
   const users = useMemo(() => (Array.isArray(data?.users) ? data.users : []), [data]);
   const companies = useMemo(() => (Array.isArray(data?.companies) ? data.companies : []), [data]);
   const accounts = useMemo(() => (Array.isArray(data?.accounts) ? data.accounts : []), [data]);
   const processes = useMemo(() => (Array.isArray(data?.processes) ? data.processes : []), [data]);
+  const groups = useMemo(() => {
+    const set = new Set();
+    companies.forEach((c) => {
+      const gid = String(c.group_id || "").trim().toUpperCase();
+      if (gid) set.add(gid);
+    });
+    return Array.from(set).sort();
+  }, [companies]);
+  const activeGroupId = useMemo(() => {
+    const current = companies.find((c) => Number(c.id) === Number(data?.current_company_id));
+    return String(current?.group_id || "").trim().toUpperCase();
+  }, [companies, data?.current_company_id]);
 
   return (
     <div className="container">
@@ -111,15 +151,31 @@ export default function UserListPage() {
             <button className="btn btn-delete" id="deleteSelectedBtn" onClick={() => window.deleteSelected?.()}>Delete</button>
           </div>
           <div style={{ padding: "0 20px 15px 20px" }}>
-            <div className="transaction-company-filter">
+            {groups.length > 0 && (
+              <div id="group-buttons-wrapper" className="transaction-company-filter shared-group-wrapper">
+                <span className="transaction-company-label">GroupID:</span>
+                <div id="group-buttons-container" className="transaction-company-buttons">
+                  {groups.map((gid) => (
+                    <button type="button" key={gid} className={`transaction-company-btn shared-group-btn ${activeGroupId === gid ? "active" : ""}`} data-group-id={gid}>
+                      {gid}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div id="company-buttons-wrapper" className="transaction-company-filter shared-company-wrapper">
               <span className="transaction-company-label">Company:</span>
-              <div className="transaction-company-buttons">
+              <div id="company-buttons-container" className="transaction-company-buttons">
                 {companies.map((c) => (
                   <button
                     type="button"
                     key={c.id}
-                    className={`transaction-company-btn${Number(c.id) === Number(data?.current_company_id) ? " active" : ""}`}
-                    onClick={() => window.switchUserListCompany?.(c.id, c.company_id)}
+                    className={`transaction-company-btn shared-company-btn${Number(c.id) === Number(data?.current_company_id) ? " active" : ""}`}
+                    style={groups.length > 0 ? (activeGroupId ? { display: String(c.group_id || "").toUpperCase() === activeGroupId ? "" : "none" } : { display: !String(c.group_id || "").trim() ? "" : "none" }) : undefined}
+                    data-company-id={c.id}
+                    data-group-id={String(c.group_id || "").trim().toUpperCase()}
+                    data-company-code={c.company_id}
+                    onClick={() => window.onSharedCompanyFilterChanged?.(c.id, c.company_id)}
                   >
                     {c.company_id}
                   </button>
@@ -140,7 +196,7 @@ export default function UserListPage() {
             {users.map((u, i) => (
               <div
                 key={`${u.id}-${i}`}
-                className={`user-card ${i % 2 === 0 ? "row-even" : "row-odd"}`}
+                className={`user-card show-card ${i % 2 === 0 ? "row-even" : "row-odd"}`}
                 data-id={u.id}
                 data-is-owner-shadow={Number(u.is_owner_shadow) === 1 ? "1" : "0"}
                 data-login-id={u.login_id || ""}
@@ -189,16 +245,21 @@ export default function UserListPage() {
                     <div className="form-group user-info-field" id="passwordGroup"><label htmlFor="password">Password *</label><input type="password" id="password" name="password" /></div>
                   )}
                   <div className="form-group user-info-field"><label htmlFor="name">Name *</label><input type="text" id="name" name="name" required /></div>
-                  <div className="form-group user-info-field"><label htmlFor="role">Role *</label><select id="role" name="role" required><option value="">Select Role</option><option value="partnership">Partnership</option><option value="admin">Admin</option><option value="manager">Manager</option><option value="supervisor">Supervisor</option><option value="accountant">Accountant</option><option value="audit">Audit</option><option value="customer service">Customer Service</option></select></div>
+                  <div className="form-group user-info-field"><label htmlFor="role">Role *</label><select id="role" name="role" required><option value="">Select Role</option><option value="partnership">Partnership</option><option value="admin">Admin</option><option value="manager">Manager</option><option value="supervisor">Supervisor</option><option value="accountant">Accountant</option><option value="audit">Audit</option><option value="customer service">Customer Service</option><option value="company">Company</option></select></div>
                   <div className="form-group user-info-field"><label htmlFor="email">Email *</label><input type="email" id="email" name="email" required /></div>
                   <div className="form-group user-info-field company-field-group"><label>Company *</label><div id="user-company-buttons-container" className="transaction-company-buttons" /></div>
                 </div>
                 <div id="sidebarPermissionsWrapper" className="sidebar-permissions-section">
                   <h3 className="sidebar-permissions-title">Permissions <span id="readOnlyToggleWrapper" className="read-only-toggle-inline" style={{ display: "none" }}><span className="read-only-label">Read Only</span><label className="toggle-switch"><input type="checkbox" id="readOnlyToggle" name="read_only" value="1" defaultChecked /><span className="toggle-slider" /></label></span></h3>
                   <div className="permissions-container">
-                    {["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"].map((p) => (
-                      <div className="permission-item" key={p}><label className="permission-label"><input type="checkbox" name="permissions[]" value={p} className="permission-checkbox" /><span className="permission-name">{p === "datacapture" ? "Data Capture" : p.charAt(0).toUpperCase() + p.slice(1)}</span></label></div>
-                    ))}
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="home" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>Home</span></label></div>
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="admin" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" /></svg>Admin</span></label></div>
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="account" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>Account</span></label></div>
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="process" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>Process</span></label></div>
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="datacapture" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" /></svg>Data Capture</span></label></div>
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="payment" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" /></svg>Transaction Payment</span></label></div>
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="report" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" /></svg>Report</span></label></div>
+                    <div className="permission-item"><label className="permission-label"><input type="checkbox" name="permissions[]" value="maintenance" className="permission-checkbox" /><span className="permission-name"><svg className="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" /></svg>Maintenance</span></label></div>
                   </div>
                   <div className="permissions-actions"><button type="button" className="btn-secondary" onClick={() => window.selectAllPermissions?.()}>Select All</button><button type="button" className="btn-clearall" onClick={() => window.clearAllPermissions?.()}>Clear All</button></div>
                 </div>
