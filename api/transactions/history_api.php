@@ -1386,17 +1386,11 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    // Domain Net Profit：入账 Share% Profit 账号，历史与主表一致显示正数
+                    // Domain Share Commission：收款账户在历史中显示正数，与主表一致
                     if (
-                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_NET_PROFIT|') === 0
-                        || stripos((string) $rawDescription, 'Profit By ') === 0
-                    ) {
-                        $cr_dr = (float) $t['amount'];
-                    } elseif (
                         stripos((string) ($t['sms'] ?? ''), '[DOMAIN_SHARE_COMMISSION|') === 0
                         || stripos((string) $rawDescription, 'Commision FROM ') === 0
                     ) {
-                        // Domain Share Commission：收款账户在历史中显示正数，与主表一致
                         $cr_dr = (float) $t['amount'];
                     } else {
                         $cr_dr = -$t['amount'];
@@ -1743,8 +1737,8 @@ try {
         ) {
             $isDomainListFee = true;
         }
-        // 净利润单只在「Share% Profit 入账账号」(account_id) 侧展示；资金池 from 侧不展示，避免误开到 owner 账号看到一笔
-        if ($isDomainNetProfit && !$is_to_account) {
+        // 净利润 DOMAIN_NET_PROFIT：不入各账户 Payment History（主表 DOMAIN 行/虚拟历史仍可体现）
+        if ($isDomainNetProfit) {
             continue;
         }
         $domainShareProductKind = null;
@@ -1765,16 +1759,7 @@ try {
         if ($isDomainListFee) {
             $description = 'Pay Domain Fee';
         }
-        if ($isDomainNetProfit) {
-            $srcNet = historyParseDomainNetProfitSourceCompany($smsText);
-            if ($srcNet !== '' && strtoupper($srcNet) !== 'DYNAMIC') {
-                $description = 'Net Profit From ' . $srcNet;
-            }
-        }
         $productLabel = $isManualProfit ? 'PROFIT' : ($domainShareProductKind !== null ? $domainShareProductKind : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']));
-        if ($isDomainNetProfit) {
-            $productLabel = 'PROFIT';
-        }
 
         $events[] = [
             'row_type' => 'transaction',
@@ -1793,7 +1778,7 @@ try {
             'percent' => '-',
             'rate' => '-',
             'description' => $description,
-            'sms' => ($isDomainShareCommission || $isDomainListFee || $isDomainNetProfit) ? '-' : ($t['sms'] ?: '-'),
+            'sms' => ($isDomainShareCommission || $isDomainListFee) ? '-' : ($t['sms'] ?: '-'),
             'created_by' => $transactionCreatedBy
         ];
     }
