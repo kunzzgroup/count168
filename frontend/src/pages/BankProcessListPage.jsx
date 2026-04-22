@@ -52,6 +52,11 @@ export default function BankProcessListPage() {
   const [accountingLoading, setAccountingLoading] = useState(false);
   const [accountingSelected, setAccountingSelected] = useState(new Set());
   const [accountingDeleteSelected, setAccountingDeleteSelected] = useState(new Set());
+  const [resendModalOpen, setResendModalOpen] = useState(false);
+  const [resendTarget, setResendTarget] = useState(null);
+  const [resendDayStart, setResendDayStart] = useState("");
+  const [resendDayEnd, setResendDayEnd] = useState("");
+  const [resendFrequency, setResendFrequency] = useState("1st_of_every_month");
   const [form, setForm] = useState({
     id: "",
     country: "",
@@ -399,19 +404,34 @@ export default function BankProcessListPage() {
     }
   };
 
-  const resendAccountingDue = async (row) => {
-    if (!window.confirm(`Resend "${row.supplier || row.bank || row.id}" to Accounting Due?`)) return;
+  const openResendModal = (row) => {
+    setResendTarget(row);
+    setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
+    setResendDayEnd("");
+    setResendFrequency("1st_of_every_month");
+    setResendModalOpen(true);
+  };
+
+  const resendAccountingDue = async () => {
+    if (!resendTarget) return;
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ bank_process_id: Number(row.id) }),
+        body: JSON.stringify({
+          bank_process_id: Number(resendTarget.id),
+          day_start: resendDayStart || null,
+          day_end: resendDayEnd || null,
+          day_start_frequency: resendFrequency || "1st_of_every_month",
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Resend failed", "danger");
       notify(json.message || "Resend successful");
       if (accountingOpen) loadAccountingInbox();
+      setResendModalOpen(false);
+      setResendTarget(null);
     } catch {
       notify("Resend failed", "danger");
     }
@@ -532,11 +552,13 @@ export default function BankProcessListPage() {
                 <div className="card-item">{r.date || "-"}</div>
                 <div className="card-item">
                   <button type="button" className="edit-btn" aria-label="Edit" onClick={() => openEdit(r.id)}><img src="/images/edit.svg" alt="Edit" /></button>
-                  <button type="button" className="edit-btn" aria-label="Remark" title="Remark" onClick={() => updateRemark(r)} style={{ marginLeft: 6 }}>
-                    <span style={{ fontSize: 12 }}>💬</span>
+                  <button type="button" className="edit-btn remark-action-btn" aria-label="Remark" title="Remark" onClick={() => updateRemark(r)} style={{ marginLeft: 6 }}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
+                      <path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </button>
-                  <button type="button" className="edit-btn" aria-label="Resend" title="Resend to Accounting Due" onClick={() => resendAccountingDue(r)} style={{ marginLeft: 6 }}>
-                    <span style={{ fontSize: 12 }}>↻</span>
+                  <button type="button" className="edit-btn" aria-label="Resend" title="Resend to Accounting Due" onClick={() => openResendModal(r)} style={{ marginLeft: 6 }}>
+                    <img src="/images/refresh.svg" alt="Resend" />
                   </button>
                   {String(r.status || "").toLowerCase() === "inactive" && !r.has_transactions && <input type="checkbox" style={{ marginLeft: 8 }} checked={selectedIds.has(r.id)} onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />}
                 </div>
@@ -547,7 +569,7 @@ export default function BankProcessListPage() {
         {!showAll && <div className="pagination-container"><button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>◀</button><span className="pagination-info">{currentPage} of {totalPages}</span><button type="button" className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>▶</button></div>}
       </div>
       {modalOpen && (
-        <div className="modal" style={{ display: "block" }}>
+        <div id="addBankModal" className="modal bank-modal" style={{ display: "block" }}>
           <div className="modal-content">
             <div className="modal-header">
               <h2>{editMode ? "Edit Bank Process" : "Add Bank Process"}</h2>
@@ -587,7 +609,7 @@ export default function BankProcessListPage() {
         </div>
       )}
       {accountingOpen && (
-        <div className="modal" style={{ display: "block" }}>
+        <div id="processAccountingDueModal" className="modal" style={{ display: "block" }}>
           <div className="modal-content" style={{ maxWidth: "980px" }}>
             <div className="modal-header">
               <h2>Accounting Due</h2>
@@ -633,6 +655,41 @@ export default function BankProcessListPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {resendModalOpen && (
+        <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={{ display: "block" }}>
+          <div className="process-confirm-modal-content bank-resend-modal-content">
+            <div className="bank-resend-modal-hero">
+              <div className="bank-resend-modal-title">Resend To Accounting Due</div>
+              <div className="bank-resend-modal-message">
+                Process: <b>{resendTarget?.supplier || resendTarget?.bank || "-"}</b>
+              </div>
+            </div>
+            <div className="bank-resend-schedule-card">
+              <div className="bank-resend-schedule-grid">
+                <div className="bank-resend-field">
+                  <div className="bank-resend-field__label">Day Start</div>
+                  <input id="bank_resend_day_start" className="bank-resend-control" type="date" value={resendDayStart} onChange={(e) => setResendDayStart(e.target.value)} />
+                </div>
+                <div className="bank-resend-field">
+                  <div className="bank-resend-field__label">Day End</div>
+                  <input id="bank_resend_day_end" className="bank-resend-control" type="date" value={resendDayEnd} onChange={(e) => setResendDayEnd(e.target.value)} />
+                </div>
+                <div className="bank-resend-field bank-resend-field--full">
+                  <div className="bank-resend-field__label">Frequency</div>
+                  <select id="bank_resend_frequency" className="bank-resend-control bank-resend-control--select" value={resendFrequency} onChange={(e) => setResendFrequency(e.target.value)}>
+                    <option value="1st_of_every_month">1st_of_every_month</option>
+                    <option value="monthly">monthly</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="process-confirm-actions bank-resend-modal-actions">
+              <button type="button" className="process-btn process-btn-cancel confirm-bank-resend-cancel" onClick={() => setResendModalOpen(false)}>Cancel</button>
+              <button type="button" className="process-btn process-btn-delete confirm-bank-resend-confirm" onClick={resendAccountingDue}>Confirm</button>
             </div>
           </div>
         </div>
