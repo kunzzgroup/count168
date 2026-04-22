@@ -1851,7 +1851,7 @@ try {
     $results = $deduplicated_results;
 
     // 第一笔 Domain List Fee：以客户公司（如 LGA）展示在 Transaction Payment。
-    // 但当分类仅选择 PROFIT 时，不应混入 Domain 虚拟来源行，避免筛选结果看起来像 role 误判。
+    // 当分类仅选择 PROFIT 时，不追加 Domain 虚拟来源行，避免筛选结果混入非 PROFIT 行。
     $isProfitOnlyCategory = (count($category_filters) === 1 && strtoupper((string) $category_filters[0]) === 'PROFIT');
     if (!$isProfitOnlyCategory) {
         searchApiAppendDomainListFeeVirtualRows(
@@ -1863,16 +1863,18 @@ try {
             $filter_currency_codes,
             $currency_id_map
         );
-        searchApiApplyDomainSourceCompanyRows(
-            $pdo,
-            $results,
-            $company_id,
-            $date_from_db,
-            $date_to_db,
-            $filter_currency_codes,
-            $currency_id_map
-        );
     }
+    // 无论分类如何，都要执行池账号净额校正（List Fee - Commission），
+    // 否则 PROFIT only 会显示毛额，与 Payment History 的净额口径不一致。
+    searchApiApplyDomainSourceCompanyRows(
+        $pdo,
+        $results,
+        $company_id,
+        $date_from_db,
+        $date_to_db,
+        $filter_currency_codes,
+        $currency_id_map
+    );
     // Domain 净利润行已停用：最终利润由 Share/Commission 实际分配结果体现。
     // 按 currency 和 account_id 排序
     usort($results, function ($a, $b) {
