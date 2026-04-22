@@ -1024,31 +1024,83 @@ async function submitDomainAddAccountForm(e) {
     }
 }
 
-function readFeeShareFromModalDom() {
-    var out = defaultFeeShareAllocations();
-    var cfg = [['profit', 'shareRowsProfit'], ['sales', 'shareRowsSales'], ['cs', 'shareRowsCs'], ['it', 'shareRowsIt']];
-    cfg.forEach(function (pair) {
-        var role = pair[0];
-        var tid = pair[1];
-        var tb = document.getElementById(tid);
-        if (!tb) {
+function sumFeeShareRolePercentages(rows) {
+    if (!rows || !rows.length) {
+        return 0;
+    }
+    return rows.reduce(function (acc, r) {
+        return acc + (parseFloat(r && r.percentage) || 0);
+    }, 0);
+}
+
+function readStandardShareRowsFromTable(tb) {
+    var rows = [];
+    if (!tb) {
+        return rows;
+    }
+    tb.querySelectorAll('.company-share-data-row').forEach(function (tr) {
+        var sEl = tr.querySelector('.share-account-select');
+        var pEl = tr.querySelector('.share-pct-input');
+        var aid = sEl ? parseInt(sEl.value, 10) : 0;
+        var pct = pEl ? String(pEl.value).trim() : '';
+        if (pct === '') {
+            rows.push({ account_id: aid, percentage: '' });
             return;
         }
-        tb.querySelectorAll('.company-share-data-row').forEach(function (tr) {
-            var sEl = tr.querySelector('.share-account-select');
-            var pEl = tr.querySelector('.share-pct-input');
-            var aid = sEl ? parseInt(sEl.value, 10) : 0;
-            var pct = pEl ? String(pEl.value).trim() : '';
-            // Keep incomplete rows in local state so users can add multiple rows
-            // continuously without previous empty rows being dropped.
-            if (pct === '') {
-                out[role].push({ account_id: aid, percentage: '' });
-                return;
-            }
-            var pctNum = parseFloat(pct);
-            out[role].push({ account_id: aid, percentage: isFinite(pctNum) ? pctNum : '' });
-        });
+        var pctNum = parseFloat(pct);
+        rows.push({ account_id: aid, percentage: isFinite(pctNum) ? pctNum : '' });
     });
+    return rows;
+}
+
+function readProfitShareRowsFromTable(tb, remainderPct) {
+    var rows = [];
+    if (!tb) {
+        return rows;
+    }
+    var list = Array.prototype.slice.call(tb.querySelectorAll('.company-share-data-row'));
+    var nAssigned = 0;
+    list.forEach(function (tr) {
+        var sEl = tr.querySelector('.share-account-select');
+        var aid = sEl ? parseInt(sEl.value, 10) : 0;
+        if (aid !== 0) {
+            nAssigned++;
+        }
+    });
+    var perBase = nAssigned > 0 ? remainderPct / nAssigned : 0;
+    var perRounded = Math.round(perBase * 10000) / 10000;
+    var assignedCount = 0;
+    var assignedSum = 0;
+    list.forEach(function (tr) {
+        var sEl = tr.querySelector('.share-account-select');
+        var aid = sEl ? parseInt(sEl.value, 10) : 0;
+        if (aid === 0) {
+            rows.push({ account_id: 0, percentage: '' });
+            return;
+        }
+        assignedCount++;
+        var isLast = assignedCount === nAssigned;
+        var pctVal = isLast
+            ? Math.round((remainderPct - assignedSum) * 10000) / 10000
+            : perRounded;
+        if (!isLast) {
+            assignedSum += pctVal;
+        }
+        rows.push({ account_id: aid, percentage: pctVal });
+    });
+    return rows;
+}
+
+function readFeeShareFromModalDom() {
+    var out = defaultFeeShareAllocations();
+    out.sales = readStandardShareRowsFromTable(document.getElementById('shareRowsSales'));
+    out.cs = readStandardShareRowsFromTable(document.getElementById('shareRowsCs'));
+    out.it = readStandardShareRowsFromTable(document.getElementById('shareRowsIt'));
+    var otherSum = sumFeeShareRolePercentages(out.sales) +
+        sumFeeShareRolePercentages(out.cs) +
+        sumFeeShareRolePercentages(out.it);
+    var remainder = Math.max(0, 100 - otherSum);
+    out.profit = readProfitShareRowsFromTable(document.getElementById('shareRowsProfit'), remainder);
     return out;
 }
 
@@ -1122,7 +1174,11 @@ function toggleShareRoleCard(role) {
 
 function updateCompanyShareTotals() {
     var out = readFeeShareFromModalDom();
-    var grand = 0;
+    var otherSum = sumFeeShareRolePercentages(out.sales) +
+        sumFeeShareRolePercentages(out.cs) +
+        sumFeeShareRolePercentages(out.it);
+    var profitPool = Math.max(0, 100 - otherSum);
+    var grand = otherSum + profitPool;
     [['profit', 'shareTotalProfit'], ['sales', 'shareTotalSales'], ['cs', 'shareTotalCs'], ['it', 'shareTotalIt']].forEach(function (pair) {
         var role = pair[0];
         var tid = pair[1];
@@ -1130,13 +1186,11 @@ function updateCompanyShareTotals() {
         if (!el) {
             return;
         }
-        var t = 0;
-        (out[role] || []).forEach(function (r) {
-            t += parseFloat(r.percentage) || 0;
-        });
-        grand += t;
+        var t = role === 'profit'
+            ? profitPool
+            : sumFeeShareRolePercentages(out[role]);
         el.textContent = t.toFixed(2) + '%';
-        el.classList.toggle('company-share-card-sum--over', t > 100);
+        el.classList.toggle('company-share-card-sum--over', role === 'profit' ? otherSum > 100 : t > 100);
 
         var count = countShareRoleAssignedAccounts(role);
         var sumEl = document.getElementById('shareAccountSummary-' + role);
@@ -1147,7 +1201,7 @@ function updateCompanyShareTotals() {
         if (fill) {
             var w = Math.min(100, Math.max(0, t));
             fill.style.width = w + '%';
-            fill.classList.toggle('company-share-progress-fill--over', t > 100);
+            fill.classList.toggle('company-share-progress-fill--over', role === 'profit' ? otherSum > 100 : t > 100);
         }
     });
     var grandEl = document.getElementById('shareGrandTotal');
@@ -1176,18 +1230,66 @@ function formatShareRowAmount2(value) {
 
 function updateCompanyShareRowAmounts() {
     var price = getDomainPriceForShareCalc();
-    var rows = document.querySelectorAll('.company-share-data-row');
-    rows.forEach(function (row) {
-        var pctEl = row.querySelector('.share-pct-input');
-        var amountEl = row.querySelector('.company-share-amount-input');
-        if (!pctEl || !amountEl) {
+    var profitTb = document.getElementById('shareRowsProfit');
+    var otherSum = 0;
+    ['shareRowsSales', 'shareRowsCs', 'shareRowsIt'].forEach(function (tid) {
+        var tb = document.getElementById(tid);
+        if (!tb) {
             return;
         }
-        var pct = parseFloat(pctEl.value);
-        if (!isFinite(pct) || pct < 0) {
-            pct = 0;
+        tb.querySelectorAll('.company-share-data-row').forEach(function (tr) {
+            var pEl = tr.querySelector('.share-pct-input');
+            var v = pEl ? parseFloat(pEl.value) : 0;
+            otherSum += isFinite(v) ? v : 0;
+        });
+    });
+    var remainder = Math.max(0, 100 - otherSum);
+    var profitRows = profitTb ? Array.prototype.slice.call(profitTb.querySelectorAll('.company-share-data-row')) : [];
+    var profitN = 0;
+    profitRows.forEach(function (tr) {
+        var sEl = tr.querySelector('.share-account-select');
+        var aid = sEl ? parseInt(sEl.value, 10) : 0;
+        if (aid !== 0) {
+            profitN++;
         }
-        // percentage input uses % unit, so convert by /100.
+    });
+    var profitPerBase = profitN > 0 ? remainder / profitN : 0;
+    var profitPerRounded = Math.round(profitPerBase * 10000) / 10000;
+    var profitAssigned = 0;
+    var profitSumPct = 0;
+
+    document.querySelectorAll('.company-share-data-row').forEach(function (row) {
+        var amountEl = row.querySelector('.company-share-amount-input');
+        if (!amountEl) {
+            return;
+        }
+        var inProfit = profitTb && profitTb.contains(row);
+        var pct;
+        if (inProfit) {
+            var sel = row.querySelector('.share-account-select');
+            var aid = sel ? parseInt(sel.value, 10) : 0;
+            if (aid === 0) {
+                pct = 0;
+            } else {
+                profitAssigned++;
+                var isLastProfit = profitAssigned === profitN;
+                pct = isLastProfit
+                    ? Math.round((remainder - profitSumPct) * 10000) / 10000
+                    : profitPerRounded;
+                if (!isLastProfit) {
+                    profitSumPct += pct;
+                }
+            }
+        } else {
+            var pctEl = row.querySelector('.share-pct-input');
+            if (!pctEl) {
+                return;
+            }
+            pct = parseFloat(pctEl.value);
+            if (!isFinite(pct) || pct < 0) {
+                pct = 0;
+            }
+        }
         var amount = price * (pct / 100);
         amountEl.value = formatShareRowAmount2(amount);
     });
@@ -1216,24 +1318,40 @@ function renderCompanySharePanel() {
             var pctVal = row.percentage !== undefined && row.percentage !== null && row.percentage !== ''
                 ? row.percentage
                 : '';
-            tr.innerHTML = '<div class="company-share-cell company-share-cell-account">' +
-                '<div class="company-share-account-inline">' +
-                '<select class="share-account-select company-share-select" aria-label="Account">' +
-                buildShareAccountOptionsHtml(row.account_id) +
-                '</select>' +
-                '<button type="button" class="company-share-account-plus-btn" data-share-add-role="' + role + '" title="Add New Account" aria-label="Add New Account">+</button>' +
-                '</div></div>' +
-                '<div class="company-share-cell company-share-cell-pct">' +
-                '<div class="company-share-pct-wrap">' +
-                '<input type="number" class="share-pct-input company-share-pct-input" step="0.1" min="0" max="100" value="' +
-                (pctVal !== '' ? escapeHtmlShare(String(pctVal)) : '') + '" placeholder="0" inputmode="decimal" aria-label="Percentage" />' +
-                '<span class="company-share-pct-suffix">%</span></div></div>' +
-                '<div class="company-share-cell company-share-cell-amount">' +
-                '<input type="text" class="company-share-amount-input" value="0.00" readonly tabindex="-1" aria-label="Calculated total" />' +
-                '</div>' +
-                '<div class="company-share-cell company-share-cell-remove">' +
-                '<button type="button" class="company-share-remove-btn" data-share-role="' + role + '" data-share-idx="' + idx + '" title="Remove row" aria-label="Remove row">' +
-                '<span aria-hidden="true">&times;</span></button></div>';
+            if (role === 'profit') {
+                tr.innerHTML = '<div class="company-share-cell company-share-cell-account">' +
+                    '<div class="company-share-account-inline">' +
+                    '<select class="share-account-select company-share-select" aria-label="Account">' +
+                    buildShareAccountOptionsHtml(row.account_id) +
+                    '</select>' +
+                    '<button type="button" class="company-share-account-plus-btn" data-share-add-role="' + role + '" title="Add New Account" aria-label="Add New Account">+</button>' +
+                    '</div></div>' +
+                    '<div class="company-share-cell company-share-cell-amount">' +
+                    '<input type="text" class="company-share-amount-input" value="0.00" readonly tabindex="-1" aria-label="Calculated total" />' +
+                    '</div>' +
+                    '<div class="company-share-cell company-share-cell-remove">' +
+                    '<button type="button" class="company-share-remove-btn" data-share-role="' + role + '" data-share-idx="' + idx + '" title="Remove row" aria-label="Remove row">' +
+                    '<span aria-hidden="true">&times;</span></button></div>';
+            } else {
+                tr.innerHTML = '<div class="company-share-cell company-share-cell-account">' +
+                    '<div class="company-share-account-inline">' +
+                    '<select class="share-account-select company-share-select" aria-label="Account">' +
+                    buildShareAccountOptionsHtml(row.account_id) +
+                    '</select>' +
+                    '<button type="button" class="company-share-account-plus-btn" data-share-add-role="' + role + '" title="Add New Account" aria-label="Add New Account">+</button>' +
+                    '</div></div>' +
+                    '<div class="company-share-cell company-share-cell-pct">' +
+                    '<div class="company-share-pct-wrap">' +
+                    '<input type="number" class="share-pct-input company-share-pct-input" step="0.1" min="0" max="100" value="' +
+                    (pctVal !== '' ? escapeHtmlShare(String(pctVal)) : '') + '" placeholder="0" inputmode="decimal" aria-label="Percentage" />' +
+                    '<span class="company-share-pct-suffix">%</span></div></div>' +
+                    '<div class="company-share-cell company-share-cell-amount">' +
+                    '<input type="text" class="company-share-amount-input" value="0.00" readonly tabindex="-1" aria-label="Calculated total" />' +
+                    '</div>' +
+                    '<div class="company-share-cell company-share-cell-remove">' +
+                    '<button type="button" class="company-share-remove-btn" data-share-role="' + role + '" data-share-idx="' + idx + '" title="Remove row" aria-label="Remove row">' +
+                    '<span aria-hidden="true">&times;</span></button></div>';
+            }
             tbody.appendChild(tr);
             tr.querySelector('.company-share-remove-btn').addEventListener('click', function () {
                 removeCompanyShareRow(this.getAttribute('data-share-role'), parseInt(this.getAttribute('data-share-idx'), 10));
