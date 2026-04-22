@@ -129,6 +129,18 @@ export default function UserListPage() {
     const current = companies.find((c) => Number(c.id) === Number(data?.current_company_id));
     return String(current?.group_id || "").trim().toUpperCase();
   }, [companies, data?.current_company_id]);
+  const currentUserId = Number(data?.current_user_id || 0);
+  const currentUserRole = String(data?.current_user_role || "").toLowerCase();
+  const roleHierarchy = {
+    owner: 0,
+    partnership: 1,
+    admin: 2,
+    manager: 3,
+    supervisor: 4,
+    accountant: 5,
+    audit: 6,
+    "customer service": 7,
+  };
 
   return (
     <div className="container">
@@ -186,38 +198,93 @@ export default function UserListPage() {
         </div>
 
         <div className="user-table-wrapper" id="userTableWrapper">
-          <div className="table-header">
-            <div className="header-item">No</div><div className="header-item header-sortable" onClick={() => window.sortByLoginId?.()}>Login Id <span className="sort-indicator" id="sortLoginIdIndicator">▲</span></div>
-            <div className="header-item">Name</div><div className="header-item">Email</div><div className="header-item header-sortable" onClick={() => window.sortByRole?.()}>Role <span className="sort-indicator" id="sortRoleIndicator" /></div>
-            <div className="header-item">Status</div><div className="header-item">Last Login</div><div className="header-item">Created By</div>
-            <div className="header-item">Action<input type="checkbox" id="selectAllUsers" onChange={() => window.toggleSelectAllUsers?.()} style={{ marginLeft: 10 }} /></div>
-          </div>
-          <div className="user-cards" id="userTableBody">
-            {users.map((u, i) => (
-              <div
-                key={`${u.id}-${i}`}
-                className={`user-card show-card ${i % 2 === 0 ? "row-even" : "row-odd"}`}
-                data-id={u.id}
-                data-is-owner-shadow={Number(u.is_owner_shadow) === 1 ? "1" : "0"}
-                data-login-id={u.login_id || ""}
-                data-name={u.name || ""}
-                data-email={u.email || ""}
-                data-role={u.role || ""}
-                data-status={u.status || ""}
-                data-last-login={fmtLastLogin(u.last_login)}
-                data-created-by={u.created_by || ""}
-              >
-                <div className="card-item">{i + 1}</div>
-                <div className="card-item">{u.login_id}</div>
-                <div className="card-item">{u.name}</div>
-                <div className="card-item">{u.email || "-"}</div>
-                <div className="card-item uppercase-text"><span className={`role-badge role-${String(u.role || "").replace(/\s+/g, "-")}`}>{String(u.role || "").toUpperCase()}</span></div>
-                <div className="card-item uppercase-text"><span className={`role-badge ${String(u.status).toLowerCase() === "active" ? "status-active" : "status-inactive"} status-clickable`} onClick={() => window.toggleUserStatus?.(u.id, u.status, Number(u.is_owner_shadow) === 1)}>{String(u.status || "").toUpperCase()}</span></div>
-                <div className="card-item">{fmtLastLogin(u.last_login)}</div>
-                <div className="card-item uppercase-text">{String(u.created_by || "-").toUpperCase()}</div>
-                <div className="card-item"><button className="btn btn-edit edit-btn" onClick={() => window.editUser?.(u.id, Number(u.is_owner_shadow) === 1)}><img src="/images/edit.svg" alt="Edit" /></button></div>
-              </div>
-            ))}
+          <div className="table-container">
+            <div className="table-header">
+              <div className="header-item">No</div><div className="header-item header-sortable" onClick={() => window.sortByLoginId?.()}>Login Id <span className="sort-indicator" id="sortLoginIdIndicator">▲</span></div>
+              <div className="header-item">Name</div><div className="header-item">Email</div><div className="header-item header-sortable" onClick={() => window.sortByRole?.()}>Role <span className="sort-indicator" id="sortRoleIndicator" /></div>
+              <div className="header-item">Status</div><div className="header-item">Last Login</div><div className="header-item">Created By</div>
+              <div className="header-item">Action<input type="checkbox" id="selectAllUsers" title="Select all" onChange={() => window.toggleSelectAllUsers?.()} style={{ marginLeft: 10, cursor: "pointer" }} /></div>
+            </div>
+            <div className="user-cards" id="userTableBody">
+              {users.map((u, i) => {
+                const userRole = String(u.role || "").toLowerCase();
+                const isOwnerShadow = Number(u.is_owner_shadow) === 1;
+                const isAdminUser = userRole === "admin";
+                const isOwnerUser = userRole === "owner";
+                const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service"];
+                const isLowPrivilegeUser = lowPrivilegeRoles.includes(currentUserRole);
+                const isSelf = currentUserId > 0 && Number(u.id) === currentUserId;
+                const currentLevel = roleHierarchy[currentUserRole] ?? 999;
+                const targetLevel = roleHierarchy[userRole] ?? 999;
+                const isSameLevel = currentLevel === targetLevel && !isSelf;
+                const isHigherLevel = targetLevel < currentLevel;
+                let canEditDelete = true;
+                let canDelete = true;
+                if (isSelf) {
+                  canEditDelete = true;
+                  canDelete = false;
+                } else if (isOwnerShadow) {
+                  canEditDelete = currentUserRole === "owner";
+                  canDelete = currentUserRole === "owner";
+                } else if (isLowPrivilegeUser && (isAdminUser || isOwnerUser)) {
+                  canEditDelete = false;
+                  canDelete = false;
+                } else if (isSameLevel || isHigherLevel) {
+                  canEditDelete = true;
+                  canDelete = false;
+                }
+                const canToggleStatus = canEditDelete && !isSelf;
+                const isActiveStatus = String(u.status || "").toLowerCase() === "active";
+                return (
+                  <div
+                    key={`${u.id}-${i}`}
+                    className={`user-card show-card ${i % 2 === 0 ? "row-even" : "row-odd"}`}
+                    data-id={u.id}
+                    data-is-owner-shadow={isOwnerShadow ? "1" : "0"}
+                    data-login-id={u.login_id || ""}
+                    data-name={u.name || ""}
+                    data-email={u.email || ""}
+                    data-role={u.role || ""}
+                    data-status={u.status || ""}
+                    data-last-login={fmtLastLogin(u.last_login)}
+                    data-created-by={u.created_by || ""}
+                  >
+                    <div className="card-item">{i + 1}</div>
+                    <div className="card-item">{u.login_id}</div>
+                    <div className="card-item">{u.name}</div>
+                    <div className="card-item">{u.email || "-"}</div>
+                    <div className="card-item uppercase-text"><span className={`role-badge role-${String(u.role || "").replace(/\s+/g, "-")}`}>{String(u.role || "").toUpperCase()}</span></div>
+                    <div className="card-item uppercase-text">
+                      {canToggleStatus ? (
+                        <span className={`role-badge ${String(u.status).toLowerCase() === "active" ? "status-active" : "status-inactive"} status-clickable`} onClick={() => window.toggleUserStatus?.(u.id, u.status, isOwnerShadow)} title="Click to toggle status" style={{ cursor: "pointer" }}>
+                          {String(u.status || "").toUpperCase()}
+                        </span>
+                      ) : (
+                        <span className={`role-badge ${String(u.status).toLowerCase() === "active" ? "status-active" : "status-inactive"}`} style={{ cursor: "not-allowed", opacity: 0.6 }}>
+                          {String(u.status || "").toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="card-item">{fmtLastLogin(u.last_login)}</div>
+                    <div className="card-item uppercase-text">{String(u.created_by || "-").toUpperCase()}</div>
+                    <div className="card-item">
+                      {canEditDelete ? (
+                        <button className="btn btn-edit edit-btn" onClick={() => window.editUser?.(u.id, isOwnerShadow)} aria-label="Edit"><img src="/images/edit.svg" alt="Edit" /></button>
+                      ) : (
+                        <button className="btn btn-edit edit-btn" disabled style={{ opacity: 0.3, cursor: "not-allowed" }} aria-label="Edit Disabled"><img src="/images/edit.svg" alt="Edit Disabled" /></button>
+                      )}
+                      {!isActiveStatus && (
+                        canDelete ? (
+                          <input type="checkbox" className="user-checkbox" value={u.id} data-is-owner-shadow={isOwnerShadow ? "1" : "0"} data-role={userRole} onChange={() => window.updateDeleteButton?.()} />
+                        ) : (
+                          <input type="checkbox" className="user-checkbox" disabled style={{ opacity: 0.3, cursor: "not-allowed" }} />
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
         <div className="pagination-container" id="paginationContainer"><button className="pagination-btn" id="prevBtn" onClick={() => window.changePage?.(-1)}>◀</button><span className="pagination-info" id="paginationInfo">1 of 1</span><button className="pagination-btn" id="nextBtn" onClick={() => window.changePage?.(1)}>▶</button></div>
