@@ -23,15 +23,16 @@ try {
             group_id VARCHAR(50) NOT NULL,
             owner_id INT NOT NULL,
             account_id INT NOT NULL,
-            owner_type ENUM('owner','user') NOT NULL DEFAULT 'owner',
+            owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
             percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
             partner_group_id VARCHAR(50) DEFAULT NULL,
             read_only TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_group_account (group_id, account_id, owner_type)
+            UNIQUE KEY uq_group_account (group_id, account_id, owner_type, partner_group_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    try { $pdo->exec("ALTER TABLE group_ownership MODIFY COLUMN owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner'"); } catch (Exception $e) {}
 
     // Get companies with groups for this user
     require_once '../get_companies_helper.php';
@@ -94,7 +95,8 @@ try {
         }
     }
 
-    // Get total allocation for each group from group_ownership table (account-level shares)
+    // Get total allocation for each group from group_ownership (account-level shares only).
+    // Self-group links (owner_type='group') are excluded — they carry no economic percentage.
     $groupIds = array_keys($groups);
     $totals = [];
     if (!empty($groupIds)) {
@@ -102,7 +104,7 @@ try {
         $stmt = $pdo->prepare("
             SELECT group_id, SUM(percentage) as total_percent
             FROM group_ownership
-            WHERE group_id IN ($in)
+            WHERE group_id IN ($in) AND owner_type IN ('owner','user')
             GROUP BY group_id
         ");
         $stmt->execute($groupIds);

@@ -44,15 +44,16 @@ try {
             group_id VARCHAR(50) NOT NULL,
             owner_id INT NOT NULL,
             account_id INT NOT NULL,
-            owner_type ENUM('owner','user') NOT NULL DEFAULT 'owner',
+            owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
             percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
             partner_group_id VARCHAR(50) DEFAULT NULL,
             read_only TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_group_account (group_id, account_id, owner_type)
+            UNIQUE KEY uq_group_account (group_id, account_id, owner_type, partner_group_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    try { $pdo->exec("ALTER TABLE group_ownership MODIFY COLUMN owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner'"); } catch (Exception $e) {}
 
     $owner_type = 'owner';
     $real_id = $raw_id;
@@ -68,11 +69,14 @@ try {
 
     $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
 
-    // Check current total for this group (excluding the current account)
+    // Check current total for this group (excluding the current account and any
+    // same-owner self-link rows, which carry no economic percentage).
     $stmtTotal = $pdo->prepare("
         SELECT COALESCE(SUM(percentage), 0) as total
         FROM group_ownership
-        WHERE group_id = ? AND NOT (account_id = ? AND owner_type = ?)
+        WHERE group_id = ?
+          AND owner_type IN ('owner','user')
+          AND NOT (account_id = ? AND owner_type = ?)
     ");
     $stmtTotal->execute([$group_id, $real_id, $owner_type]);
     $currentTotal = (float)$stmtTotal->fetchColumn();

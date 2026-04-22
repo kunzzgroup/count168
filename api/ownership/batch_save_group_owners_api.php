@@ -28,12 +28,16 @@ if (!$group_id) {
     exit();
 }
 
-// Validate total percentage
+// Validate total percentage (exclude same-owner self-group links — they
+// don't participate in the group's 100% allocation budget).
 $total_percentage = 0;
 foreach ($owners as $owner) {
     if (!isset($owner['account_id']) || !isset($owner['percentage'])) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid owner data format']);
         exit();
+    }
+    if (strpos((string) $owner['account_id'], 'G_') === 0) {
+        continue;
     }
     $pct = (float) $owner['percentage'];
     if ($pct < 0 || $pct > 100) {
@@ -56,15 +60,16 @@ try {
             group_id VARCHAR(50) NOT NULL,
             owner_id INT NOT NULL,
             account_id INT NOT NULL,
-            owner_type ENUM('owner','user') NOT NULL DEFAULT 'owner',
+            owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
             percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
             partner_group_id VARCHAR(50) DEFAULT NULL,
             read_only TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_group_account (group_id, account_id, owner_type)
+            UNIQUE KEY uq_group_account (group_id, account_id, owner_type, partner_group_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    try { $pdo->exec("ALTER TABLE group_ownership MODIFY COLUMN owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner'"); } catch (Exception $e) {}
 
     $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
 
@@ -80,8 +85,10 @@ try {
         $existingReadOnly[$row['account_id']] = (int) $row['read_only'];
     }
 
-    // Remove all existing owners for this group
-    $stmt = $pdo->prepare("DELETE FROM group_ownership WHERE group_id = ?");
+    // Remove all existing owner/user shares for this group
+    // (Self-linked rows with owner_type='group' are preserved — they represent
+    //  same-owner cross-group read-only visibility and are managed separately.)
+    $stmt = $pdo->prepare("DELETE FROM group_ownership WHERE group_id = ? AND owner_type IN ('owner','user')");
     $stmt->execute([$group_id]);
 
     // Insert new owners
@@ -102,6 +109,10 @@ try {
             } elseif (strpos($raw_id, 'U_') === 0) {
                 $owner_type = 'user';
                 $real_id = substr($raw_id, 2);
+            } elseif (strpos($raw_id, 'G_') === 0) {
+                // Self-owned group self-link. Managed separately by the link/unlink
+                // endpoints; skip it here so we don't corrupt the row.
+                continue;
             }
 
             $pgid = null;

@@ -28,7 +28,11 @@ try {
         exit();
     }
 
-    // Fetch ownership rows for this group, joining owner/user tables for display
+    // Fetch ownership rows for this group, joining owner/user tables for display.
+    // Note: owner_type='group' rows (same-owner cross-group read-only links)
+    // are intentionally excluded from this listing — they don't participate in
+    // the percentage allocation UI. They're managed via the External Partner
+    // link/unlink flow.
     $stmt = $pdo->prepare("
         SELECT go.id as ownership_id,
                go.percentage,
@@ -55,7 +59,7 @@ try {
         FROM group_ownership go
         LEFT JOIN owner o ON go.account_id = o.id AND go.owner_type = 'owner'
         LEFT JOIN user u ON go.account_id = u.id AND go.owner_type = 'user'
-        WHERE go.group_id = ?
+        WHERE go.group_id = ? AND go.owner_type IN ('owner','user')
         ORDER BY go.percentage DESC
     ");
 
