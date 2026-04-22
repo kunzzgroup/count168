@@ -862,6 +862,54 @@ function resolveC168DomainFeeReceiverAccountId(PDO $pdo, int $c168Pk, int $exclu
     }
 }
 
+/**
+ * Domain 在 C168 下自动建的 MEMBER 常为 OWNERCODE_COMPANY（见 domainApiResolveProvisionedMemberAccountCode），
+ * 与「account_id 等于公司短码」的旧数据并存；List Fee 付款方须能解析到该账号。
+ */
+function resolveC168DomainProvisionedMemberByCompanyCode(PDO $pdo, int $c168Pk, string $customerCompanyCode, int $excludeAccountId = 0): ?int
+{
+    $src = strtoupper(trim($customerCompanyCode));
+    if ($c168Pk <= 0 || $src === '') {
+        return null;
+    }
+    $ownerUpper = '';
+    try {
+        $st = $pdo->prepare("
+            SELECT UPPER(TRIM(COALESCE(o.owner_code, ''))) AS oc
+            FROM company c
+            INNER JOIN owner o ON o.id = c.owner_id
+            WHERE UPPER(TRIM(c.company_id)) = ?
+            ORDER BY c.id ASC
+            LIMIT 1
+        ");
+        $st->execute([$src]);
+        $ownerUpper = strtoupper(trim((string) ($st->fetchColumn() ?: '')));
+    } catch (PDOException $e) {
+        return null;
+    }
+    if ($ownerUpper === '') {
+        return null;
+    }
+    $accountCode = domainApiResolveProvisionedMemberAccountCode($pdo, $c168Pk, $ownerUpper, $src);
+    try {
+        $st2 = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            LIMIT 1
+        ");
+        $st2->execute([$c168Pk, $accountCode, (int) $excludeAccountId]);
+        $v = $st2->fetchColumn();
+        return ($v !== false && $v !== null) ? (int) $v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
 function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customerCompanyCode, int $excludeAccountId = 0): ?int
 {
     $srcCode = strtoupper(trim($customerCompanyCode));
@@ -872,6 +920,11 @@ function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customer
     $fromC168CompanyCode = resolveC168CompanyCodeAccountId($pdo, $c168Pk, $srcCode, $excludeAccountId);
     if ($fromC168CompanyCode && $fromC168CompanyCode > 0) {
         return $fromC168CompanyCode;
+    }
+
+    $fromProvisioned = resolveC168DomainProvisionedMemberByCompanyCode($pdo, $c168Pk, $srcCode, $excludeAccountId);
+    if ($fromProvisioned && $fromProvisioned > 0) {
+        return $fromProvisioned;
     }
 
     $customerPk = getCompanyPkByCode($pdo, $srcCode);
