@@ -1076,7 +1076,9 @@ function domainApiEnsureAccountDefaultCurrency(PDO $pdo, int $accountId, int $co
 }
 
 /**
- * Domain List Fee：客户公司账户 -> C168 Profit 账户（优先）；若无 Profit 再回退旧接收账户。
+ * Domain List Fee：客户公司账户 -> Share% 配置的 Profit 入账账号（与佣金 from、净利润 from 同一池）；
+ * 顾客款先入该池，再由佣金 PAYMENT 从该池扣出各 %，剩余留在 Profit 账号即净利润，避免「整笔先入 owner/K」语义。
+ * 无 Share% Profit 时回退 C168 PROFIT 角色账号，再回退 resolveC168DomainFeeReceiverAccountId。
  * 去重由 DOMAIN_LIST_FEE sms 标记负责；删除该笔后可再次创建。
  */
 function createDomainListFeePayment(
@@ -1111,12 +1113,19 @@ function createDomainListFeePayment(
         $out['skipped_no_c168'] = true;
         return $out;
     }
-    $poolEarly = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
+    $custCodeU = strtoupper(trim($customerCompanyCode));
+    $poolEarly = resolveShareProfitTargetAccountId($pdo, $custCodeU);
+    if (!$poolEarly || $poolEarly <= 0) {
+        $poolEarly = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
+    }
+    if (!$poolEarly || $poolEarly <= 0) {
+        $poolEarly = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
+    }
     if ($poolEarly && $poolEarly > 0) {
         $out['pool_account_id'] = (int) $poolEarly;
     }
     $today = date('Y-m-d');
-    $feeSms = '[DOMAIN_LIST_FEE|' . strtoupper(trim($customerCompanyCode)) . ']';
+    $feeSms = '[DOMAIN_LIST_FEE|' . $custCodeU . ']';
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
         WHERE company_id = ? AND transaction_type = 'PAYMENT'
@@ -1131,12 +1140,9 @@ function createDomainListFeePayment(
         $out['skipped_duplicate'] = true;
         return $out;
     }
-    // 第一笔 Domain Fee：From=Domain company 对应账号；To=Profit(C168)（优先）
+    // 第一笔 Domain Fee：From=顾客侧账号；To=Share% Profit 池（与后续佣金/净利润同一 account_id）
     $toC168Pool = $poolEarly ? (int) $poolEarly : null;
     if (!$toC168Pool || $toC168Pool <= 0) {
-        $toC168Pool = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
-    }
-    if (!$toC168Pool) {
         $out['skipped_no_accounts'] = true;
         return $out;
     }
