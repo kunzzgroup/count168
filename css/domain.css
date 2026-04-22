@@ -774,6 +774,12 @@ h1 {
     border: 1px solid #bfdbfe;
 }
 
+.company-share-role-badge--profit {
+    background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
 .company-share-role-badge--cs {
     background: linear-gradient(135deg, #ecfccb 0%, #d9f99d 100%);
     color: #3f6212;
