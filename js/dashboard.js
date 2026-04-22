@@ -905,35 +905,15 @@ function getLinkMultiplierForCompany(companyId, groupFilter) {
     return 1;
 }
 
-// Scale every numeric KPI in a dashboard-api payload by `mul`. Used so a virtual
-// company shown under a link target group (e.g. IG's VG under AP) displays
-// earnings/profit × link_percentage.
+// Attach the group-link multiplier to the dashboard payload WITHOUT touching the
+// raw numbers. Profit / Expenses / Net Profit / Trend Chart stay equal to the
+// company's real figures (same as its native-group view). Only the Earnings
+// card consumes `_link_multiplier` to apply the link percentage.
 function scaleDashboardData(data, mul) {
-    if (!data || mul === 1 || mul === null || mul === undefined) return data;
-    const scaleNum = (v) => (parseFloat(v) || 0) * mul;
-    if (data.capital !== undefined) data.capital = scaleNum(data.capital);
-    if (data.expenses !== undefined) data.expenses = scaleNum(data.expenses);
-    if (data.profit !== undefined) data.profit = scaleNum(data.profit);
-    if (data.period_total) {
-        data.period_total.capital  = scaleNum(data.period_total.capital);
-        data.period_total.expenses = scaleNum(data.period_total.expenses);
-        data.period_total.profit   = scaleNum(data.period_total.profit);
+    if (!data) return data;
+    if (mul !== 1 && mul !== null && mul !== undefined) {
+        data._link_multiplier = mul;
     }
-    if (data.initial_balance) {
-        data.initial_balance.capital  = scaleNum(data.initial_balance.capital);
-        data.initial_balance.expenses = scaleNum(data.initial_balance.expenses);
-        data.initial_balance.profit   = scaleNum(data.initial_balance.profit);
-    }
-    if (data.daily_data) {
-        for (const key of ['capital', 'expenses', 'profit', 'profit_payment_flow_daily']) {
-            const m = data.daily_data[key];
-            if (m && typeof m === 'object') {
-                for (const k of Object.keys(m)) m[k] = scaleNum(m[k]);
-            }
-        }
-    }
-    // Annotate so downstream code can surface the multiplier if needed.
-    data._link_multiplier = mul;
     return data;
 }
 
@@ -1018,15 +998,16 @@ function mergeGroupData(dataList) {
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
         // Group All mode is always under a group filter.
-        //   If this company came via a link (virtual row — _link_multiplier applied),
-        //   its NET_PROFIT already captures the full percentage chain, so earnings
-        //   equals the scaled NET_PROFIT directly.
-        //   Native companies are weighted by their company_ownership group_equity%
-        //   (defaults to 100%).
+        //   Raw Profit / Expenses / Net Profit stay at the company's full value.
+        //   The earnings contribution depends on how the company enters the group:
+        //     - via a link (virtual row): Net Profit × link_multiplier
+        //     - natively: Net Profit × company_ownership group_equity% (default 100%)
         const linkMul = parseFloat(d._link_multiplier);
         const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
-        const accountOwnershipPct = hasLink ? 1 : (grpPct > 0 ? (grpPct / 100) : 1);
-        const earningsVal = netProfit * accountOwnershipPct;
+        const effectivePct = hasLink
+            ? linkMul
+            : (grpPct > 0 ? (grpPct / 100) : 1);
+        const earningsVal = netProfit * effectivePct;
         hasOwnershipSetup = true;
         companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
     });
@@ -1287,10 +1268,11 @@ function updateDashboard(data) {
 
                 let earningsDisplay;
                 if (hasLinkOwnership) {
-                    // Net Profit has already been scaled by the full chain's
-                    // link_multiplier (company→group or group→group). Don't
-                    // multiply by group_equity% again or we double-scale.
-                    earningsDisplay = netProfitDisplay;
+                    // Virtual row (viewing a company through a group-link).
+                    // Profit / Expenses / Net Profit intentionally stay at the
+                    // company's real figures; Earnings is the portion that flows
+                    // through the link chain: Net Profit × link_multiplier.
+                    earningsDisplay = netProfitDisplay * linkMul;
                 } else if (inGroupView) {
                     // Viewing a native company under its own group filter — the
                     // Earnings is the slice of its Net Profit that flows into this
@@ -1372,12 +1354,10 @@ async function fetchCardPointByDate(dateStr) {
         throw new Error(result.message || 'Daily point payload invalid');
     }
 
-    // Apply group-link multiplier so the daily drill-down matches the card number
-    const mul = getLinkMultiplierForCompany(window.companyId, selectedDashboardGroup);
-
     // 单日点位必须使用「当日发生额」口径（period_total），避免把 B/F(initial_balance) 或累计余额带进趋势图
-    const rawProfit = (parseFloat(result.data?.period_total?.profit ?? result.data.profit) || 0) * mul;
-    const rawExpenses = (parseFloat(result.data?.period_total?.expenses ?? result.data.expenses) || 0) * mul;
+    // Raw numbers intentionally match the company's own data (no link scaling on KPIs).
+    const rawProfit = parseFloat(result.data?.period_total?.profit ?? result.data.profit) || 0;
+    const rawExpenses = parseFloat(result.data?.period_total?.expenses ?? result.data.expenses) || 0;
     const point = {
         profit: rawProfit,
         expenses: rawExpenses > 0 ? -rawExpenses : rawExpenses
