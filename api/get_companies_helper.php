@@ -61,7 +61,7 @@ if (!function_exists('getCompaniesByOwner')) {
             $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
         } catch (Exception $e) { /* ignore */ }
 
-        // Subquery: companies visible to this owner via group_ownership
+        // Subquery: companies visible to this owner via group_ownership (owner_type='owner').
         // When TEST is linked to group 'IG' (with percentage > 0), TEST should see
         // all companies whose c.group_id = 'IG'.
         $groupVisibleSQL = $hasGroupOwnership
@@ -97,7 +97,51 @@ if (!function_exists('getCompaniesByOwner')) {
             }
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Reverse-direction visibility for self-group links:
+            //   If IG has a row (owner_type='group', partner_group_id='AP', owner_id=currentOwner)
+            //   that pools AP into IG, the group 'AP' should also expose IG's companies.
+            //   We emit virtual duplicates with group_id overridden to the target group
+            //   (same c.id — dashboard dedupes via Set on c.group_id for group buttons and
+            //   uses `.find()` on id so duplicate rows are harmless).
+            if ($hasGroupOwnership) {
+                $stmtVirtual = $pdo->prepare("
+                    SELECT DISTINCT c.id, c.company_id, c.expiration_date,
+                           UPPER(TRIM(go.partner_group_id)) as group_id,
+                           IF(c.owner_id = ?, 0, 1) as is_external
+                    FROM company c
+                    INNER JOIN group_ownership go
+                        ON go.owner_type = 'group'
+                       AND go.owner_id = ?
+                       AND go.percentage > 0
+                       AND go.partner_group_id IS NOT NULL
+                       AND TRIM(go.partner_group_id) <> ''
+                       AND LOWER(TRIM(go.group_id)) COLLATE utf8mb4_unicode_ci
+                           = LOWER(TRIM(c.group_id)) COLLATE utf8mb4_unicode_ci
+                    WHERE c.company_id != ''
+                      AND c.group_id IS NOT NULL
+                      AND TRIM(c.group_id) <> ''
+                ");
+                $stmtVirtual->execute([$ownerId, $ownerId]);
+                $virtualRows = $stmtVirtual->fetchAll(PDO::FETCH_ASSOC);
+
+                // Dedupe by (id, group_id) so we don't add a virtual row that collides
+                // with an existing native row (e.g. if IG↔AP were both native groups).
+                $seen = [];
+                foreach ($rows as $r) {
+                    $seen[$r['id'] . '|' . strtoupper((string) $r['group_id'])] = true;
+                }
+                foreach ($virtualRows as $vr) {
+                    $k = $vr['id'] . '|' . strtoupper((string) $vr['group_id']);
+                    if (!isset($seen[$k])) {
+                        $rows[] = $vr;
+                        $seen[$k] = true;
+                    }
+                }
+            }
+
+            return $rows;
         } else {
             $session_company_id = $_SESSION['company_id'] ?? null;
             $partner_group = null;
