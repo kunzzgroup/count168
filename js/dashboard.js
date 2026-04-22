@@ -1000,15 +1000,16 @@ function mergeGroupData(dataList) {
         // Group All mode — same priority cascade as updateDashboard's single-company path.
         const linkMul = parseFloat(d._link_multiplier);
         const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
+        const directPct = pct / 100;
         let effectivePct;
         if (hasLink) {
             const viewerGroupShare = grpAccPct > 0 ? grpAccPct / 100 : 1;
             effectivePct = linkMul * viewerGroupShare;
+        } else if (directPct > 0) {
+            effectivePct = directPct;
         } else {
-            const directPct = pct / 100;
-            const chainPct  = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
-            const combined  = directPct + chainPct;
-            effectivePct = combined === 0 ? 1 : combined;
+            const chainPct = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
+            effectivePct = chainPct === 0 ? 1 : chainPct;
         }
         const earningsVal = netProfit * effectivePct;
         hasOwnershipSetup = true;
@@ -1280,22 +1281,23 @@ function updateDashboard(data) {
                 //       (partnership / external owner), else 100% (self-owned group).
                 //
                 //   native (no link):
-                //     → Net Profit × (direct% + group_equity% × group_account%)
-                //       Falls back to 100% in group view when nothing is configured
-                //       (admin session).
+                //     → 有直接股权时只用 direct%（避免与 group 链重复，如 JK 90%）
+                //     → 否则：Net Profit × (group_equity% × group_account%)（含多段链由 API 合入 equity%）
+                //     → 无配置时在 group 视图可回退 100%（admin）
+                const directPct = ownershipPercentage / 100;
                 let effectivePct;
                 if (hasLinkOwnership) {
                     const viewerGroupShare = groupAccountPercentage > 0
                         ? groupAccountPercentage / 100
                         : 1;
                     effectivePct = linkMul * viewerGroupShare;
+                } else if (directPct > 0) {
+                    effectivePct = directPct;
+                } else if (hasGroupOwnership) {
+                    const chainPct = (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+                    effectivePct = chainPct;
                 } else {
-                    const directPct = ownershipPercentage / 100;
-                    const chainPct  = hasGroupOwnership
-                        ? (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
-                        : 0;
-                    const combined = directPct + chainPct;
-                    effectivePct = (combined === 0 && inGroupView) ? 1 : combined;
+                    effectivePct = (directPct === 0 && inGroupView) ? 1 : 0;
                 }
                 const earningsDisplay = netProfitDisplay * effectivePct;
 
@@ -1446,10 +1448,13 @@ async function updateChart(data) {
     const groupEquityPercentage = parseFloat(data?.group_equity_percentage) || 0;
     const groupAccountPercentage = parseFloat(data?.group_account_percentage) || 0;
     const hasGroupOwnership = !!data?.has_group_ownership;
-    // Effective multiplier for earnings chart line: direct% + group_equity% × group_account%
-    const earningsMultiplier = hasGroupOwnership
-        ? (ownershipPercentage / 100) + (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
-        : (ownershipPercentage / 100);
+    const directPct = ownershipPercentage / 100;
+    // 有直接股权时只乘 direct；否则 group_equity×group_account（多段链已并入 equity）
+    const earningsMultiplier = directPct > 0
+        ? directPct
+        : (hasGroupOwnership
+            ? (groupEquityPercentage / 100) * (groupAccountPercentage / 100)
+            : 0);
 
     // 初始化累计值（从 API 返回的 initial_balance 开始）
     // initial_balance 是起始日期之前的余额总和（B/F）
