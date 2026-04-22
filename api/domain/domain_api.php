@@ -2919,65 +2919,39 @@ try {
                     $up->execute([$saveJson, $saveCompanyPk]);
 
                     if ($applyCommissionPayments) {
-                        if (hasDomainOneTimeTransactionExecuted($pdo, $saveShareCode)) {
-                            normalizeDomainListFeeTransactionParties($pdo, $saveShareCode);
-                            normalizeDomainNetProfitTransaction($pdo, $saveShareCode);
-                            $skippedOneTime = true;
-                            $feeResult = [
-                                'created' => false,
-                                'skipped_duplicate' => true,
-                                'skipped_no_price' => false,
-                                'skipped_no_customer' => false,
-                                'skipped_no_c168' => false,
-                                'skipped_no_accounts' => false,
-                                'amount' => 0.0,
-                                'pool_account_id' => null,
-                            ];
-                            $commissionResult = [
-                                'created_count' => 0,
-                                'skipped_admin_count' => 0,
-                                'skipped_invalid_account_count' => 0,
-                                'skipped_no_from_account_count' => 0,
-                                'skipped_duplicate_account_count' => 0,
-                                'commission_total' => 0.0,
-                            ];
-                            $profitResult = [
-                                'created' => false,
-                                'skipped_duplicate' => true,
-                                'skipped_zero_or_negative' => false,
-                                'amount' => 0.0,
-                            ];
-                        } else {
-                            $feeResult = createDomainListFeePayment(
-                                $pdo,
-                                $saveShareCode,
-                                $createdByUser > 0 ? $createdByUser : null,
-                                $createdByOwner > 0 ? $createdByOwner : null
-                            );
-                            $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
-                            if ($poolId <= 0) {
-                                $poolId = null;
-                            }
-                            $commissionResult = createDomainShareCommissionPayments(
-                                $pdo,
-                                $saveShareCode,
-                                $saveNormalized,
-                                $poolId,
-                                $createdByUser > 0 ? $createdByUser : null,
-                                $createdByOwner > 0 ? $createdByOwner : null
-                            );
-                            $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
-                            $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
-                            $profitResult = createDomainNetProfitPayment(
-                                $pdo,
-                                $saveShareCode,
-                                $feeAmtForNet,
-                                $commTotalForNet,
-                                $poolId,
-                                $createdByUser > 0 ? $createdByUser : null,
-                                $createdByOwner > 0 ? $createdByOwner : null
-                            );
+                        // Always run creation functions; each function has its own duplicate guard.
+                        // This repairs cases where one domain payment type is missing but others already exist.
+                        normalizeDomainListFeeTransactionParties($pdo, $saveShareCode);
+                        normalizeDomainNetProfitTransaction($pdo, $saveShareCode);
+                        $feeResult = createDomainListFeePayment(
+                            $pdo,
+                            $saveShareCode,
+                            $createdByUser > 0 ? $createdByUser : null,
+                            $createdByOwner > 0 ? $createdByOwner : null
+                        );
+                        $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
+                        if ($poolId <= 0) {
+                            $poolId = null;
                         }
+                        $commissionResult = createDomainShareCommissionPayments(
+                            $pdo,
+                            $saveShareCode,
+                            $saveNormalized,
+                            $poolId,
+                            $createdByUser > 0 ? $createdByUser : null,
+                            $createdByOwner > 0 ? $createdByOwner : null
+                        );
+                        $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
+                        $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
+                        $profitResult = createDomainNetProfitPayment(
+                            $pdo,
+                            $saveShareCode,
+                            $feeAmtForNet,
+                            $commTotalForNet,
+                            $poolId,
+                            $createdByUser > 0 ? $createdByUser : null,
+                            $createdByOwner > 0 ? $createdByOwner : null
+                        );
                     } else {
                         $feeResult = [
                             'created' => false,
@@ -3015,7 +2989,8 @@ try {
                 if ($applyCommissionPayments) {
                     $feeCreated = !empty($feeResult['created']);
                     $commCreated = ($commissionResult['created_count'] ?? 0) > 0;
-                    if ($feeCreated || $commCreated) {
+                    $profitCreated = !empty($profitResult['created']);
+                    if ($feeCreated || $commCreated || $profitCreated) {
                         domainApiClearTransactionSearchCache();
                     }
                 }
