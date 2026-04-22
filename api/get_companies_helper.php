@@ -157,7 +157,9 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
         ");
         $stmtLinks->execute($params);
         $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
-        if (empty($links)) return $rows;
+        // Note: do NOT early-return when $links is empty — per-company
+        // account-ownership level links (company_ownership) are queried below
+        // and may still produce virtual rows even without group-level links.
 
         // For external-owner links, the viewer only has access to the source group
         // through the partner link — they shouldn't see the source group as a separate
@@ -201,6 +203,9 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
                 $companyFlowsTo[(int) $ln['company_id']][$ln['target_group']] = (float) $ln['link_percentage'];
             }
         }
+
+        // Nothing to emit if neither source produced any links.
+        if (empty($flowsTo) && empty($companyFlowsTo)) return $rows;
 
         // Build dedupe keys by (group_id, id) AND (group_id, company_id). If the
         // target group already contains a native company with the same `company_id`
