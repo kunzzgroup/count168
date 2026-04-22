@@ -27,9 +27,9 @@ try {
     if ($current_user_id) {
         if ($viewerRole === 'owner') {
             $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
-            $user_companies = getCompaniesByOwner($pdo, $owner_id, true);
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true, true);
         } else {
-            $user_companies = getCompaniesByUser($pdo, $current_user_id, true);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true, true);
         }
     }
 } catch (Exception $e) { }
