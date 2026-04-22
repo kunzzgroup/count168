@@ -26,7 +26,18 @@ if (!function_exists('getCompaniesByUser')) {
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if ($includeGroupLinkVirtualRows) {
-                $rows = _applyGroupLinkVirtualRows($pdo, $rows);
+                // Derive the set of owner ids this admin is managing via user_company_map
+                // — only group-links configured by those owners should surface as
+                // virtual rows on this admin's dashboard.
+                $scopeStmt = $pdo->prepare("
+                    SELECT DISTINCT c.owner_id
+                    FROM company c
+                    INNER JOIN user_company_map ucm ON c.id = ucm.company_id
+                    WHERE ucm.user_id = ? AND c.owner_id IS NOT NULL
+                ");
+                $scopeStmt->execute([$userId]);
+                $viewerOwnerIds = array_map('intval', $scopeStmt->fetchAll(PDO::FETCH_COLUMN));
+                $rows = _applyGroupLinkVirtualRows($pdo, $rows, $viewerOwnerIds);
             }
 
             return $rows;
@@ -73,10 +84,24 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
      * "virtual" duplicates so companies in a source group S also appear under any
      * target group T where S has been pooled into T via group_ownership.
      *
+     * Visibility scope: a group-link only affects the viewer's dashboard if the
+     * viewer's owner-scope matches `group_ownership.owner_id` (i.e. the link
+     * creator). Otherwise an unrelated owner would see the linker's extra group
+     * show up in their own dashboard, which is wrong.
+     *
+     * @param array $viewerOwnerIds  owner ids that scope the virtual rows. Pass
+     *   [$ownerId] for real-owner sessions, or the full list of company.owner_id
+     *   the admin is mapped to.
+     *
      * Keys preserved from input rows are copied verbatim, only `group_id` is overridden.
      */
-    function _applyGroupLinkVirtualRows(PDO $pdo, array $rows): array {
+    function _applyGroupLinkVirtualRows(PDO $pdo, array $rows, array $viewerOwnerIds = []): array {
         if (empty($rows)) return $rows;
+
+        // Normalise & guard — missing scope means "no virtual rows" to avoid leaking
+        // other owners' group-link configurations.
+        $viewerOwnerIds = array_values(array_unique(array_filter(array_map('intval', $viewerOwnerIds))));
+        if (empty($viewerOwnerIds)) return $rows;
 
         $hasGroupOwnership = false;
         try {
@@ -84,7 +109,8 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
         } catch (Exception $e) { /* ignore */ }
         if (!$hasGroupOwnership) return $rows;
 
-        $stmtLinks = $pdo->query("
+        $in = str_repeat('?,', count($viewerOwnerIds) - 1) . '?';
+        $stmtLinks = $pdo->prepare("
             SELECT
                 UPPER(TRIM(group_id))            COLLATE utf8mb4_unicode_ci as source_group,
                 UPPER(TRIM(partner_group_id))    COLLATE utf8mb4_unicode_ci as target_group,
@@ -94,8 +120,10 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
               AND percentage > 0
               AND partner_group_id IS NOT NULL
               AND TRIM(partner_group_id) <> ''
+              AND owner_id IN ($in)
             GROUP BY source_group, target_group
         ");
+        $stmtLinks->execute($viewerOwnerIds);
         $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
         if (empty($links)) return $rows;
 
@@ -200,7 +228,8 @@ if (!function_exists('getCompaniesByOwner')) {
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if ($includeGroupLinkVirtualRows) {
-                $rows = _applyGroupLinkVirtualRows($pdo, $rows);
+                // Real-owner session — only their own group-links produce virtual rows.
+                $rows = _applyGroupLinkVirtualRows($pdo, $rows, [$ownerId]);
             }
 
             return $rows;
