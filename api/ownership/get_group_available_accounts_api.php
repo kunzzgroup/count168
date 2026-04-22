@@ -95,6 +95,32 @@ try {
         }
     }
 
+    // 5. Get external partners linked via group_ownership for this group
+    //    (partners linked by Group ID — their companies are NOT in the current group,
+    //     so they won't appear in steps 2-4. We must add them explicitly.)
+    $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+    if ($hasGroupOwnership) {
+        $stmtExt = $pdo->prepare("
+            SELECT DISTINCT CONCAT('O_', o.id) as id,
+                   COALESCE(NULLIF(TRIM(go.partner_group_id), ''), o.owner_code) as account_name,
+                   o.name,
+                   'OWNER' as role,
+                   'owner' as type,
+                   0 as is_main_owner
+            FROM group_ownership go
+            INNER JOIN owner o ON go.account_id = o.id AND go.owner_type = 'owner'
+            WHERE go.group_id = ?
+              AND LOWER(o.status) = 'active'
+              AND go.account_id != go.owner_id
+        ");
+        $stmtExt->execute([$group_id]);
+        foreach ($stmtExt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if (!isset($accountMap[$row['id']])) {
+                $accountMap[$row['id']] = $row;
+            }
+        }
+    }
+
     // Sort by account_name
     $combined = array_values($accountMap);
     usort($combined, function ($a, $b) {
