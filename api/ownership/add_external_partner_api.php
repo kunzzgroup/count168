@@ -40,6 +40,9 @@ try { $pdo->exec("ALTER TABLE company_ownership ADD COLUMN owner_type ENUM('acco
 try { $pdo->exec("ALTER TABLE company_ownership MODIFY COLUMN owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account'"); } catch (Exception $e) {}
 try { $pdo->exec("ALTER TABLE company_ownership ADD COLUMN partner_group_id VARCHAR(50) DEFAULT NULL"); } catch (Exception $e) {}
 try { $pdo->exec("ALTER TABLE company_ownership ADD COLUMN read_only TINYINT(1) NOT NULL DEFAULT 1"); } catch (Exception $e) {}
+// Drop the legacy UNIQUE (company_id, account_id) key — it blocks multiple group-type
+// rows (all share account_id=0). App-level dedupe handles uniqueness now.
+try { $pdo->exec("ALTER TABLE company_ownership DROP INDEX unique_company_account"); } catch (Exception $e) {}
 
 try {
     // Fetch native owner first
