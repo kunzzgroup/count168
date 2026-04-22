@@ -7,6 +7,7 @@ session_start();
 require_once __DIR__ . '/config.php';
 
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$spaPaths = ['/login', '/dashboard', '/domain', '/announcement', '/account-list', '/add-account', '/process-list', '/games-process-list'];
 
 function serveSpaIndex(): void
 {
@@ -27,7 +28,7 @@ if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
         header('Location: member.php');
     } else {
-        if ($requestPath === '/login' || $requestPath === '/dashboard' || $requestPath === '/domain' || $requestPath === '/announcement' || $requestPath === '/account-list' || $requestPath === '/add-account') {
+        if (in_array($requestPath, $spaPaths, true)) {
             serveSpaIndex();
         }
         header('Location: /dashboard');
@@ -81,7 +82,7 @@ if (isset($_COOKIE['remember_token'])) {
         if (isset($_SESSION['user_type']) && strtolower((string) $_SESSION['user_type']) === 'member') {
             header('Location: member.php');
         } else {
-            if ($requestPath === '/login' || $requestPath === '/dashboard' || $requestPath === '/domain' || $requestPath === '/announcement' || $requestPath === '/account-list' || $requestPath === '/add-account') {
+            if (in_array($requestPath, $spaPaths, true)) {
                 serveSpaIndex();
             }
             header('Location: /dashboard');
@@ -92,7 +93,7 @@ if (isset($_COOKIE['remember_token'])) {
     setcookie('remember_token', '', time() - 3600, '/', '', false, true);
 }
 
-if ($requestPath === '/dashboard' || $requestPath === '/domain' || $requestPath === '/announcement' || $requestPath === '/account-list' || $requestPath === '/add-account') {
+if (in_array($requestPath, ['/dashboard', '/domain', '/announcement', '/account-list', '/add-account', '/process-list', '/games-process-list'], true)) {
     header('Location: /login');
     exit();
 }
