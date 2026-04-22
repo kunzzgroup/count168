@@ -650,24 +650,47 @@ export default function TransactionDashboardPage() {
                       <div
                         className="calendar-popup"
                         style={{
-                          top: "calc(100% + 2px)",
+                          top: "calc(100% + 6px)",
                           left: 0,
                           right: 0,
                           position: "absolute",
                           boxSizing: "border-box",
-                          padding: "8px 10px",
+                          padding: "10px 12px 12px",
+                          borderRadius: 12,
+                          border: "1px solid #dbe3ef",
+                          background: "#ffffff",
+                          boxShadow: "0 12px 30px rgba(15, 23, 42, 0.14)",
                         }}
                       >
                         <div style={{ width: "100%", maxWidth: 320, margin: "0 auto" }}>
-                          <div className="calendar-header" style={{ marginBottom: 6 }}>
-                            <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
+                          <div
+                            className="calendar-header"
+                            style={{
+                              marginBottom: 8,
+                              padding: "0 2px",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="calendar-nav-btn"
+                              onClick={gotoPrevMonth}
+                              style={{ borderRadius: 8, width: 24, height: 24 }}
+                            >
                               <i className="fas fa-chevron-left" />
                             </button>
-                            <div className="calendar-month-year">
+                            <div
+                              className="calendar-month-year"
+                              style={{
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 8,
+                                padding: "2px 4px",
+                              }}
+                            >
                               <select
                                 value={calendarYear}
                                 onChange={(e) => setCalendarYear(Number(e.target.value))}
-                                style={{ fontSize: 12, padding: "4px 6px" }}
+                                style={{ fontSize: 12, padding: "4px 6px", border: "none", background: "transparent" }}
                               >
                                 {yearOptions.map((y) => (
                                   <option key={y} value={y}>
@@ -678,7 +701,7 @@ export default function TransactionDashboardPage() {
                               <select
                                 value={calendarMonth}
                                 onChange={(e) => setCalendarMonth(Number(e.target.value))}
-                                style={{ fontSize: 12, padding: "4px 6px" }}
+                                style={{ fontSize: 12, padding: "4px 6px", border: "none", background: "transparent" }}
                               >
                                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                                   <option key={m} value={m}>
@@ -687,21 +710,39 @@ export default function TransactionDashboardPage() {
                                 ))}
                               </select>
                             </div>
-                            <button type="button" className="calendar-nav-btn" onClick={gotoNextMonth}>
+                            <button
+                              type="button"
+                              className="calendar-nav-btn"
+                              onClick={gotoNextMonth}
+                              style={{ borderRadius: 8, width: 24, height: 24 }}
+                            >
                               <i className="fas fa-chevron-right" />
                             </button>
                           </div>
 
-                          <div style={{ marginBottom: 6, fontWeight: 700, color: "#1f2937", textAlign: "center", fontSize: 14 }}>
+                          <div
+                            style={{
+                              marginBottom: 8,
+                              fontWeight: 700,
+                              color: "#0f172a",
+                              textAlign: "center",
+                              fontSize: 26,
+                              letterSpacing: "0.2px",
+                            }}
+                          >
                             {monthLabel(calendarYear, calendarMonth)}
                           </div>
 
                           <div
                             className="calendar-weekdays"
-                            style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 2 }}
+                            style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 4 }}
                           >
                             {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
-                              <div key={w} className="calendar-weekday" style={{ fontSize: 11, padding: "2px 0" }}>
+                              <div
+                                key={w}
+                                className="calendar-weekday"
+                                style={{ fontSize: 12, fontWeight: 700, color: "#64748b", padding: "3px 0" }}
+                              >
                                 {w}
                               </div>
                             ))}
@@ -714,6 +755,8 @@ export default function TransactionDashboardPage() {
                               const inRange = cell.ymd >= dateFrom && cell.ymd <= dateTo;
                               const inPreview =
                                 previewRange && cell.ymd >= previewRange.from && cell.ymd <= previewRange.to;
+                              const active = isStart || isEnd;
+                              const rangeFill = (inRange || inPreview) && !active;
                               return (
                                 <button
                                   key={cell.ymd}
@@ -736,7 +779,16 @@ export default function TransactionDashboardPage() {
                                     if (pendingStart) setHoverDate(null);
                                   }}
                                   onClick={() => onCalendarDayClick(cell.ymd)}
-                                  style={{ fontSize: 11, minHeight: 28, padding: 0 }}
+                                  style={{
+                                    fontSize: 12,
+                                    minHeight: 40,
+                                    padding: 0,
+                                    borderRadius: active ? 8 : 0,
+                                    border: active ? "none" : "1px solid transparent",
+                                    background: active ? "#3b82f6" : rangeFill ? "#dbeafe" : "transparent",
+                                    color: active ? "#ffffff" : !cell.inCurrentMonth ? "#cbd5e1" : "#0f172a",
+                                    fontWeight: active ? 700 : 600,
+                                  }}
                                 >
                                   {cell.day}
                                 </button>
