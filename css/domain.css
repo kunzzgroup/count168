@@ -377,8 +377,8 @@ h1 {
 
 /* Company Settings modal: split pane (Company | Share %) */
 .modal-content.company-settings-modal-content--split {
-    width: min(980px, 96vw);
-    max-width: min(980px, 96vw);
+    width: min(1120px, 96vw);
+    max-width: min(1120px, 96vw);
 }
 
 .company-settings-modal-body {
