@@ -606,7 +606,7 @@ let domainAddAccountEventsBound = false;
 let domainFeePriceCache = 0;
 
 function defaultFeeShareAllocations() {
-    return { sales: [], cs: [], it: [] };
+    return { profit: [], sales: [], cs: [], it: [] };
 }
 
 function normalizeFeeShareFromServer(raw) {
@@ -614,7 +614,7 @@ function normalizeFeeShareFromServer(raw) {
     if (!raw || typeof raw !== 'object') {
         return d;
     }
-    ['sales', 'cs', 'it'].forEach(function (k) {
+    ['profit', 'sales', 'cs', 'it'].forEach(function (k) {
         if (Array.isArray(raw[k])) {
             d[k] = raw[k].map(function (r) {
                 return {
@@ -634,7 +634,7 @@ function ensureCompanyFeeShare(company) {
     if (!company.fee_share_allocations || typeof company.fee_share_allocations !== 'object') {
         company.fee_share_allocations = defaultFeeShareAllocations();
     }
-    ['sales', 'cs', 'it'].forEach(function (k) {
+    ['profit', 'sales', 'cs', 'it'].forEach(function (k) {
         if (!Array.isArray(company.fee_share_allocations[k])) {
             company.fee_share_allocations[k] = [];
         }
@@ -645,7 +645,7 @@ function isFeeShareAllocationsEmpty(fs) {
     if (!fs || typeof fs !== 'object') {
         return true;
     }
-    return (!fs.sales || !fs.sales.length) && (!fs.cs || !fs.cs.length) && (!fs.it || !fs.it.length);
+    return (!fs.profit || !fs.profit.length) && (!fs.sales || !fs.sales.length) && (!fs.cs || !fs.cs.length) && (!fs.it || !fs.it.length);
 }
 
 function escapeHtmlShare(str) {
@@ -1026,7 +1026,7 @@ async function submitDomainAddAccountForm(e) {
 
 function readFeeShareFromModalDom() {
     var out = defaultFeeShareAllocations();
-    var cfg = [['sales', 'shareRowsSales'], ['cs', 'shareRowsCs'], ['it', 'shareRowsIt']];
+    var cfg = [['profit', 'shareRowsProfit'], ['sales', 'shareRowsSales'], ['cs', 'shareRowsCs'], ['it', 'shareRowsIt']];
     cfg.forEach(function (pair) {
         var role = pair[0];
         var tid = pair[1];
@@ -1062,7 +1062,7 @@ function pruneEmptyShareRows(fs) {
     if (!fs || typeof fs !== 'object') {
         return out;
     }
-    ['sales', 'cs', 'it'].forEach(function (role) {
+    ['profit', 'sales', 'cs', 'it'].forEach(function (role) {
         var rows = Array.isArray(fs[role]) ? fs[role] : [];
         out[role] = rows.filter(function (row) {
             var aid = row && row.account_id !== undefined ? parseInt(row.account_id, 10) : 0;
@@ -1082,7 +1082,7 @@ function pruneEmptyShareRows(fs) {
 }
 
 function countShareRoleAssignedAccounts(role) {
-    var map = { sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
+    var map = { profit: 'shareRowsProfit', sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
     var tb = document.getElementById(map[role]);
     if (!tb) {
         return 0;
@@ -1123,7 +1123,7 @@ function toggleShareRoleCard(role) {
 function updateCompanyShareTotals() {
     var out = readFeeShareFromModalDom();
     var grand = 0;
-    [['sales', 'shareTotalSales'], ['cs', 'shareTotalCs'], ['it', 'shareTotalIt']].forEach(function (pair) {
+    [['profit', 'shareTotalProfit'], ['sales', 'shareTotalSales'], ['cs', 'shareTotalCs'], ['it', 'shareTotalIt']].forEach(function (pair) {
         var role = pair[0];
         var tid = pair[1];
         var el = document.getElementById(tid);
@@ -1202,7 +1202,7 @@ function renderCompanySharePanel() {
         return;
     }
     ensureCompanyFeeShare(company);
-    var map = { sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
+    var map = { profit: 'shareRowsProfit', sales: 'shareRowsSales', cs: 'shareRowsCs', it: 'shareRowsIt' };
     Object.keys(map).forEach(function (role) {
         var tbody = document.getElementById(map[role]);
         if (!tbody) {

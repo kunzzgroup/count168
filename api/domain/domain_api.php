@@ -211,10 +211,10 @@ function domainApiHasAccountCreatedSourceColumn(PDO $pdo): bool {
 
 /**
  * @param mixed $raw
- * @return array{sales: list<array{account_id:int,percentage:float}>, cs: list, it: list}
+ * @return array{profit: list<array{account_id:int,percentage:float}>, sales: list, cs: list, it: list}
  */
 function normalizeFeeShareAllocationsInput($raw): array {
-    $empty = ['sales' => [], 'cs' => [], 'it' => []];
+    $empty = ['profit' => [], 'sales' => [], 'cs' => [], 'it' => []];
     if ($raw === null || $raw === '') {
         return $empty;
     }
@@ -228,7 +228,7 @@ function normalizeFeeShareAllocationsInput($raw): array {
         return $empty;
     }
     $out = $empty;
-    foreach (['sales', 'cs', 'it'] as $role) {
+    foreach (['profit', 'sales', 'cs', 'it'] as $role) {
         if (empty($raw[$role]) || !is_array($raw[$role])) {
             continue;
         }
@@ -254,7 +254,7 @@ function feeShareAllocationsToJson(?array $normalized): ?string {
     if ($normalized === null) {
         return null;
     }
-    $allEmpty = empty($normalized['sales']) && empty($normalized['cs']) && empty($normalized['it']);
+    $allEmpty = empty($normalized['profit']) && empty($normalized['sales']) && empty($normalized['cs']) && empty($normalized['it']);
     if ($allEmpty) {
         return null;
     }
@@ -263,7 +263,7 @@ function feeShareAllocationsToJson(?array $normalized): ?string {
 
 function collectUniqueAccountIdsFromFeeShare(array $normalized): array {
     $ids = [];
-    foreach (['sales', 'cs', 'it'] as $role) {
+    foreach (['profit', 'sales', 'cs', 'it'] as $role) {
         foreach ($normalized[$role] as $row) {
             if (!array_key_exists('account_id', $row)) {
                 continue;
@@ -1084,12 +1084,13 @@ function createDomainShareCommissionPayments(
     }
     $srcU = strtoupper(trim($sourceCompanyCode));
     $roleLabelMap = [
+        'profit' => 'Profit',
         'sales' => 'Sales',
         'cs' => 'CS',
         'it' => 'IT',
     ];
 
-    foreach (['sales', 'cs', 'it'] as $role) {
+    foreach (['profit', 'sales', 'cs', 'it'] as $role) {
         $rows = $normalizedAllocations[$role] ?? [];
         if (!is_array($rows)) {
             continue;
@@ -1488,7 +1489,7 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
             $stAlloc->execute([$cid]);
             $dbAllocRaw = $stAlloc->fetchColumn();
             $dbNormalized = normalizeFeeShareAllocationsInput($dbAllocRaw);
-            $dbHasAny = !empty($dbNormalized['sales']) || !empty($dbNormalized['cs']) || !empty($dbNormalized['it']);
+            $dbHasAny = !empty($dbNormalized['profit']) || !empty($dbNormalized['sales']) || !empty($dbNormalized['cs']) || !empty($dbNormalized['it']);
             if ($dbHasAny) {
                 $normalized = $dbNormalized;
             }
