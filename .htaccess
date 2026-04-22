@@ -28,17 +28,9 @@ php_value memory_limit 256M
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
-# Keep existing files/directories working (php, api, assets, etc.)
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# /admin: serve full legacy userlist page (URL stays /admin). Required because userlist.js
-# initializes on DOMContentLoaded, which does not re-fire on SPA client navigation.
-RewriteRule ^admin/?$ userlist.php [L,QSA]
-
-# SPA fallback:
-# any non-file route (e.g. /domain, /admin, /announcement) goes to index.php router.
-RewriteRule ^ index.php [L,QSA]
+# Canonical SPA entry URLs handled by PHP router (index.php).
+RewriteRule ^login/?$ index.php [L,QSA]
+RewriteRule ^dashboard/?$ index.php [L,QSA]
+RewriteRule ^domain/?$ index.php [L,QSA]
 </IfModule>
 
