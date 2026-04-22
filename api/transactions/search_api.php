@@ -163,8 +163,14 @@ function searchApiAppendDomainNetProfitVirtualRows(
     array $currency_id_map
 ): void {
     $seen = [];
+    $seenIndex = [];
     foreach ($results as $r) {
-        $seen[$r['account_db_id'] . '_' . strtoupper((string) ($r['currency'] ?? ''))] = true;
+        $key = $r['account_db_id'] . '_' . strtoupper((string) ($r['currency'] ?? ''));
+        $seen[$key] = true;
+    }
+    foreach ($results as $idx => $r) {
+        $key = $r['account_db_id'] . '_' . strtoupper((string) ($r['currency'] ?? ''));
+        $seenIndex[$key] = $idx;
     }
     $ownerCode = searchApiResolveCompanyOwnerCodeByPk($pdo, $company_id);
     if ($ownerCode === '') {
@@ -418,7 +424,13 @@ function searchApiAppendDomainListFeeVirtualRows(
         if ($realAccountId > 0) {
             $realKey = $realAccountId . '_' . $cur;
             if (isset($seen[$realKey])) {
-                // Already shown by real account row; avoid duplicate virtual QA row.
+                // Already shown by real account row; merge list-fee movement into the real row.
+                $idx = $seenIndex[$realKey] ?? null;
+                if ($idx !== null && isset($results[$idx])) {
+                    $results[$idx]['cr_dr'] = trunc2((float) ($results[$idx]['cr_dr'] ?? 0) - $amt);
+                    $results[$idx]['balance'] = trunc2((float) ($results[$idx]['balance'] ?? 0) - $amt);
+                    $results[$idx]['has_crdr_transactions'] = 1;
+                }
                 continue;
             }
         }
