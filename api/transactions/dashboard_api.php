@@ -381,6 +381,9 @@ try {
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         WHEN transaction_type = 'CONTRA' THEN -amount
                         WHEN transaction_type = 'CLEAR' THEN -amount
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN amount
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
@@ -400,6 +403,9 @@ try {
             $sql = "SELECT COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR') THEN amount
                         WHEN transaction_type = 'CONTRA' THEN amount
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -amount
                         ELSE 0
                     END), 0)
                     FROM transactions t
@@ -461,6 +467,9 @@ try {
                                WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
                                WHEN transaction_type = 'CONTRA' THEN -t.amount
                                WHEN transaction_type = 'CLEAR' THEN -t.amount
+                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
                                WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
                                WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
@@ -487,6 +496,9 @@ try {
                            COALESCE(SUM(CASE 
                                WHEN transaction_type = 'CONTRA' THEN t.amount
                                WHEN transaction_type = 'CLEAR' THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                                WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                                ELSE 0
                            END), 0) as cr_dr
@@ -931,6 +943,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         WHEN transaction_type = 'CONTRA' THEN amount
                         WHEN transaction_type = 'CLEAR' THEN -amount
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN amount
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
@@ -954,6 +969,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
                         WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
                         ELSE 0
@@ -1085,9 +1103,15 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN -t.amount
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN -t.amount
 
                         -- 作为 From Account（支付 / 收到）；CONTRA 时 FROM 显示正数
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN t.amount
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN t.amount
                         WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN t.amount
