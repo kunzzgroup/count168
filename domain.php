@@ -340,7 +340,7 @@ try {
                             </div>
                         </div>
                     <div class="company-share-scroll">
-                        <div class="company-share-role-card" data-share-card="profit">
+                        <div class="company-share-role-card company-share-role-card--profit-pool" data-share-card="profit">
                             <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsProfit" onclick="toggleShareRoleCard('profit')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('profit');}">
                                 <div class="company-share-role-header-left">
                                     <span class="company-share-role-badge company-share-role-badge--profit">Profit</span>
@@ -362,10 +362,9 @@ try {
                                     </button>
                                 </div>
                             </div>
-                            <div class="company-share-role-body">
-                            <div class="company-share-column-labels">
+                            <div class="company-share-role-body company-share-role-body--profit-pool">
+                            <div class="company-share-column-labels company-share-column-labels--profit-pool">
                                 <span>Account</span>
-                                <span>Share</span>
                                 <span>Total</span>
                                 <span class="company-share-col-actions" aria-hidden="true"></span>
                             </div>

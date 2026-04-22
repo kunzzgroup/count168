@@ -952,15 +952,20 @@ function editUser(id, isOwnerShadow = false) {
                     if (!isEditMode) return;
                     if (String(document.getElementById('userId').value) !== String(id)) return;
 
-                    const permissions = data.data.permissions ? JSON.parse(data.data.permissions) : [];
+                    let permissions = [];
+                    try {
+                        if (data.data.permissions) {
+                            const parsed = JSON.parse(data.data.permissions);
+                            permissions = Array.isArray(parsed) ? parsed : [];
+                        }
+                    } catch (e) {
+                        permissions = [];
+                    }
                     setUserPermissions(permissions);
 
-                    const roleSelectForFallback = document.getElementById('role');
-                    if ((!permissions || !permissions.length) && roleSelectForFallback && !roleSelectForFallback.disabled) {
-                        const roleFromApi = (data.data.role || '').toLowerCase().trim();
-                        if (roleFromApi) {
-                            setDefaultPermissionsByRole(roleFromApi, { force: true });
-                        }
+                    const apiRole = (data.data.role || '').toLowerCase().trim();
+                    if (apiRole) {
+                        applyRoleTemplateChecks(apiRole);
                     }
 
                     // 加载 Account 和 Process 权限
@@ -1493,6 +1498,32 @@ function restoreAllPermissionsCheckboxes() {
     });
 }
 
+// 目标用户 Role 对应的 Sidebar 权限模板（与下拉框 Role 一致）
+function getRoleTemplateSidebarList(role) {
+    if (!role) return [];
+    const rolePermissions = {
+        'partnership': [],
+        'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
+        'accountant': ['payment', 'report', 'maintenance'],
+        'audit': ['payment', 'report', 'maintenance'],
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
+    };
+
+    return rolePermissions[role.toLowerCase()] || [];
+}
+
+// 按角色模板补勾（与 DB 已有勾选合并，不清空已有勾选）
+function applyRoleTemplateChecks(role) {
+    getRoleTemplateSidebarList(role).forEach(permission => {
+        const checkbox = document.querySelector(`.permission-checkbox[value="${permission}"]`);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+    });
+}
+
 // 根据角色设置默认权限
 function setDefaultPermissionsByRole(role, options = {}) {
     const { force = false } = options;
@@ -1516,17 +1547,7 @@ function setDefaultPermissionsByRole(role, options = {}) {
         checkbox.checked = false; // 清除所有权限
     });
 
-    // 根据角色设置默认权限
-    const rolePermissions = {
-        'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'accountant': ['payment', 'report', 'maintenance'],
-        'audit': ['payment', 'report', 'maintenance'],
-        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
-    };
-
-    const permissions = rolePermissions[role.toLowerCase()] || [];
+    const permissions = getRoleTemplateSidebarList(role);
 
     // 设置新账号 role 的所有默认权限（不受当前用户权限限制）
     permissions.forEach(permission => {

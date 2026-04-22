@@ -809,6 +809,14 @@ h1 {
     border-color: #fecaca;
 }
 
+.company-share-column-labels--profit-pool {
+    grid-template-columns: minmax(200px, 2fr) minmax(120px, 1fr) 2.25rem;
+}
+
+.company-share-role-body--profit-pool .company-share-data-row {
+    grid-template-columns: minmax(200px, 2fr) minmax(120px, 1fr) 2.25rem;
+}
+
 .company-share-column-labels {
     display: grid;
     grid-template-columns: minmax(180px, 1.45fr) minmax(110px, 0.9fr) minmax(110px, 0.9fr) 2.25rem;

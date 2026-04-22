@@ -329,27 +329,91 @@ function fetchFeeSharePickerAccounts(PDO $pdo): array {
     return $rows;
 }
 
-/** 校验：仅允许 C168 旗下的 account，且 role 必须是 staff/agent（与保存到哪一家公司无关） */
-function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
-    $uniqueIds = collectUniqueAccountIdsFromFeeShare($normalized);
-    if (empty($uniqueIds)) {
-        return true;
-    }
-    $accountIds = [];
-    foreach ($uniqueIds as $id) {
-        $id = (int) $id;
-        if ($id <= 0) {
-            return false;
-        }
-        $accountIds[] = $id;
-    }
-    $accountIds = array_values(array_unique($accountIds));
+/**
+ * Share % Profit 池下拉：C168 旗下且 role 为 profit 的 Account（与 staff/agent 列表分离）。
+ */
+function fetchFeeShareProfitPickerAccounts(PDO $pdo): array {
+    $rows = [];
     $c168Pk = getC168CompanyPk($pdo);
-    if (!empty($accountIds)) {
+    if ($c168Pk) {
+        $accStmt = $pdo->prepare("
+            SELECT DISTINCT a.id, a.account_id, a.name
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+            ORDER BY a.account_id ASC
+        ");
+        $accStmt->execute([$c168Pk]);
+        foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $rows[] = [
+                'id' => (int) $r['id'],
+                'account_id' => $r['account_id'],
+                'name' => $r['name'],
+                'entry_type' => 'account',
+            ];
+        }
+    }
+    return $rows;
+}
+
+/**
+ * 校验：C168 旗下；Profit 池仅 profit role；Sales/CS/IT 仅 staff/agent。
+ */
+function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
+    $c168Pk = getC168CompanyPk($pdo);
+
+    $profitIds = [];
+    foreach (($normalized['profit'] ?? []) as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+        if ($aid > 0) {
+            $profitIds[] = $aid;
+        }
+    }
+    $profitIds = array_values(array_unique($profitIds));
+
+    $otherIds = [];
+    foreach (['sales', 'cs', 'it'] as $role) {
+        foreach (($normalized[$role] ?? []) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+            if ($aid > 0) {
+                $otherIds[] = $aid;
+            }
+        }
+    }
+    $otherIds = array_values(array_unique($otherIds));
+
+    if (!empty($profitIds)) {
         if (!$c168Pk) {
             return false;
         }
-        $placeholders = buildInPlaceholders(count($accountIds));
+        $placeholders = buildInPlaceholders(count($profitIds));
+        $sql = "
+            SELECT COUNT(DISTINCT a.id)
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND a.id IN ($placeholders)
+              AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_merge([$c168Pk], $profitIds));
+        if ((int) $stmt->fetchColumn() !== count($profitIds)) {
+            return false;
+        }
+    }
+
+    if (!empty($otherIds)) {
+        if (!$c168Pk) {
+            return false;
+        }
+        $placeholders = buildInPlaceholders(count($otherIds));
         $sql = "
             SELECT COUNT(DISTINCT a.id)
             FROM account a
@@ -359,11 +423,12 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
               AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
         ";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute(array_merge([$c168Pk], $accountIds));
-        if ((int) $stmt->fetchColumn() !== count($accountIds)) {
+        $stmt->execute(array_merge([$c168Pk], $otherIds));
+        if ((int) $stmt->fetchColumn() !== count($otherIds)) {
             return false;
         }
     }
+
     return true;
 }
 
@@ -1114,12 +1179,15 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
+            $roleSql = ($role === 'profit')
+                ? "LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'"
+                : "LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')";
             $chk = $pdo->prepare("
                 SELECT COUNT(*)
                 FROM account_company ac
                 INNER JOIN account a ON a.id = ac.account_id
                 WHERE ac.account_id = ? AND ac.company_id = ?
-                  AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
+                  AND ($roleSql)
             ");
             $chk->execute([$aid, $c168Pk]);
             if ((int) $chk->fetchColumn() <= 0) {
@@ -2781,6 +2849,7 @@ try {
                     jsonResponse(true, 'OK', [
                         'allocations' => normalizeFeeShareAllocationsInput(null),
                         'accounts' => fetchFeeSharePickerAccounts($pdo),
+                        'accounts_profit' => fetchFeeShareProfitPickerAccounts($pdo),
                         'company_exists' => false,
                     ]);
                     break;
@@ -2789,6 +2858,7 @@ try {
                 jsonResponse(true, 'OK', [
                     'allocations' => normalizeFeeShareAllocationsInput($shareRow['fee_share_allocations'] ?? null),
                     'accounts' => $shareAccounts,
+                    'accounts_profit' => fetchFeeShareProfitPickerAccounts($pdo),
                     'company_exists' => true,
                 ]);
             } catch (Exception $e) {
@@ -2818,7 +2888,7 @@ try {
                 }
                 $saveCompanyPk = (int) $saveRow['id'];
                 if (!feeShareAllocationsTargetsValid($pdo, $saveNormalized)) {
-                    jsonResponse(false, 'Each entry must be a staff/agent account under company C168.', null);
+                    jsonResponse(false, 'Share %: Profit rows must use profit-role accounts under C168; Sales/CS/IT must use staff or agent under C168.', null);
                     exit;
                 }
                 $saveJson = feeShareAllocationsToJson($saveNormalized);
