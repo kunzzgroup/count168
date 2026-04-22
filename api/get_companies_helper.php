@@ -72,7 +72,8 @@ if (!function_exists('getCompaniesByOwner')) {
                       AND go.percentage > 0
                       AND c.group_id IS NOT NULL
                       AND TRIM(c.group_id) <> ''
-                      AND LOWER(TRIM(go.group_id)) = LOWER(TRIM(c.group_id))
+                      AND LOWER(TRIM(go.group_id)) COLLATE utf8mb4_unicode_ci
+                          = LOWER(TRIM(c.group_id)) COLLATE utf8mb4_unicode_ci
                 )"
             : "";
 
@@ -127,7 +128,8 @@ if (!function_exists('getCompaniesByOwner')) {
                     WHERE owner_type = 'owner'
                       AND account_id = ?
                       AND percentage > 0
-                      AND LOWER(TRIM(group_id)) = LOWER(TRIM(?))
+                      AND LOWER(TRIM(group_id)) COLLATE utf8mb4_unicode_ci
+                          = LOWER(TRIM(?)) COLLATE utf8mb4_unicode_ci
                     LIMIT 1
                 ");
                 $stmtGo->execute([$ownerId, trim($native_group)]);
