@@ -1055,13 +1055,7 @@ function createDomainListFeePayment(
         $out['skipped_no_c168'] = true;
         return $out;
     }
-    $poolEarly = resolveShareProfitTargetAccountId($pdo, $customerCompanyCode);
-    if (!$poolEarly || $poolEarly <= 0) {
-        $poolEarly = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
-    }
-    if (!$poolEarly || $poolEarly <= 0) {
-        $poolEarly = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
-    }
+    $poolEarly = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
     if ($poolEarly && $poolEarly > 0) {
         $out['pool_account_id'] = (int) $poolEarly;
     }
@@ -1396,13 +1390,7 @@ function normalizeDomainListFeeTransactionParties(PDO $pdo, string $sourceCompan
     if (!$c168Pk || !$customerPk) {
         return false;
     }
-    $toOwner = resolveShareProfitTargetAccountId($pdo, $srcU);
-    if (!$toOwner || $toOwner <= 0) {
-        $toOwner = resolveC168ProfitRoleAccountId($pdo, (int)$c168Pk, 0);
-    }
-    if (!$toOwner || $toOwner <= 0) {
-        $toOwner = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, 0);
-    }
+    $toOwner = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, 0);
     $fromOwner = resolveDomainFeeSourceAccountId($pdo, (int)$c168Pk, $srcU, (int)$toOwner);
     if (!$toOwner || !$fromOwner || (int)$toOwner === (int)$fromOwner) {
         return false;
