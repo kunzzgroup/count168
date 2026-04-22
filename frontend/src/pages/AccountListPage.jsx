@@ -165,12 +165,10 @@ export default function AccountListPage() {
     [companies]
   );
 
-  const visibleCompanies = useMemo(() => {
-    if (!selectedGroup) {
-      return companies.filter((c) => !c.group_id || String(c.group_id).trim() === "");
-    }
-    return companies.filter((c) => String(c.group_id || "").toUpperCase() === selectedGroup);
-  }, [companies, selectedGroup]);
+  const allCompanyButtons = useMemo(
+    () => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""),
+    [companies]
+  );
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -328,7 +326,7 @@ export default function AccountListPage() {
               <div className="transaction-company-filter" style={{ display: "flex" }}>
                 <span className="transaction-company-label">Company:</span>
                 <div className="transaction-company-buttons">
-                  {visibleCompanies.map((c) => (
+                  {allCompanyButtons.map((c) => (
                     <button
                       key={c.id}
                       type="button"
@@ -336,6 +334,13 @@ export default function AccountListPage() {
                       data-company-id={c.id}
                       data-company-code={c.company_id}
                       data-group-id={c.group_id || ""}
+                      style={
+                        selectedGroup
+                          ? { display: String(c.group_id || "").toUpperCase() === selectedGroup ? "" : "none" }
+                          : !c.group_id || String(c.group_id).trim() === ""
+                            ? undefined
+                            : { display: "none" }
+                      }
                     >
                       {c.company_id}
                     </button>
