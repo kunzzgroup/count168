@@ -1315,7 +1315,6 @@ try {
                     // Domain Share Commission：收款账户在历史中显示正数，与主表一致
                     if (
                         stripos((string) ($t['sms'] ?? ''), '[DOMAIN_SHARE_COMMISSION|') === 0
-                        || stripos((string) ($t['sms'] ?? ''), '[DOMAIN_NET_PROFIT|') === 0
                         || stripos((string) $rawDescription, 'Commision FROM ') === 0
                     ) {
                         $cr_dr = (float) $t['amount'];
@@ -1651,6 +1650,10 @@ try {
         ) {
             $isDomainShareCommission = true;
         }
+        $isDomainNetProfit = (
+            stripos($smsText, '[DOMAIN_NET_PROFIT|') === 0
+            || stripos($descText, 'Profit By ') === 0
+        );
         if (
             $smsText === '[DOMAIN_LIST_FEE]'
             || stripos($smsText, '[DOMAIN_LIST_FEE|') === 0
@@ -1659,6 +1662,9 @@ try {
             || stripos($descText, 'Pay Domain Fee To ') === 0
         ) {
             $isDomainListFee = true;
+        }
+        if ($isDomainNetProfit) {
+            continue;
         }
         $domainShareProductKind = null;
         if ($isDomainShareCommission) {

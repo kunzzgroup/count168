@@ -1510,17 +1510,12 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
             $poolId = null;
         }
         $commissionResult = createDomainShareCommissionPayments($pdo, $cid, $normalized, $poolId, $u, $o);
-        $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
-        $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
-        $profitResult = createDomainNetProfitPayment(
-            $pdo,
-            $cid,
-            $feeAmtForNet,
-            $commTotalForNet,
-            $poolId,
-            $u,
-            $o
-        );
+        $profitResult = [
+            'created' => false,
+            'skipped_duplicate' => false,
+            'skipped_zero_or_negative' => true,
+            'amount' => 0.0,
+        ];
         if (
             !empty($feeResult['created'])
             || (($commissionResult['created_count'] ?? 0) > 0)
@@ -2859,7 +2854,6 @@ try {
                         // Always run creation functions; each function has its own duplicate guard.
                         // This repairs cases where one domain payment type is missing but others already exist.
                         normalizeDomainListFeeTransactionParties($pdo, $saveShareCode);
-                        normalizeDomainNetProfitTransaction($pdo, $saveShareCode);
                         $feeResult = createDomainListFeePayment(
                             $pdo,
                             $saveShareCode,
@@ -2878,17 +2872,12 @@ try {
                             $createdByUser > 0 ? $createdByUser : null,
                             $createdByOwner > 0 ? $createdByOwner : null
                         );
-                        $feeAmtForNet = round((float)($feeResult['amount'] ?? 0), 2);
-                        $commTotalForNet = round((float)($commissionResult['commission_total'] ?? 0), 2);
-                        $profitResult = createDomainNetProfitPayment(
-                            $pdo,
-                            $saveShareCode,
-                            $feeAmtForNet,
-                            $commTotalForNet,
-                            $poolId,
-                            $createdByUser > 0 ? $createdByUser : null,
-                            $createdByOwner > 0 ? $createdByOwner : null
-                        );
+                        $profitResult = [
+                            'created' => false,
+                            'skipped_duplicate' => false,
+                            'skipped_zero_or_negative' => true,
+                            'amount' => 0.0,
+                        ];
                     } else {
                         $feeResult = [
                             'created' => false,
