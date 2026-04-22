@@ -543,6 +543,55 @@ try {
             }
         }
 
+        // --- 2b. PROFIT 口径对齐 Transaction List：从池账号扣回 Domain Share Commission（毛额 -> 净额） ---
+        if ($role === 'PROFIT' && !empty($account_ids)) {
+            $profitAdjCurrencyFilter = "";
+            $profitAdjCurrencyParams = [];
+            if ($filter_currency_code !== null) {
+                $curr_id = array_search($filter_currency_code, $currency_map);
+                if ($curr_id !== false) {
+                    $profitAdjCurrencyFilter = dashboardTxnCurrencyFilter('from_account_id');
+                    $profitAdjCurrencyParams = [$curr_id, $company_id, $company_id, $curr_id];
+                }
+            }
+
+            // A) 调整期初：起始日前的 Share Commission 需要从 B/F 扣回
+            $adjBfSql = "SELECT COALESCE(SUM(ROUND(t.amount, 2)), 0) AS adj_total
+                         FROM transactions t
+                         WHERE t.company_id = ?
+                           AND t.transaction_type = 'PAYMENT'
+                           AND t.from_account_id IN ($ids_placeholder)
+                           AND t.transaction_date < ?
+                           AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter;
+            $adjBfStmt = $pdo->prepare($adjBfSql);
+            $adjBfStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $profitAdjCurrencyParams));
+            $adjBf = (float) $adjBfStmt->fetchColumn();
+            if (abs($adjBf) > 0.00001) {
+                $total_bf -= $adjBf;
+            }
+
+            // B) 调整本期：按日扣回，保证图表与 period_total 一致
+            $adjDailySql = "SELECT DATE(t.transaction_date) AS date, COALESCE(SUM(ROUND(t.amount, 2)), 0) AS adj_total
+                            FROM transactions t
+                            WHERE t.company_id = ?
+                              AND t.transaction_type = 'PAYMENT'
+                              AND t.from_account_id IN ($ids_placeholder)
+                              AND t.transaction_date BETWEEN ? AND ?
+                              AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . "
+                            GROUP BY DATE(t.transaction_date)
+                            ORDER BY DATE(t.transaction_date)";
+            $adjDailyStmt = $pdo->prepare($adjDailySql);
+            $adjDailyStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $profitAdjCurrencyParams));
+            foreach ($adjDailyStmt->fetchAll(PDO::FETCH_ASSOC) as $adjRow) {
+                $d = (string) ($adjRow['date'] ?? '');
+                if ($d === '') {
+                    continue;
+                }
+                $v = (float) ($adjRow['adj_total'] ?? 0);
+                $daily_data[$d] = ($daily_data[$d] ?? 0) - $v;
+            }
+        }
+
         // --- 3. 计算本期总余额 ---
         $total_period_delta = array_sum($daily_data);
         $total_balance = $total_bf + $total_period_delta;
