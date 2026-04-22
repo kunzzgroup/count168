@@ -411,7 +411,12 @@ function createRowElement(companyId, idx, rowData) {
         const opt = document.createElement('option');
         opt.value = acc.id;
         const mainStr = parseInt(acc.is_main_owner) === 1 ? ' - Main' : '';
-        opt.textContent = `${acc.account_name} (${acc.name})${mainStr}`;
+        // Group-type rows (self-group link) already read "Group: AP" in account_name.
+        // Skip the redundant "(Group Equity)" suffix for those.
+        const typeStr = String(acc.type || '').toLowerCase();
+        opt.textContent = typeStr === 'group'
+            ? `${acc.account_name}${mainStr}`
+            : `${acc.account_name} (${acc.name})${mainStr}`;
         if (acc.id == rowData.account_id) opt.selected = true;
         select.appendChild(opt);
     });

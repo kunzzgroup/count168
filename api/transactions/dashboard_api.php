@@ -578,15 +578,43 @@ try {
             // Group equity is stored per-company in company_ownership (owner_type='group')
             // Account share is stored per-group in group_ownership
             // Formula: Earnings = NET PROFIT × (direct% + group_equity% × group_account%)
+            //
+            // When a company has been split across multiple groups (e.g. company 95
+            // has Group:IG 30% + Group:AP 1%), the dashboard view must pick the row
+            // matching the currently-filtered group (passed as ?view_group=AP).
             try {
-                $stmtGrpEquity = $pdo->prepare("
-                    SELECT partner_group_id, percentage 
-                    FROM company_ownership 
-                    WHERE company_id = ? AND owner_type = 'group' 
-                    LIMIT 1
-                ");
-                $stmtGrpEquity->execute([$company_id]);
-                $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                $view_group = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
+                if ($view_group !== '') {
+                    $stmtGrpEquity = $pdo->prepare("
+                        SELECT partner_group_id, percentage 
+                        FROM company_ownership 
+                        WHERE company_id = ? AND owner_type = 'group'
+                          AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+                        LIMIT 1
+                    ");
+                    $stmtGrpEquity->execute([$company_id, $view_group]);
+                    $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                    // Fallback: no direct row for this group — try any group row
+                    if (!$grpEquityRow) {
+                        $stmtGrpEquity = $pdo->prepare("
+                            SELECT partner_group_id, percentage 
+                            FROM company_ownership 
+                            WHERE company_id = ? AND owner_type = 'group' 
+                            LIMIT 1
+                        ");
+                        $stmtGrpEquity->execute([$company_id]);
+                        $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                    }
+                } else {
+                    $stmtGrpEquity = $pdo->prepare("
+                        SELECT partner_group_id, percentage 
+                        FROM company_ownership 
+                        WHERE company_id = ? AND owner_type = 'group' 
+                        LIMIT 1
+                    ");
+                    $stmtGrpEquity->execute([$company_id]);
+                    $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                }
 
                 if ($grpEquityRow && $grpEquityRow['partner_group_id']) {
                     $companyGroupId = $grpEquityRow['partner_group_id'];

@@ -947,6 +947,11 @@ async function fetchDashboardForCompany(companyId) {
     if (window.dashboardCurrency) {
         queryParams.append('currency', window.dashboardCurrency);
     }
+    // Let the backend pick the right company_ownership group-equity row when a
+    // company has been split across multiple groups (e.g. 95 → IG 30% + AP 1%).
+    if (selectedDashboardGroup) {
+        queryParams.append('view_group', selectedDashboardGroup);
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
