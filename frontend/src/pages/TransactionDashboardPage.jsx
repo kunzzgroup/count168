@@ -561,10 +561,10 @@ export default function TransactionDashboardPage() {
                       display: "grid",
                       gridTemplateColumns: "auto 1fr auto",
                       alignItems: "center",
-                      gap: 10,
+                      gap: 8,
                       border: "1px solid #d1d5db",
-                      borderRadius: 10,
-                      padding: "8px 10px",
+                      borderRadius: 9,
+                      padding: "6px 8px",
                       position: "relative",
                       background: "#fff",
                     }}
@@ -572,7 +572,15 @@ export default function TransactionDashboardPage() {
                     <button
                       type="button"
                       className="btn"
-                      style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: 8 }}
+                      style={{
+                        background: "#eff6ff",
+                        color: "#2563eb",
+                        border: "1px solid #bfdbfe",
+                        borderRadius: 7,
+                        minHeight: 30,
+                        padding: "4px 10px",
+                        fontSize: 12,
+                      }}
                       onClick={() => {
                         setCalendarOpen((v) => !v);
                         setQuickOpen(false);
@@ -583,14 +591,15 @@ export default function TransactionDashboardPage() {
                       <i className="fas fa-calendar-alt" />
                     </button>
 
-                    <div style={{ textAlign: "center", fontWeight: 600, color: "#1f2937" }}>
+                    <div style={{ textAlign: "center", fontWeight: 600, color: "#1f2937", fontSize: 14 }}>
                       {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
                     </div>
 
-                    <div className="dropdown" style={{ width: 170 }}>
+                    <div className="dropdown" style={{ width: 148 }}>
                       <button
                         type="button"
                         className="btn btn-secondary dropdown-toggle"
+                        style={{ minHeight: 30, padding: "4px 10px", fontSize: 13 }}
                         onClick={() => {
                           setQuickOpen((o) => !o);
                           setCalendarOpen(false);
