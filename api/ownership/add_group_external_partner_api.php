@@ -55,7 +55,24 @@ try { $pdo->exec("ALTER TABLE group_ownership DROP INDEX uq_group_account"); } c
 try { $pdo->exec("ALTER TABLE group_ownership ADD UNIQUE KEY uq_group_account (group_id, account_id, owner_type, partner_group_id)"); } catch (Exception $e) {}
 
 try {
-    $currentOwnerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    // Resolve the owner context we're managing:
+    //   - owner login:   use real_owner_id / owner_id
+    //   - admin (user):  infer owner from the currently active company session
+    $currentOwnerId = 0;
+    if (!empty($_SESSION['real_owner_id'])) {
+        $currentOwnerId = (int) $_SESSION['real_owner_id'];
+    } elseif (!empty($_SESSION['owner_id'])) {
+        $currentOwnerId = (int) $_SESSION['owner_id'];
+    } elseif (!empty($_SESSION['company_id'])) {
+        $stmtCtx = $pdo->prepare("SELECT owner_id FROM company WHERE id = ? LIMIT 1");
+        $stmtCtx->execute([(int) $_SESSION['company_id']]);
+        $currentOwnerId = (int) ($stmtCtx->fetchColumn() ?: 0);
+    }
+
+    if ($currentOwnerId <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Unable to resolve owner context']);
+        exit();
+    }
 
     // Sanity: the source group_id must actually belong to the current owner
     $stmtOwn = $pdo->prepare("
