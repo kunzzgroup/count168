@@ -474,12 +474,9 @@ function searchApiAppendDomainListFeeVirtualRows(
             if (isset($seen[$realKey])) {
                 $idx = $seenIndex[$realKey] ?? null;
                 if ($idx !== null && isset($results[$idx])) {
-                    // 仅当账号 id 已等于公司短码时合并金额（Cr/Dr 汇总口径与虚拟行一致）；旧 OWNER_ 前缀账号金额已在主行汇总，只改展示名
-                    if ($resolvedByExactCompanyCode) {
-                        $results[$idx]['cr_dr'] = trunc2((float) ($results[$idx]['cr_dr'] ?? 0) - $amt);
-                        $results[$idx]['balance'] = trunc2((float) ($results[$idx]['balance'] ?? 0) - $amt);
-                        $results[$idx]['has_crdr_transactions'] = 1;
-                    } else {
+                    // 命中真实账号且主结果已存在时，不再二次调整金额，避免 List Fee 重复扣减（如 -2400 变 -4800）。
+                    // 仅做展示归一：旧 OWNER_ 前缀账号统一显示公司短码，并同步公司名称。
+                    if (!$resolvedByExactCompanyCode) {
                         $results[$idx]['account_id'] = $src;
                         try {
                             $sto = $pdo->prepare("
@@ -498,6 +495,7 @@ function searchApiAppendDomainListFeeVirtualRows(
                         } catch (PDOException $e) {
                         }
                     }
+                    $results[$idx]['has_crdr_transactions'] = 1;
                 }
                 continue;
             }
