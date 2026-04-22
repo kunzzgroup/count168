@@ -46,6 +46,8 @@ export default function ProcessListPage() {
   };
 
   useEffect(() => {
+    document.body.classList.remove("dashboard-page");
+    document.body.classList.add("process-page");
     const cssA = document.createElement("link");
     cssA.rel = "stylesheet";
     cssA.href = assetUrl("css/processCSS.css");
@@ -59,6 +61,8 @@ export default function ProcessListPage() {
     cssC.href = assetUrl("css/accountCSS.css");
     document.head.appendChild(cssC);
     return () => {
+      document.body.classList.remove("process-page");
+      document.body.classList.add("dashboard-page");
       [cssA, cssB, cssC].forEach((el) => {
         if (el.parentNode) el.parentNode.removeChild(el);
       });
@@ -323,24 +327,26 @@ export default function ProcessListPage() {
   if (loading) return null;
 
   return (
-    <div className="container" style={{ marginLeft: "210px", paddingTop: 12 }}>
+    <div className="container">
       <div className="content">
         <h1 className="page-title">Process List</h1>
         <div className="action-buttons-container">
           <div className="action-buttons">
-            <button type="button" className="btn btn-add" onClick={openAdd}>Add Process</button>
-            <div className="search-container">
-              <input className="search-input" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button type="button" className="btn btn-add" onClick={openAdd}>Add Process</button>
+              <div className="search-container">
+                <input className="search-input" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <label className="checkbox-section">
+                <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+                <span>Show All</span>
+              </label>
+              <label className="checkbox-section">
+                <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+                <span>Show Inactive</span>
+              </label>
+              <button type="button" className="btn btn-delete" disabled={!selectedIds.size} onClick={deleteSelected}>Delete</button>
             </div>
-            <label className="checkbox-section">
-              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-              <span>Show All</span>
-            </label>
-            <label className="checkbox-section">
-              <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-              <span>Show Inactive</span>
-            </label>
-            <button type="button" className="btn btn-delete" disabled={!selectedIds.size} onClick={deleteSelected}>Delete</button>
           </div>
           <div>
             <div className="company-group-buttons">
