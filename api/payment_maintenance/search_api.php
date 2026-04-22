@@ -253,15 +253,12 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
     if ($isDomainListFee) {
         $description = 'Pay Domain Fee';
     }
+    // Domain List Fee：顾客 from 有账号，入账「池」在业务上视为从总额中扣 % 的前序步骤，Maintenance 上 Account(To) 不展示具体池账号（与 JK 上净利润行口径一致）
     $displayAccount = $row['account_code'] ?? '-';
-    if ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee(?:\s+To\s+([A-Za-z0-9_-]+))?/i', trim((string)($row['description'] ?? '')), $m)) {
-        if (!empty($m[1])) {
-            $displayAccount = strtoupper(trim((string)$m[1]));
-        }
-    } elseif ($isDomainListFee && preg_match('/^Pay\s+Domain\s+Fee\s+To\s+([A-Za-z0-9_-]+)/i', trim((string)$description), $m)) {
-        $displayAccount = strtoupper(trim((string)$m[1]));
-    }
     $displayAccount = remapPaymentMaintenanceAccountCode((string)$displayAccount, $ownerCode, $profitCode);
+    if ($isDomainListFee) {
+        $displayAccount = '-';
+    }
     $fromDisplay = $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-');
     $fromDisplay = remapPaymentMaintenanceAccountCode((string)$fromDisplay, $ownerCode, $profitCode);
     if (is_string($description) && $description !== '') {

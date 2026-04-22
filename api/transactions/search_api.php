@@ -539,8 +539,9 @@ function searchApiResolveCompanyOwnerCodeByPk(PDO $pdo, int $companyPk): string
 }
 
 /**
- * 将 Domain 相关 PAYMENT（Domain list fee + Domain share commission）聚合到“来源公司”行展示，
- * 并从真实池子账户行中扣除对应贡献，避免出现“95”等池子账户与来源公司重复展示。
+ * Domain Share Commission：bulk Cr/Dr 对 from_account（池子）侧记为 0，池子会只剩 List Fee 全额。
+ * 在此按每笔佣金从池子账户的 Cr/Dr、Balance 扣回，与 Payment History 净额口径一致。
+ * 客户侧 List Fee 仍由 searchApiAppendDomainListFeeVirtualRows 负责，此处不追加虚拟来源行。
  */
 function searchApiApplyDomainSourceCompanyRows(
     PDO $pdo,
@@ -565,25 +566,21 @@ function searchApiApplyDomainSourceCompanyRows(
         }
     }
 
-    $sql = "SELECT t.id, t.account_id, t.from_account_id, t.amount, t.currency_id, t.sms
+    $sql = "SELECT t.from_account_id, t.amount, t.currency_id
             FROM transactions t
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
               AND t.currency_id IS NOT NULL
-              AND (
-                    t.sms LIKE '[DOMAIN_LIST_FEE|%'
-                 OR t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
-              )";
+              AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
+              AND t.from_account_id IS NOT NULL";
     $par = [$company_id, $date_from_db, $date_to_db];
     if (!empty($currencyFilterIds)) {
         $sql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($currencyFilterIds), '?')) . ')';
         $par = array_merge($par, $currencyFilterIds);
     }
 
-    $sourceLabel = []; // [SRC] => ['code'=>, 'name'=>]
-    $sourceAgg = [];   // [SRC][CUR] => amount(正数)
-    $poolAdjust = [];  // [ACC_ID][CUR] => delta (从原账户扣除 Domain 相关贡献)
+    $poolAdjust = []; // [ACC_ID][CUR] => delta
 
     $st = $pdo->prepare($sql);
     $st->execute($par);
@@ -593,83 +590,20 @@ function searchApiApplyDomainSourceCompanyRows(
         if ($curCode === '') {
             continue;
         }
-
-        $sms = (string) ($row['sms'] ?? '');
-        $srcCode = '';
-        $kind = '';
-        $custCode = searchApiParseDomainListFeeCompanyCode((string) ($row['sms'] ?? ''));
-        if ($custCode !== null && $custCode !== '') {
-            $srcCode = $custCode;
-            $kind = 'LIST_FEE';
-        } elseif (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^\]|]+)\|/i', trim($sms), $m2)) {
-            $srcCode = strtoupper(trim($m2[1]));
-            $kind = 'SHARE_COMMISSION';
-        }
-        if ($srcCode === '' || $kind === '') {
-            continue;
-        }
-
-        // 来源公司标签：优先公司 code + owner name
-        $srcU = strtoupper($srcCode);
-        if (!isset($sourceLabel[$srcU])) {
-            $sourceLabel[$srcU] = ['code' => $srcU, 'name' => $srcU];
-        }
-        $oname = '';
-        try {
-            $stc = $pdo->prepare("
-                SELECT TRIM(COALESCE(c.company_id, '')) AS company_code,
-                       TRIM(COALESCE(o.name, '')) AS oname
-                FROM company c
-                INNER JOIN owner o ON o.id = c.owner_id
-                WHERE UPPER(TRIM(c.company_id)) = ?
-                   OR UPPER(TRIM(IFNULL(c.group_id, ''))) = ?
-                ORDER BY c.id ASC
-                LIMIT 1
-            ");
-            $stc->execute([$srcU, $srcU]);
-            $cr = $stc->fetch(PDO::FETCH_ASSOC);
-            if ($cr) {
-                $cc = strtoupper(trim((string) ($cr['company_code'] ?? '')));
-                if ($cc !== '') {
-                    $sourceLabel[$srcU]['code'] = $cc;
-                }
-                $oname = trim((string) ($cr['oname'] ?? ''));
-            }
-        } catch (PDOException $e) {
-        }
-        if ($oname !== '') {
-            $sourceLabel[$srcU]['name'] = $oname;
-        }
-
         $amt = trunc2((float) ($row['amount'] ?? 0));
         if (abs($amt) < 0.00001) {
             continue;
         }
-
-        // 统一把来源公司展示为正数（用户口径：Commission 正数，Payment 也要展示）
-        $sourceAgg[$srcU][$curCode] = ($sourceAgg[$srcU][$curCode] ?? 0.0) + $amt;
-
-        // 从原账户剔除 Domain 贡献，避免与来源公司行重复
-        if ($kind === 'SHARE_COMMISSION') {
-            // 该笔在原逻辑里由 from_account(池子)计入 +amount
-            $poolId = (int) ($row['from_account_id'] ?? 0);
-            if ($poolId > 0) {
-                $poolAdjust[$poolId][$curCode] = ($poolAdjust[$poolId][$curCode] ?? 0.0) - $amt;
-            }
-        } elseif ($kind === 'LIST_FEE') {
-            // 该笔在原逻辑里由 account_id(池子)计入 -amount
-            $poolId = (int) ($row['account_id'] ?? 0);
-            if ($poolId > 0) {
-                $poolAdjust[$poolId][$curCode] = ($poolAdjust[$poolId][$curCode] ?? 0.0) + $amt;
-            }
+        $poolId = (int) ($row['from_account_id'] ?? 0);
+        if ($poolId > 0) {
+            $poolAdjust[$poolId][$curCode] = ($poolAdjust[$poolId][$curCode] ?? 0.0) - $amt;
         }
     }
 
-    if (empty($sourceAgg) && empty($poolAdjust)) {
+    if (empty($poolAdjust)) {
         return;
     }
 
-    // 应用池子账户修正（移除 domain 贡献）
     foreach ($results as &$row) {
         $aid = (int) ($row['account_db_id'] ?? 0);
         $cur = strtoupper((string) ($row['currency'] ?? ''));
@@ -682,44 +616,6 @@ function searchApiApplyDomainSourceCompanyRows(
     }
     unset($row);
 
-    // 合并来源公司行（虚拟 id：负值，便于前端识别）
-    $seenVirtual = [];
-    foreach ($results as $r) {
-        $seenVirtual[$r['account_db_id'] . '_' . strtoupper((string) ($r['currency'] ?? ''))] = true;
-    }
-    foreach ($sourceAgg as $src => $curMap) {
-        $labelCode = $sourceLabel[$src]['code'] ?? $src;
-        $labelName = $sourceLabel[$src]['name'] ?? $labelCode;
-        foreach ($curMap as $cur => $sumAmt) {
-            $sumAmt = trunc2((float) $sumAmt);
-            if (abs($sumAmt) < 0.00001) {
-                continue;
-            }
-            $vid = -1000000 - (int) crc32($src . '|' . $cur);
-            $k = $vid . '_' . $cur;
-            if (isset($seenVirtual[$k])) {
-                continue;
-            }
-            $seenVirtual[$k] = true;
-            $results[] = [
-                'account_id' => $labelCode,
-                'account_name' => $labelName,
-                'account_db_id' => $vid,
-                'role' => 'DOMAIN',
-                'currency' => $cur,
-                'currency_id_debug' => ($currency_id_map ? (int) array_search($cur, $currency_id_map, true) : 0),
-                'bf' => 0.0,
-                'win_loss' => 0.0,
-                'cr_dr' => $sumAmt,
-                'balance' => $sumAmt,
-                'has_crdr_transactions' => 1,
-                'is_alert' => 0,
-                'is_rate_middleman' => 0,
-            ];
-        }
-    }
-
-    // 清理被修正为 0 的池子行（减少噪音）
     $results = array_values(array_filter($results, function ($r) {
         $aid = (int) ($r['account_db_id'] ?? 0);
         if ($aid <= 0) {
@@ -1908,6 +1804,15 @@ try {
 
     // 第一笔 Domain List Fee：以客户公司（如 LGA）展示在 Transaction Payment
     searchApiAppendDomainListFeeVirtualRows(
+        $pdo,
+        $results,
+        $company_id,
+        $date_from_db,
+        $date_to_db,
+        $filter_currency_codes,
+        $currency_id_map
+    );
+    searchApiApplyDomainSourceCompanyRows(
         $pdo,
         $results,
         $company_id,
