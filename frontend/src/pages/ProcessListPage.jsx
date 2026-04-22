@@ -355,8 +355,8 @@ export default function ProcessListPage() {
                 <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                 <span>Show Inactive</span>
               </label>
-              <button type="button" className="btn btn-delete" disabled={!selectedIds.size} onClick={deleteSelected}>Delete</button>
             </div>
+            <button type="button" className="btn btn-delete" disabled={!selectedIds.size} onClick={deleteSelected}>Delete</button>
           </div>
           {groupIds.length > 0 && (
             <div className="process-company-filter shared-group-wrapper">
@@ -409,7 +409,7 @@ export default function ProcessListPage() {
                 <div className="card-item">{(showAll ? idx : (currentPage - 1) * PAGE_SIZE + idx) + 1}</div>
                 <div className="card-item">{row.process_name}</div>
                 <div className="card-item">{row.description || "-"}</div>
-                <div className="card-item"><span className={`status-badge ${row.status === "active" ? "active" : "inactive"}`}>{String(row.status || "").toUpperCase()}</span></div>
+                <div className="card-item"><span className={row.status === "active" ? "status-active" : "status-inactive"}>{String(row.status || "").toUpperCase()}</span></div>
                 <div className="card-item">{row.currency || "-"}</div>
                 <div className="card-item">{row.day_use || "-"}</div>
                 <div className="card-item">
