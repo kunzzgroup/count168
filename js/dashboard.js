@@ -2095,16 +2095,30 @@ function loadOwnerCompanies() {
 
                 // 从 sessionStorage 恢复 Group
                 const savedGroup = sessionStorage.getItem('dashboard_group_filter');
-                const currentCompany = data.data.find(c => parseInt(c.id) === parseInt(window.companyId));
+                // 优先选 group_id 匹配 savedGroup 的那条（可能是虚拟行，表示同一个 c.id 被
+                // 通过 group-link 也挂到了 savedGroup 下），这样用户在 AP 筛选下点 IG 公司
+                // 不会被 reload 后跳回到 IG。
+                const currentCompany =
+                    (savedGroup
+                        ? data.data.find(c =>
+                            parseInt(c.id) === parseInt(window.companyId) &&
+                            c.group_id && c.group_id.toUpperCase() === savedGroup
+                          )
+                        : null)
+                    || data.data.find(c => parseInt(c.id) === parseInt(window.companyId));
                 console.log('[Dashboard] loadOwnerCompanies | savedGroup:', savedGroup, '| groups:', groups, '| window.companyId:', window.companyId);
 
                 if (savedGroup && groups.includes(savedGroup)) {
-                    // 确认当前公司确实属于这个 group，防止多标签页/重定向导致的 session 状态与实际内容不同步
-                    if (currentCompany && currentCompany.group_id && currentCompany.group_id.toUpperCase() === savedGroup) {
+                    // 检查当前公司是否在任何一条 row 里属于 savedGroup（原生或虚拟）
+                    const companyUnderSavedGroup = data.data.some(c =>
+                        parseInt(c.id) === parseInt(window.companyId) &&
+                        c.group_id && c.group_id.toUpperCase() === savedGroup
+                    );
+                    if (companyUnderSavedGroup) {
                         selectedDashboardGroup = savedGroup;
                         console.log('[Dashboard] Restored selectedDashboardGroup =', savedGroup);
                     } else {
-                        console.log('[Dashboard] savedGroup', savedGroup, 'does not match current company, clearing');
+                        console.log('[Dashboard] savedGroup', savedGroup, 'does not cover current company, clearing');
                         sessionStorage.removeItem('dashboard_group_filter');
                         selectedDashboardGroup = null;
                     }
