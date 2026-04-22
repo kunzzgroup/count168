@@ -14,6 +14,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../../includes/c168_domain_access.php';
 
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -37,6 +38,20 @@ function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
     $a = $alias !== '' ? $alias . '.' : '';
     // 只对 CONTRA 生效：PENDING 的 CONTRA 不计入 BF / CrDr / Balance
     return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+}
+
+function searchApiAccountHasCreatedSourceColumn(PDO $pdo): bool
+{
+    static $v = null;
+    if ($v === null) {
+        try {
+            $st = $pdo->query("SHOW COLUMNS FROM account LIKE 'created_source'");
+            $v = $st && $st->rowCount() > 0;
+        } catch (Throwable $e) {
+            $v = false;
+        }
+    }
+    return $v;
 }
 
 /** transactions.currency_id 是否存在（请求内只查一次，避免每个账户/组合重复 SHOW COLUMNS） */
@@ -428,7 +443,7 @@ function searchApiAppendDomainListFeeVirtualRows(
             if ($realAccountId > 0) {
                 $resolvedByExactCompanyCode = true;
             }
-            // Domain 自动建账：C168 下常为 OWNERCODE_COMPANY（如 QAA_QA），sms 仍为公司短码（QA）
+            // Domain 自动建账：新库 account_id=公司短码（QA）；旧库为 OWNERCODE_COMPANY（如 QAA_QA），sms 仍为公司短码（QA）
             if ($realAccountId <= 0) {
                 try {
                     $stOwn = $pdo->prepare("
@@ -457,13 +472,31 @@ function searchApiAppendDomainListFeeVirtualRows(
         if ($realAccountId > 0) {
             $realKey = $realAccountId . '_' . $cur;
             if (isset($seen[$realKey])) {
-                // 公司短码=账号 id（如 QA）时合并一行；仅解析到 OWNER_QA 且主表已有该行时，主表已含 from 流水，勿再 merge 亦勿追加虚拟 QA（避免双 -2400）
-                if ($resolvedByExactCompanyCode) {
-                    $idx = $seenIndex[$realKey] ?? null;
-                    if ($idx !== null && isset($results[$idx])) {
+                $idx = $seenIndex[$realKey] ?? null;
+                if ($idx !== null && isset($results[$idx])) {
+                    // 仅当账号 id 已等于公司短码时合并金额（Cr/Dr 汇总口径与虚拟行一致）；旧 OWNER_ 前缀账号金额已在主行汇总，只改展示名
+                    if ($resolvedByExactCompanyCode) {
                         $results[$idx]['cr_dr'] = trunc2((float) ($results[$idx]['cr_dr'] ?? 0) - $amt);
                         $results[$idx]['balance'] = trunc2((float) ($results[$idx]['balance'] ?? 0) - $amt);
                         $results[$idx]['has_crdr_transactions'] = 1;
+                    } else {
+                        $results[$idx]['account_id'] = $src;
+                        try {
+                            $sto = $pdo->prepare("
+                                SELECT TRIM(COALESCE(o.name, '')) AS n
+                                FROM company c
+                                INNER JOIN owner o ON o.id = c.owner_id
+                                WHERE UPPER(TRIM(c.company_id)) = ? OR UPPER(TRIM(IFNULL(c.group_id, ''))) = ?
+                                ORDER BY c.id ASC
+                                LIMIT 1
+                            ");
+                            $sto->execute([$src, $src]);
+                            $n = trim((string) ($sto->fetchColumn() ?: ''));
+                            if ($n !== '') {
+                                $results[$idx]['account_name'] = $n;
+                            }
+                        } catch (PDOException $e) {
+                        }
                     }
                 }
                 continue;
@@ -972,6 +1005,9 @@ try {
 
     // 构建基础 SQL 查询（只显示已提交过的账户，通过 account_company 表过滤）
     // 同时查询 alert 相关字段
+    $createdSourceSelect = searchApiAccountHasCreatedSourceColumn($pdo)
+        ? ", COALESCE(a.created_source, '') AS created_source"
+        : '';
     $baseSql = "SELECT DISTINCT
                 a.id,
                 a.account_id,
@@ -982,6 +1018,7 @@ try {
                 a.alert_day,
                 a.alert_specific_date,
                 a.alert_amount
+                $createdSourceSelect
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             $where_sql";
@@ -1126,6 +1163,9 @@ try {
                         $extraParams = array_merge($extraParams, $category_filters);
                     }
                 }
+                $extraCreated = searchApiAccountHasCreatedSourceColumn($pdo)
+                    ? ", COALESCE(a.created_source, '') AS created_source"
+                    : '';
                 $extraSql = "SELECT DISTINCT
                         a.id,
                         a.account_id,
@@ -1136,6 +1176,7 @@ try {
                         a.alert_day,
                         a.alert_specific_date,
                         a.alert_amount
+                        $extraCreated
                     FROM account a
                     WHERE a.id IN ($cpPh)";
                 if (!empty($extraBits)) {
@@ -1770,8 +1811,17 @@ try {
             }
         }
 
+        $dispAccountId = domainProvisionedMemberAccountIdForDisplay(
+            (string) ($account['account_id'] ?? ''),
+            (string) ($account['role'] ?? ''),
+            isset($account['created_source']) ? (string) $account['created_source'] : null
+        );
+        if ($dispAccountId === '') {
+            $dispAccountId = (string) ($account['account_id'] ?? '');
+        }
+
         $results[] = [
-            'account_id' => $account['account_id'],
+            'account_id' => $dispAccountId,
             'account_name' => $account['name'],
             'account_db_id' => $account_id,
             'role' => $account['role'],

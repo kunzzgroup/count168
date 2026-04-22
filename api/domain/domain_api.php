@@ -904,7 +904,19 @@ function resolveC168DomainProvisionedMemberByCompanyCode(PDO $pdo, int $c168Pk, 
         ");
         $st2->execute([$c168Pk, $accountCode, (int) $excludeAccountId]);
         $v = $st2->fetchColumn();
-        return ($v !== false && $v !== null) ? (int) $v : null;
+        if ($v !== false && $v !== null) {
+            return (int) $v;
+        }
+        // 兼容旧库：OWNERCODE_COMPANY
+        $legacyCode = domainApiBuildLegacyOwnerPrefixedProvisionedMemberAccountId($ownerUpper, $src);
+        if (strtoupper(trim($legacyCode)) !== strtoupper(trim($accountCode))) {
+            $st2->execute([$c168Pk, $legacyCode, (int) $excludeAccountId]);
+            $v2 = $st2->fetchColumn();
+            if ($v2 !== false && $v2 !== null) {
+                return (int) $v2;
+            }
+        }
+        return null;
     } catch (PDOException $e) {
         return null;
     }
@@ -1882,10 +1894,16 @@ function domainApiAccountLooksLikeDomainProvisionedMember(PDO $pdo, int $account
 }
 
 /**
- * Domain 自动创建的 MEMBER 登录账号：OWNERCODE_公司代码（owner_code 仅保留字母数字；空则 DOM）。
- * 与手动以「公司代码单字母」建账区分，避免窜改其他账户。
+ * Domain 自动创建的 MEMBER 登录账号：使用公司短码作为 account_id（如 QA），不再使用 OWNERCODE_ 前缀。
+ * 与旧数据 OWNERCODE_COMPANY（如 QAA_QA）并存；解析付款方时见 resolveC168DomainProvisionedMemberByCompanyCode。
  */
 function domainApiBuildDomainProvisionedMemberAccountId(string $ownerCodeUpper, string $companyCode): string {
+    return strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($companyCode)));
+}
+
+/** 旧版：OWNERCODE_公司代码，仅用于查找已存在的自动建账账号 */
+function domainApiBuildLegacyOwnerPrefixedProvisionedMemberAccountId(string $ownerCodeUpper, string $companyCode): string
+{
     $cc = strtoupper(trim($companyCode));
     $owner = strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($ownerCodeUpper)));
     if ($owner === '') {
@@ -1900,6 +1918,9 @@ function domainApiBuildDomainProvisionedMemberAccountId(string $ownerCodeUpper, 
  */
 function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, int $c168CompanyId, string $ownerCodeUpper, string $companyCode): string {
     $base = domainApiBuildDomainProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
+    if ($base === '') {
+        return '';
+    }
     $chkInC168 = $pdo->prepare("
         SELECT a.id
         FROM account a

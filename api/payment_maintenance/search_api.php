@@ -10,6 +10,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/c168_domain_access.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -58,6 +59,7 @@ function resolveCompanyId(PDO $pdo) {
 function getCurrencySchema(PDO $pdo) {
     $schema = [
         'has_currency_id' => false,
+        'account_has_created_source' => false,
         'account_has_currency_column' => false,
         'account_has_currency_id_column' => false,
         'has_account_currency_table' => false,
@@ -88,6 +90,11 @@ function getCurrencySchema(PDO $pdo) {
     try {
         $schema['has_deleted_table'] = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'")->rowCount() > 0;
     } catch (PDOException $e) {}
+    try {
+        $schema['account_has_created_source'] = $pdo->query("SHOW COLUMNS FROM account LIKE 'created_source'")->rowCount() > 0;
+    } catch (PDOException $e) {
+        $schema['account_has_created_source'] = false;
+    }
     if ($schema['has_deleted_table']) {
         try {
             $colDel = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'currency_id'");
@@ -143,11 +150,20 @@ function getCurrencySchema(PDO $pdo) {
     return $schema;
 }
 
+function paymentMaintenanceAccountMetaSelectSql(array $schema): string
+{
+    if (!empty($schema['account_has_created_source'])) {
+        return ", to_acc.role AS to_account_role, COALESCE(to_acc.created_source,'') AS to_account_created_source, from_acc.role AS from_account_role, COALESCE(from_acc.created_source,'') AS from_account_created_source";
+    }
+    return ", to_acc.role AS to_account_role, '' AS to_account_created_source, from_acc.role AS from_account_role, '' AS from_account_created_source";
+}
+
 /**
  * 查询主表 transactions（非 RATE）及可选 transactions_deleted
  * $exclude_bank_process_rows：为 true 时排除由 Bank Process 入账的行（source_bank_process_id），仅保留 Transaction Payment 等手工流水
  */
 function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false) {
+    $accMeta = paymentMaintenanceAccountMetaSelectSql($schema);
     $sql = "SELECT
                 t.id,
                 DATE_FORMAT(t.transaction_date, '%d/%m/%Y') AS transaction_date,
@@ -155,7 +171,8 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
                 COALESCE(t.sms, '') AS remark,
                 DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
                 to_acc.account_id AS account_code, to_acc.name AS account_name,
-                from_acc.account_id AS from_account_code, from_acc.name AS from_account_name,
+                from_acc.account_id AS from_account_code, from_acc.name AS from_account_name
+                $accMeta,
                 {$schema['selectCurrency']},
                 u.login_id AS created_by_login, o.owner_code AS created_by_owner,
                 0 AS is_deleted, NULL AS deleted_by_login, NULL AS deleted_by_owner, NULL AS dts_deleted
@@ -254,24 +271,49 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         $description = 'Pay Domain Fee';
     }
     // Domain List Fee：顾客 from 有账号，入账「池」在业务上视为从总额中扣 % 的前序步骤，Maintenance 上 Account(To) 不展示具体池账号（与 JK 上净利润行口径一致）
-    $displayAccount = $row['account_code'] ?? '-';
-    $displayAccount = remapPaymentMaintenanceAccountCode((string)$displayAccount, $ownerCode, $profitCode);
+    $accRaw = (string) ($row['account_code'] ?? '');
+    $displayAccount = $accRaw !== '' ? $accRaw : '-';
+    $displayAccount = domainProvisionedMemberAccountIdForDisplay(
+        $displayAccount === '-' ? '' : $displayAccount,
+        (string) ($row['to_account_role'] ?? ''),
+        array_key_exists('to_account_created_source', $row) ? (string) $row['to_account_created_source'] : null
+    );
+    if ($displayAccount === '') {
+        $displayAccount = $accRaw !== '' ? $accRaw : '-';
+    }
+    $displayAccount = remapPaymentMaintenanceAccountCode((string) $displayAccount, $ownerCode, $profitCode);
     if ($isDomainListFee) {
         $displayAccount = '-';
     }
-    $fromDisplay = $isDomainShareCommission ? '-' : ($row['from_account_code'] ?? '-');
-    $fromDisplay = remapPaymentMaintenanceAccountCode((string)$fromDisplay, $ownerCode, $profitCode);
+    if ($isDomainShareCommission) {
+        $fromDisplay = '-';
+    } else {
+        $fromRaw = (string) ($row['from_account_code'] ?? '-');
+        $fromDisplay = domainProvisionedMemberAccountIdForDisplay(
+            $fromRaw === '-' ? '' : $fromRaw,
+            (string) ($row['from_account_role'] ?? ''),
+            array_key_exists('from_account_created_source', $row) ? (string) $row['from_account_created_source'] : null
+        );
+        if ($fromDisplay === '') {
+            $fromDisplay = ($fromRaw !== '' && $fromRaw !== '-') ? $fromRaw : '-';
+        }
+        $fromDisplay = remapPaymentMaintenanceAccountCode((string) $fromDisplay, $ownerCode, $profitCode);
+    }
     if (is_string($description) && $description !== '') {
         $ownerCodeUpper = strtoupper(trim($ownerCode));
-        // 净利润：sms 含 [DOMAIN_NET_PROFIT|QA] 时显示 PROFIT BY QA（来源公司）；否则回退 ownerCode
+        // 净利润：库内已含账户标签（如 Profit By JK[...]）保持原文；否则 sms 解析来源公司；再否则回退 ownerCode
         if (preg_match('/^\s*PROFIT\s+BY\b/i', $description)) {
-            $profitSrc = $remarkTrim !== '' ? paymentMaintenanceParseDomainSourceCodeFromSms($remarkTrim) : '';
-            if ($profitSrc !== '') {
-                $description = 'PROFIT BY ' . $profitSrc;
-            } elseif ($ownerCodeUpper !== '') {
-                $description = 'PROFIT BY ' . $ownerCodeUpper;
+            if (strpos($description, '[') !== false) {
+                // keep as stored
             } else {
-                $description = strtoupper(trim($description));
+                $profitSrc = $remarkTrim !== '' ? paymentMaintenanceParseDomainSourceCodeFromSms($remarkTrim) : '';
+                if ($profitSrc !== '') {
+                    $description = 'PROFIT BY ' . $profitSrc;
+                } elseif ($ownerCodeUpper !== '') {
+                    $description = 'PROFIT BY ' . $ownerCodeUpper;
+                } else {
+                    $description = strtoupper(trim($description));
+                }
             }
         } else {
             // 只将系统代码 C168 替换为 PROFIT；不替换 owner code，
@@ -672,12 +714,14 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
  * 查询 transactions_deleted 表
  */
 function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false, $deleted_has_source_bank_process = false) {
+    $accMeta = paymentMaintenanceAccountMetaSelectSql($schema);
     $sql = "SELECT td.transaction_id AS id,
                 DATE_FORMAT(td.transaction_date, '%d/%m/%Y') AS transaction_date,
                 td.transaction_type, td.amount, td.description, COALESCE(td.sms, '') AS remark,
                 DATE_FORMAT(td.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
                 to_acc.account_id AS account_code, to_acc.name AS account_name,
-                from_acc.account_id AS from_account_code, from_acc.name AS from_account_name,
+                from_acc.account_id AS from_account_code, from_acc.name AS from_account_name
+                $accMeta,
                 {$schema['deletedSelectCurrency']},
                 u.login_id AS created_by_login, o.owner_code AS created_by_owner,
                 1 AS is_deleted, du.login_id AS deleted_by_login, do.owner_code AS deleted_by_owner,
