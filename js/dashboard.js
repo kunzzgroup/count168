@@ -2094,10 +2094,12 @@ function isDashboardDataScopeValid() {
             );
             return groupCompanies.length > 0;
         }
-        const cur = allOwnerCompanies.find(c => parseInt(c.id) === parseInt(window.companyId));
-        if (!cur) return false;
-        return !!(cur.group_id && String(cur.group_id).trim() !== '' &&
-            cur.group_id.toUpperCase() === selectedDashboardGroup);
+        // 当前公司在 allOwnerCompanies 里可能有原生行 + 虚拟行（group_id 不同）。
+        // 只要 .some() 能找到任意一条 (id, group_id=selectedDashboardGroup) 就合法。
+        return allOwnerCompanies.some(c =>
+            parseInt(c.id) === parseInt(window.companyId) &&
+            c.group_id && c.group_id.toUpperCase() === selectedDashboardGroup
+        );
     }
 
     const cur = allOwnerCompanies.find(c => parseInt(c.id) === parseInt(window.companyId));
