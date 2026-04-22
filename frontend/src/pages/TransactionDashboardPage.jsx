@@ -649,7 +649,7 @@ export default function TransactionDashboardPage() {
                     {calendarOpen && (
                       <div
                         className="calendar-popup"
-                        style={{ top: "calc(100% + 2px)", left: 0, right: "auto", position: "absolute" }}
+                        style={{ top: "calc(100% + 2px)", left: 0, right: 0, position: "absolute", boxSizing: "border-box" }}
                       >
                         <div className="calendar-header">
                           <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
