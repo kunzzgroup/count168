@@ -649,21 +649,36 @@ export default function TransactionDashboardPage() {
                     {calendarOpen && (
                       <div
                         className="calendar-popup"
-                        style={{ top: "calc(100% + 2px)", left: 0, right: 0, position: "absolute", boxSizing: "border-box" }}
+                        style={{
+                          top: "calc(100% + 2px)",
+                          left: 0,
+                          right: 0,
+                          position: "absolute",
+                          boxSizing: "border-box",
+                          padding: "10px 12px",
+                        }}
                       >
                         <div className="calendar-header">
                           <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
                             <i className="fas fa-chevron-left" />
                           </button>
                           <div className="calendar-month-year">
-                            <select value={calendarYear} onChange={(e) => setCalendarYear(Number(e.target.value))}>
+                            <select
+                              value={calendarYear}
+                              onChange={(e) => setCalendarYear(Number(e.target.value))}
+                              style={{ fontSize: 12, padding: "4px 6px" }}
+                            >
                               {yearOptions.map((y) => (
                                 <option key={y} value={y}>
                                   {y}
                                 </option>
                               ))}
                             </select>
-                            <select value={calendarMonth} onChange={(e) => setCalendarMonth(Number(e.target.value))}>
+                            <select
+                              value={calendarMonth}
+                              onChange={(e) => setCalendarMonth(Number(e.target.value))}
+                              style={{ fontSize: 12, padding: "4px 6px" }}
+                            >
                               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                                 <option key={m} value={m}>
                                   {String(m).padStart(2, "0")}
@@ -676,13 +691,13 @@ export default function TransactionDashboardPage() {
                           </button>
                         </div>
 
-                        <div style={{ marginBottom: 8, fontWeight: 700, color: "#1f2937", textAlign: "center" }}>
+                        <div style={{ marginBottom: 8, fontWeight: 700, color: "#1f2937", textAlign: "center", fontSize: 18 }}>
                           {monthLabel(calendarYear, calendarMonth)}
                         </div>
 
                         <div className="calendar-weekdays">
                           {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
-                            <div key={w} className="calendar-weekday">
+                            <div key={w} className="calendar-weekday" style={{ fontSize: 12 }}>
                               {w}
                             </div>
                           ))}
@@ -717,6 +732,7 @@ export default function TransactionDashboardPage() {
                                   if (pendingStart) setHoverDate(null);
                                 }}
                                 onClick={() => onCalendarDayClick(cell.ymd)}
+                                style={{ fontSize: 12 }}
                               >
                                 {cell.day}
                               </button>
