@@ -660,6 +660,8 @@ export default function TransactionDashboardPage() {
                           border: "1px solid #dbe3ef",
                           background: "#ffffff",
                           boxShadow: "0 12px 30px rgba(15, 23, 42, 0.14)",
+                          maxHeight: "none",
+                          overflow: "hidden",
                         }}
                       >
                         <div style={{ width: "100%", maxWidth: 320, margin: "0 auto" }}>
@@ -794,7 +796,9 @@ export default function TransactionDashboardPage() {
                                   onClick={() => onCalendarDayClick(cell.ymd)}
                                   style={{
                                     fontSize: 12,
-                                    minHeight: 40,
+                                    height: 34,
+                                    minHeight: 34,
+                                    aspectRatio: "auto",
                                     padding: 0,
                                     borderRadius: active ? 8 : 0,
                                     border: active ? "none" : "1px solid transparent",
