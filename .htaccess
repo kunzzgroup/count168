@@ -33,6 +33,10 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
+# /admin: serve full legacy userlist page (URL stays /admin). Required because userlist.js
+# initializes on DOMContentLoaded, which does not re-fire on SPA client navigation.
+RewriteRule ^admin/?$ userlist.php [L,QSA]
+
 # SPA fallback:
 # any non-file route (e.g. /domain, /admin, /announcement) goes to index.php router.
 RewriteRule ^ index.php [L,QSA]
