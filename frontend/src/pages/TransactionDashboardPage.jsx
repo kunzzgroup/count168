@@ -655,89 +655,94 @@ export default function TransactionDashboardPage() {
                           right: 0,
                           position: "absolute",
                           boxSizing: "border-box",
-                          padding: "10px 12px",
+                          padding: "8px 10px",
                         }}
                       >
-                        <div className="calendar-header">
-                          <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
-                            <i className="fas fa-chevron-left" />
-                          </button>
-                          <div className="calendar-month-year">
-                            <select
-                              value={calendarYear}
-                              onChange={(e) => setCalendarYear(Number(e.target.value))}
-                              style={{ fontSize: 12, padding: "4px 6px" }}
-                            >
-                              {yearOptions.map((y) => (
-                                <option key={y} value={y}>
-                                  {y}
-                                </option>
-                              ))}
-                            </select>
-                            <select
-                              value={calendarMonth}
-                              onChange={(e) => setCalendarMonth(Number(e.target.value))}
-                              style={{ fontSize: 12, padding: "4px 6px" }}
-                            >
-                              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                                <option key={m} value={m}>
-                                  {String(m).padStart(2, "0")}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <button type="button" className="calendar-nav-btn" onClick={gotoNextMonth}>
-                            <i className="fas fa-chevron-right" />
-                          </button>
-                        </div>
-
-                        <div style={{ marginBottom: 8, fontWeight: 700, color: "#1f2937", textAlign: "center", fontSize: 18 }}>
-                          {monthLabel(calendarYear, calendarMonth)}
-                        </div>
-
-                        <div className="calendar-weekdays">
-                          {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
-                            <div key={w} className="calendar-weekday" style={{ fontSize: 12 }}>
-                              {w}
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="calendar-days">
-                          {calendarCells.map((cell) => {
-                            const isStart = cell.ymd === dateFrom;
-                            const isEnd = cell.ymd === dateTo;
-                            const inRange = cell.ymd >= dateFrom && cell.ymd <= dateTo;
-                            const inPreview =
-                              previewRange && cell.ymd >= previewRange.from && cell.ymd <= previewRange.to;
-                            return (
-                              <button
-                                key={cell.ymd}
-                                type="button"
-                                className={[
-                                  "calendar-day",
-                                  cell.isToday ? "today" : "",
-                                  !cell.inCurrentMonth ? "other-month" : "",
-                                  inRange ? "in-range" : "",
-                                  isStart ? "start-date" : "",
-                                  isEnd ? "end-date" : "",
-                                  inPreview ? "preview-range" : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                                onMouseEnter={() => {
-                                  if (pendingStart) setHoverDate(cell.ymd);
-                                }}
-                                onMouseLeave={() => {
-                                  if (pendingStart) setHoverDate(null);
-                                }}
-                                onClick={() => onCalendarDayClick(cell.ymd)}
-                                style={{ fontSize: 12 }}
+                        <div style={{ width: "100%", maxWidth: 360, margin: "0 auto" }}>
+                          <div className="calendar-header" style={{ marginBottom: 6 }}>
+                            <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
+                              <i className="fas fa-chevron-left" />
+                            </button>
+                            <div className="calendar-month-year">
+                              <select
+                                value={calendarYear}
+                                onChange={(e) => setCalendarYear(Number(e.target.value))}
+                                style={{ fontSize: 12, padding: "4px 6px" }}
                               >
-                                {cell.day}
-                              </button>
-                            );
-                          })}
+                                {yearOptions.map((y) => (
+                                  <option key={y} value={y}>
+                                    {y}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={calendarMonth}
+                                onChange={(e) => setCalendarMonth(Number(e.target.value))}
+                                style={{ fontSize: 12, padding: "4px 6px" }}
+                              >
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                                  <option key={m} value={m}>
+                                    {String(m).padStart(2, "0")}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <button type="button" className="calendar-nav-btn" onClick={gotoNextMonth}>
+                              <i className="fas fa-chevron-right" />
+                            </button>
+                          </div>
+
+                          <div style={{ marginBottom: 6, fontWeight: 700, color: "#1f2937", textAlign: "center", fontSize: 14 }}>
+                            {monthLabel(calendarYear, calendarMonth)}
+                          </div>
+
+                          <div
+                            className="calendar-weekdays"
+                            style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 2 }}
+                          >
+                            {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
+                              <div key={w} className="calendar-weekday" style={{ fontSize: 11, padding: "2px 0" }}>
+                                {w}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="calendar-days" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0 }}>
+                            {calendarCells.map((cell) => {
+                              const isStart = cell.ymd === dateFrom;
+                              const isEnd = cell.ymd === dateTo;
+                              const inRange = cell.ymd >= dateFrom && cell.ymd <= dateTo;
+                              const inPreview =
+                                previewRange && cell.ymd >= previewRange.from && cell.ymd <= previewRange.to;
+                              return (
+                                <button
+                                  key={cell.ymd}
+                                  type="button"
+                                  className={[
+                                    "calendar-day",
+                                    cell.isToday ? "today" : "",
+                                    !cell.inCurrentMonth ? "other-month" : "",
+                                    inRange ? "in-range" : "",
+                                    isStart ? "start-date" : "",
+                                    isEnd ? "end-date" : "",
+                                    inPreview ? "preview-range" : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                  onMouseEnter={() => {
+                                    if (pendingStart) setHoverDate(cell.ymd);
+                                  }}
+                                  onMouseLeave={() => {
+                                    if (pendingStart) setHoverDate(null);
+                                  }}
+                                  onClick={() => onCalendarDayClick(cell.ymd)}
+                                  style={{ fontSize: 11, minHeight: 28, padding: 0 }}
+                                >
+                                  {cell.day}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     )}
