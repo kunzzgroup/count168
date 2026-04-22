@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 const LEGACY_MODAL_HTML = `
 <div id="domainFeeSettingsModal" class="modal" style="z-index: 10004;">
@@ -208,18 +208,19 @@ export default function DomainPage() {
       if (typeof window.initializeCompanyClickHandlers === "function") window.initializeCompanyClickHandlers();
     };
     const existing = document.getElementById(scriptId);
-    if (existing) {
-      initLegacy();
-      return;
-    }
+    if (existing?.parentNode) existing.parentNode.removeChild(existing);
     const s = document.createElement("script");
     s.id = scriptId;
-    s.src = "/js/domain.js";
+    s.src = assetUrl("js/domain.js");
     s.onload = () => {
       document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
       initLegacy();
     };
     document.body.appendChild(s);
+    return () => {
+      const el = document.getElementById(scriptId);
+      if (el?.parentNode) el.parentNode.removeChild(el);
+    };
   }, [ready, domains]);
 
   return (

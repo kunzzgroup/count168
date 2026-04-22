@@ -81,10 +81,8 @@ export default function UserListPage() {
 
     const ensureUserlistScript = () => {
       const existing = document.getElementById(userlistId);
-      if (existing) {
-        setScriptsReady(true);
-        return;
-      }
+      if (existing?.parentNode) existing.parentNode.removeChild(existing);
+
       if (!document.getElementById("legacy-userlist-pre-js")) {
         const pre = document.createElement("script");
         pre.id = "legacy-userlist-pre-js";
