@@ -118,14 +118,20 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
         //      e.g. JK-Admin invited JK-Owner (AA) into IG at 2% → a row
         //           (group_id='IG', owner_type='owner', account_id=JK-Owner, partner_group_id='AA', percentage=2)
         //      From JK-Owner's viewpoint, IG-companies should surface under AA × 2%.
+        // Links are tagged with `is_external_partner` so downstream can decide whether
+        // the source group should be hidden entirely (external case) or kept visible
+        // (self-group case — the viewer still needs the source group to exist).
         $params = array_merge($viewerOwnerIds, $viewerOwnerIds);
         $stmtLinks = $pdo->prepare("
-            SELECT source_group, target_group, MAX(link_percentage) as link_percentage
+            SELECT source_group, target_group,
+                   MAX(link_percentage) as link_percentage,
+                   MAX(is_external_partner) as is_external_partner
             FROM (
                 SELECT
                     UPPER(TRIM(group_id))           COLLATE utf8mb4_unicode_ci as source_group,
                     UPPER(TRIM(partner_group_id))   COLLATE utf8mb4_unicode_ci as target_group,
-                    percentage as link_percentage
+                    percentage as link_percentage,
+                    0 as is_external_partner
                 FROM group_ownership
                 WHERE owner_type = 'group'
                   AND percentage > 0
@@ -138,7 +144,8 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
                 SELECT
                     UPPER(TRIM(group_id))           COLLATE utf8mb4_unicode_ci as source_group,
                     UPPER(TRIM(partner_group_id))   COLLATE utf8mb4_unicode_ci as target_group,
-                    percentage as link_percentage
+                    percentage as link_percentage,
+                    1 as is_external_partner
                 FROM group_ownership
                 WHERE owner_type = 'owner'
                   AND percentage > 0
@@ -151,6 +158,17 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
         $stmtLinks->execute($params);
         $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
         if (empty($links)) return $rows;
+
+        // For external-owner links, the viewer only has access to the source group
+        // through the partner link — they shouldn't see the source group as a separate
+        // tab in their dashboard. Collect these source groups so we can strip any
+        // non-native rows matching them.
+        $hideSourceGroups = [];
+        foreach ($links as $ln) {
+            if ((int) $ln['is_external_partner'] === 1) {
+                $hideSourceGroups[$ln['source_group']] = true;
+            }
+        }
 
         // flowsTo[source_group][target_group] = link_percentage (float)
         $flowsTo = [];
@@ -193,6 +211,19 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
                 $virtual['link_percentage']   = $pct;
                 $extra[] = $virtual;
             }
+        }
+
+        // Strip rows whose group_id is an external-owner partner's source group —
+        // those companies should appear only under the partner's own group (target).
+        // Keep native rows (is_external=0) so the viewer doesn't accidentally lose
+        // access to their own companies in the unlikely case of group-name collision.
+        if (!empty($hideSourceGroups)) {
+            $rows = array_values(array_filter($rows, function ($r) use ($hideSourceGroups) {
+                $g = strtoupper(trim((string) ($r['group_id'] ?? '')));
+                if ($g === '' || !isset($hideSourceGroups[$g])) return true;
+                if (isset($r['is_external']) && (int) $r['is_external'] === 0) return true;
+                return false;
+            }));
         }
 
         return empty($extra) ? $rows : array_merge($rows, $extra);
