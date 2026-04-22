@@ -597,6 +597,7 @@ let currentEditingCompanyId = null;
 let companySnapshotWhenModalOpened = null;
 // Company Settings → Share %：下拉账户列表（来自 API）
 let shareModalAccounts = [];
+let shareModalAccountsProfit = [];
 let domainAddAccountEditData = { roles: [], currencies: [] };
 let domainAddSelectedCurrencyIds = [];
 let domainAddSelectedCompanyIds = [];
@@ -658,14 +659,22 @@ function escapeHtmlShare(str) {
         .replace(/"/g, '&quot;');
 }
 
-function buildShareAccountOptionsHtml(selectedId) {
+function buildShareAccountOptionsHtml(selectedId, accountList) {
+    var accounts = Array.isArray(accountList) ? accountList : shareModalAccounts;
     var sel = selectedId !== undefined && selectedId !== null && selectedId !== '' ? String(selectedId) : '';
     var h = '<option value="">— Select —</option>';
-    shareModalAccounts.forEach(function (a) {
+    var seenSelected = false;
+    accounts.forEach(function (a) {
         var id = String(a.id);
         var label = (a.account_id || '');
+        if (id === sel) {
+            seenSelected = true;
+        }
         h += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + escapeHtmlShare(label) + '</option>';
     });
+    if (sel && !seenSelected) {
+        h += '<option value="' + escapeHtmlShare(sel) + '" selected>' + escapeHtmlShare('(unknown account)') + '</option>';
+    }
     return h;
 }
 
@@ -1322,7 +1331,7 @@ function renderCompanySharePanel() {
                 tr.innerHTML = '<div class="company-share-cell company-share-cell-account">' +
                     '<div class="company-share-account-inline">' +
                     '<select class="share-account-select company-share-select" aria-label="Account">' +
-                    buildShareAccountOptionsHtml(row.account_id) +
+                    buildShareAccountOptionsHtml(row.account_id, shareModalAccountsProfit) +
                     '</select>' +
                     '<button type="button" class="company-share-account-plus-btn" data-share-add-role="' + role + '" title="Add New Account" aria-label="Add New Account">+</button>' +
                     '</div></div>' +
@@ -1336,7 +1345,7 @@ function renderCompanySharePanel() {
                 tr.innerHTML = '<div class="company-share-cell company-share-cell-account">' +
                     '<div class="company-share-account-inline">' +
                     '<select class="share-account-select company-share-select" aria-label="Account">' +
-                    buildShareAccountOptionsHtml(row.account_id) +
+                    buildShareAccountOptionsHtml(row.account_id, shareModalAccounts) +
                     '</select>' +
                     '<button type="button" class="company-share-account-plus-btn" data-share-add-role="' + role + '" title="Add New Account" aria-label="Add New Account">+</button>' +
                     '</div></div>' +
@@ -1371,7 +1380,7 @@ function renderCompanySharePanel() {
     });
     var hint = document.getElementById('companyShareNoAccountsHint');
     if (hint) {
-        hint.style.display = shareModalAccounts.length ? 'none' : 'block';
+        hint.style.display = (shareModalAccounts.length || shareModalAccountsProfit.length) ? 'none' : 'block';
     }
     updateCompanyShareTotals();
 }
@@ -1432,6 +1441,11 @@ function loadCompanyShareDataForModal(companyCode) {
             } else {
                 shareModalAccounts = [];
             }
+            if (res.success && res.data && Array.isArray(res.data.accounts_profit)) {
+                shareModalAccountsProfit = res.data.accounts_profit;
+            } else {
+                shareModalAccountsProfit = [];
+            }
             var company = tempCompanies.find(function (c) { return c.company_id === companyCode; });
             if (company && res.success && res.data && res.data.company_exists && isFeeShareAllocationsEmpty(company.fee_share_allocations)) {
                 company.fee_share_allocations = normalizeFeeShareFromServer(res.data.allocations);
@@ -1440,6 +1454,7 @@ function loadCompanyShareDataForModal(companyCode) {
         })
         .catch(function () {
             shareModalAccounts = [];
+            shareModalAccountsProfit = [];
             renderCompanySharePanel();
         });
 }
