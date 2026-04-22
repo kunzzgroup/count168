@@ -81,6 +81,7 @@ let accounts = [];
 let currentPage = 1;
 let showInactive = window.ACCOUNT_LIST_SHOW_INACTIVE;
 let showAll = window.ACCOUNT_LIST_SHOW_ALL;
+let isSwitchingCompany = false;
 
 // 鎺掑簭鐘舵€?
 let sortColumn = 'account'; // 'account' 鎴?'role'
@@ -109,11 +110,12 @@ async function fetchAccounts() {
             url.searchParams.set('showAll', '1');
         }
 
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: 'include' });
         const result = await response.json();
 
         if (result.success) {
             accounts = result.data && result.data.accounts ? result.data.accounts : (result.data || []);
+            syncAccountListUrlState();
             // 搴旂敤褰撳墠鎺掑簭
             applySorting();
             currentPage = 1;
@@ -127,6 +129,37 @@ async function fetchAccounts() {
     } catch (error) {
         console.error('Network error:', error);
         showNotification('Network connection failed', 'danger');
+    }
+}
+
+function syncAccountListUrlState() {
+    try {
+        const url = new URL(window.location.href);
+        const companyId = window.ACCOUNT_LIST_COMPANY_ID;
+        const searchInput = document.getElementById('searchInput');
+        const searchTerm = searchInput ? String(searchInput.value || '').trim() : '';
+
+        if (companyId !== null && companyId !== undefined && companyId !== '') {
+            url.searchParams.set('company_id', String(companyId));
+        } else {
+            url.searchParams.delete('company_id');
+        }
+
+        if (searchTerm) {
+            url.searchParams.set('search', searchTerm);
+        } else {
+            url.searchParams.delete('search');
+        }
+
+        if (showInactive) url.searchParams.set('showInactive', '1');
+        else url.searchParams.delete('showInactive');
+
+        if (showAll) url.searchParams.set('showAll', '1');
+        else url.searchParams.delete('showAll');
+
+        window.history.replaceState({}, document.title, url.toString());
+    } catch (e) {
+        console.warn('Failed to sync account list URL state:', e);
     }
 }
 
@@ -2124,13 +2157,29 @@ function getDaySuffix(day) {
 
 // 鍒囨崲 Company锛堝埛鏂伴〉闈互鍔犺浇鏂?company 鐨勮处鎴峰垪琛級
 async function switchAccountListCompany(companyId, companyCode) {
-    if (!companyId) {
+    if (!companyId || isSwitchingCompany) {
         console.error('switchAccountListCompany: missing companyId', { companyId, companyCode })
         return
     }
+    const parsedCompanyId = parseInt(companyId, 10);
+    if (!Number.isFinite(parsedCompanyId)) return;
+    if (parseInt(window.ACCOUNT_LIST_COMPANY_ID, 10) === parsedCompanyId) return;
+
+    isSwitchingCompany = true;
+    const tableBody = document.getElementById('accountTableBody');
+    if (tableBody) {
+        tableBody.innerHTML = `
+            <div class="account-card">
+                <div class="account-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
+                    Loading...
+                </div>
+            </div>
+        `;
+    }
+
     // 鍏堟洿鏂?session
     try {
-        const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+        const response = await fetch(`api/session/update_company_session_api.php?company_id=${parsedCompanyId}`, { credentials: 'include' });
         const result = await response.json();
         if (!result.success) {
             const blocked = (typeof window.handleCompanySwitchDenied === 'function')
@@ -2140,15 +2189,22 @@ async function switchAccountListCompany(companyId, companyCode) {
             console.error('Failed to update session:', result.message);
             // 非到期/未设置类错误：保持原行为
         }
+        window.ACCOUNT_LIST_COMPANY_ID = parsedCompanyId;
+        window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD = [parsedCompanyId];
+        currentPage = 1;
+
+        document.querySelectorAll('.shared-company-btn').forEach((btn) => {
+            btn.classList.toggle('active', String(btn.getAttribute('data-company-id')) === String(parsedCompanyId));
+        });
+
+        await fetchAccounts();
+        showNotification(`Switched to ${companyCode || 'company'}`, 'success');
     } catch (error) {
         console.error('Error updating session:', error);
-        // 鍗充娇 API 澶辫触锛屼篃缁х画鍒锋柊椤甸潰锛圥HP 绔細澶勭悊锛?
+        showNotification('Failed to switch company', 'danger');
+    } finally {
+        isSwitchingCompany = false;
     }
-
-    // 浣跨敤 URL 鍙傛暟浼犻€?company_id锛岀劧鍚庡埛鏂伴〉闈?
-    const url = new URL(window.location.href);
-    url.searchParams.set('company_id', companyId);
-    window.location.href = url.toString();
 }
 
 // 椤甸潰鍔犺浇鏃惰幏鍙栨暟鎹?
