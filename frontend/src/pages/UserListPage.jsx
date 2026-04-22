@@ -172,7 +172,7 @@ export default function UserListPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get" }),
+        body: JSON.stringify({ action: "get", company_id: Number(companyId) }),
       });
       const json = await res.json();
       if (!res.ok || !json?.success) {
@@ -290,7 +290,7 @@ export default function UserListPage() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get", id: u.id }),
+      body: JSON.stringify({ action: "get", id: u.id, company_id: Number(companyId) }),
     });
     const json = await res.json();
     if (!json.success || !json.data) return notify(json.message || "Failed to load user", "danger");
