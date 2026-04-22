@@ -379,7 +379,6 @@ function searchApiAppendDomainListFeeVirtualRows(
 
     $st = $pdo->prepare($sql);
     $st->execute($par);
-    $fromFeeAdjust = [];
     while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
         $src = searchApiParseDomainListFeeCompanyCode((string) ($row['sms'] ?? ''));
         if ($src === null || $src === '') {
@@ -401,12 +400,27 @@ function searchApiAppendDomainListFeeVirtualRows(
         if (abs($amt) < 0.00001)
             continue;
 
-        $fromAid = (int) ($row['from_account_id'] ?? 0);
-        if ($fromAid > 0) {
-            if (!isset($fromFeeAdjust[$fromAid])) {
-                $fromFeeAdjust[$fromAid] = [];
+        $realAccountId = 0;
+        try {
+            $sta = $pdo->prepare("
+                SELECT a.id
+                FROM account a
+                INNER JOIN account_company ac ON ac.account_id = a.id
+                WHERE ac.company_id = ?
+                  AND UPPER(TRIM(a.account_id)) = ?
+                LIMIT 1
+            ");
+            $sta->execute([$company_id, strtoupper($src)]);
+            $realAccountId = (int) ($sta->fetchColumn() ?: 0);
+        } catch (PDOException $e) {
+        }
+
+        if ($realAccountId > 0) {
+            $realKey = $realAccountId . '_' . $cur;
+            if (isset($seen[$realKey])) {
+                // Already shown by real account row; avoid duplicate virtual QA row.
+                continue;
             }
-            $fromFeeAdjust[$fromAid][$cur] = ($fromFeeAdjust[$fromAid][$cur] ?? 0.0) + $amt;
         }
 
         $rowAccountId = -4000000 - (int) ($row['id'] ?? 0);
@@ -453,21 +467,6 @@ function searchApiAppendDomainListFeeVirtualRows(
         ];
     }
 
-    foreach ($fromFeeAdjust as $payerAccId => $curMap) {
-        foreach ($results as &$resRow) {
-            if ((int) ($resRow['account_db_id'] ?? 0) !== (int) $payerAccId) {
-                continue;
-            }
-            $resCur = strtoupper((string) ($resRow['currency'] ?? ''));
-            if ($resCur === '' || !isset($curMap[$resCur])) {
-                continue;
-            }
-            $delta = (float) $curMap[$resCur];
-            $resRow['cr_dr'] = trunc2((float) $resRow['cr_dr'] + $delta);
-            $resRow['balance'] = trunc2((float) $resRow['balance'] + $delta);
-        }
-        unset($resRow);
-    }
 }
 
 /** 当前查询公司在库中的 owner_code（用于标注「入账 C168」等） */
@@ -1567,7 +1566,7 @@ try {
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0 
                     END
@@ -1579,7 +1578,7 @@ try {
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0 
                     END
@@ -2244,7 +2243,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
                         -- Domain Share Commission：收款方显示正数
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
-                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
@@ -2284,7 +2283,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
-                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
@@ -2626,7 +2625,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         -- Domain Share Commission：收款方显示正数
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
 
                         -- 作为 From Account（支付 / 收到）；CONTRA 时 FROM 显示正数
@@ -2673,7 +2672,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
-                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr,
