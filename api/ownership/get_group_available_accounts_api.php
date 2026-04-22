@@ -124,7 +124,14 @@ try {
     // 6. Self-group links: current owner's OTHER groups (for pooling e.g. AP into IG).
     //    Also include any group-type rows already persisted for this group so their
     //    dropdown option stays available even if the source group was since removed.
-    $currentOwnerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    $sessionRole = strtolower($_SESSION['role'] ?? '');
+    if ($sessionRole === 'owner') {
+        $currentOwnerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    } else {
+        $stmtOwn = $pdo->prepare("SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1");
+        $stmtOwn->execute([$group_id]);
+        $currentOwnerId = (int) $stmtOwn->fetchColumn();
+    }
     if ($currentOwnerId > 0) {
         $stmtMyGroups = $pdo->prepare("
             SELECT DISTINCT UPPER(TRIM(c.group_id)) as gid

@@ -67,7 +67,19 @@ try {
     try { $pdo->exec("ALTER TABLE group_ownership MODIFY COLUMN owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner'"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE group_ownership DROP INDEX uq_group_account"); } catch (Exception $e) {}
 
-    $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    // Resolve effective owner id (admin sessions carry user.id, not owner.id)
+    $sessionRole = strtolower($_SESSION['role'] ?? '');
+    if ($sessionRole === 'owner') {
+        $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    } else {
+        $stmtOwn = $pdo->prepare("SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1");
+        $stmtOwn->execute([$group_id]);
+        $owner_id = (int) $stmtOwn->fetchColumn();
+    }
+    if ($owner_id <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Cannot determine the owner of this group']);
+        exit();
+    }
 
     $pdo->beginTransaction();
 

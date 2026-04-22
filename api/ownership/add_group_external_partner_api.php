@@ -53,7 +53,22 @@ try { $pdo->exec("ALTER TABLE group_ownership MODIFY COLUMN owner_type ENUM('own
 try { $pdo->exec("ALTER TABLE group_ownership DROP INDEX uq_group_account"); } catch (Exception $e) {}
 
 try {
-    $currentOwnerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    // Resolve the EFFECTIVE owner id for this group:
+    //   - owner-role session → use their own owner id from session
+    //   - admin/other session → derive from the target group's native company.owner_id
+    //     (admin's $_SESSION['user_id'] points at user table, not owner table)
+    $sessionRole = strtolower($_SESSION['role'] ?? '');
+    if ($sessionRole === 'owner') {
+        $currentOwnerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    } else {
+        $stmtOwn = $pdo->prepare("SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1");
+        $stmtOwn->execute([$group_id]);
+        $currentOwnerId = (int) $stmtOwn->fetchColumn();
+    }
+    if ($currentOwnerId <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Cannot determine the owner of this group']);
+        exit();
+    }
     $hasCompanyOwnership = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
 
     // 1. Check for Login ID (owner_code) match — login-id path still requires a different owner
