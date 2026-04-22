@@ -118,6 +118,12 @@ export default function ProcessListPage() {
     return () => window.clearTimeout(timer);
   }, [loading, companyId, search, showInactive, showAll]);
 
+  useEffect(() => {
+    if (showAll) document.body.classList.add("process-page--show-all");
+    else document.body.classList.remove("process-page--show-all");
+    return () => document.body.classList.remove("process-page--show-all");
+  }, [showAll]);
+
   const syncUrl = () => {
     const url = new URL(window.location.href);
     if (companyId) url.searchParams.set("company_id", String(companyId));
@@ -173,7 +179,7 @@ export default function ProcessListPage() {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows]);
   const pageRows = useMemo(() => {
-    if (showAll) return rows;
+    if (showAll) return rows.filter((r) => String(r.status || "").toLowerCase() === "active");
     const page = Math.min(currentPage, totalPages);
     const start = (page - 1) * PAGE_SIZE;
     return rows.slice(start, start + PAGE_SIZE);
@@ -434,10 +440,14 @@ export default function ProcessListPage() {
             <div className="header-item">Day Use</div>
             <div className="header-item">Action</div>
           </div>
-          <div className="process-cards" id="processTableBody">
+          <div
+            className="process-cards"
+            id="processTableBody"
+            style={showAll ? { maxHeight: "none", overflowY: "visible" } : undefined}
+          >
             {tableLoading && <div className="process-card"><div className="card-item">Loading...</div></div>}
             {!tableLoading && pageRows.map((row, idx) => (
-              <div className="process-card" key={row.id}>
+              <div className="process-card" key={row.id} style={showAll ? { flex: "0 0 auto" } : undefined}>
                 <div className="card-item">{(showAll ? idx : (currentPage - 1) * PAGE_SIZE + idx) + 1}</div>
                 <div className="card-item">{row.process_name}</div>
                 <div className="card-item">{row.description || "-"}</div>
