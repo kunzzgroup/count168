@@ -376,7 +376,7 @@ export default function ProcessListPage() {
 
   return (
     <div className="container">
-      <div className="content">
+      <div className="content" style={showAll ? { height: "auto", overflow: "visible" } : undefined}>
         <h1 className="page-title">Process List</h1>
         <div className="action-buttons-container">
           <div className="action-buttons">
@@ -430,7 +430,7 @@ export default function ProcessListPage() {
           </div>
         </div>
 
-        <div className="process-table-wrapper" id="processTableWrapper">
+        <div className="process-table-wrapper" id="processTableWrapper" style={showAll ? { overflow: "visible" } : undefined}>
           <div className="table-header" id="tableHeader">
             <div className="header-item">No</div>
             <div className="header-item">Process ID</div>
@@ -443,11 +443,15 @@ export default function ProcessListPage() {
           <div
             className="process-cards"
             id="processTableBody"
-            style={showAll ? { maxHeight: "none", overflowY: "visible" } : undefined}
+            style={showAll ? { maxHeight: "none", overflowY: "visible", overflowX: "visible", display: "block" } : undefined}
           >
             {tableLoading && <div className="process-card"><div className="card-item">Loading...</div></div>}
             {!tableLoading && pageRows.map((row, idx) => (
-              <div className="process-card" key={row.id} style={showAll ? { flex: "0 0 auto" } : undefined}>
+              <div
+                className="process-card"
+                key={row.id}
+                style={showAll ? { flex: "none", minHeight: 26, alignItems: "center" } : undefined}
+              >
                 <div className="card-item">{(showAll ? idx : (currentPage - 1) * PAGE_SIZE + idx) + 1}</div>
                 <div className="card-item">{row.process_name}</div>
                 <div className="card-item">{row.description || "-"}</div>
