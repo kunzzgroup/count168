@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Area,
@@ -112,6 +112,36 @@ function quickRangeToDates(range) {
   return { startDate: formatYmd(startDate), endDate: formatYmd(endDate) };
 }
 
+function monthLabel(year, month) {
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function buildCalendarCells(year, month) {
+  const firstDay = new Date(year, month - 1, 1);
+  const offset = firstDay.getDay();
+  const start = new Date(firstDay);
+  start.setDate(firstDay.getDate() - offset);
+  const cells = [];
+  for (let i = 0; i < 42; i += 1) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    cells.push({
+      ymd: formatYmd(d),
+      day: d.getDate(),
+      inCurrentMonth: d.getMonth() === month - 1,
+      isToday: formatYmd(d) === formatYmd(new Date()),
+    });
+  }
+  return cells;
+}
+
+function normalizeRange(from, to) {
+  return from <= to ? [from, to] : [to, from];
+}
+
 
 function buildChartRows(data, startYmd, endYmd) {
   if (!data?.daily_data) return [];
@@ -157,6 +187,9 @@ export default function TransactionDashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [pendingStart, setPendingStart] = useState(null);
+  const [hoverDate, setHoverDate] = useState(null);
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
 
   const today = new Date();
@@ -165,8 +198,9 @@ export default function TransactionDashboardPage() {
   const defaultEnd = formatYmd(today);
   const [dateFrom, setDateFrom] = useState(defaultStart);
   const [dateTo, setDateTo] = useState(defaultEnd);
-  const [pickYear, setPickYear] = useState(today.getFullYear());
-  const [pickMonth, setPickMonth] = useState(today.getMonth() + 1);
+  const [calendarYear, setCalendarYear] = useState(today.getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
+  const barRef = useRef(null);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -175,6 +209,19 @@ export default function TransactionDashboardPage() {
       document.body.classList.remove("dashboard-page");
       document.body.classList.add("bg");
     };
+  }, []);
+
+  useEffect(() => {
+    const onOutside = (event) => {
+      if (barRef.current && !barRef.current.contains(event.target)) {
+        setQuickOpen(false);
+        setCalendarOpen(false);
+        setPendingStart(null);
+        setHoverDate(null);
+      }
+    };
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
   }, []);
 
   const bootstrap = useCallback(async () => {
@@ -418,12 +465,77 @@ export default function TransactionDashboardPage() {
     }
   };
 
-  const applyMonthPick = () => {
-    const first = new Date(pickYear, pickMonth - 1, 1);
-    const lastDay = new Date(pickYear, pickMonth, 0);
-    const endCap = today < lastDay ? today : lastDay;
-    setDateFrom(formatYmd(first));
-    setDateTo(formatYmd(endCap));
+  const setPeriodRange = (periodKey) => {
+    const r = quickRangeToDates(periodKey);
+    if (!r) return;
+    setDateFrom(r.startDate);
+    setDateTo(r.endDate);
+    const d = parseYmd(r.startDate);
+    setCalendarYear(d.getFullYear());
+    setCalendarMonth(d.getMonth() + 1);
+  };
+
+  const onCalendarDayClick = (ymd) => {
+    if (!pendingStart) {
+      setPendingStart(ymd);
+      setDateFrom(ymd);
+      setDateTo(ymd);
+      return;
+    }
+    const [from, to] = normalizeRange(pendingStart, ymd);
+    setDateFrom(from);
+    setDateTo(to);
+    setPendingStart(null);
+    setHoverDate(null);
+    setCalendarOpen(false);
+  };
+
+  const previewRange = useMemo(() => {
+    if (!pendingStart || !hoverDate) return null;
+    const [from, to] = normalizeRange(pendingStart, hoverDate);
+    return { from, to };
+  }, [pendingStart, hoverDate]);
+
+  const calendarCells = useMemo(
+    () => buildCalendarCells(calendarYear, calendarMonth),
+    [calendarYear, calendarMonth]
+  );
+
+  const periodLabel = useMemo(() => {
+    const options = {
+      today: "Today",
+      yesterday: "Yesterday",
+      thisWeek: "This Week",
+      lastWeek: "Last Week",
+      thisMonth: "This Month",
+      lastMonth: "Last Month",
+      thisYear: "This Year",
+      lastYear: "Last Year",
+    };
+    return options;
+  }, []);
+
+  const yearOptions = useMemo(() => {
+    const nowY = new Date().getFullYear();
+    return Array.from({ length: nowY - 2021 + 5 }, (_, i) => 2022 + i);
+  }, []);
+
+  const gotoPrevMonth = () => {
+    if (calendarMonth === 1) {
+      setCalendarMonth(12);
+      setCalendarYear((y) => y - 1);
+      return;
+    }
+    setCalendarMonth((m) => m - 1);
+  };
+
+  const gotoNextMonth = () => {
+    if (calendarMonth === 12) {
+      setCalendarMonth(1);
+      setCalendarYear((y) => y + 1);
+      return;
+    }
+    setCalendarMonth((m) => m + 1);
   };
 
   return (
@@ -442,109 +554,63 @@ export default function TransactionDashboardPage() {
             <div className="dashboard-card dashboard-card--filters">
               <div className="dashboard-card-body">
                 <div className="dashboard-date-controls">
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label className="form-label" style={{ margin: 0 }}>
-                      Date Range
-                    </label>
-                    <div className="date-range-picker" style={{ cursor: "default" }}>
+                  <div
+                    ref={barRef}
+                    style={{
+                      width: "100%",
+                      display: "grid",
+                      gridTemplateColumns: "auto 1fr auto",
+                      alignItems: "center",
+                      gap: 10,
+                      border: "1px solid #d1d5db",
+                      borderRadius: 10,
+                      padding: "8px 10px",
+                      position: "relative",
+                      background: "#fff",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: 8 }}
+                      onClick={() => {
+                        setCalendarOpen((v) => !v);
+                        setQuickOpen(false);
+                        setPendingStart(null);
+                        setHoverDate(null);
+                      }}
+                    >
                       <i className="fas fa-calendar-alt" />
-                      <span id="date-range-display">
-                        {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                      <input
-                        type="date"
-                        className="form-control"
-                        style={{ borderRadius: 8, border: "1px solid #e2e8f0", padding: 6 }}
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                      />
-                      <input
-                        type="date"
-                        className="form-control"
-                        style={{ borderRadius: 8, border: "1px solid #e2e8f0", padding: 6 }}
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                      />
-                    </div>
-                  </div>
+                    </button>
 
-                  <div className="divider" />
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label className="form-label" style={{ margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                      <i className="fas fa-calendar" style={{ color: "#3b82f6" }} />
-                      Select Year & Month
-                    </label>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <select
-                        className="form-control"
-                        style={{ borderRadius: 8, padding: 8, minWidth: 100 }}
-                        value={pickYear}
-                        onChange={(e) => setPickYear(Number(e.target.value))}
-                      >
-                        {Array.from({ length: new Date().getFullYear() - 2021 + 2 }, (_, i) => 2022 + i).map((y) => (
-                          <option key={y} value={y}>
-                            {y}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        className="form-control"
-                        style={{ borderRadius: 8, padding: 8, minWidth: 90 }}
-                        value={pickMonth}
-                        onChange={(e) => setPickMonth(Number(e.target.value))}
-                      >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                          <option key={m} value={m}>
-                            {String(m).padStart(2, "0")}
-                          </option>
-                        ))}
-                      </select>
-                      <button type="button" className="btn btn-secondary" onClick={applyMonthPick}>
-                        Apply
-                      </button>
+                    <div style={{ textAlign: "center", fontWeight: 600, color: "#1f2937" }}>
+                      {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
                     </div>
-                  </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label className="form-label" style={{ margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                      <i className="fas fa-clock" style={{ color: "#3b82f6" }} />
-                      Quick Select
-                    </label>
-                    <div className="dropdown">
+                    <div className="dropdown" style={{ width: 170 }}>
                       <button
                         type="button"
                         className="btn btn-secondary dropdown-toggle"
-                        onClick={() => setQuickOpen((o) => !o)}
+                        onClick={() => {
+                          setQuickOpen((o) => !o);
+                          setCalendarOpen(false);
+                          setPendingStart(null);
+                          setHoverDate(null);
+                        }}
                       >
-                        <i className="fas fa-calendar-alt" />
+                        <i className="fas fa-clock" />
                         <span id="quick-select-text">Period</span>
                         <i className="fas fa-chevron-down" />
                       </button>
                       {quickOpen && (
                         <div className="dropdown-menu" style={{ display: "block" }} id="quick-select-dropdown">
-                          {[
-                            ["today", "Today"],
-                            ["yesterday", "Yesterday"],
-                            ["thisWeek", "This Week"],
-                            ["lastWeek", "Last Week"],
-                            ["thisMonth", "This Month"],
-                            ["lastMonth", "Last Month"],
-                            ["thisYear", "This Year"],
-                            ["lastYear", "Last Year"],
-                          ].map(([key, label]) => (
+                          {Object.entries(periodLabel).map(([key, label]) => (
                             <button
                               key={key}
                               type="button"
                               className="dropdown-item"
                               onClick={() => {
-                                const r = quickRangeToDates(key);
-                                if (r) {
-                                  setDateFrom(r.startDate);
-                                  setDateTo(r.endDate);
-                                }
+                                setPeriodRange(key);
                                 setQuickOpen(false);
                               }}
                             >
@@ -554,6 +620,83 @@ export default function TransactionDashboardPage() {
                         </div>
                       )}
                     </div>
+
+                    {calendarOpen && (
+                      <div className="calendar-popup" style={{ top: "calc(100% + 8px)", left: 0, position: "absolute" }}>
+                        <div className="calendar-header">
+                          <button type="button" className="calendar-nav-btn" onClick={gotoPrevMonth}>
+                            <i className="fas fa-chevron-left" />
+                          </button>
+                          <div className="calendar-month-year">
+                            <select value={calendarYear} onChange={(e) => setCalendarYear(Number(e.target.value))}>
+                              {yearOptions.map((y) => (
+                                <option key={y} value={y}>
+                                  {y}
+                                </option>
+                              ))}
+                            </select>
+                            <select value={calendarMonth} onChange={(e) => setCalendarMonth(Number(e.target.value))}>
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                                <option key={m} value={m}>
+                                  {String(m).padStart(2, "0")}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button type="button" className="calendar-nav-btn" onClick={gotoNextMonth}>
+                            <i className="fas fa-chevron-right" />
+                          </button>
+                        </div>
+
+                        <div style={{ marginBottom: 8, fontWeight: 700, color: "#1f2937", textAlign: "center" }}>
+                          {monthLabel(calendarYear, calendarMonth)}
+                        </div>
+
+                        <div className="calendar-weekdays">
+                          {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
+                            <div key={w} className="calendar-weekday">
+                              {w}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="calendar-days">
+                          {calendarCells.map((cell) => {
+                            const isStart = cell.ymd === dateFrom;
+                            const isEnd = cell.ymd === dateTo;
+                            const inRange = cell.ymd >= dateFrom && cell.ymd <= dateTo;
+                            const inPreview =
+                              previewRange && cell.ymd >= previewRange.from && cell.ymd <= previewRange.to;
+                            return (
+                              <button
+                                key={cell.ymd}
+                                type="button"
+                                className={[
+                                  "calendar-day",
+                                  cell.isToday ? "today" : "",
+                                  !cell.inCurrentMonth ? "other-month" : "",
+                                  inRange ? "in-range" : "",
+                                  isStart ? "start-date" : "",
+                                  isEnd ? "end-date" : "",
+                                  inPreview ? "preview-range" : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                                onMouseEnter={() => {
+                                  if (pendingStart) setHoverDate(cell.ymd);
+                                }}
+                                onMouseLeave={() => {
+                                  if (pendingStart) setHoverDate(null);
+                                }}
+                                onClick={() => onCalendarDayClick(cell.ymd)}
+                              >
+                                {cell.day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
