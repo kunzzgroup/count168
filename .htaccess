@@ -31,6 +31,7 @@ RewriteEngine On
 # Canonical no-extension links for Process List.
 RewriteRule ^processlist\.php$ /process-list [R=301,L]
 RewriteRule ^games_process_list\.php$ /process-list [R=301,L]
+RewriteRule ^bank_process_list\.php$ /bank-process-list [R=301,L]
 
 # Canonical SPA entry URLs handled by PHP router (index.php).
 RewriteRule ^login/?$ index.php [L,QSA]
@@ -41,5 +42,6 @@ RewriteRule ^account-list/?$ index.php [L,QSA]
 RewriteRule ^add-account/?$ index.php [L,QSA]
 RewriteRule ^process-list/?$ index.php [L,QSA]
 RewriteRule ^games-process-list/?$ index.php [L,QSA]
+RewriteRule ^bank-process-list/?$ index.php [L,QSA]
 </IfModule>
 

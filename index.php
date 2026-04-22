@@ -7,7 +7,7 @@ session_start();
 require_once __DIR__ . '/config.php';
 
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-$spaPaths = ['/login', '/dashboard', '/domain', '/announcement', '/account-list', '/add-account', '/process-list', '/games-process-list'];
+$spaPaths = ['/login', '/dashboard', '/domain', '/announcement', '/account-list', '/add-account', '/process-list', '/games-process-list', '/bank-process-list'];
 
 function serveSpaIndex(): void
 {
@@ -93,7 +93,7 @@ if (isset($_COOKIE['remember_token'])) {
     setcookie('remember_token', '', time() - 3600, '/', '', false, true);
 }
 
-if (in_array($requestPath, ['/dashboard', '/domain', '/announcement', '/account-list', '/add-account', '/process-list', '/games-process-list'], true)) {
+if (in_array($requestPath, ['/dashboard', '/domain', '/announcement', '/account-list', '/add-account', '/process-list', '/games-process-list', '/bank-process-list'], true)) {
     header('Location: /login');
     exit();
 }

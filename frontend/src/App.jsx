@@ -6,6 +6,7 @@ import AnnouncementPage from "./pages/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import AccountListPage from "./pages/AccountListPage.jsx";
 import ProcessListPage from "./pages/ProcessListPage.jsx";
+import BankProcessListPage from "./pages/BankProcessListPage.jsx";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/add-account" element={<AccountListPage />} />
         <Route path="/process-list" element={<ProcessListPage />} />
         <Route path="/games-process-list" element={<ProcessListPage />} />
+        <Route path="/bank-process-list" element={<BankProcessListPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />

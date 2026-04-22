@@ -24,6 +24,24 @@ function normalizeRows(data) {
   return Array.isArray(data) ? data : [];
 }
 
+async function isBankCategoryCompany(companyCode) {
+  if (!companyCode) return false;
+  try {
+    const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode }),
+    });
+    const json = await res.json();
+    const permissions = Array.isArray(json?.data?.permissions) ? json.data.permissions : [];
+    const normalized = permissions.map((p) => String(p || "").toLowerCase());
+    return normalized.includes("bank") && !normalized.includes("games") && !normalized.includes("gambling");
+  } catch {
+    return false;
+  }
+}
+
 export default function ProcessListPage() {
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
@@ -119,6 +137,22 @@ export default function ProcessListPage() {
   }, [loading, companyId, search, showInactive, showAll]);
 
   useEffect(() => {
+    if (loading || !companyId || companies.length === 0) return;
+    const currentCompany = companies.find((c) => Number(c.id) === Number(companyId));
+    if (!currentCompany?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const bankCategory = await isBankCategoryCompany(currentCompany.company_id);
+      if (!cancelled && bankCategory) {
+        window.location.assign(new URL(`/bank-process-list?company_id=${companyId}`, window.location.origin).toString());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, companyId, companies]);
+
+  useEffect(() => {
     if (showAll) document.body.classList.add("process-page--show-all");
     else document.body.classList.remove("process-page--show-all");
     return () => document.body.classList.remove("process-page--show-all");
@@ -195,6 +229,10 @@ export default function ProcessListPage() {
         return;
       }
       setCompanyId(Number(company.id));
+      const bankCategory = await isBankCategoryCompany(company.company_id);
+      if (bankCategory) {
+        window.location.assign(new URL(`/bank-process-list?company_id=${company.id}`, window.location.origin).toString());
+      }
     } catch {
       notify("Switch company failed", "danger");
     }
