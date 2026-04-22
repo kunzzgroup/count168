@@ -334,6 +334,38 @@ export default function ProcessListPage() {
     }
   };
 
+  const toggleStatus = async (row) => {
+    if (!row?.id) return;
+    try {
+      const fd = new FormData();
+      fd.append("id", String(row.id));
+      fd.append("permission", "Games");
+      const res = await fetch(buildApiUrl("api/processes/toggle_process_status_api.php"), {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        notify(json.message || json.error || "Status update failed", "danger");
+        return;
+      }
+      const newStatus = String(json?.data?.newStatus || "").toLowerCase();
+      if (!newStatus) {
+        fetchRows();
+        return;
+      }
+      setRows((prev) => prev.map((r) => (Number(r.id) === Number(row.id) ? { ...r, status: newStatus } : r)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (newStatus === "active") next.delete(row.id);
+        return next;
+      });
+    } catch {
+      notify("Status update failed", "danger");
+    }
+  };
+
   if (loading) return null;
 
   return (
@@ -409,7 +441,16 @@ export default function ProcessListPage() {
                 <div className="card-item">{(showAll ? idx : (currentPage - 1) * PAGE_SIZE + idx) + 1}</div>
                 <div className="card-item">{row.process_name}</div>
                 <div className="card-item">{row.description || "-"}</div>
-                <div className="card-item"><span className={row.status === "active" ? "status-active" : "status-inactive"}>{String(row.status || "").toUpperCase()}</span></div>
+                <div className="card-item">
+                  <span
+                    className={`role-badge ${row.status === "active" ? "status-active" : "status-inactive"} status-clickable`}
+                    title="Click to toggle status"
+                    onClick={() => toggleStatus(row)}
+                    role="button"
+                  >
+                    {String(row.status || "").toUpperCase()}
+                  </span>
+                </div>
                 <div className="card-item">{row.currency || "-"}</div>
                 <div className="card-item">{row.day_use || "-"}</div>
                 <div className="card-item">
