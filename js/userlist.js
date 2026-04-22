@@ -21,8 +21,8 @@ let showAll = (typeof window.USERLIST_SHOW_ALL !== 'undefined' && !!window.USERL
 let showInactive = false;
 
 // 当前用户信息
-let currentUserId = typeof window.USERLIST_CURRENT_USER_ID !== 'undefined' ? window.USERLIST_CURRENT_USER_ID : null;
-let currentUserRole = typeof window.USERLIST_CURRENT_USER_ROLE !== 'undefined' ? window.USERLIST_CURRENT_USER_ROLE : '';
+const currentUserId = typeof window.USERLIST_CURRENT_USER_ID !== 'undefined' ? window.USERLIST_CURRENT_USER_ID : null;
+const currentUserRole = typeof window.USERLIST_CURRENT_USER_ROLE !== 'undefined' ? window.USERLIST_CURRENT_USER_ROLE : '';
 
 // 用户数据数组（从页面中提取）
 let usersData = [];
@@ -2035,8 +2035,6 @@ function setupSearch() {
     const searchInput = document.getElementById('searchInput');
 
     if (!searchInput) return;
-    if (searchInput.dataset.userlistSearchBound === '1') return;
-    searchInput.dataset.userlistSearchBound = '1';
 
     // 强制大写和只允许字母数字
     searchInput.addEventListener('input', function (e) {
@@ -2131,12 +2129,8 @@ async function switchUserListCompany(companyId, companyCode) {
     window.location.href = url.toString();
 }
 
-// 页面加载完成后初始化搜索功能（可被 SPA /admin 在脚本已加载后再次调用）
-function initUserListPageAfterDomReady() {
-    currentUserId = typeof window.USERLIST_CURRENT_USER_ID !== 'undefined' ? window.USERLIST_CURRENT_USER_ID : null;
-    currentUserRole = typeof window.USERLIST_CURRENT_USER_ROLE !== 'undefined' ? String(window.USERLIST_CURRENT_USER_ROLE).toLowerCase() : '';
-    showAll = (typeof window.USERLIST_SHOW_ALL !== 'undefined' && !!window.USERLIST_SHOW_ALL);
-
+// 页面加载完成后初始化搜索功能
+document.addEventListener('DOMContentLoaded', function () {
     extractUsersData();
     applySorting(); // 应用默认排序
     updateSortIndicators(); // 初始化排序指示器
@@ -2154,8 +2148,7 @@ function initUserListPageAfterDomReady() {
 
     // 为二级密码输入框添加限制（只允许6位数字）
     const secondaryPasswordInput = document.getElementById('secondary_password');
-    if (secondaryPasswordInput && secondaryPasswordInput.dataset.userlistBound !== '1') {
-        secondaryPasswordInput.dataset.userlistBound = '1';
+    if (secondaryPasswordInput) {
         secondaryPasswordInput.addEventListener('input', function () {
             // 只保留数字
             this.value = this.value.replace(/[^0-9]/g, '');
@@ -2175,8 +2168,7 @@ function initUserListPageAfterDomReady() {
 
     // 为 role 下拉框添加 change 事件监听器
     const roleSelect = document.getElementById('role');
-    if (roleSelect && roleSelect.dataset.userlistRoleBound !== '1') {
-        roleSelect.dataset.userlistRoleBound = '1';
+    if (roleSelect) {
         roleSelect.addEventListener('change', function () {
             const selectedRole = this.value;
             // 显示/隐藏 Read Only toggle（只在 Partnership 角色时显示）
@@ -2194,29 +2186,12 @@ function initUserListPageAfterDomReady() {
             }
         });
     }
+});
 
-    bindUserListFormSubmit();
-}
+// Close modal when clicking outside
+window.onclick = function () { }
 
-window.initUserListPageAfterDomReady = initUserListPageAfterDomReady;
-
-// SPA 在加载本脚本前会设置 window.USERLIST_SKIP_AUTO_INIT，避免此处早于 USERLIST_* 注入而错误绑定（导致按钮/搜索全部失效）
-if (window.USERLIST_SKIP_AUTO_INIT) {
-    // 仅由宿主调用 initUserListPageAfterDomReady()
-} else if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initUserListPageAfterDomReady);
-} else {
-    initUserListPageAfterDomReady();
-}
-
-// 勿设置 window.onclick：在 SPA 与其它页面共存时会覆盖全局行为，导致 Dashboard/Domain 等控件异常。
-
-function bindUserListFormSubmit() {
-    const userForm = document.getElementById('userForm');
-    if (!userForm || userForm.dataset.userlistSubmitBound === '1') return;
-    userForm.dataset.userlistSubmitBound = '1';
-
-    userForm.addEventListener('submit', function (e) {
+document.getElementById('userForm').addEventListener('submit', function (e) {
     e.preventDefault();
 
     // 前端验证：创建模式时必须填写密码
@@ -2473,7 +2448,6 @@ function bindUserListFormSubmit() {
             showAlert('An error occurred while saving user: ' + error.message, 'danger');
         });
 });
-}
 
 // Account and Process selection functions
 function updateAccountSelection() {
