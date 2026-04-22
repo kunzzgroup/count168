@@ -242,14 +242,21 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
             foreach (array_keys($allTargets) as $tgt) {
                 $companyPct = $companyFlowsTo[$cid][$tgt] ?? null; // Account Ownership company→group
                 $groupPct   = ($src !== '') ? ($flowsTo[$src][$tgt] ?? null) : null; // Group Earnings group→group
-                if ($companyPct === null && $groupPct === null) continue;
 
-                // User-facing formula:
-                //   Earnings = Net Profit × (Account Ownership %) × (Group Earnings %)
-                // Either % defaults to 100% when the corresponding row is absent.
-                $effCompany = $companyPct ?? 100.0;
-                $effGroup   = $groupPct   ?? 100.0;
-                $combinedPct = ($effCompany * $effGroup) / 100.0;
+                // Priority: a company's DIRECT Account-Ownership allocation beats the
+                // broader "native group → target" rule. If TT already explicitly
+                // allocates 10% to SS via company_ownership, the AA→SS 90% row in
+                // group_ownership does NOT further multiply — AA's pool is just how
+                // the AA-group-level residue is distributed, which doesn't apply
+                // to TT's already-allocated slice.
+                $linkPct = null;
+                if ($companyPct !== null) {
+                    $linkPct = $companyPct;
+                } elseif ($groupPct !== null) {
+                    $linkPct = $groupPct;
+                } else {
+                    continue;
+                }
 
                 if (isset($seenById[$cid . '|' . $tgt])) continue;
                 if ($cname !== '' && isset($seenByName[$cname . '|' . $tgt])) continue;
@@ -258,11 +265,8 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
 
                 $virtual = $r;
                 $virtual['group_id'] = $tgt;
-                // Earnings multiplier for the dashboard.
-                $virtual['link_source_group']   = $src;
-                $virtual['link_percentage']     = $combinedPct;      // combined chain %
-                $virtual['link_company_pct']    = $effCompany;       // Account Ownership leg
-                $virtual['link_group_pct']      = $effGroup;         // Group Earnings leg
+                $virtual['link_source_group'] = $src;
+                $virtual['link_percentage']   = $linkPct;
                 $extra[] = $virtual;
             }
         }
