@@ -1012,22 +1012,12 @@ function mergeGroupData(dataList) {
         const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
         const displayE = rawE > 0 ? -rawE : rawE;
         const netProfit = rawP + displayE;
-        // When this row came through a group-link (e.g. IG company viewed under AP),
-        // its NET_PROFIT was already scaled by the link percentage in fetchDashboardForCompany.
-        // Treat the scaled NET_PROFIT itself as the earnings share and skip effectivePct.
-        const linkMul = parseFloat(d._link_multiplier);
-        const hasLink = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
-        let earningsVal;
-        if (hasLink) {
-            earningsVal = netProfit;
-            hasOwnershipSetup = true;
-        } else {
-            // Combined: direct% + group_equity% × group_account%
-            const effectivePct = hasGrp
-                ? (pct / 100) + (grpPct / 100) * (grpAccPct / 100)
-                : (pct / 100);
-            earningsVal = netProfit * effectivePct;
-        }
+        // Group All mode is always under a group filter — treat each company's
+        // (already-scaled) NET_PROFIT as its earnings contribution. Native companies
+        // have link_multiplier=1 so NET_PROFIT is unchanged; virtual companies have
+        // been scaled down by the IG→AP link percentage already.
+        const earningsVal = netProfit;
+        hasOwnershipSetup = true;
         companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
     });
 
@@ -1280,8 +1270,14 @@ function updateDashboard(data) {
                 // NET_PROFIT IS the share — don't multiply by effectivePct on top.
                 const linkMul = parseFloat(data?._link_multiplier);
                 const hasLinkOwnership = !isNaN(linkMul) && linkMul > 0 && linkMul !== 1;
+                // Under a group filter (AP/IG/etc.), the card represents the group
+                // owner's take-home from that group: Earnings = NET_PROFIT (already
+                // scaled by link_multiplier if the company came in via a group-link).
+                // This sidesteps the per-user effectivePct formula which returns 0
+                // for admin sessions whose user.id isn't keyed in company_ownership.
+                const inGroupView = !!selectedDashboardGroup;
                 let earningsDisplay;
-                if (hasLinkOwnership) {
+                if (hasLinkOwnership || inGroupView) {
                     earningsDisplay = netProfitDisplay;
                 } else {
                     const effectivePct = hasGroupOwnership
@@ -1301,7 +1297,7 @@ function updateDashboard(data) {
                     earningsEl.textContent = formatCurrency(earningsDisplay);
                     const earningsCard = document.getElementById('earnings-card-wrapper');
                     if (earningsCard) {
-                        const showEarnings = !!data?.has_ownership_setup || hasLinkOwnership;
+                        const showEarnings = !!data?.has_ownership_setup || hasLinkOwnership || inGroupView;
                         earningsCard.style.display = showEarnings ? 'flex' : 'none';
                         // Toggle top-row layout: 3-column grid when Earnings visible, full-width when hidden
                         const topRow = earningsCard.closest('.dashboard-top-row');
