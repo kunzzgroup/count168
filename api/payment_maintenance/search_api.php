@@ -224,11 +224,15 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         $roleLabel = 'Commission';
         if (preg_match('/\|ROLE:([A-Z]+)\|/i', $remarkTrim, $mRole)) {
             $roleCode = strtoupper(trim((string)$mRole[1]));
-            if (in_array($roleCode, ['SALES', 'CS', 'IT'], true)) {
+            if ($roleCode === 'PROFIT') {
+                $roleLabel = 'Profit';
+            } elseif (in_array($roleCode, ['SALES', 'CS', 'IT'], true)) {
                 $roleLabel = $roleCode;
             }
         } elseif (preg_match('/^(Sales|CS|IT)\s+Commision\b/i', trim((string)$description), $mRole2)) {
             $roleLabel = strtoupper(trim((string)$mRole2[1]));
+        } elseif (preg_match('/^Profit\s+(Commision|Commission|for)\b/i', trim((string)$description))) {
+            $roleLabel = 'Profit';
         }
         $sourceCompany = '';
         if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^|\]]+)/i', $remarkTrim, $mSrc)) {
@@ -240,7 +244,11 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         if ($sourceCompany === '') {
             $sourceCompany = 'LAG';
         }
-        $description = $roleLabel . ' Commission From ' . $sourceCompany;
+        if ($roleLabel === 'Profit') {
+            $description = 'Profit From ' . $sourceCompany;
+        } else {
+            $description = $roleLabel . ' Commission From ' . $sourceCompany;
+        }
     }
     if ($isDomainListFee) {
         $description = 'Pay Domain Fee';
