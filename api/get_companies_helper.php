@@ -85,21 +85,24 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
         if (!$hasGroupOwnership) return $rows;
 
         $stmtLinks = $pdo->query("
-            SELECT DISTINCT
+            SELECT
                 UPPER(TRIM(group_id))            COLLATE utf8mb4_unicode_ci as source_group,
-                UPPER(TRIM(partner_group_id))    COLLATE utf8mb4_unicode_ci as target_group
+                UPPER(TRIM(partner_group_id))    COLLATE utf8mb4_unicode_ci as target_group,
+                MAX(percentage) as link_percentage
             FROM group_ownership
             WHERE owner_type = 'group'
               AND percentage > 0
               AND partner_group_id IS NOT NULL
               AND TRIM(partner_group_id) <> ''
+            GROUP BY source_group, target_group
         ");
         $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
         if (empty($links)) return $rows;
 
+        // flowsTo[source_group][target_group] = link_percentage (float)
         $flowsTo = [];
         foreach ($links as $ln) {
-            $flowsTo[$ln['source_group']][] = $ln['target_group'];
+            $flowsTo[$ln['source_group']][$ln['target_group']] = (float) $ln['link_percentage'];
         }
 
         // Build dedupe keys by (group_id, id) AND (group_id, company_id). If the
@@ -123,13 +126,18 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
             $src = strtoupper(trim((string) ($r['group_id'] ?? '')));
             if ($src === '' || !isset($flowsTo[$src])) continue;
             $cname = strtoupper(trim((string) ($r['company_id'] ?? '')));
-            foreach ($flowsTo[$src] as $tgt) {
+            foreach ($flowsTo[$src] as $tgt => $pct) {
                 if (isset($seenById[$r['id'] . '|' . $tgt])) continue;
                 if ($cname !== '' && isset($seenByName[$cname . '|' . $tgt])) continue;
                 $seenById[$r['id'] . '|' . $tgt] = true;
                 if ($cname !== '') $seenByName[$cname . '|' . $tgt] = true;
                 $virtual = $r;
                 $virtual['group_id'] = $tgt;
+                // Marks a reverse-link virtual row so the dashboard can scale the
+                // displayed KPIs by this percentage (e.g. IG→AP 3% means VG under
+                // AP filter should show VG's numbers × 3%).
+                $virtual['link_source_group'] = $src;
+                $virtual['link_percentage']   = $pct;
                 $extra[] = $virtual;
             }
         }

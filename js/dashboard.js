@@ -888,6 +888,55 @@ function buildCacheKey() {
     });
 }
 
+// Compute the group-link multiplier for a given company + current view group.
+//   e.g. VG (native IG) viewed under AP filter where IG→AP = 3% → returns 0.03.
+//   Native-group views (company.group_id === selectedDashboardGroup) → returns 1.
+function getLinkMultiplierForCompany(companyId, groupFilter) {
+    if (!groupFilter || !Array.isArray(allOwnerCompanies)) return 1;
+    const gf = String(groupFilter).toUpperCase();
+    const row = allOwnerCompanies.find(c =>
+        parseInt(c.id) === parseInt(companyId) &&
+        c.group_id && c.group_id.toUpperCase() === gf
+    );
+    if (row && row.link_percentage !== undefined && row.link_percentage !== null) {
+        const pct = parseFloat(row.link_percentage);
+        if (!isNaN(pct) && pct >= 0) return pct / 100;
+    }
+    return 1;
+}
+
+// Scale every numeric KPI in a dashboard-api payload by `mul`. Used so a virtual
+// company shown under a link target group (e.g. IG's VG under AP) displays
+// earnings/profit × link_percentage.
+function scaleDashboardData(data, mul) {
+    if (!data || mul === 1 || mul === null || mul === undefined) return data;
+    const scaleNum = (v) => (parseFloat(v) || 0) * mul;
+    if (data.capital !== undefined) data.capital = scaleNum(data.capital);
+    if (data.expenses !== undefined) data.expenses = scaleNum(data.expenses);
+    if (data.profit !== undefined) data.profit = scaleNum(data.profit);
+    if (data.period_total) {
+        data.period_total.capital  = scaleNum(data.period_total.capital);
+        data.period_total.expenses = scaleNum(data.period_total.expenses);
+        data.period_total.profit   = scaleNum(data.period_total.profit);
+    }
+    if (data.initial_balance) {
+        data.initial_balance.capital  = scaleNum(data.initial_balance.capital);
+        data.initial_balance.expenses = scaleNum(data.initial_balance.expenses);
+        data.initial_balance.profit   = scaleNum(data.initial_balance.profit);
+    }
+    if (data.daily_data) {
+        for (const key of ['capital', 'expenses', 'profit', 'profit_payment_flow_daily']) {
+            const m = data.daily_data[key];
+            if (m && typeof m === 'object') {
+                for (const k of Object.keys(m)) m[k] = scaleNum(m[k]);
+            }
+        }
+    }
+    // Annotate so downstream code can surface the multiplier if needed.
+    data._link_multiplier = mul;
+    return data;
+}
+
 // 对单个 company 发起 Dashboard API 请求
 async function fetchDashboardForCompany(companyId) {
     const queryParams = new URLSearchParams({
@@ -912,7 +961,8 @@ async function fetchDashboardForCompany(companyId) {
     }
     const result = await response.json();
     if (result.success && result.data) {
-        return result.data;
+        const multiplier = getLinkMultiplierForCompany(companyId, selectedDashboardGroup);
+        return scaleDashboardData(result.data, multiplier);
     }
     throw new Error(result.message || 'Failed to load data');
 }
@@ -1284,9 +1334,12 @@ async function fetchCardPointByDate(dateStr) {
         throw new Error(result.message || 'Daily point payload invalid');
     }
 
+    // Apply group-link multiplier so the daily drill-down matches the card number
+    const mul = getLinkMultiplierForCompany(window.companyId, selectedDashboardGroup);
+
     // 单日点位必须使用「当日发生额」口径（period_total），避免把 B/F(initial_balance) 或累计余额带进趋势图
-    const rawProfit = parseFloat(result.data?.period_total?.profit ?? result.data.profit) || 0
-    const rawExpenses = parseFloat(result.data?.period_total?.expenses ?? result.data.expenses) || 0
+    const rawProfit = (parseFloat(result.data?.period_total?.profit ?? result.data.profit) || 0) * mul;
+    const rawExpenses = (parseFloat(result.data?.period_total?.expenses ?? result.data.expenses) || 0) * mul;
     const point = {
         profit: rawProfit,
         expenses: rawExpenses > 0 ? -rawExpenses : rawExpenses
