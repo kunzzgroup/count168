@@ -110,20 +110,45 @@ if (!function_exists('_applyGroupLinkVirtualRows')) {
         if (!$hasGroupOwnership) return $rows;
 
         $in = str_repeat('?,', count($viewerOwnerIds) - 1) . '?';
+        // Two ways a link becomes visible to the viewer:
+        //  (a) SELF-GROUP link — owner_type='group', owner_id = viewer.
+        //      e.g. JK set "IG → Group:AP 3%" in his own Group Earnings.
+        //  (b) EXTERNAL-OWNER link — owner_type='owner', account_id = viewer,
+        //      partner_group_id stored when the viewer was matched by Group ID.
+        //      e.g. JK-Admin invited JK-Owner (AA) into IG at 2% → a row
+        //           (group_id='IG', owner_type='owner', account_id=JK-Owner, partner_group_id='AA', percentage=2)
+        //      From JK-Owner's viewpoint, IG-companies should surface under AA × 2%.
+        $params = array_merge($viewerOwnerIds, $viewerOwnerIds);
         $stmtLinks = $pdo->prepare("
-            SELECT
-                UPPER(TRIM(group_id))            COLLATE utf8mb4_unicode_ci as source_group,
-                UPPER(TRIM(partner_group_id))    COLLATE utf8mb4_unicode_ci as target_group,
-                MAX(percentage) as link_percentage
-            FROM group_ownership
-            WHERE owner_type = 'group'
-              AND percentage > 0
-              AND partner_group_id IS NOT NULL
-              AND TRIM(partner_group_id) <> ''
-              AND owner_id IN ($in)
+            SELECT source_group, target_group, MAX(link_percentage) as link_percentage
+            FROM (
+                SELECT
+                    UPPER(TRIM(group_id))           COLLATE utf8mb4_unicode_ci as source_group,
+                    UPPER(TRIM(partner_group_id))   COLLATE utf8mb4_unicode_ci as target_group,
+                    percentage as link_percentage
+                FROM group_ownership
+                WHERE owner_type = 'group'
+                  AND percentage > 0
+                  AND partner_group_id IS NOT NULL
+                  AND TRIM(partner_group_id) <> ''
+                  AND owner_id IN ($in)
+
+                UNION ALL
+
+                SELECT
+                    UPPER(TRIM(group_id))           COLLATE utf8mb4_unicode_ci as source_group,
+                    UPPER(TRIM(partner_group_id))   COLLATE utf8mb4_unicode_ci as target_group,
+                    percentage as link_percentage
+                FROM group_ownership
+                WHERE owner_type = 'owner'
+                  AND percentage > 0
+                  AND partner_group_id IS NOT NULL
+                  AND TRIM(partner_group_id) <> ''
+                  AND account_id IN ($in)
+            ) u
             GROUP BY source_group, target_group
         ");
-        $stmtLinks->execute($viewerOwnerIds);
+        $stmtLinks->execute($params);
         $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
         if (empty($links)) return $rows;
 
