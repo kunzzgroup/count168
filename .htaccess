@@ -35,6 +35,5 @@ RewriteRule ^domain/?$ index.php [L,QSA]
 RewriteRule ^announcement/?$ index.php [L,QSA]
 RewriteRule ^account-list/?$ index.php [L,QSA]
 RewriteRule ^add-account/?$ index.php [L,QSA]
-RewriteRule ^user-list/?$ index.php [L,QSA]
 </IfModule>
 

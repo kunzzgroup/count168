@@ -146,31 +146,6 @@ try {
     if (!$input || !isset($input['action'])) {
         sendResponse(false, 'Invalid request');
     }
-
-    // Allow frontend to pass company_id explicitly to avoid session desync.
-    if (isset($input['company_id']) && (int)$input['company_id'] > 0) {
-        $requested_company_id = (int)$input['company_id'];
-        $current_user_id = $_SESSION['user_id'];
-        $current_user_role = strtolower((string)($_SESSION['role'] ?? ''));
-
-        $can_access_company = false;
-        if ($current_user_role === 'owner') {
-            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            $can_access_company = ((int)$stmt->fetchColumn()) > 0;
-        } else {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
-            $stmt->execute([$current_user_id, $requested_company_id]);
-            $can_access_company = ((int)$stmt->fetchColumn()) > 0;
-        }
-
-        if (!$can_access_company) {
-            sendResponse(false, 'No permission to access this company');
-        }
-
-        $current_company_id = $requested_company_id;
-    }
     
     $action = $input['action'];
     
