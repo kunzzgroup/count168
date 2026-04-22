@@ -557,7 +557,7 @@ export default function TransactionDashboardPage() {
                   <div
                     ref={barRef}
                     style={{
-                      width: "100%",
+                      width: "min(100%, 430px)",
                       display: "grid",
                       gridTemplateColumns: "auto 1fr auto",
                       alignItems: "center",
