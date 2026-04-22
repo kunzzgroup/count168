@@ -175,10 +175,12 @@ export default function UserListPage() {
         body: JSON.stringify({ action: "get" }),
       });
       const json = await res.json();
-      const rows = Array.isArray(json?.data) ? json.data : [];
-      if (!json?.success) {
-        notify(json?.message || "Failed to load users", "danger");
+      if (!res.ok || !json?.success) {
+        setUsers([]);
+        notify(json?.message || json?.error || "Failed to load users", "danger");
+        return;
       }
+      const rows = Array.isArray(json?.data) ? json.data : [];
       setUsers(rows.map((u) => ({ ...u, is_owner_shadow: false })));
       setSelectedDeleteIds(new Set());
       setCurrentPage(1);
@@ -245,9 +247,17 @@ export default function UserListPage() {
   );
   const companyButtons = useMemo(() => {
     const all = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-    if (!selectedGroup) return all.filter((c) => !c.group_id || String(c.group_id).trim() === "");
+    if (!selectedGroup) return all;
     return all.filter((c) => String(c.group_id || "").toUpperCase() === selectedGroup);
   }, [companies, selectedGroup]);
+
+  useEffect(() => {
+    if (!companyButtons.length || !companyId) return;
+    const inCurrentGroup = companyButtons.some((c) => Number(c.id) === Number(companyId));
+    if (!inCurrentGroup) {
+      onSwitchCompany(companyButtons[0]);
+    }
+  }, [selectedGroup, companyButtons, companyId]);
 
   const canDeleteUser = (u) => {
     const meLevel = ROLE_HIERARCHY[String(me?.role || "").toLowerCase()] ?? 999;
@@ -396,7 +406,7 @@ export default function UserListPage() {
               <div className="header-item header-sortable" onClick={() => { setSortColumn("role"); setSortDirection((d) => (sortColumn === "role" && d === "asc" ? "desc" : "asc")); }}>Role</div>
               <div className="header-item">Status</div><div className="header-item">Last Login</div><div className="header-item">Created By</div><div className="header-item">Action</div>
             </div>
-            <div className="user-cards">{tableLoading ? <div className="user-card"><div className="card-item">Loading...</div></div> : pageRows.map((u, idx) => (
+            <div className="user-cards">{tableLoading ? <div className="user-card"><div className="card-item">Loading...</div></div> : pageRows.length === 0 ? <div className="user-card"><div className="card-item">No users found for current company/filter.</div></div> : pageRows.map((u, idx) => (
               <div className={`user-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`} key={u.id}>
                 <div className="card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
                 <div className="card-item">{u.login_id}</div><div className="card-item">{u.name}</div><div className="card-item">{u.email || "-"}</div>
