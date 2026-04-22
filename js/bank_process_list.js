@@ -2475,7 +2475,7 @@ let bankAddAccountTriggerFieldId = null;
 let bankAddAccountTriggerHiddenInputId = null;
 
 let bankAccountRoles = [];
-/** 与 js/account-list.js 中 ROLE_PRIORITY 保持完全一致 */
+/** 与前端 Account List React 版本的 ROLE_PRIORITY 保持一致 */
 const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
 
 function getOrderedRolesBank(roles, includeStaff = true) {
