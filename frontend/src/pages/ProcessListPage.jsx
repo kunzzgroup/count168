@@ -5,6 +5,7 @@ const PAGE_SIZE = 20;
 const EMPTY_FORM = {
   id: "",
   process_name: "",
+  description_name: "",
   description_id: "",
   currency_id: "",
   day_use: [],
@@ -13,6 +14,10 @@ const EMPTY_FORM = {
   replace_word_to: "",
   remark: "",
   status: "active",
+  dts_modified: "",
+  modified_by: "",
+  dts_created: "",
+  created_by: "",
 };
 
 function normalizeRows(data) {
@@ -212,6 +217,7 @@ export default function ProcessListPage() {
       setForm({
         id: String(p.id || ""),
         process_name: p.process_name || "",
+        description_name: p.description_names?.[0] || "",
         description_id: String(p.description_id || ""),
         currency_id: String(p.currency_id || ""),
         day_use: String(p.day_use || "")
@@ -223,6 +229,10 @@ export default function ProcessListPage() {
         replace_word_to: p.replace_word_to || "",
         remark: p.remarks || "",
         status: p.status || "active",
+        dts_modified: p.dts_modified || "",
+        modified_by: p.modified_by || "",
+        dts_created: p.dts_created || "",
+        created_by: p.created_by || "",
       });
       setModalOpen(true);
     } catch {
@@ -437,80 +447,160 @@ export default function ProcessListPage() {
               <span className="close" onClick={() => setModalOpen(false)} role="presentation">&times;</span>
             </div>
             <div className="modal-body">
-              <form className="process-form" onSubmit={submitForm}>
-                <div className="form-group">
-                  <label>Process ID</label>
-                  <input
-                    value={form.process_name}
-                    onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
-                    required
-                    readOnly={editMode}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Description</label>
-                  <select value={form.description_id} onChange={(e) => setForm((prev) => ({ ...prev, description_id: e.target.value }))} required>
-                    <option value="">Select Description</option>
-                    {descriptions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Currency</label>
-                  <select value={form.currency_id} onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))} required>
-                    <option value="">Select Currency</option>
-                    {currencies.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
-                  </select>
-                </div>
-                {editMode && (
-                  <div className="form-group">
-                    <label>Status</label>
-                    <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
-                      <option value="active">ACTIVE</option>
-                      <option value="inactive">INACTIVE</option>
-                    </select>
+              <form className="process-form add-grid" onSubmit={submitForm}>
+                <div className="add-col">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Process Name *</label>
+                      <input
+                        value={form.process_name}
+                        onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
+                        required
+                        readOnly={editMode}
+                        style={editMode ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
+                      />
+                    </div>
                   </div>
-                )}
-                <div className="form-group">
-                  <label>Day Use</label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {days.map((d) => {
-                      const id = String(d.id);
-                      const checked = form.day_use.includes(id);
-                      return (
-                        <label key={id}>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Description</label>
+                      <div className="input-with-icon">
+                        <input
+                          value={form.description_name || ""}
+                          readOnly
+                          placeholder="Select description"
+                          style={{ backgroundColor: "#f5f5f5" }}
+                        />
+                        <button type="button" className="add-icon" aria-label="Description helper">+</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-row" style={{ display: form.description_name ? "block" : "none" }}>
+                    <div className="form-group">
+                      <label>Selected Descriptions</label>
+                      <div className="selected-descriptions">
+                        <span className="selected-description-tag">{form.description_name}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Currency</label>
+                      <select value={form.currency_id} onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))} required>
+                        <option value="">Select Currency</option>
+                        {currencies.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label style={{ fontWeight: 600, color: "#666" }}>DTS Modified:</label>
+                      <div style={{ backgroundColor: "#f5f5f5", marginTop: 5, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 4, display: "flex", justifyContent: "space-between", minHeight: 38 }}>
+                        <span>{form.dts_modified || ""}</span>
+                        <span style={{ fontWeight: 600 }}>{form.modified_by || ""}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label style={{ fontWeight: 600, color: "#666" }}>DTS Created:</label>
+                      <div style={{ backgroundColor: "#f5f5f5", marginTop: 5, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 4, display: "flex", justifyContent: "space-between", minHeight: 38 }}>
+                        <span>{form.dts_created || ""}</span>
+                        <span style={{ fontWeight: 600 }}>{form.created_by || ""}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="add-col">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Remove Words</label>
+                      <input value={form.remove_word} onChange={(e) => setForm((prev) => ({ ...prev, remove_word: e.target.value }))} placeholder="Enter words to remove" />
+                      <small className="field-help">(Use semicolon to separate multiple words, eg. abc;cde;efg)</small>
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <div className="day-use-header">
+                        <label>Day Use</label>
+                        <div className="all-day-checkbox">
                           <input
+                            id="react_edit_all_day"
                             type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              setForm((prev) => ({
-                                ...prev,
-                                day_use: checked ? prev.day_use.filter((x) => x !== id) : [...prev.day_use, id],
-                              }));
+                            checked={days.length > 0 && form.day_use.length === days.length}
+                            onChange={(e) => {
+                              if (e.target.checked) setForm((prev) => ({ ...prev, day_use: days.map((d) => String(d.id)) }));
+                              else setForm((prev) => ({ ...prev, day_use: [] }));
                             }}
                           />
-                          {d.day_name}
-                        </label>
-                      );
-                    })}
+                          <label htmlFor="react_edit_all_day">All Day</label>
+                        </div>
+                      </div>
+                      <div className="day-checkboxes">
+                        {days.map((d) => {
+                          const id = String(d.id);
+                          const checked = form.day_use.includes(id);
+                          return (
+                            <label key={id} style={{ marginRight: 10 }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    day_use: checked ? prev.day_use.filter((x) => x !== id) : [...prev.day_use, id],
+                                  }));
+                                }}
+                              />
+                              {String(d.day_name || "").toUpperCase()}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-row row-two-cols">
+                    <div className="form-group">
+                      <label>Replace From</label>
+                      <input value={form.replace_word_from} onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))} placeholder="Old word" />
+                      <small className="field-help">(Word to be replaced)</small>
+                    </div>
+                    <div className="form-group">
+                      <label>Replace To</label>
+                      <input value={form.replace_word_to} onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))} placeholder="New word" />
+                      <small className="field-help">(Replacement word)</small>
+                    </div>
+                  </div>
+
+                  {editMode && (
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Status</label>
+                        <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
+                          <option value="active">ACTIVE</option>
+                          <option value="inactive">INACTIVE</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Remarks</label>
+                      <textarea rows={5} value={form.remark} onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))} placeholder="ENTER REMARKS..." />
+                    </div>
                   </div>
                 </div>
-                <div className="form-group">
-                  <label>Remove Words</label>
-                  <input value={form.remove_word} onChange={(e) => setForm((prev) => ({ ...prev, remove_word: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label>Replace From</label>
-                  <input value={form.replace_word_from} onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label>Replace To</label>
-                  <input value={form.replace_word_to} onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label>Remark</label>
-                  <textarea rows={4} value={form.remark} onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))} />
-                </div>
-                <div className="form-actions">
+
+                <div className="form-actions add-actions">
                   <button type="submit" className="btn btn-save">{editMode ? "Update Process" : "Add Process"}</button>
                   <button type="button" className="btn btn-cancel" onClick={() => setModalOpen(false)}>Cancel</button>
                 </div>
