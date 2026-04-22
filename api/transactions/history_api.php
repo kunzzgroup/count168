@@ -256,6 +256,68 @@ function historyResolveProfitDisplayCode(PDO $pdo, int $companyId): string
     return 'PROFIT';
 }
 
+/** sms 形如 [DOMAIN_NET_PROFIT|QA] */
+function historyParseDomainNetProfitSourceCompany(string $sms): string
+{
+    if (preg_match('/^\[DOMAIN_NET_PROFIT\|([^\]|]+)/i', trim($sms), $m)) {
+        return strtoupper(trim($m[1]));
+    }
+    return '';
+}
+
+/**
+ * 来源公司（如 QA）在 Share% 里配置的 Profit 入账账号（须在 C168 公司下），供 Payment History 标题与虚拟行对齐。
+ */
+function historyResolveDomainShareProfitReceiverDisplay(PDO $pdo, int $c168CompanyPk, string $sourceCompanyCode): array
+{
+    $out = ['account_code' => '', 'account_name' => '', 'account_db_id' => 0];
+    $src = strtoupper(trim($sourceCompanyCode));
+    if ($src === '' || $c168CompanyPk <= 0) {
+        return $out;
+    }
+    try {
+        $st = $pdo->prepare("SELECT fee_share_allocations FROM company WHERE UPPER(TRIM(company_id)) = ? LIMIT 1");
+        $st->execute([$src]);
+        $raw = $st->fetchColumn();
+        if ($raw === false || $raw === null || $raw === '') {
+            return $out;
+        }
+        $decoded = json_decode((string) $raw, true);
+        if (!is_array($decoded)) {
+            return $out;
+        }
+        $profitRows = $decoded['profit'] ?? [];
+        if (!is_array($profitRows) || empty($profitRows)) {
+            return $out;
+        }
+        $first = $profitRows[0];
+        if (!is_array($first)) {
+            return $out;
+        }
+        $aid = (int) ($first['account_id'] ?? 0);
+        if ($aid <= 0) {
+            return $out;
+        }
+        $st2 = $pdo->prepare("
+            SELECT a.id, TRIM(COALESCE(a.account_id, '')) AS code, TRIM(COALESCE(a.name, '')) AS nm
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE a.id = ? AND ac.company_id = ?
+            LIMIT 1
+        ");
+        $st2->execute([$aid, $c168CompanyPk]);
+        $row = $st2->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return $out;
+        }
+        $out['account_db_id'] = (int) $row['id'];
+        $out['account_code'] = strtoupper(trim((string) ($row['code'] ?? '')));
+        $out['account_name'] = trim((string) ($row['nm'] ?? ''));
+    } catch (Exception $e) {
+    }
+    return $out;
+}
+
 function historyResolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
 {
     try {
@@ -495,6 +557,8 @@ function buildVirtualDomainNetProfitHistory(
     if ($owner === '') {
         $owner = 'C168';
     }
+    // 请求参数 virtual_company_code：来源公司代码（如 QA），用于解析 Share% Profit 入账账号
+    $srcCompanyParam = strtoupper(trim($ownerCode));
     $fallbackSubmitter = historyResolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
 
     $currencyById = [];
@@ -558,12 +622,13 @@ function buildVirtualDomainNetProfitHistory(
             $net = historyTrunc2($fee - $comm);
             if ($net <= 0)
                 continue;
+            $dynSrc = $srcCompanyParam !== '' ? $srcCompanyParam : $owner;
             $rows[] = [
                 'id' => 0,
                 'amount' => $net,
                 'currency_id' => $cid,
                 'transaction_date' => $dateToDb,
-                'description' => 'PROFIT BY ' . $owner,
+                'description' => 'Net Profit From ' . $dynSrc,
                 'sms' => '[DOMAIN_NET_PROFIT|DYNAMIC]',
                 'created_by' => $fallbackSubmitter
             ];
@@ -599,6 +664,10 @@ function buildVirtualDomainNetProfitHistory(
         ]
     ];
 
+    $profitRxModal = historyResolveDomainShareProfitReceiverDisplay($pdo, $companyId, $srcCompanyParam);
+    $modalAccountCode = $profitRxModal['account_code'] !== '' ? $profitRxModal['account_code'] : $owner;
+    $modalAccountName = $profitRxModal['account_name'] !== '' ? $profitRxModal['account_name'] : $modalAccountCode;
+
     $running = 0.0;
     foreach ($rows as $r) {
         $amt = round((float) ($r['amount'] ?? 0), 2);
@@ -608,6 +677,11 @@ function buildVirtualDomainNetProfitHistory(
         $cur = $cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency;
         $cr = $amt;
         $running = historyTrunc2($running + $cr);
+        $srcFromRow = historyParseDomainNetProfitSourceCompany((string) ($r['sms'] ?? ''));
+        if ($srcFromRow === '' || strtoupper($srcFromRow) === 'DYNAMIC') {
+            $srcFromRow = $srcCompanyParam !== '' ? $srcCompanyParam : $owner;
+        }
+        $descNet = 'Net Profit From ' . $srcFromRow;
         $history[] = [
             'date' => date('d/m/Y', strtotime((string) $r['transaction_date'])),
             'product' => 'PROFIT',
@@ -619,7 +693,7 @@ function buildVirtualDomainNetProfitHistory(
             'win_loss' => historyFormat2(0),
             'cr_dr' => historyFormat2($cr),
             'balance' => historyFormat2($running),
-            'description' => 'PROFIT BY ' . $owner,
+            'description' => $descNet,
             'sms' => '-',
             'remark' => '-',
             'created_by' => (trim((string) ($r['created_by'] ?? '')) !== '' ? trim((string) $r['created_by']) : $fallbackSubmitter),
@@ -631,8 +705,8 @@ function buildVirtualDomainNetProfitHistory(
     return [
         'account' => [
             'id' => 0,
-            'account_id' => $owner,
-            'name' => $owner,
+            'account_id' => $modalAccountCode,
+            'name' => $modalAccountName,
             'currency' => $displayCurrency
         ],
         'history' => $history
@@ -1312,11 +1386,17 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    // Domain Share Commission：收款账户在历史中显示正数，与主表一致
+                    // Domain Net Profit：入账 Share% Profit 账号，历史与主表一致显示正数
                     if (
+                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_NET_PROFIT|') === 0
+                        || stripos((string) $rawDescription, 'Profit By ') === 0
+                    ) {
+                        $cr_dr = (float) $t['amount'];
+                    } elseif (
                         stripos((string) ($t['sms'] ?? ''), '[DOMAIN_SHARE_COMMISSION|') === 0
                         || stripos((string) $rawDescription, 'Commision FROM ') === 0
                     ) {
+                        // Domain Share Commission：收款账户在历史中显示正数，与主表一致
                         $cr_dr = (float) $t['amount'];
                     } else {
                         $cr_dr = -$t['amount'];
@@ -1663,7 +1743,8 @@ try {
         ) {
             $isDomainListFee = true;
         }
-        if ($isDomainNetProfit) {
+        // 净利润单只在「Share% Profit 入账账号」(account_id) 侧展示；资金池 from 侧不展示，避免误开到 owner 账号看到一笔
+        if ($isDomainNetProfit && !$is_to_account) {
             continue;
         }
         $domainShareProductKind = null;
@@ -1684,7 +1765,16 @@ try {
         if ($isDomainListFee) {
             $description = 'Pay Domain Fee';
         }
+        if ($isDomainNetProfit) {
+            $srcNet = historyParseDomainNetProfitSourceCompany($smsText);
+            if ($srcNet !== '' && strtoupper($srcNet) !== 'DYNAMIC') {
+                $description = 'Net Profit From ' . $srcNet;
+            }
+        }
         $productLabel = $isManualProfit ? 'PROFIT' : ($domainShareProductKind !== null ? $domainShareProductKind : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']));
+        if ($isDomainNetProfit) {
+            $productLabel = 'PROFIT';
+        }
 
         $events[] = [
             'row_type' => 'transaction',
@@ -1703,7 +1793,7 @@ try {
             'percent' => '-',
             'rate' => '-',
             'description' => $description,
-            'sms' => ($isDomainShareCommission || $isDomainListFee) ? '-' : ($t['sms'] ?: '-'),
+            'sms' => ($isDomainShareCommission || $isDomainListFee || $isDomainNetProfit) ? '-' : ($t['sms'] ?: '-'),
             'created_by' => $transactionCreatedBy
         ];
     }
