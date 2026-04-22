@@ -1780,7 +1780,7 @@ function saveCompanyExpDate() {
             action: 'save_company_share_settings',
             company_id: company.company_id,
             fee_share_allocations: company.fee_share_allocations,
-            apply_commission_payments: false
+            apply_commission_payments: chargeOnSave
         })
     }).then(response => response.json());
 
