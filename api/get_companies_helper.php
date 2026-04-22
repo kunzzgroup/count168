@@ -5,7 +5,15 @@
  */
 
 if (!function_exists('getCompaniesByUser')) {
-    function getCompaniesByUser(PDO $pdo, int $userId, bool $fetchAll = false): array {
+    /**
+     * @param bool $includeGroupLinkVirtualRows
+     *   When true, each company in a group S that has been pooled into group T via
+     *   `group_ownership (owner_type='group', partner_group_id=T)` also appears with
+     *   `group_id = T`. Only for dashboard-style views that should SEE S-companies
+     *   under T — do NOT enable for ownership-management pages, where native groupings
+     *   must be preserved.
+     */
+    function getCompaniesByUser(PDO $pdo, int $userId, bool $fetchAll = false, bool $includeGroupLinkVirtualRows = false): array {
         if ($fetchAll) {
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.id, c.company_id, c.group_id, c.expiration_date
@@ -15,7 +23,13 @@ if (!function_exists('getCompaniesByUser')) {
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$userId]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($includeGroupLinkVirtualRows) {
+                $rows = _applyGroupLinkVirtualRows($pdo, $rows);
+            }
+
+            return $rows;
         } else {
             $session_company_id = $_SESSION['company_id'] ?? null;
             $native_group  = null;
@@ -53,15 +67,93 @@ if (!function_exists('getCompaniesByUser')) {
     }
 }
 
+if (!function_exists('_applyGroupLinkVirtualRows')) {
+    /**
+     * Given a set of base company rows (each with `id`, `group_id`, ...), append
+     * "virtual" duplicates so companies in a source group S also appear under any
+     * target group T where S has been pooled into T via group_ownership.
+     *
+     * Keys preserved from input rows are copied verbatim, only `group_id` is overridden.
+     */
+    function _applyGroupLinkVirtualRows(PDO $pdo, array $rows): array {
+        if (empty($rows)) return $rows;
+
+        $hasGroupOwnership = false;
+        try {
+            $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+        } catch (Exception $e) { /* ignore */ }
+        if (!$hasGroupOwnership) return $rows;
+
+        $stmtLinks = $pdo->query("
+            SELECT DISTINCT
+                UPPER(TRIM(group_id))            COLLATE utf8mb4_unicode_ci as source_group,
+                UPPER(TRIM(partner_group_id))    COLLATE utf8mb4_unicode_ci as target_group
+            FROM group_ownership
+            WHERE owner_type = 'group'
+              AND percentage > 0
+              AND partner_group_id IS NOT NULL
+              AND TRIM(partner_group_id) <> ''
+        ");
+        $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($links)) return $rows;
+
+        $flowsTo = [];
+        foreach ($links as $ln) {
+            $flowsTo[$ln['source_group']][] = $ln['target_group'];
+        }
+
+        // Build dedupe keys by (group_id, id) AND (group_id, company_id). If the
+        // target group already contains a native company with the same `company_id`
+        // (name), we skip the virtual row — otherwise two buttons with the same
+        // label would share one filter and the first one clicked would dictate
+        // which underlying c.id is used, which is very confusing for the user.
+        $seenById   = [];
+        $seenByName = [];
+        foreach ($rows as $r) {
+            $gKey = strtoupper((string) ($r['group_id'] ?? ''));
+            $seenById[$r['id'] . '|' . $gKey] = true;
+            $cname = strtoupper(trim((string) ($r['company_id'] ?? '')));
+            if ($cname !== '') {
+                $seenByName[$cname . '|' . $gKey] = true;
+            }
+        }
+
+        $extra = [];
+        foreach ($rows as $r) {
+            $src = strtoupper(trim((string) ($r['group_id'] ?? '')));
+            if ($src === '' || !isset($flowsTo[$src])) continue;
+            $cname = strtoupper(trim((string) ($r['company_id'] ?? '')));
+            foreach ($flowsTo[$src] as $tgt) {
+                if (isset($seenById[$r['id'] . '|' . $tgt])) continue;
+                if ($cname !== '' && isset($seenByName[$cname . '|' . $tgt])) continue;
+                $seenById[$r['id'] . '|' . $tgt] = true;
+                if ($cname !== '') $seenByName[$cname . '|' . $tgt] = true;
+                $virtual = $r;
+                $virtual['group_id'] = $tgt;
+                $extra[] = $virtual;
+            }
+        }
+
+        return empty($extra) ? $rows : array_merge($rows, $extra);
+    }
+}
+
 if (!function_exists('getCompaniesByOwner')) {
-    function getCompaniesByOwner(PDO $pdo, int $ownerId, bool $fetchAll): array {
+    /**
+     * @param bool $includeGroupLinkVirtualRows
+     *   When true, each company in a group S that has been pooled into group T via
+     *   `group_ownership (owner_type='group', partner_group_id=T, owner_id=ownerId)`
+     *   also appears with `group_id = T`. Dashboard views only — do NOT enable for
+     *   ownership-management pages.
+     */
+    function getCompaniesByOwner(PDO $pdo, int $ownerId, bool $fetchAll, bool $includeGroupLinkVirtualRows = false): array {
         // Check if group_ownership table exists (group-level partner linking)
         $hasGroupOwnership = false;
         try {
             $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
         } catch (Exception $e) { /* ignore */ }
 
-        // Subquery: companies visible to this owner via group_ownership
+        // Subquery: companies visible to this owner via group_ownership (owner_type='owner').
         // When TEST is linked to group 'IG' (with percentage > 0), TEST should see
         // all companies whose c.group_id = 'IG'.
         $groupVisibleSQL = $hasGroupOwnership
@@ -97,7 +189,13 @@ if (!function_exists('getCompaniesByOwner')) {
             }
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($includeGroupLinkVirtualRows) {
+                $rows = _applyGroupLinkVirtualRows($pdo, $rows);
+            }
+
+            return $rows;
         } else {
             $session_company_id = $_SESSION['company_id'] ?? null;
             $partner_group = null;

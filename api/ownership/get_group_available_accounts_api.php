@@ -121,6 +121,67 @@ try {
         }
     }
 
+    // 6. Self-group links: current owner's OTHER groups (for pooling e.g. AP into IG).
+    //    Also include any group-type rows already persisted for this group so their
+    //    dropdown option stays available even if the source group was since removed.
+    $sessionRole = strtolower($_SESSION['role'] ?? '');
+    if ($sessionRole === 'owner') {
+        $currentOwnerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    } else {
+        $stmtOwn = $pdo->prepare("SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1");
+        $stmtOwn->execute([$group_id]);
+        $currentOwnerId = (int) $stmtOwn->fetchColumn();
+    }
+    if ($currentOwnerId > 0) {
+        $stmtMyGroups = $pdo->prepare("
+            SELECT DISTINCT UPPER(TRIM(c.group_id)) as gid
+            FROM company c
+            WHERE c.owner_id = ?
+              AND c.group_id IS NOT NULL
+              AND TRIM(c.group_id) <> ''
+              AND UPPER(TRIM(c.group_id)) <> UPPER(TRIM(?))
+        ");
+        $stmtMyGroups->execute([$currentOwnerId, $group_id]);
+        foreach ($stmtMyGroups->fetchAll(PDO::FETCH_COLUMN) as $gid) {
+            $key = 'G_' . $gid;
+            if (!isset($accountMap[$key])) {
+                $accountMap[$key] = [
+                    'id'            => $key,
+                    'account_name'  => 'Group: ' . $gid,
+                    'name'          => 'Group Equity',
+                    'role'          => 'GROUP',
+                    'type'          => 'group',
+                    'is_main_owner' => 0,
+                ];
+            }
+        }
+    }
+
+    if ($hasGroupOwnership) {
+        $stmtLinkedGroups = $pdo->prepare("
+            SELECT DISTINCT UPPER(TRIM(partner_group_id)) as gid
+            FROM group_ownership
+            WHERE group_id = ?
+              AND owner_type = 'group'
+              AND partner_group_id IS NOT NULL
+              AND TRIM(partner_group_id) <> ''
+        ");
+        $stmtLinkedGroups->execute([$group_id]);
+        foreach ($stmtLinkedGroups->fetchAll(PDO::FETCH_COLUMN) as $gid) {
+            $key = 'G_' . $gid;
+            if (!isset($accountMap[$key])) {
+                $accountMap[$key] = [
+                    'id'            => $key,
+                    'account_name'  => 'Group: ' . $gid,
+                    'name'          => 'Group Equity',
+                    'role'          => 'GROUP',
+                    'type'          => 'group',
+                    'is_main_owner' => 0,
+                ];
+            }
+        }
+    }
+
     // Sort by account_name
     $combined = array_values($accountMap);
     usort($combined, function ($a, $b) {
