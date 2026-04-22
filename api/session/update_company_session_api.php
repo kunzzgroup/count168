@@ -90,42 +90,14 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
     if (strtolower($user_role) === 'owner') {
         // Always use the REAL owner_id (never the swapped one) for listing companies
         $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $user_id;
-
-        // Detect whether group_ownership table exists (created on first Group Earnings link).
-        // When present, an owner may also access every company that belongs to a group they
-        // were linked to via group_ownership — same effect as per-company company_ownership.
-        $hasGroupOwnership = false;
-        try {
-            $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
-        } catch (PDOException $e) { /* ignore */ }
-
-        if ($hasGroupOwnership) {
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id, c.expiration_date, IF(c.owner_id = ?, 0, 1) as is_external, c.owner_id as real_owner_id
-                FROM company c
-                LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner' AND co.account_id = ?
-                LEFT JOIN group_ownership go
-                    ON go.owner_type = 'owner'
-                    AND go.account_id = ?
-                    AND go.percentage > 0
-                    AND c.owner_id = go.owner_id
-                    AND LOWER(TRIM(go.group_id)) = LOWER(TRIM(c.group_id))
-                WHERE c.owner_id = ?
-                   OR (co.account_id = ? AND co.percentage > 0)
-                   OR go.id IS NOT NULL
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$owner_id, $owner_id, $owner_id, $owner_id, $owner_id]);
-        } else {
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id, c.expiration_date, IF(c.owner_id = ?, 0, 1) as is_external, c.owner_id as real_owner_id
-                FROM company c
-                LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner'
-                WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$owner_id, $owner_id, $owner_id]);
-        }
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT c.id, c.company_id, c.expiration_date, IF(c.owner_id = ?, 0, 1) as is_external, c.owner_id as real_owner_id
+            FROM company c
+            LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner'
+            WHERE c.owner_id = ? OR (co.account_id = ? AND co.percentage > 0)
+            ORDER BY c.company_id ASC
+        ");
+        $stmt->execute([$owner_id, $owner_id, $owner_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     $stmt = $pdo->prepare("
