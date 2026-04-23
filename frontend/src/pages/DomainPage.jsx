@@ -163,6 +163,10 @@ export default function DomainPage() {
         const json = await res.json();
         if (!res.ok || !json.success || !json.data) return navigate("/login", { replace: true });
         const u = json.data;
+        if (!u.has_c168_domain_page_access) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
         setMe(u);
         // Stay in SPA /domain and render immediately.
         setReady(true);
