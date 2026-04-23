@@ -1,5 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
+
+function notifyTransactionDataChanged(sourceTag) {
+  const ts = String(Date.now());
+  try {
+    localStorage.setItem("count168_tx_invalidate_ts", ts);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent("tx-data-changed", { detail: { ts, source: sourceTag || "processlist" } }));
+  } catch {
+    /* ignore */
+  }
+}
 
 const PAGE_SIZE = 20;
 const EMPTY_FORM = {
@@ -61,12 +75,15 @@ export default function ProcessListPage() {
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [toast, setToast] = useState(null);
+  const [descriptionPickerOpen, setDescriptionPickerOpen] = useState(false);
+  const toastTimerRef = useRef(null);
+  const fetchAbortRef = useRef(null);
 
-  const notify = (message, type = "success") => {
+  const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
-    window.clearTimeout(window.__processToastTimer);
-    window.__processToastTimer = window.setTimeout(() => setToast(null), 1800);
-  };
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 1800);
+  }, []);
 
   useEffect(() => {
     document.body.classList.remove("dashboard-page");
@@ -130,11 +147,58 @@ export default function ProcessListPage() {
     })();
   }, []);
 
+  const syncUrl = useCallback(() => {
+    const url = new URL(window.location.href);
+    if (companyId) url.searchParams.set("company_id", String(companyId));
+    else url.searchParams.delete("company_id");
+    if (search.trim()) url.searchParams.set("search", search.trim());
+    else url.searchParams.delete("search");
+    if (showInactive) url.searchParams.set("showInactive", "1");
+    else url.searchParams.delete("showInactive");
+    if (showAll) url.searchParams.set("showAll", "1");
+    else url.searchParams.delete("showAll");
+    window.history.replaceState({}, document.title, url.toString());
+  }, [companyId, search, showInactive, showAll]);
+
+  const fetchRows = useCallback(async () => {
+    if (!companyId) return;
+    if (fetchAbortRef.current) fetchAbortRef.current.abort();
+    const ac = new AbortController();
+    fetchAbortRef.current = ac;
+    setTableLoading(true);
+    try {
+      const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+      url.searchParams.set("permission", "Games");
+      url.searchParams.set("company_id", String(companyId));
+      if (search.trim()) url.searchParams.set("search", search.trim());
+      if (showInactive) url.searchParams.set("showInactive", "1");
+      if (showAll) url.searchParams.set("showAll", "1");
+      const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
+      const json = await res.json();
+      if (ac.signal.aborted) return;
+      if (!res.ok || !json.success) {
+        notify(json.message || json.error || "Failed to load process list", "danger");
+        return;
+      }
+      setRows(normalizeRows(json.data));
+      setSelectedIds(new Set());
+      setCurrentPage(1);
+      syncUrl();
+    } catch {
+      if (ac.signal.aborted) return;
+      notify("Failed to load process list", "danger");
+    } finally {
+      if (!ac.signal.aborted) setTableLoading(false);
+    }
+  }, [companyId, search, showInactive, showAll, notify, syncUrl]);
+
   useEffect(() => {
     if (loading || !companyId) return;
-    const timer = window.setTimeout(() => fetchRows(), 180);
+    const timer = window.setTimeout(() => {
+      void fetchRows();
+    }, 180);
     return () => window.clearTimeout(timer);
-  }, [loading, companyId, search, showInactive, showAll]);
+  }, [loading, companyId, search, showInactive, showAll, fetchRows]);
 
   useEffect(() => {
     if (loading || !companyId || companies.length === 0) return;
@@ -158,45 +222,23 @@ export default function ProcessListPage() {
     return () => document.body.classList.remove("process-page--show-all");
   }, [showAll]);
 
-  const syncUrl = () => {
-    const url = new URL(window.location.href);
-    if (companyId) url.searchParams.set("company_id", String(companyId));
-    else url.searchParams.delete("company_id");
-    if (search.trim()) url.searchParams.set("search", search.trim());
-    else url.searchParams.delete("search");
-    if (showInactive) url.searchParams.set("showInactive", "1");
-    else url.searchParams.delete("showInactive");
-    if (showAll) url.searchParams.set("showAll", "1");
-    else url.searchParams.delete("showAll");
-    window.history.replaceState({}, document.title, url.toString());
-  };
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      fetchAbortRef.current?.abort();
+    };
+  }, []);
 
-  const fetchRows = async () => {
-    if (!companyId) return;
-    setTableLoading(true);
-    try {
-      const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
-      url.searchParams.set("permission", "Games");
-      url.searchParams.set("company_id", String(companyId));
-      if (search.trim()) url.searchParams.set("search", search.trim());
-      if (showInactive) url.searchParams.set("showInactive", "1");
-      if (showAll) url.searchParams.set("showAll", "1");
-      const res = await fetch(url.toString(), { credentials: "include" });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        notify(json.message || json.error || "Failed to load process list", "danger");
-        return;
-      }
-      setRows(normalizeRows(json.data));
-      setSelectedIds(new Set());
-      setCurrentPage(1);
-      syncUrl();
-    } catch {
-      notify("Failed to load process list", "danger");
-    } finally {
-      setTableLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!modalOpen && !descriptionPickerOpen) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (descriptionPickerOpen) setDescriptionPickerOpen(false);
+      else setModalOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalOpen, descriptionPickerOpen]);
 
   const allCompanyButtons = useMemo(
     () => companies.filter((c) => c.company_id && String(c.company_id).trim() !== ""),
@@ -241,7 +283,14 @@ export default function ProcessListPage() {
   const openAdd = () => {
     setEditMode(false);
     setForm(EMPTY_FORM);
+    setDescriptionPickerOpen(false);
     setModalOpen(true);
+  };
+
+  const pickDescription = (d) => {
+    const name = String(d?.name || "").trim();
+    setForm((prev) => ({ ...prev, description_id: String(d?.id ?? ""), description_name: name }));
+    setDescriptionPickerOpen(false);
   };
 
   const openEdit = async (id) => {
@@ -278,6 +327,7 @@ export default function ProcessListPage() {
         dts_created: p.dts_created || "",
         created_by: p.created_by || "",
       });
+      setDescriptionPickerOpen(false);
       setModalOpen(true);
     } catch {
       notify("Failed to load process", "danger");
@@ -311,6 +361,7 @@ export default function ProcessListPage() {
           return;
         }
         notify("Process updated");
+        notifyTransactionDataChanged("processlist-react");
         setModalOpen(false);
         fetchRows();
       } catch {
@@ -340,6 +391,7 @@ export default function ProcessListPage() {
         return;
       }
       notify("Process created");
+      notifyTransactionDataChanged("processlist-react");
       setModalOpen(false);
       fetchRows();
     } catch {
@@ -372,6 +424,7 @@ export default function ProcessListPage() {
         return;
       }
       notify("Deleted successfully");
+      notifyTransactionDataChanged("processlist-react");
       fetchRows();
     } catch {
       notify("Delete failed", "danger");
@@ -396,6 +449,7 @@ export default function ProcessListPage() {
       }
       const newStatus = String(json?.data?.newStatus || "").toLowerCase();
       if (!newStatus) {
+        notifyTransactionDataChanged("processlist-react");
         fetchRows();
         return;
       }
@@ -405,6 +459,7 @@ export default function ProcessListPage() {
         if (newStatus === "active") next.delete(row.id);
         return next;
       });
+      notifyTransactionDataChanged("processlist-react");
     } catch {
       notify("Status update failed", "danger");
     }
@@ -507,9 +562,9 @@ export default function ProcessListPage() {
                 <div className="card-item">{row.day_use || "-"}</div>
                 <div className="card-item">
                   <button type="button" className="edit-btn" onClick={() => openEdit(row.id)} aria-label="Edit" title="Edit">
-                    <img src="/images/edit.svg" alt="Edit" />
+                    <img src={assetUrl("images/edit.svg")} alt="Edit" />
                   </button>
-                  {row.status === "inactive" && !row.has_transactions && (
+                  {String(row.status || "").toLowerCase() === "inactive" && !row.has_transactions && (
                     <input
                       type="checkbox"
                       style={{ marginLeft: 10 }}
@@ -537,7 +592,16 @@ export default function ProcessListPage() {
           <div className="modal-content">
             <div className="modal-header">
               <h2>{editMode ? "Edit Process" : "Add Process"}</h2>
-              <span className="close" onClick={() => setModalOpen(false)} role="presentation">&times;</span>
+              <span
+                className="close"
+                onClick={() => {
+                  setDescriptionPickerOpen(false);
+                  setModalOpen(false);
+                }}
+                role="presentation"
+              >
+                &times;
+              </span>
             </div>
             <div className="modal-body">
               <form className="process-form add-grid" onSubmit={submitForm}>
@@ -565,7 +629,14 @@ export default function ProcessListPage() {
                           placeholder="Select description"
                           style={{ backgroundColor: "#f5f5f5" }}
                         />
-                        <button type="button" className="add-icon" aria-label="Description helper">+</button>
+                        <button
+                          type="button"
+                          className="add-icon"
+                          aria-label="Choose description"
+                          onClick={() => setDescriptionPickerOpen(true)}
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -695,9 +766,64 @@ export default function ProcessListPage() {
 
                 <div className="form-actions add-actions">
                   <button type="submit" className="btn btn-save">{editMode ? "Update Process" : "Add Process"}</button>
-                  <button type="button" className="btn btn-cancel" onClick={() => setModalOpen(false)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="btn btn-cancel"
+                    onClick={() => {
+                      setDescriptionPickerOpen(false);
+                      setModalOpen(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalOpen && descriptionPickerOpen && (
+        <div
+          className="modal"
+          style={{ display: "block", zIndex: 10050 }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="descPickerTitle"
+        >
+          <div className="modal-content" style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <h2 id="descPickerTitle">Select description</h2>
+              <span className="close" onClick={() => setDescriptionPickerOpen(false)} role="presentation">&times;</span>
+            </div>
+            <div className="modal-body" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              {descriptions.length === 0 ? (
+                <p style={{ margin: 0, color: "#666" }}>No descriptions available.</p>
+              ) : (
+                descriptions.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    className="description-item"
+                    onClick={() => pickDescription(d)}
+                    style={{
+                      width: "100%",
+                      border: "1px solid #e9ecef",
+                      background: String(form.description_id) === String(d.id) ? "#e7f1ff" : "#fff",
+                      borderRadius: 4,
+                      marginBottom: 8,
+                      padding: "10px 12px",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontSize: 14,
+                    }}
+                  >
+                    <span className="description-item-left" style={{ textTransform: "uppercase" }}>
+                      {String(d.name || "").trim() || `ID ${d.id}`}
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
