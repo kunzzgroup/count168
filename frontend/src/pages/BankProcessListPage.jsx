@@ -101,7 +101,7 @@ export default function BankProcessListPage() {
   }, []);
 
   useLayoutEffect(() => {
-    document.body.classList.remove("dashboard-page");
+    document.body.classList.remove("dashboard-page", "bg", "account-page", "announcement-page");
     document.body.classList.add("process-page", "process-page--bank");
     return () => document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
   }, []);
