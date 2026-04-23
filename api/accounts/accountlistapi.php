@@ -89,20 +89,24 @@ function formatDomainAutoDisplayAccountId(string $rawAccountId): string {
     }
 
     // Domain 自动建账兼容显示：
-    // 1) OWNERCODE_COMPANY -> COMPANY（如 TEST_AA -> AA）
-    // 2) COMPANY_数字 冲突后缀 -> COMPANY（如 AA_1 -> AA）
+    // 1) OWNERCODE_COMPANY -> COMPANY（如 TEST_AA / K_95 -> AA / 95）
+    // 2) OWNERCODE_COMPANY_数字(冲突后缀) -> COMPANY（如 TEST_AA_1 / K_95_1 -> AA / 95）
     if (strpos($rawAccountId, '_') !== false) {
         $parts = explode('_', $rawAccountId);
-        if (count($parts) >= 2) {
+        $count = count($parts);
+        if ($count >= 3) {
             $last = trim((string)$parts[count($parts) - 1]);
             $prev = trim((string)$parts[count($parts) - 2]);
 
-            // ..._AA_1 这种形式，展示 AA
+            // 仅当存在 3 段及以上且末段是数字时，视为冲突后缀（..._COMPANY_1）
             if ($last !== '' && ctype_digit($last) && $prev !== '') {
                 return $prev;
             }
+        }
 
-            // TEST_AA 这种形式，展示 AA
+        if ($count >= 2) {
+            $last = trim((string)$parts[$count - 1]);
+            // 常规 OWNERCODE_COMPANY，直接显示 company_id（最后一段）
             if ($last !== '') {
                 return $last;
             }
