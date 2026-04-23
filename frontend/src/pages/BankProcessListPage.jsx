@@ -102,6 +102,103 @@ async function isBankCategoryCompany(companyCode) {
   }
 }
 
+function profitSharingTotalFromString(s) {
+  let total = 0;
+  const str = String(s || "").trim();
+  if (!str) return 0;
+  for (const part of str.split(",")) {
+    const t = part.trim();
+    const dash = t.lastIndexOf(" - ");
+    if (dash === -1) continue;
+    const n = parseFloat(t.slice(dash + 3).trim());
+    if (!Number.isNaN(n)) total += n;
+  }
+  return total;
+}
+
+function parseProfitSharingToRows(s, accounts) {
+  const out = [];
+  const str = String(s || "").trim();
+  if (!str) return out;
+  for (const part of str.split(",")) {
+    const t = part.trim();
+    const dash = t.lastIndexOf(" - ");
+    if (dash === -1) continue;
+    const label = t.slice(0, dash).trim();
+    const amount = parseFloat(t.slice(dash + 3).trim());
+    if (!label || Number.isNaN(amount)) continue;
+    const acc = (accounts || []).find(
+      (a) => String(a.account_id || "").toLowerCase() === label.toLowerCase() || String(a.name || "").toLowerCase() === label.toLowerCase()
+    );
+    out.push({ accountId: acc ? String(acc.id) : "", accountLabel: label, amount: String(amount) });
+  }
+  return out;
+}
+
+function serializeProfitSharingRows(rows, accounts) {
+  return rows
+    .map((r) => {
+      const acc = (accounts || []).find((a) => String(a.id) === String(r.accountId));
+      const label = (acc?.account_id || String(r.accountLabel || "").trim()).trim();
+      const amt = parseFloat(String(r.amount));
+      if (!label || Number.isNaN(amt) || amt <= 0) return null;
+      return `${label} - ${amt}`;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+function BankSearchableAccountPick({ value, onChange, accounts, disabled }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const wrapRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const fn = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, [open]);
+  const filtered = useMemo(() => {
+    const list = Array.isArray(accounts) ? accounts : [];
+    const qq = q.trim().toLowerCase();
+    if (!qq) return list;
+    return list.filter((a) => `${a.account_id || ""} ${a.name || ""}`.toLowerCase().includes(qq));
+  }, [accounts, q]);
+  const selected = (accounts || []).find((a) => String(a.id) === String(value));
+  return (
+    <div className="custom-select-wrapper" ref={wrapRef}>
+      <button type="button" className="custom-select-button" disabled={disabled} onClick={() => !disabled && setOpen((o) => !o)}>
+        {selected ? selected.account_id : "Select Account"}
+      </button>
+      {open ? (
+        <div className="custom-select-dropdown" style={{ display: "block" }}>
+          <div className="custom-select-search">
+            <input type="text" placeholder="Search account..." autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          <div className="custom-select-options">
+            {filtered.map((a) => (
+              <div
+                key={a.id}
+                className={`custom-select-option${String(value) === String(a.id) ? " selected" : ""}`}
+                role="presentation"
+                onClick={() => {
+                  onChange(String(a.id));
+                  setOpen(false);
+                  setQ("");
+                }}
+              >
+                {a.account_id} — {a.name || "-"}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function BankProcessListPage() {
   const [cssReady, setCssReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -139,6 +236,30 @@ export default function BankProcessListPage() {
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
   const [remarkDraft, setRemarkDraft] = useState("");
   const [remarkRow, setRemarkRow] = useState(null);
+  const [countriesList, setCountriesList] = useState([]);
+  const [banksList, setBanksList] = useState([]);
+  const [countryModalOpen, setCountryModalOpen] = useState(false);
+  const [bankModalOpen, setBankModalOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const [bankSearch, setBankSearch] = useState("");
+  const [newCountryName, setNewCountryName] = useState("");
+  const [newBankName, setNewBankName] = useState("");
+  const [pendingCountry, setPendingCountry] = useState("");
+  const [pendingBank, setPendingBank] = useState("");
+  const [profitShareModalOpen, setProfitShareModalOpen] = useState(false);
+  const [profitShareRows, setProfitShareRows] = useState([]);
+  const [bankFormNote, setBankFormNote] = useState(null);
+  const [addAccountModalOpen, setAddAccountModalOpen] = useState(false);
+  const [accountPlusTarget, setAccountPlusTarget] = useState(null);
+  const [rolesList, setRolesList] = useState([]);
+  const [addAccountForm, setAddAccountForm] = useState({
+    account_id: "",
+    name: "",
+    role: "",
+    password: "",
+    remark: "",
+    payment_alert: "0",
+  });
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
   const bankDatePickerInitRef = useRef(false);
@@ -158,9 +279,11 @@ export default function BankProcessListPage() {
     profit: "",
     profit_sharing: "",
     day_start: "",
+    day_end: "",
     day_start_frequency: "1st_of_every_month",
     status: "active",
     remark: "",
+    sop: "",
   });
 
   const notify = useCallback((message, type = "success") => {
@@ -298,6 +421,53 @@ export default function BankProcessListPage() {
   }, [showAll]);
 
   useEffect(() => {
+    if (!modalOpen || !companyId) return;
+    (async () => {
+      const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+      url.searchParams.set("action", "get_countries");
+      url.searchParams.set("company_id", String(companyId));
+      const res = await fetch(url.toString(), { credentials: "include" });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) setCountriesList(json.data);
+    })();
+  }, [modalOpen, companyId]);
+
+  useEffect(() => {
+    if (!modalOpen || !companyId || !form.country) {
+      setBanksList([]);
+      return;
+    }
+    (async () => {
+      const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+      url.searchParams.set("action", "get_banks_by_country");
+      url.searchParams.set("company_id", String(companyId));
+      url.searchParams.set("country", String(form.country));
+      const res = await fetch(url.toString(), { credentials: "include" });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) setBanksList(json.data);
+    })();
+  }, [modalOpen, companyId, form.country]);
+
+  useEffect(() => {
+    if (!modalOpen || !editMode) return;
+    if (form.country) setCountriesList((prev) => (prev.includes(form.country) ? prev : [...prev, form.country].sort()));
+    if (form.bank && form.country) setBanksList((prev) => (prev.includes(form.bank) ? prev : [...prev, form.bank].sort()));
+  }, [modalOpen, editMode, form.country, form.bank]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const cost = parseFloat(String(form.cost ?? "")) || 0;
+    const price = parseFloat(String(form.price ?? "")) || 0;
+    const share = profitSharingTotalFromString(form.profit_sharing);
+    const net = Math.max(0, price - cost - share);
+    const next = !String(form.cost ?? "").trim() && !String(form.price ?? "").trim() && !String(form.profit_sharing ?? "").trim() ? "" : String(Number(net.toFixed(2)));
+    setForm((f) => {
+      if (String(f.profit) === next) return f;
+      return { ...f, profit: next };
+    });
+  }, [modalOpen, form.cost, form.price, form.profit_sharing]);
+
+  useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
       listAbortRef.current?.abort();
@@ -397,9 +567,11 @@ export default function BankProcessListPage() {
       profit: "",
       profit_sharing: "",
       day_start: "",
+      day_end: "",
       day_start_frequency: "1st_of_every_month",
       status: "active",
       remark: "",
+      sop: "",
     });
   };
 
@@ -423,7 +595,140 @@ export default function BankProcessListPage() {
   const openAdd = () => {
     setEditMode(false);
     resetForm();
+    setCountryModalOpen(false);
+    setBankModalOpen(false);
+    setProfitShareModalOpen(false);
+    setBankFormNote(null);
+    setAddAccountModalOpen(false);
+    setPendingCountry("");
+    setPendingBank("");
     setModalOpen(true);
+  };
+
+  const submitNewCountry = async (e) => {
+    e.preventDefault();
+    const name = String(newCountryName || "").trim().toUpperCase();
+    if (!name || !companyId) return;
+    try {
+      const fd = new FormData();
+      fd.append("company_id", String(companyId));
+      fd.append("country", name);
+      const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=add_country"), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (!res.ok || !json.success) return notify(json.message || json.error || "Add country failed", "danger");
+      setCountriesList((prev) => [...new Set([...prev, name])].sort());
+      setPendingCountry(name);
+      setNewCountryName("");
+      notify("Country added");
+    } catch {
+      notify("Add country failed", "danger");
+    }
+  };
+
+  const submitNewBank = async (e) => {
+    e.preventDefault();
+    const name = String(newBankName || "").trim().toUpperCase();
+    if (!name || !companyId || !form.country) return;
+    try {
+      const fd = new FormData();
+      fd.append("company_id", String(companyId));
+      fd.append("country", String(form.country));
+      fd.append("banks[]", name);
+      const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=save_country_banks"), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (!res.ok || !json.success) return notify(json.message || json.error || "Add bank failed", "danger");
+      setBanksList((prev) => [...new Set([...prev, name])].sort());
+      setPendingBank(name);
+      setNewBankName("");
+      notify("Bank added");
+    } catch {
+      notify("Add bank failed", "danger");
+    }
+  };
+
+  const openProfitShareModal = () => {
+    const rows = parseProfitSharingToRows(form.profit_sharing, accounts);
+    setProfitShareRows(rows.length ? rows : [{ accountId: "", accountLabel: "", amount: "" }]);
+    setProfitShareModalOpen(true);
+  };
+
+  const addProfitShareRow = () => {
+    setProfitShareRows((prev) => [...prev, { accountId: "", accountLabel: "", amount: "" }]);
+  };
+
+  const removeProfitShareRow = (idx) => {
+    setProfitShareRows((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const confirmProfitShareModal = () => {
+    const s = serializeProfitSharingRows(profitShareRows, accounts);
+    setForm((f) => ({ ...f, profit_sharing: s }));
+    setProfitShareModalOpen(false);
+  };
+
+  const openBankFormNoteModal = (kind) => {
+    setBankFormNote({ kind, draft: kind === "sop" ? String(form.sop || "") : String(form.remark || "") });
+  };
+
+  const saveBankFormNoteModal = () => {
+    if (!bankFormNote) return;
+    const { kind, draft } = bankFormNote;
+    if (kind === "sop") setForm((f) => ({ ...f, sop: draft }));
+    else setForm((f) => ({ ...f, remark: draft }));
+    setBankFormNote(null);
+  };
+
+  const openAddAccountForField = async (target) => {
+    setAccountPlusTarget(target);
+    if (!rolesList.length) {
+      try {
+        const res = await fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" });
+        const json = await res.json();
+        setRolesList(Array.isArray(json?.data?.roles) ? json.data.roles : []);
+      } catch {
+        setRolesList([]);
+      }
+    }
+    setAddAccountForm({ account_id: "", name: "", role: "", password: "", remark: "", payment_alert: "0" });
+    setAddAccountModalOpen(true);
+  };
+
+  const submitAddAccountModal = async (e) => {
+    e.preventDefault();
+    if (!companyId) return;
+    try {
+      const fd = new FormData();
+      fd.append("company_id", String(companyId));
+      fd.append("account_id", addAccountForm.account_id.trim());
+      fd.append("name", addAccountForm.name.trim());
+      fd.append("role", addAccountForm.role.trim());
+      fd.append("password", addAccountForm.password);
+      fd.append("payment_alert", addAccountForm.payment_alert);
+      fd.append("remark", addAccountForm.remark.trim());
+      const res = await fetch(buildApiUrl("api/accounts/addaccountapi.php"), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (!res.ok || !json.success) return notify(json.message || json.error || "Add account failed", "danger");
+      const newId = json.data?.id != null ? String(json.data.id) : "";
+      const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+      url.searchParams.set("company_id", String(companyId));
+      url.searchParams.set("showAll", "1");
+      const listRes = await fetch(url.toString(), { credentials: "include" });
+      const listJson = await listRes.json();
+      const list = Array.isArray(listJson?.data?.accounts) ? listJson.data.accounts : [];
+      setAccounts(list);
+      if (newId && accountPlusTarget === "card_merchant_id") setForm((f) => ({ ...f, card_merchant_id: newId }));
+      if (newId && accountPlusTarget === "customer_id") setForm((f) => ({ ...f, customer_id: newId }));
+      if (newId && accountPlusTarget === "profit_account_id") setForm((f) => ({ ...f, profit_account_id: newId }));
+      if (newId && accountPlusTarget && typeof accountPlusTarget === "object" && accountPlusTarget.type === "profitRow") {
+        const idx = accountPlusTarget.index;
+        setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, accountId: newId, accountLabel: addAccountForm.account_id.trim() } : r)));
+      }
+      notify("Account created");
+      setAddAccountModalOpen(false);
+      setAccountPlusTarget(null);
+    } catch {
+      notify("Add account failed", "danger");
+    }
   };
 
   const openEdit = async (rowId) => {
@@ -452,10 +757,12 @@ export default function BankProcessListPage() {
         price: d.price ?? "",
         profit: d.profit ?? "",
         profit_sharing: d.profit_sharing || "",
-        day_start: d.day_start || "",
+        day_start: d.day_start ? String(d.day_start).slice(0, 10) : "",
+        day_end: d.day_end ? String(d.day_end).slice(0, 10) : "",
         day_start_frequency: d.day_start_frequency || "1st_of_every_month",
         status: d.status || "active",
         remark: d.remark || "",
+        sop: d.sop || "",
       });
       setModalOpen(true);
     } catch {
@@ -470,6 +777,7 @@ export default function BankProcessListPage() {
       if (k === "id" && !editMode) return;
       fd.append(k, v ?? "");
     });
+    if (companyId) fd.append("company_id", String(companyId));
     fd.append("permission", "Bank");
     try {
       const endpoint = editMode ? "api/processes/processlist_api.php?action=update_process" : "api/processes/addprocess_api.php";
@@ -819,32 +1127,480 @@ export default function BankProcessListPage() {
               <span className="close" onClick={() => setModalOpen(false)} role="presentation">&times;</span>
             </div>
             <div className="modal-body">
-              <form className="process-form add-grid" onSubmit={submitForm}>
-                <div className="add-col">
-                  {["country", "bank", "type", "name", "contract"].map((f) => (
-                    <div className="form-row" key={f}>
-                      <div className="form-group">
-                        <label>{f.replace(/_/g, " ").toUpperCase()}</label>
-                        <input value={form[f]} onChange={(ev) => setForm((prev) => ({ ...prev, [f]: ev.target.value }))} required={f !== "contract"} />
+              <form id="addBankProcessForm" className="process-form bank-form" onSubmit={submitForm}>
+                <input type="hidden" name="id" value={form.id} />
+                <div className="bank-form-fields-scroll">
+                  <div className="bank-form-row">
+                    <div className="bank-form-cell bank-form-cell-left">
+                      <h3 className="bank-section-title">Bank Information</h3>
+                      <div className="form-row bank-row-two-cols">
+                        <div className="form-group">
+                          <label htmlFor="bank_country">Country (Currency)</label>
+                          <div className="select-with-add">
+                            {editMode ? (
+                              <input id="bank_country" readOnly className="bank-input" value={form.country} />
+                            ) : (
+                              <select
+                                id="bank_country"
+                                name="country"
+                                className="bank-select"
+                                value={form.country}
+                                required
+                                onChange={(ev) => setForm((prev) => ({ ...prev, country: ev.target.value, bank: "" }))}
+                              >
+                                <option value="">Select Country</option>
+                                {countriesList.map((c) => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            )}
+                            {!editMode ? (
+                              <button type="button" className="bank-add-btn" title="Add New Country" onClick={() => { setPendingCountry(form.country); setCountryModalOpen(true); }}>
+                                +
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="bank_bank">Bank</label>
+                          <div className="select-with-add">
+                            {editMode ? (
+                              <input id="bank_bank" readOnly className="bank-input" value={form.bank} />
+                            ) : (
+                              <select
+                                id="bank_bank"
+                                name="bank"
+                                className="bank-select"
+                                value={form.bank}
+                                required
+                                disabled={!form.country}
+                                onChange={(ev) => setForm((prev) => ({ ...prev, bank: ev.target.value }))}
+                              >
+                                <option value="">Select Bank</option>
+                                {banksList.map((b) => (
+                                  <option key={b} value={b}>{b}</option>
+                                ))}
+                              </select>
+                            )}
+                            {!editMode ? (
+                              <button type="button" className="bank-add-btn" title="Add New Bank" disabled={!form.country} onClick={() => { setPendingBank(form.bank); setBankModalOpen(true); }}>
+                                +
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                  <div className="form-row"><div className="form-group"><label>DAY START</label><input type="date" value={form.day_start} onChange={(ev) => setForm((prev) => ({ ...prev, day_start: ev.target.value }))} /></div></div>
-                  <div className="form-row"><div className="form-group"><label>DAY START FREQUENCY</label><select value={form.day_start_frequency} onChange={(ev) => setForm((prev) => ({ ...prev, day_start_frequency: ev.target.value }))}><option value="1st_of_every_month">1st_of_every_month</option><option value="monthly">monthly</option></select></div></div>
-                  {editMode && <div className="form-row"><div className="form-group"><label>STATUS</label><select value={form.status} onChange={(ev) => setForm((prev) => ({ ...prev, status: ev.target.value }))}><option value="active">active</option><option value="inactive">inactive</option></select></div></div>}
+                    <div className="bank-form-cell bank-form-cell-right">
+                      <h3 className="bank-section-title">Detail</h3>
+                      <div className="form-row bank-row-two-cols">
+                        <div className="form-group">
+                          <label htmlFor="bank_card_merchant">Supplier</label>
+                          <div className="account-select-with-buttons">
+                            <BankSearchableAccountPick
+                              value={form.card_merchant_id}
+                              onChange={(id) => setForm((prev) => ({ ...prev, card_merchant_id: id }))}
+                              accounts={accounts}
+                              disabled={false}
+                            />
+                            <button type="button" className="bank-add-btn" title="Add New Account" onClick={() => openAddAccountForField("card_merchant_id")}>+</button>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="bank_cost">Buy Price</label>
+                          <input
+                            id="bank_cost"
+                            name="cost"
+                            type="text"
+                            className="bank-input"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            placeholder="Enter amount"
+                            value={form.cost}
+                            onChange={(ev) => setForm((prev) => ({ ...prev, cost: ev.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bank-form-row">
+                    <div className="bank-form-cell bank-form-cell-left">
+                      <div className="form-row bank-row-two-cols bank-row-type-name">
+                        <div className="form-group">
+                          <label htmlFor="bank_type">Type</label>
+                          {editMode ? (
+                            <input id="bank_type" readOnly className="bank-input" value={form.type} />
+                          ) : (
+                            <select id="bank_type" name="type" className="bank-select" value={form.type} required onChange={(ev) => setForm((prev) => ({ ...prev, type: ev.target.value }))}>
+                              <option value="">Select Type</option>
+                              <option value="PERSONAL">PERSONAL</option>
+                              <option value="ENTERPRISE">ENTERPRISE</option>
+                              <option value="BUSINESS">BUSINESS</option>
+                            </select>
+                          )}
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="bank_name">Card Owner</label>
+                          <input
+                            id="bank_name"
+                            name="name"
+                            type="text"
+                            className="bank-input"
+                            placeholder="Enter Card Owner"
+                            value={form.name}
+                            readOnly={editMode}
+                            required={!editMode}
+                            onChange={(ev) => setForm((prev) => ({ ...prev, name: String(ev.target.value).toUpperCase() }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bank-form-cell bank-form-cell-right">
+                      <div className="form-row bank-row-two-cols">
+                        <div className="form-group">
+                          <label htmlFor="bank_customer">Customer</label>
+                          <div className="account-select-with-buttons">
+                            <BankSearchableAccountPick
+                              value={form.customer_id}
+                              onChange={(id) => setForm((prev) => ({ ...prev, customer_id: id }))}
+                              accounts={accounts}
+                              disabled={false}
+                            />
+                            <button type="button" className="bank-add-btn" title="Add New Account" onClick={() => openAddAccountForField("customer_id")}>+</button>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="bank_price">Sell Price</label>
+                          <input
+                            id="bank_price"
+                            name="price"
+                            type="text"
+                            className="bank-input"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            placeholder="Enter amount"
+                            value={form.price}
+                            onChange={(ev) => setForm((prev) => ({ ...prev, price: ev.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bank-form-row">
+                    <div className="bank-form-cell bank-form-cell-left">
+                      <div className="form-row bank-day-start-row">
+                        <div className="form-group bank-day-start-input-wrap">
+                          <label htmlFor="bank_day_start">Day start</label>
+                          <input id="bank_day_start" name="day_start" type="date" className="bank-input" value={form.day_start} onChange={(ev) => setForm((prev) => ({ ...prev, day_start: ev.target.value }))} />
+                        </div>
+                        <div className="form-group bank-day-end-input-wrap">
+                          <label htmlFor="bank_day_end">Day end</label>
+                          <input id="bank_day_end" name="day_end" type="date" className="bank-input" value={form.day_end} onChange={(ev) => setForm((prev) => ({ ...prev, day_end: ev.target.value }))} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bank-form-cell bank-form-cell-right">
+                      <div className="form-row bank-row-two-cols">
+                        <div className="form-group">
+                          <label htmlFor="bank_profit_account">Company</label>
+                          <div className="account-select-with-buttons">
+                            <BankSearchableAccountPick
+                              value={form.profit_account_id}
+                              onChange={(id) => setForm((prev) => ({ ...prev, profit_account_id: id }))}
+                              accounts={accounts}
+                              disabled={false}
+                            />
+                            <button type="button" className="bank-add-btn" title="Add New Account" onClick={() => openAddAccountForField("profit_account_id")}>+</button>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="bank_profit">Profit</label>
+                          <input id="bank_profit" name="profit" type="number" className="bank-input" placeholder="Auto calculated" readOnly style={{ backgroundColor: "#f5f5f5" }} value={form.profit} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bank-form-row bank-form-row-last">
+                    <div className="bank-form-cell bank-form-cell-left">
+                      <div className="form-group bank-day-start-frequency-wrap" style={{ marginBottom: 20 }}>
+                        <label htmlFor="bank_day_start_frequency">Frequency</label>
+                        <select id="bank_day_start_frequency" name="day_start_frequency" className="bank-input bank-select" value={form.day_start_frequency} onChange={(ev) => setForm((prev) => ({ ...prev, day_start_frequency: ev.target.value }))}>
+                          <option value="1st_of_every_month">1st of Every Month</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </div>
+                      <input type="hidden" name="profit_sharing" value={form.profit_sharing} />
+                      <div className="bank-profit-sharing-container form-group">
+                        <div className="bank-profit-sharing-header">
+                          <h3>Selected Profit Sharing</h3>
+                          <button type="button" className="bank-add-btn" title="Add Profit Sharing" onClick={openProfitShareModal}>+</button>
+                        </div>
+                        <div className="bank-profit-sharing-list" id="selectedProfitSharingList">
+                          {parseProfitSharingToRows(form.profit_sharing, accounts).length === 0 ? (
+                            <div className="no-profit-sharing"><p>No profit sharing selected</p></div>
+                          ) : (
+                            parseProfitSharingToRows(form.profit_sharing, accounts).map((row, idx) => (
+                              <div key={`${row.accountLabel}-${idx}`} className="bank-profit-sharing-item" style={{ padding: "6px 0", borderBottom: "1px solid #eee" }}>
+                                <span>{row.accountLabel}</span>
+                                {" — "}
+                                <span>{row.amount}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bank-form-cell bank-form-cell-right">
+                      <div className="form-row bank-row-two-cols">
+                        <div className="form-group">
+                          <label htmlFor="bank_contract">Contract</label>
+                          <select id="bank_contract" name="contract" className="bank-select" value={form.contract} onChange={(ev) => setForm((prev) => ({ ...prev, contract: ev.target.value }))} required>
+                            <option value="">Select Contract</option>
+                            <option value="1 MONTH">1 MONTH</option>
+                            <option value="2 MONTHS">2 MONTHS</option>
+                            <option value="3 MONTHS">3 MONTHS</option>
+                            <option value="6 MONTHS">6 MONTHS</option>
+                            <option value="1+1">1+1 MONTH</option>
+                            <option value="1+2">1+2 MONTHS</option>
+                            <option value="1+3">1+3 MONTHS</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="bank_insurance">Insurance</label>
+                          <input id="bank_insurance" name="insurance" type="text" className="bank-input" inputMode="decimal" autoComplete="off" placeholder="Enter amount" value={form.insurance} onChange={(ev) => setForm((prev) => ({ ...prev, insurance: ev.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-group bank-remark-wrap" style={{ marginTop: 12 }}>
+                        <div className="bank-remark-actions">
+                          <button type="button" id="bank_sop_btn" className="btn btn-save" onClick={() => openBankFormNoteModal("sop")}>SOP</button>
+                          <button type="button" id="bank_remark_btn" className="btn btn-save" onClick={() => openBankFormNoteModal("remark")}>Remark</button>
+                        </div>
+                        {(form.sop || form.remark) ? (
+                          <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>{[form.sop && "SOP filled", form.remark && "Remark filled"].filter(Boolean).join(" · ")}</p>
+                        ) : null}
+                      </div>
+                      {editMode ? (
+                        <div className="form-group" style={{ marginTop: 12 }}>
+                          <label htmlFor="bank_status_edit">Status</label>
+                          <select id="bank_status_edit" value={form.status} onChange={(ev) => setForm((prev) => ({ ...prev, status: ev.target.value }))}>
+                            <option value="active">active</option>
+                            <option value="inactive">inactive</option>
+                          </select>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
-                <div className="add-col">
-                  <div className="form-row"><div className="form-group"><label>CARD MERCHANT</label><select value={form.card_merchant_id} onChange={(ev) => setForm((prev) => ({ ...prev, card_merchant_id: ev.target.value }))}><option value="">Select</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.account_id}</option>)}</select></div></div>
-                  <div className="form-row"><div className="form-group"><label>CUSTOMER</label><select value={form.customer_id} onChange={(ev) => setForm((prev) => ({ ...prev, customer_id: ev.target.value }))}><option value="">Select</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.account_id}</option>)}</select></div></div>
-                  <div className="form-row"><div className="form-group"><label>PROFIT ACCOUNT</label><select value={form.profit_account_id} onChange={(ev) => setForm((prev) => ({ ...prev, profit_account_id: ev.target.value }))}><option value="">Select</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.account_id}</option>)}</select></div></div>
-                  {["insurance", "cost", "price", "profit", "profit_sharing"].map((f) => (
-                    <div className="form-row" key={f}><div className="form-group"><label>{f.toUpperCase()}</label><input value={form[f]} onChange={(ev) => setForm((prev) => ({ ...prev, [f]: ev.target.value }))} /></div></div>
-                  ))}
-                  <div className="form-row"><div className="form-group"><label>REMARK</label><textarea rows={4} value={form.remark} onChange={(ev) => setForm((prev) => ({ ...prev, remark: ev.target.value }))} /></div></div>
-                </div>
-                <div className="form-actions add-actions">
-                  <button type="submit" className="btn btn-save">{editMode ? "Update Process" : "Add Process"}</button>
+                <div className="form-actions bank-actions">
+                  <button type="submit" className="btn btn-save" id="bankSubmitBtn">{editMode ? "Update Process" : "Add Process"}</button>
                   <button type="button" className="btn btn-cancel" onClick={() => setModalOpen(false)}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {countryModalOpen && (
+        <div id="countrySelectionModal" className="modal" style={{ display: "block" }}>
+          <div className="modal-content country-selection-modal">
+            <div className="modal-header">
+              <h2>Select or Add Country</h2>
+              <span className="close" onClick={() => setCountryModalOpen(false)} role="presentation">&times;</span>
+            </div>
+            <div className="modal-body">
+              <div className="country-selection-container">
+                <div className="available-countries-section">
+                  <div className="add-country-bar">
+                    <h3>Add New Country</h3>
+                    <form className="add-country-form" onSubmit={submitNewCountry}>
+                      <div className="add-country-input-group">
+                        <input type="text" id="new_country_name" placeholder="Enter new country name..." value={newCountryName} onChange={(e) => setNewCountryName(e.target.value.toUpperCase())} />
+                        <button type="submit" className="btn btn-save">Add</button>
+                      </div>
+                    </form>
+                  </div>
+                  <h3>Available Countries</h3>
+                  <div className="country-search">
+                    <input type="text" id="countrySearch" placeholder="Search countries..." value={countrySearch} onChange={(e) => setCountrySearch(e.target.value.toUpperCase())} />
+                  </div>
+                  <div className="country-list" id="existingCountries">
+                    {countriesList.filter((c) => !countrySearch.trim() || c.toUpperCase().includes(countrySearch.trim())).map((c) => (
+                      <div key={c} className={`country-list-item${pendingCountry === c ? " selected" : ""}`} role="presentation" style={{ cursor: "pointer", padding: 6 }} onClick={() => setPendingCountry(c)}>{c}</div>
+                    ))}
+                  </div>
+                </div>
+                <div className="selected-countries-section">
+                  <h3>Selected Countries</h3>
+                  <div className="selected-countries-list" id="selectedCountriesInModal">{pendingCountry ? <div>{pendingCountry}</div> : <div style={{ color: "#94a3b8" }}>None</div>}</div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-save" id="confirmCountriesBtn" onClick={() => { if (pendingCountry) setForm((f) => ({ ...f, country: pendingCountry, bank: "" })); setCountryModalOpen(false); }}>Confirm</button>
+                <button type="button" className="btn btn-cancel" onClick={() => setCountryModalOpen(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {bankModalOpen && (
+        <div id="bankSelectionModal" className="modal" style={{ display: "block" }}>
+          <div className="modal-content bank-selection-modal">
+            <div className="modal-header">
+              <h2>Select or Add Bank</h2>
+              <span className="close" onClick={() => setBankModalOpen(false)} role="presentation">&times;</span>
+            </div>
+            <div className="modal-body">
+              <div className="bank-selection-container">
+                <div className="available-banks-section">
+                  <div className="add-bank-bar">
+                    <h3>Add New Bank</h3>
+                    <form className="add-bank-form" onSubmit={submitNewBank}>
+                      <div className="add-bank-input-group">
+                        <input type="text" id="new_bank_name" placeholder="Enter new bank name..." value={newBankName} onChange={(e) => setNewBankName(e.target.value.toUpperCase())} />
+                        <button type="submit" className="btn btn-save">Add</button>
+                      </div>
+                    </form>
+                  </div>
+                  <h3>Available Banks</h3>
+                  <div className="bank-search">
+                    <input type="text" id="bankSearch" placeholder="Search banks..." value={bankSearch} onChange={(e) => setBankSearch(e.target.value.toUpperCase())} />
+                  </div>
+                  <div className="bank-list" id="existingBanks">
+                    {banksList.filter((b) => !bankSearch.trim() || b.toUpperCase().includes(bankSearch.trim())).map((b) => (
+                      <div key={b} className={`bank-list-item${pendingBank === b ? " selected" : ""}`} role="presentation" style={{ cursor: "pointer", padding: 6 }} onClick={() => setPendingBank(b)}>{b}</div>
+                    ))}
+                  </div>
+                </div>
+                <div className="selected-banks-section">
+                  <h3>Selected Banks</h3>
+                  <div className="selected-banks-list" id="selectedBanksInModal">{pendingBank ? <div>{pendingBank}</div> : <div style={{ color: "#94a3b8" }}>None</div>}</div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-save" id="confirmBanksBtn" onClick={() => { if (pendingBank) setForm((f) => ({ ...f, bank: pendingBank })); setBankModalOpen(false); }}>Confirm</button>
+                <button type="button" className="btn btn-cancel" onClick={() => setBankModalOpen(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {profitShareModalOpen && (
+        <div id="profitSharingModal" className="modal" style={{ display: "block" }}>
+          <div className="modal-content" style={{ maxWidth: "628px" }}>
+            <div className="modal-header">
+              <h2>Add Profit Sharing</h2>
+              <span className="close" onClick={() => setProfitShareModalOpen(false)} role="presentation">&times;</span>
+            </div>
+            <div className="modal-body">
+              <div className="bank-form" style={{ display: "block" }}>
+                <div id="profitSharingRowsContainer">
+                  {profitShareRows.map((row, idx) => (
+                    <div key={`ps-${idx}`} className="form-row bank-row-two-cols profit-sharing-row" style={{ alignItems: "flex-end", gap: 8 }}>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label>Account</label>
+                        <div className="account-select-with-buttons">
+                          <BankSearchableAccountPick
+                            value={row.accountId}
+                            onChange={(id) => {
+                              const acc = accounts.find((a) => String(a.id) === String(id));
+                              setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, accountId: id, accountLabel: acc?.account_id || "" } : r)));
+                            }}
+                            accounts={accounts}
+                            disabled={false}
+                          />
+                          <button type="button" className="bank-add-btn" title="Add New Account" onClick={() => openAddAccountForField({ type: "profitRow", index: idx })}>+</button>
+                        </div>
+                      </div>
+                      <div className="form-group" style={{ width: 120 }}>
+                        <label>Amount</label>
+                        <input type="number" className="bank-input profit-sharing-amount" placeholder="Amount" step="0.01" min="0" value={row.amount} onChange={(e) => setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: e.target.value } : r)))} />
+                      </div>
+                      <button type="button" className="btn btn-delete" style={{ marginBottom: 4 }} onClick={() => removeProfitShareRow(idx)} aria-label="Remove row">×</button>
+                    </div>
+                  ))}
+                </div>
+                <div className="profit-sharing-add-row-wrap" style={{ marginTop: 10 }}>
+                  <button type="button" className="bank-add-btn" title="Add another Account & Amount" onClick={addProfitShareRow}>+</button>
+                </div>
+                <div className="form-actions bank-actions" style={{ marginTop: 16 }}>
+                  <button type="button" className="btn btn-save" onClick={confirmProfitShareModal}>Add</button>
+                  <button type="button" className="btn btn-cancel" onClick={() => setProfitShareModalOpen(false)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {bankFormNote && (
+        <div id="sopModal" className="modal bank-modal sop-modal" style={{ display: "block" }}>
+          <div className="modal-content sop-modal-content">
+            <div className="modal-header">
+              <h2 id="processNoteModalTitle">{bankFormNote.kind === "sop" ? "SOP" : "Remark"}</h2>
+              <span className="close" onClick={() => setBankFormNote(null)} role="presentation">&times;</span>
+            </div>
+            <div className="modal-body sop-modal-body">
+              <textarea
+                id="sop_content"
+                placeholder="Enter notes for this process..."
+                className="bank-input sop-modal-textarea"
+                value={bankFormNote.draft}
+                onChange={(e) => setBankFormNote((n) => (n ? { ...n, draft: e.target.value } : n))}
+              />
+              <div className="form-actions bank-actions sop-modal-actions">
+                <button type="button" className="btn btn-save" onClick={saveBankFormNoteModal}>Save</button>
+                <button type="button" className="btn btn-cancel" onClick={() => setBankFormNote(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {addAccountModalOpen && (
+        <div id="addAccountModal" className="account-modal" style={{ display: "block" }}>
+          <div className="account-modal-content">
+            <div className="account-modal-header">
+              <h2>Add Account</h2>
+              <span className="account-close" onClick={() => setAddAccountModalOpen(false)} role="presentation">&times;</span>
+            </div>
+            <div className="account-modal-body">
+              <form id="addAccountForm" className="account-form" onSubmit={submitAddAccountModal}>
+                <div className="account-form-columns">
+                  <div className="account-form-column">
+                    <h3 className="account-section-header">Personal Information</h3>
+                    <div className="account-form-group">
+                      <label htmlFor="add_account_id_bank">Account ID *</label>
+                      <input id="add_account_id_bank" required value={addAccountForm.account_id} onChange={(e) => setAddAccountForm((f) => ({ ...f, account_id: e.target.value }))} />
+                    </div>
+                    <div className="account-form-group">
+                      <label htmlFor="add_name_bank">Name *</label>
+                      <input id="add_name_bank" required value={addAccountForm.name} onChange={(e) => setAddAccountForm((f) => ({ ...f, name: e.target.value }))} />
+                    </div>
+                    <div className="account-form-group">
+                      <label htmlFor="add_role_bank">Role *</label>
+                      <select id="add_role_bank" required value={addAccountForm.role} onChange={(e) => setAddAccountForm((f) => ({ ...f, role: e.target.value }))}>
+                        <option value="">Select Role</option>
+                        {rolesList.map((r) => (
+                          <option key={r} value={r}>{String(r).toUpperCase() === "UPLINE" ? "SUPPLIER" : r}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="account-form-group">
+                      <label htmlFor="add_password_bank">Password *</label>
+                      <input id="add_password_bank" type="password" required value={addAccountForm.password} onChange={(e) => setAddAccountForm((f) => ({ ...f, password: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="account-form-column">
+                    <h3 className="account-section-header">Other</h3>
+                    <div className="account-form-group">
+                      <label htmlFor="add_remark_bank">Remark</label>
+                      <textarea id="add_remark_bank" rows={2} value={addAccountForm.remark} onChange={(e) => setAddAccountForm((f) => ({ ...f, remark: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+                <div className="account-form-actions">
+                  <button type="submit" className="account-btn account-btn-save">Add Account</button>
+                  <button type="button" className="account-btn account-btn-cancel" onClick={() => setAddAccountModalOpen(false)}>Cancel</button>
                 </div>
               </form>
             </div>
