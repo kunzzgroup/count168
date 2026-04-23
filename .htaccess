@@ -17,6 +17,8 @@
 RewriteEngine On
 
 # Canonical no-extension links for Process List.
+RewriteRule ^account-list\.php$ /account-list [R=301,L]
+RewriteRule ^add-account\.php$ /add-account [R=301,L]
 RewriteRule ^processlist\.php$ /process-list [R=301,L]
 RewriteRule ^games_process_list\.php$ /process-list [R=301,L]
 RewriteRule ^bank_process_list\.php$ /bank-process-list [R=301,L]

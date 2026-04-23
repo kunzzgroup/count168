@@ -1,7 +1,7 @@
 <?php
-define('PROCESSLIST_PAGE_FILE', 'games_process_list.php');
-define('PROCESSLIST_PAGE_TITLE', 'Process List');
-define('PROCESSLIST_FORCED_PERMISSION', 'Games');
-define('PROCESSLIST_HIDE_PERMISSION_FILTER', true);
+require_once 'session_check.php';
 
-require 'processlist.php';
+$query = $_SERVER['QUERY_STRING'] ?? '';
+$target = '/process-list' . ($query !== '' ? ('?' . $query) : '');
+header('Location: ' . $target, true, 302);
+exit();
