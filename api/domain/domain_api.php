@@ -1759,7 +1759,8 @@ function domainApiExtractProvisionCompanyIds($companies): array {
     $ids = [];
     foreach (domainApiNormalizeCompaniesPayload($companies) as $row) {
         $c = strtoupper(trim((string) ($row['company_id'] ?? '')));
-        if ($c !== '') {
+        // C168 主公司不参与 Domain 自动建账（任何场景都跳过）
+        if ($c !== '' && $c !== 'C168') {
             $ids[] = $c;
         }
     }
@@ -2090,7 +2091,8 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
 
     foreach ($companyIdStrings as $raw) {
         $cid = strtoupper(trim((string) $raw));
-        if ($cid === '') {
+        // 双保险：即便上游漏过，C168 也绝不自动建账
+        if ($cid === '' || $cid === 'C168') {
             continue;
         }
         $useAccountId = domainApiResolveProvisionedMemberAccountCode($pdo, $c168NumericCompanyId, $ownerCodeUpper, $cid);
