@@ -195,6 +195,8 @@ export default function DomainPage() {
   const [domains, setDomains] = useState([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const assetVersion = window.__domainAssetVersion || Date.now();
+  window.__domainAssetVersion = assetVersion;
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -207,8 +209,8 @@ export default function DomainPage() {
       document.head.appendChild(link);
       links.push(link);
     };
-    addCss("/css/domain.css");
-    addCss("/css/accountCSS.css");
+    addCss(`/css/domain.css?v=${assetVersion}`);
+    addCss(`/css/accountCSS.css?v=${assetVersion}`);
 
     (async () => {
       try {
@@ -273,7 +275,7 @@ export default function DomainPage() {
 
     const s = document.createElement("script");
     s.id = scriptId;
-    s.src = assetUrl("js/domain.js");
+    s.src = assetUrl(`js/domain.js?v=${assetVersion}`);
     s.onload = () => {
       window.__domainLegacyScriptLoaded = true;
       document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
