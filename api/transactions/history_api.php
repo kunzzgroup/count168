@@ -1449,17 +1449,10 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    // Domain Share Commission：收款账户在历史中显示正数，与主表一致
-                    if (
-                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_SHARE_COMMISSION|') === 0
-                        || stripos((string) $rawDescription, 'Commision FROM ') === 0
-                    ) {
-                        $cr_dr = (float) $t['amount'];
-                    } else {
-                        $cr_dr = -$t['amount'];
-                    }
+                    // 收款账户（Account To）统一按入账显示正数，与 Transaction List 口径一致
+                    $cr_dr = (float) $t['amount'];
                 } else {
-                    // Domain List Fee：客户(from)侧在历史中显示负数（与主表 LAG -2400 一致）
+                    // 付款账户（Account From）统一按出账显示负数
                     if (
                         stripos((string) ($t['sms'] ?? ''), '[DOMAIN_LIST_FEE|') === 0
                         || stripos((string) $rawDescription, 'Domain list fee FROM ') === 0
@@ -1471,7 +1464,7 @@ try {
                     ) {
                         $cr_dr = 0;
                     } else {
-                        $cr_dr = $t['amount'];
+                        $cr_dr = -(float) $t['amount'];
                     }
                 }
                 break;
