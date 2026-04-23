@@ -748,13 +748,7 @@ function createDomainNetProfitPayment(
     if (!$profitAccId || $profitAccId <= 0) {
         $profitAccId = resolveC168ProfitRoleAccountId($pdo, $c168Pk, (int)$poolId);
     }
-    // 回退：若无 PROFIT role，再回退 owner_code 账号，最后回退资金池
-    if (!$profitAccId || $profitAccId <= 0) {
-        $profitAccId = resolveC168OwnerAccountId($pdo, $c168Pk);
-    }
-    if (!$profitAccId || $profitAccId <= 0) {
-        $profitAccId = $poolId;
-    }
+    // 禁止回退到 owner/K 或资金池自身；没有有效 Profit 目标则不建单
     if (!$profitAccId || !$poolId || (int)$profitAccId === (int)$poolId) {
         return $out;
     }
@@ -939,30 +933,7 @@ function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customer
         return $fromProvisioned;
     }
 
-    $customerPk = getCompanyPkByCode($pdo, $srcCode);
-    if ($customerPk) {
-        $fromOwner = resolveCompanyOwnerAccountId($pdo, (int)$customerPk);
-        if ($fromOwner && $fromOwner > 0 && $fromOwner !== $excludeAccountId) {
-            return $fromOwner;
-        }
-        $fromAny = resolvePayerAccountInCompany($pdo, (int)$customerPk, $excludeAccountId);
-        if ($fromAny && $fromAny > 0) {
-            try {
-                $chk = $pdo->prepare("SELECT LOWER(TRIM(COALESCE(role,''))) FROM account WHERE id = ? LIMIT 1");
-                $chk->execute([(int)$fromAny]);
-                $role = strtolower(trim((string)($chk->fetchColumn() ?: '')));
-                $chk2 = $pdo->prepare("SELECT UPPER(TRIM(COALESCE(account_id,''))) FROM account WHERE id = ? LIMIT 1");
-                $chk2->execute([(int)$fromAny]);
-                $code = strtoupper(trim((string)($chk2->fetchColumn() ?: '')));
-                if ($role !== 'profit' && $code !== 'PROFIT') {
-                    return (int)$fromAny;
-                }
-            } catch (PDOException $e) {
-                return (int)$fromAny;
-            }
-        }
-    }
-
+    // 不再回退到 owner/K/任意账号；仅允许公司码映射或 Domain 自动建账映射。
     return null;
 }
 
@@ -1089,8 +1060,8 @@ function domainApiEnsureAccountDefaultCurrency(PDO $pdo, int $accountId, int $co
 
 /**
  * Domain List Fee：客户公司账户 -> Share% 配置的 Profit 入账账号（与佣金 from、净利润 from 同一池）；
- * 顾客款先入该池，再由佣金 PAYMENT 从该池扣出各 %，剩余留在 Profit 账号即净利润，避免「整笔先入 owner/K」语义。
- * 无 Share% Profit 时回退 C168 PROFIT 角色账号，再回退 resolveC168DomainFeeReceiverAccountId。
+ * 顾客款先入该池，再由佣金 PAYMENT 从该池扣出各 %，剩余留在 Profit 账号即净利润。
+ * 无 Share% Profit 时仅回退 C168 PROFIT 角色账号；不再回退到 owner/K 等账户。
  * 去重由 DOMAIN_LIST_FEE sms 标记负责；删除该笔后可再次创建。
  */
 function createDomainListFeePayment(
@@ -1129,9 +1100,6 @@ function createDomainListFeePayment(
     $poolEarly = resolveShareProfitTargetAccountId($pdo, $custCodeU);
     if (!$poolEarly || $poolEarly <= 0) {
         $poolEarly = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
-    }
-    if (!$poolEarly || $poolEarly <= 0) {
-        $poolEarly = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
     }
     if ($poolEarly && $poolEarly > 0) {
         $out['pool_account_id'] = (int) $poolEarly;
