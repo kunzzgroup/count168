@@ -2,7 +2,7 @@
 $host = 'localhost';
 $dbname = 'u857194726_count168_site';
 $dbuser = 'u857194726_count168_site';
-$dbpass = 'Kunzz_C168';
+$dbpass = 'Kunzz_c168';
 
 
 // 设置PHP时区为马来西亚时间
