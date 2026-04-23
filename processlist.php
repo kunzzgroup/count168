@@ -768,8 +768,12 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="calendar-days" id="calendar-days"></div>
     </div>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
-    <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
-    <script src="js/bank_process_list.js?v=<?php echo time(); ?>"></script>
+    <?php if (strcasecmp((string) $processListForcedPermission, 'Bank') === 0): ?>
+        <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
+        <script src="js/bank_process_list.js?v=<?php echo time(); ?>"></script>
+    <?php else: ?>
+        <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
+    <?php endif; ?>
 </body>
 
 </html>

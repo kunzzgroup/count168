@@ -1,10 +1,24 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 const PAGE_SIZE = 20;
 
 function normalizeRows(data) {
   return Array.isArray(data) ? data : [];
+}
+
+function notifyTransactionDataChanged(sourceTag) {
+  const ts = String(Date.now());
+  try {
+    localStorage.setItem("count168_tx_invalidate_ts", ts);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent("tx-data-changed", { detail: { ts, source: sourceTag || "bank-process-list-react" } }));
+  } catch {
+    /* ignore */
+  }
 }
 
 async function isBankCategoryCompany(companyCode) {
@@ -57,6 +71,8 @@ export default function BankProcessListPage() {
   const [resendDayStart, setResendDayStart] = useState("");
   const [resendDayEnd, setResendDayEnd] = useState("");
   const [resendFrequency, setResendFrequency] = useState("1st_of_every_month");
+  const toastTimerRef = useRef(null);
+  const listAbortRef = useRef(null);
   const [form, setForm] = useState({
     id: "",
     country: "",
@@ -78,11 +94,11 @@ export default function BankProcessListPage() {
     remark: "",
   });
 
-  const notify = (message, type = "success") => {
+  const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
-    window.clearTimeout(window.__bankProcessToastTimer);
-    window.__bankProcessToastTimer = window.setTimeout(() => setToast(null), 1800);
-  };
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 1800);
+  }, []);
 
   useLayoutEffect(() => {
     document.body.classList.remove("dashboard-page");
@@ -136,19 +152,18 @@ export default function BankProcessListPage() {
         const current = cs.find((c) => Number(c.id) === Number(effectiveCompany));
         setSelectedGroup(current?.group_id ? String(current.group_id).toUpperCase() : null);
         setSearch(url.searchParams.get("search") || "");
+        setDateFrom(url.searchParams.get("date_from") || "");
+        setDateTo(url.searchParams.get("date_to") || "");
         setShowAll(url.searchParams.get("showAll") === "1");
         setShowInactive(url.searchParams.get("showInactive") === "1");
+        setShowOfficial(url.searchParams.get("showOfficial") === "1");
+        setShowEInvoice(url.searchParams.get("showEInvoice") === "1");
+        setShowBlock(url.searchParams.get("showBlock") === "1");
       } finally {
         setLoading(false);
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (!companyId || loading) return;
-    const t = window.setTimeout(() => fetchRows(), 180);
-    return () => window.clearTimeout(t);
-  }, [companyId, loading, search, showAll, showInactive, showOfficial, showEInvoice, showBlock]);
 
   useEffect(() => {
     if (!companyId || loading) return;
@@ -172,9 +187,17 @@ export default function BankProcessListPage() {
     else document.body.classList.remove("process-page--bank-show-all");
   }, [showAll]);
 
-  const syncUrl = () => {
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      listAbortRef.current?.abort();
+    };
+  }, []);
+
+  const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
     if (companyId) url.searchParams.set("company_id", String(companyId));
+    else url.searchParams.delete("company_id");
     if (search.trim()) url.searchParams.set("search", search.trim());
     else url.searchParams.delete("search");
     if (dateFrom) url.searchParams.set("date_from", dateFrom);
@@ -186,10 +209,13 @@ export default function BankProcessListPage() {
       else url.searchParams.delete(k);
     });
     window.history.replaceState({}, document.title, url.toString());
-  };
+  }, [companyId, search, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock]);
 
-  const fetchRows = async () => {
+  const fetchRows = useCallback(async () => {
     if (!companyId) return;
+    listAbortRef.current?.abort();
+    const ac = new AbortController();
+    listAbortRef.current = ac;
     setTableLoading(true);
     try {
       const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
@@ -201,21 +227,31 @@ export default function BankProcessListPage() {
       if (showOfficial) url.searchParams.set("showOfficial", "1");
       if (showEInvoice) url.searchParams.set("showEInvoice", "1");
       if (showBlock) url.searchParams.set("showBlock", "1");
-      const res = await fetch(url.toString(), { credentials: "include" });
+      const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
       const json = await res.json();
+      if (ac.signal.aborted) return;
       if (!res.ok || !json.success) return notify(json.message || json.error || "Failed to load bank processes", "danger");
       setRows(normalizeRows(json.data));
       setSelectedIds(new Set());
       setCurrentPage(1);
       syncUrl();
     } catch {
+      if (ac.signal.aborted) return;
       notify("Failed to load bank processes", "danger");
     } finally {
-      setTableLoading(false);
+      if (!ac.signal.aborted) setTableLoading(false);
     }
-  };
+  }, [companyId, search, showAll, showInactive, showOfficial, showEInvoice, showBlock, notify, syncUrl]);
 
-  const loadAccountingInbox = async () => {
+  useEffect(() => {
+    if (!companyId || loading) return;
+    const t = window.setTimeout(() => {
+      void fetchRows();
+    }, 180);
+    return () => window.clearTimeout(t);
+  }, [companyId, loading, search, showAll, showInactive, showOfficial, showEInvoice, showBlock, fetchRows, dateFrom, dateTo]);
+
+  const loadAccountingInbox = useCallback(async () => {
     if (!companyId) return;
     setAccountingLoading(true);
     try {
@@ -232,7 +268,7 @@ export default function BankProcessListPage() {
     } finally {
       setAccountingLoading(false);
     }
-  };
+  }, [companyId]);
 
   const resetForm = () => {
     setForm({
@@ -268,7 +304,7 @@ export default function BankProcessListPage() {
       if (!bankCategory) {
         window.location.assign(new URL(`/process-list?company_id=${c.id}`, window.location.origin).toString());
       }
-      if (accountingOpen) loadAccountingInbox();
+      if (accountingOpen) void loadAccountingInbox();
     } catch {
       notify("Switch company failed", "danger");
     }
@@ -331,6 +367,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Save failed", "danger");
       notify(editMode ? "Bank process updated" : "Bank process added");
+      notifyTransactionDataChanged("bank-process-list-react");
       setModalOpen(false);
       fetchRows();
     } catch {
@@ -354,6 +391,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Transaction post failed", "danger");
       notify(json.message || "Posted to transaction");
+      notifyTransactionDataChanged("bank-process-list-react");
       loadAccountingInbox();
       fetchRows();
     } catch {
@@ -376,6 +414,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Delete from due failed", "danger");
       notify(json.message || "Removed from Accounting Due");
+      notifyTransactionDataChanged("bank-process-list-react");
       loadAccountingInbox();
       fetchRows();
     } catch {
@@ -398,6 +437,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Remark update failed", "danger");
       setRows((prev) => prev.map((r) => (Number(r.id) === Number(row.id) ? { ...r, remark: nextRemark } : r)));
+      notifyTransactionDataChanged("bank-process-list-react");
       notify("Remark updated");
     } catch {
       notify("Remark update failed", "danger");
@@ -429,6 +469,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Resend failed", "danger");
       notify(json.message || "Resend successful");
+      notifyTransactionDataChanged("bank-process-list-react");
       if (accountingOpen) loadAccountingInbox();
       setResendModalOpen(false);
       setResendTarget(null);
@@ -447,6 +488,7 @@ export default function BankProcessListPage() {
       if (!res.ok || !json.success) return notify(json.message || json.error || "Status update failed", "danger");
       const next = String(json?.data?.newStatus || "").toLowerCase();
       setRows((prev) => prev.map((r) => (Number(r.id) === Number(row.id) ? { ...r, status: next || r.status } : r)));
+      notifyTransactionDataChanged("bank-process-list-react");
     } catch {
       notify("Status update failed", "danger");
     }
@@ -464,6 +506,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Delete failed", "danger");
       notify("Deleted successfully");
+      notifyTransactionDataChanged("bank-process-list-react");
       fetchRows();
     } catch {
       notify("Delete failed", "danger");
@@ -503,7 +546,7 @@ export default function BankProcessListPage() {
       <div className="content">
         <h1 className="page-title">Bank Process List</h1>
         <div style={{ marginBottom: 8 }}>
-          <button type="button" className="btn btn-add" style={{ width: "auto", paddingInline: 12 }} onClick={() => { setAccountingOpen(true); loadAccountingInbox(); }}>
+          <button type="button" className="btn btn-add" style={{ width: "auto", paddingInline: 12 }} onClick={() => { setAccountingOpen(true); void loadAccountingInbox(); }}>
             Accounting Due ({accountingRows.filter((x) => !x.already_posted_today).length})
           </button>
         </div>
@@ -551,14 +594,14 @@ export default function BankProcessListPage() {
                 <div className="card-item"><span className={`role-badge ${r.status === "active" ? "status-active" : "status-inactive"} status-clickable`} onClick={() => toggleStatus(r)} role="button">{String(r.status || "").toUpperCase()}</span></div>
                 <div className="card-item">{r.date || "-"}</div>
                 <div className="card-item">
-                  <button type="button" className="edit-btn" aria-label="Edit" onClick={() => openEdit(r.id)}><img src="/images/edit.svg" alt="Edit" /></button>
+                  <button type="button" className="edit-btn" aria-label="Edit" onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
                   <button type="button" className="edit-btn remark-action-btn" aria-label="Remark" title="Remark" onClick={() => updateRemark(r)} style={{ marginLeft: 6 }}>
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
                       <path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
                   <button type="button" className="edit-btn" aria-label="Resend" title="Resend to Accounting Due" onClick={() => openResendModal(r)} style={{ marginLeft: 6 }}>
-                    <img src="/images/refresh.svg" alt="Resend" />
+                    <img src={assetUrl("images/refresh.svg")} alt="Resend" />
                   </button>
                   {String(r.status || "").toLowerCase() === "inactive" && !r.has_transactions && <input type="checkbox" style={{ marginLeft: 8 }} checked={selectedIds.has(r.id)} onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />}
                 </div>
