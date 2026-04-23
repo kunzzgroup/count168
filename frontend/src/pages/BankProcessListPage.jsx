@@ -1551,12 +1551,14 @@ export default function BankProcessListPage() {
                     <input type="text" id="countrySearch" placeholder="Search countries..." value={countrySearch} onChange={(e) => setCountrySearch(e.target.value.toUpperCase())} />
                   </div>
                   <div className="country-list" id="existingCountries">
-                    {countriesList.filter((c) => !countrySearch.trim() || c.toUpperCase().includes(countrySearch.trim())).map((c) => (
+                    {[...new Set([...(countriesList || []), ...selectedCountryChips])]
+                      .filter((c) => !countrySearch.trim() || c.toUpperCase().includes(countrySearch.trim()))
+                      .map((c) => (
                       <div
                         key={c}
-                        className={`country-item${selectedCountryChips.includes(c) ? " selected" : ""}`}
+                        className="country-item"
                         role="presentation"
-                        onClick={() => toggleCountryChipSelection(c)}
+                        onClick={() => setSelectedCountryChips((prev) => (prev.includes(c) ? prev : [...prev, c]))}
                       >
                         <div className="country-item-left">
                           <span>{c}</span>
