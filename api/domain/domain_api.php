@@ -1971,46 +1971,54 @@ function domainApiMergeAccountIntoUserCompanyPermissions(PDO $pdo, array $users,
     if ($newAccountId <= 0 || $account_id === '') {
         return;
     }
+    $loadCurrentStmt = $pdo->prepare("
+        SELECT account_permissions
+        FROM user_company_permissions
+        WHERE user_id = ? AND company_id = ?
+        LIMIT 1
+    ");
     $updateStmt = $pdo->prepare("
         INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions)
         VALUES (?, ?, ?, NULL)
         ON DUPLICATE KEY UPDATE account_permissions = VALUES(account_permissions)
     ");
     foreach ($users as $user) {
-        $currentPermissions = [];
-        $hasPermissionsSet = false;
-        if (isset($user['account_permissions']) && $user['account_permissions'] !== null && $user['account_permissions'] !== '') {
-            if (strtolower(trim((string) $user['account_permissions'])) === 'null') {
-                $hasPermissionsSet = false;
-            } else {
-                $decoded = json_decode($user['account_permissions'], true);
-                if (is_array($decoded)) {
-                    $hasPermissionsSet = true;
-                    if (!empty($decoded)) {
-                        $currentPermissions = $decoded;
-                    }
-                }
-            }
-        }
-        if (!$hasPermissionsSet) {
-            continue;
-        }
-        $accountExists = false;
-        foreach ($currentPermissions as $permission) {
-            if (isset($permission['id']) && (int) $permission['id'] === (int) $newAccountId) {
-                $accountExists = true;
-                break;
-            }
-        }
-        if ($accountExists) {
-            continue;
-        }
-        $currentPermissions[] = ['id' => (int) $newAccountId, 'account_id' => $account_id];
         foreach ($companyIdsToLink as $comp_id) {
             $comp_id = (int) $comp_id;
             if ($comp_id <= 0) {
                 continue;
             }
+            $currentPermissions = [];
+            $hasPermissionsSet = false;
+            $loadCurrentStmt->execute([(int) $user['id'], $comp_id]);
+            $rawPerm = $loadCurrentStmt->fetchColumn();
+            if ($rawPerm !== false && $rawPerm !== null && trim((string) $rawPerm) !== '' && strtolower(trim((string) $rawPerm)) !== 'null') {
+                $decoded = json_decode((string) $rawPerm, true);
+                if (is_array($decoded)) {
+                    $hasPermissionsSet = true;
+                    $currentPermissions = $decoded;
+                }
+            } elseif (isset($user['account_permissions']) && $user['account_permissions'] !== null && trim((string) $user['account_permissions']) !== '' && strtolower(trim((string) $user['account_permissions'])) !== 'null') {
+                $decodedSeed = json_decode((string) $user['account_permissions'], true);
+                if (is_array($decodedSeed)) {
+                    $hasPermissionsSet = true;
+                    $currentPermissions = $decodedSeed;
+                }
+            }
+            if (!$hasPermissionsSet) {
+                continue;
+            }
+            $accountExists = false;
+            foreach ($currentPermissions as $permission) {
+                if (isset($permission['id']) && (int) $permission['id'] === (int) $newAccountId) {
+                    $accountExists = true;
+                    break;
+                }
+            }
+            if ($accountExists) {
+                continue;
+            }
+            $currentPermissions[] = ['id' => (int) $newAccountId, 'account_id' => $account_id];
             $updateStmt->execute([$user['id'], $comp_id, json_encode($currentPermissions)]);
         }
     }
