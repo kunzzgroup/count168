@@ -116,6 +116,20 @@ function formatDomainAutoDisplayAccountId(string $rawAccountId): string {
     return $rawAccountId;
 }
 
+function shouldFormatAsCompanyId(string $rawAccountId): bool {
+    $rawAccountId = trim($rawAccountId);
+    if ($rawAccountId === '') {
+        return false;
+    }
+
+    // 仅处理类似 K_95 或 K_95_1 这类“前缀 + 数字公司ID(+冲突后缀)”格式
+    if (preg_match('/^[^_]+_[0-9]+(?:_[0-9]+)?$/', $rawAccountId)) {
+        return true;
+    }
+
+    return false;
+}
+
 function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, bool $showInactive, bool $showAll, ?array $accountIdFilter, ?array $rolesFilter = null): array {
     $hasCreatedSource = hasAccountCreatedSourceColumn($pdo);
     $selectCreatedSource = $hasCreatedSource ? ", a.created_source" : ", NULL AS created_source";
@@ -168,7 +182,7 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as &$row) {
         $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
-        if ($createdSource === 'domain_auto') {
+        if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId((string)($row['account_id'] ?? ''))) {
             $row['account_id'] = formatDomainAutoDisplayAccountId((string)($row['account_id'] ?? ''));
         }
         unset($row['created_source']);
