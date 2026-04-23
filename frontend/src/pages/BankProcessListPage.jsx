@@ -7,7 +7,14 @@ const PAGE_SIZE = 20;
 const BANK_GRID_TEMPLATE_COLUMNS = "0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.36fr";
 
 function normalizeRows(data) {
-  return Array.isArray(data) ? data : [];
+  if (!Array.isArray(data)) return [];
+  return data.map((row) => {
+    const normalizedType = String(row?.type || row?.types || "").trim();
+    return {
+      ...row,
+      type: normalizedType,
+    };
+  });
 }
 
 function normalizeBankIssueFlag(v) {
