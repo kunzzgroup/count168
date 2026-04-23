@@ -1657,9 +1657,8 @@ function deleteSelected() {
                 const result = await response.json();
                 if (result.success && result.data && typeof result.data.deleted === 'number') {
                     const deletedCount = result.data.deleted;
-                    accounts = accounts.filter(acc => !idsToDelete.includes(parseInt(acc.id, 10)));
-                    renderTable();
-                    renderPagination();
+                    // Always re-fetch from backend to avoid UI/DB mismatch when only part of ids are deleted.
+                    await fetchAccounts();
                     updateDeleteButton();
                     showNotification(deletedCount === 1 ? '1 account deleted successfully' : deletedCount + ' accounts deleted successfully', 'success');
                 } else {
