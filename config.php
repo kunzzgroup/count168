@@ -1,6 +1,6 @@
 <?php
 $host = 'localhost';
-$dbname = 'u857194726_count168';
+$dbname = 'u857194726_count_site';
 $dbuser = 'u857194726_count168';
 $dbpass = 'Kholdings1688@';
 
