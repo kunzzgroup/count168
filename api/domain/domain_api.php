@@ -1894,11 +1894,11 @@ function domainApiAccountLooksLikeDomainProvisionedMember(PDO $pdo, int $account
 }
 
 /**
- * Domain 自动创建的 MEMBER 登录账号：使用公司短码作为 account_id（如 QA），不再使用 OWNERCODE_ 前缀。
- * 与旧数据 OWNERCODE_COMPANY（如 QAA_QA）并存；解析付款方时见 resolveC168DomainProvisionedMemberByCompanyCode。
+ * Domain 自动创建的 MEMBER 登录账号：使用 OWNERCODE_COMPANY（如 TEST_AA）。
+ * 这样可避免与系统中其它 company 既有账号短码冲突（如已存在 AA），且无需生成 _1 后缀。
  */
 function domainApiBuildDomainProvisionedMemberAccountId(string $ownerCodeUpper, string $companyCode): string {
-    return strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($companyCode)));
+    return domainApiBuildLegacyOwnerPrefixedProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
 }
 
 /** 旧版：OWNERCODE_公司代码，仅用于查找已存在的自动建账账号 */

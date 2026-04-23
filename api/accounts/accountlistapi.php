@@ -88,11 +88,24 @@ function formatDomainAutoDisplayAccountId(string $rawAccountId): string {
         return $rawAccountId;
     }
 
-    // 仅去掉「尾部冲突后缀 _数字」（如 AA_1 -> AA），保留正常包含下划线的业务账号。
-    if (preg_match('/^(.+?)_(\d+)$/', $rawAccountId, $matches)) {
-        $base = trim((string)($matches[1] ?? ''));
-        if ($base !== '') {
-            return $base;
+    // Domain 自动建账兼容显示：
+    // 1) OWNERCODE_COMPANY -> COMPANY（如 TEST_AA -> AA）
+    // 2) COMPANY_数字 冲突后缀 -> COMPANY（如 AA_1 -> AA）
+    if (strpos($rawAccountId, '_') !== false) {
+        $parts = explode('_', $rawAccountId);
+        if (count($parts) >= 2) {
+            $last = trim((string)$parts[count($parts) - 1]);
+            $prev = trim((string)$parts[count($parts) - 2]);
+
+            // ..._AA_1 这种形式，展示 AA
+            if ($last !== '' && ctype_digit($last) && $prev !== '') {
+                return $prev;
+            }
+
+            // TEST_AA 这种形式，展示 AA
+            if ($last !== '') {
+                return $last;
+            }
         }
     }
 
