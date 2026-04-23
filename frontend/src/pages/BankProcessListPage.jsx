@@ -1124,23 +1124,25 @@ export default function BankProcessListPage() {
   return (
     <div className="container">
       <div className="content">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 12 }}>
-          <h1 className="page-title" style={{ margin: 0 }}>Bank Process List</h1>
-          <div className="process-accounting-inbox-wrap">
-            <button
-              type="button"
-              className="process-accounting-inbox-btn process-accounting-inbox-main"
-              onClick={() => {
-                setAccountingOpen(true);
-                void loadAccountingInbox();
-              }}
-            >
-              <svg className="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
-              </svg>
-              Accounting Due
-              <span className="process-accounting-inbox-badge">{accountingRows.filter((x) => !x.already_posted_today).length}</span>
-            </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+            <h1 className="page-title" style={{ margin: 0 }}>Bank Process List</h1>
+            <div className="process-accounting-inbox-wrap">
+              <button
+                type="button"
+                className="process-accounting-inbox-btn process-accounting-inbox-main"
+                onClick={() => {
+                  setAccountingOpen(true);
+                  void loadAccountingInbox();
+                }}
+              >
+                <svg className="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
+                </svg>
+                Accounting Due
+                <span className="process-accounting-inbox-badge">{accountingRows.filter((x) => !x.already_posted_today).length}</span>
+              </button>
+            </div>
           </div>
         </div>
         <div className="action-buttons-container">
