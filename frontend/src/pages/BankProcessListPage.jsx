@@ -1144,6 +1144,12 @@ export default function BankProcessListPage() {
     [supplierSortDir]
   );
 
+  const accountingPostableRows = accountingRows.filter((r) => !r.already_posted_today);
+  const accountingPostAllChecked = accountingPostableRows.length > 0
+    && accountingPostableRows.every((r) => accountingSelected.has(Number(r.id)));
+  const accountingDeleteAllChecked = accountingRows.length > 0
+    && accountingRows.every((r) => accountingDeleteSelected.has(Number(r.id)));
+
   if (loading || !cssReady) return null;
 
   return (
@@ -1807,42 +1813,77 @@ export default function BankProcessListPage() {
       />
       {accountingOpen && (
         <div id="processAccountingDueModal" className="modal" style={{ display: "block" }}>
-          <div className="modal-content" style={{ maxWidth: "980px" }}>
+          <div className="modal-content accounting-due-modal-content">
             <div className="modal-header">
-              <h2>Accounting Due</h2>
-              <span className="close" onClick={() => setAccountingOpen(false)} role="presentation">&times;</span>
+              <h2>
+                Accounting Due
+                <span className="process-accounting-inbox-badge">{accountingPostableRows.length}</span>
+              </h2>
+              <div className="modal-header-actions">
+                <span className="close" onClick={() => setAccountingOpen(false)} role="presentation">&times;</span>
+              </div>
             </div>
             <div className="modal-body">
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <button type="button" className="btn btn-save" onClick={postAccountingToTransaction} disabled={accountingLoading || accountingSelected.size === 0}>Transaction ({accountingSelected.size})</button>
-                <button type="button" className="btn btn-delete" onClick={dismissAccountingRows} disabled={accountingLoading || accountingDeleteSelected.size === 0}>Delete ({accountingDeleteSelected.size})</button>
-              </div>
-              <div style={{ maxHeight: "420px", overflow: "auto" }}>
-                <table style={{ width: "100%" }}>
+              <div className="process-accounting-inbox-table-wrap">
+                <table className="process-accounting-inbox-table">
                   <thead>
                     <tr>
-                      <th />
+                      <th style={{ width: "36px" }}>
+                        <input
+                          type="checkbox"
+                          title="Select all"
+                          className="process-accounting-inbox-cb"
+                          checked={accountingPostAllChecked}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setAccountingSelected((prev) => {
+                              const next = new Set(prev);
+                              accountingPostableRows.forEach((r) => {
+                                const id = Number(r.id);
+                                if (checked) next.add(id);
+                                else next.delete(id);
+                              });
+                              return next;
+                            });
+                          }}
+                        />
+                      </th>
                       <th>No</th>
-                      <th>Day Start</th>
-                      <th>Process</th>
+                      <th>Start Date</th>
+                      <th>Card Owner</th>
                       <th>Bank</th>
                       <th>Contract</th>
-                      <th>Delete</th>
+                      <th style={{ width: "80px" }}>
+                        Delete{" "}
+                        <input
+                          type="checkbox"
+                          title="Select all for delete"
+                          className="process-accounting-inbox-delete-cb"
+                          checked={accountingDeleteAllChecked}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setAccountingDeleteSelected(() => {
+                              if (!checked) return new Set();
+                              return new Set(accountingRows.map((r) => Number(r.id)));
+                            });
+                          }}
+                        />
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {accountingLoading && <tr><td colSpan={7}>Loading...</td></tr>}
-                    {!accountingLoading && accountingRows.length === 0 && <tr><td colSpan={7}>No processes due for accounting today.</td></tr>}
+                    {!accountingLoading && accountingRows.length === 0 && <tr><td colSpan={7}>No process due for accounting today.</td></tr>}
                     {!accountingLoading && accountingRows.map((r, idx) => {
                       const id = Number(r.id);
                       const checked = accountingSelected.has(id);
                       const delChecked = accountingDeleteSelected.has(id);
                       return (
-                        <tr key={`${id}-${idx}`}>
+                        <tr key={`${id}-${idx}`} className={r.already_posted_today ? "process-accounting-inbox-row-posted" : ""}>
                           <td><input type="checkbox" disabled={!!r.already_posted_today} checked={checked && !r.already_posted_today} onChange={(e) => setAccountingSelected((prev) => { const n = new Set(prev); if (e.target.checked) n.add(id); else n.delete(id); return n; })} /></td>
                           <td>{idx + 1}</td>
-                          <td>{r.day_start || r.start_date || "-"}</td>
-                          <td>{r.name || r.bank || "-"}</td>
+                          <td>{r.start_date || r.day_start || "-"}</td>
+                          <td>{r.card_owner || r.name || r.supplier || "-"}</td>
                           <td>{r.bank || "-"}</td>
                           <td>{r.contract || "-"}</td>
                           <td><input type="checkbox" checked={delChecked} onChange={(e) => setAccountingDeleteSelected((prev) => { const n = new Set(prev); if (e.target.checked) n.add(id); else n.delete(id); return n; })} /></td>
@@ -1851,6 +1892,11 @@ export default function BankProcessListPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+              <div className="process-accounting-inbox-actions">
+                <button type="button" className="btn btn-primary" onClick={postAccountingToTransaction} disabled={accountingLoading || accountingSelected.size === 0}>Transaction</button>
+                <button type="button" className="btn btn-delete" onClick={dismissAccountingRows} disabled={accountingLoading || accountingDeleteSelected.size === 0}>Delete</button>
+                <button type="button" className="btn btn-cancel" onClick={() => setAccountingOpen(false)}>Cancel</button>
               </div>
             </div>
           </div>
