@@ -18823,7 +18823,27 @@ function updateProcessedAmountTotal() {
         return;
     }
 
-    let total = 0;
+    const parseAmountTextToCents = (rawText) => {
+        const text = String(rawText || '').trim().replace(/,/g, '');
+        if (!text) return null;
+
+        // 按字符串解析并截断到 2 位小数，避免浮点相加误差导致合计偏差
+        const matched = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (matched) {
+            const sign = matched[1] === '-' ? -1 : 1;
+            const integerPart = Number(matched[2]);
+            const decimals = (matched[3] || '').padEnd(2, '0').slice(0, 2);
+            const cents = (integerPart * 100) + Number(decimals);
+            return sign * cents;
+        }
+
+        // 兜底：异常格式时仍保持“不四舍五入（截断）”
+        const fallbackNum = Number(text);
+        if (!Number.isFinite(fallbackNum)) return null;
+        return Math.trunc(fallbackNum * 100);
+    };
+
+    let totalCents = 0;
     let hasValue = false;
     let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
 
@@ -18851,18 +18871,15 @@ function updateProcessedAmountTotal() {
 
         const processedAmountCell = cells[8]; // Processed Amount column (index 8)
         if (processedAmountCell) {
-            const text = processedAmountCell.textContent.trim().replace(/,/g, '');
-            if (text !== '') {
-                const value = parseFloat(text);
-                if (!isNaN(value)) {
-                    total += value;
-                    hasValue = true;
-                }
+            const cents = parseAmountTextToCents(processedAmountCell.textContent);
+            if (cents !== null) {
+                totalCents += cents;
+                hasValue = true;
             }
         }
     });
 
-    const finalTotal = hasValue ? roundProcessedAmountTo2Decimals(total) : 0;
+    const finalTotal = hasValue ? (totalCents / 100) : 0;
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (finalTotal >= -0.05 && finalTotal <= 0.05) {
         totalCell.style.color = '#0D60FF';
