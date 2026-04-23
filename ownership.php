@@ -150,7 +150,7 @@ $assetVer = function ($file) {
                                 <span class="own-partner-title">External Partner</span>
                                 <div class="own-partner-actions">
                                     <input type="text" class="own-partner-input" data-bind="partner-input"
-                                        placeholder="Login ID/Group ID" autocomplete="off">
+                                        placeholder="Login ID/Group ID" autocomplete="off" autocapitalize="characters">
                                     <button class="own-partner-link-btn" data-action="link-partner">Link
                                         Partner</button>
                                 </div>

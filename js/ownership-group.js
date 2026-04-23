@@ -156,7 +156,7 @@ function renderGroupCards() {
                             <span class="own-partner-title">External Partner</span>
                             <div class="own-partner-actions">
                                 <input type="text" class="own-partner-input" id="ge-partner-login-${gid}"
-                                    placeholder="Login ID/Group ID" autocomplete="off">
+                                    placeholder="Login ID/Group ID" autocomplete="off" autocapitalize="characters">
                                 <button class="own-partner-link-btn" data-action="link-partner">Link Partner</button>
                             </div>
                         </div>
@@ -580,7 +580,7 @@ function geConfirmEdit(groupId) {
 
 function geLinkExternalPartner(groupId, event, forceType = '') {
     const loginIdInput = document.getElementById(`ge-partner-login-${groupId}`);
-    const loginId = loginIdInput.value.trim();
+    const loginId = loginIdInput.value.trim().toUpperCase();
     if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }
 
     const btn = event.target.closest('[data-action="link-partner"]');

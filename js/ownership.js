@@ -1,6 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
     fetchCompanies();
 
+    // External Partner (Login ID / Group ID): force uppercase as user types (value + display)
+    document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (!el || !el.classList || !el.classList.contains('own-partner-input')) return;
+        const upper = el.value.toUpperCase();
+        if (el.value === upper) return;
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        el.value = upper;
+        if (start != null && end != null) {
+            try {
+                el.setSelectionRange(start, end);
+            } catch (_) { /* ignore */ }
+        }
+    });
+
     // Close group dropdowns when clicking anywhere outside the button wrap.
     // Bubble phase (no capture) so the button's own stopPropagation works correctly.
     document.addEventListener('click', (e) => {
@@ -1108,7 +1124,7 @@ function ungroupCompany(companyId, companyName) {
 
 function linkExternalPartner(companyId, event, forceType = '') {
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);
-    const loginId = loginIdInput.value.trim();
+    const loginId = loginIdInput.value.trim().toUpperCase();
     if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }
 
     const btn = event.target.closest('[data-action="link-partner"]');
