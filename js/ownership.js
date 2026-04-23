@@ -100,6 +100,9 @@ function renderCompanyCards() {
     const container = document.getElementById('companyCardsContainer');
     container.innerHTML = '';
 
+    // Filter switch removes old card nodes; keep expansion state in sync with DOM
+    currentlyExpandedId = null;
+
     // Clear selection whenever cards re-render (data may have changed)
     selectedCompanyIds.clear();
     _updateBulkBar();
@@ -289,6 +292,7 @@ function renderCompanyCards() {
 
 function toggleCard(companyId, event) {
     const card = document.getElementById(`card-${companyId}`);
+    if (!card) return;
     const isExpanded = card.classList.contains('expanded');
 
     if (!isExpanded && currentlyExpandedId && currentlyExpandedId !== companyId) {
@@ -307,6 +311,7 @@ function toggleCard(companyId, event) {
 function loadCompanyData(companyId) {
     const loader = document.getElementById(`loader-${companyId}`);
     const editor = document.getElementById(`editor-${companyId}`);
+    if (!loader || !editor) return;
     loader.style.display = 'flex';
     editor.classList.add('own-editor-hidden');
 
@@ -318,8 +323,12 @@ function loadCompanyData(companyId) {
         fetch(`api/ownership/get_available_accounts_api.php?company_id=${companyId}`).then(r => r.json()),
         fetch(`api/ownership/get_owners_api.php?company_id=${companyId}`).then(r => r.json())
     ]).then(([accountsRes, ownersRes]) => {
-        loader.style.display = 'none';
-        editor.classList.remove('own-editor-hidden');
+        // User may have changed group filter while requests were in flight
+        const loaderEl = document.getElementById(`loader-${companyId}`);
+        const editorEl = document.getElementById(`editor-${companyId}`);
+        if (!loaderEl || !editorEl) return;
+        loaderEl.style.display = 'none';
+        editorEl.classList.remove('own-editor-hidden');
 
         const accounts = accountsRes.status === 'success' ? accountsRes.data : [];
 
@@ -362,12 +371,14 @@ function loadCompanyData(companyId) {
     }).catch(err => {
         console.error(err);
         showToast('Error loading data', 'error');
-        loader.style.display = 'none';
+        const loaderEl = document.getElementById(`loader-${companyId}`);
+        if (loaderEl) loaderEl.style.display = 'none';
     });
 }
 
 function cancelEdit(companyId, forceCollapse = false) {
-    document.getElementById(`card-${companyId}`).classList.remove('expanded');
+    const card = document.getElementById(`card-${companyId}`);
+    if (card) card.classList.remove('expanded');
     if (currentlyExpandedId === companyId) currentlyExpandedId = null;
 
     const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
@@ -382,6 +393,7 @@ function cancelEdit(companyId, forceCollapse = false) {
 
 function renderCardBodyRows(companyId) {
     const container = document.getElementById(`rows-container-${companyId}`);
+    if (!container || !companyStates[companyId]) return;
     container.innerHTML = '';
 
     companyStates[companyId].rows.forEach((row, idx) => {
