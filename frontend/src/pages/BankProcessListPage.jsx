@@ -1517,15 +1517,6 @@ export default function BankProcessListPage() {
                           <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>{[form.sop && "SOP filled", form.remark && "Remark filled"].filter(Boolean).join(" · ")}</p>
                         ) : null}
                       </div>
-                      {editMode ? (
-                        <div className="form-group" style={{ marginTop: 12 }}>
-                          <label htmlFor="bank_status_edit">Status</label>
-                          <select id="bank_status_edit" value={form.status} onChange={(ev) => setForm((prev) => ({ ...prev, status: ev.target.value }))}>
-                            <option value="active">active</option>
-                            <option value="inactive">inactive</option>
-                          </select>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 </div>
