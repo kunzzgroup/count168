@@ -10,29 +10,15 @@ require_once __DIR__ . '/../../config.php';
 
 /**
  * 应用根在站点内的 URL 路径：'' 表示域名根下；'/subdir' 表示子目录安装。
- * 用 DOCUMENT_ROOT + realpath 计算，避免依赖 ../../ 或错误的 dirname(SCRIPT_NAME,2)（会得到 /api）。
+ * 仅用 SCRIPT_NAME 上溯 3 级（本文件在 …/api/users/），与浏览器地址栏一致。
+ * 不要用 DOCUMENT_ROOT+realpath：磁盘路径常在 …/public_html/api，会得到 tail=api → 误判为 /api/css（404）。
  */
 $appWebBase = '';
-$resolvedFromFs = false;
-$docRootReal = !empty($_SERVER['DOCUMENT_ROOT']) ? realpath($_SERVER['DOCUMENT_ROOT']) : false;
-$projRootReal = realpath(__DIR__ . '/../..');
-if ($docRootReal !== false && $projRootReal !== false) {
-    $docN = rtrim(str_replace('\\', '/', $docRootReal), '/');
-    $projN = str_replace('\\', '/', $projRootReal);
-    if (strpos($projN, $docN) === 0) {
-        $tail = substr($projN, strlen($docN));
-        $tail = trim(str_replace('\\', '/', $tail), '/');
-        $appWebBase = $tail === '' ? '' : '/' . $tail;
-        $resolvedFromFs = true;
-    }
-}
-if (!$resolvedFromFs) {
-    $sn = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
-    if ($sn !== '' && $sn !== '/') {
-        $up = str_replace('\\', '/', dirname($sn, 3));
-        if ($up !== '/' && $up !== '' && $up !== '.') {
-            $appWebBase = rtrim($up, '/');
-        }
+$sn = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+if ($sn !== '' && $sn !== '/') {
+    $up = str_replace('\\', '/', dirname($sn, 3));
+    if ($up !== '/' && $up !== '' && $up !== '.') {
+        $appWebBase = rtrim($up, '/');
     }
 }
 
