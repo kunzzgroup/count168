@@ -216,6 +216,14 @@ if ($current_user_id && count($user_companies) > 0) {
     // σªéµ₧£µ▓íµ£ëσà│ΦüöτÜä company∩╝îΣ╜┐τö¿ session Σ╕¡τÜä company_id
     $company_id = $_SESSION['company_id'] ?? null;
 }
+
+// React SPA: /games-process-list or /bank-process-list (legacy js/processlist.js & js/bank_process_list.js removed).
+if (!($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids']))) {
+    $spaPath = ($processListPageFile === 'bank_process_list.php') ? 'bank-process-list' : 'games-process-list';
+    $qs = (!empty($_SERVER['QUERY_STRING'])) ? ('?' . $_SERVER['QUERY_STRING']) : '';
+    header('Location: ' . $spaPath . $qs, true, 302);
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -767,9 +775,6 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
         <div class="calendar-days" id="calendar-days"></div>
     </div>
-    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
-    <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
-    <script src="js/bank_process_list.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>

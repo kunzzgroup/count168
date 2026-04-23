@@ -2,9 +2,72 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 const PAGE_SIZE = 20;
+/** 与旧版 bank_process_list.js BANK_GRID_TEMPLATE_COLUMNS 一致，保证列宽对齐 */
+const BANK_GRID_TEMPLATE_COLUMNS = "0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.36fr";
 
 function normalizeRows(data) {
   return Array.isArray(data) ? data : [];
+}
+
+function normalizeBankIssueFlag(v) {
+  return String(v || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
+}
+
+function isBankInactiveLike(status, issueFlag) {
+  const s = String(status || "").trim().toLowerCase();
+  const f = normalizeBankIssueFlag(issueFlag);
+  return s === "inactive" || f === "official" || f === "e_invoice" || f === "block";
+}
+
+function canShowBankResend(row) {
+  const s = String(row?.status || "").trim().toLowerCase();
+  return s === "active" && !isBankInactiveLike(row?.status, row?.issue_flag);
+}
+
+function isoToDmy(iso) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(String(iso).trim())) return "";
+  const [y, m, d] = String(iso).trim().split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function dmyToIso(dmy) {
+  const t = String(dmy || "").trim();
+  if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(t)) return "";
+  const p = t.split("/");
+  const dd = parseInt(p[0], 10);
+  const mm = parseInt(p[1], 10);
+  const yy = parseInt(p[2], 10);
+  if (!yy || !mm || !dd) return "";
+  return `${String(yy)}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+}
+
+function parseRowDateMs(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const head = s.slice(0, 10);
+    const t = new Date(`${head}T00:00:00`).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const [dd, mm, yy] = s.split("/").map((x) => Number(x, 10));
+    const t = new Date(yy, mm - 1, dd).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+  return null;
+}
+
+function isBankResendDayStartBackendErrorMessage(text) {
+  const s = String(text || "");
+  return (
+    s.includes("不可与今天相同") ||
+    s.includes("Day start cannot be today") ||
+    s.includes("Resend 所填 Day start") ||
+    s.includes("same calendar date as the current contract Day start")
+  );
 }
 
 function notifyTransactionDataChanged(sourceTag) {
@@ -71,8 +134,14 @@ export default function BankProcessListPage() {
   const [resendDayStart, setResendDayStart] = useState("");
   const [resendDayEnd, setResendDayEnd] = useState("");
   const [resendFrequency, setResendFrequency] = useState("1st_of_every_month");
+  const [resendInlineError, setResendInlineError] = useState("");
+  const [supplierSortDir, setSupplierSortDir] = useState("asc");
+  const [remarkModalOpen, setRemarkModalOpen] = useState(false);
+  const [remarkDraft, setRemarkDraft] = useState("");
+  const [remarkRow, setRemarkRow] = useState(null);
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
+  const bankDatePickerInitRef = useRef(false);
   const [form, setForm] = useState({
     id: "",
     country: "",
@@ -108,7 +177,7 @@ export default function BankProcessListPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css")];
+    const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css"), assetUrl("css/date-range-picker.css")];
     Promise.all(
       hrefs.map(
         (href) =>
@@ -130,6 +199,47 @@ export default function BankProcessListPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (loading || !cssReady || bankDatePickerInitRef.current) return;
+    bankDatePickerInitRef.current = true;
+    const script = document.createElement("script");
+    script.src = assetUrl("js/date-range-picker.js");
+    script.onload = () => {
+      if (!window.MaintenanceDateRangePicker) return;
+      const u = new URL(window.location.href);
+      const dfIso = u.searchParams.get("date_from") || "";
+      const dtIso = u.searchParams.get("date_to") || "";
+      const fromH = document.getElementById("date_from");
+      const toH = document.getElementById("date_to");
+      if (fromH) fromH.value = dfIso && /^\d{4}-\d{2}-\d{2}$/.test(dfIso) ? isoToDmy(dfIso) : "";
+      if (toH) toH.value = dtIso && /^\d{4}-\d{2}-\d{2}$/.test(dtIso) ? isoToDmy(dtIso) : "";
+      window.MaintenanceDateRangePicker.init({
+        allowEmpty: true,
+        placeholder: "Select date range",
+        onChange: () => {
+          const df = dmyToIso(window.MaintenanceDateRangePicker.getDateFrom());
+          const dt = dmyToIso(window.MaintenanceDateRangePicker.getDateTo());
+          setDateFrom(df);
+          setDateTo(dt);
+        },
+      });
+      const clearBtn = document.getElementById("processListDateClearBtn");
+      if (clearBtn) {
+        clearBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.MaintenanceDateRangePicker?.clear?.();
+          setDateFrom("");
+          setDateTo("");
+        });
+      }
+    };
+    document.body.appendChild(script);
+    return () => {
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+  }, [loading, cssReady]);
 
   useEffect(() => {
     (async () => {
@@ -422,13 +532,18 @@ export default function BankProcessListPage() {
     }
   };
 
-  const updateRemark = async (row) => {
-    const nextRemark = window.prompt("Update remark", String(row.remark || ""));
-    if (nextRemark === null) return;
+  const openRemarkModal = (row) => {
+    setRemarkRow(row);
+    setRemarkDraft(String(row.remark || ""));
+    setRemarkModalOpen(true);
+  };
+
+  const saveRemarkModal = async () => {
+    if (!remarkRow) return;
     try {
       const fd = new FormData();
-      fd.append("id", String(row.id));
-      fd.append("remark", nextRemark);
+      fd.append("id", String(remarkRow.id));
+      fd.append("remark", remarkDraft);
       const res = await fetch(buildApiUrl("api/processes/update_bank_remark_api.php"), {
         method: "POST",
         body: fd,
@@ -436,15 +551,18 @@ export default function BankProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Remark update failed", "danger");
-      setRows((prev) => prev.map((r) => (Number(r.id) === Number(row.id) ? { ...r, remark: nextRemark } : r)));
+      setRows((prev) => prev.map((r) => (Number(r.id) === Number(remarkRow.id) ? { ...r, remark: remarkDraft } : r)));
       notifyTransactionDataChanged("bank-process-list-react");
       notify("Remark updated");
+      setRemarkModalOpen(false);
+      setRemarkRow(null);
     } catch {
       notify("Remark update failed", "danger");
     }
   };
 
   const openResendModal = (row) => {
+    setResendInlineError("");
     setResendTarget(row);
     setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
     setResendDayEnd("");
@@ -454,6 +572,7 @@ export default function BankProcessListPage() {
 
   const resendAccountingDue = async () => {
     if (!resendTarget) return;
+    setResendInlineError("");
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST",
@@ -467,7 +586,11 @@ export default function BankProcessListPage() {
         }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Resend failed", "danger");
+      if (!res.ok || !json.success) {
+        const msg = json.message || json.error || "Resend failed";
+        if (isBankResendDayStartBackendErrorMessage(msg)) setResendInlineError(msg);
+        return notify(msg, "danger");
+      }
       notify(json.message || "Resend successful");
       notifyTransactionDataChanged("bank-process-list-react");
       if (accountingOpen) loadAccountingInbox();
@@ -517,20 +640,30 @@ export default function BankProcessListPage() {
   const groupIds = useMemo(() => [...new Set(allCompanyButtons.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase()))].sort(), [allCompanyButtons]);
   const companyButtons = useMemo(() => (!selectedGroup ? allCompanyButtons.filter((c) => !c.group_id || String(c.group_id).trim() === "") : allCompanyButtons.filter((c) => String(c.group_id || "").toUpperCase() === selectedGroup)), [allCompanyButtons, selectedGroup]);
 
+  const supplierSortedRows = useMemo(() => {
+    const arr = [...rows];
+    arr.sort((a, b) => {
+      const ak = String(a.card_lower || a.supplier || "").toLowerCase();
+      const bk = String(b.card_lower || b.supplier || "").toLowerCase();
+      const c = ak.localeCompare(bk);
+      return supplierSortDir === "asc" ? c : -c;
+    });
+    return arr;
+  }, [rows, supplierSortDir]);
+
   const visibleRows = useMemo(() => {
-    if (!dateFrom && !dateTo) return rows;
-    const from = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
-    const to = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
-    return rows.filter((r) => {
-      const raw = String(r.date || r.day_start || "").trim();
-      if (!raw) return false;
-      const ts = new Date(`${raw}T00:00:00`).getTime();
-      if (Number.isNaN(ts)) return false;
-      if (from !== null && ts < from) return false;
-      if (to !== null && ts > to) return false;
+    if (!dateFrom && !dateTo) return supplierSortedRows;
+    const fromMs = dateFrom ? parseRowDateMs(dateFrom) : null;
+    const toMs = dateTo ? parseRowDateMs(dateTo) : null;
+    const toEnd = toMs != null ? toMs + 86400000 - 1 : null;
+    return supplierSortedRows.filter((r) => {
+      const ts = parseRowDateMs(r.date || r.day_start);
+      if (ts == null) return false;
+      if (fromMs !== null && ts < fromMs) return false;
+      if (toEnd !== null && ts > toEnd) return false;
       return true;
     });
-  }, [rows, dateFrom, dateTo]);
+  }, [supplierSortedRows, dateFrom, dateTo]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE)), [visibleRows]);
   const pageRows = useMemo(() => {
@@ -539,33 +672,86 @@ export default function BankProcessListPage() {
     return visibleRows.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
   }, [visibleRows, showAll, currentPage, totalPages]);
 
+  const bankHeaders = useMemo(
+    () => [
+    { key: "no", label: "No" },
+    {
+      key: "supplier",
+      label: (
+        <span className="bank-header-sortable" onClick={() => setSupplierSortDir((d) => (d === "asc" ? "desc" : "asc"))} role="presentation">
+          Supplier <span className="bank-sort-indicator">{supplierSortDir === "asc" ? "▲" : "▼"}</span>
+        </span>
+      ),
+    },
+    { key: "ccy", label: "Country (Currency)" },
+    { key: "bank", label: "Bank" },
+    { key: "types", label: "Types" },
+    { key: "owner", label: "Card Owner" },
+    { key: "contract", label: "Contract" },
+    { key: "insurance", label: "Insurance" },
+    { key: "customer", label: "Customer" },
+    { key: "cost", label: "Cost" },
+    { key: "price", label: "Price" },
+    { key: "profit", label: "Profit" },
+    { key: "status", label: "Status" },
+    { key: "date", label: "Date" },
+    { key: "action", label: "Action" },
+    ],
+    [supplierSortDir]
+  );
+
   if (loading || !cssReady) return null;
 
   return (
     <div className="container">
       <div className="content">
-        <h1 className="page-title">Bank Process List</h1>
-        <div style={{ marginBottom: 8 }}>
-          <button type="button" className="btn btn-add" style={{ width: "auto", paddingInline: 12 }} onClick={() => { setAccountingOpen(true); void loadAccountingInbox(); }}>
-            Accounting Due ({accountingRows.filter((x) => !x.already_posted_today).length})
-          </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 12 }}>
+          <h1 className="page-title" style={{ margin: 0 }}>Bank Process List</h1>
+          <div className="process-accounting-inbox-wrap">
+            <button
+              type="button"
+              className="process-accounting-inbox-btn process-accounting-inbox-main"
+              onClick={() => {
+                setAccountingOpen(true);
+                void loadAccountingInbox();
+              }}
+            >
+              <svg className="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
+              </svg>
+              Accounting Due
+              <span className="process-accounting-inbox-badge">{accountingRows.filter((x) => !x.already_posted_today).length}</span>
+            </button>
+          </div>
         </div>
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <button type="button" className="btn btn-add" onClick={openAdd}>Add Process</button>
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-              <span>-</span>
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-              <button type="button" className="btn btn-cancel" style={{ width: "auto", paddingInline: 10 }} onClick={() => { setDateFrom(""); setDateTo(""); }}>Clear</button>
-              <div className="search-container"><input className="search-input" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
-              <label className="checkbox-section"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> <span>Show All</span></label>
-              <label className="checkbox-section"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> <span>Show Inactive</span></label>
-              <label className="checkbox-section"><input type="checkbox" checked={showOfficial} onChange={(e) => setShowOfficial(e.target.checked)} /> <span>Show Official</span></label>
-              <label className="checkbox-section"><input type="checkbox" checked={showEInvoice} onChange={(e) => setShowEInvoice(e.target.checked)} /> <span>Show E-Invoice</span></label>
-              <label className="checkbox-section"><input type="checkbox" checked={showBlock} onChange={(e) => setShowBlock(e.target.checked)} /> <span>Show Block</span></label>
+              <div className="process-list-date-filter" id="processListDateFilter" style={{ display: "inline-flex" }}>
+                <div className="date-range-picker" id="date-range-picker">
+                  <i className="fas fa-calendar-alt" aria-hidden="true" />
+                  <span id="date-range-display">Select date range</span>
+                  <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title="Clear date range" aria-label="Clear date range" style={{ display: "none" }}>
+                    &times;
+                  </button>
+                </div>
+                <input type="hidden" id="date_from" defaultValue="" />
+                <input type="hidden" id="date_to" defaultValue="" />
+              </div>
+              <div className="search-container">
+                <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+                <input type="text" className="search-input" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <div className="checkbox-section"><input type="checkbox" id="showAll" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /><label htmlFor="showAll">Show All</label></div>
+              <div className="checkbox-section"><input type="checkbox" id="showInactive" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /><label htmlFor="showInactive">Show Inactive</label></div>
+              <div className="checkbox-section"><input type="checkbox" id="showOfficial" checked={showOfficial} onChange={(e) => setShowOfficial(e.target.checked)} /><label htmlFor="showOfficial">Show Official</label></div>
+              <div className="checkbox-section"><input type="checkbox" id="showEInvoice" checked={showEInvoice} onChange={(e) => setShowEInvoice(e.target.checked)} /><label htmlFor="showEInvoice">Show E-Invoice</label></div>
+              <div className="checkbox-section"><input type="checkbox" id="showBlock" checked={showBlock} onChange={(e) => setShowBlock(e.target.checked)} /><label htmlFor="showBlock">Show Block</label></div>
             </div>
-            <button type="button" className="btn btn-delete" disabled={!selectedIds.size} onClick={deleteSelected}>Delete</button>
+            <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title="Only inactive processes can be deleted" onClick={deleteSelected}>Delete</button>
           </div>
 
           {groupIds.length > 0 && <div className="process-company-filter"><span className="process-company-label">GroupID:</span><div className="process-company-buttons">{groupIds.map((g) => <button key={g} type="button" className={`process-company-btn ${selectedGroup === g ? "active" : ""}`} onClick={() => setSelectedGroup(g)}>{g}</button>)}</div></div>}
@@ -573,17 +759,22 @@ export default function BankProcessListPage() {
         </div>
 
         <div className="process-table-wrapper">
-          <div className="table-header" style={{ gridTemplateColumns: "0.35fr 0.55fr 0.6fr 0.6fr 1fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.45fr" }}>
-            {["No", "Supplier", "Country", "Bank", "Card Owner", "Contract", "Insurance", "Customer", "Cost", "Price", "Profit", "Status", "Date", "Action"].map((h) => <div key={h} className="header-item">{h}</div>)}
+          <div className="table-header" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
+            {bankHeaders.map((h) => (
+              <div key={h.key} className={`header-item bank-header${h.key === "action" ? " bank-action-header" : ""}`}>
+                {h.label}
+              </div>
+            ))}
           </div>
           <div className="process-cards">
             {tableLoading && <div className="process-card"><div className="card-item">Loading...</div></div>}
             {!tableLoading && pageRows.map((r, i) => (
-              <div key={r.id} className="process-card" style={{ gridTemplateColumns: "0.35fr 0.55fr 0.6fr 0.6fr 1fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 0.7fr 0.7fr 0.45fr" }}>
+              <div key={r.id} className="process-card" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
                 <div className="card-item">{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
                 <div className="card-item">{r.supplier || "-"}</div>
                 <div className="card-item">{r.country || "-"}</div>
                 <div className="card-item">{r.bank || "-"}</div>
+                <div className="card-item">{r.type || "-"}</div>
                 <div className="card-item">{r.card_lower || "-"}</div>
                 <div className="card-item">{r.contract || "-"}</div>
                 <div className="card-item">{r.insurance || "-"}</div>
@@ -594,16 +785,25 @@ export default function BankProcessListPage() {
                 <div className="card-item"><span className={`role-badge ${r.status === "active" ? "status-active" : "status-inactive"} status-clickable`} onClick={() => toggleStatus(r)} role="button">{String(r.status || "").toUpperCase()}</span></div>
                 <div className="card-item">{r.date || "-"}</div>
                 <div className="card-item">
-                  <button type="button" className="edit-btn" aria-label="Edit" onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
-                  <button type="button" className="edit-btn remark-action-btn" aria-label="Remark" title="Remark" onClick={() => updateRemark(r)} style={{ marginLeft: 6 }}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
-                      <path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <button type="button" className="edit-btn" aria-label="Resend" title="Resend to Accounting Due" onClick={() => openResendModal(r)} style={{ marginLeft: 6 }}>
-                    <img src={assetUrl("images/refresh.svg")} alt="Resend" />
-                  </button>
-                  {String(r.status || "").toLowerCase() === "inactive" && !r.has_transactions && <input type="checkbox" style={{ marginLeft: 8 }} checked={selectedIds.has(r.id)} onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />}
+                  <span className="bank-action-tools">
+                    <button type="button" className="edit-btn" aria-label="Edit" title="Edit" onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
+                    <button type="button" className="edit-btn remark-action-btn" aria-label="Remark" title="Remark" onClick={() => openRemarkModal(r)} style={{ marginLeft: 6 }}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
+                        <path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    {canShowBankResend(r) ? (
+                      <button type="button" className="bank-resend-btn" aria-label="Resend to Accounting Due" title="Resend" onClick={() => openResendModal(r)} style={{ marginLeft: 6 }}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 16, height: 16 }}>
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M3 3v5h5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : null}
+                  </span>
+                  {String(r.status || "").toLowerCase() === "inactive" && !r.has_transactions ? (
+                    <input type="checkbox" className="row-checkbox bank-checkbox" style={{ marginLeft: 10 }} checked={selectedIds.has(r.id)} title="Select for deletion" onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -613,9 +813,9 @@ export default function BankProcessListPage() {
       </div>
       {modalOpen && (
         <div id="addBankModal" className="modal bank-modal" style={{ display: "block" }}>
-          <div className="modal-content">
+          <div className="modal-content bank-modal-content">
             <div className="modal-header">
-              <h2>{editMode ? "Edit Bank Process" : "Add Bank Process"}</h2>
+              <h2 id="bankModalTitle">{editMode ? "Edit Process" : "Add Process"}</h2>
               <span className="close" onClick={() => setModalOpen(false)} role="presentation">&times;</span>
             </div>
             <div className="modal-body">
@@ -706,37 +906,139 @@ export default function BankProcessListPage() {
         <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={{ display: "block" }}>
           <div className="process-confirm-modal-content bank-resend-modal-content">
             <div className="bank-resend-modal-hero">
-              <div className="bank-resend-modal-title">Resend To Accounting Due</div>
-              <div className="bank-resend-modal-message">
-                Process: <b>{resendTarget?.supplier || resendTarget?.bank || "-"}</b>
+              <div className="process-confirm-icon-container bank-resend-modal-icon-wrap">
+                <svg className="process-confirm-icon process-confirm-icon--resend" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3v5h5" />
+                </svg>
               </div>
+              <h2 className="process-confirm-title bank-resend-modal-title">Resend to Accounting Due</h2>
+              <p className="process-confirm-message bank-resend-modal-message">
+                Process: <b>{resendTarget?.supplier || resendTarget?.bank || "-"}</b>
+              </p>
             </div>
-            <div className="bank-resend-schedule-card">
+            <div id="confirmBankResendScheduleFields" className="bank-resend-schedule-card">
+              <div className="bank-resend-schedule-card__head">
+                <span className="bank-resend-schedule-card__label">Billing schedule</span>
+                <p className="bank-resend-schedule-card__hint">
+                  These values apply only to this Resend (which month to reopen). They are not saved to the process record; Edit Process keeps its own billing until you click Update Process.
+                </p>
+              </div>
               <div className="bank-resend-schedule-grid">
                 <div className="bank-resend-field">
-                  <div className="bank-resend-field__label">Day Start</div>
-                  <input id="bank_resend_day_start" className="bank-resend-control" type="date" value={resendDayStart} onChange={(e) => setResendDayStart(e.target.value)} />
+                  <label className="bank-resend-field__label" htmlFor="bank_resend_day_start">Day start</label>
+                  <input
+                    id="bank_resend_day_start"
+                    className={`bank-resend-control${resendInlineError ? " bank-resend-control--error" : ""}`}
+                    type="date"
+                    autoComplete="off"
+                    value={resendDayStart}
+                    onChange={(e) => {
+                      setResendInlineError("");
+                      setResendDayStart(e.target.value);
+                    }}
+                  />
                 </div>
                 <div className="bank-resend-field">
-                  <div className="bank-resend-field__label">Day End</div>
-                  <input id="bank_resend_day_end" className="bank-resend-control" type="date" value={resendDayEnd} onChange={(e) => setResendDayEnd(e.target.value)} />
+                  <label className="bank-resend-field__label" htmlFor="bank_resend_day_end">Day end</label>
+                  <input id="bank_resend_day_end" className="bank-resend-control" type="date" autoComplete="off" value={resendDayEnd} onChange={(e) => setResendDayEnd(e.target.value)} />
                 </div>
                 <div className="bank-resend-field bank-resend-field--full">
-                  <div className="bank-resend-field__label">Frequency</div>
+                  <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">Frequency</label>
                   <select id="bank_resend_frequency" className="bank-resend-control bank-resend-control--select" value={resendFrequency} onChange={(e) => setResendFrequency(e.target.value)}>
-                    <option value="1st_of_every_month">1st_of_every_month</option>
-                    <option value="monthly">monthly</option>
+                    <option value="1st_of_every_month">1st of Every Month</option>
+                    <option value="monthly">Monthly</option>
                   </select>
                 </div>
               </div>
+              {resendInlineError ? (
+                <div id="bankResendDayStartInlineError" className="bank-resend-inline-alert" role="alert">
+                  {resendInlineError}
+                </div>
+              ) : null}
             </div>
             <div className="process-confirm-actions bank-resend-modal-actions">
-              <button type="button" className="process-btn process-btn-cancel confirm-bank-resend-cancel" onClick={() => setResendModalOpen(false)}>Cancel</button>
-              <button type="button" className="process-btn process-btn-delete confirm-bank-resend-confirm" onClick={resendAccountingDue}>Confirm</button>
+              <button
+                type="button"
+                className="process-btn process-btn-cancel confirm-cancel confirm-bank-resend-cancel"
+                onClick={() => {
+                  setResendInlineError("");
+                  setResendModalOpen(false);
+                }}
+              >
+                Cancel
+              </button>
+              <button type="button" className="process-btn process-btn-resend confirm-bank-resend-confirm" id="confirmBankResendBtn" onClick={resendAccountingDue}>
+                Resend
+              </button>
             </div>
           </div>
         </div>
       )}
+      {remarkModalOpen && (
+        <div id="bankRemarkModal" className="modal bank-modal sop-modal" style={{ display: "block" }}>
+          <div className="modal-content sop-modal-content">
+            <div className="modal-header">
+              <h2 id="processNoteModalTitle">Remark</h2>
+              <span className="close" onClick={() => setRemarkModalOpen(false)} role="presentation">&times;</span>
+            </div>
+            <div className="modal-body sop-modal-body">
+              <textarea
+                id="bank_remark_inline"
+                className="bank-input sop-modal-textarea"
+                placeholder="Enter notes for this process..."
+                value={remarkDraft}
+                onChange={(e) => setRemarkDraft(e.target.value)}
+              />
+              <div className="form-actions bank-actions sop-modal-actions">
+                <button type="button" className="btn btn-save" onClick={() => void saveRemarkModal()}>
+                  Save
+                </button>
+                <button type="button" className="btn btn-cancel" onClick={() => setRemarkModalOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
+        <div className="calendar-header">
+          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
+            <i className="fas fa-chevron-left" />
+          </button>
+          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+            <select id="calendar-month-select" aria-label="Month">
+              <option value="0">Jan</option>
+              <option value="1">Feb</option>
+              <option value="2">Mar</option>
+              <option value="3">Apr</option>
+              <option value="4">May</option>
+              <option value="5">Jun</option>
+              <option value="6">Jul</option>
+              <option value="7">Aug</option>
+              <option value="8">Sep</option>
+              <option value="9">Oct</option>
+              <option value="10">Nov</option>
+              <option value="11">Dec</option>
+            </select>
+            <select id="calendar-year-select" aria-label="Year" />
+          </div>
+          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
+            <i className="fas fa-chevron-right" />
+          </button>
+        </div>
+        <div className="calendar-weekdays">
+          <div className="calendar-weekday">Sun</div>
+          <div className="calendar-weekday">Mon</div>
+          <div className="calendar-weekday">Tue</div>
+          <div className="calendar-weekday">Wed</div>
+          <div className="calendar-weekday">Thu</div>
+          <div className="calendar-weekday">Fri</div>
+          <div className="calendar-weekday">Sat</div>
+        </div>
+        <div className="calendar-days" id="calendar-days" />
+      </div>
       {toast && <div className={`process-notification ${toast.type}`}>{toast.message}</div>}
     </div>
   );
