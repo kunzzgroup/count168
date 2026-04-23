@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 
 function Toast({ notice }) {
@@ -120,8 +120,10 @@ function EditMaintenanceModal({ open, draft, setDraft, onClose, onSave }) {
 
 export default function AnnouncementPage() {
   const navigate = useNavigate();
+  const assetVersion = window.__announcementAssetVersion || Date.now();
+  window.__announcementAssetVersion = assetVersion;
+  const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState("announcement");
-  const [me, setMe] = useState(null);
   const [notice, setNotice] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [maintenanceList, setMaintenanceList] = useState([]);
@@ -141,21 +143,31 @@ export default function AnnouncementPage() {
   useEffect(() => {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("announcement-page");
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "/css/announcement.css";
-    document.head.appendChild(link);
+    const links = [];
+    const addCss = (href) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+      links.push(link);
+    };
+    addCss(assetUrl(`css/accountCSS.css?v=${assetVersion}`));
+    addCss(assetUrl(`css/announcement.css?v=${assetVersion}`));
 
     return () => {
       document.body.classList.remove("announcement-page");
       document.body.classList.add("bg");
-      document.head.removeChild(link);
+      links.forEach((link) => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+      });
     };
+  }, [assetVersion]);
+
+  const showNotice = useCallback((message, type = "success") => {
+    setNotice({ message, type });
   }, []);
 
-  const showNotice = (message, type = "success") => setNotice({ message, type });
-
-  const loadAnnouncements = async () => {
+  const loadAnnouncements = useCallback(async () => {
     try {
       const response = await fetch(buildApiUrl("api/announcements/announcement_list_api.php"), { credentials: "include" });
       const result = await response.json();
@@ -167,9 +179,9 @@ export default function AnnouncementPage() {
     } catch (error) {
       showNotice(`Failed to load announcements: ${error.message}`, "error");
     }
-  };
+  }, [showNotice]);
 
-  const loadMaintenance = async () => {
+  const loadMaintenance = useCallback(async () => {
     try {
       const response = await fetch(buildApiUrl("api/maintenance/list_api.php"), { credentials: "include" });
       const result = await response.json();
@@ -181,13 +193,15 @@ export default function AnnouncementPage() {
     } catch (error) {
       showNotice(`Failed to load maintenance content: ${error.message}`, "error");
     }
-  };
+  }, [showNotice]);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
         const json = await res.json();
+        if (cancelled) return;
         if (!res.ok || !json.success || !json.data) {
           navigate("/login", { replace: true });
           return;
@@ -197,13 +211,19 @@ export default function AnnouncementPage() {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
         await Promise.all([loadAnnouncements(), loadMaintenance()]);
+        if (cancelled) return;
+        setReady(true);
       } catch {
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, loadAnnouncements, loadMaintenance]);
+
+  if (!ready) return null;
 
   const canCreateMaintenance = maintenanceList.length === 0;
   const submitAnnouncement = async (e) => {
@@ -375,10 +395,20 @@ export default function AnnouncementPage() {
         <div className="page-header">
           <h1>Announcement and Maintenance Management</h1>
           <div className="page-tabs">
-            <button type="button" className={`page-tab${activeTab === "announcement" ? " active" : ""}`} onClick={() => setActiveTab("announcement")}>
+            <button
+              type="button"
+              className={`page-tab${activeTab === "announcement" ? " active" : ""}`}
+              data-page="announcement"
+              onClick={() => setActiveTab("announcement")}
+            >
               Announcement
             </button>
-            <button type="button" className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>
+            <button
+              type="button"
+              className={`page-tab${activeTab === "maintenance" ? " active" : ""}`}
+              data-page="maintenance"
+              onClick={() => setActiveTab("maintenance")}
+            >
               Maintenance
             </button>
           </div>
@@ -387,10 +417,10 @@ export default function AnnouncementPage() {
         <div className="separator-line" />
 
         {activeTab === "announcement" && (
-          <div className="page-panel">
+          <div id="panel-announcement" className="page-panel">
             <div className="announcement-layout">
               <div className="announcement-form-section">
-                <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "Amaranth", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
+                <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "'Amaranth', sans-serif", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
                   Create New Announcement
                 </h2>
                 <form id="announcementForm" onSubmit={submitAnnouncement}>
@@ -466,10 +496,10 @@ export default function AnnouncementPage() {
         )}
 
         {activeTab === "maintenance" && (
-          <div className="page-panel">
+          <div id="panel-maintenance" className="page-panel">
             <div className="maintenance-layout">
               <div className="maintenance-form-section">
-                <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "Amaranth", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
+                <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "'Amaranth', sans-serif", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
                   Create New Maintenance Content
                 </h2>
                 {!canCreateMaintenance && (
@@ -485,7 +515,7 @@ export default function AnnouncementPage() {
                       fontSize: "clamp(11px, 0.73vw, 14px)",
                     }}
                   >
-                    <strong>Notice:</strong> Maintenance content already exists. Please delete the existing content before creating a new one.
+                    <strong>⚠️ Notice:</strong> Maintenance content already exists. Please delete the existing content before creating a new one.
                   </div>
                 )}
                 <form id="maintenanceForm" onSubmit={submitMaintenance}>
