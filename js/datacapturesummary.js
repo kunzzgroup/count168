@@ -18862,7 +18862,7 @@ function updateProcessedAmountTotal() {
         }
     });
 
-    const finalTotal = hasValue ? total : 0;
+    const finalTotal = hasValue ? roundProcessedAmountTo2Decimals(total) : 0;
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (finalTotal >= -0.05 && finalTotal <= 0.05) {
         totalCell.style.color = '#0D60FF';
@@ -18877,7 +18877,7 @@ function updateProcessedAmountTotal() {
         submitBtn.disabled = !canSubmit;
 
         if (!isWithinRange) {
-            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${finalTotal.toFixed(2)}`;
+            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousands(finalTotal)}`;
         } else if (!allRowsHaveCurrencyAndFormula) {
             submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
         } else {
@@ -19480,7 +19480,7 @@ async function submitSummaryData() {
             }
         });
 
-        const finalTotal = hasValue ? total : 0;
+        const finalTotal = hasValue ? roundProcessedAmountTo2Decimals(total) : 0;
         if (finalTotal < -0.05 || finalTotal > 0.05) {
             // Re-enable button on validation error
             if (submitBtn) {
@@ -19488,7 +19488,7 @@ async function submitSummaryData() {
                 submitBtn.textContent = 'Submit';
             }
             isSubmitting = false;
-            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${finalTotal.toFixed(2)}`, 'error');
+            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
             return;
         }
     }
