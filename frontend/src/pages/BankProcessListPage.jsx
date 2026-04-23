@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import AccountAddModalSameAsList from "../components/AccountAddModalSameAsList.jsx";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 const PAGE_SIZE = 20;
@@ -148,6 +149,119 @@ function serializeProfitSharingRows(rows, accounts) {
     .join(", ");
 }
 
+function deriveBankProcessUiStatus(row) {
+  const f = normalizeBankIssueFlag(row?.issue_flag);
+  if (f === "official") return "OFFICIAL";
+  if (f === "e_invoice") return "E_INVOICE";
+  if (f === "block") return "BLOCK";
+  const s = String(row?.status || "").toLowerCase();
+  if (s === "inactive") return "INACTIVE";
+  if (s === "waiting") return "ACTIVE";
+  return "ACTIVE";
+}
+
+function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUrl: apiUrl }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const ui = deriveBankProcessUiStatus(row);
+  const pillClass = `bank-process-status-pill bank-process-status-pill--${ui.toLowerCase().replace(/_/g, "-")}`;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const postIssueFlag = async (id, issueFlag) => {
+    const fd = new FormData();
+    fd.append("id", String(id));
+    fd.append("issue_flag", issueFlag);
+    const res = await fetch(apiUrl("api/processes/update_bank_issue_flag_api.php"), { method: "POST", body: fd, credentials: "include" });
+    return res.json();
+  };
+
+  const postToggle = async (id) => {
+    const fd = new FormData();
+    fd.append("id", String(id));
+    fd.append("permission", "Bank");
+    const res = await fetch(apiUrl("api/processes/toggle_process_status_api.php"), { method: "POST", body: fd, credentials: "include" });
+    return res.json();
+  };
+
+  const apply = async (target) => {
+    const id = row.id;
+    const st = String(row.status || "").toLowerCase();
+    const hasFlag = !!normalizeBankIssueFlag(row.issue_flag);
+    try {
+      if (target === "ACTIVE") {
+        if (hasFlag) {
+          const j = await postIssueFlag(id, "");
+          if (!j.success) return doNotify(j.message || j.error || "Clear flag failed", "danger");
+        }
+        if (st !== "active") {
+          const j = await postToggle(id);
+          if (!j.success) return doNotify(j.message || j.error || "Status update failed", "danger");
+        }
+      } else if (target === "INACTIVE") {
+        if (hasFlag) {
+          const j = await postIssueFlag(id, "");
+          if (!j.success) return doNotify(j.message || j.error || "Clear flag failed", "danger");
+        }
+        if (st === "active") {
+          const j = await postToggle(id);
+          if (!j.success) return doNotify(j.message || j.error || "Status update failed", "danger");
+        }
+      } else if (target === "OFFICIAL") {
+        const j = await postIssueFlag(id, "official");
+        if (!j.success) return doNotify(j.message || j.error || "Update failed", "danger");
+      } else if (target === "E_INVOICE") {
+        const j = await postIssueFlag(id, "e_invoice");
+        if (!j.success) return doNotify(j.message || j.error || "Update failed", "danger");
+      } else if (target === "BLOCK") {
+        const j = await postIssueFlag(id, "block");
+        if (!j.success) return doNotify(j.message || j.error || "Update failed", "danger");
+      }
+      doNotify("Status updated", "success");
+      onUpdated();
+      setOpen(false);
+    } catch {
+      doNotify("Status update failed", "danger");
+    }
+  };
+
+  const options = ["ACTIVE", "INACTIVE", "OFFICIAL", "E_INVOICE", "BLOCK"];
+  const label = ui === "E_INVOICE" ? "E-INVOICE" : ui;
+
+  return (
+    <div className="bank-process-status-wrap" ref={wrapRef}>
+      <button type="button" className={pillClass} onClick={() => setOpen((o) => !o)}>
+        {label}
+      </button>
+      {open ? (
+        <div className="bank-process-status-menu" role="listbox">
+          {options.map((opt) => {
+            const optLabel = opt === "E_INVOICE" ? "E-INVOICE" : opt;
+            const cur = ui === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                className={`bank-process-status-option bank-process-status-option--${opt.toLowerCase().replace(/_/g, "-")}${cur ? " is-current" : ""}`}
+                onClick={() => void apply(opt)}
+              >
+                {optLabel}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function BankSearchableAccountPick({ value, onChange, accounts, disabled }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -244,22 +358,15 @@ export default function BankProcessListPage() {
   const [bankSearch, setBankSearch] = useState("");
   const [newCountryName, setNewCountryName] = useState("");
   const [newBankName, setNewBankName] = useState("");
-  const [pendingCountry, setPendingCountry] = useState("");
-  const [pendingBank, setPendingBank] = useState("");
+  const [selectedCountryChips, setSelectedCountryChips] = useState([]);
+  const [selectedBankChips, setSelectedBankChips] = useState([]);
   const [profitShareModalOpen, setProfitShareModalOpen] = useState(false);
   const [profitShareRows, setProfitShareRows] = useState([]);
   const [bankFormNote, setBankFormNote] = useState(null);
   const [addAccountModalOpen, setAddAccountModalOpen] = useState(false);
   const [accountPlusTarget, setAccountPlusTarget] = useState(null);
   const [rolesList, setRolesList] = useState([]);
-  const [addAccountForm, setAddAccountForm] = useState({
-    account_id: "",
-    name: "",
-    role: "",
-    password: "",
-    remark: "",
-    payment_alert: "0",
-  });
+  const [accountModalCurrencies, setAccountModalCurrencies] = useState([]);
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
   const bankDatePickerInitRef = useRef(false);
@@ -300,7 +407,7 @@ export default function BankProcessListPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css"), assetUrl("css/date-range-picker.css")];
+    const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css"), assetUrl("css/account-list.css"), assetUrl("css/date-range-picker.css")];
     Promise.all(
       hrefs.map(
         (href) =>
@@ -600,9 +707,17 @@ export default function BankProcessListPage() {
     setProfitShareModalOpen(false);
     setBankFormNote(null);
     setAddAccountModalOpen(false);
-    setPendingCountry("");
-    setPendingBank("");
+    setSelectedCountryChips([]);
+    setSelectedBankChips([]);
     setModalOpen(true);
+  };
+
+  const toggleCountryChipSelection = (c) => {
+    setSelectedCountryChips((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  };
+
+  const toggleBankChipSelection = (b) => {
+    setSelectedBankChips((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]));
   };
 
   const submitNewCountry = async (e) => {
@@ -617,7 +732,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Add country failed", "danger");
       setCountriesList((prev) => [...new Set([...prev, name])].sort());
-      setPendingCountry(name);
+      setSelectedCountryChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewCountryName("");
       notify("Country added");
     } catch {
@@ -638,7 +753,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Add bank failed", "danger");
       setBanksList((prev) => [...new Set([...prev, name])].sort());
-      setPendingBank(name);
+      setSelectedBankChips((prev) => (prev.includes(name) ? prev : [...prev, name]));
       setNewBankName("");
       notify("Bank added");
     } catch {
@@ -678,57 +793,52 @@ export default function BankProcessListPage() {
     setBankFormNote(null);
   };
 
-  const openAddAccountForField = async (target) => {
-    setAccountPlusTarget(target);
-    if (!rolesList.length) {
-      try {
-        const res = await fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" });
-        const json = await res.json();
-        setRolesList(Array.isArray(json?.data?.roles) ? json.data.roles : []);
-      } catch {
-        setRolesList([]);
-      }
+  const handleAccountModalSuccess = async (data) => {
+    const newId = data?.id != null ? String(data.id) : "";
+    const newAccountId = String(data?.account_id || "").trim();
+    const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+    url.searchParams.set("company_id", String(companyId));
+    url.searchParams.set("showAll", "1");
+    const listRes = await fetch(url.toString(), { credentials: "include" });
+    const listJson = await listRes.json();
+    const list = Array.isArray(listJson?.data?.accounts) ? listJson.data.accounts : [];
+    setAccounts(list);
+    if (newId && accountPlusTarget === "card_merchant_id") setForm((f) => ({ ...f, card_merchant_id: newId }));
+    if (newId && accountPlusTarget === "customer_id") setForm((f) => ({ ...f, customer_id: newId }));
+    if (newId && accountPlusTarget === "profit_account_id") setForm((f) => ({ ...f, profit_account_id: newId }));
+    if (newId && accountPlusTarget && typeof accountPlusTarget === "object" && accountPlusTarget.type === "profitRow") {
+      const idx = accountPlusTarget.index;
+      setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, accountId: newId, accountLabel: newAccountId } : r)));
     }
-    setAddAccountForm({ account_id: "", name: "", role: "", password: "", remark: "", payment_alert: "0" });
-    setAddAccountModalOpen(true);
+    notifyTransactionDataChanged("bank-process-list-react");
+    setAddAccountModalOpen(false);
+    setAccountPlusTarget(null);
   };
 
-  const submitAddAccountModal = async (e) => {
-    e.preventDefault();
-    if (!companyId) return;
-    try {
-      const fd = new FormData();
-      fd.append("company_id", String(companyId));
-      fd.append("account_id", addAccountForm.account_id.trim());
-      fd.append("name", addAccountForm.name.trim());
-      fd.append("role", addAccountForm.role.trim());
-      fd.append("password", addAccountForm.password);
-      fd.append("payment_alert", addAccountForm.payment_alert);
-      fd.append("remark", addAccountForm.remark.trim());
-      const res = await fetch(buildApiUrl("api/accounts/addaccountapi.php"), { method: "POST", body: fd, credentials: "include" });
-      const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Add account failed", "danger");
-      const newId = json.data?.id != null ? String(json.data.id) : "";
-      const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
-      url.searchParams.set("company_id", String(companyId));
-      url.searchParams.set("showAll", "1");
-      const listRes = await fetch(url.toString(), { credentials: "include" });
-      const listJson = await listRes.json();
-      const list = Array.isArray(listJson?.data?.accounts) ? listJson.data.accounts : [];
-      setAccounts(list);
-      if (newId && accountPlusTarget === "card_merchant_id") setForm((f) => ({ ...f, card_merchant_id: newId }));
-      if (newId && accountPlusTarget === "customer_id") setForm((f) => ({ ...f, customer_id: newId }));
-      if (newId && accountPlusTarget === "profit_account_id") setForm((f) => ({ ...f, profit_account_id: newId }));
-      if (newId && accountPlusTarget && typeof accountPlusTarget === "object" && accountPlusTarget.type === "profitRow") {
-        const idx = accountPlusTarget.index;
-        setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, accountId: newId, accountLabel: addAccountForm.account_id.trim() } : r)));
-      }
-      notify("Account created");
-      setAddAccountModalOpen(false);
-      setAccountPlusTarget(null);
-    } catch {
-      notify("Add account failed", "danger");
+  const openAddAccountForField = async (target) => {
+    setAccountPlusTarget(target);
+    if (!companyId) {
+      notify("Missing company context.", "danger");
+      return;
     }
+    try {
+      const [editRes, curRes] = await Promise.all([
+        fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }),
+        fetch(buildApiUrl("api/accounts/account_currency_api.php?action=get_available_currencies"), { credentials: "include" }),
+      ]);
+      const editJson = await editRes.json();
+      const curJson = await curRes.json();
+      setRolesList(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
+      if (Array.isArray(curJson?.data)) {
+        setAccountModalCurrencies(curJson.data.map((c) => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
+      } else {
+        setAccountModalCurrencies([]);
+      }
+    } catch {
+      setRolesList([]);
+      setAccountModalCurrencies([]);
+    }
+    setAddAccountModalOpen(true);
   };
 
   const openEdit = async (rowId) => {
@@ -909,22 +1019,6 @@ export default function BankProcessListPage() {
     }
   };
 
-  const toggleStatus = async (row) => {
-    const fd = new FormData();
-    fd.append("id", String(row.id));
-    fd.append("permission", "Bank");
-    try {
-      const res = await fetch(buildApiUrl("api/processes/toggle_process_status_api.php"), { method: "POST", body: fd, credentials: "include" });
-      const json = await res.json();
-      if (!res.ok || !json.success) return notify(json.message || json.error || "Status update failed", "danger");
-      const next = String(json?.data?.newStatus || "").toLowerCase();
-      setRows((prev) => prev.map((r) => (Number(r.id) === Number(row.id) ? { ...r, status: next || r.status } : r)));
-      notifyTransactionDataChanged("bank-process-list-react");
-    } catch {
-      notify("Status update failed", "danger");
-    }
-  };
-
   const deleteSelected = async () => {
     if (!selectedIds.size || !window.confirm("Delete selected inactive bank processes?")) return;
     try {
@@ -1090,7 +1184,17 @@ export default function BankProcessListPage() {
                 <div className="card-item">{r.cost || "-"}</div>
                 <div className="card-item">{r.price || "-"}</div>
                 <div className="card-item">{r.profit || "-"}</div>
-                <div className="card-item"><span className={`role-badge ${r.status === "active" ? "status-active" : "status-inactive"} status-clickable`} onClick={() => toggleStatus(r)} role="button">{String(r.status || "").toUpperCase()}</span></div>
+                <div className="card-item">
+                  <BankProcessStatusControl
+                    row={r}
+                    notify={notify}
+                    buildApiUrl={buildApiUrl}
+                    onUpdated={() => {
+                      notifyTransactionDataChanged("bank-process-list-react");
+                      void fetchRows();
+                    }}
+                  />
+                </div>
                 <div className="card-item">{r.date || "-"}</div>
                 <div className="card-item">
                   <span className="bank-action-tools">
@@ -1155,7 +1259,17 @@ export default function BankProcessListPage() {
                               </select>
                             )}
                             {!editMode ? (
-                              <button type="button" className="bank-add-btn" title="Add New Country" onClick={() => { setPendingCountry(form.country); setCountryModalOpen(true); }}>
+                              <button
+                                type="button"
+                                className="bank-add-btn"
+                                title="Add New Country"
+                                onClick={() => {
+                                  setSelectedCountryChips(form.country ? [form.country] : []);
+                                  setCountrySearch("");
+                                  setNewCountryName("");
+                                  setCountryModalOpen(true);
+                                }}
+                              >
                                 +
                               </button>
                             ) : null}
@@ -1183,7 +1297,18 @@ export default function BankProcessListPage() {
                               </select>
                             )}
                             {!editMode ? (
-                              <button type="button" className="bank-add-btn" title="Add New Bank" disabled={!form.country} onClick={() => { setPendingBank(form.bank); setBankModalOpen(true); }}>
+                              <button
+                                type="button"
+                                className="bank-add-btn"
+                                title="Add New Bank"
+                                disabled={!form.country}
+                                onClick={() => {
+                                  setSelectedBankChips(form.bank ? [form.bank] : []);
+                                  setBankSearch("");
+                                  setNewBankName("");
+                                  setBankModalOpen(true);
+                                }}
+                              >
                                 +
                               </button>
                             ) : null}
@@ -1427,17 +1552,53 @@ export default function BankProcessListPage() {
                   </div>
                   <div className="country-list" id="existingCountries">
                     {countriesList.filter((c) => !countrySearch.trim() || c.toUpperCase().includes(countrySearch.trim())).map((c) => (
-                      <div key={c} className={`country-list-item${pendingCountry === c ? " selected" : ""}`} role="presentation" style={{ cursor: "pointer", padding: 6 }} onClick={() => setPendingCountry(c)}>{c}</div>
+                      <div
+                        key={c}
+                        className={`country-item${selectedCountryChips.includes(c) ? " selected" : ""}`}
+                        role="presentation"
+                        onClick={() => toggleCountryChipSelection(c)}
+                      >
+                        <div className="country-item-left">
+                          <span>{c}</span>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
                 <div className="selected-countries-section">
                   <h3>Selected Countries</h3>
-                  <div className="selected-countries-list" id="selectedCountriesInModal">{pendingCountry ? <div>{pendingCountry}</div> : <div style={{ color: "#94a3b8" }}>None</div>}</div>
+                  <div className="selected-countries-list" id="selectedCountriesInModal">
+                    {selectedCountryChips.length === 0 ? (
+                      <div className="no-countries">None</div>
+                    ) : (
+                      selectedCountryChips.map((c) => (
+                        <div key={`sel-${c}`} className="selected-country-modal-item">
+                          <span>{c}</span>
+                          <button type="button" className="remove-country-modal" aria-label={`Remove ${c}`} onClick={() => setSelectedCountryChips((prev) => prev.filter((x) => x !== c))}>
+                            ×
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-save" id="confirmCountriesBtn" onClick={() => { if (pendingCountry) setForm((f) => ({ ...f, country: pendingCountry, bank: "" })); setCountryModalOpen(false); }}>Confirm</button>
+                <button
+                  type="button"
+                  className="btn btn-save"
+                  id="confirmCountriesBtn"
+                  onClick={() => {
+                    if (selectedCountryChips.length !== 1) {
+                      notify("Select exactly one country on the right (add from the list or remove extras with ×).", "warning");
+                      return;
+                    }
+                    setForm((f) => ({ ...f, country: selectedCountryChips[0], bank: "" }));
+                    setCountryModalOpen(false);
+                  }}
+                >
+                  Confirm
+                </button>
                 <button type="button" className="btn btn-cancel" onClick={() => setCountryModalOpen(false)}>Cancel</button>
               </div>
             </div>
@@ -1469,17 +1630,53 @@ export default function BankProcessListPage() {
                   </div>
                   <div className="bank-list" id="existingBanks">
                     {banksList.filter((b) => !bankSearch.trim() || b.toUpperCase().includes(bankSearch.trim())).map((b) => (
-                      <div key={b} className={`bank-list-item${pendingBank === b ? " selected" : ""}`} role="presentation" style={{ cursor: "pointer", padding: 6 }} onClick={() => setPendingBank(b)}>{b}</div>
+                      <div
+                        key={b}
+                        className={`country-item${selectedBankChips.includes(b) ? " selected" : ""}`}
+                        role="presentation"
+                        onClick={() => toggleBankChipSelection(b)}
+                      >
+                        <div className="country-item-left">
+                          <span>{b}</span>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
                 <div className="selected-banks-section">
                   <h3>Selected Banks</h3>
-                  <div className="selected-banks-list" id="selectedBanksInModal">{pendingBank ? <div>{pendingBank}</div> : <div style={{ color: "#94a3b8" }}>None</div>}</div>
+                  <div className="selected-banks-list" id="selectedBanksInModal">
+                    {selectedBankChips.length === 0 ? (
+                      <div className="no-countries">None</div>
+                    ) : (
+                      selectedBankChips.map((b) => (
+                        <div key={`sel-b-${b}`} className="selected-country-modal-item">
+                          <span>{b}</span>
+                          <button type="button" className="remove-country-modal" aria-label={`Remove ${b}`} onClick={() => setSelectedBankChips((prev) => prev.filter((x) => x !== b))}>
+                            ×
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-save" id="confirmBanksBtn" onClick={() => { if (pendingBank) setForm((f) => ({ ...f, bank: pendingBank })); setBankModalOpen(false); }}>Confirm</button>
+                <button
+                  type="button"
+                  className="btn btn-save"
+                  id="confirmBanksBtn"
+                  onClick={() => {
+                    if (selectedBankChips.length !== 1) {
+                      notify("Select exactly one bank on the right (add from the list or remove extras with ×).", "warning");
+                      return;
+                    }
+                    setForm((f) => ({ ...f, bank: selectedBankChips[0] }));
+                    setBankModalOpen(false);
+                  }}
+                >
+                  Confirm
+                </button>
                 <button type="button" className="btn btn-cancel" onClick={() => setBankModalOpen(false)}>Cancel</button>
               </div>
             </div>
@@ -1556,57 +1753,20 @@ export default function BankProcessListPage() {
           </div>
         </div>
       )}
-      {addAccountModalOpen && (
-        <div id="addAccountModal" className="account-modal" style={{ display: "block" }}>
-          <div className="account-modal-content">
-            <div className="account-modal-header">
-              <h2>Add Account</h2>
-              <span className="account-close" onClick={() => setAddAccountModalOpen(false)} role="presentation">&times;</span>
-            </div>
-            <div className="account-modal-body">
-              <form id="addAccountForm" className="account-form" onSubmit={submitAddAccountModal}>
-                <div className="account-form-columns">
-                  <div className="account-form-column">
-                    <h3 className="account-section-header">Personal Information</h3>
-                    <div className="account-form-group">
-                      <label htmlFor="add_account_id_bank">Account ID *</label>
-                      <input id="add_account_id_bank" required value={addAccountForm.account_id} onChange={(e) => setAddAccountForm((f) => ({ ...f, account_id: e.target.value }))} />
-                    </div>
-                    <div className="account-form-group">
-                      <label htmlFor="add_name_bank">Name *</label>
-                      <input id="add_name_bank" required value={addAccountForm.name} onChange={(e) => setAddAccountForm((f) => ({ ...f, name: e.target.value }))} />
-                    </div>
-                    <div className="account-form-group">
-                      <label htmlFor="add_role_bank">Role *</label>
-                      <select id="add_role_bank" required value={addAccountForm.role} onChange={(e) => setAddAccountForm((f) => ({ ...f, role: e.target.value }))}>
-                        <option value="">Select Role</option>
-                        {rolesList.map((r) => (
-                          <option key={r} value={r}>{String(r).toUpperCase() === "UPLINE" ? "SUPPLIER" : r}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="account-form-group">
-                      <label htmlFor="add_password_bank">Password *</label>
-                      <input id="add_password_bank" type="password" required value={addAccountForm.password} onChange={(e) => setAddAccountForm((f) => ({ ...f, password: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div className="account-form-column">
-                    <h3 className="account-section-header">Other</h3>
-                    <div className="account-form-group">
-                      <label htmlFor="add_remark_bank">Remark</label>
-                      <textarea id="add_remark_bank" rows={2} value={addAccountForm.remark} onChange={(e) => setAddAccountForm((f) => ({ ...f, remark: e.target.value }))} />
-                    </div>
-                  </div>
-                </div>
-                <div className="account-form-actions">
-                  <button type="submit" className="account-btn account-btn-save">Add Account</button>
-                  <button type="button" className="account-btn account-btn-cancel" onClick={() => setAddAccountModalOpen(false)}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <AccountAddModalSameAsList
+        open={addAccountModalOpen}
+        onClose={() => {
+          setAddAccountModalOpen(false);
+          setAccountPlusTarget(null);
+        }}
+        companyId={companyId}
+        companies={companies}
+        roles={rolesList}
+        currencies={accountModalCurrencies}
+        setCurrencies={setAccountModalCurrencies}
+        notify={notify}
+        onSuccess={(data) => void handleAccountModalSuccess(data)}
+      />
       {accountingOpen && (
         <div id="processAccountingDueModal" className="modal" style={{ display: "block" }}>
           <div className="modal-content" style={{ maxWidth: "980px" }}>
