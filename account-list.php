@@ -201,6 +201,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
 $searchTerm = isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '';
 $showInactive = isset($_GET['showInactive']) ? true : false;
 $showAll = isset($_GET['showAll']) ? true : false;
+
+// Account list UI lives in the React SPA (frontend/src/pages/AccountListPage.jsx). Legacy js/account-list.js removed.
+$qs = (!empty($_SERVER['QUERY_STRING'])) ? ('?' . $_SERVER['QUERY_STRING']) : '';
+header('Location: account-list' . $qs, true, 302);
+exit;
+
 ?>
 
 <!DOCTYPE html>
@@ -684,16 +690,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
             </div>
         </div>
     </div>
-
-
-    <script>
-        window.ACCOUNT_LIST_SHOW_INACTIVE = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
-        window.ACCOUNT_LIST_SHOW_ALL = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;
-        window.ACCOUNT_LIST_COMPANY_ID = <?php echo json_encode($company_id); ?>;
-        window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD = <?php echo json_encode($company_id ? [$company_id] : []); ?>;
-    </script>
-    <script src="js/account-list.js?v=<?php echo $assetVer('js/account-list.js'); ?>"></script>
-
 
 </body>
 </html>

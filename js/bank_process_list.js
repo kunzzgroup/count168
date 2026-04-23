@@ -2479,7 +2479,7 @@ let bankAddAccountTriggerFieldId = null;
 let bankAddAccountTriggerHiddenInputId = null;
 
 let bankAccountRoles = [];
-/** 与 js/account-list.js 中 ROLE_PRIORITY 保持完全一致 */
+/** 与 Account List（frontend/src/pages/AccountListPage.jsx）中 ROLE_PRIORITY 保持完全一致 */
 const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
 
 function getOrderedRolesBank(roles, includeStaff = true) {
