@@ -96,6 +96,14 @@ const LEGACY_MODAL_HTML = `
             <div class="company-share-charge-on-save"><span class="company-share-charge-on-save__state" id="companyShareChargeState" aria-hidden="true">Off</span><label class="company-share-charge-switch"><input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" onchange="syncCompanyShareChargeToggleUi()"><span class="company-share-charge-switch__track" aria-hidden="true"><span class="company-share-charge-switch__thumb"></span></span></label></div>
           </div>
           <div class="company-share-scroll">
+            <div class="company-share-role-card company-share-role-card--profit-pool" data-share-card="profit">
+              <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsProfit" onclick="toggleShareRoleCard('profit')">
+                <div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--profit">Profit</span><span class="company-share-account-count-display" id="shareAccountSummary-profit">0 accounts</span></div>
+                <div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalProfit">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-profit"></div></div></div>
+                <div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('profit');">Manage</button></div>
+              </div>
+              <div class="company-share-role-body company-share-role-body--profit-pool"><div class="company-share-column-labels company-share-column-labels--profit-pool"><span>Account</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsProfit" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('profit')">+ Add Account</button></div>
+            </div>
             <div class="company-share-role-card" data-share-card="sales"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsSales" onclick="toggleShareRoleCard('sales')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--sales">Sales</span><span class="company-share-account-count-display" id="shareAccountSummary-sales">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalSales">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-sales"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('sales');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsSales" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add Account</button></div></div>
             <div class="company-share-role-card" data-share-card="cs"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsCs" onclick="toggleShareRoleCard('cs')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--cs">CS</span><span class="company-share-account-count-display" id="shareAccountSummary-cs">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalCs">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-cs"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('cs');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsCs" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add Account</button></div></div>
             <div class="company-share-role-card" data-share-card="it"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsIt" onclick="toggleShareRoleCard('it')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--it">IT</span><span class="company-share-account-count-display" id="shareAccountSummary-it">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalIt">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-it"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('it');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsIt" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add Account</button></div></div>
@@ -200,31 +208,36 @@ export default function DomainPage() {
     };
   }, [navigate]);
 
+  const initLegacy = () => {
+    if (typeof window.refreshDomainFeeSummaryFromApi === "function") window.refreshDomainFeeSummaryFromApi();
+    if (typeof window.setupSearch === "function") window.setupSearch();
+    if (typeof window.initializePagination === "function") window.initializePagination();
+    if (typeof window.syncDeleteCheckboxProtection === "function") window.syncDeleteCheckboxProtection();
+    if (typeof window.updateDeleteButton === "function") window.updateDeleteButton();
+    if (typeof window.initializeCompanyClickHandlers === "function") window.initializeCompanyClickHandlers();
+  };
+
   useEffect(() => {
     if (!ready) return;
     const scriptId = "legacy-domain-js";
-    const initLegacy = () => {
-      if (typeof window.refreshDomainFeeSummaryFromApi === "function") window.refreshDomainFeeSummaryFromApi();
-      if (typeof window.setupSearch === "function") window.setupSearch();
-      if (typeof window.initializePagination === "function") window.initializePagination();
-      if (typeof window.syncDeleteCheckboxProtection === "function") window.syncDeleteCheckboxProtection();
-      if (typeof window.updateDeleteButton === "function") window.updateDeleteButton();
-      if (typeof window.initializeCompanyClickHandlers === "function") window.initializeCompanyClickHandlers();
-    };
-    const existing = document.getElementById(scriptId);
-    if (existing?.parentNode) existing.parentNode.removeChild(existing);
+    if (window.__domainLegacyScriptLoaded) return;
+
     const s = document.createElement("script");
     s.id = scriptId;
     s.src = assetUrl("js/domain.js");
     s.onload = () => {
+      window.__domainLegacyScriptLoaded = true;
       document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
       initLegacy();
     };
     document.body.appendChild(s);
-    return () => {
-      const el = document.getElementById(scriptId);
-      if (el?.parentNode) el.parentNode.removeChild(el);
-    };
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (window.__domainLegacyScriptLoaded) {
+      initLegacy();
+    }
   }, [ready, domains]);
 
   return (
