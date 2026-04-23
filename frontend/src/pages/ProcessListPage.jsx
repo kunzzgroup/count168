@@ -57,6 +57,7 @@ async function isBankCategoryCompany(companyCode) {
 }
 
 export default function ProcessListPage() {
+  const [cssReady, setCssReady] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -86,26 +87,31 @@ export default function ProcessListPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     document.body.classList.remove("dashboard-page");
     document.body.classList.add("process-page");
-    const cssA = document.createElement("link");
-    cssA.rel = "stylesheet";
-    cssA.href = assetUrl("css/processCSS.css");
-    document.head.appendChild(cssA);
-    const cssB = document.createElement("link");
-    cssB.rel = "stylesheet";
-    cssB.href = assetUrl("css/processlist.css");
-    document.head.appendChild(cssB);
-    const cssC = document.createElement("link");
-    cssC.rel = "stylesheet";
-    cssC.href = assetUrl("css/accountCSS.css");
-    document.head.appendChild(cssC);
+    const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css")];
+    Promise.all(
+      hrefs.map(
+        (href) =>
+          new Promise((resolve) => {
+            const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+            if (existing) return resolve(existing);
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = href;
+            link.onload = () => resolve(link);
+            link.onerror = () => resolve(link);
+            document.head.appendChild(link);
+          })
+      )
+    ).then(() => {
+      if (!cancelled) setCssReady(true);
+    });
     return () => {
+      cancelled = true;
       document.body.classList.remove("process-page");
       document.body.classList.add("dashboard-page");
-      [cssA, cssB, cssC].forEach((el) => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      });
     };
   }, []);
 
@@ -465,7 +471,7 @@ export default function ProcessListPage() {
     }
   };
 
-  if (loading) return null;
+  if (loading || !cssReady) return null;
 
   return (
     <div className="container">
