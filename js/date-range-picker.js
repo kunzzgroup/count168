@@ -410,20 +410,6 @@
                 var qsToggle = e.target.closest && (e.target.closest('.quick-select-dropdown-toggle') || e.target.closest('#quick-select-dropdown'));
                 if (qsDropdown && !qsToggle) qsDropdown.classList.remove('show');
             });
-
-            var daysWheelEl = document.getElementById('calendar-days');
-            if (daysWheelEl && daysWheelEl.dataset.wheelMonthNavAttached !== '1') {
-                daysWheelEl.dataset.wheelMonthNavAttached = '1';
-                daysWheelEl.addEventListener('wheel', function(e) {
-                    var pop = document.getElementById('calendar-popup');
-                    if (!pop || pop.style.display === 'none') return;
-                    if (e.deltaY === 0) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.deltaY > 0) changeMonth(1);
-                    else changeMonth(-1);
-                }, { passive: false });
-            }
         },
         setQuickRange: setQuickRange,
         clear: function() {

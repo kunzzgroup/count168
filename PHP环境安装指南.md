@@ -225,7 +225,7 @@ date.timezone = Asia/Kuala_Lumpur
 ## 下一步
 
 1. 选择并安装上述方案之一（推荐 XAMPP 或 Laragon）
-2. 导入数据库：`C:\Users\kunzz\Downloads\u857194726_count_site.sql`
+2. 导入数据库：`count_fixed.sql` 或 `count.sql`
 3. 配置 `config.php` 中的数据库连接
 4. 访问项目测试
 

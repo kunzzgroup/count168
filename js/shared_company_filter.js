@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
     // 确保这段逻辑哪怕文件被多次引入也能正常运行且不重复绑定
     if (window._sharedCompanyFilterInitialized) return;
     window._sharedCompanyFilterInitialized = true;
@@ -19,22 +19,21 @@
             const clickedGroup = this.getAttribute('data-group-id');
 
             if (currentSelectedGroup === clickedGroup) {
-                // 点击已选中的 Group -> 取消选中
+                // 点击已选中的 Group -> 取消选中并进入空状态（与 dashboard 行为对齐）
                 currentSelectedGroup = null;
                 sessionStorage.removeItem('dashboard_group_filter');
                 groupBtns.forEach(b => b.classList.remove('active'));
 
-                // 呈现没有 Group 的独立公司
+                // 统一隐藏全部公司按钮，避免自动切换到独立公司
                 companyBtns.forEach(cBtn => {
-                    const cGroupId = cBtn.getAttribute('data-group-id');
-                    if (!cGroupId || cGroupId.trim() === '') {
-                        cBtn.style.display = '';
-                    } else {
-                        cBtn.style.display = 'none';
-                    }
+                    cBtn.style.display = 'none';
+                    cBtn.classList.remove('active');
                 });
 
-                triggerFirstVisibleCompany();
+                // 通知业务层进入空筛选态
+                if (typeof window.onSharedCompanyFilterChanged === 'function') {
+                    window.onSharedCompanyFilterChanged(null, null);
+                }
             } else {
                 // 选中新的 Group
                 currentSelectedGroup = clickedGroup;

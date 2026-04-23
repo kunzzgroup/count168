@@ -155,7 +155,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Win/Loss</title>
-    <link rel="icon" type="image/png" href="images/count_logo.png">
+    <link rel="icon" type="image/png" href="/images/count_logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/member.css?v=<?php echo file_exists('css/member.css') ? filemtime('css/member.css') : time(); ?>">

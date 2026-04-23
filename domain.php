@@ -100,9 +100,12 @@ try {
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/domain.css?v=<?php echo $assetVer('css/domain.css'); ?>">
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo $assetVer('css/accountCSS.css'); ?>">
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
         window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
+        window.DOMAIN_SESSION_COMPANY_ID = <?php echo $company_id ? (int)$company_id : 'null'; ?>;
+        window.DOMAIN_SESSION_COMPANY_CODE = <?php echo json_encode($company_code ?: ''); ?>;
     </script>
     <script src="js/domain.js?v=<?php echo $assetVer('js/domain.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
@@ -337,6 +340,38 @@ try {
                             </div>
                         </div>
                     <div class="company-share-scroll">
+                        <div class="company-share-role-card company-share-role-card--profit-pool" data-share-card="profit">
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsProfit" onclick="toggleShareRoleCard('profit')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('profit');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--profit">Profit</span>
+                                    <span class="company-share-account-count-display" id="shareAccountSummary-profit">0 accounts</span>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalProfit">0.00%</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-profit"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('profit');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('profit');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="company-share-role-body company-share-role-body--profit-pool">
+                            <div class="company-share-column-labels company-share-column-labels--profit-pool">
+                                <span>Account</span>
+                                <span>Total</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsProfit" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('profit')">+ Add Account</button>
+                            </div>
+                        </div>
                         <div class="company-share-role-card" data-share-card="sales">
                             <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsSales" onclick="toggleShareRoleCard('sales')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('sales');}">
                                 <div class="company-share-role-header-left">
@@ -550,5 +585,104 @@ try {
 
     <!-- 通知容器：内联 z-index 最高，确保压过所有弹窗（含 inline 10001~10003） -->
     <div id="notificationContainer" class="notification-container" style="z-index: 2147483647;"></div>
+
+    <!-- Add Account Modal (for Share % + button) -->
+    <div id="domainAddAccountModal" class="account-modal" style="display: none; z-index: 10010;">
+        <div class="account-modal-content">
+            <div class="account-modal-header">
+                <h2>Add Account</h2>
+                <span class="account-close" onclick="closeDomainAddAccountModal()">&times;</span>
+            </div>
+            <div class="account-modal-body">
+                <form id="domainAddAccountForm" class="account-form">
+                    <div class="account-form-columns">
+                        <div class="account-form-column">
+                            <h3 class="account-section-header">Personal Information</h3>
+                            <div class="account-form-group">
+                                <label for="domain_add_account_id">Account ID *</label>
+                                <input type="text" id="domain_add_account_id" name="account_id" required>
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_name">Name *</label>
+                                <input type="text" id="domain_add_name" name="name" required>
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_role">Role *</label>
+                                <select id="domain_add_role" name="role" required>
+                                    <option value="">Select Role</option>
+                                </select>
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_password">Password *</label>
+                                <input type="password" id="domain_add_password" name="password" required>
+                            </div>
+                        </div>
+                        <div class="account-form-column">
+                            <h3 class="account-section-header">Payment</h3>
+                            <div class="account-form-group">
+                                <label>Payment Alert</label>
+                                <div class="account-radio-group">
+                                    <label class="account-radio-label">
+                                        <input type="radio" name="add_payment_alert" value="1">
+                                        Yes
+                                    </label>
+                                    <label class="account-radio-label">
+                                        <input type="radio" name="add_payment_alert" value="0" checked>
+                                        No
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="account-form-row" id="domain_add_alert_fields" style="display: none;">
+                                <div class="account-form-group">
+                                    <label for="domain_add_alert_type">Alert Type</label>
+                                    <select id="domain_add_alert_type" name="alert_type">
+                                        <option value="">Select Type</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                        <?php for ($i = 1; $i <= 31; $i++): ?>
+                                            <option value="<?php echo $i; ?>"><?php echo $i; ?> Days</option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="domain_add_alert_start_date">Start Date</label>
+                                    <input type="date" id="domain_add_alert_start_date" name="alert_start_date">
+                                </div>
+                            </div>
+                            <div class="account-form-group" id="domain_add_alert_amount_row" style="display: none;">
+                                <label for="domain_add_alert_amount">Alert (Amount)</label>
+                                <input type="number" id="domain_add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount">
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_remark">Remark</label>
+                                <textarea id="domain_add_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="account-form-section">
+                        <div class="account-advance-section">
+                            <h3>Advanced Account</h3>
+                            <div class="account-other-currency">
+                                <label>Other Currency:</label>
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                    <input type="text" id="domainAddCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputDomain(); return false;">Create Currency</button>
+                                </div>
+                                <div class="account-currency-list" id="domainAddCurrencyList"></div>
+                            </div>
+                            <div class="account-other-currency" style="margin-top: 20px;">
+                                <label>Company:</label>
+                                <div class="account-currency-list" id="domainAddCompanyList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="account-form-actions">
+                        <button type="submit" class="account-btn account-btn-save">Add Account</button>
+                        <button type="button" class="account-btn account-btn-cancel" onclick="closeDomainAddAccountModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

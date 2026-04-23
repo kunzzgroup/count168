@@ -13,6 +13,11 @@
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
     const RATE_TYPE_VALUE = 'RATE';
     let isSubmittingTx = false;
+    let activeSearchController = null;
+    let isSearchInFlight = false;
+    let activeSearchKey = '';
+    let lastCompletedSearchKey = '';
+    let lastCompletedSearchTs = 0;
 
     function syncSubmitButtonState() {
         const confirmCheckbox = document.getElementById('confirm_submit');
@@ -43,10 +48,8 @@
         const number = parseFloat(cleaned);
         if (isNaN(number)) return '0.00';
 
-        // Round to 2 decimal places for display (四舍五入到2位小数用于显示)
-        // This ensures consistent display formatting while database stores raw values
-        // 这确保了一致的显示格式，而数据库存储原始值
-        const rounded = Math.round(number * 100) / 100;
+        // Truncate to 2 decimal places for display (只截断到2位小数，不做四舍五入)
+        const rounded = Math.trunc(number * 100) / 100;
 
         // 使用 toLocaleString 添加千分位逗号
         return rounded.toLocaleString('en-US', {
@@ -447,7 +450,7 @@
         setInterval(() => {
             if (document.visibilityState !== 'visible') return;
             refreshTransactionDataFromExternalChange();
-        }, 1000);
+        }, 5000);
 
         // 绑定右侧工作区的 Search 按钮：执行完整日期搜索（不受右侧 Type 选择影响）
         const actionSearchBtn = document.getElementById('action_search_btn');
@@ -1189,9 +1192,34 @@
 
     // ==================== 切换 Company ====================
     async function switchCompany(companyId, companyCode) {
+        const normalizedCompanyId = (function (raw) {
+            if (raw === null || raw === undefined) return null;
+            const str = String(raw).trim();
+            if (!str || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') return null;
+            return str;
+        })(companyId);
+
+        // Group 取消选择后的空状态：不刷新整页，不带 company_id=null，直接清空当前页数据
+        if (!normalizedCompanyId) {
+            currentCompanyId = null;
+            selectedCurrencies = [];
+            showAllCurrencies = false;
+            currencyList = [];
+            lastSearchData = null;
+            currentDisplayData = { left_table: [], right_table: [] };
+
+            const currencyWrapper = document.getElementById('currency-buttons-wrapper');
+            const currencyContainer = document.getElementById('currency-buttons-container');
+            if (currencyContainer) currencyContainer.innerHTML = '';
+            if (currencyWrapper) currencyWrapper.style.display = 'none';
+
+            renderTables([], []);
+            return;
+        }
+
         // 先更新 session
         try {
-            const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
+            const response = await fetch(`/api/session/update_company_session_api.php?company_id=${normalizedCompanyId}`);
             const result = await response.json();
             if (!result.success) {
                 const blocked = (typeof window.handleCompanySwitchDenied === 'function')
@@ -1210,7 +1238,7 @@
 
         // 立即刷新整页，让 sidebar 按新 company 的 session 状态重渲染
         const url = new URL(window.location.href);
-        url.searchParams.set('company_id', companyId);
+        url.searchParams.set('company_id', normalizedCompanyId);
         window.location.href = url.toString();
         return;
 
@@ -1855,6 +1883,8 @@
                 if (summarySection) summarySection.style.display = 'flex';
                 applyZeroBalanceFilterAndRender();
                 saveTxListSearchToSession(searchData);
+                lastCompletedSearchKey = requestKey;
+                lastCompletedSearchTs = Date.now();
                 if (!quiet) {
                     showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
                 }
@@ -1882,6 +1912,8 @@
                 }
             }
             saveTxListSearchToSession(searchData);
+            lastCompletedSearchKey = requestKey;
+            lastCompletedSearchTs = Date.now();
         };
 
         const singleSelectedCurrency = (!showAllCurrencies && selectedCurrencies.length === 1)
@@ -1889,14 +1921,42 @@
             : '';
         const categoryParam = (selectedCategories.length > 0 && !selectedCategories.includes(''))
             ? selectedCategories.join(',')
-            : ''
+            : '';
+        const requestKey = JSON.stringify({
+            dateFrom,
+            dateTo,
+            categoryParam,
+            showInactive,
+            showCaptureOnly,
+            hideZero,
+            companyId: currentCompanyId || '',
+            showAllCurrencies: !!showAllCurrencies,
+            currencies: [...selectedCurrencies].sort().join(',')
+        });
+
+        if (isSearchInFlight && activeSearchKey === requestKey) {
+            return;
+        }
+        if (!isInitialLoad && lastCompletedSearchKey === requestKey && (Date.now() - lastCompletedSearchTs) < 1200) {
+            return;
+        }
+
+        // 新的搜索发起前，取消尚未完成的旧请求，避免慢请求回写覆盖新结果
+        if (activeSearchController) {
+            try { activeSearchController.abort(); } catch (e) { /* ignore */ }
+        }
+        activeSearchController = new AbortController();
+        const { signal } = activeSearchController;
+        isSearchInFlight = true;
+        activeSearchKey = requestKey;
 
         fetch(url, {
             method: 'GET',
             cache: 'no-cache',
             headers: {
                 'Cache-Control': 'no-cache'
-            }
+            },
+            signal
         })
             .then(response => response.json())
             .then(data => {
@@ -1931,7 +1991,8 @@
                             cache: 'no-cache',
                             headers: {
                                 'Cache-Control': 'no-cache'
-                            }
+                            },
+                            signal
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
@@ -1960,6 +2021,7 @@
                                 commitSearchData(rebuiltData, { quiet: silent });
                             })
                             .catch(error => {
+                                if (error && error.name === 'AbortError') return;
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 console.error('❌ 单币别兜底搜索失败:', error);
                                 commitSearchData(currentSearchData, { quiet: silent });
@@ -1990,7 +2052,8 @@
                             cache: 'no-cache',
                             headers: {
                                 'Cache-Control': 'no-cache'
-                            }
+                            },
+                            signal
                         })
                             .then(resp => resp.json())
                             .then(fallback => {
@@ -2007,6 +2070,7 @@
                                 commitSearchData(rebuiltData, { quiet: silent });
                             })
                             .catch(error => {
+                                if (error && error.name === 'AbortError') return;
                                 if (loadingEl) loadingEl.style.display = 'none';
                                 console.error('❌ Win/Loss 空结果 totals 兜底失败:', error);
                                 commitSearchData(currentSearchData, { quiet: silent });
@@ -2023,15 +2087,22 @@
                 }
             })
             .catch(error => {
+                if (error && error.name === 'AbortError') return;
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (!silent && tablesSection) tablesSection.style.display = 'none';
                 console.error('❌ 搜索失败:', error);
                 showNotification('Search failed: ' + error.message, 'error');
+            })
+            .finally(() => {
+                if (activeSearchKey === requestKey) {
+                    isSearchInFlight = false;
+                    activeSearchKey = '';
+                }
             });
     }
 
     // ==================== 渲染表格与总计 ====================
-    // 可选第三个参数 totalsFromApi：如果后端已经计算好总计，就直接使用，保证和数据库一致
+    // 可选第三个参数 totalsFromApi：仅当 left/right 与本次展示行完全一致时使用，跳过前端合计
     function renderTables(leftRows, rightRows, totalsFromApi) {
         const normalizedRows = normalizeRateRowsByCrDr(leftRows, rightRows);
         // 按 role 排序数据
@@ -2271,16 +2342,6 @@
 
         if (rows && rows.length > 0) {
             const fallbackRoleClass = getSingleSelectedCategoryRoleClass();
-            // 在 Rate 模式下，识别当前表单中选择的 Middle-Man 账户，用于正数显示金额
-            const isRateView = isRateTypeSelected && typeof isRateTypeSelected === 'function' ? isRateTypeSelected() : false;
-            let middlemanAccountId = '';
-            if (isRateView) {
-                const middlemanBtn = document.getElementById('rate_middleman_account');
-                if (middlemanBtn) {
-                    // 使用内部 account 数据库 ID 与 row.account_db_id 对应，避免显示文本不一致导致匹配失败
-                    middlemanAccountId = middlemanBtn.getAttribute('data-value') || '';
-                }
-            }
 
             // 判断是左边还是右边的表格（根据 tableId 判断）
             const isLeftTable = tableId.includes('_left');
@@ -2297,19 +2358,10 @@
                     ? `transaction-account-cell ${roleClass}`
                     : 'transaction-account-cell';
 
-                // Middle-Man 行：将 Win/Loss 和 Balance 显示为正数
-                let winLossValue = row.win_loss;
-                let crDrValue = row.cr_dr;
-                let balanceValue = row.balance;
-                const isMiddlemanRow = (row.is_rate_middleman === 1 || row.is_rate_middleman === true) ||
-                    (isRateView && middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId));
-                if (isMiddlemanRow) {
-                    const nWinLoss = parseFloat(winLossValue);
-                    const nBalance = parseFloat(balanceValue);
-                    if (!isNaN(nWinLoss)) winLossValue = Math.abs(nWinLoss);
-                    // Balance 必须与 Payment History 的 API 返回符号一致
-                    if (!isNaN(nBalance)) balanceValue = nBalance;
-                }
+                // Win/Loss、Cr/Dr、Balance 一律沿用后端符号，不在前端 Math.abs 强转正负（与 Payment History / 合计一致）
+                const winLossValue = row.win_loss;
+                const crDrValue = row.cr_dr;
+                const balanceValue = row.balance;
 
                 tr.innerHTML = `
                 <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
@@ -2367,19 +2419,6 @@
             let winLoss = parseFloat(row.win_loss) || 0;
             let crDr = parseFloat(row.cr_dr) || 0;
             let balance = parseFloat(row.balance) || 0;
-
-            // Middle-Man 行（后端 is_rate_middleman 或当前表单选的 Middle-Man）的 Win/Loss、Balance 用绝对值参与合计
-            const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
-            const isFormMiddleman = typeof isRateTypeSelected === 'function' && isRateTypeSelected() && (() => {
-                const middlemanBtn = document.getElementById('rate_middleman_account');
-                if (!middlemanBtn) return false;
-                const mid = middlemanBtn.getAttribute('data-value') || '';
-                return mid && String(row.account_db_id) === String(mid);
-            })();
-            if (isRateMiddleman || isFormMiddleman) {
-                winLoss = Math.abs(winLoss);
-                // Balance 不做绝对值，避免与 Payment History 不一致
-            }
 
             totals.bf += bf;
             totals.win_loss += winLoss;
@@ -2825,8 +2864,8 @@
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
 
-        // 使用后端 totals（不受前端过滤影响），保证和数据库一致
-        renderTables(filteredLeft, filteredRight, lastSearchData.totals);
+        // 合计必须与当前表格可见行一致（Show 0 balance / Show Payment Only 等过滤后）
+        renderTables(filteredLeft, filteredRight);
     }
 
     // ==================== 处理复选框变化（改为前端重新渲染） ====================
@@ -2918,8 +2957,7 @@
             return;
         }
 
-        // 使用后端 totals（不受前端过滤影响），保证和数据库一致
-        renderTables(filteredLeft, filteredRight, lastSearchData.totals);
+        renderTables(filteredLeft, filteredRight);
     }
 
     // 提交成功后清空右侧表单（保留 Remark，便于连续多笔填同一备注）

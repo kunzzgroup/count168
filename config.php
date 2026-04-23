@@ -1,9 +1,8 @@
 <?php
 $host = 'localhost';
-$dbname = 'u857194726_count168_site';
-$dbuser = 'u857194726_count168_site';
-$dbpass = 'Kunzz_c168';
-
+$dbname = 'u857194726_count168';
+$dbuser = 'u857194726_count168';
+$dbpass = 'Kholdings1688@';
 
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
@@ -32,3 +31,4 @@ $smtp_user = 'maxjk77777@gmail.com';           // 你的 Gmail，如 yourname@gm
 $smtp_pass = 'icwe kjwy otmg pjkw';           // 上一步生成的应用专用密码（16 位）
 $smtp_from_email = '';     // 留空则用 smtp_user
 $smtp_from_name = 'EazyCount';
+?>

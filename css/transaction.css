@@ -1245,14 +1245,14 @@ body.transaction-page .expiration-countdown-text {
 /* Account 列宽度 - 更宽 */
 .transaction-table th:first-child,
 .transaction-table td:first-child {
-    width: 22.5%;
+    width: 20%;
     min-width: 150px;
 }
 
 /* Name 列宽度 - 与 Account 列一样宽 */
 .transaction-table th.transaction-name-column,
 .transaction-table td.transaction-name-column {
-    width: 22.5%;
+    width: 18%;
     min-width: 150px;
 }
 
