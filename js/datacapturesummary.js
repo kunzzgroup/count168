@@ -18814,6 +18814,46 @@ function updateProcessedAmountCell(processValue, processedAmount) {
 }
 
 // Update the total processed amount displayed in the summary table footer
+function decimalTextToScaledInt(value, scale) {
+    const text = String(value ?? '').trim().replace(/,/g, '');
+    if (!text) return null;
+
+    const matched = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+    if (matched) {
+        const sign = matched[1] === '-' ? -1 : 1;
+        const integerPart = Number(matched[2]);
+        const decimalPart = (matched[3] || '').padEnd(scale, '0').slice(0, scale);
+        const scaled = (integerPart * Math.pow(10, scale)) + Number(decimalPart);
+        return sign * scaled;
+    }
+
+    const fallbackNum = Number(text);
+    if (!Number.isFinite(fallbackNum)) return null;
+    return Math.trunc(fallbackNum * Math.pow(10, scale));
+}
+
+function getSummaryRowFinalAmount(row, cells) {
+    const safeCells = cells || row.querySelectorAll('td');
+    const baseAmountText = row.getAttribute('data-base-processed-amount');
+    const hasBaseAmount = baseAmountText !== null && String(baseAmountText).trim() !== '';
+
+    if (hasBaseAmount) {
+        const baseAmount = Number(baseAmountText);
+        if (Number.isFinite(baseAmount) && typeof applyRateToProcessedAmount === 'function') {
+            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+            if (Number.isFinite(finalAmount)) {
+                return finalAmount;
+            }
+        }
+    }
+
+    const processedAmountCell = safeCells[8];
+    if (!processedAmountCell) return 0;
+    const fallbackText = (processedAmountCell.textContent || '').trim().replace(/,/g, '');
+    const fallbackNum = Number(fallbackText);
+    return Number.isFinite(fallbackNum) ? fallbackNum : 0;
+}
+
 function updateProcessedAmountTotal() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     const totalCell = document.getElementById('summaryTotalAmount');
@@ -18823,27 +18863,7 @@ function updateProcessedAmountTotal() {
         return;
     }
 
-    const parseAmountTextToCents = (rawText) => {
-        const text = String(rawText || '').trim().replace(/,/g, '');
-        if (!text) return null;
-
-        // 按字符串解析并截断到 2 位小数，避免浮点相加误差导致合计偏差
-        const matched = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
-        if (matched) {
-            const sign = matched[1] === '-' ? -1 : 1;
-            const integerPart = Number(matched[2]);
-            const decimals = (matched[3] || '').padEnd(2, '0').slice(0, 2);
-            const cents = (integerPart * 100) + Number(decimals);
-            return sign * cents;
-        }
-
-        // 兜底：异常格式时仍保持“不四舍五入（截断）”
-        const fallbackNum = Number(text);
-        if (!Number.isFinite(fallbackNum)) return null;
-        return Math.trunc(fallbackNum * 100);
-    };
-
-    let totalCents = 0;
+    let totalMicros = 0; // 先按 6 位小数相加减
     let hasValue = false;
     let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
 
@@ -18869,17 +18889,16 @@ function updateProcessedAmountTotal() {
             }
         }
 
-        const processedAmountCell = cells[8]; // Processed Amount column (index 8)
-        if (processedAmountCell) {
-            const cents = parseAmountTextToCents(processedAmountCell.textContent);
-            if (cents !== null) {
-                totalCents += cents;
-                hasValue = true;
-            }
+        const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
+        if (rowMicros !== null) {
+            totalMicros += rowMicros;
+            hasValue = true;
         }
     });
 
-    const finalTotal = hasValue ? (totalCents / 100) : 0;
+    const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 只在显示时截断到 2 位
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (finalTotal >= -0.05 && finalTotal <= 0.05) {
         totalCell.style.color = '#0D60FF';
@@ -19473,7 +19492,7 @@ async function submitSummaryData() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     const totalCell = document.getElementById('summaryTotalAmount');
     if (summaryTableBody && totalCell) {
-        let total = 0;
+        let totalMicros = 0;
         let hasValue = false;
 
         summaryTableBody.querySelectorAll('tr').forEach(row => {
@@ -19484,20 +19503,16 @@ async function submitSummaryData() {
             }
 
             const cells = row.querySelectorAll('td');
-            const processedAmountCell = cells[8]; // Processed Amount column
-            if (processedAmountCell) {
-                const text = processedAmountCell.textContent.trim().replace(/,/g, '');
-                if (text !== '') {
-                    const value = parseFloat(text);
-                    if (!isNaN(value)) {
-                        total += value;
-                        hasValue = true;
-                    }
-                }
+            const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+            const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
+            if (rowMicros !== null) {
+                totalMicros += rowMicros;
+                hasValue = true;
             }
         });
 
-        const finalTotal = hasValue ? roundProcessedAmountTo2Decimals(total) : 0;
+        const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+        const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
         if (finalTotal < -0.05 || finalTotal > 0.05) {
             // Re-enable button on validation error
             if (submitBtn) {
