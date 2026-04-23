@@ -95,6 +95,10 @@ const LEGACY_MODAL_HTML = `
             <h3 class="company-settings-column-title company-settings-share-title">Share %</h3>
             <div class="company-share-charge-on-save"><span class="company-share-charge-on-save__state" id="companyShareChargeState" aria-hidden="true">Off</span><label class="company-share-charge-switch"><input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" onchange="syncCompanyShareChargeToggleUi()"><span class="company-share-charge-switch__track" aria-hidden="true"><span class="company-share-charge-switch__thumb"></span></span></label></div>
           </div>
+          <div class="company-share-grand-total" style="display: none;">
+            <span id="shareGrandTotal">0.00%</span>
+            <div class="company-share-progress-track"><div id="shareGrandTotalBar" class="company-share-progress-fill"></div></div>
+          </div>
           <div class="company-share-scroll">
             <div class="company-share-role-card company-share-role-card--profit-pool" data-share-card="profit">
               <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsProfit" onclick="toggleShareRoleCard('profit')">
