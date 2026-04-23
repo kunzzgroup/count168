@@ -5,10 +5,6 @@ $dbuser = 'u857194726_count168';
 $dbpass = 'Kholdings1688@';
 
 
-if (is_file(__DIR__ . '/config.local.php')) {
-    require __DIR__ . '/config.local.php';
-}
-
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
