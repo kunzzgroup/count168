@@ -22,7 +22,6 @@ $processListHidePermissionFilter = PROCESSLIST_HIDE_PERMISSION_FILTER;
 
 // Σ╜┐τö¿τ╗ƒΣ╕ÇτÜäsessionµúÇµƒÑ
 require_once 'session_check.php';
-require_once __DIR__ . '/bank_process_list.php';
 
 // σñäτÉåσêáΘÖñΦ»╖µ▒é∩╝êσÅ¬σàüΦ«╕σêáΘÖñinactiveτè╢µÇüτÜäΦ┐¢τ¿ï∩╝ë
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
@@ -246,7 +245,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars($processListPageTitle); ?>
                     </h1>
-                    <?php renderBankProcessToolbarAction(); ?>
                 </div>
                 <!-- Permission Filter -->
                 <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header"
@@ -298,7 +296,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
                             <label for="showInactive">Show Inactive</label>
                         </div>
-                        <?php renderBankProcessFilterControls($showOfficialChecked, $showEInvoiceChecked, $showBlockChecked); ?>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
                         title="Only inactive processes can be deleted" disabled>Delete</button>
@@ -333,7 +330,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         <input type="checkbox" id="selectAllProcesses" title="Select all"
                             style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllProcesses()">
                     </div>
-                    <?php renderBankProcessTableHeaders(); ?>
                 </div>
 
                 <!-- Process Cards List -->
@@ -343,8 +339,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     </div>
                 </div>
             </div>
-
-            <?php renderBankProcessTableWrapper(); ?>
 
             <!-- σêåΘí╡µÄºΣ╗╢ - µ╡«σè¿σ£¿σÅ│Σ╕ïΦºÆ -->
             <div class="pagination-container" id="paginationContainer">
@@ -638,8 +632,6 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
-    <?php renderBankProcessModals(); ?>
-
     <!-- Description Selection Modal -->
     <div id="descriptionSelectionModal" class="modal" style="display: none;">
         <div class="modal-content description-selection-modal">
@@ -768,12 +760,7 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="calendar-days" id="calendar-days"></div>
     </div>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
-    <?php if (strcasecmp((string) $processListForcedPermission, 'Bank') === 0): ?>
-        <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
-        <script src="js/bank_process_list.js?v=<?php echo time(); ?>"></script>
-    <?php else: ?>
-        <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
-    <?php endif; ?>
+    <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
