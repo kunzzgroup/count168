@@ -201,6 +201,7 @@ export default function TransactionDashboardPage() {
   const [calendarYear, setCalendarYear] = useState(today.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
   const barRef = useRef(null);
+  const calendarGridWheelRef = useRef(null);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -538,6 +539,36 @@ export default function TransactionDashboardPage() {
     setCalendarMonth((m) => m + 1);
   };
 
+  useEffect(() => {
+    if (!calendarOpen) return;
+    const el = calendarGridWheelRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.deltaY > 0) {
+        setCalendarMonth((m) => {
+          if (m === 12) {
+            setCalendarYear((y) => y + 1);
+            return 1;
+          }
+          return m + 1;
+        });
+      } else {
+        setCalendarMonth((m) => {
+          if (m === 1) {
+            setCalendarYear((y) => y - 1);
+            return 12;
+          }
+          return m - 1;
+        });
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [calendarOpen]);
+
   const toggleCalendarFromBar = () => {
     setCalendarOpen((v) => !v);
     setQuickOpen(false);
@@ -748,22 +779,23 @@ export default function TransactionDashboardPage() {
                             {monthLabel(calendarYear, calendarMonth)}
                           </div>
 
-                          <div
-                            className="calendar-weekdays"
-                            style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 4 }}
-                          >
-                            {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
-                              <div
-                                key={w}
-                                className="calendar-weekday"
-                                style={{ fontSize: 12, fontWeight: 700, color: "#64748b", padding: "3px 0" }}
-                              >
-                                {w}
-                              </div>
-                            ))}
-                          </div>
+                          <div ref={calendarGridWheelRef}>
+                            <div
+                              className="calendar-weekdays"
+                              style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 4 }}
+                            >
+                              {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
+                                <div
+                                  key={w}
+                                  className="calendar-weekday"
+                                  style={{ fontSize: 12, fontWeight: 700, color: "#64748b", padding: "3px 0" }}
+                                >
+                                  {w}
+                                </div>
+                              ))}
+                            </div>
 
-                          <div className="calendar-days" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0 }}>
+                            <div className="calendar-days" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0 }}>
                             {calendarCells.map((cell) => {
                               const isStart = cell.ymd === dateFrom;
                               const isEnd = cell.ymd === dateTo;
@@ -811,6 +843,7 @@ export default function TransactionDashboardPage() {
                                 </button>
                               );
                             })}
+                            </div>
                           </div>
                         </div>
                       </div>

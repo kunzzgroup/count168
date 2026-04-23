@@ -450,6 +450,24 @@ function changeMonth(delta) {
     renderCalendar();
 }
 
+function attachCalendarWheelMonthNav() {
+    const daysEl = document.getElementById('calendar-days');
+    if (!daysEl || daysEl.dataset.wheelMonthNavAttached === '1') return;
+    daysEl.dataset.wheelMonthNavAttached = '1';
+    daysEl.addEventListener('wheel', function (e) {
+        const popup = document.getElementById('calendar-popup');
+        if (!popup || popup.style.display === 'none') return;
+        if (e.deltaY === 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.deltaY > 0) {
+            changeMonth(1);
+        } else {
+            changeMonth(-1);
+        }
+    }, { passive: false });
+}
+
 // 渲染日历
 function renderCalendar() {
     const yearSelect = document.getElementById('calendar-year-select');
@@ -2548,6 +2566,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         // 提前发起公司列表请求，与 initDatePickers 并行，减少首屏等待
         const loadCompaniesPromise = loadOwnerCompanies();
         initDatePickers();
+        attachCalendarWheelMonthNav();
         initChartDataButtons();
         await loadCompaniesPromise;
         // 串行执行：loadCurrencies 先完成后再 loadData，确保 window.dashboardCurrency 就绪
