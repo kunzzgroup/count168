@@ -739,23 +739,13 @@ function createDomainNetProfitPayment(
         return $out;
     }
 
-    $poolId = $fromPoolAccountId;
-    if (!$poolId || $poolId <= 0) {
-        $poolId = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
-    }
     // 目标优先使用来源公司 Share% 里配置的 Profit 账号（必须为 C168 且 role=profit）
     $profitAccId = resolveShareProfitTargetAccountId($pdo, $srcU);
     if (!$profitAccId || $profitAccId <= 0) {
-        $profitAccId = resolveC168ProfitRoleAccountId($pdo, $c168Pk, (int)$poolId);
+        $profitAccId = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
     }
-    // 回退：若无 PROFIT role，再回退 owner_code 账号，最后回退资金池
+    // 没有有效 Profit 目标则不建单；from_account_id 固定为空（展示为 "-"）
     if (!$profitAccId || $profitAccId <= 0) {
-        $profitAccId = resolveC168OwnerAccountId($pdo, $c168Pk);
-    }
-    if (!$profitAccId || $profitAccId <= 0) {
-        $profitAccId = $poolId;
-    }
-    if (!$profitAccId || !$poolId || (int)$profitAccId === (int)$poolId) {
         return $out;
     }
 
@@ -777,7 +767,7 @@ function createDomainNetProfitPayment(
         'company_id' => $c168Pk,
         'transaction_type' => 'PAYMENT',
         'account_id' => $profitAccId,
-        'from_account_id' => $poolId,
+        'from_account_id' => null,
         'amount' => $net,
         'transaction_date' => $today,
         'description' => 'Profit By ' . $ownerCode,
@@ -863,8 +853,8 @@ function resolveC168DomainFeeReceiverAccountId(PDO $pdo, int $c168Pk, int $exclu
 }
 
 /**
- * Domain 在 C168 下自动建的 MEMBER 常为 OWNERCODE_COMPANY（见 domainApiResolveProvisionedMemberAccountCode），
- * 与「account_id 等于公司短码」的旧数据并存；List Fee 付款方须能解析到该账号。
+ * Domain 在 C168 下自动建的 MEMBER 现为公司代码本体（如 AA/95），
+ * 但仍需兼容历史 OWNERCODE_COMPANY 旧账号；List Fee 付款方须能解析到该账号。
  */
 function resolveC168DomainProvisionedMemberByCompanyCode(PDO $pdo, int $c168Pk, string $customerCompanyCode, int $excludeAccountId = 0): ?int
 {
@@ -939,30 +929,7 @@ function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customer
         return $fromProvisioned;
     }
 
-    $customerPk = getCompanyPkByCode($pdo, $srcCode);
-    if ($customerPk) {
-        $fromOwner = resolveCompanyOwnerAccountId($pdo, (int)$customerPk);
-        if ($fromOwner && $fromOwner > 0 && $fromOwner !== $excludeAccountId) {
-            return $fromOwner;
-        }
-        $fromAny = resolvePayerAccountInCompany($pdo, (int)$customerPk, $excludeAccountId);
-        if ($fromAny && $fromAny > 0) {
-            try {
-                $chk = $pdo->prepare("SELECT LOWER(TRIM(COALESCE(role,''))) FROM account WHERE id = ? LIMIT 1");
-                $chk->execute([(int)$fromAny]);
-                $role = strtolower(trim((string)($chk->fetchColumn() ?: '')));
-                $chk2 = $pdo->prepare("SELECT UPPER(TRIM(COALESCE(account_id,''))) FROM account WHERE id = ? LIMIT 1");
-                $chk2->execute([(int)$fromAny]);
-                $code = strtoupper(trim((string)($chk2->fetchColumn() ?: '')));
-                if ($role !== 'profit' && $code !== 'PROFIT') {
-                    return (int)$fromAny;
-                }
-            } catch (PDOException $e) {
-                return (int)$fromAny;
-            }
-        }
-    }
-
+    // 不再回退到 owner/K/任意账号；仅允许公司码映射或 Domain 自动建账映射。
     return null;
 }
 
@@ -1089,8 +1056,8 @@ function domainApiEnsureAccountDefaultCurrency(PDO $pdo, int $accountId, int $co
 
 /**
  * Domain List Fee：客户公司账户 -> Share% 配置的 Profit 入账账号（与佣金 from、净利润 from 同一池）；
- * 顾客款先入该池，再由佣金 PAYMENT 从该池扣出各 %，剩余留在 Profit 账号即净利润，避免「整笔先入 owner/K」语义。
- * 无 Share% Profit 时回退 C168 PROFIT 角色账号，再回退 resolveC168DomainFeeReceiverAccountId。
+ * 顾客款先入该池，再由佣金 PAYMENT 从该池扣出各 %，剩余留在 Profit 账号即净利润。
+ * 无 Share% Profit 时仅回退 C168 PROFIT 角色账号；不再回退到 owner/K 等账户。
  * 去重由 DOMAIN_LIST_FEE sms 标记负责；删除该笔后可再次创建。
  */
 function createDomainListFeePayment(
@@ -1129,9 +1096,6 @@ function createDomainListFeePayment(
     $poolEarly = resolveShareProfitTargetAccountId($pdo, $custCodeU);
     if (!$poolEarly || $poolEarly <= 0) {
         $poolEarly = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
-    }
-    if (!$poolEarly || $poolEarly <= 0) {
-        $poolEarly = resolveC168DomainFeeReceiverAccountId($pdo, $c168Pk, 0);
     }
     if ($poolEarly && $poolEarly > 0) {
         $out['pool_account_id'] = (int) $poolEarly;
@@ -1505,12 +1469,11 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
         return false;
     }
 
-    $profitAccId = resolveC168ProfitRoleAccountId($pdo, (int)$c168Pk, 0);
+    $profitAccId = resolveShareProfitTargetAccountId($pdo, $srcU);
     if (!$profitAccId || $profitAccId <= 0) {
-        return false;
+        $profitAccId = resolveC168ProfitRoleAccountId($pdo, (int)$c168Pk, 0);
     }
-    $fromAccId = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, (int)$profitAccId);
-    if (!$fromAccId || $fromAccId <= 0 || (int)$fromAccId === (int)$profitAccId) {
+    if (!$profitAccId || $profitAccId <= 0) {
         return false;
     }
 
@@ -1525,7 +1488,7 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
         $st = $pdo->prepare("
             UPDATE transactions t
             SET t.account_id = ?,
-                t.from_account_id = ?,
+                t.from_account_id = NULL,
                 t.amount = ?,
                 t.description = ?
             WHERE t.company_id = ?
@@ -1533,20 +1496,18 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
               AND t.sms LIKE ?
               AND (
                     t.account_id <> ?
-                    OR COALESCE(t.from_account_id, 0) <> ?
+                    OR t.from_account_id IS NOT NULL
                     OR ROUND(t.amount, 2) <> ?
                     OR COALESCE(t.description, '') <> ?
               )
         ");
         $st->execute([
             (int)$profitAccId,
-            (int)$fromAccId,
             $net,
             $desc,
             (int)$c168Pk,
             '[DOMAIN_NET_PROFIT|' . $srcU . '%',
             (int)$profitAccId,
-            (int)$fromAccId,
             $net,
             $desc,
         ]);
@@ -1759,7 +1720,8 @@ function domainApiExtractProvisionCompanyIds($companies): array {
     $ids = [];
     foreach (domainApiNormalizeCompaniesPayload($companies) as $row) {
         $c = strtoupper(trim((string) ($row['company_id'] ?? '')));
-        if ($c !== '') {
+        // C168 主公司不参与 Domain 自动建账（任何场景都跳过）
+        if ($c !== '' && $c !== 'C168') {
             $ids[] = $c;
         }
     }
@@ -1894,11 +1856,12 @@ function domainApiAccountLooksLikeDomainProvisionedMember(PDO $pdo, int $account
 }
 
 /**
- * Domain 自动创建的 MEMBER 登录账号：使用公司短码作为 account_id（如 QA），不再使用 OWNERCODE_ 前缀。
- * 与旧数据 OWNERCODE_COMPANY（如 QAA_QA）并存；解析付款方时见 resolveC168DomainProvisionedMemberByCompanyCode。
+ * Domain 自动创建的 MEMBER 登录账号：固定使用公司代码本体（如 AA / 95）。
+ * 不再生成 OWNERCODE_ 前缀（如 K_95），确保 account_id 直接展示 company id。
  */
 function domainApiBuildDomainProvisionedMemberAccountId(string $ownerCodeUpper, string $companyCode): string {
-    return strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($companyCode)));
+    $cc = strtoupper(trim($companyCode));
+    return $cc;
 }
 
 /** 旧版：OWNERCODE_公司代码，仅用于查找已存在的自动建账账号 */
@@ -1913,43 +1876,11 @@ function domainApiBuildLegacyOwnerPrefixedProvisionedMemberAccountId(string $own
 }
 
 /**
- * 解析最终 account_id：优先 OWNER_COMPANY；若该 id 已被非 Domain MEMBER 模板占用，则顺延 OWNER_COMPANY_2、_3…
- * 若已是 Domain MEMBER 模板则复用该行（幂等）。
+ * 解析最终 account_id：固定使用公司代码本体（如 AA）。
+ * 不再自动追加任何后缀（如 _1/_2/_X），从源头杜绝带后缀账号的自动创建。
  */
 function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, int $c168CompanyId, string $ownerCodeUpper, string $companyCode): string {
-    $base = domainApiBuildDomainProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
-    if ($base === '') {
-        return '';
-    }
-    $chkInC168 = $pdo->prepare("
-        SELECT a.id
-        FROM account a
-        INNER JOIN account_company ac ON ac.account_id = a.id
-        WHERE ac.company_id = ?
-          AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
-        LIMIT 1
-    ");
-    $chkGlobal = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
-    for ($i = 0; $i < 1000; $i++) {
-        $code = $i === 0 ? $base : $base . '_' . $i;
-        $chkInC168->execute([$c168CompanyId, $code]);
-        $cid = (int) ($chkInC168->fetchColumn() ?: 0);
-        if ($cid > 0) {
-            if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $cid)) {
-                return $code;
-            }
-            continue;
-        }
-
-        $chkGlobal->execute([$code]);
-        $gid = (int) ($chkGlobal->fetchColumn() ?: 0);
-        if ($gid <= 0) {
-            return $code;
-        }
-        // 全局已存在同 code（无论来源）都不复用，顺延后缀避免串号。
-        continue;
-    }
-    return $base . '_X' . substr(str_replace('.', '', uniqid('', true)), -10);
+    return domainApiBuildDomainProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
 }
 
 /**
@@ -1999,46 +1930,54 @@ function domainApiMergeAccountIntoUserCompanyPermissions(PDO $pdo, array $users,
     if ($newAccountId <= 0 || $account_id === '') {
         return;
     }
+    $loadCurrentStmt = $pdo->prepare("
+        SELECT account_permissions
+        FROM user_company_permissions
+        WHERE user_id = ? AND company_id = ?
+        LIMIT 1
+    ");
     $updateStmt = $pdo->prepare("
         INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions)
         VALUES (?, ?, ?, NULL)
         ON DUPLICATE KEY UPDATE account_permissions = VALUES(account_permissions)
     ");
     foreach ($users as $user) {
-        $currentPermissions = [];
-        $hasPermissionsSet = false;
-        if (isset($user['account_permissions']) && $user['account_permissions'] !== null && $user['account_permissions'] !== '') {
-            if (strtolower(trim((string) $user['account_permissions'])) === 'null') {
-                $hasPermissionsSet = false;
-            } else {
-                $decoded = json_decode($user['account_permissions'], true);
-                if (is_array($decoded)) {
-                    $hasPermissionsSet = true;
-                    if (!empty($decoded)) {
-                        $currentPermissions = $decoded;
-                    }
-                }
-            }
-        }
-        if (!$hasPermissionsSet) {
-            continue;
-        }
-        $accountExists = false;
-        foreach ($currentPermissions as $permission) {
-            if (isset($permission['id']) && (int) $permission['id'] === (int) $newAccountId) {
-                $accountExists = true;
-                break;
-            }
-        }
-        if ($accountExists) {
-            continue;
-        }
-        $currentPermissions[] = ['id' => (int) $newAccountId, 'account_id' => $account_id];
         foreach ($companyIdsToLink as $comp_id) {
             $comp_id = (int) $comp_id;
             if ($comp_id <= 0) {
                 continue;
             }
+            $currentPermissions = [];
+            $hasPermissionsSet = false;
+            $loadCurrentStmt->execute([(int) $user['id'], $comp_id]);
+            $rawPerm = $loadCurrentStmt->fetchColumn();
+            if ($rawPerm !== false && $rawPerm !== null && trim((string) $rawPerm) !== '' && strtolower(trim((string) $rawPerm)) !== 'null') {
+                $decoded = json_decode((string) $rawPerm, true);
+                if (is_array($decoded)) {
+                    $hasPermissionsSet = true;
+                    $currentPermissions = $decoded;
+                }
+            } elseif (isset($user['account_permissions']) && $user['account_permissions'] !== null && trim((string) $user['account_permissions']) !== '' && strtolower(trim((string) $user['account_permissions'])) !== 'null') {
+                $decodedSeed = json_decode((string) $user['account_permissions'], true);
+                if (is_array($decodedSeed)) {
+                    $hasPermissionsSet = true;
+                    $currentPermissions = $decodedSeed;
+                }
+            }
+            if (!$hasPermissionsSet) {
+                continue;
+            }
+            $accountExists = false;
+            foreach ($currentPermissions as $permission) {
+                if (isset($permission['id']) && (int) $permission['id'] === (int) $newAccountId) {
+                    $accountExists = true;
+                    break;
+                }
+            }
+            if ($accountExists) {
+                continue;
+            }
+            $currentPermissions[] = ['id' => (int) $newAccountId, 'account_id' => $account_id];
             $updateStmt->execute([$user['id'], $comp_id, json_encode($currentPermissions)]);
         }
     }
@@ -2048,7 +1987,7 @@ function domainApiMergeAccountIntoUserCompanyPermissions(PDO $pdo, array $users,
  * C168 在 Add Domain 时为公司代码创建 MEMBER 账户：挂在当前 C168 公司 account list，并关联主账号 C168（account_link）。
  * 密码明文 111，与 login_process.php member 校验一致。
  *
- * @param string $ownerCodeUpper Owner.owner_code；与 company 组成 account_id：OWNERCODE_公司代码（见 domainApiBuildDomainProvisionedMemberAccountId）。
+ * @param string $ownerCodeUpper Owner.owner_code（保留参数用于兼容；当前 account_id 固定为公司代码本体）。
  */
 function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168NumericCompanyId, string $ownerDisplayName, array $companyIdStrings, string $ownerCodeUpper = ''): void {
     if ($c168NumericCompanyId <= 0 || empty($companyIdStrings)) {
@@ -2110,7 +2049,8 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
 
     foreach ($companyIdStrings as $raw) {
         $cid = strtoupper(trim((string) $raw));
-        if ($cid === '') {
+        // 双保险：即便上游漏过，C168 也绝不自动建账
+        if ($cid === '' || $cid === 'C168') {
             continue;
         }
         $useAccountId = domainApiResolveProvisionedMemberAccountCode($pdo, $c168NumericCompanyId, $ownerCodeUpper, $cid);
@@ -2268,7 +2208,8 @@ try {
                     }
                 }
 
-                $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies);
+                // 复用已标准化的 companies 数组，避免原始 JSON 字符串格式差异导致只提取到部分 company
+                $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies_data);
                 if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
@@ -2557,7 +2498,8 @@ try {
                 }
 
                 // 对该 domain 表单中所有带 company_id 的公司同步 C168 下 MEMBER（幂等；便于历史数据补建）
-                $provisionFromUpdate = domainApiExtractProvisionCompanyIds($companies);
+                // 统一使用已标准化后的数组，确保批量公司都能触发自动建账
+                $provisionFromUpdate = domainApiExtractProvisionCompanyIds($new_companies_data);
                 if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {

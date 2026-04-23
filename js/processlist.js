@@ -58,6 +58,13 @@ function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
     return fallback;
 }
 
+function formatAccountIdForDisplay(rawAccountId) {
+    const value = String(rawAccountId || '').trim();
+    if (!value) return '';
+    const match = value.match(/^[^_]+_([0-9]+)(?:_[0-9]+)?$/);
+    return match ? match[1] : value;
+}
+
 function notifyTransactionDataChanged(sourceTag) {
     const ts = String(Date.now());
     try {
@@ -5880,7 +5887,7 @@ async function openEditAccountModalFromBank(accountId) {
         }
         const account = result.data;
         document.getElementById('edit_account_id').value = account.id;
-        document.getElementById('edit_account_id_field').value = (account.account_id || '').toUpperCase();
+        document.getElementById('edit_account_id_field').value = formatAccountIdForDisplay(account.account_id).toUpperCase();
         document.getElementById('edit_name').value = (account.name || '').toUpperCase();
         document.getElementById('edit_password').value = account.password || '';
         let alertType = account.alert_type || (account.alert_day ? String(account.alert_day).toLowerCase() : '');

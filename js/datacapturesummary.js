@@ -10970,13 +10970,13 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount 专用：.xxx 第三位小数≥5 则进位（round half up），避免浮点误差导致 36.785 显示为 36.78
+// Processed Amount 专用：不四舍五入，直接截断到 2 位小数（不进位）
 function roundProcessedAmountTo2Decimals(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
-    const sign = num >= 0 ? 1 : -1;
-    const absNum = Math.abs(num);
-    return sign * (Math.floor(absNum * 100 + 0.5 + 1e-10) / 100);
+    // 直接截断：12.349 -> 12.34, -12.349 -> -12.34
+    const truncated = Math.trunc(num * 100) / 100;
+    return Object.is(truncated, -0) ? 0 : truncated;
 }
 
 // Evaluate mathematical expression safely
@@ -10985,12 +10985,9 @@ function formatNumberWithThousands(value) {
     if (!Number.isFinite(num)) {
         return '0.00';
     }
-    // Round to 2 decimal places for display (四舍五入到2位小数用于显示)
-    // 使用一致的舍入逻辑：先取绝对值舍入，再恢复符号，确保正负数舍入结果一致
-    const sign = num >= 0 ? 1 : -1;
-    const absNum = Math.abs(num);
-    const rounded = sign * (Math.round(absNum * 100) / 100);
-    return rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // 显示层也保持“截断到 2 位小数”，避免 toLocaleString 自带舍入进位
+    const truncated = roundProcessedAmountTo2Decimals(num);
+    return truncated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function removeThousandsSeparators(value) {
@@ -18817,6 +18814,46 @@ function updateProcessedAmountCell(processValue, processedAmount) {
 }
 
 // Update the total processed amount displayed in the summary table footer
+function decimalTextToScaledInt(value, scale) {
+    const text = String(value ?? '').trim().replace(/,/g, '');
+    if (!text) return null;
+
+    const matched = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+    if (matched) {
+        const sign = matched[1] === '-' ? -1 : 1;
+        const integerPart = Number(matched[2]);
+        const decimalPart = (matched[3] || '').padEnd(scale, '0').slice(0, scale);
+        const scaled = (integerPart * Math.pow(10, scale)) + Number(decimalPart);
+        return sign * scaled;
+    }
+
+    const fallbackNum = Number(text);
+    if (!Number.isFinite(fallbackNum)) return null;
+    return Math.trunc(fallbackNum * Math.pow(10, scale));
+}
+
+function getSummaryRowFinalAmount(row, cells) {
+    const safeCells = cells || row.querySelectorAll('td');
+    const baseAmountText = row.getAttribute('data-base-processed-amount');
+    const hasBaseAmount = baseAmountText !== null && String(baseAmountText).trim() !== '';
+
+    if (hasBaseAmount) {
+        const baseAmount = Number(baseAmountText);
+        if (Number.isFinite(baseAmount) && typeof applyRateToProcessedAmount === 'function') {
+            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+            if (Number.isFinite(finalAmount)) {
+                return finalAmount;
+            }
+        }
+    }
+
+    const processedAmountCell = safeCells[8];
+    if (!processedAmountCell) return 0;
+    const fallbackText = (processedAmountCell.textContent || '').trim().replace(/,/g, '');
+    const fallbackNum = Number(fallbackText);
+    return Number.isFinite(fallbackNum) ? fallbackNum : 0;
+}
+
 function updateProcessedAmountTotal() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     const totalCell = document.getElementById('summaryTotalAmount');
@@ -18826,7 +18863,7 @@ function updateProcessedAmountTotal() {
         return;
     }
 
-    let total = 0;
+    let totalMicros = 0; // 先按 6 位小数相加减
     let hasValue = false;
     let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
 
@@ -18852,20 +18889,16 @@ function updateProcessedAmountTotal() {
             }
         }
 
-        const processedAmountCell = cells[8]; // Processed Amount column (index 8)
-        if (processedAmountCell) {
-            const text = processedAmountCell.textContent.trim().replace(/,/g, '');
-            if (text !== '') {
-                const value = parseFloat(text);
-                if (!isNaN(value)) {
-                    total += value;
-                    hasValue = true;
-                }
-            }
+        const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
+        if (rowMicros !== null) {
+            totalMicros += rowMicros;
+            hasValue = true;
         }
     });
 
-    const finalTotal = hasValue ? total : 0;
+    const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 只在显示时截断到 2 位
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (finalTotal >= -0.05 && finalTotal <= 0.05) {
         totalCell.style.color = '#0D60FF';
@@ -18880,7 +18913,7 @@ function updateProcessedAmountTotal() {
         submitBtn.disabled = !canSubmit;
 
         if (!isWithinRange) {
-            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${finalTotal.toFixed(2)}`;
+            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousands(finalTotal)}`;
         } else if (!allRowsHaveCurrencyAndFormula) {
             submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
         } else {
@@ -19459,7 +19492,7 @@ async function submitSummaryData() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     const totalCell = document.getElementById('summaryTotalAmount');
     if (summaryTableBody && totalCell) {
-        let total = 0;
+        let totalMicros = 0;
         let hasValue = false;
 
         summaryTableBody.querySelectorAll('tr').forEach(row => {
@@ -19470,20 +19503,16 @@ async function submitSummaryData() {
             }
 
             const cells = row.querySelectorAll('td');
-            const processedAmountCell = cells[8]; // Processed Amount column
-            if (processedAmountCell) {
-                const text = processedAmountCell.textContent.trim().replace(/,/g, '');
-                if (text !== '') {
-                    const value = parseFloat(text);
-                    if (!isNaN(value)) {
-                        total += value;
-                        hasValue = true;
-                    }
-                }
+            const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+            const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
+            if (rowMicros !== null) {
+                totalMicros += rowMicros;
+                hasValue = true;
             }
         });
 
-        const finalTotal = hasValue ? total : 0;
+        const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+        const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
         if (finalTotal < -0.05 || finalTotal > 0.05) {
             // Re-enable button on validation error
             if (submitBtn) {
@@ -19491,7 +19520,7 @@ async function submitSummaryData() {
                 submitBtn.textContent = 'Submit';
             }
             isSubmitting = false;
-            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${finalTotal.toFixed(2)}`, 'error');
+            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
             return;
         }
     }
@@ -19756,6 +19785,12 @@ async function submitSummaryData() {
             const templateKeyAttr = row.getAttribute('data-template-key') || '';
             const productTypeAttr = row.getAttribute('data-product-type');
             const parentIdProductAttr = row.getAttribute('data-parent-id-product');
+            const templateIdAttr = row.getAttribute('data-template-id');
+            const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
+            const subOrderAttr = row.getAttribute('data-sub-order');
+            const subOrder = subOrderAttr && subOrderAttr !== '' && !Number.isNaN(Number(subOrderAttr))
+                ? Number(subOrderAttr)
+                : null;
             // Get formulaVariant from row attribute if available
             const formulaVariantAttr = row.getAttribute('data-formula-variant');
             const formulaVariant = formulaVariantAttr && formulaVariantAttr !== '' ? parseInt(formulaVariantAttr, 10) : null;
@@ -19863,6 +19898,9 @@ async function submitSummaryData() {
                 inputMethod: inputMethodAttr,
                 enableInputMethod: enableInputMethodAttr ? 1 : 0,
                 batchSelection: batchSelectionValue ? 1 : 0,
+                templateKey: templateKeyAttr || null,
+                templateId: templateId, // Keep template identity so submit updates the exact sub row
+                subOrder: subOrder, // Keep sub row order so same formula/account rows don't collapse
                 formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                 rateChecked: rateChecked, // Rate checkbox state
                 rateValue: rateValue, // Rate Value column value (priority) or global rateInput value (if checkbox checked)

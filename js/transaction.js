@@ -2342,16 +2342,6 @@
 
         if (rows && rows.length > 0) {
             const fallbackRoleClass = getSingleSelectedCategoryRoleClass();
-            // 在 Rate 模式下，识别当前表单中选择的 Middle-Man 账户，用于正数显示金额
-            const isRateView = isRateTypeSelected && typeof isRateTypeSelected === 'function' ? isRateTypeSelected() : false;
-            let middlemanAccountId = '';
-            if (isRateView) {
-                const middlemanBtn = document.getElementById('rate_middleman_account');
-                if (middlemanBtn) {
-                    // 使用内部 account 数据库 ID 与 row.account_db_id 对应，避免显示文本不一致导致匹配失败
-                    middlemanAccountId = middlemanBtn.getAttribute('data-value') || '';
-                }
-            }
 
             // 判断是左边还是右边的表格（根据 tableId 判断）
             const isLeftTable = tableId.includes('_left');
@@ -2368,19 +2358,10 @@
                     ? `transaction-account-cell ${roleClass}`
                     : 'transaction-account-cell';
 
-                // Middle-Man 行：将 Win/Loss 和 Balance 显示为正数
-                let winLossValue = row.win_loss;
-                let crDrValue = row.cr_dr;
-                let balanceValue = row.balance;
-                const isMiddlemanRow = (row.is_rate_middleman === 1 || row.is_rate_middleman === true) ||
-                    (isRateView && middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId));
-                if (isMiddlemanRow) {
-                    const nWinLoss = parseFloat(winLossValue);
-                    const nBalance = parseFloat(balanceValue);
-                    if (!isNaN(nWinLoss)) winLossValue = Math.abs(nWinLoss);
-                    // Balance 必须与 Payment History 的 API 返回符号一致
-                    if (!isNaN(nBalance)) balanceValue = nBalance;
-                }
+                // Win/Loss、Cr/Dr、Balance 一律沿用后端符号，不在前端 Math.abs 强转正负（与 Payment History / 合计一致）
+                const winLossValue = row.win_loss;
+                const crDrValue = row.cr_dr;
+                const balanceValue = row.balance;
 
                 tr.innerHTML = `
                 <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
@@ -2438,19 +2419,6 @@
             let winLoss = parseFloat(row.win_loss) || 0;
             let crDr = parseFloat(row.cr_dr) || 0;
             let balance = parseFloat(row.balance) || 0;
-
-            // Middle-Man 行（后端 is_rate_middleman 或当前表单选的 Middle-Man）的 Win/Loss、Balance 用绝对值参与合计
-            const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
-            const isFormMiddleman = typeof isRateTypeSelected === 'function' && isRateTypeSelected() && (() => {
-                const middlemanBtn = document.getElementById('rate_middleman_account');
-                if (!middlemanBtn) return false;
-                const mid = middlemanBtn.getAttribute('data-value') || '';
-                return mid && String(row.account_db_id) === String(mid);
-            })();
-            if (isRateMiddleman || isFormMiddleman) {
-                winLoss = Math.abs(winLoss);
-                // Balance 不做绝对值，避免与 Payment History 不一致
-            }
 
             totals.bf += bf;
             totals.win_loss += winLoss;

@@ -914,7 +914,7 @@ try {
     if ($currency_id) {
         $bf = 0;
         foreach ($account_ids as $aid) {
-            $bf += calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_db, $company_id);
+            $bf += calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_db, $company_id, $account_code);
         }
         $bfCurrency = $currency;
     } else {
@@ -939,7 +939,7 @@ try {
             if ($bfCurrencyId) {
                 $bf = 0;
                 foreach ($account_ids as $aid) {
-                    $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id);
+                    $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code);
                 }
             } else {
                 $bf = 0;
@@ -967,7 +967,7 @@ try {
                 if ($bfCurrencyId) {
                     $bf = 0;
                     foreach ($account_ids as $aid) {
-                        $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id);
+                        $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code);
                     }
                 } else {
                     $bf = 0;
@@ -1449,17 +1449,10 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    // Domain Share Commission：收款账户在历史中显示正数，与主表一致
-                    if (
-                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_SHARE_COMMISSION|') === 0
-                        || stripos((string) $rawDescription, 'Commision FROM ') === 0
-                    ) {
-                        $cr_dr = (float) $t['amount'];
-                    } else {
-                        $cr_dr = -$t['amount'];
-                    }
+                    // 收款账户（Account To）统一按入账显示正数，与 Transaction List 口径一致
+                    $cr_dr = (float) $t['amount'];
                 } else {
-                    // Domain List Fee：客户(from)侧在历史中显示负数（与主表 LAG -2400 一致）
+                    // 付款账户（Account From）统一按出账显示负数
                     if (
                         stripos((string) ($t['sms'] ?? ''), '[DOMAIN_LIST_FEE|') === 0
                         || stripos((string) $rawDescription, 'Domain list fee FROM ') === 0
@@ -1471,7 +1464,7 @@ try {
                     ) {
                         $cr_dr = 0;
                     } else {
-                        $cr_dr = $t['amount'];
+                        $cr_dr = -(float) $t['amount'];
                     }
                 }
                 break;
@@ -2265,11 +2258,12 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
 
 /**
  * 按 Currency 计算 B/F (Balance Forward)
- * 与 search_api.php 中的函数相同
+ * 与 search_api.php / dashboard_api.php 口径对齐（含 DOMAIN_NET_PROFIT、List Fee、Share Commission、池子期初佣金扣回）
  */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id)
+function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = '')
 {
     $bf = 0;
+    $code_str = trim((string) $account_code);
 
     // 检查 transactions 表是否有 currency_id 字段（仅检查一次）
     static $has_transaction_currency = null;
@@ -2279,28 +2273,31 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
 
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
-    // 与 search_api.calculateWinLossByCurrency 一致：SUM(ROUND(processed_amount,2))
+    // 与 search_api 一致：account_id 可能存数字 id 或账户代码
     $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
-              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+              AND (
+                  CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                  OR (? <> '' AND TRIM(COALESCE(dcd.account_id, '')) = TRIM(?))
+              )
               AND dcd.currency_id = ?
               AND dc.capture_date < ?";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
+    $stmt->execute([$company_id, $company_id, $account_id, $code_str, $code_str, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
 
     // 2. 起始日期之前：Win/Loss 来自 WIN/LOSE（含 PROFIT）+ Cr/Dr 来自 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM（作为 To Account）；RATE 单独用 transaction_entry 处理
     if ($has_transaction_currency) {
         // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
@@ -2322,12 +2319,15 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
         $bf += $stmt->fetchColumn();
 
-        // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分
+        // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分（DOMAIN_NET_PROFIT 与 Cr/Dr 列一致记 0，避免重复与错误符号）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
@@ -2344,10 +2344,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
@@ -2367,6 +2367,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
                     END), 0) as cr_dr
@@ -2405,6 +2407,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
+            . " AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'"
+            . " AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'"
             . historyContraApprovedWhere($pdo, 't');
 
         $stmt = $pdo->prepare($sql);
@@ -2422,6 +2426,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
@@ -2457,6 +2463,29 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     ");
     $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf += $rateStmt->fetchColumn();
+
+    // 5. 池子账户：起始日前已付的 Domain Share Commission 从 B/F 扣回（与 dashboard_api / 交易列表 searchApiApplyDomainSourceCompanyRows 一致）
+    if ($has_transaction_currency && (int) $currency_id > 0) {
+        try {
+            $adjStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(ROUND(t.amount, 2)), 0)
+                FROM transactions t
+                WHERE t.company_id = ?
+                  AND t.transaction_type = 'PAYMENT'
+                  AND t.from_account_id = ?
+                  AND t.transaction_date < ?
+                  AND t.currency_id = ?
+                  AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
+            ");
+            $adjStmt->execute([$company_id, $account_id, $date_from, $currency_id]);
+            // SUM 保留符号：佣金合计为正则扣减 B/F；若存在负数冲正则代数相减
+            $adj = (float) $adjStmt->fetchColumn();
+            if (abs($adj) > 0.00001) {
+                $bf -= $adj;
+            }
+        } catch (Throwable $e) {
+        }
+    }
 
     return $bf;
 }

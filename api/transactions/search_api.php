@@ -572,6 +572,8 @@ function searchApiResolveCompanyOwnerCodeByPk(PDO $pdo, int $companyPk): string
 /**
  * Domain Share Commission：bulk Cr/Dr 对 from_account（池子）侧记为 0，池子会只剩 List Fee 全额。
  * 在此按每笔佣金从池子账户的 Cr/Dr、Balance 扣回，与 Payment History 净额口径一致。
+ * 另：与 dashboard_api PROFIT 池逻辑一致，将「起始日前」已付的 Share Commission 从 B/F 扣回，
+ * 否则次日 B/F 仍按 List Fee 毛额累加，会多出与佣金相等的余额（如 5040+2160=7200）。
  * 客户侧 List Fee 仍由 searchApiAppendDomainListFeeVirtualRows 负责，此处不追加虚拟来源行。
  */
 function searchApiApplyDomainSourceCompanyRows(
@@ -594,6 +596,40 @@ function searchApiApplyDomainSourceCompanyRows(
         $currencyFilterIds = array_values(array_unique(array_filter($currencyFilterIds)));
         if (empty($currencyFilterIds)) {
             return;
+        }
+    }
+
+    // 起始日前的佣金：从池子 B/F 扣回（与 dashboard_api 期初扣回一致）
+    $poolBfAdjust = []; // [ACC_ID][CUR] => delta（负值表示从 bf/balance 扣减）
+    $bfSql = "SELECT t.from_account_id, t.amount, t.currency_id
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.transaction_type = 'PAYMENT'
+              AND t.transaction_date < ?
+              AND t.currency_id IS NOT NULL
+              AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
+              AND t.from_account_id IS NOT NULL";
+    $bfPar = [$company_id, $date_from_db];
+    if (!empty($currencyFilterIds)) {
+        $bfSql .= ' AND t.currency_id IN (' . implode(',', array_fill(0, count($currencyFilterIds), '?')) . ')';
+        $bfPar = array_merge($bfPar, $currencyFilterIds);
+    }
+    $stBf = $pdo->prepare($bfSql);
+    $stBf->execute($bfPar);
+    while ($row = $stBf->fetch(PDO::FETCH_ASSOC)) {
+        $cid = (int) $row['currency_id'];
+        $curCode = strtoupper((string) ($currency_id_map[$cid] ?? ''));
+        if ($curCode === '') {
+            continue;
+        }
+        // amount 保留正负：冲正/退款为负时，池子 B/F 调整方向与代数一致；abs 仅用于近零判断
+        $amt = trunc2((float) ($row['amount'] ?? 0));
+        if (abs($amt) < 0.00001) {
+            continue;
+        }
+        $poolId = (int) ($row['from_account_id'] ?? 0);
+        if ($poolId > 0) {
+            $poolBfAdjust[$poolId][$curCode] = ($poolBfAdjust[$poolId][$curCode] ?? 0.0) - $amt;
         }
     }
 
@@ -621,6 +657,7 @@ function searchApiApplyDomainSourceCompanyRows(
         if ($curCode === '') {
             continue;
         }
+        // 同上：按带符号 amount 累加 delta，不对金额取 abs
         $amt = trunc2((float) ($row['amount'] ?? 0));
         if (abs($amt) < 0.00001) {
             continue;
@@ -631,18 +668,25 @@ function searchApiApplyDomainSourceCompanyRows(
         }
     }
 
-    if (empty($poolAdjust)) {
+    if (empty($poolAdjust) && empty($poolBfAdjust)) {
         return;
     }
 
     foreach ($results as &$row) {
         $aid = (int) ($row['account_db_id'] ?? 0);
         $cur = strtoupper((string) ($row['currency'] ?? ''));
-        if ($aid > 0 && $cur !== '' && isset($poolAdjust[$aid][$cur])) {
-            $delta = (float) $poolAdjust[$aid][$cur];
-            $row['cr_dr'] = trunc2((float) $row['cr_dr'] + $delta);
-            $row['balance'] = trunc2((float) $row['balance'] + $delta);
-            $row['has_crdr_transactions'] = (abs((float) $row['cr_dr']) > 0.00001) ? 1 : (int) $row['has_crdr_transactions'];
+        if ($aid > 0 && $cur !== '') {
+            if (isset($poolBfAdjust[$aid][$cur])) {
+                $bd = (float) $poolBfAdjust[$aid][$cur];
+                $row['bf'] = trunc2((float) $row['bf'] + $bd);
+                $row['balance'] = trunc2((float) $row['balance'] + $bd);
+            }
+            if (isset($poolAdjust[$aid][$cur])) {
+                $delta = (float) $poolAdjust[$aid][$cur];
+                $row['cr_dr'] = trunc2((float) $row['cr_dr'] + $delta);
+                $row['balance'] = trunc2((float) $row['balance'] + $delta);
+                $row['has_crdr_transactions'] = (abs((float) $row['cr_dr']) > 0.00001) ? 1 : (int) $row['has_crdr_transactions'];
+            }
         }
     }
     unset($row);
@@ -2249,6 +2293,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
                         -- Domain Share Commission：收款方显示正数
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
                         WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
@@ -2289,6 +2334,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
                         WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
                         WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
                         WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
                         ELSE 0
@@ -2329,6 +2375,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
             . " AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'"
+            . " AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'"
             . contraApprovedWhere($pdo, 't');
 
         $stmt = $pdo->prepare($sql);
@@ -2346,6 +2393,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                  AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd

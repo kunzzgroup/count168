@@ -391,11 +391,7 @@ function remapPaymentMaintenanceAccountCode(?string $code, string $ownerCode, st
     if ($v === '') {
         return '-';
     }
-    // 只将系统代码 C168 标准化为 PROFIT；不替换 owner code，
-    // 避免把正常账户代码（如 K）错误地替换为其他账户（如 ALBB）。
-    if ($v === 'C168') {
-        return 'PROFIT';
-    }
+    // Account(To/From) 统一展示真实 account_id，不做 C168->PROFIT 映射。
     return $v;
 }
 
