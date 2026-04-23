@@ -739,17 +739,13 @@ function createDomainNetProfitPayment(
         return $out;
     }
 
-    $poolId = $fromPoolAccountId;
-    if (!$poolId || $poolId <= 0) {
-        $poolId = resolveC168DomainFeePoolAccountId($pdo, $c168Pk, 0);
-    }
     // 目标优先使用来源公司 Share% 里配置的 Profit 账号（必须为 C168 且 role=profit）
     $profitAccId = resolveShareProfitTargetAccountId($pdo, $srcU);
     if (!$profitAccId || $profitAccId <= 0) {
-        $profitAccId = resolveC168ProfitRoleAccountId($pdo, $c168Pk, (int)$poolId);
+        $profitAccId = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
     }
-    // 禁止回退到 owner/K 或资金池自身；没有有效 Profit 目标则不建单
-    if (!$profitAccId || !$poolId || (int)$profitAccId === (int)$poolId) {
+    // 没有有效 Profit 目标则不建单；from_account_id 固定为空（展示为 "-"）
+    if (!$profitAccId || $profitAccId <= 0) {
         return $out;
     }
 
@@ -771,7 +767,7 @@ function createDomainNetProfitPayment(
         'company_id' => $c168Pk,
         'transaction_type' => 'PAYMENT',
         'account_id' => $profitAccId,
-        'from_account_id' => $poolId,
+        'from_account_id' => null,
         'amount' => $net,
         'transaction_date' => $today,
         'description' => 'Profit By ' . $ownerCode,
@@ -1473,12 +1469,11 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
         return false;
     }
 
-    $profitAccId = resolveC168ProfitRoleAccountId($pdo, (int)$c168Pk, 0);
+    $profitAccId = resolveShareProfitTargetAccountId($pdo, $srcU);
     if (!$profitAccId || $profitAccId <= 0) {
-        return false;
+        $profitAccId = resolveC168ProfitRoleAccountId($pdo, (int)$c168Pk, 0);
     }
-    $fromAccId = resolveC168DomainFeeReceiverAccountId($pdo, (int)$c168Pk, (int)$profitAccId);
-    if (!$fromAccId || $fromAccId <= 0 || (int)$fromAccId === (int)$profitAccId) {
+    if (!$profitAccId || $profitAccId <= 0) {
         return false;
     }
 
@@ -1493,7 +1488,7 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
         $st = $pdo->prepare("
             UPDATE transactions t
             SET t.account_id = ?,
-                t.from_account_id = ?,
+                t.from_account_id = NULL,
                 t.amount = ?,
                 t.description = ?
             WHERE t.company_id = ?
@@ -1501,20 +1496,18 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
               AND t.sms LIKE ?
               AND (
                     t.account_id <> ?
-                    OR COALESCE(t.from_account_id, 0) <> ?
+                    OR t.from_account_id IS NOT NULL
                     OR ROUND(t.amount, 2) <> ?
                     OR COALESCE(t.description, '') <> ?
               )
         ");
         $st->execute([
             (int)$profitAccId,
-            (int)$fromAccId,
             $net,
             $desc,
             (int)$c168Pk,
             '[DOMAIN_NET_PROFIT|' . $srcU . '%',
             (int)$profitAccId,
-            (int)$fromAccId,
             $net,
             $desc,
         ]);
