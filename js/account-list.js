@@ -75,6 +75,13 @@ function confirmDelete() {
     closeConfirmDeleteModal();
 }
 
+function formatAccountIdForDisplay(rawAccountId) {
+    const value = String(rawAccountId || '').trim();
+    if (!value) return '';
+    const match = value.match(/^[^_]+_([0-9]+)(?:_[0-9]+)?$/);
+    return match ? match[1] : value;
+}
+
 
 const PAGE_SIZE = 20;
 let accounts = [];
@@ -1356,7 +1363,7 @@ async function editAccount(id) {
 
         // Populate form with account data
         document.getElementById('edit_account_id').value = account.id;
-        document.getElementById('edit_account_id_field').value = (account.account_id || '').toUpperCase();
+        document.getElementById('edit_account_id_field').value = formatAccountIdForDisplay(account.account_id).toUpperCase();
         document.getElementById('edit_name').value = (account.name || '').toUpperCase();
         document.getElementById('edit_password').value = account.password || ''; // Show password from database
 
