@@ -84,12 +84,19 @@ function hasAccountCreatedSourceColumn(PDO $pdo): bool {
 
 function formatDomainAutoDisplayAccountId(string $rawAccountId): string {
     $rawAccountId = trim($rawAccountId);
-    if ($rawAccountId === '' || strpos($rawAccountId, '_') === false) {
+    if ($rawAccountId === '') {
         return $rawAccountId;
     }
-    $parts = explode('_', $rawAccountId, 2);
-    $display = trim((string)($parts[1] ?? ''));
-    return $display !== '' ? $display : $rawAccountId;
+
+    // 仅去掉「尾部冲突后缀 _数字」（如 AA_1 -> AA），保留正常包含下划线的业务账号。
+    if (preg_match('/^(.+?)_(\d+)$/', $rawAccountId, $matches)) {
+        $base = trim((string)($matches[1] ?? ''));
+        if ($base !== '') {
+            return $base;
+        }
+    }
+
+    return $rawAccountId;
 }
 
 function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, bool $showInactive, bool $showAll, ?array $accountIdFilter, ?array $rolesFilter = null): array {

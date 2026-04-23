@@ -1913,43 +1913,15 @@ function domainApiBuildLegacyOwnerPrefixedProvisionedMemberAccountId(string $own
 }
 
 /**
- * 解析最终 account_id：优先 OWNER_COMPANY；若该 id 已被非 Domain MEMBER 模板占用，则顺延 OWNER_COMPANY_2、_3…
- * 若已是 Domain MEMBER 模板则复用该行（幂等）。
+ * 解析最终 account_id：固定使用公司代码本体（如 AA）。
+ * 不再自动追加任何后缀（如 _1/_2/_X），从源头杜绝带后缀账号的自动创建。
  */
 function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, int $c168CompanyId, string $ownerCodeUpper, string $companyCode): string {
     $base = domainApiBuildDomainProvisionedMemberAccountId($ownerCodeUpper, $companyCode);
     if ($base === '') {
         return '';
     }
-    $chkInC168 = $pdo->prepare("
-        SELECT a.id
-        FROM account a
-        INNER JOIN account_company ac ON ac.account_id = a.id
-        WHERE ac.company_id = ?
-          AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?))
-        LIMIT 1
-    ");
-    $chkGlobal = $pdo->prepare('SELECT id FROM account WHERE UPPER(TRIM(account_id)) = UPPER(TRIM(?)) LIMIT 1');
-    for ($i = 0; $i < 1000; $i++) {
-        $code = $i === 0 ? $base : $base . '_' . $i;
-        $chkInC168->execute([$c168CompanyId, $code]);
-        $cid = (int) ($chkInC168->fetchColumn() ?: 0);
-        if ($cid > 0) {
-            if (domainApiAccountLooksLikeDomainProvisionedMember($pdo, $cid)) {
-                return $code;
-            }
-            continue;
-        }
-
-        $chkGlobal->execute([$code]);
-        $gid = (int) ($chkGlobal->fetchColumn() ?: 0);
-        if ($gid <= 0) {
-            return $code;
-        }
-        // 全局已存在同 code（无论来源）都不复用，顺延后缀避免串号。
-        continue;
-    }
-    return $base . '_X' . substr(str_replace('.', '', uniqid('', true)), -10);
+    return $base;
 }
 
 /**
@@ -2048,7 +2020,7 @@ function domainApiMergeAccountIntoUserCompanyPermissions(PDO $pdo, array $users,
  * C168 在 Add Domain 时为公司代码创建 MEMBER 账户：挂在当前 C168 公司 account list，并关联主账号 C168（account_link）。
  * 密码明文 111，与 login_process.php member 校验一致。
  *
- * @param string $ownerCodeUpper Owner.owner_code；与 company 组成 account_id：OWNERCODE_公司代码（见 domainApiBuildDomainProvisionedMemberAccountId）。
+ * @param string $ownerCodeUpper Owner.owner_code（保留参数用于兼容；当前 account_id 固定为公司代码本体）。
  */
 function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168NumericCompanyId, string $ownerDisplayName, array $companyIdStrings, string $ownerCodeUpper = ''): void {
     if ($c168NumericCompanyId <= 0 || empty($companyIdStrings)) {
@@ -2268,7 +2240,8 @@ try {
                     }
                 }
 
-                $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies);
+                // 复用已标准化的 companies 数组，避免原始 JSON 字符串格式差异导致只提取到部分 company
+                $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies_data);
                 if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
@@ -2557,7 +2530,8 @@ try {
                 }
 
                 // 对该 domain 表单中所有带 company_id 的公司同步 C168 下 MEMBER（幂等；便于历史数据补建）
-                $provisionFromUpdate = domainApiExtractProvisionCompanyIds($companies);
+                // 统一使用已标准化后的数组，确保批量公司都能触发自动建账
+                $provisionFromUpdate = domainApiExtractProvisionCompanyIds($new_companies_data);
                 if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
                     $targetC168 = resolveC168TargetCompanyId($pdo);
                     if ($targetC168 !== null) {
