@@ -4,7 +4,15 @@
  * Canonical login URL: /login
  */
 session_start();
-require_once __DIR__ . '/config.php';
+try {
+    require_once __DIR__ . '/config.php';
+} catch (Throwable $e) {
+    error_log('bootstrap config failed: ' . $e->getMessage());
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "服务暂时不可用（数据库或配置）。请检查 config.php / config.local.php 与 hPanel 中 MySQL 密码是否一致。\n";
+    exit();
+}
 
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $spaPaths = ['/login', '/dashboard', '/domain', '/announcement', '/account-list', '/add-account', '/process-list', '/games-process-list', '/bank-process-list'];
