@@ -108,6 +108,7 @@ const LEGACY_MODAL_HTML = `
             <div class="company-share-role-card" data-share-card="cs"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsCs" onclick="toggleShareRoleCard('cs')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--cs">CS</span><span class="company-share-account-count-display" id="shareAccountSummary-cs">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalCs">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-cs"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('cs');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsCs" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add Account</button></div></div>
             <div class="company-share-role-card" data-share-card="it"><div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsIt" onclick="toggleShareRoleCard('it')"><div class="company-share-role-header-left"><span class="company-share-role-badge company-share-role-badge--it">IT</span><span class="company-share-account-count-display" id="shareAccountSummary-it">0 accounts</span></div><div class="company-share-role-header-middle"><div class="company-share-role-alloc-row"><span class="company-share-role-alloc-label">Share total</span><span class="company-share-card-sum" id="shareTotalIt">0.00%</span></div><div class="company-share-progress-track"><div class="company-share-progress-fill" id="shareProgressFill-it"></div></div></div><div class="company-share-role-header-right"><button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('it');">Manage</button></div></div><div class="company-share-role-body"><div class="company-share-column-labels"><span>Account</span><span>Share</span><span>Total</span><span class="company-share-col-actions" aria-hidden="true"></span></div><div class="company-share-rows" id="shareRowsIt" role="list"></div><button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add Account</button></div></div>
           </div>
+          <div id="companyShareNoAccountsHint" style="display: none; color: #64748b; font-size: 12px; margin-top: 8px;">No linked accounts.</div>
         </div>
       </div>
       <div class="form-actions company-settings-form-actions"><button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button><button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()">Reset</button><button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal(true)">Cancel</button></div>
@@ -148,6 +149,40 @@ const LEGACY_MODAL_HTML = `
 </div>
 
 <div id="notificationContainer" class="notification-container" style="z-index:2147483647;"></div>
+
+<div id="domainAddAccountModal" class="account-modal" style="display: none; z-index: 10010;">
+  <div class="account-modal-content">
+    <div class="account-modal-header">
+      <h2>Add Account</h2>
+      <span class="account-close" onclick="closeDomainAddAccountModal()">&times;</span>
+    </div>
+    <div class="account-modal-body">
+      <form id="domainAddAccountForm" class="account-form">
+        <div class="account-form-columns">
+          <div class="account-form-column">
+            <h3 class="account-section-header">Personal Information</h3>
+            <div class="account-form-group"><label for="domain_add_account_id">Account ID *</label><input type="text" id="domain_add_account_id" name="account_id" required></div>
+            <div class="account-form-group"><label for="domain_add_name">Name *</label><input type="text" id="domain_add_name" name="name" required></div>
+            <div class="account-form-group"><label for="domain_add_role">Role *</label><select id="domain_add_role" name="role" required><option value="">Select Role</option></select></div>
+            <div class="account-form-group"><label for="domain_add_password">Password *</label><input type="password" id="domain_add_password" name="password" required></div>
+          </div>
+          <div class="account-form-column">
+            <h3 class="account-section-header">Payment</h3>
+            <div class="account-form-group"><label>Payment Alert</label><div class="account-radio-group"><label class="account-radio-label"><input type="radio" name="add_payment_alert" value="1">Yes</label><label class="account-radio-label"><input type="radio" name="add_payment_alert" value="0" checked>No</label></div></div>
+            <div class="account-form-row" id="domain_add_alert_fields" style="display: none;">
+              <div class="account-form-group"><label for="domain_add_alert_type">Alert Type</label><select id="domain_add_alert_type" name="alert_type"><option value="">Select Type</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="1">1 Days</option><option value="2">2 Days</option><option value="3">3 Days</option><option value="4">4 Days</option><option value="5">5 Days</option><option value="6">6 Days</option><option value="7">7 Days</option><option value="8">8 Days</option><option value="9">9 Days</option><option value="10">10 Days</option><option value="11">11 Days</option><option value="12">12 Days</option><option value="13">13 Days</option><option value="14">14 Days</option><option value="15">15 Days</option><option value="16">16 Days</option><option value="17">17 Days</option><option value="18">18 Days</option><option value="19">19 Days</option><option value="20">20 Days</option><option value="21">21 Days</option><option value="22">22 Days</option><option value="23">23 Days</option><option value="24">24 Days</option><option value="25">25 Days</option><option value="26">26 Days</option><option value="27">27 Days</option><option value="28">28 Days</option><option value="29">29 Days</option><option value="30">30 Days</option><option value="31">31 Days</option></select></div>
+              <div class="account-form-group"><label for="domain_add_alert_start_date">Start Date</label><input type="date" id="domain_add_alert_start_date" name="alert_start_date"></div>
+            </div>
+            <div class="account-form-group" id="domain_add_alert_amount_row" style="display: none;"><label for="domain_add_alert_amount">Alert (Amount)</label><input type="number" id="domain_add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount"></div>
+            <div class="account-form-group"><label for="domain_add_remark">Remark</label><textarea id="domain_add_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea></div>
+          </div>
+        </div>
+        <div class="account-form-section"><div class="account-advance-section"><h3>Advanced Account</h3><div class="account-other-currency"><label>Other Currency:</label><div style="display: flex; gap: 8px; margin-bottom: 12px;"><input type="text" id="domainAddCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"><button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputDomain(); return false;">Create Currency</button></div><div class="account-currency-list" id="domainAddCurrencyList"></div></div><div class="account-other-currency" style="margin-top: 20px;"><label>Company:</label><div class="account-currency-list" id="domainAddCompanyList"></div></div></div></div>
+        <div class="account-form-actions"><button type="submit" class="account-btn account-btn-save">Add Account</button><button type="button" class="account-btn account-btn-cancel" onclick="closeDomainAddAccountModal()">Cancel</button></div>
+      </form>
+    </div>
+  </div>
+</div>
 `;
 
 export default function DomainPage() {
@@ -160,10 +195,16 @@ export default function DomainPage() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page");
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "/css/domain.css";
-    document.head.appendChild(link);
+    const links = [];
+    const addCss = (href) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+      links.push(link);
+    };
+    addCss("/css/domain.css");
+    addCss("/css/accountCSS.css");
 
     (async () => {
       try {
@@ -180,6 +221,8 @@ export default function DomainPage() {
         setReady(true);
         window.DOMAIN_HAS_C168_CONTEXT = !!u.has_c168_domain_page_access;
         window.DOMAIN_IS_OWNER_OR_ADMIN = ["owner", "admin"].includes(String(u.role || "").toLowerCase());
+        window.DOMAIN_SESSION_COMPANY_ID = u.company_id ?? null;
+        window.DOMAIN_SESSION_COMPANY_CODE = String(u.company_code || "");
 
         const r2 = await fetch(buildApiUrl("api/domain/domain_api.php"), {
           method: "POST",
@@ -204,7 +247,9 @@ export default function DomainPage() {
     return () => {
       document.body.classList.remove("dashboard-page");
       document.body.classList.add("bg");
-      document.head.removeChild(link);
+      links.forEach((link) => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+      });
     };
   }, [navigate]);
 
