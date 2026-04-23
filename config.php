@@ -1,7 +1,7 @@
 <?php
 $host = 'localhost';
 $dbname = 'u857194726_count_site';
-$dbuser = 'u857194726_count168';
+$dbuser = 'u857194726_countsite';
 $dbpass = 'Kholdings1688@';
 
 // 设置PHP时区为马来西亚时间
