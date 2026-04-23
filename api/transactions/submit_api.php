@@ -101,18 +101,6 @@ function clearTransactionSearchCache(): void
 }
 
 /**
- * 截断到2位小数（不四舍五入）
- */
-function submitTrunc2($value): float
-{
-    $n = (float) $value;
-    if ($n >= 0) {
-        return floor($n * 100) / 100;
-    }
-    return ceil($n * 100) / 100;
-}
-
-/**
  * 基于 session 的轻量幂等缓存（防止同一次点击重复提交）
  */
 function getSubmitIdempotencyCache(string $key): ?array
@@ -222,7 +210,7 @@ try {
     $transaction_type = trim($_POST['transaction_type'] ?? '');
     $account_id = (int)($_POST['account_id'] ?? 0);
     $from_account_id = !empty($_POST['from_account_id']) ? (int)$_POST['from_account_id'] : null;
-    $amount = submitTrunc2((float)($_POST['amount'] ?? 0));
+    $amount = (float)($_POST['amount'] ?? 0);
     $transaction_date = trim($_POST['transaction_date'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $sms = trim($_POST['sms'] ?? '');
@@ -383,12 +371,12 @@ try {
             // 获取 RATE 相关参数
             $rate_from_account_id = !empty($_POST['rate_from_account_id']) ? (int)$_POST['rate_from_account_id'] : null;
             $rate_from_currency = trim($_POST['rate_from_currency'] ?? '');
-            $rate_from_amount = submitTrunc2((float)($_POST['rate_from_amount'] ?? 0));
+            $rate_from_amount = (float)($_POST['rate_from_amount'] ?? 0);
             $rate_from_description = trim($_POST['rate_from_description'] ?? '');
             
             $rate_to_account_id = !empty($_POST['rate_to_account_id']) ? (int)$_POST['rate_to_account_id'] : null;
             $rate_to_currency = trim($_POST['rate_to_currency'] ?? '');
-            $rate_to_amount = submitTrunc2((float)($_POST['rate_to_amount'] ?? 0));
+            $rate_to_amount = (float)($_POST['rate_to_amount'] ?? 0);
             $rate_to_description = trim($_POST['rate_to_description'] ?? '');
             
             // 验证第一个 Account 和 Currency 的记录
@@ -474,15 +462,15 @@ try {
             
             $rate_transfer_from_account_id = !empty($_POST['rate_transfer_from_account_id']) ? (int)$_POST['rate_transfer_from_account_id'] : null;
             $rate_transfer_to_account_id = !empty($_POST['rate_transfer_to_account_id']) ? (int)$_POST['rate_transfer_to_account_id'] : null;
-            $rate_transfer_from_amount = !empty($_POST['rate_transfer_from_amount']) ? submitTrunc2((float)$_POST['rate_transfer_from_amount']) : null;
-            $rate_transfer_to_amount = !empty($_POST['rate_transfer_to_amount']) ? submitTrunc2((float)$_POST['rate_transfer_to_amount']) : null;
+            $rate_transfer_from_amount = !empty($_POST['rate_transfer_from_amount']) ? (float)$_POST['rate_transfer_from_amount'] : null;
+            $rate_transfer_to_amount = !empty($_POST['rate_transfer_to_amount']) ? (float)$_POST['rate_transfer_to_amount'] : null;
             $rate_transfer_from_description = trim($_POST['rate_transfer_from_description'] ?? '');
             $rate_transfer_to_description = trim($_POST['rate_transfer_to_description'] ?? '');
             $rate_transfer_from_currency = trim($_POST['rate_transfer_from_currency'] ?? '');
             $rate_transfer_to_currency = trim($_POST['rate_transfer_to_currency'] ?? '');
             
             $rate_middleman_account_id = !empty($_POST['rate_middleman_account_id']) ? (int)$_POST['rate_middleman_account_id'] : null;
-            $rate_middleman_amount = !empty($_POST['rate_middleman_amount']) ? submitTrunc2((float)$_POST['rate_middleman_amount']) : null;
+            $rate_middleman_amount = !empty($_POST['rate_middleman_amount']) ? (float)$_POST['rate_middleman_amount'] : null;
             $rate_middleman_description = trim($_POST['rate_middleman_description'] ?? '');
             $rate_middleman_rate = !empty($_POST['rate_middleman_rate']) ? (float)$_POST['rate_middleman_rate'] : null;
             $rate_middleman_currency = trim($_POST['rate_middleman_currency'] ?? $rate_transfer_to_currency ?: $rate_to_currency ?: $rate_from_currency);
@@ -744,7 +732,7 @@ try {
                         $rate_middleman_description
                     ]);
                     
-                    $middleman_deduction = submitTrunc2($rate_transfer_from_amount - $rate_transfer_to_amount);
+                    $middleman_deduction = $rate_transfer_from_amount - $rate_transfer_to_amount;
                     if (abs($middleman_deduction) > 0.01) {
                         $rateDeduct = [
                             'company_id' => $company_id,
@@ -794,7 +782,7 @@ try {
                 $entryStmt = $pdo->prepare($entrySql);
 
                 // 1) 第一行：全部跟随第一个币种（例如 SGD），金额 = rate_from_amount（例如 100）
-                $sgdAmount      = submitTrunc2((float)$rate_from_amount);
+                $sgdAmount      = (float)$rate_from_amount;
                 $sgdCurrencyId  = (int)$rate_from_currency_id;
 
                 // From account：减
@@ -821,8 +809,8 @@ try {
 
                 // 2) 第二行：全部跟随第二个币种（例如 MYR）
                 if ($rate_transfer_from_account_id && $rate_transfer_to_account_id && $rate_transfer_currency_id) {
-                    $myrFromAmount = submitTrunc2((float)$rate_transfer_from_amount); // 例如 330
-                    $myrToAmount   = submitTrunc2((float)$rate_transfer_to_amount);   // 例如 320
+                    $myrFromAmount = (float)$rate_transfer_from_amount; // 例如 330
+                    $myrToAmount   = (float)$rate_transfer_to_amount;   // 例如 320
                     $myrCurrencyId = (int)$rate_transfer_currency_id;
 
                     // - Select To (收款方)：最终显示负数
@@ -855,7 +843,7 @@ try {
 
                     // Middle-man：MYR 加手续费（如果存在）
                     if ($rate_middleman_account_id && $rate_middleman_amount > 0) {
-                        $middleAmount = submitTrunc2((float)$rate_middleman_amount);
+                        $middleAmount = (float)$rate_middleman_amount;
                         $middleCurrencyId = (int)$rate_middleman_currency_id ?: $myrCurrencyId;
 
                         $entryStmt->execute([
@@ -898,7 +886,7 @@ try {
         } else {
             // 非 RATE 类型的原有逻辑
             // 确保金额是正数（对于所有交易类型）
-            $amount = submitTrunc2(abs($amount));
+            $amount = abs($amount);
             
             // WIN/LOSE（含前端 PROFIT）：保存表单的 From 账户用于双记录；数据库触发器要求 from_account_id 必须为 NULL
             $win_lose_from_account_id = null;
@@ -990,7 +978,7 @@ try {
                 'transaction_type' => $transaction_type,
                 'to_account' => $to_account['account_id'] . ' - ' . $to_account['name'],
                 'from_account' => $from_account ? $from_account['account_id'] . ' - ' . $from_account['name'] : null,
-                'amount' => number_format(submitTrunc2($amount), 2),
+                'amount' => number_format($amount, 2),
                 'transaction_date' => $transaction_date,
                 'approval_status' => $has_approval_status ? $approval_status : null
             ]

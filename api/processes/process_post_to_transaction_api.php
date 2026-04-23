@@ -137,23 +137,6 @@ function clearTransactionSearchCache(): void
     }
 }
 
-/**
- * 截断到2位小数（不四舍五入）
- */
-function txnTrunc2($value): float
-{
-    $n = (float) $value;
-    if ($n >= 0) {
-        return floor($n * 100) / 100;
-    }
-    return ceil($n * 100) / 100;
-}
-
-function txnFormat2($value): string
-{
-    return number_format(txnTrunc2($value), 2, '.', '');
-}
-
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
 function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, float $profit): array
 {
@@ -169,9 +152,9 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     }
     $ratio = $daysRemaining / $daysInMonth;
     return [
-        'cost' => txnTrunc2($cost * $ratio),
-        'price' => txnTrunc2($price * $ratio),
-        'profit' => txnTrunc2($profit * $ratio),
+        'cost' => round($cost * $ratio, 2),
+        'price' => round($price * $ratio, 2),
+        'profit' => round($profit * $ratio, 2),
     ];
 }
 
@@ -190,9 +173,9 @@ function prorateToMonthEndFromStart(string $startYmd, float $cost, float $price,
     $daysRemaining = max(0, $daysInMonth - $dayOfMonth + 1);
     $ratio = $daysRemaining / $daysInMonth;
     return [
-        'cost' => txnTrunc2($cost * $ratio),
-        'price' => txnTrunc2($price * $ratio),
-        'profit' => txnTrunc2($profit * $ratio),
+        'cost' => round($cost * $ratio, 2),
+        'price' => round($price * $ratio, 2),
+        'profit' => round($profit * $ratio, 2),
     ];
 }
 
@@ -351,9 +334,9 @@ function prorateInclusiveDateRange(string $fromYmd, string $toYmd, float $cost, 
         $cur = $chunkEnd->modify('+1 day');
     }
     return [
-        'cost' => txnTrunc2($tc),
-        'price' => txnTrunc2($tp),
-        'profit' => txnTrunc2($tf),
+        'cost' => round($tc, 2),
+        'price' => round($tp, 2),
+        'profit' => round($tf, 2),
     ];
 }
 
@@ -870,7 +853,7 @@ function parseProfitSharingString(string $profitSharing): array
             $amountStr = trim(substr($t, $dash + 3));
             $amount = (float) $amountStr;
             if ($accountText !== '' && $amount > 0) {
-                $result[] = ['account_text' => $accountText, 'amount' => txnTrunc2($amount)];
+                $result[] = ['account_text' => $accountText, 'amount' => round($amount, 2)];
             }
         }
     }
@@ -1153,9 +1136,9 @@ try {
         // 1+1/1+2/1+3：active 期间统一按 1 个月价格入账；仅 manual_inactive 才按赔付月数放大。
         if ($periodType === 'manual_inactive') {
             $mult = getManualInactiveMultiplierFromContract($p['contract'] ?? null);
-            $cost = txnTrunc2($cost * $mult);
-            $price = txnTrunc2($price * $mult);
-            $profit = txnTrunc2($profit * $mult);
+            $cost = round($cost * $mult, 2);
+            $price = round($price * $mult, 2);
+            $profit = round($profit * $mult, 2);
         }
         $isManualInactiveCompensation = ($periodType === 'manual_inactive' && getExtraMonthsFromContract($p['contract'] ?? null) > 0);
 
@@ -1283,9 +1266,9 @@ try {
         if (!empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['card_merchant_id'];
-            $txn['amount'] = txnTrunc2($cost);
+            $txn['amount'] = $cost;
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . (($cost == floor($cost)) ? (string) (int) $cost : txnFormat2($cost)))
+                ? ("Compensation " . $compMonthLabel . ' ' . (($cost == floor($cost)) ? (string) (int) $cost : number_format($cost, 2, '.', '')))
                 : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1295,9 +1278,9 @@ try {
             $txn = $baseTxn;
             $txn['transaction_type'] = 'LOSE';
             $txn['account_id'] = (int) $p['customer_id'];
-            $txn['amount'] = txnTrunc2($price);
+            $txn['amount'] = round($price, 2);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . (($price == floor($price)) ? (string) (int) $price : txnFormat2($price)))
+                ? ("Compensation " . $compMonthLabel . ' ' . (($price == floor($price)) ? (string) (int) $price : number_format($price, 2, '.', '')))
                 : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1328,14 +1311,14 @@ try {
         foreach ($profitSharingEntries as $entry) {
             $accId = resolveAccountIdByText($pdo, $companyId, $entry['account_text']);
             if ($accId !== null && $entry['amount'] > 0) {
-                $proratedAmount = txnTrunc2($entry['amount'] * $psRatio * $psMult);
+                $proratedAmount = round($entry['amount'] * $psRatio * $psMult, 2);
                 if ($proratedAmount > 0) {
                     $profitSharingResolved[] = ['account_id' => $accId, 'amount' => $proratedAmount, 'account_text' => $entry['account_text']];
                     $totalPs += $proratedAmount;
                 }
             }
         }
-        $companyProfit = txnTrunc2($profit - $totalPs);
+        $companyProfit = round($profit - $totalPs, 2);
         if (abs($companyProfit) < 0.00001) {
             $companyProfit = 0.0;
         }
@@ -1343,9 +1326,9 @@ try {
         if (!empty($p['profit_account_id']) && $companyProfit >= 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['profit_account_id'];
-            $txn['amount'] = txnTrunc2($companyProfit);
+            $txn['amount'] = $companyProfit;
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . (($profit == floor($profit)) ? (string) (int) $profit : txnFormat2($profit)))
+                ? ("Compensation " . $compMonthLabel . ' ' . (($profit == floor($profit)) ? (string) (int) $profit : number_format($profit, 2, '.', '')))
                 : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
@@ -1353,9 +1336,9 @@ try {
         foreach ($profitSharingResolved as $ps) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $ps['account_id'];
-            $txn['amount'] = txnTrunc2($ps['amount']);
+            $txn['amount'] = $ps['amount'];
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . (($ps['amount'] == floor($ps['amount'])) ? (string) (int) $ps['amount'] : txnFormat2((float) $ps['amount'])))
+                ? ("Compensation " . $compMonthLabel . ' ' . (($ps['amount'] == floor($ps['amount'])) ? (string) (int) $ps['amount'] : number_format((float) $ps['amount'], 2, '.', '')))
                 : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix . $resendEndMarker);
             insertTransactionRow($pdo, $txn);
             $createdCount++;

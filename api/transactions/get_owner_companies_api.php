@@ -26,9 +26,7 @@ try {
 
     $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
     if ($userRole !== 'owner') {
-        // Dashboard view — include reverse-direction group-link visibility so that
-        // clicking group AP also exposes IG's companies when IG has been pooled into AP.
-        $companies = getCompaniesByUser($pdo, (int)$_SESSION['user_id'], $fetchAll, true);
+        $companies = getCompaniesByUser($pdo, (int)$_SESSION['user_id'], $fetchAll);
         
         $active_companies = [];
         foreach ($companies as $c) {
@@ -45,7 +43,7 @@ try {
 
     // Always use real_owner_id (the permanent, un-swapped ID) for company listing
     $ownerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
-    $companies = getCompaniesByOwner($pdo, $ownerId, $fetchAll, true);
+    $companies = getCompaniesByOwner($pdo, $ownerId, $fetchAll);
     
     $active_companies = [];
     foreach ($companies as $c) {
