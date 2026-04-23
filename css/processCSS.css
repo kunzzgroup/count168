@@ -3303,6 +3303,21 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     vertical-align: middle;
 }
 
+.process-page.process-page--bank .bank-status-cell {
+    overflow: visible;
+    position: relative;
+    z-index: 3;
+}
+
+.process-page.process-page--bank .bank-contract-cell .contract-badge {
+    min-width: 76px;
+    justify-content: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1.15;
+}
+
 .process-page.process-page--bank .bank-process-status-pill {
     display: inline-flex;
     align-items: center;

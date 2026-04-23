@@ -61,6 +61,12 @@ function parseRowDateMs(raw) {
   return null;
 }
 
+function renderBankContract(value) {
+  const text = String(value || "").trim();
+  if (!text) return "-";
+  return <span className="contract-badge contract-active">{text}</span>;
+}
+
 function isBankResendDayStartBackendErrorMessage(text) {
   const s = String(text || "");
   return (
@@ -1178,13 +1184,13 @@ export default function BankProcessListPage() {
                 <div className="card-item">{r.bank || "-"}</div>
                 <div className="card-item">{r.type || "-"}</div>
                 <div className="card-item">{r.card_lower || "-"}</div>
-                <div className="card-item">{r.contract || "-"}</div>
+                <div className="card-item bank-contract-cell">{renderBankContract(r.contract)}</div>
                 <div className="card-item">{r.insurance || "-"}</div>
                 <div className="card-item">{r.customer || "-"}</div>
                 <div className="card-item">{r.cost || "-"}</div>
                 <div className="card-item">{r.price || "-"}</div>
                 <div className="card-item">{r.profit || "-"}</div>
-                <div className="card-item">
+                <div className="card-item bank-status-cell">
                   <BankProcessStatusControl
                     row={r}
                     notify={notify}
