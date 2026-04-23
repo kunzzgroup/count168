@@ -143,7 +143,7 @@ export default function LoginPage() {
         const userType = String(data.user_type || "").toLowerCase();
 
         if (userType === "member" && /dashboard\.php/i.test(redirect)) {
-          window.location.assign(new URL("member.php", `${window.location.origin}/`).toString());
+          window.location.assign(new URL("/member", `${window.location.origin}/`).toString());
           return;
         }
 
@@ -250,7 +250,7 @@ export default function LoginPage() {
                   <span className="remember-text">Remember me</span>
                 </label>
                 {role === "admin" && (
-                  <a href="/reset-password.php" className="forgot-link">
+                  <a href="/reset-password" className="forgot-link">
                     Forget Password?
                   </a>
                 )}

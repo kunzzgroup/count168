@@ -117,7 +117,7 @@ export default function AccountListPage() {
           return;
         }
         if (String(meJson.data.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("member.php", window.location.origin).href);
+          window.location.assign(new URL("/member", window.location.origin).href);
           return;
         }
 

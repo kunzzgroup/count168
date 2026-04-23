@@ -236,11 +236,11 @@ export default function TransactionDashboardPage() {
       }
       const u = json.data;
       if (u.user_type === "member") {
-        window.location.assign(new URL("member.php", window.location.origin).href);
+        window.location.assign(new URL("/member", window.location.origin).href);
         return;
       }
       if (u.needs_owner_secondary) {
-        window.location.assign(new URL("owner_secondary_password.php", window.location.origin).href);
+        window.location.assign(new URL("/owner-secondary-password", window.location.origin).href);
         return;
       }
       setMe(u);

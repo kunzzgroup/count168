@@ -25,3 +25,36 @@ php_value memory_limit 256M
 # 3. 如果这些设置不生效，可能需要通过 php.ini 或服务器配置来设置
 # 4. 修改后可能需要等待几分钟让配置生效
 
+RewriteEngine On
+
+# Legacy PHP URLs -> clean URLs
+RewriteRule ^index\.php$ /login [R=302,L,NC]
+RewriteRule ^dashboard\.php$ /dashboard [R=302,L,NC]
+RewriteRule ^domain\.php$ /domain [R=302,L,NC]
+RewriteRule ^announcement\.php$ /announcement [R=302,L,NC]
+RewriteRule ^account-list\.php$ /account-list [R=302,L,NC]
+RewriteRule ^add-account\.php$ /add-account [R=302,L,NC]
+RewriteRule ^processlist\.php$ /process-list [R=302,L,NC]
+RewriteRule ^games_process_list\.php$ /games-process-list [R=302,L,NC]
+RewriteRule ^bank_process_list\.php$ /bank-process-list [R=302,L,NC]
+
+# Clean URLs for pages still rendered by PHP
+RewriteRule ^member$ /member.php [L,NC,QSA]
+RewriteRule ^owner-secondary-password$ /owner_secondary_password.php [L,NC,QSA]
+RewriteRule ^reset-password$ /reset-password.php [L,NC,QSA]
+RewriteRule ^userlist$ /userlist.php [L,NC,QSA]
+RewriteRule ^ownership$ /ownership.php [L,NC,QSA]
+RewriteRule ^datacapture$ /datacapture.php [L,NC,QSA]
+RewriteRule ^transaction$ /transaction.php [L,NC,QSA]
+RewriteRule ^customer-report$ /customer_report.php [L,NC,QSA]
+RewriteRule ^payment-maintenance$ /payment_maintenance.php [L,NC,QSA]
+RewriteRule ^logout$ /dashboard.php?logout=1 [L,NC,QSA]
+
+# Existing files/directories are served normally
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA routes handled by React app build
+RewriteRule ^(login|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list)$ /frontend/dist/index.html [L,NC]
+
