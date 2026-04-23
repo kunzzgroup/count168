@@ -622,6 +622,7 @@ function searchApiApplyDomainSourceCompanyRows(
         if ($curCode === '') {
             continue;
         }
+        // amount 保留正负：冲正/退款为负时，池子 B/F 调整方向与代数一致；abs 仅用于近零判断
         $amt = trunc2((float) ($row['amount'] ?? 0));
         if (abs($amt) < 0.00001) {
             continue;
@@ -656,6 +657,7 @@ function searchApiApplyDomainSourceCompanyRows(
         if ($curCode === '') {
             continue;
         }
+        // 同上：按带符号 amount 累加 delta，不对金额取 abs
         $amt = trunc2((float) ($row['amount'] ?? 0));
         if (abs($amt) < 0.00001) {
             continue;

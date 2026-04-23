@@ -10970,13 +10970,13 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount 专用：.xxx 第三位小数≥5 则进位（round half up），避免浮点误差导致 36.785 显示为 36.78
+// Processed Amount 专用：不四舍五入，直接截断到 2 位小数（不进位）
 function roundProcessedAmountTo2Decimals(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
-    const sign = num >= 0 ? 1 : -1;
-    const absNum = Math.abs(num);
-    return sign * (Math.floor(absNum * 100 + 0.5 + 1e-10) / 100);
+    // 直接截断：12.349 -> 12.34, -12.349 -> -12.34
+    const truncated = Math.trunc(num * 100) / 100;
+    return Object.is(truncated, -0) ? 0 : truncated;
 }
 
 // Evaluate mathematical expression safely
@@ -10985,12 +10985,9 @@ function formatNumberWithThousands(value) {
     if (!Number.isFinite(num)) {
         return '0.00';
     }
-    // Round to 2 decimal places for display (四舍五入到2位小数用于显示)
-    // 使用一致的舍入逻辑：先取绝对值舍入，再恢复符号，确保正负数舍入结果一致
-    const sign = num >= 0 ? 1 : -1;
-    const absNum = Math.abs(num);
-    const rounded = sign * (Math.round(absNum * 100) / 100);
-    return rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // 显示层也保持“截断到 2 位小数”，避免 toLocaleString 自带舍入进位
+    const truncated = roundProcessedAmountTo2Decimals(num);
+    return truncated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function removeThousandsSeparators(value) {

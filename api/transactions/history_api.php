@@ -2485,6 +2485,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'
             ");
             $adjStmt->execute([$company_id, $account_id, $date_from, $currency_id]);
+            // SUM 保留符号：佣金合计为正则扣减 B/F；若存在负数冲正则代数相减
             $adj = (float) $adjStmt->fetchColumn();
             if (abs($adj) > 0.00001) {
                 $bf -= $adj;
