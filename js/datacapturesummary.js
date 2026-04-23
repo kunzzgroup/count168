@@ -19753,6 +19753,12 @@ async function submitSummaryData() {
             const templateKeyAttr = row.getAttribute('data-template-key') || '';
             const productTypeAttr = row.getAttribute('data-product-type');
             const parentIdProductAttr = row.getAttribute('data-parent-id-product');
+            const templateIdAttr = row.getAttribute('data-template-id');
+            const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
+            const subOrderAttr = row.getAttribute('data-sub-order');
+            const subOrder = subOrderAttr && subOrderAttr !== '' && !Number.isNaN(Number(subOrderAttr))
+                ? Number(subOrderAttr)
+                : null;
             // Get formulaVariant from row attribute if available
             const formulaVariantAttr = row.getAttribute('data-formula-variant');
             const formulaVariant = formulaVariantAttr && formulaVariantAttr !== '' ? parseInt(formulaVariantAttr, 10) : null;
@@ -19860,6 +19866,9 @@ async function submitSummaryData() {
                 inputMethod: inputMethodAttr,
                 enableInputMethod: enableInputMethodAttr ? 1 : 0,
                 batchSelection: batchSelectionValue ? 1 : 0,
+                templateKey: templateKeyAttr || null,
+                templateId: templateId, // Keep template identity so submit updates the exact sub row
+                subOrder: subOrder, // Keep sub row order so same formula/account rows don't collapse
                 formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                 rateChecked: rateChecked, // Rate checkbox state
                 rateValue: rateValue, // Rate Value column value (priority) or global rateInput value (if checkbox checked)

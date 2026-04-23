@@ -773,10 +773,11 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                   AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '') AND account_id = ?
                   AND COALESCE(TRIM(formula_operators), TRIM(formula_display), '') = ?
                   AND COALESCE(TRIM(input_method), '') = ?
+                  AND (COALESCE(sub_order, 0) = COALESCE(?, 0))
                   AND (data_capture_id IS NULL OR data_capture_id = 0)
                 ORDER BY updated_at DESC LIMIT 1
             ");
-            $anyParams = [$companyId, $parentIdProduct, $row['id_product'], $row['account_id'], $formulaForMatch, $inputMethodForMatch];
+            $anyParams = [$companyId, $parentIdProduct, $row['id_product'], $row['account_id'], $formulaForMatch, $inputMethodForMatch, $subOrder];
             if ($hasProcessId) {
                 array_splice($anyParams, 1, 0, [$processId]);
             }
