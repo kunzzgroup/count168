@@ -8,12 +8,11 @@ session_start();
 // session_write_close() 将在每个 session 写入点之后单独调用
 require_once __DIR__ . '/../../config.php';
 
-// 根路径（用于重定向，适配子目录部署）
-$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'], 2), '/');
+// 重定向与静态资源使用相对路径（相对当前脚本 URL …/api/users/），避免依赖 SCRIPT_NAME 或子目录部署时算错根路径导致 404
 
 // 检查用户是否已登录（必须是user类型，且属于c168公司）
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'user') {
-    header("Location: {$basePath}/index.php");
+    header('Location: ../../index.php');
     exit();
 }
 
@@ -41,12 +40,12 @@ function dbGetCompanyC168($pdo, $company_id) {
 if (!$is_c168) {
     $_SESSION['secondary_password_verified'] = true;
     session_write_close(); // 写入完成即释放 session 锁
-    header("Location: {$basePath}/dashboard.php");
+    header('Location: ../../dashboard.php');
     exit();
 }
 
 if (isset($_SESSION['secondary_password_verified']) && $_SESSION['secondary_password_verified'] === true) {
-    header("Location: {$basePath}/dashboard.php");
+    header('Location: ../../dashboard.php');
     exit();
 }
 
@@ -66,14 +65,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (password_verify($secondary_password, $user['secondary_password'])) {
                     $_SESSION['secondary_password_verified'] = true;
                     session_write_close(); // 写入完成即释放 session 锁
-                    header("Location: {$basePath}/dashboard.php");
+                    header('Location: ../../dashboard.php');
                     exit();
                 }
                 $error_message = 'Secondary password is incorrect';
             } else {
                 $_SESSION['secondary_password_verified'] = true;
                 session_write_close(); // 写入完成即释放 session 锁
-                header("Location: {$basePath}/dashboard.php");
+                header('Location: ../../dashboard.php');
                 exit();
             }
         } catch (PDOException $e) {
@@ -96,9 +95,14 @@ function dbGetUserSecondaryPassword($pdo, $user_id) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secondary Password Verification - EazyCount</title>
-    <link rel="stylesheet" href="<?php echo htmlspecialchars($basePath); ?>/css/style.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="../../css/style.css?v=<?php echo time(); ?>" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <?php
+    $global13 = __DIR__ . '/../../css/global-13inch.css';
+    $global13v = is_readable($global13) ? filemtime($global13) : time();
+    ?>
+    <link rel="stylesheet" href="../../css/global-13inch.css?v=<?php echo $global13v; ?>">
 </head>
 <body class="bg">
     <div class="login-container">
