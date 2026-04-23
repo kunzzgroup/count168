@@ -425,20 +425,45 @@ export default function BankProcessListPage() {
   useEffect(() => {
     let cancelled = false;
     const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css"), assetUrl("css/account-list.css"), assetUrl("css/date-range-picker.css")];
+    const waitForStylesheet = (href) =>
+      new Promise((resolve) => {
+        const markLoaded = (el) => {
+          try {
+            el.dataset.loaded = "1";
+          } catch {
+            /* ignore */
+          }
+          resolve(el);
+        };
+        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+        if (existing) {
+          if (existing.dataset.loaded === "1" || existing.sheet) {
+            resolve(existing);
+            return;
+          }
+          const onLoad = () => {
+            existing.removeEventListener("load", onLoad);
+            existing.removeEventListener("error", onError);
+            markLoaded(existing);
+          };
+          const onError = () => {
+            existing.removeEventListener("load", onLoad);
+            existing.removeEventListener("error", onError);
+            resolve(existing);
+          };
+          existing.addEventListener("load", onLoad, { once: true });
+          existing.addEventListener("error", onError, { once: true });
+          return;
+        }
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = href;
+        link.onload = () => markLoaded(link);
+        link.onerror = () => resolve(link);
+        document.head.appendChild(link);
+      });
     Promise.all(
-      hrefs.map(
-        (href) =>
-          new Promise((resolve) => {
-            const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-            if (existing) return resolve(existing);
-            const link = document.createElement("link");
-            link.rel = "stylesheet";
-            link.href = href;
-            link.onload = () => resolve(link);
-            link.onerror = () => resolve(link);
-            document.head.appendChild(link);
-          })
-      )
+      hrefs.map((href) => waitForStylesheet(href))
     ).then(() => {
       if (!cancelled) setCssReady(true);
     });
