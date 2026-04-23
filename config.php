@@ -1,8 +1,9 @@
 <?php
 $host = 'localhost';
-$dbname = 'u857194726_count_site';
-$dbuser = 'u857194726_countsite';
+$dbname = 'u857194726_count168';
+$dbuser = 'u857194726_count168';
 $dbpass = 'Kholdings1688@';
+
 
 if (is_file(__DIR__ . '/config.local.php')) {
     require __DIR__ . '/config.local.php';
