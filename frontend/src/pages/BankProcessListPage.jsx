@@ -248,8 +248,7 @@ function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUr
   return (
     <div className={`bank-process-status-wrap${open ? " is-open" : ""}`} ref={wrapRef}>
       <button type="button" className={pillClass} onClick={() => setOpen((o) => !o)}>
-        <span>{label}</span>
-        <span className={`bank-process-status-caret${open ? " is-open" : ""}`} aria-hidden="true">▾</span>
+        {label}
       </button>
       {open ? (
         <div className="bank-process-status-menu" role="listbox">
