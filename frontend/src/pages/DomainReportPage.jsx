@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 function loadScriptOnce(src) {
@@ -108,6 +109,8 @@ export default function DomainReportPage() {
           const sj = await sync.json();
           if (!sync.ok || !sj.success) {
             effective = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
+          } else {
+            notifyCompanySessionUpdated();
           }
         }
 

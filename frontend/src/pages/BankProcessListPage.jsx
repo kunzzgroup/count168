@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AccountAddModalSameAsList from "../components/AccountAddModalSameAsList.jsx";
+import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 const PAGE_SIZE = 20;
@@ -731,6 +732,7 @@ export default function BankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(json.message || json.error || "Switch company failed", "danger");
       setCompanyId(Number(c.id));
+      notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id);
       if (!bankCategory) {
         window.location.assign(new URL(`/process-list?company_id=${c.id}`, window.location.origin).toString());

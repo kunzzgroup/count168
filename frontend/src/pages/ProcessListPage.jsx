@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 function notifyTransactionDataChanged(sourceTag) {
@@ -277,6 +278,7 @@ export default function ProcessListPage() {
         return;
       }
       setCompanyId(Number(company.id));
+      notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(company.company_id);
       if (bankCategory) {
         window.location.assign(new URL(`/bank-process-list?company_id=${company.id}`, window.location.origin).toString());

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 import {
   ALL_ROLE_OPTIONS,
@@ -284,6 +285,7 @@ export default function UserListPage() {
         return;
       }
       setCompanyId(Number(c.id));
+      notifyCompanySessionUpdated();
       setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
     } catch {
       notify("Company switch failed", "danger");

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
 const PAGE_SIZE = 20;
@@ -294,6 +295,7 @@ export default function AccountListPage() {
         return;
       }
       setCompanyId(Number(c.id));
+      notifyCompanySessionUpdated();
       setCurrentPage(1);
       notify(`Switched to ${c.company_id}`, "success");
     } catch {

@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { buildApiUrl } from "../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { mergeGroupData } from "../utils/dashboardMerge.js";
 
 const DASHBOARD_API = "api/transactions/dashboard_api.php";
@@ -319,6 +320,7 @@ export default function TransactionDashboardPage() {
     }
     setCompanyId(parseInt(id, 10));
     setGroupAllMode(false);
+    notifyCompanySessionUpdated();
     return true;
   };
 
