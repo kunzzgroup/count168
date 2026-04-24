@@ -1250,6 +1250,14 @@ export default function OwnershipPage() {
                     <div className="own-card-header" style={{ cursor: "pointer" }} data-action="toggle" role="presentation">
                       <div className="own-card-header-left">
                         <div className="own-company-name">{gid}</div>
+                        {Array.isArray(grp.companies) && grp.companies.length > 0 && (
+                          <div className="own-company-date" style={{ marginTop: 2 }}>
+                            {grp.companies.map((c) => {
+                              const eq = parseFloat(c.group_equity) || 0;
+                              return eq > 0 ? `${c.name} (${eq}%)` : c.name;
+                            }).join(", ")}
+                          </div>
+                        )}
                       </div>
                       <div className="own-card-header-middle">
                         <div className="own-allocation-info">
