@@ -647,7 +647,7 @@ export default function TransactionDashboardPage() {
                       <button
                         type="button"
                         className="btn btn-secondary dropdown-toggle"
-                        style={{ minHeight: 24, padding: "1px 7px", fontSize: 11, justifySelf: "end" }}
+                        style={{ minHeight: 24, padding: "1px 6px", fontSize: 11, justifySelf: "end", minWidth: 74 }}
                         onClick={() => {
                           setQuickOpen((o) => !o);
                           setCalendarOpen(false);
