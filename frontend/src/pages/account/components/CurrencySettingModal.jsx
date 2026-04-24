@@ -16,7 +16,10 @@ export default function CurrencySettingModal({
   onLoadCurrencyLinks,
   onSave,
   accounts,
-  roles
+  roles,
+  currencyInput,
+  setCurrencyInput,
+  onCreateCurrency
 }) {
   if (!open) return null;
 
@@ -28,82 +31,151 @@ export default function CurrencySettingModal({
   });
 
   return (
-    <div className="account-modal" style={{ display: "block" }}>
-      <div className="account-modal-content" style={{ maxWidth: 800 }}>
-        <div className="account-modal-header">
+    <div id="currencySettingModal" className="currency-fullscreen-modal" style={{ display: "block" }}>
+      <div className="currency-fullscreen-modal-content">
+        {/* Top Header Bar */}
+        <div className="currency-fullscreen-modal-header-bar">
           <h2>Currency Setting</h2>
-          <span className="account-close" onClick={onClose}>&times;</span>
+          <button type="button" className="currency-btn-back" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            Back
+          </button>
         </div>
-        <div className="account-modal-body">
-          <div style={{ marginBottom: 20, display: "flex", gap: 15, alignItems: "center" }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: "block", marginBottom: 5 }}>Target Currency</label>
-              <select 
-                style={{ width: "100%", padding: "8px" }} 
-                value={settingCurrencyId || ""} 
-                onChange={(e) => {
-                  const id = Number(e.target.value);
-                  setSettingCurrencyId(id);
-                  onLoadCurrencyLinks(id);
-                }}
-              >
-                <option value="">Select Currency</option>
-                {currencies.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
-              </select>
+
+        {/* Body */}
+        <div className="currency-fullscreen-modal-body">
+          {/* Left Panel: Currency Management */}
+          <div className="currency-left-panel">
+            <div className="currency-setting-add-row-stacked">
+              <label>Add Currency :</label>
+              <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+                <input
+                  type="text"
+                  className="currency-setting-input"
+                  placeholder="Please enter new currency"
+                  value={currencyInput}
+                  onChange={(e) => setCurrencyInput(toUpper(e.target.value))}
+                />
+                <button
+                  type="button"
+                  className="account-btn account-btn-add currency-setting-add-btn"
+                  onClick={onCreateCurrency}
+                >
+                  Add
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: "block", marginBottom: 5 }}>Search Account</label>
-              <input 
-                style={{ width: "100%", padding: "8px" }} 
-                value={settingSearch} 
-                onChange={(e) => setSettingSearch(e.target.value)} 
-                placeholder="ID or Name"
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: "block", marginBottom: 5 }}>Role Filter</label>
-              <select 
-                style={{ width: "100%", padding: "8px" }} 
-                value={settingRole} 
-                onChange={(e) => setSettingRole(e.target.value)}
-              >
-                <option value="">All Roles</option>
-                {roles.map(r => <option key={r} value={r}>{toUpper(r)}</option>)}
-              </select>
+
+            <div className="currency-setting-divider"></div>
+
+            <div className="currency-setting-list-row-stacked">
+              <label>Currency :</label>
+              <div className="currency-setting-pill-list">
+                {currencies.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`currency-setting-pill ${settingCurrencyId === Number(c.id) ? "active" : ""}`}
+                    onClick={() => {
+                      const id = Number(c.id);
+                      setSettingCurrencyId(id);
+                      onLoadCurrencyLinks(id);
+                    }}
+                  >
+                    {c.code}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div style={{ maxHeight: 400, overflowY: "auto", border: "1px solid #eee", padding: 10 }}>
-            {!settingCurrencyId ? (
-              <div style={{ textAlign: "center", padding: 40, color: "#999" }}>Please select a currency first</div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-                {filteredAccounts.map(a => (
-                  <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, background: "#f9f9f9", borderRadius: 4, cursor: "pointer" }}>
-                    <input 
-                      type="checkbox" 
-                      checked={settingLinked.has(Number(a.id))}
-                      onChange={(e) => {
-                        const id = Number(a.id);
-                        setSettingLinked(prev => {
-                          const n = new Set(prev);
-                          if (e.target.checked) n.add(id); else n.delete(id);
-                          return n;
-                        });
-                      }}
-                    />
-                    <span style={{ fontSize: 13 }}>{toUpper(a.account_id)}</span>
-                  </label>
-                ))}
+          {/* Right Panel: Accounts */}
+          <div className="currency-right-panel">
+            <div className="currency-setting-filter-row">
+              <div className="currency-setting-search-wrap">
+                <svg className="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                </svg>
+                <input
+                  type="text"
+                  className="currency-setting-search-input"
+                  placeholder="Search Bar"
+                  value={settingSearch}
+                  onChange={(e) => setSettingSearch(e.target.value)}
+                />
               </div>
-            )}
+              <div className="currency-setting-role-filter">
+                <select
+                  className="currency-setting-select"
+                  value={settingRole}
+                  onChange={(e) => setSettingRole(e.target.value)}
+                >
+                  <option value="">Filter Row</option>
+                  {roles.map(r => (
+                    <option key={r} value={r}>{toUpper(r)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="currency-setting-selectall-row">
+              <button
+                type="button"
+                className="account-btn currency-setting-selectall-btn"
+                onClick={() => {
+                  const allIds = filteredAccounts.map(a => Number(a.id));
+                  const allSelected = allIds.every(id => settingLinked.has(id));
+                  setSettingLinked(prev => {
+                    const n = new Set(prev);
+                    if (allSelected) {
+                      allIds.forEach(id => n.delete(id));
+                    } else {
+                      allIds.forEach(id => n.add(id));
+                    }
+                    return n;
+                  });
+                }}
+              >
+                Select All
+              </button>
+              <span className="currency-setting-selected-count">{settingLinked.size} selected</span>
+            </div>
+
+            <div className="currency-setting-account-list">
+              {filteredAccounts.map(a => (
+                <div key={a.id} className="account-item-compact">
+                  <input
+                    type="checkbox"
+                    checked={settingLinked.has(Number(a.id))}
+                    onChange={(e) => {
+                      const id = Number(a.id);
+                      setSettingLinked(prev => {
+                        const n = new Set(prev);
+                        if (e.target.checked) n.add(id); else n.delete(id);
+                        return n;
+                      });
+                    }}
+                  />
+                  <label className="account-label">{toUpper(a.account_id)}</label>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="account-modal-footer" style={{ padding: "15px 20px", textAlign: "right" }}>
-          <button className="account-btn account-btn-save" onClick={onSave} disabled={!settingCurrencyId}>Save Settings</button>
-          <button className="account-btn account-btn-cancel" onClick={onClose} style={{ marginLeft: 10 }}>Cancel</button>
+
+        {/* Fixed Bottom Bar */}
+        <div className="currency-fullscreen-bottom-bar">
+          <button type="button" className="account-btn account-btn-save currency-setting-submit-btn" onClick={onSave}>
+            Save
+          </button>
+          <button type="button" className="account-btn account-btn-cancel currency-setting-cancel-btn" onClick={onClose}>
+            Cancel
+          </button>
         </div>
       </div>
     </div>
   );
 }
+

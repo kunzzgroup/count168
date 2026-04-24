@@ -283,6 +283,20 @@ export default function AccountListPage() {
     } catch { notify("Error loading account", "danger"); }
   };
 
+  const confirmDelete = async () => {
+    try {
+      const fd = new FormData();
+      selectedDeleteIds.forEach(id => fd.append("ids[]", id));
+      const res = await fetch(buildApiUrl("api/accounts/delete_api.php"), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notify(json.message || "Delete failed", "danger");
+      setConfirmDeleteOpen(false);
+      setSelectedDeleteIds(new Set());
+      notify(json.message || "Accounts deleted successfully");
+      fetchAccounts();
+    } catch { notify("Delete failed", "danger"); }
+  };
+
   const saveForm = async (e) => {
     e.preventDefault();
     const amount = normalizeAlertAmount(form.alert_amount);
@@ -406,8 +420,8 @@ export default function AccountListPage() {
       {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
 
       <AccountFormModal open={addModalOpen || editModalOpen} isEditMode={isEditMode} form={form} setForm={setForm} roles={roles} currencies={currencies} companies={companies} selectedCurrencyIds={selectedCurrencyIds} setSelectedCurrencyIds={setSelectedCurrencyIds} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} onRemoveCurrency={() => {}} onSave={saveForm} onClose={() => { setAddModalOpen(false); setEditModalOpen(false); }} />
-      <AccountConfirmModal open={confirmDeleteOpen} count={selectedDeleteIds.size} onConfirm={() => {}} onClose={() => setConfirmDeleteOpen(false)} />
-      <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onSave={saveCurrencySetting} accounts={accounts} roles={roles} />
+      <AccountConfirmModal open={confirmDeleteOpen} message={`Are you sure you want to delete ${selectedDeleteIds.size} selected account(s)?`} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} />
+      <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} />
     </>
   );
 }
