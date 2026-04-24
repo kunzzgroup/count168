@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
-import { formatDomainFeeDisplay2, formatDomainFeeEdit2 } from "../../pages/domainHelpers.js";
+import { formatDomainFeeDisplay2, formatDomainFeeEdit2 } from "../domainHelpers.js";
 
 /**
  * Fee Settings Modal — Price setting for domain list

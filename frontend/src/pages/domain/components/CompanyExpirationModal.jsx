@@ -1,4 +1,4 @@
-import { calculateCountdown, formatDate } from "../../pages/domainHelpers.js";
+import { calculateCountdown, formatDate } from "../domainHelpers.js";
 
 /**
  * Company Expiration Status Modal (read-only view)

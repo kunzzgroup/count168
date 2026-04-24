@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import {
   SINGLE_CATEGORY_MODE,
@@ -13,7 +13,7 @@ import {
   sumFeeShareRolePercentages,
   computeShareTotals,
   formatShareRowAmount2,
-} from "../../pages/domainHelpers.js";
+} from "../domainHelpers.js";
 
 const PERMISSION_LIST = [
   { value: "Games", id: "permGambling" },

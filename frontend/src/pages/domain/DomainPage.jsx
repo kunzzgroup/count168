@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
 import {
   ROWS_PER_PAGE,
   MAX_VISIBLE_CHIPS,
@@ -11,11 +11,11 @@ import {
 } from "./domainHelpers.js";
 
 // Sub-components
-import DomainNotification, { showDomainAlert } from "../components/domain/DomainNotification.jsx";
-import DomainConfirmModal from "../components/domain/DomainConfirmModal.jsx";
-import DomainFeeModal from "../components/domain/DomainFeeModal.jsx";
-import CompanyExpirationModal from "../components/domain/CompanyExpirationModal.jsx";
-import DomainFormModal from "../components/domain/DomainFormModal.jsx";
+import DomainNotification, { showDomainAlert } from "./components/DomainNotification.jsx";
+import DomainConfirmModal from "./components/DomainConfirmModal.jsx";
+import DomainFeeModal from "./components/DomainFeeModal.jsx";
+import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
+import DomainFormModal from "./components/DomainFormModal.jsx";
 
 export default function DomainPage() {
   const navigate = useNavigate();

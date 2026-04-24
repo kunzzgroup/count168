@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
 import {
@@ -12,7 +12,7 @@ import {
   forceUppercaseValue,
   forceLowercaseValue,
   forceNumericValue,
-} from "../../pages/domainHelpers.js";
+} from "../domainHelpers.js";
 
 /**
  * Domain Add/Edit Modal

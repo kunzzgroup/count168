@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 
 const ALERT_TYPE_OPTIONS = [

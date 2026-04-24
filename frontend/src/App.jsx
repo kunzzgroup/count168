@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/LoginPage.jsx";
 import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
-import DomainPage from "./pages/DomainPage.jsx";
+import DomainPage from "./pages/domain/DomainPage.jsx";
 import AnnouncementPage from "./pages/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import AccountListPage from "./pages/AccountListPage.jsx";
