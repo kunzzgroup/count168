@@ -140,15 +140,12 @@ body.dashboard-page {
 
 /* Company & Currency Buttons */
 .transaction-company-filter {
-    display: flex;
+    display: flex !important;
     align-items: center;
     gap: clamp(8px, 0.8vw, 12px);
     margin-top: 10px;
     min-width: 0;
     width: 100%;
-    display: grid;
-    grid-template-columns: 74px minmax(0, 1fr);
-    column-gap: clamp(8px, 0.8vw, 12px);
 }
 
 .transaction-company-filter--group {
@@ -178,7 +175,9 @@ body.dashboard-page {
     flex-wrap: nowrap;
     gap: 6px;
     align-items: center;
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
+    max-width: calc(100% - 86px);
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
