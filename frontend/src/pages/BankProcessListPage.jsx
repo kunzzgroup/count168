@@ -1740,7 +1740,7 @@ export default function BankProcessListPage() {
               <div className="bank-form" style={{ display: "block" }}>
                 <div id="profitSharingRowsContainer">
                   {profitShareRows.map((row, idx) => (
-                    <div key={`ps-${idx}`} className="form-row bank-row-two-cols profit-sharing-row" style={{ alignItems: "flex-end", gap: 8 }}>
+                    <div key={`ps-${idx}`} className="form-row bank-row-two-cols profit-sharing-row">
                       <div className="form-group" style={{ flex: 1 }}>
                         <label>Account</label>
                         <div className="account-select-with-buttons">
@@ -1760,7 +1760,9 @@ export default function BankProcessListPage() {
                         <label>Amount</label>
                         <input type="number" className="bank-input profit-sharing-amount" placeholder="Amount" step="0.01" min="0" value={row.amount} onChange={(e) => setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: e.target.value } : r)))} />
                       </div>
-                      <button type="button" className="btn btn-delete" style={{ marginBottom: 4 }} onClick={() => removeProfitShareRow(idx)} aria-label="Remove row">×</button>
+                      <div className="form-group profit-sharing-delete-cell">
+                        <button type="button" className="profit-sharing-delete-row-btn" onClick={() => removeProfitShareRow(idx)} aria-label="Remove row">×</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1799,20 +1801,7 @@ export default function BankProcessListPage() {
           </div>
         </div>
       )}
-      <AccountAddModalSameAsList
-        open={addAccountModalOpen}
-        onClose={() => {
-          setAddAccountModalOpen(false);
-          setAccountPlusTarget(null);
-        }}
-        companyId={companyId}
-        companies={companies}
-        roles={rolesList}
-        currencies={accountModalCurrencies}
-        setCurrencies={setAccountModalCurrencies}
-        notify={notify}
-        onSuccess={(data) => void handleAccountModalSuccess(data)}
-      />
+
       {accountingOpen && (
         <div id="processAccountingDueModal" className="modal" style={{ display: "block" }}>
           <div className="modal-content accounting-due-modal-content">
