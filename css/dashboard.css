@@ -145,6 +145,10 @@ body.dashboard-page {
     gap: clamp(8px, 0.8vw, 12px);
     margin-top: 10px;
     min-width: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    column-gap: clamp(8px, 0.8vw, 12px);
 }
 
 .transaction-company-filter--group {
@@ -174,7 +178,7 @@ body.dashboard-page {
     flex-wrap: nowrap;
     gap: 6px;
     align-items: center;
-    flex: 1;
+    width: 100%;
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
