@@ -675,6 +675,19 @@ body.dashboard-page {
     margin-bottom: clamp(6px, 0.8vw, 8px);
 }
 
+/* Quick period: trigger stays narrow; menu must not inherit 100% of that width */
+.dashboard-date-controls .dropdown .dropdown-menu {
+    width: max-content;
+    min-width: 168px;
+    left: auto;
+    right: 0;
+    box-sizing: border-box;
+}
+
+.dashboard-date-controls .dropdown .dropdown-item {
+    white-space: nowrap;
+}
+
 /* 日期范围选择器样式 */
 .date-range-picker {
     display: flex;
