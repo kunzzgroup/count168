@@ -99,6 +99,12 @@ export default function AuthenticatedLayout() {
   const toggleSidebarSection = (section) => {
     setOpenSidebarSection((prev) => (prev === section ? null : section));
   };
+  const isSidebarOpen = (section) => {
+    if (openSidebarSection === section) return true;
+    if (section === "report" && path === "/customer-report") return true;
+    if (section === "maintenance" && path === "/payment-maintenance") return true;
+    return false;
+  };
 
   useEffect(() => {
     if (path === "/customer-report") {
@@ -196,9 +202,13 @@ export default function AuthenticatedLayout() {
           )}
           {canAccess("report") && me?.company_has_gambling && (
             <div className="informationmenu-section">
-              <div className="menu-item-wrapper">
+              <div
+                className="menu-item-wrapper"
+                onMouseEnter={() => setOpenSidebarSection("report")}
+                onMouseLeave={() => setOpenSidebarSection(null)}
+              >
                 <div
-                  className={`informationmenu-section-title ${openSidebarSection === "report" ? "active" : ""}`}
+                  className={`informationmenu-section-title ${isSidebarOpen("report") ? "active" : ""}`}
                   data-section="report"
                   onClick={() => toggleSidebarSection("report")}
                   role="presentation"
@@ -209,7 +219,27 @@ export default function AuthenticatedLayout() {
                   Report
                   <span className="section-arrow">▶</span>
                 </div>
-                <div className="submenu" id="report-submenu" style={{ display: openSidebarSection === "report" ? "block" : "none" }}>
+                <div
+                  className="submenu"
+                  id="report-submenu"
+                  style={
+                    isSidebarOpen("report")
+                      ? {
+                          position: "absolute",
+                          top: 0,
+                          left: "100%",
+                          opacity: 1,
+                          visibility: "visible",
+                          transform: "translateX(0)",
+                          pointerEvents: "auto",
+                        }
+                      : {
+                          position: "absolute",
+                          top: 0,
+                          left: "100%",
+                        }
+                  }
+                >
                   <div className="submenu-content">
                     <a
                       href={webHref("/customer-report")}
@@ -231,9 +261,13 @@ export default function AuthenticatedLayout() {
           )}
           {canAccess("maintenance") && (
             <div className="informationmenu-section">
-              <div className="menu-item-wrapper">
+              <div
+                className="menu-item-wrapper"
+                onMouseEnter={() => setOpenSidebarSection("maintenance")}
+                onMouseLeave={() => setOpenSidebarSection(null)}
+              >
                 <div
-                  className={`informationmenu-section-title ${openSidebarSection === "maintenance" ? "active" : ""}`}
+                  className={`informationmenu-section-title ${isSidebarOpen("maintenance") ? "active" : ""}`}
                   data-section="maintenance"
                   onClick={() => toggleSidebarSection("maintenance")}
                   role="presentation"
@@ -244,7 +278,27 @@ export default function AuthenticatedLayout() {
                   Maintenance
                   <span className="section-arrow">▶</span>
                 </div>
-                <div className="submenu" id="maintenance-submenu" style={{ display: openSidebarSection === "maintenance" ? "block" : "none" }}>
+                <div
+                  className="submenu"
+                  id="maintenance-submenu"
+                  style={
+                    isSidebarOpen("maintenance")
+                      ? {
+                          position: "absolute",
+                          top: 0,
+                          left: "100%",
+                          opacity: 1,
+                          visibility: "visible",
+                          transform: "translateX(0)",
+                          pointerEvents: "auto",
+                        }
+                      : {
+                          position: "absolute",
+                          top: 0,
+                          left: "100%",
+                        }
+                  }
+                >
                   <div className="submenu-content">
                     {me?.company_has_gambling && (
                       <a href={webHref("/capture_maintenance.php")} className="submenu-item">
