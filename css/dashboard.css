@@ -678,7 +678,7 @@ body.dashboard-page {
 /* Quick period (React): #id beats .dropdown-menu { width:100% } on narrow .dropdown */
 #quick-select-dropdown.dropdown-menu {
     width: max-content !important;
-    min-width: 200px !important;
+    min-width: 260px !important;
     left: auto !important;
     right: 0 !important;
     box-sizing: border-box;
@@ -690,6 +690,8 @@ body.dashboard-page {
     max-width: 100%;
     box-sizing: border-box;
     display: block;
+    padding-left: clamp(12px, 1.1vw, 18px);
+    padding-right: clamp(12px, 1.1vw, 18px);
 }
 
 /* 日期范围选择器样式 */
