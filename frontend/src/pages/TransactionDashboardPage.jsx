@@ -308,11 +308,6 @@ export default function TransactionDashboardPage() {
       [...new Set(companies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase()))].sort(),
     [companies]
   );
-  const activeCompanyLabel = useMemo(() => {
-    if (groupAllMode && selectedGroup) return "All";
-    const current = filteredCompanies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
-    return current?.company_id || "-";
-  }, [groupAllMode, selectedGroup, filteredCompanies, companyId]);
 
   const switchCompany = async (id) => {
     const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
@@ -871,89 +866,80 @@ export default function TransactionDashboardPage() {
                   </div>
                 </div>
 
-                <div className="dashboard-filter-stack">
-                  {groupIds.length > 0 && (
-                    <div className="transaction-company-filter transaction-company-filter--group">
-                      <span className="transaction-company-label">GroupID:</span>
-                      <div className="transaction-company-buttons">
-                        {groupIds.map((gid) => (
-                          <button
-                            key={gid}
-                            type="button"
-                            className={`transaction-company-btn${selectedGroup === gid ? " active" : ""}`}
-                            onClick={() => onGroupClick(gid)}
-                          >
-                            {gid}
-                          </button>
-                        ))}
-                      </div>
+                {groupIds.length > 0 && (
+                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 12 }}>
+                    <span className="transaction-company-label">GroupID:</span>
+                    <div className="transaction-company-buttons">
+                      {groupIds.map((gid) => (
+                        <button
+                          key={gid}
+                          type="button"
+                          className={`transaction-company-btn${selectedGroup === gid ? " active" : ""}`}
+                          onClick={() => onGroupClick(gid)}
+                        >
+                          {gid}
+                        </button>
+                      ))}
                     </div>
-                  )}
-
-                  <div className="dashboard-filter-dual">
-                    {filteredCompanies.length > 0 && (
-                      <div className="transaction-company-filter transaction-company-filter--compact">
-                        <span className="transaction-company-label">Company:</span>
-                        <div className="transaction-company-buttons">
-                          {selectedGroup && filteredCompanies.length > 1 && (
-                            <button
-                              type="button"
-                              className={`transaction-company-btn dashboard-all-btn${groupAllMode ? " active" : ""}`}
-                              onClick={async () => {
-                                if (groupAllMode) {
-                                  setGroupAllMode(false);
-                                  await switchCompany(filteredCompanies[0].id);
-                                } else {
-                                  setGroupAllMode(true);
-                                }
-                              }}
-                            >
-                              All
-                            </button>
-                          )}
-                          {filteredCompanies.map((c) => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              className={`transaction-company-btn${
-                                !groupAllMode && parseInt(c.id, 10) === parseInt(companyId, 10) ? " active" : ""
-                              }`}
-                              onClick={async () => {
-                                setGroupAllMode(false);
-                                await switchCompany(c.id);
-                              }}
-                            >
-                              {c.company_id}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {currencies.length > 0 && (
-                      <div className="transaction-company-filter transaction-company-filter--compact">
-                        <span className="transaction-company-label">Currency:</span>
-                        <div className="transaction-company-buttons">
-                          {currencies.map((code) => (
-                            <button
-                              key={code}
-                              type="button"
-                              className={`transaction-company-btn${currencyCode === code ? " active" : ""}`}
-                              onClick={() => setCurrencyCode(code)}
-                            >
-                              {code}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
+                )}
 
-                  <div className="dashboard-filter-summary">
-                    Group: <strong>{selectedGroup || "-"}</strong> | Company: <strong>{activeCompanyLabel}</strong> |
-                    Currency: <strong>{currencyCode || "-"}</strong>
+                {filteredCompanies.length > 0 && (
+                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
+                    <span className="transaction-company-label">Company:</span>
+                    <div className="transaction-company-buttons">
+                      {selectedGroup && filteredCompanies.length > 1 && (
+                        <button
+                          type="button"
+                          className={`transaction-company-btn dashboard-all-btn${groupAllMode ? " active" : ""}`}
+                          onClick={async () => {
+                            if (groupAllMode) {
+                              setGroupAllMode(false);
+                              await switchCompany(filteredCompanies[0].id);
+                            } else {
+                              setGroupAllMode(true);
+                            }
+                          }}
+                        >
+                          All
+                        </button>
+                      )}
+                      {filteredCompanies.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`transaction-company-btn${
+                            !groupAllMode && parseInt(c.id, 10) === parseInt(companyId, 10) ? " active" : ""
+                          }`}
+                          onClick={async () => {
+                            setGroupAllMode(false);
+                            await switchCompany(c.id);
+                          }}
+                        >
+                          {c.company_id}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {currencies.length > 0 && (
+                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
+                    <span className="transaction-company-label">Currency:</span>
+                    <div className="transaction-company-buttons">
+                      {currencies.map((code) => (
+                        <button
+                          key={code}
+                          type="button"
+                          className={`transaction-company-btn${currencyCode === code ? " active" : ""}`}
+                          onClick={() => setCurrencyCode(code)}
+                        >
+                          {code}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
