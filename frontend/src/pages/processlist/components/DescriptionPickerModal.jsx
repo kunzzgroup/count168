@@ -53,9 +53,9 @@ export default function DescriptionPickerModal({
                   </div>
                 ) : (
                   localSelected.map((item) => (
-                    <div key={item.id} className="selected-description-item">
-                      {item.name}
-                      <span className="remove-selected" onClick={() => toggleSelect(item)}>&times;</span>
+                    <div key={item.id} className="selected-description-modal-item">
+                      <span>{item.name}</span>
+                      <button type="button" className="remove-description-modal" onClick={() => toggleSelect(item)}>&times;</button>
                     </div>
                   ))
                 )}
@@ -93,18 +93,20 @@ export default function DescriptionPickerModal({
                 {filteredDescriptions.map((d) => {
                   const isSelected = localSelected.some((item) => String(item.id) === String(d.id));
                   return (
-                    <div key={d.id} className="description-list-item">
-                      <label className="description-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelect(d)}
-                        />
-                        <span style={{ marginLeft: "8px" }}>{d.name}</span>
+                    <div key={d.id} className="description-item">
+                      <input
+                        type="checkbox"
+                        id={`desc_checkbox_${d.id}`}
+                        checked={isSelected}
+                        onChange={() => toggleSelect(d)}
+                        style={{ margin: 0 }}
+                      />
+                      <label htmlFor={`desc_checkbox_${d.id}`}>
+                        {d.name}
                       </label>
                       <button
                         type="button"
-                        className="delete-description-btn"
+                        className="remove-description"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDeleteDescription(d.id);
