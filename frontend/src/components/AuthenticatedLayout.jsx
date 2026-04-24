@@ -200,7 +200,7 @@ export default function AuthenticatedLayout() {
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
                 <div
                   ref={reportTitleRef}
-                  className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain_report.php") ? "active" : ""}`}
+                  className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
                   data-section="report"
                   onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
                   role="presentation"
@@ -242,7 +242,14 @@ export default function AuthenticatedLayout() {
                     >
                       <span>Customer Report</span>
                     </a>
-                    <a href={webHref("/domain_report.php")} className="submenu-item">
+                    <a
+                      href={webHref("/domain-report")}
+                      className={`submenu-item ${path === "/domain-report" ? "current-page" : ""}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate("/domain-report");
+                      }}
+                    >
                       <span>Domain Report</span>
                     </a>
                   </div>

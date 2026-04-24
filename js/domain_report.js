@@ -1,3 +1,11 @@
+function drApi(pathWithQuery) {
+    const clean = String(pathWithQuery || '').replace(/^\//, '');
+    if (typeof window.__drApiHref === 'function') {
+        return window.__drApiHref(clean);
+    }
+    return '/' + clean;
+}
+
 function showNotification(message, type = 'success') {
     const container = document.getElementById('domainReportNotificationContainer');
 
@@ -47,7 +55,7 @@ let loadReportTimeout;
 async function fetchCompanyPermissions(companyCode) {
     if (!companyCode) return [];
     try {
-        const response = await fetch('api/domain/domain_api.php', {
+        const response = await fetch(drApi('api/domain/domain_api.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
@@ -73,13 +81,18 @@ function isBankOnlyCategoryCompany(permissions) {
 async function switchCompany(companyId, companyCode) {
     // 先更新 session
     try {
-        const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+        const response = await fetch(drApi(`api/session/update_company_session_api.php?company_id=${companyId}`));
         const result = await response.json();
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
             // 即使 API 失败，也继续更新前端状态
         } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
             window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
+            if (window.__DOMAIN_REPORT_SPA_MODE) {
+                try {
+                    window.dispatchEvent(new CustomEvent("eazycount:company-session-updated"));
+                } catch (e) { /* ignore */ }
+            }
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);
@@ -89,7 +102,11 @@ async function switchCompany(companyId, companyCode) {
     currentCompanyId = companyId;
     const permissions = await fetchCompanyPermissions(companyCode || '');
     if (isBankOnlyCategoryCompany(permissions)) {
-        window.location.href = 'dashboard.php';
+        if (window.__DOMAIN_REPORT_SPA_MODE) {
+            window.location.href = '/dashboard';
+        } else {
+            window.location.href = 'dashboard.php';
+        }
         return;
     }
 
@@ -123,7 +140,7 @@ async function loadProcesses() {
         if (currentCompanyId) {
             params.append('company_id', currentCompanyId);
         }
-        const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
+        const response = await fetch(drApi(`api/reports/domain_report_api.php?${params.toString()}`));
         const data = await response.json();
         if (data.success) {
             const processButton = document.getElementById('processSelect');
@@ -393,7 +410,7 @@ async function loadReport() {
             params.append('company_id', currentCompanyId);
         }
 
-        const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
+        const response = await fetch(drApi(`api/reports/domain_report_api.php?${params.toString()}`));
         const result = await response.json();
 
         if (result.success) {
@@ -470,7 +487,13 @@ function renderReport(data, totals = null) {
     document.getElementById('domainReportTotal').style.display = 'grid';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initDomainReportPage() {
+    const processSelectBtn = document.getElementById('processSelect');
+    if (!processSelectBtn || processSelectBtn.getAttribute('data-dr-spa-init') === '1') {
+        return;
+    }
+    processSelectBtn.setAttribute('data-dr-spa-init', '1');
+
     let modeCode = typeof window.SIDEBAR_COMPANY_CODE !== 'undefined' ? String(window.SIDEBAR_COMPANY_CODE) : '';
     if (!modeCode && typeof window.DOMAIN_REPORT_COMPANY_ID !== 'undefined') {
         modeCode = String(window.DOMAIN_REPORT_COMPANY_ID);
@@ -482,7 +505,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (window.history.length > 1) {
                 window.history.back();
             } else {
-                window.location.href = 'dashboard.php';
+                window.location.href = window.__DOMAIN_REPORT_SPA_MODE ? '/dashboard' : 'dashboard.php';
             }
             return;
         }
@@ -498,4 +521,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadReport();
 
     document.getElementById('processSelect').addEventListener('change', debouncedLoadReport);
-});
+}
+
+window.switchCompany = switchCompany;
+
+if (window.__DOMAIN_REPORT_SPA_MODE) {
+    window.__initDomainReportPage = initDomainReportPage;
+} else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDomainReportPage, { once: true });
+} else {
+    initDomainReportPage();
+}
