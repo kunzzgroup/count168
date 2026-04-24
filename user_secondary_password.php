@@ -1,22 +1,22 @@
 <?php
 /**
  * 二级密码验证页（仅 C168 公司 user 类型）
- * 路径: api/users/user_secondary_password.php
+ * 与 index.php 同级，位于站点应用根目录。
  */
 session_start();
 // 注意：此文件需要写入 session（设置 secondary_password_verified）
 // session_write_close() 将在每个 session 写入点之后单独调用
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/config.php';
 
 /**
  * 应用根在站点内的 URL 路径：'' 表示域名根下；'/subdir' 表示子目录安装。
- * 仅用 SCRIPT_NAME 上溯 3 级（本文件在 …/api/users/），与浏览器地址栏一致。
+ * 本文件在应用根（与 index.php 同级），用 SCRIPT_NAME 上溯 1 级得到 URL 前缀。
  * 不要用 DOCUMENT_ROOT+realpath：磁盘路径常在 …/public_html/api，会得到 tail=api → 误判为 /api/css（404）。
  */
 $appWebBase = '';
 $sn = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
 if ($sn !== '' && $sn !== '/') {
-    $up = str_replace('\\', '/', dirname($sn, 3));
+    $up = str_replace('\\', '/', dirname($sn, 1));
     if ($up !== '/' && $up !== '' && $up !== '.') {
         $appWebBase = rtrim($up, '/');
     }
@@ -117,7 +117,7 @@ function dbGetUserSecondaryPassword($pdo, $user_id) {
     <title>Secondary Password Verification - EazyCount</title>
     <?php
     $styleHref = htmlspecialchars($toAppPath('css/style.css'), ENT_QUOTES, 'UTF-8');
-    $global13 = __DIR__ . '/../../css/global-13inch.css';
+    $global13 = __DIR__ . '/css/global-13inch.css';
     $global13v = is_readable($global13) ? filemtime($global13) : time();
     $global13Href = htmlspecialchars($toAppPath('css/global-13inch.css'), ENT_QUOTES, 'UTF-8');
     ?>
