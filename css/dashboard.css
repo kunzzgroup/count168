@@ -1,5 +1,6 @@
 body.dashboard-page {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    /* Rounded UI sans (aligned with dashboard reference); falls back to system fonts */
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     margin: 0;
     padding: 0;
     height: 100vh;
@@ -131,8 +132,8 @@ body.dashboard-page {
     margin-top: 0;
     margin-bottom: clamp(6px, 0.5vw, 10px);
     font-size: clamp(20px, 1.8vw, 32px);
-    font-family: 'Amaranth';
-    font-weight: 500;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 700;
     letter-spacing: -0.025em;
     flex-shrink: 0;
 }
@@ -150,7 +151,7 @@ body.dashboard-page {
     font-weight: bold;
     color: #374151;
     font-size: clamp(9px, 0.82vw, 15px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     white-space: nowrap;
     min-width: 0px;
     display: inline-block;
@@ -296,7 +297,7 @@ body.dashboard-page {
     color: #6b7280;
     font-weight: 600;
     letter-spacing: 0.04em;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Earnings card specifically kept uppercase */
@@ -308,7 +309,7 @@ body.dashboard-page {
     font-size: clamp(18px, 1.4vw, 26px);
     font-weight: 700;
     color: #111827;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     white-space: nowrap;
 }
 
@@ -379,7 +380,7 @@ body.dashboard-page {
     font-size: clamp(16px, 1.25vw, 24px);
     font-weight: 600;
     color: #111827;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .dashboard-chart-buttons {
@@ -400,7 +401,7 @@ body.dashboard-page {
     font-weight: 500;
     color: #374151;
     transition: all 0.2s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: inherit;
 }
 
 .chart-data-btn:hover {
@@ -748,7 +749,7 @@ body.dashboard-page {
     border: 1px solid transparent;
     font-size: clamp(9px, 0.82vw, 15px);
     color: #374151;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .date-part:hover {
@@ -768,7 +769,7 @@ body.dashboard-page {
     font-weight: 500;
     user-select: none;
     margin: 0 2px;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .date-dropdown {
@@ -869,7 +870,7 @@ body.dashboard-page {
     color: #374151;
     background: transparent;
     border: 1px solid transparent;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .date-option:hover {
@@ -895,7 +896,7 @@ body.dashboard-page {
     font-size: clamp(9px, 0.82vw, 15px);
     color: #6b7280;
     font-weight: 600;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* 分隔线 */
@@ -956,7 +957,7 @@ body.dashboard-page {
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .dropdown-item:hover {
@@ -982,7 +983,7 @@ body.dashboard-page {
     gap: clamp(4px, 0.6vw, 8px);
     transition: all 0.2s;
     text-decoration: none;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .dropdown .btn {
@@ -1011,7 +1012,7 @@ body.dashboard-page {
     font-weight: bold;
     color: #000000ff;
     margin-bottom: clamp(4px, 0.5vw, 8px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .date-info {
@@ -1021,7 +1022,7 @@ body.dashboard-page {
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
     background: rgba(255, 255, 255, 1);
     border-radius: 6px;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* 日历弹窗样式 */
@@ -1084,7 +1085,7 @@ body.dashboard-page {
     background: white;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .calendar-month-year select:hover {
@@ -1110,7 +1111,7 @@ body.dashboard-page {
     font-weight: 600;
     color: #898989;
     padding: clamp(2px, 0.21vw, 4px) 0;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .calendar-days {
@@ -1134,7 +1135,7 @@ body.dashboard-page {
     border: 1px solid transparent;
     position: relative;
     padding: clamp(2px, 0.3vw, 4px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .calendar-day:hover {
@@ -1213,7 +1214,7 @@ body.dashboard-page {
     border-radius: 6px;
     margin-bottom: clamp(4px, 0.5vw, 8px);
     border: 1px solid #e5e7eb;
-    font-family: 'Amaranth', sans-serif;
+    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .text-green {
