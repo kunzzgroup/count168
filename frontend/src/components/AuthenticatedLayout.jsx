@@ -33,6 +33,7 @@ export default function AuthenticatedLayout() {
   const location = useLocation();
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [openSidebarSection, setOpenSidebarSection] = useState(null);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -95,6 +96,20 @@ export default function AuthenticatedLayout() {
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
   const logout = () => window.location.assign(new URL("/logout", window.location.origin).href);
   const path = location.pathname;
+  const toggleSidebarSection = (section) => {
+    setOpenSidebarSection((prev) => (prev === section ? null : section));
+  };
+
+  useEffect(() => {
+    if (path === "/customer-report") {
+      setOpenSidebarSection("report");
+      return;
+    }
+    if (path === "/payment-maintenance") {
+      setOpenSidebarSection("maintenance");
+      return;
+    }
+  }, [path]);
 
   if (loading) return null;
   if (!me) return <Navigate to="/login" replace />;
@@ -179,8 +194,93 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
-          {canAccess("report") && me?.company_has_gambling && <div className="informationmenu-section"><div className="informationmenu-section-title" onClick={() => window.location.assign(webHref("/customer-report"))} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" /></svg>Report</div></div>}
-          {canAccess("maintenance") && <div className="informationmenu-section"><div className="informationmenu-section-title" onClick={() => window.location.assign(webHref("/payment-maintenance"))} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" /></svg>Maintenance</div></div>}
+          {canAccess("report") && me?.company_has_gambling && (
+            <div className="informationmenu-section">
+              <div className="menu-item-wrapper">
+                <div
+                  className={`informationmenu-section-title ${openSidebarSection === "report" ? "active" : ""}`}
+                  data-section="report"
+                  onClick={() => toggleSidebarSection("report")}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                  </svg>
+                  Report
+                  <span className="section-arrow">▶</span>
+                </div>
+                <div className="submenu" id="report-submenu" style={{ display: openSidebarSection === "report" ? "block" : "none" }}>
+                  <div className="submenu-content">
+                    <a
+                      href={webHref("/customer-report")}
+                      className={`submenu-item ${path === "/customer-report" ? "current-page" : ""}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate("/customer-report");
+                      }}
+                    >
+                      <span>Customer Report</span>
+                    </a>
+                    <a href={webHref("/domain_report.php")} className="submenu-item">
+                      <span>Domain Report</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {canAccess("maintenance") && (
+            <div className="informationmenu-section">
+              <div className="menu-item-wrapper">
+                <div
+                  className={`informationmenu-section-title ${openSidebarSection === "maintenance" ? "active" : ""}`}
+                  data-section="maintenance"
+                  onClick={() => toggleSidebarSection("maintenance")}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                  </svg>
+                  Maintenance
+                  <span className="section-arrow">▶</span>
+                </div>
+                <div className="submenu" id="maintenance-submenu" style={{ display: openSidebarSection === "maintenance" ? "block" : "none" }}>
+                  <div className="submenu-content">
+                    {me?.company_has_gambling && (
+                      <a href={webHref("/capture_maintenance.php")} className="submenu-item">
+                        <span>Data Capture</span>
+                      </a>
+                    )}
+                    {me?.company_has_gambling && (
+                      <a href={webHref("/transaction_maintenance.php")} className="submenu-item">
+                        <span>Transaction</span>
+                      </a>
+                    )}
+                    <a
+                      href={webHref("/payment-maintenance")}
+                      className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate("/payment-maintenance");
+                      }}
+                    >
+                      <span>Payment</span>
+                    </a>
+                    {me?.company_has_gambling && (
+                      <a href={webHref("/formula_maintenance.php")} className="submenu-item">
+                        <span>Formula</span>
+                      </a>
+                    )}
+                    {me?.company_has_bank && (
+                      <a href={webHref("/bankprocess_maintenance.php")} className="submenu-item">
+                        <span>Process</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="informationmenu-footer">
