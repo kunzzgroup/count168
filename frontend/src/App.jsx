@@ -14,6 +14,9 @@ import TransactionPaymentPage from "./pages/TransactionPaymentPage.jsx";
 import CustomerReportPage from "./pages/CustomerReportPage.jsx";
 import DomainReportPage from "./pages/DomainReportPage.jsx";
 import CaptureMaintenancePage from "./pages/CaptureMaintenancePage.jsx";
+import TransactionMaintenancePage from "./pages/TransactionMaintenancePage.jsx";
+import FormulaMaintenancePage from "./pages/FormulaMaintenancePage.jsx";
+import BankprocessMaintenancePage from "./pages/BankprocessMaintenancePage.jsx";
 
 export default function App() {
   return (
@@ -36,6 +39,9 @@ export default function App() {
         <Route path="/customer-report" element={<CustomerReportPage />} />
         <Route path="/domain-report" element={<DomainReportPage />} />
         <Route path="/capture-maintenance" element={<CaptureMaintenancePage />} />
+        <Route path="/transaction-maintenance" element={<TransactionMaintenancePage />} />
+        <Route path="/formula-maintenance" element={<FormulaMaintenancePage />} />
+        <Route path="/bankprocess-maintenance" element={<BankprocessMaintenancePage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -47,6 +53,12 @@ export default function App() {
       <Route path="/domain_report" element={<Navigate to="/domain-report" replace />} />
       <Route path="/capture_maintenance.php" element={<Navigate to="/capture-maintenance" replace />} />
       <Route path="/capture_maintenance" element={<Navigate to="/capture-maintenance" replace />} />
+      <Route path="/transaction_maintenance.php" element={<Navigate to="/transaction-maintenance" replace />} />
+      <Route path="/transaction_maintenance" element={<Navigate to="/transaction-maintenance" replace />} />
+      <Route path="/formula_maintenance.php" element={<Navigate to="/formula-maintenance" replace />} />
+      <Route path="/formula_maintenance" element={<Navigate to="/formula-maintenance" replace />} />
+      <Route path="/bankprocess_maintenance.php" element={<Navigate to="/bankprocess-maintenance" replace />} />
+      <Route path="/bankprocess_maintenance" element={<Navigate to="/bankprocess-maintenance" replace />} />
 
       {/* Legacy .php aliases */}
       <Route path="/index.php" element={<Navigate to="/login" replace />} />

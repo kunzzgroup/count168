@@ -1,3 +1,7 @@
+function fmDashboardHref() {
+    return window.__FORMULA_MAINTENANCE_SPA_MODE ? '/dashboard' : 'dashboard.php';
+}
+
 // Notification functions
 function showNotification(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
@@ -491,7 +495,7 @@ async function switchCompany(companyId, companyCode) {
     }
     const permissions = await fetchCompanyPermissions(currentCompanyCode);
     if (isBankOnlyCategoryCompany(permissions)) {
-        window.location.href = 'dashboard.php';
+        window.location.href = fmDashboardHref();
         return;
     }
     if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
@@ -1294,7 +1298,13 @@ function confirmDelete() {
 
 
 // Initialize page
-document.addEventListener('DOMContentLoaded', function() {
+function initFormulaMaintenancePage() {
+    const processSelectBtn = document.getElementById('filter_process');
+    if (!processSelectBtn || processSelectBtn.getAttribute('data-fm-spa-init') === '1') {
+        return;
+    }
+    processSelectBtn.setAttribute('data-fm-spa-init', '1');
+
     initMaintenanceDropdownHover();
     initAutoSearchFilters();
 
@@ -1322,5 +1332,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
-});
+}
 window.switchCompany = switchCompany;
+
+if (window.__FORMULA_MAINTENANCE_SPA_MODE) {
+    window.__initFormulaMaintenancePage = initFormulaMaintenancePage;
+} else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFormulaMaintenancePage, { once: true });
+} else {
+    initFormulaMaintenancePage();
+}

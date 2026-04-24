@@ -491,7 +491,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                 </a>
                             <?php endif; ?>
                             <?php if ($companyHasGambling && $hasMaintenance): ?>
-                                <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
+                                <a href="/transaction-maintenance" class="submenu-item" id="maintenance-transaction-link">
                                     <span>Transaction</span>
                                 </a>
                             <?php endif; ?>
@@ -501,12 +501,12 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                 </a>
                             <?php endif; ?>
                             <?php if ($companyHasGambling): ?>
-                                <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
+                                <a href="/formula-maintenance" class="submenu-item" id="maintenance-formula-link">
                                     <span>Formula</span>
                                 </a>
                             <?php endif; ?>
                             <?php if ($hasMaintenance): ?>
-                                <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link"<?php echo $companyHasBank ? '' : ' style="display:none;"'; ?>>
+                                <a href="/bankprocess-maintenance" class="submenu-item" id="maintenance-process-link"<?php echo $companyHasBank ? '' : ' style="display:none;"'; ?>>
                                     <span>Process</span>
                                 </a>
                             <?php endif; ?>

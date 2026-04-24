@@ -511,7 +511,13 @@
             if (btn) btn.addEventListener('click', runIfReady);
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        function initBankprocessMaintenancePage() {
+            const fromSearch = document.getElementById('filter_from_search');
+            if (!fromSearch || fromSearch.getAttribute('data-bpm-spa-init') === '1') {
+                return;
+            }
+            fromSearch.setAttribute('data-bpm-spa-init', '1');
+
             initDatePickers();
             bindFromSearchControls();
             updateDeleteButtonState();
@@ -543,5 +549,13 @@
                 showNotification('Operation failed. Please try again.', 'error');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-        });
+        }
 window.switchCompany = switchCompany;
+
+if (window.__BANKPROCESS_MAINTENANCE_SPA_MODE) {
+    window.__initBankprocessMaintenancePage = initBankprocessMaintenancePage;
+} else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBankprocessMaintenancePage, { once: true });
+} else {
+    initBankprocessMaintenancePage();
+}
