@@ -38,6 +38,19 @@ export default function AuthenticatedLayout() {
   const reportTitleRef = useRef(null);
   const maintenanceTitleRef = useRef(null);
 
+  // --- Notification Panel State ---
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [readAnnouncements, setReadAnnouncements] = useState(new Set());
+
+  // --- Avatar Selector State ---
+  const [showAvatarOptions, setShowAvatarOptions] = useState(false);
+  const initialAvatarId = readCookie("selectedAvatar") || "male1";
+  const [selectedAvatarId, setSelectedAvatarId] = useState(initialAvatarId);
+  const [selectedGender, setSelectedGender] = useState(initialAvatarId.startsWith("female") ? "female" : "male");
+  const avatarContainerRef = useRef(null);
+
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page");
@@ -90,10 +103,69 @@ export default function AuthenticatedLayout() {
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
   }, []);
 
+  // --- Click outside handlers ---
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (avatarContainerRef.current && !avatarContainerRef.current.contains(e.target)) {
+        setShowAvatarOptions(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  // --- Notification Logic ---
+  const toggleNotifications = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!showNotifications) {
+      setShowNotifications(true);
+      setAnnouncementsLoading(true);
+      try {
+        const res = await fetch(buildApiUrl("api/announcements/announcement_get_dashboard_api.php"), { credentials: "include" });
+        const json = await res.json();
+        if (json.success && json.data) {
+          setAnnouncements(json.data);
+        } else {
+          setAnnouncements([]);
+        }
+      } catch {
+        setAnnouncements([]);
+      } finally {
+        setAnnouncementsLoading(false);
+      }
+    } else {
+      setShowNotifications(false);
+    }
+  };
+
+  const markAnnouncementRead = (id) => {
+    setReadAnnouncements(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
+  // --- Avatar Logic ---
+  const handleSelectAvatar = (avatarId) => {
+    setSelectedAvatarId(avatarId);
+    setShowAvatarOptions(false);
+    try {
+      localStorage.setItem("selectedAvatar", avatarId);
+    } catch (e) {
+      /* ignore */
+    }
+    document.cookie = `selectedAvatar=${encodeURIComponent(avatarId)}; path=/; max-age=31536000; SameSite=Lax`;
+  };
+
   const permissions = Array.isArray(me?.permissions) ? me.permissions : [];
   const hasFullPermissions = permissions.length === 0;
   const canAccess = (key) => hasFullPermissions || permissions.includes(key);
-  const avatarSrc = useMemo(() => AVATAR_MAP[readCookie("selectedAvatar")] || AVATAR_MAP.male1, [me]);
+  
+  const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
   const webHref = (path) => new URL(path, window.location.origin).href;
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
@@ -134,13 +206,42 @@ export default function AuthenticatedLayout() {
         <div className="informationmenu-header">
           <div className="header-logo-section">
             <img src="/images/count_whitelogo.png" alt="EAZYCOUNT" className="header-logo" />
+            <div className="notification-bell" title="Notifications" onClick={toggleNotifications}>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
+                </svg>
+            </div>
           </div>
           <div className="user-info-container">
-            <div className="avatar-selector-container">
-              <div className="current-avatar">
+            <div className="avatar-selector-container" ref={avatarContainerRef}>
+              <div className="current-avatar" onClick={() => setShowAvatarOptions(!showAvatarOptions)}>
                 <img className="current-avatar-img" src={avatarSrc} alt="" width={36} height={36} />
               </div>
+              
+              <div className={`avatar-options ${showAvatarOptions ? "show" : ""}`} id="avatarOptions">
+                  <div className="options-title">Choose Avatar</div>
+                  <div className="gender-selection">
+                      <button type="button" className={`gender-btn ${selectedGender === 'male' ? 'active' : ''}`} onClick={() => setSelectedGender('male')}>Male</button>
+                      <button type="button" className={`gender-btn ${selectedGender === 'female' ? 'active' : ''}`} onClick={() => setSelectedGender('female')}>Female</button>
+                  </div>
+                  
+                  <div className={`avatar-list ${selectedGender === 'male' ? 'show' : ''}`}>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                          <div key={`male${num}`} className={`avatar-option ${selectedAvatarId === `male${num}` ? 'selected' : ''}`} onClick={() => handleSelectAvatar(`male${num}`)}>
+                              <img src={`/images/avatar${num}.png`} alt={`Male Avatar ${num}`} className="avatar-option-img" />
+                          </div>
+                      ))}
+                  </div>
+                  <div className={`avatar-list ${selectedGender === 'female' ? 'show' : ''}`}>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                          <div key={`female${num}`} className={`avatar-option ${selectedAvatarId === `female${num}` ? 'selected' : ''}`} onClick={() => handleSelectAvatar(`female${num}`)}>
+                              <img src={`/images/female${num}.png`} alt={`Female Avatar ${num}`} className="avatar-option-img" />
+                          </div>
+                      ))}
+                  </div>
+              </div>
             </div>
+            
             <div className="user-info">
               <div className="user-name">{me?.name || me?.login_id || "-"}</div>
               <div className="user-role">{roleLabel || "User"}</div>
@@ -385,6 +486,39 @@ export default function AuthenticatedLayout() {
           <button type="button" className="btn logout-btn" onClick={logout}>
             Logout
           </button>
+        </div>
+      </div>
+
+      <div className={`notification-overlay ${showNotifications ? "show" : ""}`} id="notificationOverlay" onClick={toggleNotifications}></div>
+      <div className={`notification-panel ${showNotifications ? "show" : ""}`} id="notificationPanel">
+        <div className="notification-header">
+            <h2>Announcements</h2>
+            <button className="notification-close" onClick={toggleNotifications} title="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div className="notification-content" id="notificationContent">
+          {announcementsLoading ? (
+            <div className="notification-empty"><p>Loading announcements...</p></div>
+          ) : announcements.length > 0 ? (
+            announcements.map((announcement, index) => (
+              <div key={index} className={`notification-item ${readAnnouncements.has(index) ? '' : 'unread'}`} onClick={() => markAnnouncementRead(index)}>
+                <div className="notification-title">{announcement.title}</div>
+                <div className="notification-message">{announcement.content}</div>
+                <div className="notification-time">{announcement.created_at}</div>
+              </div>
+            ))
+          ) : (
+            <div className="notification-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+              </svg>
+              <p>No announcements</p>
+            </div>
+          )}
         </div>
       </div>
 
