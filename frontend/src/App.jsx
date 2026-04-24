@@ -8,6 +8,7 @@ import AccountListPage from "./pages/AccountListPage.jsx";
 import ProcessListPage from "./pages/ProcessListPage.jsx";
 import BankProcessListPage from "./pages/BankProcessListPage.jsx";
 import UserListPage from "./pages/UserListPage.jsx";
+import OwnershipPage from "./pages/OwnershipPage.jsx";
 
 export default function App() {
   return (
@@ -24,13 +25,13 @@ export default function App() {
         <Route path="/games-process-list" element={<ProcessListPage />} />
         <Route path="/bank-process-list" element={<BankProcessListPage />} />
         <Route path="/userlist" element={<UserListPage />} />
+        <Route path="/ownership" element={<OwnershipPage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
       <Route path="/member" element={<Navigate to="/member.php" replace />} />
       <Route path="/owner-secondary-password" element={<Navigate to="/owner_secondary_password.php" replace />} />
       <Route path="/reset-password" element={<Navigate to="/reset-password.php" replace />} />
-      <Route path="/ownership" element={<Navigate to="/ownership.php" replace />} />
       <Route path="/datacapture" element={<Navigate to="/datacapture.php" replace />} />
       <Route path="/transaction" element={<Navigate to="/transaction.php" replace />} />
       <Route path="/customer-report" element={<Navigate to="/customer_report.php" replace />} />
@@ -47,6 +48,7 @@ export default function App() {
       <Route path="/games_process_list.php" element={<Navigate to="/games-process-list" replace />} />
       <Route path="/bank_process_list.php" element={<Navigate to="/bank-process-list" replace />} />
       <Route path="/userlist.php" element={<Navigate to="/userlist" replace />} />
+      <Route path="/ownership.php" element={<Navigate to="/ownership" replace />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
