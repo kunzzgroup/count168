@@ -48,6 +48,8 @@ export default function ProcessListPage() {
   const toastTimerRef = useRef(null);
   const fetchAbortRef = useRef(null);
 
+  const [existingProcesses, setExistingProcesses] = useState([]);
+
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -100,9 +102,10 @@ export default function ProcessListPage() {
         const formJson = await formRes.json();
         const cs = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
         setCompanies(cs);
-        setCurrencies(Array.isArray(formJson?.currencies) ? formJson.currencies : formJson?.data?.currencies || []);
-        setDescriptions(Array.isArray(formJson?.descriptions) ? formJson.descriptions : formJson?.data?.descriptions || []);
-        setDays(Array.isArray(formJson?.days) ? formJson.days : formJson?.data?.days || []);
+        setCurrencies(Array.isArray(formJson?.data?.currencies) ? formJson.data.currencies : formJson?.currencies || []);
+        setDescriptions(Array.isArray(formJson?.data?.descriptions) ? formJson.data.descriptions : formJson?.descriptions || []);
+        setDays(Array.isArray(formJson?.data?.days) ? formJson.data.days : formJson?.days || []);
+        setExistingProcesses(Array.isArray(formJson?.data?.existingProcesses) ? formJson.data.existingProcesses : formJson?.existingProcesses || []);
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
@@ -165,6 +168,68 @@ export default function ProcessListPage() {
       if (!ac.signal.aborted) setTableLoading(false);
     }
   }, [companyId, search, showInactive, showAll, notify, syncUrl]);
+
+  const reloadDescriptions = async () => {
+    try {
+      const formRes = await fetch(buildApiUrl("api/processes/addprocess_api.php"), { credentials: "include" });
+      const formJson = await formRes.json();
+      setDescriptions(Array.isArray(formJson?.data?.descriptions) ? formJson.data.descriptions : formJson?.descriptions || []);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleAddDescription = async (descName) => {
+    try {
+      const fd = new FormData();
+      fd.append("action", "add_description");
+      fd.append("description_name", descName);
+      if (companyId) fd.append("company_id", String(companyId));
+      const res = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
+        method: "POST",
+        body: fd,
+        credentials: "include"
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        notify(json.message || json.error || "Failed to add description", "danger");
+        return;
+      }
+      notify("Description added");
+      await reloadDescriptions();
+    } catch {
+      notify("Failed to add description", "danger");
+    }
+  };
+
+  const handleDeleteDescription = async (descId) => {
+    if (!window.confirm("Are you sure you want to delete this description?")) return;
+    try {
+      const fd = new FormData();
+      fd.append("action", "delete_description");
+      fd.append("description_id", String(descId));
+      if (companyId) fd.append("company_id", String(companyId));
+      const res = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
+        method: "POST",
+        body: fd,
+        credentials: "include"
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        notify(json.message || json.error || "Failed to delete description", "danger");
+        return;
+      }
+      notify("Description deleted");
+      await reloadDescriptions();
+      // Remove from selected if present
+      setForm((prev) => ({
+        ...prev,
+        selected_descriptions: prev.selected_descriptions.filter(d => String(d.id) !== String(descId))
+      }));
+    } catch {
+      notify("Failed to delete description", "danger");
+    }
+  };
 
   useEffect(() => {
     if (loading || !companyId) return;
@@ -257,14 +322,13 @@ export default function ProcessListPage() {
 
   const openAdd = () => {
     setEditMode(false);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, existingProcesses });
     setDescriptionPickerOpen(false);
     setModalOpen(true);
   };
 
-  const pickDescription = (d) => {
-    const name = String(d?.name || "").trim();
-    setForm((prev) => ({ ...prev, description_id: String(d?.id ?? ""), description_name: name }));
+  const confirmDescriptionSelection = (selectedDescriptions) => {
+    setForm((prev) => ({ ...prev, selected_descriptions: selectedDescriptions }));
     setDescriptionPickerOpen(false);
   };
 
@@ -285,8 +349,7 @@ export default function ProcessListPage() {
       setForm({
         id: String(p.id || ""),
         process_name: p.process_name || "",
-        description_name: p.description_names?.[0] || "",
-        description_id: String(p.description_id || ""),
+        selected_descriptions: p.description_id ? [{ id: p.description_id, name: p.description_names?.[0] || "" }] : [],
         currency_id: String(p.currency_id || ""),
         day_use: String(p.day_use || "")
           .split(",")
@@ -301,6 +364,7 @@ export default function ProcessListPage() {
         modified_by: p.modified_by || "",
         dts_created: p.dts_created || "",
         created_by: p.created_by || "",
+        existingProcesses,
       });
       setDescriptionPickerOpen(false);
       setModalOpen(true);
@@ -311,13 +375,17 @@ export default function ProcessListPage() {
 
   const submitForm = async (event) => {
     event.preventDefault();
+    if (!form.selected_descriptions || form.selected_descriptions.length === 0) {
+      notify("Please select at least one description", "danger");
+      return;
+    }
     const fd = new FormData();
     if (editMode) {
       fd.append("id", form.id);
       fd.append("process_name", form.process_name);
       fd.append("status", form.status || "active");
-      fd.append("selected_descriptions", JSON.stringify([(descriptions.find((d) => String(d.id) === String(form.description_id))?.name || "")]));
-      fd.append("description", descriptions.find((d) => String(d.id) === String(form.description_id))?.name || "");
+      fd.append("selected_descriptions", JSON.stringify([form.selected_descriptions[0].name]));
+      fd.append("description", form.selected_descriptions[0].name);
       fd.append("day_use", form.day_use.join(","));
       fd.append("remove_word", form.remove_word || "");
       fd.append("replace_word_from", form.replace_word_from || "");
@@ -346,14 +414,18 @@ export default function ProcessListPage() {
     }
 
     fd.append("process_id", form.process_name);
-    fd.append("description_id", form.description_id);
+    fd.append("selected_descriptions", JSON.stringify(form.selected_descriptions.map(d => d.name)));
+    fd.append("description_id", form.selected_descriptions[0].id); // For legacy compatibility if needed
     fd.append("currency_id", form.currency_id);
     fd.append("day_use", form.day_use.join(","));
     fd.append("remove_word", form.remove_word || "");
     fd.append("replace_word_from", form.replace_word_from || "");
     fd.append("replace_word_to", form.replace_word_to || "");
     fd.append("remark", form.remark || "");
+    if (form.copy_from) fd.append("copy_from", form.copy_from);
     fd.append("permission", "Games");
+    if (companyId) fd.append("company_id", String(companyId));
+    
     try {
       const res = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
         method: "POST",
@@ -540,8 +612,10 @@ export default function ProcessListPage() {
         <DescriptionPickerModal
           descriptions={descriptions}
           form={form}
-          pickDescription={pickDescription}
+          onConfirm={confirmDescriptionSelection}
           onClose={() => setDescriptionPickerOpen(false)}
+          onAddDescription={handleAddDescription}
+          onDeleteDescription={handleDeleteDescription}
         />
       )}
 

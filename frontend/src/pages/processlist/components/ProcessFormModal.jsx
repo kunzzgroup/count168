@@ -23,6 +23,27 @@ export default function ProcessFormModal({
         <div className="modal-body">
           <form className="process-form add-grid" onSubmit={onSubmit}>
             <div className="add-col">
+              {!editMode && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Copy From</label>
+                    <select
+                      value={form.copy_from || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, copy_from: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", border: "1px solid #ddd", borderRadius: "4px" }}
+                    >
+                      <option value="">Select Process to Copy From</option>
+                      {/* existingProcesses should be passed down, but fallback to descriptions if not */}
+                      {form.existingProcesses?.map((p) => (
+                        <option key={p.process_id} value={p.process_name}>
+                          {p.process_name} {p.description_name ? `(${p.description_name})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Process Name *</label>
@@ -38,12 +59,11 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Description</label>
+                  <label>Description *</label>
                   <div className="input-with-icon">
                     <input
-                      value={form.description_name || ""}
                       readOnly
-                      placeholder="Select description"
+                      placeholder="Click + to select descriptions"
                       style={{ backgroundColor: "#f5f5f5" }}
                     />
                     <button
@@ -58,11 +78,13 @@ export default function ProcessFormModal({
                 </div>
               </div>
 
-              <div className="form-row" style={{ display: form.description_name ? "block" : "none" }}>
+              <div className="form-row" style={{ display: form.selected_descriptions?.length > 0 ? "block" : "none" }}>
                 <div className="form-group">
                   <label>Selected Descriptions</label>
                   <div className="selected-descriptions">
-                    <span className="selected-description-tag">{form.description_name}</span>
+                    {form.selected_descriptions?.map((desc) => (
+                      <span key={desc.id} className="selected-description-tag">{desc.name}</span>
+                    ))}
                   </div>
                 </div>
               </div>

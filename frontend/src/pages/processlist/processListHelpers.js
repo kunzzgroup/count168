@@ -3,8 +3,8 @@ export const PAGE_SIZE = 20;
 export const EMPTY_FORM = {
   id: "",
   process_name: "",
-  description_name: "",
-  description_id: "",
+  selected_descriptions: [],
+  copy_from: "",
   currency_id: "",
   day_use: [],
   remove_word: "",
