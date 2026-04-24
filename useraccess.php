@@ -90,7 +90,7 @@ try {
 
         <div class="actions-buttons" style="margin-bottom: 0px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <button class="btn-back" onclick="window.location.href='userlist.php'">Back</button>
+                <button class="btn-back" onclick="window.location.href='/userlist'">Back</button>
             </div>
         </div>
 

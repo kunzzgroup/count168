@@ -110,6 +110,7 @@ echo json_encode([
     'success' => true,
     'message' => '',
     'data' => [
+        'user_id' => isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null,
         'name' => (string) ($_SESSION['name'] ?? ''),
         'login_id' => (string) ($_SESSION['login_id'] ?? ''),
         'role' => (string) ($_SESSION['role'] ?? ''),

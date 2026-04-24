@@ -367,8 +367,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <!-- Admin Section -->
             <?php if (empty($permissions) || in_array('admin', $permissions)): ?>
                 <div class="informationmenu-section">
-                    <div class="informationmenu-section-title account-direct" data-page="userlist.php"
-                        onclick="window.location.href='userlist.php'">
+                    <div class="informationmenu-section-title account-direct" data-page="userlist"
+                        onclick="window.location.href='/userlist'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                         </svg>
