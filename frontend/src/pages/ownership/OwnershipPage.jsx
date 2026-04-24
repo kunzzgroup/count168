@@ -16,13 +16,28 @@ import ConflictModal from "./components/ConflictModal.jsx";
 
 export default function OwnershipPage() {
   const [boot, setBoot] = useState(true);
+  const [cssReady, setCssReady] = useState(false);
 
   useEffect(() => {
+    // Force body classes for correct background (SPA parity)
+    document.body.classList.remove("bg");
+    document.body.classList.add("dashboard-page");
+
     const cssFiles = ["css/ownership.css", "css/global-13inch.css"];
+    let loadedCount = 0;
     const links = cssFiles.map((file) => {
       const link = document.createElement("link");
       link.rel = "stylesheet";
       link.href = assetUrl(file);
+      link.onload = () => {
+        loadedCount++;
+        if (loadedCount === cssFiles.length) setCssReady(true);
+      };
+      // For cached or failing loads, ensure we eventually show something
+      link.onerror = () => {
+        loadedCount++;
+        if (loadedCount === cssFiles.length) setCssReady(true);
+      };
       document.head.appendChild(link);
       return link;
     });
@@ -51,13 +66,9 @@ export default function OwnershipPage() {
   const [geExpanded, setGeExpanded] = useState(null);
   const [geLoadingGid, setGeLoadingGid] = useState(null);
   const [geSavingGid, setGeSavingGid] = useState(null);
-
-  // Multi-select
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState(new Set());
   const [bulkGroupSelect, setBulkGroupSelect] = useState("");
-
-  // UI state
   const [toast, setToast] = useState(null);
   const [conflict, setConflict] = useState(null);
   const [openGroupForCompanyId, setOpenGroupForCompanyId] = useState(null);
@@ -136,6 +147,8 @@ export default function OwnershipPage() {
   }, [allCompanies, groupFilter]);
 
   const calcTotal = (rows) => rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
+
+  if (boot || !cssReady) return null;
 
   // Handlers
   const toggleCard = async (cid) => {
