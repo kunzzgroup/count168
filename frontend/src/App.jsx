@@ -9,6 +9,7 @@ import ProcessListPage from "./pages/ProcessListPage.jsx";
 import BankProcessListPage from "./pages/BankProcessListPage.jsx";
 import UserListPage from "./pages/UserListPage.jsx";
 import OwnershipPage from "./pages/OwnershipPage.jsx";
+import DataCapturePage from "./pages/DataCapturePage.jsx";
 
 export default function App() {
   return (
@@ -26,13 +27,14 @@ export default function App() {
         <Route path="/bank-process-list" element={<BankProcessListPage />} />
         <Route path="/userlist" element={<UserListPage />} />
         <Route path="/ownership" element={<OwnershipPage />} />
+        <Route path="/datacapture" element={<DataCapturePage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
       <Route path="/member" element={<Navigate to="/member.php" replace />} />
       <Route path="/owner-secondary-password" element={<Navigate to="/owner_secondary_password.php" replace />} />
       <Route path="/reset-password" element={<Navigate to="/reset-password.php" replace />} />
-      <Route path="/datacapture" element={<Navigate to="/datacapture.php" replace />} />
+      <Route path="/datacapture.php" element={<Navigate to="/datacapture" replace />} />
       <Route path="/transaction" element={<Navigate to="/transaction.php" replace />} />
       <Route path="/customer-report" element={<Navigate to="/customer_report.php" replace />} />
       <Route path="/payment-maintenance" element={<Navigate to="/payment_maintenance.php" replace />} />

@@ -56,7 +56,7 @@ $company_id = $_SESSION['company_id'] ?? null;
                 localStorage.removeItem('capturedCaptureId');
             } catch (e) {}
             // 不带 restore 参数，Data Capture 不会尝试恢复旧数据
-            window.location.href = 'datacapture.php';
+            window.location.href = '/datacapture';
         }
 
         document.addEventListener('DOMContentLoaded', function () {

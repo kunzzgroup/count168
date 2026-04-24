@@ -420,8 +420,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
             <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
                 <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
-                    <div class="informationmenu-section-title" data-page="datacapture.php"
-                        onclick="window.location.href='datacapture.php'">
+                    <div class="informationmenu-section-title" data-page="datacapture"
+                        onclick="window.location.href='/datacapture'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path
                                 d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />

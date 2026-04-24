@@ -24477,8 +24477,14 @@ async function restoreFromLocalStorage() {
     }
 }
 
-// Initialize page
-document.addEventListener('DOMContentLoaded', async function () {
+// Initialize page（支持 React SPA 在 DOMContentLoaded 之后才挂载表单）
+async function initDataCapturePage() {
+    const dcForm = document.getElementById('dataCaptureForm');
+    if (!dcForm || dcForm.getAttribute('data-dc-spa-init') === '1') {
+        return;
+    }
+    dcForm.setAttribute('data-dc-spa-init', '1');
+
     // 加载权限按钮
     await loadPermissionButtons();
     // Mark page as ready after a brief delay to ensure CSS is loaded
@@ -24590,7 +24596,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Restore data from localStorage
         await restoreFromLocalStorage();
     }
-});
+}
+
+window.__initDataCapturePage = initDataCapturePage;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDataCapturePage);
+} else {
+    initDataCapturePage();
+}
 
 // 切换 data capture 的 company
 // 当前选择的权限

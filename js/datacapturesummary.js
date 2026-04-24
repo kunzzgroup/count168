@@ -1153,7 +1153,7 @@ function goBackToDataCapture() {
     if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
     if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
-    window.location.href = 'datacapture.php?restore=1';
+    window.location.href = '/datacapture?restore=1';
 }
 
 // Refresh page function: save rate values and formula/source so they are restored after reload
@@ -18937,7 +18937,7 @@ function showEmptyState() {
             </div>
             <div class="empty-state">
                 <p>No captured data found. Please go back to the Data Capture page and submit some data first.</p>
-                <button onclick="window.location.href='datacapture.php'" class="btn btn-save">Go to Data Capture</button>
+                <button onclick="window.location.href='/datacapture'" class="btn btn-save">Go to Data Capture</button>
             </div>
         </div>
     `;
@@ -20053,7 +20053,7 @@ async function submitSummaryData() {
                     try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
                     localStorage.removeItem('capturedTableData');
                     localStorage.removeItem('capturedProcessData');
-                    window.location.href = 'datacapture.php?submitted=1';
+                    window.location.href = '/datacapture?submitted=1';
                 }, 600);
                 return;
             }
@@ -20240,7 +20240,7 @@ async function submitSummaryData() {
                 localStorage.removeItem('capturedProcessData');
 
                 // Redirect to data capture page
-                window.location.href = 'datacapture.php?submitted=1';
+                window.location.href = '/datacapture?submitted=1';
             }, 2000);
         }
 
