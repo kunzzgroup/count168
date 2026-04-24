@@ -631,7 +631,7 @@ export default function TransactionDashboardPage() {
                         textAlign: "left",
                         fontWeight: 600,
                         color: "#1f2937",
-                        fontSize: 11,
+                        fontSize: 14,
                         lineHeight: 1.25,
                         background: "transparent",
                         border: "none",
@@ -643,11 +643,22 @@ export default function TransactionDashboardPage() {
                       {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
                     </button>
 
-                    <div className="dropdown" style={{ width: 140 }}>
+                    <div className="dropdown" style={{ width: "auto", justifySelf: "end" }}>
                       <button
                         type="button"
                         className="btn btn-secondary dropdown-toggle"
-                        style={{ minHeight: 24, padding: "1px 6px", fontSize: 11, justifySelf: "end", minWidth: 74 }}
+                        aria-label="Quick period"
+                        title="Quick period"
+                        style={{
+                          minHeight: 24,
+                          padding: "1px 6px",
+                          fontSize: 12,
+                          justifySelf: "end",
+                          minWidth: 0,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
                         onClick={() => {
                           setQuickOpen((o) => !o);
                           setCalendarOpen(false);
@@ -655,9 +666,8 @@ export default function TransactionDashboardPage() {
                           setHoverDate(null);
                         }}
                       >
-                        <i className="fas fa-clock" />
-                        <span id="quick-select-text">Period</span>
-                        <i className="fas fa-chevron-down" />
+                        <i className="fas fa-clock" aria-hidden />
+                        <i className="fas fa-chevron-down" aria-hidden />
                       </button>
                       {quickOpen && (
                         <div className="dropdown-menu" style={{ display: "block" }} id="quick-select-dropdown">
