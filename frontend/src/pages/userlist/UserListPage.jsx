@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
@@ -56,6 +56,9 @@ export default function UserListPage() {
   const [toast, setToast] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
+  const [cssReady, setCssReady] = useState(false);
+  const toastTimerRef = useRef(null);
+  const pendingDeleteRef = useRef([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -84,8 +87,8 @@ export default function UserListPage() {
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
-    window.clearTimeout(window.__ulToast);
-    window.__ulToast = window.setTimeout(() => setToast(null), 1800);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 1800);
   }, []);
 
   const currentUserId = me?.user_id ?? null;
@@ -135,24 +138,42 @@ export default function UserListPage() {
   useEffect(() => {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("user-page");
-    const cssA = document.createElement("link");
-    cssA.rel = "stylesheet";
-    cssA.href = assetUrl("css/userlist.css");
-    document.head.appendChild(cssA);
-    const cssB = document.createElement("link");
-    cssB.rel = "stylesheet";
-    cssB.href = assetUrl("css/global-13inch.css");
-    document.head.appendChild(cssB);
-    const link = document.createElement("link");
-    link.href = "https://fonts.googleapis.com/css?family=Amaranth";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
+
+    const hrefs = [
+      assetUrl("css/userlist.css"),
+      assetUrl("css/global-13inch.css"),
+    ];
+    let loaded = 0;
+    const links = [];
+
+    const onLoad = () => {
+      loaded += 1;
+      if (loaded >= hrefs.length) setCssReady(true);
+    };
+
+    hrefs.forEach((href) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      link.onload = onLoad;
+      link.onerror = onLoad; // don't block forever on failure
+      document.head.appendChild(link);
+      links.push(link);
+    });
+
+    // Google Fonts (non-blocking — don't gate cssReady on this)
+    const font = document.createElement("link");
+    font.href = "https://fonts.googleapis.com/css?family=Amaranth";
+    font.rel = "stylesheet";
+    document.head.appendChild(font);
+    links.push(font);
+
     return () => {
       document.body.classList.remove("user-page", "user-page--show-all");
       document.body.classList.add("bg");
-      if (cssA.parentNode) cssA.parentNode.removeChild(cssA);
-      if (cssB.parentNode) cssB.parentNode.removeChild(cssB);
-      if (link.parentNode) link.parentNode.removeChild(link);
+      links.forEach((l) => { if (l.parentNode) l.parentNode.removeChild(l); });
+      setCssReady(false);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
 
@@ -592,11 +613,12 @@ export default function UserListPage() {
     const names = ids.map((id) => byId[id]?.name || id).join(", ");
     setConfirmMessage(`Are you sure you want to delete the following ${ids.length} user(s)?\n\n${names}`);
     setConfirmOpen(true);
-    window.__pendingDeleteIds = ids;
+    pendingDeleteRef.current = ids;
   };
 
   const confirmDelete = async () => {
-    const ids = window.__pendingDeleteIds || [];
+    const ids = pendingDeleteRef.current || [];
+    pendingDeleteRef.current = [];
     setConfirmOpen(false);
     if (ids.length) await runDeleteBatch(ids);
   };
@@ -754,7 +776,7 @@ export default function UserListPage() {
     }
   };
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me || !cssReady) return null;
 
   const deleteEligibleOnPage = pageRows.filter((r) => {
     const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
