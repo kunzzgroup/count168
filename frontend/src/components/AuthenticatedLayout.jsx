@@ -262,7 +262,7 @@ export default function AuthenticatedLayout() {
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
                 <div
                   ref={maintenanceTitleRef}
-                  className={`informationmenu-section-title ${path === "/payment-maintenance" ? "active" : ""}`}
+                  className={`informationmenu-section-title ${(path === "/payment-maintenance" || path === "/capture-maintenance") ? "active" : ""}`}
                   data-section="maintenance"
                   onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
                   role="presentation"
@@ -295,7 +295,14 @@ export default function AuthenticatedLayout() {
                 >
                   <div className="submenu-content">
                     {me?.company_has_gambling && (
-                      <a href={webHref("/capture-maintenance")} className="submenu-item">
+                      <a
+                        href={webHref("/capture-maintenance")}
+                        className={`submenu-item ${path === "/capture-maintenance" ? "current-page" : ""}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate("/capture-maintenance");
+                        }}
+                      >
                         <span>Data Capture</span>
                       </a>
                     )}

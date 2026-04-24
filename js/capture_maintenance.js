@@ -1,3 +1,15 @@
+function cmApi(pathWithQuery) {
+    const clean = String(pathWithQuery || '').replace(/^\//, '');
+    if (typeof window.__cmApiHref === 'function') {
+        return window.__cmApiHref(clean);
+    }
+    return '/' + clean;
+}
+
+function cmDashboardHref() {
+    return window.__CAPTURE_MAINTENANCE_SPA_MODE ? '/dashboard' : 'dashboard.php';
+}
+
 let ownerCompanies = [];
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
@@ -125,7 +137,7 @@ let ownerCompanies = [];
                 return;
             }
             try {
-                const response = await fetch('api/domain/domain_api.php', {
+                const response = await fetch(cmApi('api/domain/domain_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'get_company_permissions', company_id: code })
@@ -184,11 +196,11 @@ let ownerCompanies = [];
             let hasGamblingFromSession = undefined;
             let hasBankFromSession = undefined;
             try {
-                const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+                const response = await fetch(cmApi(`api/session/update_company_session_api.php?company_id=${companyId}`));
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                    window.location.href = 'dashboard.php';
+                    window.location.href = cmDashboardHref();
                     return;
                 } else if (result.data) {
                     if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
@@ -196,7 +208,7 @@ let ownerCompanies = [];
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
-                window.location.href = 'dashboard.php';
+                window.location.href = cmDashboardHref();
                 return;
             }
             currentCompanyId = companyId;
@@ -205,7 +217,7 @@ let ownerCompanies = [];
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
             if (hasGamblingFromSession === false) {
-                window.location.href = 'dashboard.php';
+                window.location.href = cmDashboardHref();
                 return;
             }
             if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
@@ -646,7 +658,7 @@ let ownerCompanies = [];
                         items: selection
                     };
                     
-                    fetch('api/capture_maintenance/delete_api.php', {
+                    fetch(cmApi('api/capture_maintenance/delete_api.php'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -739,9 +751,15 @@ let ownerCompanies = [];
         }
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        function initCaptureMaintenancePage() {
+            const processSelectBtn = document.getElementById('filter_process');
+            if (!processSelectBtn || processSelectBtn.getAttribute('data-cm-spa-init') === '1') {
+                return;
+            }
+            processSelectBtn.setAttribute('data-cm-spa-init', '1');
+
             if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
-                window.location.href = 'dashboard.php';
+                window.location.href = cmDashboardHref();
                 return;
             }
             // Initialize date pickers
@@ -776,5 +794,14 @@ let ownerCompanies = [];
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-        });
+        }
+
 window.switchCompany = switchCompany;
+
+if (window.__CAPTURE_MAINTENANCE_SPA_MODE) {
+    window.__initCaptureMaintenancePage = initCaptureMaintenancePage;
+} else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCaptureMaintenancePage, { once: true });
+} else {
+    initCaptureMaintenancePage();
+}

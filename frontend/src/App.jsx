@@ -13,6 +13,7 @@ import DataCapturePage from "./pages/DataCapturePage.jsx";
 import TransactionPaymentPage from "./pages/TransactionPaymentPage.jsx";
 import CustomerReportPage from "./pages/CustomerReportPage.jsx";
 import DomainReportPage from "./pages/DomainReportPage.jsx";
+import CaptureMaintenancePage from "./pages/CaptureMaintenancePage.jsx";
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/transaction" element={<TransactionPaymentPage />} />
         <Route path="/customer-report" element={<CustomerReportPage />} />
         <Route path="/domain-report" element={<DomainReportPage />} />
+        <Route path="/capture-maintenance" element={<CaptureMaintenancePage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -43,6 +45,8 @@ export default function App() {
       <Route path="/customer_report" element={<Navigate to="/customer-report" replace />} />
       <Route path="/domain_report.php" element={<Navigate to="/domain-report" replace />} />
       <Route path="/domain_report" element={<Navigate to="/domain-report" replace />} />
+      <Route path="/capture_maintenance.php" element={<Navigate to="/capture-maintenance" replace />} />
+      <Route path="/capture_maintenance" element={<Navigate to="/capture-maintenance" replace />} />
 
       {/* Legacy .php aliases */}
       <Route path="/index.php" element={<Navigate to="/login" replace />} />
