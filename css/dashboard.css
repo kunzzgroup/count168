@@ -140,11 +140,20 @@ body.dashboard-page {
 
 /* Company & Currency Buttons */
 .transaction-company-filter {
-    display: none;
+    display: flex;
     align-items: center;
-    gap: clamp(8px, 0.83vw, 16px);
-    flex-wrap: wrap;
-    margin-top: clamp(8px, 1vw, 10px);
+    gap: clamp(8px, 0.8vw, 12px);
+    margin-top: 10px;
+    min-width: 0;
+}
+
+.transaction-company-filter--group {
+    margin-top: 12px;
+}
+
+.transaction-company-filter--company,
+.transaction-company-filter--currency {
+    margin-top: 8px;
 }
 
 .transaction-company-label {
@@ -153,16 +162,39 @@ body.dashboard-page {
     font-size: clamp(9px, 0.82vw, 15px);
     font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     white-space: nowrap;
-    min-width: 0px;
+    min-width: 74px;
     display: inline-block;
-    text-align: right;
+    text-align: left;
+    flex: 0 0 74px;
+    line-height: 1;
 }
 
 .transaction-company-buttons {
-    display: inline-flex;
-    flex-wrap: wrap;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 6px;
     align-items: center;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    padding: 2px 2px 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.transaction-company-buttons::-webkit-scrollbar {
+    height: 6px;
+}
+
+.transaction-company-buttons::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.transaction-company-buttons::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .transaction-company-btn {
@@ -180,6 +212,7 @@ body.dashboard-page {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex: 0 0 auto;
 }
 
 .transaction-company-btn:hover {

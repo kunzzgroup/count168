@@ -867,7 +867,7 @@ export default function TransactionDashboardPage() {
                 </div>
 
                 {groupIds.length > 0 && (
-                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 12 }}>
+                  <div className="transaction-company-filter transaction-company-filter--group">
                     <span className="transaction-company-label">GroupID:</span>
                     <div className="transaction-company-buttons">
                       {groupIds.map((gid) => (
@@ -885,7 +885,7 @@ export default function TransactionDashboardPage() {
                 )}
 
                 {filteredCompanies.length > 0 && (
-                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
+                  <div className="transaction-company-filter transaction-company-filter--company">
                     <span className="transaction-company-label">Company:</span>
                     <div className="transaction-company-buttons">
                       {selectedGroup && filteredCompanies.length > 1 && (
@@ -924,7 +924,7 @@ export default function TransactionDashboardPage() {
                 )}
 
                 {currencies.length > 0 && (
-                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
+                  <div className="transaction-company-filter transaction-company-filter--currency">
                     <span className="transaction-company-label">Currency:</span>
                     <div className="transaction-company-buttons">
                       {currencies.map((code) => (
