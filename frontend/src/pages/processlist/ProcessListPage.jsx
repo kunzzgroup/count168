@@ -1,43 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
-
-function notifyTransactionDataChanged(sourceTag) {
-  const ts = String(Date.now());
-  try {
-    localStorage.setItem("count168_tx_invalidate_ts", ts);
-  } catch {
-    /* ignore */
-  }
-  try {
-    window.dispatchEvent(new CustomEvent("tx-data-changed", { detail: { ts, source: sourceTag || "processlist" } }));
-  } catch {
-    /* ignore */
-  }
-}
-
-const PAGE_SIZE = 20;
-const EMPTY_FORM = {
-  id: "",
-  process_name: "",
-  description_name: "",
-  description_id: "",
-  currency_id: "",
-  day_use: [],
-  remove_word: "",
-  replace_word_from: "",
-  replace_word_to: "",
-  remark: "",
-  status: "active",
-  dts_modified: "",
-  modified_by: "",
-  dts_created: "",
-  created_by: "",
-};
-
-function normalizeRows(data) {
-  return Array.isArray(data) ? data : [];
-}
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { PAGE_SIZE, EMPTY_FORM, normalizeRows, notifyTransactionDataChanged } from "./processListHelpers.js";
+import ProcessTable from "./components/ProcessTable.jsx";
+import ProcessFormModal from "./components/ProcessFormModal.jsx";
+import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 
 async function isBankCategoryCompany(companyCode) {
   if (!companyCode) return false;
@@ -531,60 +498,17 @@ export default function ProcessListPage() {
           </div>
         </div>
 
-        <div className="process-table-wrapper" id="processTableWrapper" style={showAll ? { overflow: "visible" } : undefined}>
-          <div className="table-header" id="tableHeader">
-            <div className="header-item">No</div>
-            <div className="header-item">Process ID</div>
-            <div className="header-item">Description</div>
-            <div className="header-item">Status</div>
-            <div className="header-item">Currency</div>
-            <div className="header-item">Day Use</div>
-            <div className="header-item">Action</div>
-          </div>
-          <div
-            className="process-cards"
-            id="processTableBody"
-            style={showAll ? { maxHeight: "none", overflowY: "visible", overflowX: "visible", display: "block" } : undefined}
-          >
-            {tableLoading && <div className="process-card"><div className="card-item">Loading...</div></div>}
-            {!tableLoading && pageRows.map((row, idx) => (
-              <div
-                className="process-card"
-                key={row.id}
-                style={showAll ? { flex: "none", minHeight: 26, alignItems: "center" } : undefined}
-              >
-                <div className="card-item">{(showAll ? idx : (currentPage - 1) * PAGE_SIZE + idx) + 1}</div>
-                <div className="card-item">{row.process_name}</div>
-                <div className="card-item">{row.description || "-"}</div>
-                <div className="card-item">
-                  <span
-                    className={`role-badge ${row.status === "active" ? "status-active" : "status-inactive"} status-clickable`}
-                    title="Click to toggle status"
-                    onClick={() => toggleStatus(row)}
-                    role="button"
-                  >
-                    {String(row.status || "").toUpperCase()}
-                  </span>
-                </div>
-                <div className="card-item">{row.currency || "-"}</div>
-                <div className="card-item">{row.day_use || "-"}</div>
-                <div className="card-item">
-                  <button type="button" className="edit-btn" onClick={() => openEdit(row.id)} aria-label="Edit" title="Edit">
-                    <img src={assetUrl("images/edit.svg")} alt="Edit" />
-                  </button>
-                  {String(row.status || "").toLowerCase() === "inactive" && !row.has_transactions && (
-                    <input
-                      type="checkbox"
-                      style={{ marginLeft: 10 }}
-                      checked={selectedIds.has(row.id)}
-                      onChange={() => toggleSelectId(row.id)}
-                    />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ProcessTable
+          tableLoading={tableLoading}
+          showAll={showAll}
+          pageRows={pageRows}
+          currentPage={currentPage}
+          PAGE_SIZE={PAGE_SIZE}
+          selectedIds={selectedIds}
+          toggleStatus={toggleStatus}
+          openEdit={openEdit}
+          toggleSelectId={toggleSelectId}
+        />
 
         {!showAll && (
           <div className="pagination-container" id="paginationContainer">
@@ -596,245 +520,29 @@ export default function ProcessListPage() {
       </div>
 
       {modalOpen && (
-        <div id={editMode ? "editModal" : "addModal"} className="modal" style={{ display: "block" }}>
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>{editMode ? "Edit Process" : "Add Process"}</h2>
-              <span
-                className="close"
-                onClick={() => {
-                  setDescriptionPickerOpen(false);
-                  setModalOpen(false);
-                }}
-                role="presentation"
-              >
-                &times;
-              </span>
-            </div>
-            <div className="modal-body">
-              <form className="process-form add-grid" onSubmit={submitForm}>
-                <div className="add-col">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Process Name *</label>
-                      <input
-                        value={form.process_name}
-                        onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
-                        required
-                        readOnly={editMode}
-                        style={editMode ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Description</label>
-                      <div className="input-with-icon">
-                        <input
-                          value={form.description_name || ""}
-                          readOnly
-                          placeholder="Select description"
-                          style={{ backgroundColor: "#f5f5f5" }}
-                        />
-                        <button
-                          type="button"
-                          className="add-icon"
-                          aria-label="Choose description"
-                          onClick={() => setDescriptionPickerOpen(true)}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-row" style={{ display: form.description_name ? "block" : "none" }}>
-                    <div className="form-group">
-                      <label>Selected Descriptions</label>
-                      <div className="selected-descriptions">
-                        <span className="selected-description-tag">{form.description_name}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Currency</label>
-                      <select value={form.currency_id} onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))} required>
-                        <option value="">Select Currency</option>
-                        {currencies.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label style={{ fontWeight: 600, color: "#666" }}>DTS Modified:</label>
-                      <div style={{ backgroundColor: "#f5f5f5", marginTop: 5, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 4, display: "flex", justifyContent: "space-between", minHeight: 38 }}>
-                        <span>{form.dts_modified || ""}</span>
-                        <span style={{ fontWeight: 600 }}>{form.modified_by || ""}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label style={{ fontWeight: 600, color: "#666" }}>DTS Created:</label>
-                      <div style={{ backgroundColor: "#f5f5f5", marginTop: 5, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 4, display: "flex", justifyContent: "space-between", minHeight: 38 }}>
-                        <span>{form.dts_created || ""}</span>
-                        <span style={{ fontWeight: 600 }}>{form.created_by || ""}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="add-col">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Remove Words</label>
-                      <input value={form.remove_word} onChange={(e) => setForm((prev) => ({ ...prev, remove_word: e.target.value }))} placeholder="Enter words to remove" />
-                      <small className="field-help">(Use semicolon to separate multiple words, eg. abc;cde;efg)</small>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <div className="day-use-header">
-                        <label>Day Use</label>
-                        <div className="all-day-checkbox">
-                          <input
-                            id="react_edit_all_day"
-                            type="checkbox"
-                            checked={days.length > 0 && form.day_use.length === days.length}
-                            onChange={(e) => {
-                              if (e.target.checked) setForm((prev) => ({ ...prev, day_use: days.map((d) => String(d.id)) }));
-                              else setForm((prev) => ({ ...prev, day_use: [] }));
-                            }}
-                          />
-                          <label htmlFor="react_edit_all_day">All Day</label>
-                        </div>
-                      </div>
-                      <div className="day-checkboxes">
-                        {days.map((d) => {
-                          const id = String(d.id);
-                          const checked = form.day_use.includes(id);
-                          return (
-                            <label key={id} style={{ marginRight: 10 }}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    day_use: checked ? prev.day_use.filter((x) => x !== id) : [...prev.day_use, id],
-                                  }));
-                                }}
-                              />
-                              {String(d.day_name || "").toUpperCase()}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-row row-two-cols">
-                    <div className="form-group">
-                      <label>Replace From</label>
-                      <input value={form.replace_word_from} onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))} placeholder="Old word" />
-                      <small className="field-help">(Word to be replaced)</small>
-                    </div>
-                    <div className="form-group">
-                      <label>Replace To</label>
-                      <input value={form.replace_word_to} onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))} placeholder="New word" />
-                      <small className="field-help">(Replacement word)</small>
-                    </div>
-                  </div>
-
-                  {editMode && (
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Status</label>
-                        <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
-                          <option value="active">ACTIVE</option>
-                          <option value="inactive">INACTIVE</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Remarks</label>
-                      <textarea rows={4} value={form.remark} onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))} placeholder="ENTER REMARKS..." />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-actions add-actions">
-                  <button type="submit" className="btn btn-save">{editMode ? "Update Process" : "Add Process"}</button>
-                  <button
-                    type="button"
-                    className="btn btn-cancel"
-                    onClick={() => {
-                      setDescriptionPickerOpen(false);
-                      setModalOpen(false);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        <ProcessFormModal
+          editMode={editMode}
+          form={form}
+          setForm={setForm}
+          descriptions={descriptions}
+          currencies={currencies}
+          days={days}
+          onClose={() => {
+            setDescriptionPickerOpen(false);
+            setModalOpen(false);
+          }}
+          onSubmit={submitForm}
+          onOpenDescriptionPicker={() => setDescriptionPickerOpen(true)}
+        />
       )}
 
       {modalOpen && descriptionPickerOpen && (
-        <div
-          className="modal"
-          style={{ display: "block", zIndex: 10050 }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="descPickerTitle"
-        >
-          <div className="modal-content" style={{ maxWidth: 480 }}>
-            <div className="modal-header">
-              <h2 id="descPickerTitle">Select description</h2>
-              <span className="close" onClick={() => setDescriptionPickerOpen(false)} role="presentation">&times;</span>
-            </div>
-            <div className="modal-body" style={{ maxHeight: "60vh", overflowY: "auto" }}>
-              {descriptions.length === 0 ? (
-                <p style={{ margin: 0, color: "#666" }}>No descriptions available.</p>
-              ) : (
-                descriptions.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    className="description-item"
-                    onClick={() => pickDescription(d)}
-                    style={{
-                      width: "100%",
-                      border: "1px solid #e9ecef",
-                      background: String(form.description_id) === String(d.id) ? "#e7f1ff" : "#fff",
-                      borderRadius: 4,
-                      marginBottom: 8,
-                      padding: "10px 12px",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      fontSize: 14,
-                    }}
-                  >
-                    <span className="description-item-left" style={{ textTransform: "uppercase" }}>
-                      {String(d.name || "").trim() || `ID ${d.id}`}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        <DescriptionPickerModal
+          descriptions={descriptions}
+          form={form}
+          pickDescription={pickDescription}
+          onClose={() => setDescriptionPickerOpen(false)}
+        />
       )}
 
       {toast && <div className={`process-notification ${toast.type}`}>{toast.message}</div>}
