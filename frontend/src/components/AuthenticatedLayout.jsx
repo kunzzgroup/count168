@@ -97,7 +97,20 @@ export default function AuthenticatedLayout() {
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
   const webHref = (path) => new URL(path, window.location.origin).href;
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
-  const logout = () => window.location.assign(new URL("/logout", window.location.origin).href);
+  const logout = async () => {
+    try {
+      // Reuse existing backend logout flow (dashboard.php?logout=1) without rendering a PHP page.
+      await fetch(buildApiUrl("dashboard.php?logout=1"), {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+    } catch {
+      // Even if request fails, clear client route to login.
+    } finally {
+      navigate("/login", { replace: true });
+    }
+  };
   const path = location.pathname;
   const openHoverSubmenu = (section, el) => {
     if (!el) return;
