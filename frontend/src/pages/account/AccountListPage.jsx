@@ -1,0 +1,413 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+
+// Logic & Constants
+import {
+  toUpper,
+  normalizeAlertAmount,
+  roleSortOrder,
+  PAGE_SIZE,
+  DEFAULT_FORM,
+} from "./accountLogic.js";
+
+// Components
+import AccountFormModal from "./components/AccountFormModal.jsx";
+import AccountConfirmModal from "./components/AccountConfirmModal.jsx";
+import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
+
+export default function AccountListPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const assetVersion = useMemo(() => Date.now(), []);
+
+  // -- Status --
+  const [bootLoading, setBootLoading] = useState(true);
+  const [cssReady, setCssReady] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [switchingCompany, setSwitchingCompany] = useState(false);
+
+  // -- Data --
+  const [accounts, setAccounts] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
+  const [companyId, setCompanyId] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+
+  // -- Filters --
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [sortColumn, setSortColumn] = useState("account");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
+
+  // -- Modals & Forms --
+  const [toast, setToast] = useState(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [currencySettingOpen, setCurrencySettingOpen] = useState(false);
+  const [form, setForm] = useState(DEFAULT_FORM);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // -- Child states --
+  const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
+  const [currencyInput, setCurrencyInput] = useState("");
+  const [settingCurrencyId, setSettingCurrencyId] = useState(null);
+  const [settingLinked, setSettingLinked] = useState(new Set());
+  const [settingInitial, setSettingInitial] = useState(new Set());
+  const [settingSearch, setSettingSearch] = useState("");
+  const [settingRole, setSettingRole] = useState("");
+
+  const toastTimerRef = useRef(null);
+
+  const notify = useCallback((message, type = "success") => {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 1800);
+  }, []);
+
+  // -- CSS Loading (FOUC Fix) --
+  useEffect(() => {
+    document.body.classList.remove("bg");
+    document.body.classList.add("account-page");
+
+    const hrefs = [
+      assetUrl(`css/account-list.css?v=${assetVersion}`),
+      assetUrl(`css/accountCSS.css?v=${assetVersion}`),
+    ];
+    let loadedCount = 0;
+    const links = [];
+
+    const onLoad = () => {
+      loadedCount++;
+      if (loadedCount >= hrefs.length) setCssReady(true);
+    };
+
+    hrefs.forEach(href => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet"; link.href = href;
+      link.onload = onLoad; link.onerror = onLoad;
+      document.head.appendChild(link);
+      links.push(link);
+    });
+
+    return () => {
+      document.body.classList.remove("account-page");
+      document.body.classList.add("bg");
+      links.forEach(l => l.parentNode?.removeChild(l));
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, [assetVersion]);
+
+  const syncUrl = useCallback(() => {
+    const url = new URL(window.location.href);
+    if (companyId) url.searchParams.set("company_id", String(companyId));
+    if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
+    else url.searchParams.delete("search");
+    if (showInactive) url.searchParams.set("showInactive", "1");
+    else url.searchParams.delete("showInactive");
+    if (showAll) url.searchParams.set("showAll", "1");
+    else url.searchParams.delete("showAll");
+    window.history.replaceState({}, document.title, url.toString());
+  }, [companyId, searchTerm, showInactive, showAll]);
+
+  const fetchAccounts = useCallback(async () => {
+    if (!companyId) return;
+    setTableLoading(true);
+    try {
+      const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+      url.searchParams.set("company_id", String(companyId));
+      if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
+      if (showInactive) url.searchParams.set("showInactive", "1");
+      if (showAll) url.searchParams.set("showAll", "1");
+      const res = await fetch(url.toString(), { credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notify(json.message || "Failed to load accounts", "danger");
+      setAccounts(Array.isArray(json?.data?.accounts) ? json.data.accounts : []);
+      setSelectedDeleteIds(new Set());
+      setCurrentPage(1);
+      syncUrl();
+    } catch { notify("Network error", "danger"); }
+    finally { setTableLoading(false); }
+  }, [companyId, searchTerm, showInactive, showAll, syncUrl, notify]);
+
+  // -- Boot --
+  useEffect(() => {
+    (async () => {
+      try {
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
+        const meJson = await meRes.json();
+        if (!meJson.success || !meJson.data) return navigate("/login", { replace: true });
+
+        const [compRes, editRes] = await Promise.all([
+          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
+          fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }),
+        ]);
+        const compJson = await compRes.json();
+        const editJson = await editRes.json();
+
+        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        setCompanies(rows);
+        setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
+
+        const url = new URL(window.location.href);
+        const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
+        setCompanyId(cid ? Number(cid) : null);
+        setSearchTerm(url.searchParams.get("search") || "");
+        setShowInactive(url.searchParams.get("showInactive") === "1");
+        setShowAll(url.searchParams.get("showAll") === "1");
+
+        const curComp = rows.find(r => Number(r.id) === Number(cid));
+        setSelectedGroup(curComp?.group_id ? String(curComp.group_id).toUpperCase() : null);
+      } catch { navigate("/login"); }
+      finally { setBootLoading(false); }
+    })();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!bootLoading && companyId) fetchAccounts();
+  }, [bootLoading, companyId, fetchAccounts]);
+
+  // -- Computed --
+  const allCompanyButtons = useMemo(() => companies.filter(c => c.company_id && String(c.company_id).trim() !== ""), [companies]);
+  const groupIds = useMemo(() => [...new Set(allCompanyButtons.filter(c => c.group_id).map(c => String(c.group_id).toUpperCase()))].sort(), [allCompanyButtons]);
+  const companyButtons = useMemo(() => {
+    if (!selectedGroup) return allCompanyButtons.filter(c => !c.group_id || String(c.group_id).trim() === "");
+    return allCompanyButtons.filter(c => String(c.group_id || "").toUpperCase() === selectedGroup);
+  }, [allCompanyButtons, selectedGroup]);
+
+  const sortedAccounts = useMemo(() => {
+    const arr = [...accounts];
+    arr.sort((a, b) => {
+      if (sortColumn === "role") {
+        const ao = roleSortOrder(a.role, roles);
+        const bo = roleSortOrder(b.role, roles);
+        if (ao !== bo) return sortDirection === "asc" ? ao - bo : bo - ao;
+      }
+      const ak = String(a.account_id || "").toLowerCase();
+      const bk = String(b.account_id || "").toLowerCase();
+      const base = ak.localeCompare(bk);
+      return sortDirection === "asc" ? base : -base;
+    });
+    return arr;
+  }, [accounts, sortColumn, sortDirection, roles]);
+
+  const filteredForMode = useMemo(() => {
+    if (showAll) return sortedAccounts.filter(a => a.status === "active");
+    return sortedAccounts;
+  }, [sortedAccounts, showAll]);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
+  const pageRows = useMemo(() => {
+    if (showAll) return filteredForMode;
+    const p = Math.min(currentPage, totalPages);
+    return filteredForMode.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
+  }, [filteredForMode, showAll, currentPage, totalPages]);
+
+  // -- Handlers --
+  const onSwitchCompany = async (c) => {
+    if (!c?.id || Number(c.id) === Number(companyId) || switchingCompany) return;
+    setSwitchingCompany(true);
+    try {
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notify(json.message || "Failed to switch company", "danger");
+      setCompanyId(Number(c.id));
+      notifyCompanySessionUpdated();
+      notify(`Switched to ${c.company_id}`);
+    } catch { notify("Failed to switch company", "danger"); }
+    finally { setSwitchingCompany(false); }
+  };
+
+  const togglePaymentAlert = async (id) => {
+    try {
+      const fd = new FormData(); fd.append("id", id);
+      const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (json.success) setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: json.newPaymentAlert } : a));
+    } catch { notify("Toggle failed", "danger"); }
+  };
+
+  const toggleAccountStatus = async (id) => {
+    try {
+      const fd = new FormData(); fd.append("id", id);
+      const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (json.success) {
+        const next = json.newStatus || json.data?.newStatus;
+        setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a));
+      }
+    } catch { notify("Toggle failed", "danger"); }
+  };
+
+  const loadSelectionMeta = async (id, isEdit) => {
+    try {
+      const [curRes, compRes] = await Promise.all([
+        fetch(buildApiUrl(`api/accounts/account_currency_api.php?action=get_available_currencies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
+      ]);
+      const curJ = await curRes.json(); const compJ = await compRes.json();
+      if (curJ.success) {
+        setCurrencies(curJ.data.map(c => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
+        if (isEdit) setSelectedCurrencyIds(curJ.data.filter(c => c.is_linked).map(c => Number(c.id)));
+      }
+      if (compJ.success) {
+        const linked = compJ.data.filter(c => c.is_linked).map(c => Number(c.id));
+        setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+      }
+    } catch { /* silent */ }
+  };
+
+  const openAdd = () => {
+    setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
+    setSelectedCurrencyIds([]); setCurrencyInput("");
+    setAddModalOpen(true); loadSelectionMeta(null, false);
+  };
+
+  const openEdit = async (id) => {
+    try {
+      const res = await fetch(buildApiUrl(`getaccountapi.php?id=${id}`), { credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notify(json.message || "Failed to load account", "danger");
+      const d = json.data;
+      setIsEditMode(true);
+      setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
+      await loadSelectionMeta(id, true);
+      setEditModalOpen(true);
+    } catch { notify("Error loading account", "danger"); }
+  };
+
+  const saveForm = async (e) => {
+    e.preventDefault();
+    const amount = normalizeAlertAmount(form.alert_amount);
+    const fd = new FormData();
+    Object.entries(form).forEach(([k, v]) => fd.append(k, k === "alert_amount" ? amount : (v ?? "")));
+    if (selectedCompanyIds.length) fd.set("company_ids", JSON.stringify(selectedCompanyIds));
+    if (!isEditMode) {
+      if (companyId) fd.set("company_id", String(companyId));
+      if (selectedCurrencyIds.length) fd.set("currency_ids", JSON.stringify(selectedCurrencyIds));
+    }
+    try {
+      const ep = isEditMode ? "api/accounts/update_api.php" : "api/accounts/addaccountapi.php";
+      const res = await fetch(buildApiUrl(ep), { method: "POST", body: fd, credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notify(json.message || "Save failed", "danger");
+      setAddModalOpen(false); setEditModalOpen(false);
+      notify("Account saved successfully");
+      fetchAccounts();
+    } catch { notify("Save failed", "danger"); }
+  };
+
+  const createCurrency = async () => {
+    const code = toUpper(currencyInput).trim(); if (!code) return;
+    try {
+      const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, company_id: companyId }), credentials: "include" });
+      const json = await res.json();
+      if (json.success) { setCurrencies(prev => [...prev, { id: json.data.id, code: json.data.code, is_linked: false }]); setCurrencyInput(""); }
+    } catch { notify("Create failed", "danger"); }
+  };
+
+  const loadCurrencyLinks = async (curId) => {
+    try {
+      const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?action=get_linked_accounts_by_currency&currency_id=${curId}`), { method: "POST", credentials: "include" });
+      const json = await res.json();
+      const ids = new Set((json.data?.linked_account_ids || []).map(Number));
+      setSettingLinked(ids); setSettingInitial(new Set(ids));
+    } catch { notify("Load links failed", "danger"); }
+  };
+
+  const saveCurrencySetting = async () => {
+    const linked = [], unlinked = [];
+    accounts.forEach(a => {
+      const id = Number(a.id); const was = settingInitial.has(id), now = settingLinked.has(id);
+      if (now && !was) linked.push(id); if (!now && was) unlinked.push(id);
+    });
+    try {
+      const res = await fetch(buildApiUrl("api/accounts/bulk_account_currency_api.php?action=bulk_update"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
+      if (res.ok) { setCurrencySettingOpen(false); notify("Currency settings saved"); fetchAccounts(); }
+    } catch { notify("Save failed", "danger"); }
+  };
+
+  if (bootLoading || !cssReady) return null;
+
+  return (
+    <>
+      <div className="container">
+        <div className="content">
+          <h1 className="account-page-title">Account List</h1>
+          <div className="account-separator-line" />
+          <div className="account-action-buttons-container" style={{ marginBottom: 20 }}>
+            <div className="account-action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button className="account-btn account-btn-add" onClick={openAdd}>Add Account</button>
+                <div className="account-search-container">
+                  <svg className="account-search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
+                  <input className="account-search-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by Account or Name" />
+                </div>
+                <div className="account-checkbox-section"><input type="checkbox" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label>Inactive</label></div>
+                <div className="account-checkbox-section"><input type="checkbox" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label>Show All</label></div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button className="account-btn account-btn-setting" onClick={() => setCurrencySettingOpen(true)}>Currency Setting</button>
+                <button className="account-btn account-btn-delete" disabled={!selectedDeleteIds.size} onClick={() => setConfirmDeleteOpen(true)}>Delete ({selectedDeleteIds.size})</button>
+              </div>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              {groupIds.length > 0 && <div className="transaction-company-filter"><span>GroupID:</span><div className="transaction-company-buttons">{groupIds.map(gid => <button key={gid} className={`transaction-company-btn ${selectedGroup === gid ? "active" : ""}`} onClick={() => setSelectedGroup(p => p === gid ? null : gid)}>{gid}</button>)}</div></div>}
+              <div className="transaction-company-filter"><span>Company:</span><div className="transaction-company-buttons">{companyButtons.map(c => <button key={c.id} className={`transaction-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`} onClick={() => onSwitchCompany(c)} disabled={switchingCompany}>{c.company_id}</button>)}</div></div>
+            </div>
+          </div>
+
+          <div className="account-table-wrapper">
+            <div className="account-table-header">
+              <div className="account-header-item">No</div>
+              <div className="account-header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("account"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>Account {sortColumn === "account" && (sortDirection === "asc" ? "▲" : "▼")}</div>
+              <div className="account-header-item">Name</div>
+              <div className="account-header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("role"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>Role {sortColumn === "role" && (sortDirection === "asc" ? "▲" : "▼")}</div>
+              <div className="account-header-item">Alert</div>
+              <div className="account-header-item">Status</div>
+              <div className="account-header-item">Last Login</div>
+              <div className="account-header-item">Remark</div>
+              <div className="account-header-item">Action</div>
+            </div>
+            <div className="account-cards">
+              {(tableLoading || switchingCompany) ? <div className="account-card">Loading...</div> : pageRows.map((a, idx) => {
+                const alertOn = String(a.payment_alert) === "1";
+                const isInactive = String(a.status || "").toLowerCase() === "inactive";
+                return (
+                  <div className="account-card" key={a.id}>
+                    <div className="account-card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
+                    <div className="account-card-item">{toUpper(a.account_id)}</div>
+                    <div className="account-card-item">{toUpper(a.name)}</div>
+                    <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{toUpper(a.role) === "UPLINE" ? "SUPPLIER" : toUpper(a.role)}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"} status-clickable`} onClick={() => togglePaymentAlert(a.id)}>{alertOn ? "ON" : "OFF"}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"} status-clickable`} onClick={() => toggleAccountStatus(a.id)}>{toUpper(a.status)}</span></div>
+                    <div className="account-card-item">{toUpper(a.last_login)}</div>
+                    <div className="account-card-item">{toUpper(a.remark)}</div>
+                    <div className="account-card-item">
+                      <button className="account-edit-btn" onClick={() => openEdit(a.id)}><img src="/images/edit.svg" alt="Edit" /></button>
+                      {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {!showAll && <div className="account-pagination-container"><button className="account-pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>◀</button><span>{currentPage} of {totalPages}</span><button className="account-pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>▶</button></div>}
+        </div>
+      </div>
+
+      {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
+
+      <AccountFormModal open={addModalOpen || editModalOpen} isEditMode={isEditMode} form={form} setForm={setForm} roles={roles} currencies={currencies} companies={companies} selectedCurrencyIds={selectedCurrencyIds} setSelectedCurrencyIds={setSelectedCurrencyIds} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} onRemoveCurrency={() => {}} onSave={saveForm} onClose={() => { setAddModalOpen(false); setEditModalOpen(false); }} />
+      <AccountConfirmModal open={confirmDeleteOpen} count={selectedDeleteIds.size} onConfirm={() => {}} onClose={() => setConfirmDeleteOpen(false)} />
+      <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onSave={saveCurrencySetting} accounts={accounts} roles={roles} />
+    </>
+  );
+}

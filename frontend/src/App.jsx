@@ -4,7 +4,7 @@ import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
 import DomainPage from "./pages/domain/DomainPage.jsx";
 import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
-import AccountListPage from "./pages/AccountListPage.jsx";
+import AccountListPage from "./pages/account/AccountListPage.jsx";
 import ProcessListPage from "./pages/ProcessListPage.jsx";
 import BankProcessListPage from "./pages/BankProcessListPage.jsx";
 import UserListPage from "./pages/userlist/UserListPage.jsx";
