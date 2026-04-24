@@ -295,12 +295,12 @@ export default function AuthenticatedLayout() {
                 >
                   <div className="submenu-content">
                     {me?.company_has_gambling && (
-                      <a href={webHref("/capture_maintenance.php")} className="submenu-item">
+                      <a href={webHref("/capture-maintenance")} className="submenu-item">
                         <span>Data Capture</span>
                       </a>
                     )}
                     {me?.company_has_gambling && (
-                      <a href={webHref("/transaction_maintenance.php")} className="submenu-item">
+                      <a href={webHref("/transaction-maintenance")} className="submenu-item">
                         <span>Transaction</span>
                       </a>
                     )}
@@ -315,12 +315,12 @@ export default function AuthenticatedLayout() {
                       <span>Payment</span>
                     </a>
                     {me?.company_has_gambling && (
-                      <a href={webHref("/formula_maintenance.php")} className="submenu-item">
+                      <a href={webHref("/formula-maintenance")} className="submenu-item">
                         <span>Formula</span>
                       </a>
                     )}
                     {me?.company_has_bank && (
-                      <a href={webHref("/bankprocess_maintenance.php")} className="submenu-item">
+                      <a href={webHref("/bankprocess-maintenance")} className="submenu-item">
                         <span>Process</span>
                       </a>
                     )}

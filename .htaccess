@@ -42,9 +42,12 @@ RewriteRule ^bank_process_list\.php$ /bank-process-list [R=302,L,NC]
 RewriteRule ^member$ /member.php [L,NC,QSA]
 RewriteRule ^owner-secondary-password$ /owner_secondary_password.php [L,NC,QSA]
 RewriteRule ^reset-password$ /reset-password.php [L,NC,QSA]
+RewriteRule ^capture-maintenance$ /capture_maintenance.php [L,NC,QSA]
+RewriteRule ^transaction-maintenance$ /transaction_maintenance.php [L,NC,QSA]
+RewriteRule ^formula-maintenance$ /formula_maintenance.php [L,NC,QSA]
+RewriteRule ^bankprocess-maintenance$ /bankprocess_maintenance.php [L,NC,QSA]
 RewriteRule ^datacapture$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transaction$ /transaction.php [L,NC,QSA]
-RewriteRule ^customer-report$ /customer_report.php [L,NC,QSA]
 RewriteRule ^payment-maintenance$ /payment_maintenance.php [L,NC,QSA]
 RewriteRule ^logout$ /dashboard.php?logout=1 [L,NC,QSA]
 
@@ -54,5 +57,5 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 # SPA routes handled by React app build
-RewriteRule ^(login|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership)$ /frontend/dist/index.html [L,NC]
+RewriteRule ^(login|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership|customer-report|domain-report)$ /frontend/dist/index.html [L,NC]
 
