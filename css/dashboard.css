@@ -141,57 +141,68 @@ body.dashboard-page {
 /* Company & Currency Buttons */
 .transaction-company-filter {
     display: flex;
-    align-items: center;
-    gap: clamp(8px, 0.83vw, 16px);
+    align-items: flex-start;
+    gap: clamp(8px, 0.8vw, 14px);
     flex-wrap: wrap;
-    margin-top: clamp(8px, 1vw, 10px);
+    margin-top: clamp(8px, 0.9vw, 10px);
+    width: 100%;
+    min-width: 0;
 }
 
 .transaction-company-label {
-    font-weight: bold;
+    font-weight: 700;
     color: #374151;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: clamp(10px, 0.85vw, 14px);
     font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     white-space: nowrap;
-    min-width: 0px;
-    display: inline-block;
+    min-width: 78px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
     text-align: right;
+    line-height: 30px;
 }
 
 .transaction-company-buttons {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
 }
 
 .transaction-company-btn {
-    padding: clamp(6px, 0.5vw, 10px) clamp(12px, 1vw, 16px);
-    background: #f1f5f9;
-    border: 1px solid #d0d7de;
+    padding: 0 clamp(12px, 1vw, 16px);
+    background: #eef2f7;
+    border: 1px solid #cfd8e3;
     border-radius: 999px;
     cursor: pointer;
-    font-size: clamp(9px, 0.82vw, 15px);
-    transition: all 0.2s ease;
+    font-size: clamp(10px, 0.86vw, 14px);
+    transition: all 0.18s ease;
     color: #1f2937;
     font-weight: 600;
-    min-width: 62px;
+    min-width: 58px;
     height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
+    line-height: 1;
 }
 
 .transaction-company-btn:hover {
-    background: #e2e8f0;
-    border-color: #a5b4fc;
+    background: #e6edf6;
+    border-color: #9fb4d7;
+    transform: translateY(-1px);
 }
 
 .transaction-company-btn.active {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    border-color: transparent;
+    box-shadow: 0 3px 8px rgba(13, 96, 255, 0.28);
 }
 
 /* [All] 全选按钮：与普通公司按钮样式完全统一（蓝色渐变） */
