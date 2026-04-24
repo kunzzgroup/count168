@@ -595,14 +595,14 @@ export default function TransactionDashboardPage() {
                   <div
                     ref={barRef}
                     style={{
-                      width: "min(100%, 430px)",
+                      width: "min(100%, 390px)",
                       display: "grid",
                       gridTemplateColumns: "auto 1fr auto",
                       alignItems: "center",
-                      gap: 8,
+                      gap: 6,
                       border: "1px solid #d1d5db",
                       borderRadius: 8,
-                      padding: "6px 8px",
+                      padding: "4px 6px",
                       position: "relative",
                       background: "#fff",
                     }}
@@ -615,9 +615,9 @@ export default function TransactionDashboardPage() {
                         color: "#2563eb",
                         border: "1px solid #bfdbfe",
                         borderRadius: 6,
-                        minHeight: 30,
-                        padding: "4px 10px",
-                        fontSize: 12,
+                        minHeight: 26,
+                        padding: "2px 8px",
+                        fontSize: 11,
                       }}
                       onClick={toggleCalendarFromBar}
                     >
@@ -631,7 +631,7 @@ export default function TransactionDashboardPage() {
                         textAlign: "center",
                         fontWeight: 600,
                         color: "#1f2937",
-                        fontSize: 13,
+                        fontSize: 12,
                         lineHeight: 1.25,
                         background: "transparent",
                         border: "none",
@@ -646,7 +646,7 @@ export default function TransactionDashboardPage() {
                       <button
                         type="button"
                         className="btn btn-secondary dropdown-toggle"
-                        style={{ minHeight: 30, padding: "4px 10px", fontSize: 12 }}
+                        style={{ minHeight: 26, padding: "2px 8px", fontSize: 11 }}
                         onClick={() => {
                           setQuickOpen((o) => !o);
                           setCalendarOpen(false);
