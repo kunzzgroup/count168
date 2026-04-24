@@ -375,13 +375,13 @@ export default function AccountListPage() {
             </div>
             <div style={{ padding: "0 20px 15px 20px" }}>
               {groupIds.length > 0 && (
-                <div className="transaction-company-filter">
-                  <span>GroupID:</span>
-                  <div className="transaction-company-buttons">
+                <div className="account-company-filter">
+                  <span className="account-company-label">GroupID:</span>
+                  <div className="account-company-buttons">
                     {groupIds.map(gid => (
                       <button
                         key={gid}
-                        className={`transaction-company-btn ${selectedGroup === gid ? "active" : ""}`}
+                        className={`account-company-btn ${selectedGroup === gid ? "active" : ""}`}
                         onClick={() => setSelectedGroup(p => p === gid ? null : gid)}
                       >
                         {gid}
@@ -390,13 +390,13 @@ export default function AccountListPage() {
                   </div>
                 </div>
               )}
-              <div className="transaction-company-filter">
-                <span>Company:</span>
-                <div className="transaction-company-buttons">
+              <div className="account-company-filter">
+                <span className="account-company-label">Company:</span>
+                <div className="account-company-buttons">
                   {companyButtons.map(c => (
                     <button
                       key={c.id}
-                      className={`transaction-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
+                      className={`account-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
                       onClick={() => onSwitchCompany(c)}
                       disabled={switchingCompany}
                     >
