@@ -3,6 +3,9 @@ export const PAGE_SIZE = 20;
 export const EMPTY_FORM = {
   id: "",
   process_name: "",
+  is_multi_process: false,
+  selected_processes: [],
+  show_multi_process_selection: true,
   selected_descriptions: [],
   copy_from: "",
   currency_id: "",

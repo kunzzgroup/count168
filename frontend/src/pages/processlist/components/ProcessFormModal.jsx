@@ -46,16 +46,108 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Process Name *</label>
-                  <input
-                    value={form.process_name}
-                    onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
-                    required
-                    readOnly={editMode}
-                    style={editMode ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
-                  />
+                  <label>Process ID *</label>
+                  <div className={!editMode ? "input-with-checkbox" : ""}>
+                    <input
+                      value={form.process_name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
+                      required={!form.is_multi_process}
+                      readOnly={editMode || form.is_multi_process}
+                      style={editMode || form.is_multi_process ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
+                      placeholder="ENTER PROCESS ID"
+                    />
+                    {!editMode && (
+                      <div className="checkbox-container">
+                        <input
+                          type="checkbox"
+                          id="add_multi_use"
+                          checked={form.is_multi_process || false}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setForm((prev) => ({ 
+                              ...prev, 
+                              is_multi_process: checked,
+                              show_multi_process_selection: true,
+                              selected_processes: checked ? prev.selected_processes : [],
+                              process_name: checked ? "" : prev.process_name
+                            }));
+                          }}
+                        />
+                        <label htmlFor="add_multi_use">Multi-Process</label>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {!editMode && form.is_multi_process && form.show_multi_process_selection !== false && (
+                <div className="form-row" id="multi_use_accounts">
+                  <div className="form-group">
+                    <label>Select Multi-use Processes</label>
+                    <div className="process-checkboxes">
+                      {form.existingProcesses?.map((p) => (
+                        <div key={p.process_id} className="checkbox-item">
+                          <input
+                            type="checkbox"
+                            id={`mp_${p.process_id}`}
+                            checked={(form.selected_processes || []).includes(p.process_name)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setForm((prev) => {
+                                const nextList = checked
+                                  ? [...(prev.selected_processes || []), p.process_name]
+                                  : (prev.selected_processes || []).filter((name) => name !== p.process_name);
+                                return { ...prev, selected_processes: nextList };
+                              });
+                            }}
+                          />
+                          <label htmlFor={`mp_${p.process_id}`}>{p.process_name}</label>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="multi-use-actions">
+                      <button
+                        type="button"
+                        className="btn btn-save btn-small"
+                        onClick={() => setForm((prev) => ({ ...prev, show_multi_process_selection: false }))}
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!editMode && form.is_multi_process && form.show_multi_process_selection === false && (
+                <div className="form-row" id="selected_processes_row">
+                  <div className="form-group">
+                    <label>Selected Processes</label>
+                    <div className="selected-processes">
+                      {form.selected_processes?.map((name) => (
+                        <div key={name} className="selected-process-item">
+                          <span>{name}</span>
+                          <button
+                            type="button"
+                            className="remove-process"
+                            onClick={() =>
+                              setForm((prev) => {
+                                const nextList = prev.selected_processes.filter((n) => n !== name);
+                                return { 
+                                  ...prev, 
+                                  selected_processes: nextList,
+                                  show_multi_process_selection: nextList.length === 0 ? true : false
+                                };
+                              })
+                            }
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="form-row">
                 <div className="form-group">

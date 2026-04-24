@@ -413,7 +413,11 @@ export default function ProcessListPage() {
       return;
     }
 
-    fd.append("process_id", form.process_name);
+    if (form.is_multi_process && form.selected_processes?.length > 0) {
+      fd.append("selected_processes", JSON.stringify(form.selected_processes));
+    } else {
+      fd.append("process_id", form.process_name);
+    }
     fd.append("selected_descriptions", JSON.stringify(form.selected_descriptions.map(d => d.name)));
     fd.append("description_id", form.selected_descriptions[0].id); // For legacy compatibility if needed
     fd.append("currency_id", form.currency_id);
