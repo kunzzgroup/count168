@@ -140,12 +140,11 @@ body.dashboard-page {
 
 /* Company & Currency Buttons */
 .transaction-company-filter {
-    display: flex !important;
+    display: flex;
     align-items: center;
-    gap: clamp(8px, 0.8vw, 12px);
+    gap: clamp(8px, 0.83vw, 16px);
     margin-top: 10px;
-    min-width: 0;
-    width: 100%;
+    flex-wrap: wrap;
 }
 
 .transaction-company-filter--group {
@@ -163,41 +162,19 @@ body.dashboard-page {
     font-size: clamp(9px, 0.82vw, 15px);
     font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     white-space: nowrap;
-    min-width: 74px;
+    min-width: 78px;
     display: inline-block;
-    text-align: left;
-    flex: 0 0 74px;
+    text-align: right;
+    flex: 0 0 78px;
     line-height: 1;
 }
 
 .transaction-company-buttons {
-    display: flex;
-    flex-wrap: nowrap;
+    display: inline-flex;
+    flex-wrap: wrap;
     gap: 6px;
     align-items: center;
-    flex: 1 1 auto;
-    width: auto;
-    max-width: calc(100% - 86px);
-    min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-    padding: 2px 2px 4px;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
-}
-
-.transaction-company-buttons::-webkit-scrollbar {
-    height: 6px;
-}
-
-.transaction-company-buttons::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 999px;
-}
-
-.transaction-company-buttons::-webkit-scrollbar-track {
-    background: transparent;
+    max-width: 100%;
 }
 
 .transaction-company-btn {
