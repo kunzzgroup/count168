@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../utils/apiUrl.js";
 
@@ -34,9 +34,6 @@ export default function AuthenticatedLayout() {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hoverSection, setHoverSection] = useState(null);
-  const [submenuPos, setSubmenuPos] = useState({ report: { top: 0, left: 0 }, maintenance: { top: 0, left: 0 } });
-  const reportTitleRef = useRef(null);
-  const maintenanceTitleRef = useRef(null);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -99,18 +96,6 @@ export default function AuthenticatedLayout() {
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
   const logout = () => window.location.assign(new URL("/logout", window.location.origin).href);
   const path = location.pathname;
-  const openHoverSubmenu = (section, el) => {
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setSubmenuPos((prev) => ({
-      ...prev,
-      [section]: {
-        top: Math.max(8, rect.top - 2),
-        left: rect.right,
-      },
-    }));
-    setHoverSection(section);
-  };
 
   if (loading) return null;
   if (!me) return <Navigate to="/login" replace />;
@@ -199,10 +184,9 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
                 <div
-                  ref={reportTitleRef}
                   className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain_report.php") ? "active" : ""}`}
                   data-section="report"
-                  onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
+                  onMouseEnter={() => setHoverSection("report")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -217,14 +201,10 @@ export default function AuthenticatedLayout() {
                   style={
                     hoverSection === "report"
                       ? {
-                          position: "fixed",
-                          top: submenuPos.report.top,
-                          left: submenuPos.report.left,
                           opacity: 1,
                           visibility: "visible",
                           transform: "translateX(0)",
                           pointerEvents: "auto",
-                          zIndex: 4000,
                         }
                       : undefined
                   }
@@ -254,10 +234,9 @@ export default function AuthenticatedLayout() {
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
                 <div
-                  ref={maintenanceTitleRef}
                   className={`informationmenu-section-title ${path === "/payment-maintenance" ? "active" : ""}`}
                   data-section="maintenance"
-                  onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
+                  onMouseEnter={() => setHoverSection("maintenance")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -272,14 +251,10 @@ export default function AuthenticatedLayout() {
                   style={
                     hoverSection === "maintenance"
                       ? {
-                          position: "fixed",
-                          top: submenuPos.maintenance.top,
-                          left: submenuPos.maintenance.left,
                           opacity: 1,
                           visibility: "visible",
                           transform: "translateX(0)",
                           pointerEvents: "auto",
-                          zIndex: 4000,
                         }
                       : undefined
                   }
