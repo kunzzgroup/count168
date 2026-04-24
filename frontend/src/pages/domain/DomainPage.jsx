@@ -23,6 +23,7 @@ export default function DomainPage() {
   // ── Session / auth ─────────────────────────────────────────────────────────
   const [me, setMe] = useState(null);
   const [ready, setReady] = useState(false);
+  const [cssReady, setCssReady] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   // ── Domain list ────────────────────────────────────────────────────────────
@@ -48,26 +49,41 @@ export default function DomainPage() {
   const [domainFeePrice, setDomainFeePrice] = useState(0);
   const [feeInlineSummary, setFeeInlineSummary] = useState("");
 
-  // ── CSS loading ────────────────────────────────────────────────────────────
+  // ── CSS loading — wait for both sheets before showing any content ──────────
   const assetVersion = useMemo(() => Date.now(), []);
 
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page");
+
+    const hrefs = [
+      `/css/domain.css?v=${assetVersion}`,
+      `/css/accountCSS.css?v=${assetVersion}`,
+    ];
+    let loaded = 0;
     const links = [];
-    const addCss = (href) => {
+
+    const onLoad = () => {
+      loaded += 1;
+      if (loaded >= hrefs.length) setCssReady(true);
+    };
+
+    hrefs.forEach((href) => {
       const link = document.createElement("link");
       link.rel = "stylesheet";
       link.href = href;
+      link.onload = onLoad;
+      // If sheet fails to load, don't block forever
+      link.onerror = onLoad;
       document.head.appendChild(link);
       links.push(link);
-    };
-    addCss(`/css/domain.css?v=${assetVersion}`);
-    addCss(`/css/accountCSS.css?v=${assetVersion}`);
+    });
+
     return () => {
       document.body.classList.remove("dashboard-page");
       document.body.classList.add("bg");
       links.forEach((l) => l.parentNode?.removeChild(l));
+      setCssReady(false);
     };
   }, [assetVersion]);
 
@@ -227,7 +243,7 @@ export default function DomainPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (!ready) return null;
+  if (!ready || !cssReady) return null;
 
   const isOwnerOrAdmin = ["owner", "admin"].includes(String(me?.role || "").toLowerCase());
 
