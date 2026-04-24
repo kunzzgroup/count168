@@ -139,6 +139,19 @@ body.dashboard-page {
 }
 
 /* Company & Currency Buttons */
+.dashboard-filter-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.dashboard-filter-dual {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .transaction-company-filter {
     display: flex;
     align-items: flex-start;
@@ -173,6 +186,14 @@ body.dashboard-page {
     width: auto;
 }
 
+.transaction-company-filter--group {
+    margin-top: 0;
+}
+
+.transaction-company-filter--compact {
+    margin-top: 0;
+}
+
 .transaction-company-btn {
     padding: 0 clamp(12px, 1vw, 16px);
     background: #eef2f7;
@@ -190,6 +211,20 @@ body.dashboard-page {
     justify-content: center;
     flex: 0 0 auto;
     line-height: 1;
+}
+
+.dashboard-filter-summary {
+    margin-top: 2px;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.dashboard-filter-summary strong {
+    color: #0f172a;
+    font-weight: 700;
 }
 
 .transaction-company-btn:hover {
@@ -517,6 +552,19 @@ body.dashboard-page {
         gap: 6px;
     }
 
+    .dashboard-filter-stack {
+        gap: 6px;
+        margin-top: 8px;
+    }
+
+    .dashboard-filter-dual {
+        gap: 6px;
+    }
+
+    .dashboard-filter-summary {
+        font-size: 11px;
+    }
+
     .dashboard-kpi-grid {
         gap: 10px;
     }
@@ -632,6 +680,19 @@ body.dashboard-page {
 
     .transaction-company-buttons {
         gap: 4px;
+    }
+
+    .dashboard-filter-stack {
+        gap: 4px;
+        margin-top: 6px;
+    }
+
+    .dashboard-filter-dual {
+        gap: 4px;
+    }
+
+    .dashboard-filter-summary {
+        font-size: 10px;
     }
 
     .dashboard-kpi-grid {
