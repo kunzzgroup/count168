@@ -119,7 +119,7 @@ export default function UserModal({
                   <label htmlFor="email">Email *</label>
                   <input id="email" type="email" required disabled={fieldLocks.email} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.toLowerCase() }))} />
                 </div>
-                {(currentUserRole === "admin" || currentUserRole === "owner") && (
+                {(currentUserRole === "admin" || currentUserRole === "owner" || currentUserRole === "partnership") && (
                   <div className="form-group user-info-field company-field-group">
                     <label>Company *</label>
                     <div className="transaction-company-buttons" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
@@ -212,15 +212,16 @@ export default function UserModal({
             </form>
           </div>
 
-          <div className="permissions-panel" style={{ display: "flex" }}>
-            <div style={{ display: "flex", width: "100%", gap: 16 }}>
-              <div className="account-process-col">
+          <div className="permissions-panel" style={{ display: "flex", flex: 1 }}>
+            <div style={{ display: "flex", width: "100%", gap: 0 }}>
+              <div className="account-process-col" style={{ flex: 1, borderRight: "1px solid #e2e8f0", padding: "20px", display: "flex", flexDirection: "column" }}>
                 <label className="acc-proc-label">Account</label>
-                <div className="account-grid">
+                <div className="account-grid" style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignContent: "start", padding: "10px 0" }}>
                   {modalAccounts.map((a) => (
-                    <div key={a.id} className="account-item-compact">
+                    <div key={a.id} className="account-item-compact" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                       <input
                         type="checkbox"
+                        id={`acc-${a.id}`}
                         checked={selectedAccountIds.has(Number(a.id))}
                         disabled={!!editingRow?.is_owner_shadow}
                         onChange={(e) => {
@@ -231,22 +232,23 @@ export default function UserModal({
                           });
                         }}
                       />
-                      <label className="account-label">{a.account_id}</label>
+                      <label htmlFor={`acc-${a.id}`} className="account-label" style={{ fontSize: "12px", fontWeight: "600", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.account_id}</label>
                     </div>
                   ))}
                 </div>
-                <div className="account-control-buttons">
+                <div className="account-control-buttons" style={{ display: "flex", gap: "10px", justifyContent: "center", paddingTop: "15px", borderTop: "1px solid #e2e8f0", marginTop: "10px" }}>
                   <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set(modalAccounts.map(x => Number(x.id))))}>Select All</button>
                   <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set())}>Clear All</button>
                 </div>
               </div>
-              <div className="account-process-col">
+              <div className="account-process-col" style={{ flex: 1, padding: "20px", display: "flex", flexDirection: "column" }}>
                 <label className="acc-proc-label">Process</label>
-                <div className="account-grid">
+                <div className="account-grid" style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignContent: "start", padding: "10px 0" }}>
                   {modalProcesses.map((p) => (
-                    <div key={p.id} className="account-item-compact">
+                    <div key={p.id} className="account-item-compact" style={{ display: "flex", alignItems: "flex-start", gap: "5px" }}>
                       <input
                         type="checkbox"
+                        id={`proc-${p.id}`}
                         checked={selectedProcessIds.has(Number(p.id))}
                         disabled={!!editingRow?.is_owner_shadow}
                         onChange={(e) => {
@@ -257,13 +259,13 @@ export default function UserModal({
                           });
                         }}
                       />
-                      <label className="account-label">
-                        {p.process_id}{p.description ? <><br />{p.description}</> : null}
+                      <label htmlFor={`proc-${p.id}`} className="account-label" style={{ fontSize: "12px", fontWeight: "600", cursor: "pointer", lineHeight: "1.2" }}>
+                        {p.process_id}{p.description ? <span style={{ fontWeight: "normal", fontSize: "11px", color: "#666", display: "block" }}>{p.description}</span> : null}
                       </label>
                     </div>
                   ))}
                 </div>
-                <div className="account-control-buttons">
+                <div className="account-control-buttons" style={{ display: "flex", gap: "10px", justifyContent: "center", paddingTop: "15px", borderTop: "1px solid #e2e8f0", marginTop: "10px" }}>
                   <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set(modalProcesses.map(x => Number(x.id))))}>Select All</button>
                   <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set())}>Clear All</button>
                 </div>
