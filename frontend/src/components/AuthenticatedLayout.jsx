@@ -106,7 +106,7 @@ export default function AuthenticatedLayout() {
       ...prev,
       [section]: {
         top: Math.max(8, rect.top - 2),
-        left: rect.right + 8,
+        left: rect.right,
       },
     }));
     setHoverSection(section);
