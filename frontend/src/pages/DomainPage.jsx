@@ -278,7 +278,7 @@ export default function DomainPage() {
     s.src = assetUrl(`js/domain.js?v=${assetVersion}`);
     s.onload = () => {
       window.__domainLegacyScriptLoaded = true;
-      document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true, cancelable: true }));
+      if (typeof window.initDomainPageLegacy === "function") window.initDomainPageLegacy();
       initLegacy();
     };
     document.body.appendChild(s);
@@ -287,6 +287,7 @@ export default function DomainPage() {
   useEffect(() => {
     if (!ready) return;
     if (window.__domainLegacyScriptLoaded) {
+      if (typeof window.initDomainPageLegacy === "function") window.initDomainPageLegacy();
       initLegacy();
     }
   }, [ready, domains]);

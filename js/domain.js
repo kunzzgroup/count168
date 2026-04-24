@@ -2053,7 +2053,9 @@ function updateSelectedCompaniesDisplay() {
 }
 
 // 允许Enter键添加company/group和格式化输入
-document.addEventListener('DOMContentLoaded', function () {
+function bindDomainInputHandlers() {
+    if (window.__domainInputHandlersBound) return;
+    window.__domainInputHandlersBound = true;
     const companyInput = document.getElementById('companyInput');
     if (companyInput) {
         // Enter键添加
@@ -2093,7 +2095,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     refreshDomainFeeSummaryFromApi();
-});
+}
 
 /** 展示用：固定两位小数 */
 function formatDomainFeeDisplay2(val) {
@@ -2872,7 +2874,8 @@ function closeCompanyExpirationModal() {
 }
 
 // 页面加载完成后初始化搜索功能及表单提交
-document.addEventListener('DOMContentLoaded', function () {
+function initDomainPageLegacy() {
+    bindDomainInputHandlers();
     ensureDomainAddAccountModalExists();
     bindDomainAddAccountModalEvents();
     setupSearch();
@@ -2943,7 +2946,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
     }
-});
+}
+
+window.initDomainPageLegacy = initDomainPageLegacy;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDomainPageLegacy, { once: true });
+} else {
+    initDomainPageLegacy();
+}
 
 // Close modal when clicking outside
 window.onclick = function (event) {
