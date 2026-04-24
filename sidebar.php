@@ -462,7 +462,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                 <a href="/customer-report" class="submenu-item">
                                     <span>Customer Report</span>
                                 </a>
-                                <a href="domain_report.php" class="submenu-item">
+                                <a href="/domain-report" class="submenu-item">
                                     <span>Domain Report</span>
                                 </a>
                             </div>

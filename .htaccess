@@ -37,6 +37,10 @@ RewriteRule ^add-account\.php$ /add-account [R=302,L,NC]
 RewriteRule ^processlist\.php$ /process-list [R=302,L,NC]
 RewriteRule ^games_process_list\.php$ /games-process-list [R=302,L,NC]
 RewriteRule ^bank_process_list\.php$ /bank-process-list [R=302,L,NC]
+RewriteRule ^customer_report\.php$ /customer-report [R=302,L,NC]
+RewriteRule ^domain_report\.php$ /domain-report [R=302,L,NC]
+RewriteRule ^customer_report$ /customer-report [R=302,L,NC]
+RewriteRule ^domain_report$ /domain-report [R=302,L,NC]
 
 # Clean URLs for pages still rendered by PHP
 RewriteRule ^member$ /member.php [L,NC,QSA]

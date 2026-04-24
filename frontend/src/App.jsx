@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { useEffect } from "react";
 import LoginPage from "./pages/LoginPage.jsx";
 import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
 import DomainPage from "./pages/DomainPage.jsx";
@@ -14,13 +13,6 @@ import DataCapturePage from "./pages/DataCapturePage.jsx";
 import TransactionPaymentPage from "./pages/TransactionPaymentPage.jsx";
 import CustomerReportPage from "./pages/CustomerReportPage.jsx";
 import DomainReportPage from "./pages/DomainReportPage.jsx";
-
-function HardRedirect({ to }) {
-  useEffect(() => {
-    window.location.replace(to);
-  }, [to]);
-  return null;
-}
 
 export default function App() {
   return (
@@ -45,18 +37,12 @@ export default function App() {
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
-      <Route path="/member" element={<HardRedirect to="/member" />} />
-      <Route path="/owner-secondary-password" element={<HardRedirect to="/owner-secondary-password" />} />
-      <Route path="/reset-password" element={<HardRedirect to="/reset-password" />} />
       <Route path="/datacapture.php" element={<Navigate to="/datacapture" replace />} />
       <Route path="/transaction.php" element={<Navigate to="/transaction" replace />} />
       <Route path="/customer_report.php" element={<Navigate to="/customer-report" replace />} />
+      <Route path="/customer_report" element={<Navigate to="/customer-report" replace />} />
       <Route path="/domain_report.php" element={<Navigate to="/domain-report" replace />} />
-      <Route path="/capture-maintenance" element={<HardRedirect to="/capture-maintenance" />} />
-      <Route path="/transaction-maintenance" element={<HardRedirect to="/transaction-maintenance" />} />
-      <Route path="/formula-maintenance" element={<HardRedirect to="/formula-maintenance" />} />
-      <Route path="/bankprocess-maintenance" element={<HardRedirect to="/bankprocess-maintenance" />} />
-      <Route path="/payment-maintenance" element={<HardRedirect to="/payment-maintenance" />} />
+      <Route path="/domain_report" element={<Navigate to="/domain-report" replace />} />
 
       {/* Legacy .php aliases */}
       <Route path="/index.php" element={<Navigate to="/login" replace />} />
