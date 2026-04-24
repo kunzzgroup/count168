@@ -8,7 +8,7 @@ import AccountListPage from "./pages/account/AccountListPage.jsx";
 import ProcessListPage from "./pages/ProcessListPage.jsx";
 import BankProcessListPage from "./pages/BankProcessListPage.jsx";
 import UserListPage from "./pages/userlist/UserListPage.jsx";
-import OwnershipPage from "./pages/OwnershipPage.jsx";
+import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 import DataCapturePage from "./pages/DataCapturePage.jsx";
 import TransactionPaymentPage from "./pages/TransactionPaymentPage.jsx";
 import CustomerReportPage from "./pages/CustomerReportPage.jsx";
