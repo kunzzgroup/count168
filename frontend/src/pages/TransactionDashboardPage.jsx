@@ -659,7 +659,7 @@ export default function TransactionDashboardPage() {
                           minWidth: 0,
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: 4,
+                          gap: 55,
                         }}
                         onClick={() => {
                           setQuickOpen((o) => !o);
