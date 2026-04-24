@@ -143,17 +143,8 @@ body.dashboard-page {
     display: flex;
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
-    margin-top: 10px;
     flex-wrap: wrap;
-}
-
-.transaction-company-filter--group {
-    margin-top: 12px;
-}
-
-.transaction-company-filter--company,
-.transaction-company-filter--currency {
-    margin-top: 8px;
+    margin-top: clamp(8px, 1vw, 10px);
 }
 
 .transaction-company-label {
@@ -162,11 +153,9 @@ body.dashboard-page {
     font-size: clamp(9px, 0.82vw, 15px);
     font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     white-space: nowrap;
-    min-width: 78px;
+    min-width: 0px;
     display: inline-block;
     text-align: right;
-    flex: 0 0 78px;
-    line-height: 1;
 }
 
 .transaction-company-buttons {
@@ -174,7 +163,6 @@ body.dashboard-page {
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
-    max-width: 100%;
 }
 
 .transaction-company-btn {
