@@ -595,14 +595,14 @@ export default function TransactionDashboardPage() {
                   <div
                     ref={barRef}
                     style={{
-                      width: "min(100%, 390px)",
+                      width: "min(100%, 330px)",
                       display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
+                      gridTemplateColumns: "28px 1fr auto",
                       alignItems: "center",
-                      gap: 6,
+                      gap: 5,
                       border: "1px solid #d1d5db",
                       borderRadius: 8,
-                      padding: "4px 6px",
+                      padding: "3px 5px",
                       position: "relative",
                       background: "#fff",
                     }}
@@ -615,8 +615,8 @@ export default function TransactionDashboardPage() {
                         color: "#2563eb",
                         border: "1px solid #bfdbfe",
                         borderRadius: 6,
-                        minHeight: 26,
-                        padding: "2px 8px",
+                        minHeight: 24,
+                        padding: "1px 6px",
                         fontSize: 11,
                       }}
                       onClick={toggleCalendarFromBar}
@@ -628,15 +628,16 @@ export default function TransactionDashboardPage() {
                       type="button"
                       onClick={toggleCalendarFromBar}
                       style={{
-                        textAlign: "center",
+                        textAlign: "left",
                         fontWeight: 600,
                         color: "#1f2937",
-                        fontSize: 12,
+                        fontSize: 11,
                         lineHeight: 1.25,
                         background: "transparent",
                         border: "none",
                         cursor: "pointer",
-                        padding: 0,
+                        padding: "0 2px",
+                        minWidth: 0,
                       }}
                     >
                       {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
@@ -646,7 +647,7 @@ export default function TransactionDashboardPage() {
                       <button
                         type="button"
                         className="btn btn-secondary dropdown-toggle"
-                        style={{ minHeight: 26, padding: "2px 8px", fontSize: 11 }}
+                        style={{ minHeight: 24, padding: "1px 7px", fontSize: 11, justifySelf: "end" }}
                         onClick={() => {
                           setQuickOpen((o) => !o);
                           setCalendarOpen(false);
