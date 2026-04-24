@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import {
   getApiMessage,
   isApiConflict,
@@ -16,6 +16,23 @@ import ConflictModal from "./components/ConflictModal.jsx";
 
 export default function OwnershipPage() {
   const [boot, setBoot] = useState(true);
+
+  useEffect(() => {
+    const cssFiles = ["css/ownership.css", "css/global-13inch.css"];
+    const links = cssFiles.map((file) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = assetUrl(file);
+      document.head.appendChild(link);
+      return link;
+    });
+    return () => {
+      links.forEach((l) => {
+        if (l.parentNode) l.parentNode.removeChild(l);
+      });
+    };
+  }, []);
+
   const [activeTab, setActiveTab] = useState("account-ownership");
   const [loadingList, setLoadingList] = useState(false);
   const [allCompanies, setAllCompanies] = useState([]);
