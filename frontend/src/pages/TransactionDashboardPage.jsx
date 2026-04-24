@@ -628,7 +628,7 @@ export default function TransactionDashboardPage() {
                       type="button"
                       onClick={toggleCalendarFromBar}
                       style={{
-                        textAlign: "left",
+                        textAlign: "center",
                         fontWeight: 600,
                         color: "#1f2937",
                         fontSize: 14,
@@ -638,6 +638,8 @@ export default function TransactionDashboardPage() {
                         cursor: "pointer",
                         padding: "0 2px",
                         minWidth: 0,
+                        width: "100%",
+                        justifySelf: "stretch",
                       }}
                     >
                       {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
