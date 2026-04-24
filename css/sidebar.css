@@ -408,8 +408,7 @@
 }
 
 .informationmenu-content {
-    overflow-y: hidden !important;
-    overflow-x: visible !important;
+    overflow: visible !important;
     flex: 1;
     display: flex;
     flex-direction: column;

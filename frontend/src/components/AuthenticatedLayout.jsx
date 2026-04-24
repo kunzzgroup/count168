@@ -121,7 +121,7 @@ export default function AuthenticatedLayout() {
           </div>
         </div>
 
-        <div className="informationmenu-content" style={{ overflowY: "hidden", overflowX: "visible" }}>
+        <div className="informationmenu-content">
           <div className="content-separator" />
           {canAccess("home") && (
             <div className="informationmenu-section">
