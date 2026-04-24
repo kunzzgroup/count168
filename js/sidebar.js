@@ -149,7 +149,7 @@
 
     function handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
-            window.location.href = 'dashboard.php?logout=1';
+            window.location.href = '/logout';
         }
     }
 

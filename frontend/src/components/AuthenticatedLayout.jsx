@@ -99,9 +99,8 @@ export default function AuthenticatedLayout() {
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
   const logout = async () => {
     try {
-      // Reuse existing backend logout flow (dashboard.php?logout=1) without rendering a PHP page.
-      await fetch(buildApiUrl("dashboard.php?logout=1"), {
-        method: "GET",
+      await fetch(buildApiUrl("api/session/logout_api.php"), {
+        method: "POST",
         credentials: "include",
         cache: "no-store",
       });

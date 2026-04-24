@@ -60,7 +60,7 @@ RewriteRule ^reset-password$ /reset-password.php [L,NC,QSA]
 RewriteRule ^datacapture$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transaction$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transcation$ /transaction [R=302,L,NC]
-RewriteRule ^logout$ /dashboard.php?logout=1 [L,NC,QSA]
+RewriteRule ^logout$ /api/session/logout_api.php [L,NC,QSA]
 
 # Existing files/directories are served normally
 RewriteCond %{REQUEST_FILENAME} -f [OR]
