@@ -57,7 +57,8 @@ RewriteRule ^member$ /member.php [L,NC,QSA]
 RewriteRule ^owner-secondary-password$ /owner_secondary_password.php [L,NC,QSA]
 RewriteRule ^reset-password$ /reset-password.php [L,NC,QSA]
 RewriteRule ^datacapture$ /frontend/dist/index.html [L,NC,QSA]
-RewriteRule ^transaction$ /transaction.php [L,NC,QSA]
+RewriteRule ^transaction$ /frontend/dist/index.html [L,NC,QSA]
+RewriteRule ^transcation$ /transaction [R=302,L,NC]
 RewriteRule ^logout$ /dashboard.php?logout=1 [L,NC,QSA]
 
 # Existing files/directories are served normally
@@ -66,5 +67,5 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 # SPA routes handled by React app build
-RewriteRule ^(login|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance|payment-maintenance)$ /frontend/dist/index.html [L,NC]
+RewriteRule ^(login|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership|datacapture|transaction|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance|payment-maintenance)$ /frontend/dist/index.html [L,NC]
 

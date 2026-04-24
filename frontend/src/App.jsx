@@ -49,6 +49,7 @@ export default function App() {
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
       <Route path="/datacapture.php" element={<Navigate to="/datacapture" replace />} />
       <Route path="/transaction.php" element={<Navigate to="/transaction" replace />} />
+      <Route path="/transcation" element={<Navigate to="/transaction" replace />} />
       <Route path="/customer_report.php" element={<Navigate to="/customer-report" replace />} />
       <Route path="/customer_report" element={<Navigate to="/customer-report" replace />} />
       <Route path="/domain_report.php" element={<Navigate to="/domain-report" replace />} />
