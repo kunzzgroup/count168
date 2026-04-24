@@ -10,6 +10,7 @@ import BankProcessListPage from "./pages/BankProcessListPage.jsx";
 import UserListPage from "./pages/UserListPage.jsx";
 import OwnershipPage from "./pages/OwnershipPage.jsx";
 import DataCapturePage from "./pages/DataCapturePage.jsx";
+import TransactionPaymentPage from "./pages/TransactionPaymentPage.jsx";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/userlist" element={<UserListPage />} />
         <Route path="/ownership" element={<OwnershipPage />} />
         <Route path="/datacapture" element={<DataCapturePage />} />
+        <Route path="/transaction" element={<TransactionPaymentPage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -35,7 +37,7 @@ export default function App() {
       <Route path="/owner-secondary-password" element={<Navigate to="/owner_secondary_password.php" replace />} />
       <Route path="/reset-password" element={<Navigate to="/reset-password.php" replace />} />
       <Route path="/datacapture.php" element={<Navigate to="/datacapture" replace />} />
-      <Route path="/transaction" element={<Navigate to="/transaction.php" replace />} />
+      <Route path="/transaction.php" element={<Navigate to="/transaction" replace />} />
       <Route path="/customer-report" element={<Navigate to="/customer_report.php" replace />} />
       <Route path="/payment-maintenance" element={<Navigate to="/payment_maintenance.php" replace />} />
 

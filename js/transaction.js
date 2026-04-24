@@ -3,6 +3,16 @@
  */
 (function () {
     'use strict';
+
+    /** 与 SPA 同源子路径部署对齐：由 React 注入 window.__txApiHref */
+    function txApi(pathWithQuery) {
+        const p = String(pathWithQuery || '').replace(/^\//, '');
+        if (typeof window.__txApiHref === 'function') {
+            return window.__txApiHref(p);
+        }
+        return '/' + p;
+    }
+
     let lastSearchData = null;
     let currentCompanyId = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.currentCompanyId !== undefined) ? window.TRANSACTION_PAGE.currentCompanyId : null;
     const viewerRole = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.viewerRole !== undefined) ? window.TRANSACTION_PAGE.viewerRole : '';
@@ -189,9 +199,9 @@
     }
 
     function buildContraInboxUrl() {
-        let url = '/api/transactions/contra_inbox_api.php';
+        let url = txApi('api/transactions/contra_inbox_api.php');
         if (currentCompanyId) {
-            url += `?company_id=${currentCompanyId}`;
+            url += (url.indexOf('?') === -1 ? '?' : '&') + `company_id=${currentCompanyId}`;
         }
         return url;
     }
@@ -226,7 +236,7 @@
             form.append('company_id', String(currentCompanyId));
         }
 
-        fetch('/api/transactions/contra_approve_api.php', {
+        fetch(txApi('api/transactions/contra_approve_api.php'), {
             method: 'POST',
             body: form
         })
@@ -260,7 +270,7 @@
             form.append('company_id', String(currentCompanyId));
         }
 
-        fetch('/api/transactions/contra_reject_api.php', {
+        fetch(txApi('api/transactions/contra_reject_api.php'), {
             method: 'POST',
             body: form
         })
@@ -366,7 +376,10 @@
     }
 
     // ==================== 页面初始化 ====================
-    document.addEventListener('DOMContentLoaded', function () {
+    function transactionPageBindAndBootstrap() {
+        window.__txPageBindAbort = new AbortController();
+        const txBindSignal = window.__txPageBindAbort.signal;
+
         console.log('Transaction Payment 页面已加载');
 
         // 初始化日期选择器
@@ -436,18 +449,18 @@
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') return;
             refreshTransactionDataFromExternalChange();
-        });
+        }, { signal: txBindSignal });
         // Other tabs write invalidate timestamp to localStorage; this tab should refresh immediately.
         window.addEventListener('storage', (e) => {
             if (!e || e.key !== TX_LIST_INVALIDATE_LS_KEY) return;
             refreshTransactionDataFromExternalChange();
-        });
+        }, { signal: txBindSignal });
         // Same-tab updates (custom event) for flows that don't trigger storage in current document.
         window.addEventListener(TX_DATA_CHANGED_EVENT, () => {
             refreshTransactionDataFromExternalChange();
-        });
+        }, { signal: txBindSignal });
         // Fallback: if browser throttles/drops events, poll invalidate mark while visible.
-        setInterval(() => {
+        window.__txPageRefreshInterval = setInterval(() => {
             if (document.visibilityState !== 'visible') return;
             refreshTransactionDataFromExternalChange();
         }, 5000);
@@ -538,12 +551,48 @@
             if (!wrap.contains(e.target)) {
                 closeContraInbox();
             }
-        });
-    });
+        }, { signal: txBindSignal });
+    }
+
+    function transactionPageScheduleBootstrap() {
+        if (window.__TRANSACTION_SPA_MODE === true) {
+            window.__transactionPageTeardown = function () {
+                try {
+                    if (window.__txPageBindAbort) {
+                        window.__txPageBindAbort.abort();
+                    }
+                } catch (e) { /* ignore */ }
+                window.__txPageBindAbort = null;
+                if (window.__txPageRefreshInterval) {
+                    clearInterval(window.__txPageRefreshInterval);
+                    window.__txPageRefreshInterval = null;
+                }
+                ['#transaction_date', '#rate_transaction_date'].forEach((sel) => {
+                    const el = document.querySelector(sel);
+                    if (el && el._flatpickr) {
+                        try { el._flatpickr.destroy(); } catch (e2) { /* ignore */ }
+                    }
+                });
+            };
+            window.__initTransactionPage = function () {
+                if (typeof window.__transactionPageTeardown === 'function') {
+                    try { window.__transactionPageTeardown(); } catch (e) { /* ignore */ }
+                }
+                transactionPageBindAndBootstrap();
+            };
+            return;
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', transactionPageBindAndBootstrap, { once: true });
+        } else {
+            transactionPageBindAndBootstrap();
+        }
+    }
+    transactionPageScheduleBootstrap();
 
     // ==================== 加载分类列表 ====================
     function loadCategories() {
-        return fetch('/api/transactions/get_categories_api.php')
+        return fetch(txApi('api/transactions/get_categories_api.php'))
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -838,8 +887,8 @@
         }
 
         const url = params.toString()
-            ? `/api/transactions/get_accounts_api.php?${params.toString()}`
-            : '/api/transactions/get_accounts_api.php';
+            ? txApi(`api/transactions/get_accounts_api.php?${params.toString()}`)
+            : txApi('api/transactions/get_accounts_api.php');
 
         return fetch(url)
             .then(response => response.json())
@@ -1219,7 +1268,7 @@
 
         // 先更新 session
         try {
-            const response = await fetch(`/api/session/update_company_session_api.php?company_id=${normalizedCompanyId}`);
+            const response = await fetch(txApi(`api/session/update_company_session_api.php?company_id=${normalizedCompanyId}`));
             const result = await response.json();
             if (!result.success) {
                 const blocked = (typeof window.handleCompanySwitchDenied === 'function')
@@ -1231,23 +1280,33 @@
             } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
                 window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
             }
+            if (result.success && window.__TRANSACTION_SPA_MODE) {
+                try {
+                    window.dispatchEvent(new CustomEvent("eazycount:company-session-updated"));
+                } catch (e2) { /* ignore */ }
+            }
         } catch (error) {
             console.error('更新 session 时出错:', error);
             // 即使 API 失败，也继续更新前端状态
         }
 
-        // 立即刷新整页，让 sidebar 按新 company 的 session 状态重渲染
-        const url = new URL(window.location.href);
-        url.searchParams.set('company_id', normalizedCompanyId);
-        window.location.href = url.toString();
-        return;
+        // React SPA：不整页刷新；传统 PHP 仍整页刷新以同步 sidebar / session UI
+        if (!window.__TRANSACTION_SPA_MODE) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('company_id', normalizedCompanyId);
+            window.location.href = url.toString();
+            return;
+        }
 
-        currentCompanyId = companyId;
+        currentCompanyId = normalizedCompanyId;
+        if (window.TRANSACTION_PAGE && typeof window.TRANSACTION_PAGE === 'object') {
+            window.TRANSACTION_PAGE.currentCompanyId = normalizedCompanyId ? Number(normalizedCompanyId) : null;
+        }
 
         // 更新按钮状态
         const buttons = document.querySelectorAll('.transaction-company-btn');
         buttons.forEach(btn => {
-            if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
+            if (parseInt(btn.dataset.companyId, 10) === parseInt(normalizedCompanyId, 10)) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
@@ -1407,9 +1466,9 @@
     // ==================== 加载 Company Currencies ====================
     function loadCompanyCurrencies() {
         // 构建 URL，如果指定了 company_id 则添加参数
-        let url = '/api/transactions/get_company_currencies_api.php';
+        let url = txApi('api/transactions/get_company_currencies_api.php');
         if (currentCompanyId) {
-            url += `?company_id=${currentCompanyId}`;
+            url += (url.indexOf('?') === -1 ? '?' : '&') + `company_id=${currentCompanyId}`;
         }
 
         console.log('🔍 加载 Currency，URL:', url, 'currentCompanyId:', currentCompanyId);
@@ -1421,7 +1480,7 @@
                 }
                 return response.json();
             }),
-            fetch(`/api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
+            fetch(txApi(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`)).then(res => res.json()).catch(() => null)
         ])
             .then(([data, orderData]) => {
                 console.log('🔍 Currency API 返回:', {
@@ -1722,7 +1781,7 @@
                 localStorage.setItem(defaultKey, String(newOrder[0] || '').trim().toUpperCase());
 
                 // 同时永久保存到数据库
-                fetch('/api/transactions/user_currency_order_api.php', {
+                fetch(txApi('api/transactions/user_currency_order_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order: newOrder })
@@ -1828,7 +1887,7 @@
         }
 
         // 构建 URL，处理多选分类
-        let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+        let url = txApi(`api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`);
 
         // 处理分类参数：如果是全选则不传参数，否则传递多个分类
         if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
@@ -1973,7 +2032,7 @@
 
                     // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
                     if (singleSelectedCurrency && totalAccounts === 0) {
-                        let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = txApi(`api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`);
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -2030,7 +2089,7 @@
 
                     // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
                     if (showCaptureOnly && totalAccounts === 0) {
-                        let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = txApi(`api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`);
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -3317,7 +3376,7 @@
         isSubmittingTx = true;
         syncSubmitButtonState();
 
-        fetch('/api/transactions/submit_api.php', {
+        fetch(txApi('api/transactions/submit_api.php'), {
             method: 'POST',
             body: formData
         })
@@ -3405,7 +3464,7 @@
         }
 
         // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-        let url = `/api/transactions/history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`;
+        let url = txApi(`api/transactions/history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`);
         if (isVirtualCompanyRow) {
             url += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
         }
@@ -3848,6 +3907,9 @@
 
     // ==================== 复制表格到 Excel 时保留样式 ====================
     function initExcelCopyWithStyles() {
+        const copyOpts = (window.__txPageBindAbort && window.__txPageBindAbort.signal)
+            ? { signal: window.__txPageBindAbort.signal }
+            : {};
         // 监听复制事件
         document.addEventListener('copy', function (e) {
             const selection = window.getSelection();
@@ -4020,7 +4082,7 @@
                 clipboardData.setData('text/html', html);
                 clipboardData.setData('text/plain', text);
             }
-        });
+        }, copyOpts);
     }
 
     // ==================== 通知系统 ====================
