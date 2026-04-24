@@ -37,11 +37,12 @@ body {
     margin: 0;
     padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
     box-sizing: border-box;
     color: var(--own-dark-text);
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
 }
 
 .own-page-title {
