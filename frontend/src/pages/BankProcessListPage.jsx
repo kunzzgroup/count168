@@ -1129,7 +1129,7 @@ export default function BankProcessListPage() {
         </span>
       ),
     },
-    { key: "ccy", label: "Country (Currency)" },
+    { key: "ccy", label: "Country" },
     { key: "bank", label: "Bank" },
     { key: "types", label: "Types" },
     { key: "owner", label: "Card Owner" },
@@ -1226,11 +1226,11 @@ export default function BankProcessListPage() {
             {!tableLoading && pageRows.map((r, i) => (
               <div key={r.id} className="process-card" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
                 <div className="card-item">{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
-                <div className="card-item">{r.supplier || "-"}</div>
+                <div className="card-item">{r.card_lower || "-"}</div>
                 <div className="card-item">{r.country || "-"}</div>
                 <div className="card-item">{r.bank || "-"}</div>
                 <div className="card-item">{r.type || "-"}</div>
-                <div className="card-item">{r.card_lower || "-"}</div>
+                <div className="card-item">{r.supplier || "-"}</div>
                 <div className="card-item bank-contract-cell">{renderBankContract(r.contract)}</div>
                 <div className="card-item">{r.insurance || "-"}</div>
                 <div className="card-item">{r.customer || "-"}</div>
