@@ -33,7 +33,7 @@ export default function AuthenticatedLayout() {
   const location = useLocation();
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [openSidebarSection, setOpenSidebarSection] = useState(null);
+  const [hoverSection, setHoverSection] = useState(null);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -96,26 +96,6 @@ export default function AuthenticatedLayout() {
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
   const logout = () => window.location.assign(new URL("/logout", window.location.origin).href);
   const path = location.pathname;
-  const toggleSidebarSection = (section) => {
-    setOpenSidebarSection((prev) => (prev === section ? null : section));
-  };
-  const isSidebarOpen = (section) => {
-    if (openSidebarSection === section) return true;
-    if (section === "report" && path === "/customer-report") return true;
-    if (section === "maintenance" && path === "/payment-maintenance") return true;
-    return false;
-  };
-
-  useEffect(() => {
-    if (path === "/customer-report") {
-      setOpenSidebarSection("report");
-      return;
-    }
-    if (path === "/payment-maintenance") {
-      setOpenSidebarSection("maintenance");
-      return;
-    }
-  }, [path]);
 
   if (loading) return null;
   if (!me) return <Navigate to="/login" replace />;
@@ -141,7 +121,7 @@ export default function AuthenticatedLayout() {
           </div>
         </div>
 
-        <div className="informationmenu-content">
+        <div className="informationmenu-content" style={{ overflowY: "hidden", overflowX: "visible" }}>
           <div className="content-separator" />
           {canAccess("home") && (
             <div className="informationmenu-section">
@@ -202,15 +182,10 @@ export default function AuthenticatedLayout() {
           )}
           {canAccess("report") && me?.company_has_gambling && (
             <div className="informationmenu-section">
-              <div
-                className="menu-item-wrapper"
-                onMouseEnter={() => setOpenSidebarSection("report")}
-                onMouseLeave={() => setOpenSidebarSection(null)}
-              >
+              <div className="menu-item-wrapper" onMouseEnter={() => setHoverSection("report")} onMouseLeave={() => setHoverSection(null)}>
                 <div
-                  className={`informationmenu-section-title ${isSidebarOpen("report") ? "active" : ""}`}
+                  className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain_report.php") ? "active" : ""}`}
                   data-section="report"
-                  onClick={() => toggleSidebarSection("report")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -223,21 +198,9 @@ export default function AuthenticatedLayout() {
                   className="submenu"
                   id="report-submenu"
                   style={
-                    isSidebarOpen("report")
-                      ? {
-                          position: "absolute",
-                          top: 0,
-                          left: "100%",
-                          opacity: 1,
-                          visibility: "visible",
-                          transform: "translateX(0)",
-                          pointerEvents: "auto",
-                        }
-                      : {
-                          position: "absolute",
-                          top: 0,
-                          left: "100%",
-                        }
+                    hoverSection === "report"
+                      ? { opacity: 1, visibility: "visible", transform: "translateX(0)", pointerEvents: "auto" }
+                      : undefined
                   }
                 >
                   <div className="submenu-content">
@@ -261,15 +224,10 @@ export default function AuthenticatedLayout() {
           )}
           {canAccess("maintenance") && (
             <div className="informationmenu-section">
-              <div
-                className="menu-item-wrapper"
-                onMouseEnter={() => setOpenSidebarSection("maintenance")}
-                onMouseLeave={() => setOpenSidebarSection(null)}
-              >
+              <div className="menu-item-wrapper" onMouseEnter={() => setHoverSection("maintenance")} onMouseLeave={() => setHoverSection(null)}>
                 <div
-                  className={`informationmenu-section-title ${isSidebarOpen("maintenance") ? "active" : ""}`}
+                  className={`informationmenu-section-title ${path === "/payment-maintenance" ? "active" : ""}`}
                   data-section="maintenance"
-                  onClick={() => toggleSidebarSection("maintenance")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -282,21 +240,9 @@ export default function AuthenticatedLayout() {
                   className="submenu"
                   id="maintenance-submenu"
                   style={
-                    isSidebarOpen("maintenance")
-                      ? {
-                          position: "absolute",
-                          top: 0,
-                          left: "100%",
-                          opacity: 1,
-                          visibility: "visible",
-                          transform: "translateX(0)",
-                          pointerEvents: "auto",
-                        }
-                      : {
-                          position: "absolute",
-                          top: 0,
-                          left: "100%",
-                        }
+                    hoverSection === "maintenance"
+                      ? { opacity: 1, visibility: "visible", transform: "translateX(0)", pointerEvents: "auto" }
+                      : undefined
                   }
                 >
                   <div className="submenu-content">

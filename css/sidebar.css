@@ -408,12 +408,18 @@
 }
 
 .informationmenu-content {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow-y: hidden !important;
+    overflow-x: visible !important;
     flex: 1;
     display: flex;
     flex-direction: column;
     padding: 0;
+}
+
+.informationmenu-content::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
 }
 
 .informationmenu-section {
@@ -604,7 +610,9 @@
 
 /* 子菜单 - 紧凑型，显示在菜单项旁边 */
 .submenu {
-    position: fixed;
+    position: absolute;
+    top: 0;
+    left: 100%;
     width: clamp(100px, 10.42vw, 200px);
     min-height: auto;
     background:rgb(0, 84, 136);
@@ -619,12 +627,20 @@
     pointer-events: none;
     overflow: hidden;
     backdrop-filter: blur(10px);
-    margin-left: 0px;
+    margin-left: 0;
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title {
     background: rgba(255, 255, 255, 0.25);
     color: white;
+}
+
+.menu-item-wrapper:hover .submenu,
+.menu-item-wrapper:focus-within .submenu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+    pointer-events: auto;
 }
 
 .submenu-content {
