@@ -43,12 +43,14 @@ RewriteRule ^capture_maintenance\.php$ /capture-maintenance [R=302,L,NC]
 RewriteRule ^transaction_maintenance\.php$ /transaction-maintenance [R=302,L,NC]
 RewriteRule ^formula_maintenance\.php$ /formula-maintenance [R=302,L,NC]
 RewriteRule ^bankprocess_maintenance\.php$ /bankprocess-maintenance [R=302,L,NC]
+RewriteRule ^payment_maintenance\.php$ /payment-maintenance [R=302,L,NC]
 RewriteRule ^customer_report$ /customer-report [R=302,L,NC]
 RewriteRule ^domain_report$ /domain-report [R=302,L,NC]
 RewriteRule ^capture_maintenance$ /capture-maintenance [R=302,L,NC]
 RewriteRule ^transaction_maintenance$ /transaction-maintenance [R=302,L,NC]
 RewriteRule ^formula_maintenance$ /formula-maintenance [R=302,L,NC]
 RewriteRule ^bankprocess_maintenance$ /bankprocess-maintenance [R=302,L,NC]
+RewriteRule ^payment_maintenance$ /payment-maintenance [R=302,L,NC]
 
 # Clean URLs for pages still rendered by PHP
 RewriteRule ^member$ /member.php [L,NC,QSA]
@@ -56,7 +58,6 @@ RewriteRule ^owner-secondary-password$ /owner_secondary_password.php [L,NC,QSA]
 RewriteRule ^reset-password$ /reset-password.php [L,NC,QSA]
 RewriteRule ^datacapture$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transaction$ /transaction.php [L,NC,QSA]
-RewriteRule ^payment-maintenance$ /payment_maintenance.php [L,NC,QSA]
 RewriteRule ^logout$ /dashboard.php?logout=1 [L,NC,QSA]
 
 # Existing files/directories are served normally
@@ -65,5 +66,5 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 # SPA routes handled by React app build
-RewriteRule ^(login|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance)$ /frontend/dist/index.html [L,NC]
+RewriteRule ^(login|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance|payment-maintenance)$ /frontend/dist/index.html [L,NC]
 

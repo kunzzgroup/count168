@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { useEffect } from "react";
 import LoginPage from "./pages/LoginPage.jsx";
 import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
 import DomainPage from "./pages/DomainPage.jsx";
@@ -18,13 +17,7 @@ import CaptureMaintenancePage from "./pages/CaptureMaintenancePage.jsx";
 import TransactionMaintenancePage from "./pages/TransactionMaintenancePage.jsx";
 import FormulaMaintenancePage from "./pages/FormulaMaintenancePage.jsx";
 import BankprocessMaintenancePage from "./pages/BankprocessMaintenancePage.jsx";
-
-function HardRedirect({ to }) {
-  useEffect(() => {
-    window.location.assign(to);
-  }, [to]);
-  return null;
-}
+import PaymentMaintenancePage from "./pages/PaymentMaintenancePage.jsx";
 
 export default function App() {
   return (
@@ -50,6 +43,7 @@ export default function App() {
         <Route path="/transaction-maintenance" element={<TransactionMaintenancePage />} />
         <Route path="/formula-maintenance" element={<FormulaMaintenancePage />} />
         <Route path="/bankprocess-maintenance" element={<BankprocessMaintenancePage />} />
+        <Route path="/payment-maintenance" element={<PaymentMaintenancePage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -67,8 +61,8 @@ export default function App() {
       <Route path="/formula_maintenance" element={<Navigate to="/formula-maintenance" replace />} />
       <Route path="/bankprocess_maintenance.php" element={<Navigate to="/bankprocess-maintenance" replace />} />
       <Route path="/bankprocess_maintenance" element={<Navigate to="/bankprocess-maintenance" replace />} />
-      <Route path="/payment-maintenance" element={<HardRedirect to="/payment_maintenance.php" />} />
-      <Route path="/payment_maintenance.php" element={<HardRedirect to="/payment_maintenance.php" />} />
+      <Route path="/payment_maintenance.php" element={<Navigate to="/payment-maintenance" replace />} />
+      <Route path="/payment_maintenance" element={<Navigate to="/payment-maintenance" replace />} />
 
       {/* Legacy .php aliases */}
       <Route path="/index.php" element={<Navigate to="/login" replace />} />

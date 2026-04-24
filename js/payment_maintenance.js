@@ -1,3 +1,13 @@
+        function pmApi(pathWithQuery) {
+            const p = String(pathWithQuery || '').replace(/^\/+/, '');
+            if (typeof window.__pmApiHref === 'function') return window.__pmApiHref(p);
+            return p;
+        }
+
+        function pmDashboardHref() {
+            return window.__PAYMENT_MAINTENANCE_SPA_MODE ? '/dashboard' : 'dashboard.php';
+        }
+
         // Notification functions
         function showNotification(message, type = 'success') {
             const container = document.getElementById('notificationContainer');
@@ -84,7 +94,7 @@
                 return;
             }
             try {
-                const response = await fetch('api/domain/domain_api.php', {
+                const response = await fetch(pmApi('api/domain/domain_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'get_company_permissions', company_id: code })
@@ -155,11 +165,11 @@
             
             // 再更新 session
             try {
-                const response = await fetch(`api/session/update_company_session_api.php?company_id=${newCompanyId}`);
+                const response = await fetch(pmApi(`api/session/update_company_session_api.php?company_id=${newCompanyId}`));
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                    window.location.href = 'dashboard.php';
+                    window.location.href = pmDashboardHref();
                     return;
                 }
                 if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
@@ -167,7 +177,7 @@
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
-                window.location.href = 'dashboard.php';
+                window.location.href = pmDashboardHref();
                 return;
             }
             
@@ -202,7 +212,7 @@
         function loadCompanyCurrencies() {
             const container = document.getElementById('currency-buttons-container');
             const wrapper = document.getElementById('currency-buttons-wrapper');
-            let url = 'api/transactions/get_company_currencies_api.php';
+            let url = pmApi('api/transactions/get_company_currencies_api.php');
             if (currentCompanyId) {
                 url += `?company_id=${currentCompanyId}`;
             }
@@ -287,7 +297,7 @@
             console.log('🔍 搜索参数:', { transactionType, dateFrom, dateTo, companyId: currentCompanyId, currency: selectedCurrency });
             
             // 构建URL
-            let url = `api/payment_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+            let url = pmApi(`api/payment_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`);
             if (transactionType) {
                 url += `&transaction_type=${encodeURIComponent(transactionType)}`;
             }
@@ -509,7 +519,7 @@
             showConfirmDelete(
                 `Are you sure you want to delete the selected ${transactionIds.length} record(s)? This action cannot be undone.`,
                 function() {
-                    fetch('api/payment_maintenance/delete_api.php', {
+                    fetch(pmApi('api/payment_maintenance/delete_api.php'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -640,7 +650,9 @@
             
             // 跳转到目标页面
             if (value) {
-                window.location.href = value;
+                window.location.href = window.__PAYMENT_MAINTENANCE_SPA_MODE
+                    ? value.replace('.php', '').replace(/_/g, '-')
+                    : value;
             }
         }
 
@@ -654,7 +666,7 @@
         });
 
         // Initialize page (Payment maintenance is valid for Bank-only companies; do not gate on Games.)
-        document.addEventListener('DOMContentLoaded', function() {
+        function initPaymentMaintenancePage() {
             // Initialize date pickers
             initDatePickers();
             initMaintenanceDropdownHover();
@@ -696,5 +708,15 @@
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-        });
-window.switchCompany = switchCompany;
+        }
+
+        window.switchCompany = switchCompany;
+        window.toggleDeleteButton = toggleDeleteButton;
+        window.deleteData = deleteData;
+        window.toggleSelectAllRows = toggleSelectAllRows;
+        window.closeConfirmDeleteModal = closeConfirmDeleteModal;
+        window.confirmDelete = confirmDelete;
+        window.__initPaymentMaintenancePage = initPaymentMaintenancePage;
+        if (!window.__PAYMENT_MAINTENANCE_SPA_MODE) {
+            document.addEventListener('DOMContentLoaded', initPaymentMaintenancePage);
+        }

@@ -496,7 +496,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                 </a>
                             <?php endif; ?>
                             <?php if ($hasMaintenance): ?>
-                                <a href="payment_maintenance.php" class="submenu-item">
+                                <a href="/payment-maintenance" class="submenu-item">
                                     <span>Payment</span>
                                 </a>
                             <?php endif; ?>
