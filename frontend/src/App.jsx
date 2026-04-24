@@ -19,6 +19,7 @@ import FormulaMaintenancePage from "./pages/FormulaMaintenancePage.jsx";
 import BankprocessMaintenancePage from "./pages/BankprocessMaintenancePage.jsx";
 import PaymentMaintenancePage from "./pages/PaymentMaintenancePage.jsx";
 import OwnerSecondaryPasswordPage from "./pages/OwnerSecondaryPasswordPage.jsx";
+import UserSecondaryPasswordPage from "./pages/UserSecondaryPasswordPage.jsx";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
       {/* SPA routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/owner-secondary-password" element={<OwnerSecondaryPasswordPage />} />
+      <Route path="/user-secondary-password" element={<UserSecondaryPasswordPage />} />
       <Route element={<AuthenticatedLayout />}>
         <Route path="/dashboard" element={<TransactionDashboardPage />} />
         <Route path="/domain" element={<DomainPage />} />
@@ -80,6 +82,7 @@ export default function App() {
       <Route path="/userlist.php" element={<Navigate to="/userlist" replace />} />
       <Route path="/ownership.php" element={<Navigate to="/ownership" replace />} />
       <Route path="/owner_secondary_password.php" element={<Navigate to="/owner-secondary-password" replace />} />
+      <Route path="/api/users/user_secondary_password.php" element={<Navigate to="/user-secondary-password" replace />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
