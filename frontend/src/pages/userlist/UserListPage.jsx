@@ -109,6 +109,16 @@ export default function UserListPage() {
     return m;
   }, [currentUserRole]);
 
+  const syncUrl = useCallback(() => {
+    const url = new URL(window.location.href);
+    if (companyId) url.searchParams.set("company_id", String(companyId));
+    if (search.trim()) url.searchParams.set("search", search.trim()); else url.searchParams.delete("search");
+    if (showAll) url.searchParams.set("showAll", "1"); else url.searchParams.delete("showAll");
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }, [companyId, search, showAll]);
+
+  useEffect(() => { if (!bootLoading) syncUrl(); }, [bootLoading, syncUrl]);
+
   useEffect(() => {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("user-page");
@@ -176,13 +186,19 @@ export default function UserListPage() {
   useEffect(() => { if (!bootLoading && companyId && me) void fetchUsers(); }, [bootLoading, companyId, me, fetchUsers]);
 
   const onSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id || (Number(c.id) === Number(companyId) && !switchingCompany)) {
+      // Even if company matches, ensure group filter is synced
+      if (c?.group_id) setSelectedGroup(String(c.group_id).toUpperCase());
+      return;
+    }
     setSwitchingCompany(true);
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
       const json = await res.json();
       if (!json.success) { notify(json.error || json.message || "Could not switch company", "danger"); return; }
-      setCompanyId(Number(c.id)); notifyCompanySessionUpdated(); setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
+      setCompanyId(Number(c.id));
+      setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
+      notifyCompanySessionUpdated();
     } catch { notify("Company switch failed", "danger"); } finally { setSwitchingCompany(false); }
   };
 
@@ -326,9 +342,38 @@ export default function UserListPage() {
               </div>
               <button type="button" className="btn btn-delete" disabled={!selectedDeleteIds.size} onClick={() => { pendingDeleteRef.current = Array.from(selectedDeleteIds); setConfirmMessage(`Delete ${selectedDeleteIds.size} user(s)?`); setConfirmOpen(true); }}>Delete ({selectedDeleteIds.size})</button>
             </div>
-            <div style={{ padding: "10px 20px" }}>
-              {groupIds.length > 0 && <div className="transaction-company-filter"><span>GroupID:</span><div className="transaction-company-buttons">{groupIds.map(g => <button key={g} className={`transaction-company-btn ${selectedGroup === g ? "active" : ""}`} onClick={() => setSelectedGroup(p => p === g ? null : g)}>{g}</button>)}</div></div>}
-              <div className="transaction-company-filter"><span>Company:</span><div className="transaction-company-buttons">{companyButtons.map(c => <button key={c.id} className={`transaction-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`} onClick={() => onSwitchCompany(c)} disabled={switchingCompany}>{c.company_id}</button>)}</div></div>
+            <div style={{ padding: "0 20px 15px 20px" }}>
+              {groupIds.length > 0 && (
+                <div className="transaction-company-filter">
+                  <span>GroupID:</span>
+                  <div className="transaction-company-buttons">
+                    {groupIds.map(g => (
+                      <button
+                        key={g}
+                        className={`transaction-company-btn ${selectedGroup === g ? "active" : ""}`}
+                        onClick={() => setSelectedGroup(p => p === g ? null : g)}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="transaction-company-filter">
+                <span>Company:</span>
+                <div className="transaction-company-buttons">
+                  {companyButtons.map(c => (
+                    <button
+                      key={c.id}
+                      className={`transaction-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
+                      onClick={() => onSwitchCompany(c)}
+                      disabled={switchingCompany}
+                    >
+                      {c.company_id}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           <div className="user-table-wrapper">

@@ -219,6 +219,7 @@ export default function AccountListPage() {
       const json = await res.json();
       if (!json.success) return notify(json.message || "Failed to switch company", "danger");
       setCompanyId(Number(c.id));
+      setSelectedGroup(c.group_id ? String(c.group_id).toUpperCase() : null);
       notifyCompanySessionUpdated();
       notify(`Switched to ${c.company_id}`);
     } catch { notify("Failed to switch company", "danger"); }
@@ -372,9 +373,38 @@ export default function AccountListPage() {
                 <button className="account-btn account-btn-delete" disabled={!selectedDeleteIds.size} onClick={() => setConfirmDeleteOpen(true)}>Delete ({selectedDeleteIds.size})</button>
               </div>
             </div>
-            <div style={{ marginTop: 10 }}>
-              {groupIds.length > 0 && <div className="transaction-company-filter"><span>GroupID:</span><div className="transaction-company-buttons">{groupIds.map(gid => <button key={gid} className={`transaction-company-btn ${selectedGroup === gid ? "active" : ""}`} onClick={() => setSelectedGroup(p => p === gid ? null : gid)}>{gid}</button>)}</div></div>}
-              <div className="transaction-company-filter"><span>Company:</span><div className="transaction-company-buttons">{companyButtons.map(c => <button key={c.id} className={`transaction-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`} onClick={() => onSwitchCompany(c)} disabled={switchingCompany}>{c.company_id}</button>)}</div></div>
+            <div style={{ padding: "0 20px 15px 20px" }}>
+              {groupIds.length > 0 && (
+                <div className="transaction-company-filter">
+                  <span>GroupID:</span>
+                  <div className="transaction-company-buttons">
+                    {groupIds.map(gid => (
+                      <button
+                        key={gid}
+                        className={`transaction-company-btn ${selectedGroup === gid ? "active" : ""}`}
+                        onClick={() => setSelectedGroup(p => p === gid ? null : gid)}
+                      >
+                        {gid}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="transaction-company-filter">
+                <span>Company:</span>
+                <div className="transaction-company-buttons">
+                  {companyButtons.map(c => (
+                    <button
+                      key={c.id}
+                      className={`transaction-company-btn ${Number(c.id) === Number(companyId) ? "active" : ""}`}
+                      onClick={() => onSwitchCompany(c)}
+                      disabled={switchingCompany}
+                    >
+                      {c.company_id}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
