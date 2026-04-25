@@ -10987,7 +10987,10 @@ function applyInputMethodTransformation(result, inputMethod) {
 function roundProcessedAmountTo2Decimals(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
-    const scaled = num * 100;
+    // 先做极小纠偏，修正 2.07 -> 2.069999999999... 这类二进制浮点噪音，
+    // 再执行向 0 截断，保持既有业务规则不变。
+    const epsilon = num >= 0 ? 1e-9 : -1e-9;
+    const scaled = (num + epsilon) * 100;
     const truncated = Math.trunc(scaled) / 100;
     return Object.is(truncated, -0) ? 0 : truncated;
 }
