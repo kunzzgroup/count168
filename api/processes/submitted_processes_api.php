@@ -585,15 +585,13 @@ function getProcessesByDay($user_id)
         AND p.company_id = ?
         AND NOT EXISTS (
             SELECT 1 FROM submitted_processes sp
-            INNER JOIN process sp_p ON sp.process_id = sp_p.id
-            WHERE sp_p.process_id = p.process_id
+            WHERE sp.process_id = p.id
               AND sp.company_id = ?
               AND $submittedDateMatchSql
         )
         AND NOT EXISTS (
             SELECT 1 FROM data_captures dc
-            INNER JOIN process dc_p ON dc.process_id = dc_p.id
-            WHERE dc_p.process_id = p.process_id
+            WHERE dc.process_id = p.id
               AND dc.company_id = ?
               AND DATE(dc.capture_date) = ?
         )";
