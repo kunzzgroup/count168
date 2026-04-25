@@ -569,6 +569,7 @@ function getProcessesByDay($user_id)
         : "DATE(sp.date_submitted) = ?";
 
     // 已提交：submitted_processes 或已有 data_captures（与维护页一致，避免仅一侧有数据时下拉仍可选）
+    // 按 process.process_id（业务代码，如 MGALAXYDM683）排除：同一公司+账务日下任一变体（不同 id / 不同币别描述）已提交则整组不再出现在下拉
     $baseSql = "
         SELECT 
             p.id,
@@ -584,13 +585,15 @@ function getProcessesByDay($user_id)
         AND p.company_id = ?
         AND NOT EXISTS (
             SELECT 1 FROM submitted_processes sp
-            WHERE sp.process_id = p.id
+            INNER JOIN process sp_p ON sp.process_id = sp_p.id
+            WHERE sp_p.process_id = p.process_id
               AND sp.company_id = ?
               AND $submittedDateMatchSql
         )
         AND NOT EXISTS (
             SELECT 1 FROM data_captures dc
-            WHERE dc.process_id = p.id
+            INNER JOIN process dc_p ON dc.process_id = dc_p.id
+            WHERE dc_p.process_id = p.process_id
               AND dc.company_id = ?
               AND DATE(dc.capture_date) = ?
         )";
