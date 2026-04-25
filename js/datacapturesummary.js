@@ -10982,14 +10982,14 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount 专用：按绝对值 half-up 到 2 位小数（不能用 Math.trunc(num*100)：
-// 否则 -2.07 在 IEEE 下常为 -206.999…，trunc 成 -206 → 错误显示 -2.06）
+// Processed Amount：固定展示 2 位小数，向 0 截断（不四舍五入）。例：-2.089 -> -2.08，2.089 -> 2.08
+// 说明：少数二进制浮点（如语义为 -2.07 但乘 100 略小于 -207）截断后可能显示 -2.06，与「仅截断」规则一致
 function roundProcessedAmountTo2Decimals(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
-    const sign = num >= 0 ? 1 : -1;
-    const absNum = Math.abs(num);
-    return sign * (Math.floor(absNum * 100 + 0.5 + 1e-10) / 100);
+    const scaled = num * 100;
+    const truncated = Math.trunc(scaled) / 100;
+    return Object.is(truncated, -0) ? 0 : truncated;
 }
 
 // Evaluate mathematical expression safely
