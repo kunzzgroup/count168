@@ -9711,7 +9711,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         : String(row.getAttribute('data-input-method') || '').trim();
     const enableInputMethod = options.enableInputMethod !== undefined
         ? !!options.enableInputMethod
-        : !!inputMethod;
+        : row.getAttribute('data-enable-input-method') === 'true';
 
     let sourcePercentText = '';
     if (options.sourcePercent !== undefined && options.sourcePercent !== null) {
@@ -9730,7 +9730,19 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
     } else if (options.formula !== undefined && options.formula !== null && String(options.formula).trim() !== '') {
         formulaText = String(options.formula).trim();
     } else {
-        formulaText = String(row.getAttribute('data-formula-operators') || '').trim() || getFormulaForCalculation(row);
+        const operators = String(row.getAttribute('data-formula-operators') || '').trim();
+        let displayExpanded = String(row.getAttribute('data-formula-display') || '').trim();
+        if (!displayExpanded && cells[4]) {
+            const span = cells[4].querySelector('.formula-text');
+            const fromCell = (span ? span.textContent : cells[4].textContent || '').trim();
+            if (fromCell && fromCell !== 'Formula') displayExpanded = fromCell;
+        }
+        const hasDollarColumnRef = /\$(\d+)/.test(displayExpanded);
+        if (displayExpanded && displayExpanded !== 'Formula' && !hasDollarColumnRef) {
+            formulaText = displayExpanded;
+        } else {
+            formulaText = operators || getFormulaForCalculation(row);
+        }
     }
 
     const processValueForRefs = options.processValue != null && String(options.processValue).trim() !== ''
