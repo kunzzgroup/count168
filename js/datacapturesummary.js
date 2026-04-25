@@ -10982,13 +10982,14 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount 专用：不四舍五入，直接截断到 2 位小数（不进位）
+// Processed Amount 专用：按绝对值 half-up 到 2 位小数（不能用 Math.trunc(num*100)：
+// 否则 -2.07 在 IEEE 下常为 -206.999…，trunc 成 -206 → 错误显示 -2.06）
 function roundProcessedAmountTo2Decimals(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
-    // 直接截断：12.349 -> 12.34, -12.349 -> -12.34
-    const truncated = Math.trunc(num * 100) / 100;
-    return Object.is(truncated, -0) ? 0 : truncated;
+    const sign = num >= 0 ? 1 : -1;
+    const absNum = Math.abs(num);
+    return sign * (Math.floor(absNum * 100 + 0.5 + 1e-10) / 100);
 }
 
 // Evaluate mathematical expression safely
@@ -10997,7 +10998,6 @@ function formatNumberWithThousands(value) {
     if (!Number.isFinite(num)) {
         return '0.00';
     }
-    // 显示层也保持“截断到 2 位小数”，避免 toLocaleString 自带舍入进位
     const truncated = roundProcessedAmountTo2Decimals(num);
     return truncated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
