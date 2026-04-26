@@ -389,8 +389,10 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         Account
                     </div>
                 </div>
+            <?php endif; ?>
 
-
+            <!-- Ownership：与 Admin 中 Permissions 一致；旧数据仅含 account 时仍显示（与原先嵌套在 account 下行为一致） -->
+            <?php if (empty($permissions) || in_array('ownership', $permissions) || in_array('account', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="ownership.php"
                         onclick="window.location.href='ownership.php'">
@@ -401,7 +403,6 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         Ownership
                     </div>
                 </div>
-
             <?php endif; ?>
 
             <!-- Process Section -->

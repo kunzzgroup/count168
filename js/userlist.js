@@ -1433,7 +1433,7 @@ function setUserPermissions(permissions) {
 // 获取当前用户role的权限列表
 function getCurrentUserRolePermissions() {
     const rolePermissions = {
-        'owner': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'owner': ['home', 'admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
@@ -1503,12 +1503,12 @@ function getRoleTemplateSidebarList(role) {
     if (!role) return [];
     const rolePermissions = {
         'partnership': [],
-        'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
+        'admin': ['home', 'admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'manager': ['admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'supervisor': ['admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report'],
         'accountant': ['payment', 'report', 'maintenance'],
         'audit': ['payment', 'report', 'maintenance'],
-        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
+        'customer service': ['account', 'ownership', 'process', 'datacapture', 'payment', 'report']
     };
 
     return rolePermissions[role.toLowerCase()] || [];
@@ -1579,12 +1579,12 @@ function getFinalPermissionsForCreation(selectedRole) {
 
     // 获取新账号 role 的完整默认权限
     const rolePermissions = {
-        'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
+        'admin': ['home', 'admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'manager': ['admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'supervisor': ['admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report'],
         'accountant': ['payment', 'report', 'maintenance'],
         'audit': ['payment', 'report', 'maintenance'],
-        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
+        'customer service': ['account', 'ownership', 'process', 'datacapture', 'payment', 'report']
     };
     const defaultPermissions = rolePermissions[selectedRole.toLowerCase()] || [];
 
