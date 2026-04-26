@@ -978,27 +978,19 @@ try {
                     throw new Exception('Cannot delete user. The user is still referenced by: ' . implode(', ', $remainingRefs) . '. Please ensure there is a replacement user available.');
                 }
                 
-                // 6. 删除用户（先删除 user_company_map 中的关联，然后删除用户）
-                // 删除 user_company_map 中的关联
-                $stmt = $pdo->prepare("DELETE FROM user_company_map WHERE user_id = ? AND company_id = ?");
-                $stmt->execute([$userId, $current_company_id]);
-                
-                // 检查是否还有其他 company 关联
-                $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ?");
+                // 6. 硬删除用户：清除所有公司关联与公司级权限，再删除 user 记录
+                // 需求：当 inactive 账号在列表被清除时，数据库也要彻底清除该 Login ID。
+                $stmt = $pdo->prepare("DELETE FROM user_company_permissions WHERE user_id = ?");
                 $stmt->execute([$userId]);
-                $remainingCompanies = $stmt->fetchColumn();
+
+                $stmt = $pdo->prepare("DELETE FROM user_company_map WHERE user_id = ?");
+                $stmt->execute([$userId]);
+
+                $stmt = $pdo->prepare("DELETE FROM user WHERE id = ?");
+                $result = $stmt->execute([$userId]);
+                $deletedUserRows = $stmt->rowCount();
                 
-                // 如果还有其他关联，只删除当前公司的关联；否则删除整个用户
-                if ($remainingCompanies > 0) {
-                    // 只删除当前公司的关联，保留用户
-                    $result = true;
-                } else {
-                    // 删除整个用户
-                    $stmt = $pdo->prepare("DELETE FROM user WHERE id = ?");
-                    $result = $stmt->execute([$userId]);
-                }
-                
-                if (!$result || $stmt->rowCount() == 0) {
+                if (!$result || $deletedUserRows === 0) {
                     throw new Exception('Failed to delete user. No rows were affected. This may be due to foreign key constraints.');
                 }
                 
