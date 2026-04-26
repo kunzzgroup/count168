@@ -48,6 +48,28 @@ function historyTrunc2($value): float
     return ceil($n * 100) / 100;
 }
 
+/**
+ * Data Capture 的 processed_amount 与前端 js/datacapturesummary.js roundProcessedAmountTo2Decimals 对齐：
+ * 向 0 截断到 2 位 + 1e-9/-1e-9 纠偏，避免库内浮点 -40.799999… 在 Payment History 被 historyTrunc2 显示成 -40.79。
+ * 仅用于 data_capture 行，其它交易类型仍用 historyTrunc2。
+ */
+function historyDataCaptureProcessed2($value): float
+{
+    $n = (float) $value;
+    if (!is_finite($n)) {
+        return 0.0;
+    }
+    $epsilon = $n >= 0 ? 1e-9 : -1e-9;
+    $scaled = ($n + $epsilon) * 100.0;
+    if ($scaled >= 0) {
+        $t = floor($scaled);
+    } else {
+        $t = ceil($scaled);
+    }
+    $out = $t / 100.0;
+    return ($out === 0.0 || $out === -0.0) ? 0.0 : $out;
+}
+
 function historyFormat2($value): string
 {
     return number_format(historyTrunc2($value), 2, '.', '');
@@ -2072,7 +2094,10 @@ try {
         if (!isset($balance_by_currency[$curKey])) {
             $balance_by_currency[$curKey] = 0;
         }
-        $eventWinLoss = historyTrunc2((float) ($event['win_loss'] ?? 0));
+        $rawWl = (float) ($event['win_loss'] ?? 0);
+        $eventWinLoss = (($event['row_type'] ?? '') === 'data_capture')
+            ? historyDataCaptureProcessed2($rawWl)
+            : historyTrunc2($rawWl);
         $eventCrDr = historyTrunc2((float) ($event['cr_dr'] ?? 0));
         $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
         $row_balance = historyTrunc2($balance_by_currency[$curKey]);
