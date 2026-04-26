@@ -164,8 +164,11 @@ function mapRowsToDisplay(array $rows) {
         $inputMethod = $row['input_method'] ?? '';
         $description = $row['description'] ?? '';
         $productType = $row['product_type'] ?? 'main';
+        // description 必须参与去重 key：主产品与「红股%」等子说明共用同一 id_product、同 account 时，
+        // 若省略则会被合并为一条，导致 Maintenance 行数少于 Data Capture Summary（例如少显示第 4 行）。
+        $descriptionKey = strtolower(trim((string) $description));
 
-        // 只要「同一个 Process + Account + Currency + Product + 类型」，
+        // 只要「同一个 Process + Account + Currency + Product + 类型 + 说明」，
         // 就视为同一条当前有效公式，只保留最新一条（id 最大），
         // 历史上旧公式仍保留在表里，但不会额外占一行，避免 Data Summary 25 条而 Maintenance - Formula 显示 26 条的情况。
         $keyParts = [
@@ -174,6 +177,7 @@ function mapRowsToDisplay(array $rows) {
             strtolower(trim((string)$currencyDisplay)),
             strtolower(trim((string)$product)),
             $productType,
+            $descriptionKey,
         ];
         $dedupKey = implode('|', $keyParts);
 
