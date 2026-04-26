@@ -127,7 +127,9 @@ function mapRowsToDisplay(array $rows) {
     // 但不影响底层 data_capture_templates 中的所有记录（仅列表展示去重）。
     $displayRowsByKey = [];
     foreach ($rows as $row) {
-        $sourceValue = $row['columns_display'] ?? $row['source_columns'] ?? '';
+        $sourceRef = $row['columns_display'] ?? $row['source_columns'] ?? '';
+        // Source 列与 Data Capture Summary 一致：展示 source_percent（列引用仍放在 source_ref 供保存）
+        $sourceDisplay = formatSourcePercentForMaintenanceList($row['source_percent'] ?? null);
         // 列表展示：$5 * (0.18)；编辑框用 $5*0.18（与 update 解析一致）
         $formulaDisplayParen = buildFormulaDisplayParenFromRow($row);
         $formulaEdit = buildFormulaEditFromRow($row);
@@ -169,7 +171,8 @@ function mapRowsToDisplay(array $rows) {
                 'account_id' => $row['account_id'],
                 'account_name' => $row['account_name'] ?? '',
                 'currency' => $currencyDisplay,
-                'source' => $sourceValue,
+                'source' => $sourceDisplay,
+                'source_ref' => is_string($sourceRef) ? trim($sourceRef) : trim((string) $sourceRef),
                 'product' => $product,
                 'input_method' => $inputMethod,
                 'formula' => $formulaDisplayParen,
@@ -184,7 +187,8 @@ function mapRowsToDisplay(array $rows) {
                 $displayRowsByKey[$dedupKey]['id'] = $currentId;
                 $displayRowsByKey[$dedupKey]['formula'] = $formulaDisplayParen;
                 $displayRowsByKey[$dedupKey]['formula_edit'] = $formulaEdit;
-                $displayRowsByKey[$dedupKey]['source'] = $sourceValue;
+                $displayRowsByKey[$dedupKey]['source'] = $sourceDisplay;
+                $displayRowsByKey[$dedupKey]['source_ref'] = is_string($sourceRef) ? trim($sourceRef) : trim((string) $sourceRef);
                 $displayRowsByKey[$dedupKey]['input_method'] = $inputMethod;
                 $displayRowsByKey[$dedupKey]['description'] = $description;
                 $displayRowsByKey[$dedupKey]['account'] = $accountDisplay;

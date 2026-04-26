@@ -681,7 +681,8 @@ function loadDataCaptureList() {
                         (row.account && row.account.toUpperCase().includes(searchUpper)) ||
                         (row.account_name && row.account_name.toUpperCase().includes(searchUpper)) ||
                         (row.process && row.process.toUpperCase().includes(searchUpper)) ||
-                        (row.source && row.source.toUpperCase().includes(searchUpper))
+                        (row.source && row.source.toUpperCase().includes(searchUpper)) ||
+                        (row.source_ref && String(row.source_ref).toUpperCase().includes(searchUpper))
                     );
                 }
                 
@@ -748,6 +749,7 @@ function renderDataCaptureTable(data) {
             account: row.account || '',
             account_id: row.account_id || null,
             source: row.source || '',
+            source_ref: row.source_ref != null ? String(row.source_ref) : '',
             input_method: row.input_method || '',
             formula: row.formula || '',
             formula_edit: row.formula_edit || row.formula || '',
@@ -783,9 +785,9 @@ function renderDataCaptureTable(data) {
                 <select class="account-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);"></select>
             </td>
             <td class="currency-cell">${toUpperDisplay(row.currency)}</td>
-            <td class="source-cell" data-original-source="${escapeHtml(row.source || '')}">
+            <td class="source-cell" data-original-source="${escapeHtml(row.source || '')}" data-source-ref="${escapeHtml(row.source_ref != null ? String(row.source_ref) : '')}">
                 <span class="source-display" title="${escapeHtml(row.source || '')}">${toUpperDisplay(row.source)}</span>
-                <input type="text" class="source-input" value="${escapeHtml(row.source || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
+                <input type="text" class="source-input" value="${escapeHtml(row.source_ref != null ? String(row.source_ref) : '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
             </td>
             <td>${toUpperDisplay(row.product)}</td>
             <td class="input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
@@ -891,6 +893,9 @@ function editDataCaptureRow(rowId, editBtn) {
     loadAccountList(accountSelect, accountCell.getAttribute('data-original-account-id')).then(() => {
         const rowDataForEdit = JSON.parse(row.getAttribute('data-row-data') || '{}');
         formulaInput.value = rowDataForEdit.formula_edit || rowDataForEdit.formula || '';
+        sourceInput.value = rowDataForEdit.source_ref != null && String(rowDataForEdit.source_ref).trim() !== ''
+            ? String(rowDataForEdit.source_ref)
+            : '';
         // 显示输入框/下拉列表，隐藏显示文本
         accountDisplay.style.display = 'none';
         accountSelect.style.display = 'block';
@@ -1002,7 +1007,9 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
     
     // 恢复原始值
     accountSelect.value = rowData.account_id || '';
-    sourceInput.value = rowData.source || '';
+    sourceInput.value = rowData.source_ref != null && String(rowData.source_ref).trim() !== ''
+        ? String(rowData.source_ref)
+        : '';
     inputMethodSelect.value = rowData.input_method || '';
     formulaInput.value = rowData.formula_edit || rowData.formula || '';
     descriptionInput.value = rowData.description || '';
@@ -1115,10 +1122,15 @@ function saveDataCaptureRow(rowId, saveBtn) {
             const norm = data.data || {};
             const disp = norm.formula_display_paren != null ? norm.formula_display_paren : formulaValue;
             const edit = norm.formula_edit != null ? norm.formula_edit : formulaValue;
+            const prevRow = JSON.parse(row.getAttribute('data-row-data') || '{}');
             // 更新显示文本
             accountDisplay.textContent = accountText ? toUpperDisplay(accountText.split(' (')[0]) : '-';
-            sourceDisplay.textContent = toUpperDisplay(sourceValue);
-            sourceDisplay.title = sourceValue || '';
+            const sumSrc = norm.source_summary_display != null ? String(norm.source_summary_display) : (prevRow.source || '');
+            const refNext = norm.source_ref != null ? String(norm.source_ref).trim() : sourceValue;
+            sourceDisplay.textContent = toUpperDisplay(sumSrc !== '' ? sumSrc : '1');
+            sourceDisplay.title = sumSrc !== '' ? sumSrc : '1';
+            sourceInput.value = refNext;
+            sourceCell.setAttribute('data-source-ref', refNext);
             inputMethodDisplay.textContent = toUpperDisplay(inputMethodValue);
             formulaDisplay.textContent = toUpperDisplay(disp);
             formulaDisplay.title = disp || '';
@@ -1156,11 +1168,14 @@ function saveDataCaptureRow(rowId, saveBtn) {
             }
             
             // 更新保存的数据
+            const sumSrcFinal = norm.source_summary_display != null ? String(norm.source_summary_display) : (prevRow.source || '');
+            const refFinal = norm.source_ref != null ? String(norm.source_ref).trim() : sourceValue;
             const newRowData = {
                 id: rowId,
                 account: accountText.split(' (')[0] || '',
                 account_id: accountId || null,
-                source: sourceValue,
+                source: sumSrcFinal !== '' ? sumSrcFinal : (prevRow.source || '1'),
+                source_ref: refFinal,
                 input_method: inputMethodValue,
                 formula: disp,
                 formula_edit: edit,
