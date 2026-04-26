@@ -63,11 +63,28 @@ const allRoles = [
 // ── Read Only Toggle 显示/隐藏（只有 Partnership 角色才显示）──
 function updateReadOnlyToggleVisibility(role) {
     const wrapper = document.getElementById('readOnlyToggleWrapper');
+    const readOnlyToggle = document.getElementById('readOnlyToggle');
+    const readOnlyToggleLabel = document.getElementById('readOnlyToggleLabel');
     if (!wrapper) return;
     if (role && role.toLowerCase() === 'partnership') {
         wrapper.style.display = 'block';
+        const canToggle = currentUserRole === 'owner';
+        if (readOnlyToggle) {
+            readOnlyToggle.disabled = !canToggle;
+        }
+        if (readOnlyToggleLabel) {
+            readOnlyToggleLabel.style.opacity = canToggle ? '1' : '0.6';
+            readOnlyToggleLabel.style.cursor = canToggle ? 'pointer' : 'not-allowed';
+        }
     } else {
         wrapper.style.display = 'none';
+        if (readOnlyToggle) {
+            readOnlyToggle.disabled = false;
+        }
+        if (readOnlyToggleLabel) {
+            readOnlyToggleLabel.style.opacity = '';
+            readOnlyToggleLabel.style.cursor = '';
+        }
     }
 }
 
@@ -2278,7 +2295,7 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
 
     // 添加 read_only 字段（只针对 partnership 角色）
     const roleForReadOnly = data.role || (card ? card.getAttribute('data-role') : '');
-    if (roleForReadOnly && roleForReadOnly.toLowerCase() === 'partnership') {
+    if (currentUserRole === 'owner' && roleForReadOnly && roleForReadOnly.toLowerCase() === 'partnership') {
         const readOnlyToggle = document.getElementById('readOnlyToggle');
         data.read_only = (readOnlyToggle && readOnlyToggle.checked) ? 1 : 0;
     }

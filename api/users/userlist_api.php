@@ -255,7 +255,10 @@ try {
             
             try {
                 // Insert new user (不再使用 company_id，因为已移除)
-                $readOnly = isset($input['read_only']) ? (int)$input['read_only'] : 1;
+                $readOnly = 1;
+                if ($current_user_role === 'owner' && isset($input['read_only'])) {
+                    $readOnly = (int)$input['read_only'];
+                }
                 $sql = "INSERT INTO user (login_id, name, password, secondary_password, email, role, permissions, read_only, status, created_by, created_at) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                 
@@ -526,7 +529,7 @@ try {
             $updateValues[] = $input['status'];
 
             // 保存 read_only 字段（只有 partnership 角色才有意义，但所有用户都存储）
-            if (isset($input['read_only'])) {
+            if ($current_user_role === 'owner' && isset($input['read_only'])) {
                 $updateFields[] = "read_only = ?";
                 $updateValues[] = (int)$input['read_only'];
             }
@@ -571,7 +574,7 @@ try {
                 }
                 
                 // 同步 read_only 到 company_ownership
-                if (isset($input['read_only']) && strtolower($input['role']) === 'partnership') {
+                if ($current_user_role === 'owner' && isset($input['read_only']) && strtolower($input['role']) === 'partnership') {
                     $updCoStmt = $pdo->prepare("UPDATE company_ownership SET read_only = ? WHERE company_id = ? AND account_id = ? AND owner_type = 'user'");
                     $updCoStmt->execute([(int)$input['read_only'], $current_company_id, $input['id']]);
                 }
