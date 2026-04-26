@@ -1242,7 +1242,7 @@ try {
         'rate' => '-',
         'win_loss' => '-',
         'cr_dr' => '-',
-        'balance' => historyFormat2($bf),
+        'balance' => historyFormatExactCents2(dcd_processed_amount_float_quant2((float) $bf)),
         'description' => $bfDescription,
         'sms' => '-',
         'created_by' => '-'
@@ -2083,7 +2083,8 @@ try {
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
-        $balance_by_currency[$bfCurrency] = round((float) $bf, 2);
+        // 与逐行累加一致：先量化 B/F，避免 round 后仍带 IEEE 尾差再被 historyTrunc2 错成少 0.01
+        $balance_by_currency[$bfCurrency] = dcd_processed_amount_float_quant2((float) $bf);
     }
 
     foreach ($events as $event) {
@@ -2095,10 +2096,12 @@ try {
         $rawWl = (float) ($event['win_loss'] ?? 0);
         $eventWinLoss = (($event['row_type'] ?? '') === 'data_capture')
             ? historyDataCaptureProcessed2($rawWl)
-            : historyTrunc2($rawWl);
-        $eventCrDr = historyTrunc2((float) ($event['cr_dr'] ?? 0));
-        $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
-        $row_balance = historyTrunc2($balance_by_currency[$curKey]);
+            : dcd_processed_amount_float_quant2($rawWl);
+        $eventCrDr = dcd_processed_amount_float_quant2((float) ($event['cr_dr'] ?? 0));
+        $balance_by_currency[$curKey] = dcd_processed_amount_float_quant2(
+            (float) ($balance_by_currency[$curKey] + $eventWinLoss + $eventCrDr)
+        );
+        $row_balance = $balance_by_currency[$curKey];
 
         // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化
         $finalDescription = $event['description'];
@@ -2177,13 +2180,9 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $eventWinLoss != 0
-                ? (($event['row_type'] ?? '') === 'data_capture'
-                    ? historyFormatExactCents2($eventWinLoss)
-                    : historyFormat2($eventWinLoss))
-                : '0.00',
-            'cr_dr' => $eventCrDr != 0 ? historyFormat2($eventCrDr) : '0.00',
-            'balance' => historyFormat2($row_balance),
+            'win_loss' => $eventWinLoss != 0 ? historyFormatExactCents2($eventWinLoss) : '0.00',
+            'cr_dr' => $eventCrDr != 0 ? historyFormatExactCents2($eventCrDr) : '0.00',
+            'balance' => historyFormatExactCents2($row_balance),
             'description' => $finalDescription,
             'sms' => $event['sms'],
             'remark' => $event['remark'] ?? null,
