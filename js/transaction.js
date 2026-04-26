@@ -58,6 +58,29 @@
         });
     }
 
+    /**
+     * Payment History 专用：history_api 已给两位小数时直接加千分位，避免 parseFloat(-40.80)+Math.trunc 变成 -40.79。
+     * 非标准两位时：与 datacapture 一致 epsilon + 向 0 截断再 toLocaleString。
+     */
+    function formatPaymentHistoryMoney(value) {
+        if (value === '-' || value === null || value === undefined) return '-';
+        const cleaned = typeof value === 'string' ? value.replace(/,/g, '').trim() : String(value).replace(/,/g, '').trim();
+        if (cleaned === '' || cleaned === '-') return '0.00';
+        const exact2 = cleaned.match(/^(-?)(\d+)\.(\d{2})$/);
+        if (exact2) {
+            const neg = exact2[1] === '-';
+            const intPart = exact2[2];
+            const dec = exact2[3];
+            const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return (neg ? '-' : '') + intWithSep + '.' + dec;
+        }
+        const n = parseFloat(cleaned);
+        if (!Number.isFinite(n)) return '0.00';
+        const epsilon = n >= 0 ? 1e-9 : -1e-9;
+        const cents = Math.trunc((n + epsilon) * 100) / 100;
+        return cents.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     // ==================== 文本转大写显示 ====================
     function toUpperDisplay(value) {
         if (value === null || value === undefined) {
@@ -3454,10 +3477,10 @@
                             tr.style.backgroundColor = '#f0f0f0';
                         }
 
-                        // 格式化数字列（如果不是 '-'）
-                        const winLoss = row.win_loss === '-' ? '-' : formatNumber(row.win_loss);
-                        const crDr = row.cr_dr === '-' ? '-' : formatNumber(row.cr_dr);
-                        const balance = row.balance === '-' ? '-' : formatNumber(row.balance);
+                        // 格式化数字列（如果不是 '-'）；须用 formatPaymentHistoryMoney，勿用 formatNumber(Math.trunc) 否则 -40.80 变 -40.79
+                        const winLoss = row.win_loss === '-' ? '-' : formatPaymentHistoryMoney(row.win_loss);
+                        const crDr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoney(row.cr_dr);
+                        const balance = row.balance === '-' ? '-' : formatPaymentHistoryMoney(row.balance);
                         const remarkValue = getHistoryRemark(row);
                         const descriptionDisplay = toUpperDisplay(row.description);
                         const descriptionCells = showDescriptionColumn

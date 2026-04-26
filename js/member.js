@@ -321,6 +321,26 @@ function normalizeNumber(value) {
     return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+/** Payment History：避免 parseFloat(-40.80)+toLocaleString/Math 与 transaction.js 的 trunc 导致 -40.79 */
+function formatPaymentHistoryMoney(value) {
+    if (value === '-' || value === null || value === undefined) return '-';
+    const cleaned = String(value).replace(/,/g, '').trim();
+    if (cleaned === '' || cleaned === '-') return '0.00';
+    const exact2 = cleaned.match(/^(-?)(\d+)\.(\d{2})$/);
+    if (exact2) {
+        const neg = exact2[1] === '-';
+        const intPart = exact2[2];
+        const dec = exact2[3];
+        const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return (neg ? '-' : '') + intWithSep + '.' + dec;
+    }
+    const n = parseFloat(cleaned);
+    if (!Number.isFinite(n)) return '0.00';
+    const epsilon = n >= 0 ? 1e-9 : -1e-9;
+    const cents = Math.trunc((n + epsilon) * 100) / 100;
+    return cents.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function toUpperDisplay(value) {
     if (value === null || value === undefined) {
         return '-';
@@ -882,9 +902,9 @@ function createCurrencyTable(currencyKey, rows) {
     let closingBalance = 0;
 
     (rows || []).forEach(row => {
-        const winLoss = row.win_loss === '-' ? '-' : formatNumber(row.win_loss);
-        const crdr = row.cr_dr === '-' ? '-' : formatNumber(row.cr_dr);
-        const balance = row.balance === '-' ? '-' : formatNumber(row.balance);
+        const winLoss = row.win_loss === '-' ? '-' : formatPaymentHistoryMoney(row.win_loss);
+        const crdr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoney(row.cr_dr);
+        const balance = row.balance === '-' ? '-' : formatPaymentHistoryMoney(row.balance);
 
         totalWinLoss += normalizeNumber(row.win_loss);
         totalCrDr += normalizeNumber(row.cr_dr);
@@ -934,9 +954,9 @@ function createCurrencyTable(currencyKey, rows) {
                 <td class="transaction-history-col-product">-</td>
                 <td class="transaction-history-col-currency">-</td>
                 <td class="transaction-history-col-rate">-</td>
-                <td class="transaction-history-col-winloss">${formatNumber(totalWinLoss)}</td>
-                <td class="transaction-history-col-crdr">${formatNumber(totalCrDr)}</td>
-                <td class="transaction-history-col-balance">${formatNumber(closingBalance)}</td>
+                <td class="transaction-history-col-winloss">${formatPaymentHistoryMoney(totalWinLoss)}</td>
+                <td class="transaction-history-col-crdr">${formatPaymentHistoryMoney(totalCrDr)}</td>
+                <td class="transaction-history-col-balance">${formatPaymentHistoryMoney(closingBalance)}</td>
                 <td class="transaction-history-col-description">-</td>
                 <td class="transaction-history-col-remark">-</td>
             </tr>
