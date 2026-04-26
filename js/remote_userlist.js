@@ -2314,11 +2314,13 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
         .then(data => {
             console.log('API Response:', data);
             if (data.success) {
-                const apiMessage = data.message || (isEditMode ? 'User updated successfully!' : 'User created successfully!');
+                // 须在 closeModal() 前保存：closeModal 会把 isEditMode 置为 false，否则会误走 addUserCard 出现重复行
+                const wasEditMode = isEditMode
+                const apiMessage = data.message || (wasEditMode ? 'User updated successfully!' : 'User created successfully!');
                 showAlert(apiMessage, 'success');
                 closeModal();
 
-                if (isEditMode) {
+                if (wasEditMode) {
                     const updatedUser = data.data || {};
                     const willLoseAccess = !!updatedUser.will_lose_access;
 
