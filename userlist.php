@@ -82,7 +82,7 @@ try {
 
 // Get users data
 try {
-    $stmt = $pdo->prepare("
+    $sql = "
         SELECT DISTINCT
             u.id,
             u.login_id,
@@ -95,7 +95,15 @@ try {
             0 as is_owner_shadow
         FROM user u
         INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-        WHERE ucm.company_id = ?" . ($current_user_role !== 'owner' ? " AND LOWER(u.role) != 'partnership'" : "") . "
+        WHERE ucm.company_id = ?";
+
+    $params = [$company_id];
+    if ($current_user_role !== 'owner') {
+        $sql .= " AND (LOWER(u.role) != 'partnership' OR u.id = ?)";
+        $params[] = (int)$current_user_id;
+    }
+
+    $sql .= "
         ORDER BY 
         CASE 
             WHEN login_id REGEXP '^[0-9]' THEN 0 
@@ -105,8 +113,10 @@ try {
             WHEN login_id REGEXP '^[0-9]' THEN CAST(login_id AS UNSIGNED)
             ELSE ASCII(UPPER(login_id))
         END,
-        login_id ASC");
-    $stmt->execute([$company_id]);
+        login_id ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // 将owner影子记录添加到列表最前面（只有owner账号自己能看到）
