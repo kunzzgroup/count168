@@ -13,6 +13,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
+require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
  * Contra 审批：过滤/标记未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -2327,7 +2328,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
     // 与 search_api 一致：account_id 可能存数字 id 或账户代码
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
+    $dcdQhistBf = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+    $sql = "SELECT COALESCE(SUM({$dcdQhistBf}), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?

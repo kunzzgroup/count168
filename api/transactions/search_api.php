@@ -15,6 +15,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -1500,9 +1501,10 @@ try {
         ];
         $contra_where_t = contraApprovedWhere($pdo, 't');
 
+        $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
-                       SUM(CASE WHEN dc.capture_date < ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS bf_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS wl_total,
+                       SUM(CASE WHEN dc.capture_date < ? THEN {$dcdQ} ELSE 0 END) AS bf_total,
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN {$dcdQ} ELSE 0 END) AS wl_total,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                        COUNT(*) AS up_to_count
                 FROM data_capture_details dcd
@@ -2239,8 +2241,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
 
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
-    // 必须与 calculateWinLossByCurrency 一致：SUM(ROUND(processed_amount,2))，否则「当日 Balance」与「次日 B/F」会因舍入顺序差 0.01
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
+    // 与 calculateWinLossByCurrency / Payment History 一致：每行 dcd 金额先按「向 0 截断到分 + 微纠偏」再 SUM（dcd_processed_amount_sql_quant2）
+    $dcdQbf = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+    $sql = "SELECT COALESCE(SUM({$dcdQbf}), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -2520,7 +2523,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     }
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total, COUNT(*) AS cnt
+    $dcdQwl = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+    $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total, COUNT(*) AS cnt
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
