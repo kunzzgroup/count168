@@ -262,6 +262,8 @@ $assetVer = function ($file) {
     <script>
         window._ownCurrentUserId = <?php echo json_encode($_SESSION['user_id'] ?? null); ?>;
         window._ownCurrentUserType = <?php echo json_encode($_SESSION['user_type'] ?? 'owner'); ?>;
+        window._ownCurrentUserRole = <?php echo json_encode(strtolower($_SESSION['role'] ?? '')); ?>;
+        window._ownReadOnlyMode = window._ownCurrentUserRole !== 'owner';
     </script>
     <script src="js/ownership.js?v=<?php echo $assetVer('js/ownership.js'); ?>"></script>
     <script src="js/ownership-group.js?v=<?php echo $assetVer('js/ownership-group.js'); ?>"></script>
