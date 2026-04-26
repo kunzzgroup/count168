@@ -2165,15 +2165,13 @@ function calculateTotals($data)
         $totals['balance'] += $row['balance'];
     }
 
-    // IMPORTANT: Keep raw values (not rounded) for accurate calculations
-    // Frontend will round to 2 decimal places for display
-    // 重要：保持原始值（不四舍五入）以确保计算精度
-    // 前端会在显示时四舍五入到2位小数
-    // Note: Totals are calculated from already-rounded row values in the array,
-    // but we keep them as-is to maintain precision for display formatting
-    // 注意：总计是从数组中已四舍五入的行值计算的，但我们保持原样以保持显示格式化的精度
-
-    return $totals;
+    // 多行 float 累加仍可能有 IEEE 尾差；与单行展示一致再量化一次，避免表脚 Total 与逐行手加差 0.01
+    return [
+        'bf' => dcd_processed_amount_float_quant2((float) $totals['bf']),
+        'win_loss' => dcd_processed_amount_float_quant2((float) $totals['win_loss']),
+        'cr_dr' => dcd_processed_amount_float_quant2((float) $totals['cr_dr']),
+        'balance' => dcd_processed_amount_float_quant2((float) $totals['balance']),
+    ];
 }
 
 /**
