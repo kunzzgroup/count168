@@ -75,6 +75,15 @@ function historyFormat2($value): string
     return number_format(historyTrunc2($value), 2, '.', '');
 }
 
+/**
+ * 将已是「分」粒度的金额格式化为两位小数字符串，不再套 historyTrunc2。
+ * data_capture 的 Win/Loss 若再走 historyFormat2，IEEE 浮点 -40.8 会变成 -40.7999… 再被截成 -40.79。
+ */
+function historyFormatExactCents2(float $value): string
+{
+    return number_format($value, 2, '.', '');
+}
+
 /** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
 function historyParseBankProcessDayStartToYmd($raw): ?string
 {
@@ -2179,7 +2188,11 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $eventWinLoss != 0 ? historyFormat2($eventWinLoss) : '0.00',
+            'win_loss' => $eventWinLoss != 0
+                ? (($event['row_type'] ?? '') === 'data_capture'
+                    ? historyFormatExactCents2($eventWinLoss)
+                    : historyFormat2($eventWinLoss))
+                : '0.00',
             'cr_dr' => $eventCrDr != 0 ? historyFormat2($eventCrDr) : '0.00',
             'balance' => historyFormat2($row_balance),
             'description' => $finalDescription,
