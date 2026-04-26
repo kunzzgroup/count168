@@ -1749,12 +1749,12 @@ try {
         }
 
         // 4. 计算 Balance（显示口径）
-        // 公式：Balance = trunc(B/F,2) + trunc(Win/Loss,2) + trunc(Cr/Dr,2)
-        // 这样与表格上可见列值的手算结果一致，避免 0.01 浮点尾差
-        $bf_display = trunc2((float) $bf);
-        $win_loss_display = trunc2((float) $win_loss);
-        $cr_dr_display = trunc2((float) $cr_dr);
-        $balance = trunc2($bf_display + $win_loss_display + $cr_dr_display);
+        // 与 Payment History / 前端一致：B/F、Win/Loss、Cr/Dr 用 dcd_processed_amount_float_quant2（epsilon+向0截断），
+        // 勿用 trunc2 直接吃 float，否则 -40.799999… 会显示成 -40.79。
+        $bf_display = dcd_processed_amount_float_quant2((float) $bf);
+        $win_loss_display = dcd_processed_amount_float_quant2((float) $win_loss);
+        $cr_dr_display = dcd_processed_amount_float_quant2((float) $cr_dr);
+        $balance = dcd_processed_amount_float_quant2((float) ($bf_display + $win_loss_display + $cr_dr_display));
 
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
@@ -1875,7 +1875,7 @@ try {
             'bf' => $bf_display,
             'win_loss' => $win_loss_display,
             'cr_dr' => $cr_dr_display,
-            'balance' => trunc2((float) $balance),
+            'balance' => $balance,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
             'has_win_loss_history' => $has_win_loss_history ? 1 : 0,

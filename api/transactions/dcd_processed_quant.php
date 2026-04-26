@@ -11,3 +11,19 @@ function dcd_processed_amount_sql_quant2(string $col = 'dcd.processed_amount'): 
 {
     return '(CASE WHEN ' . $col . ' >= 0 THEN FLOOR((' . $col . ' + 0.000000000001) * 100) / 100 ELSE CEIL((' . $col . ' - 0.000000000001) * 100) / 100 END)';
 }
+
+/**
+ * PHP 侧与 js/datacapturesummary.js roundProcessedAmountTo2Decimals / history_api historyDataCaptureProcessed2 一致：
+ * 向 0 截断到分 + epsilon，避免 SUM/JSON 后 float -40.799999… 再被 trunc2 显示成 -40.79。
+ */
+function dcd_processed_amount_float_quant2(float $value): float
+{
+    if (!is_finite($value)) {
+        return 0.0;
+    }
+    $epsilon = $value >= 0 ? 1e-9 : -1e-9;
+    $scaled = ($value + $epsilon) * 100.0;
+    $t = $scaled >= 0 ? floor($scaled) : ceil($scaled);
+    $out = $t / 100.0;
+    return ($out === 0.0 || $out === -0.0) ? 0.0 : $out;
+}

@@ -56,19 +56,7 @@ function historyTrunc2($value): float
  */
 function historyDataCaptureProcessed2($value): float
 {
-    $n = (float) $value;
-    if (!is_finite($n)) {
-        return 0.0;
-    }
-    $epsilon = $n >= 0 ? 1e-9 : -1e-9;
-    $scaled = ($n + $epsilon) * 100.0;
-    if ($scaled >= 0) {
-        $t = floor($scaled);
-    } else {
-        $t = ceil($scaled);
-    }
-    $out = $t / 100.0;
-    return ($out === 0.0 || $out === -0.0) ? 0.0 : $out;
+    return dcd_processed_amount_float_quant2((float) $value);
 }
 
 function historyFormat2($value): string
