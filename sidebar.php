@@ -54,7 +54,6 @@ if ($currentCompanyCode === 'C168') {
 $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($role ?? '')));
 
 $avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
-$isOwnerRole = strtolower((string) $role) === 'owner';
 
 // 头像 ID 与路径映射（与前端 avatarImages 一致，用于服务端输出初始 src 避免切换页面混乱）
 $avatarImages = [
@@ -315,7 +314,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             </div>
         <?php else: ?>
             <!-- Home Section -->
-            <?php if ($isOwnerRole || in_array('home', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('home', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="dashboard.php"
                         onclick="window.location.href='dashboard.php'">
@@ -366,7 +365,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             </div> -->
 
             <!-- Admin Section -->
-            <?php if ($isOwnerRole || in_array('admin', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('admin', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="userlist.php"
                         onclick="window.location.href='userlist.php'">
@@ -379,7 +378,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Account Section -->
-            <?php if ($isOwnerRole || in_array('account', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('account', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="account-list.php"
                         onclick="window.location.href='account-list.php'">
@@ -393,7 +392,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Ownership：仅由 ownership 权限控制显示 -->
-            <?php if (in_array('ownership', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('ownership', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="ownership.php"
                         onclick="window.location.href='ownership.php'">
@@ -407,7 +406,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Process Section -->
-            <?php if ($isOwnerRole || in_array('process', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('process', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="processlist.php"
                         onclick="window.location.href='processlist.php'">
@@ -420,7 +419,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
-            <?php if ($isOwnerRole || in_array('datacapture', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
                 <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="informationmenu-section-title" data-page="datacapture.php"
                         onclick="window.location.href='datacapture.php'">
@@ -434,7 +433,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Transaction Payment Section -->
-            <?php if ($isOwnerRole || in_array('payment', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('payment', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="transaction.php"
                         onclick="window.location.href='transaction.php'">
@@ -448,7 +447,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Report Section（仅当前公司有 Games 权限时显示） -->
-            <?php if ($isOwnerRole || in_array('report', $permissions)): ?>
+            <?php if (empty($permissions) || in_array('report', $permissions)): ?>
                 <div class="informationmenu-section" id="sidebar-report-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="menu-item-wrapper">
                         <div class="informationmenu-section-title" data-section="report">
@@ -474,7 +473,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
-            <?php $hasMaintenance = ($isOwnerRole || in_array('maintenance', $permissions)); ?>
+            <?php $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions)); ?>
             <div class="informationmenu-section">
                 <div class="menu-item-wrapper">
                     <div class="informationmenu-section-title" data-section="maintenance">
