@@ -1448,23 +1448,38 @@ try {
             case 'PAYMENT':
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
-                } elseif ($is_to_account) {
-                    // 收款账户（Account To）统一按入账显示正数，与 Transaction List 口径一致
-                    $cr_dr = (float) $t['amount'];
-                } else {
-                    // 付款账户（Account From）统一按出账显示负数
+                    break;
+                }
+                // 显示与 CONTRA 一致：TO（account_id）默认负、FROM（from_account_id）默认正。
+                // B/F（calculateBFByCurrency 2b/3）对 PAYMENT：TO 默认 -amount、FROM 默认 +amount；Share/List Fee 等例外与 BF CASE 对齐。
+                $smsPay = trim((string) ($t['sms'] ?? ''));
+                $descPay = trim((string) $rawDescription);
+                if ($is_to_account) {
                     if (
-                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_LIST_FEE|') === 0
-                        || stripos((string) $rawDescription, 'Domain list fee FROM ') === 0
+                        stripos($smsPay, '[DOMAIN_SHARE_COMMISSION|') === 0
+                        || $smsPay === '[DOMAIN_SHARE_COMMISSION]'
                     ) {
-                        $cr_dr = -(float) $t['amount'];
+                        $cr_dr = (float) $t['amount'];
                     } elseif (
-                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_NET_PROFIT|') === 0
-                        || stripos((string) $rawDescription, 'Profit By ') === 0
+                        stripos($smsPay, '[DOMAIN_LIST_FEE|') === 0
+                        || $smsPay === '[DOMAIN_LIST_FEE]'
+                        || stripos($descPay, 'Domain list fee FROM ') === 0
+                        || stripos($descPay, 'Pay Domain Fee') === 0
+                        || stripos($descPay, 'Pay Domain Fee To ') === 0
+                    ) {
+                        $cr_dr = (float) $t['amount'];
+                    } else {
+                        $cr_dr = -(float) $t['amount'];
+                    }
+                } else {
+                    if (
+                        stripos($smsPay, '[DOMAIN_NET_PROFIT|') === 0
+                        || stripos($descPay, 'Profit By ') === 0
                     ) {
                         $cr_dr = 0;
                     } else {
-                        $cr_dr = -(float) $t['amount'];
+                        // FROM 侧（含 Domain List Fee 付款方）：与 CONTRA 一致为正，与 calculateBFByCurrency 第 3 段 PAYMENT +amount 对齐
+                        $cr_dr = (float) $t['amount'];
                     }
                 }
                 break;
@@ -1949,7 +1964,7 @@ try {
         }
 
         $amount = (float) $row['amount'];
-        // RATE 第二行/第四行：TO 负数、FROM 正数（与 PAYMENT 一致）
+        // RATE 第二行/第四行：TO 负数、FROM 正数（与 CONTRA / PAYMENT 默认展示一致）
         // Middle-Man（RATE_MIDDLEMAN）保留正数，并显示在 Win/Loss
         $entryType = $row['entry_type'] ?? '';
         if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
