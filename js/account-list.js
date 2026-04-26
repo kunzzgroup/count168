@@ -206,7 +206,7 @@ function renderTable() {
                             ${escapeHtml((account.status || '').toUpperCase())}
                         </span>
                     </div>
-                    <div class="account-card-item">${escapeHtml((account.last_login || '').toUpperCase())}</div>
+                    <div class="account-card-item">${formatLastLogin(account.last_login)}</div>
                     <div class="account-card-item">${escapeHtml((account.remark || '').toUpperCase())}</div>
                     <div class="account-card-item">
                         <button class="account-edit-btn" onclick="editAccount(${account.id})" aria-label="Edit" title="Edit">
@@ -278,6 +278,20 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function formatLastLogin(lastLogin) {
+    if (!lastLogin) {
+        return '-';
+    }
+
+    const date = new Date(lastLogin);
+    if (Number.isNaN(date.getTime())) {
+        return escapeHtml(String(lastLogin));
+    }
+
+    const pad = (num) => String(num).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 // 鎺掑簭鍑芥暟
