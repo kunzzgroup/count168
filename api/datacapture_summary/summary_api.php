@@ -10,6 +10,7 @@ if (PHP_VERSION_ID >= 70300) {
     ]);
 }
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 
@@ -71,6 +72,19 @@ function resolveCompanyCurrencyId(PDO $pdo, int $companyId, $currencyId = null, 
     }
 
     return null;
+}
+
+/** data_capture_details.display_order 是否存在（请求内只查一次） */
+function summaryApiHasDisplayOrder(PDO $pdo): bool
+{
+    static $v = null;
+    if ($v === null) {
+        try {
+            $st = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
+            $v = $st && $st->fetch(PDO::FETCH_ASSOC) !== false;
+        } catch (Throwable $e) { $v = false; }
+    }
+    return $v;
 }
 
 function ensureTemplateSchema(PDO $pdo) {
@@ -236,6 +250,37 @@ function ensureSummaryStateTable(PDO $pdo) {
         ");
     } catch (Exception $e) {
         error_log('Summary state table ensure error: ' . $e->getMessage());
+    }
+}
+
+/**
+ * 快速提交队列（用于“先立即回前端，再后台处理”）。
+ */
+function ensureSummarySubmitQueueTable(PDO $pdo) {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS data_capture_submit_queue (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                company_id INT NOT NULL,
+                user_id INT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'processing',
+                request_json LONGTEXT NOT NULL,
+                capture_id INT NULL,
+                rows_count INT NOT NULL DEFAULT 0,
+                error_message TEXT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                finished_at DATETIME NULL,
+                INDEX idx_company_status (company_id, status),
+                INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Exception $e) {
+        error_log('Submit queue table ensure error: ' . $e->getMessage());
     }
 }
 
@@ -728,10 +773,11 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                   AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '') AND account_id = ?
                   AND COALESCE(TRIM(formula_operators), TRIM(formula_display), '') = ?
                   AND COALESCE(TRIM(input_method), '') = ?
+                  AND (COALESCE(sub_order, 0) = COALESCE(?, 0))
                   AND (data_capture_id IS NULL OR data_capture_id = 0)
                 ORDER BY updated_at DESC LIMIT 1
             ");
-            $anyParams = [$companyId, $parentIdProduct, $row['id_product'], $row['account_id'], $formulaForMatch, $inputMethodForMatch];
+            $anyParams = [$companyId, $parentIdProduct, $row['id_product'], $row['account_id'], $formulaForMatch, $inputMethodForMatch, $subOrder];
             if ($hasProcessId) {
                 array_splice($anyParams, 1, 0, [$processId]);
             }
@@ -1121,11 +1167,7 @@ function baseIdProductForKeyNormalized($text) {
  * 修复：data_capture_details 有该账目但 data_capture_templates 没有时，仍能在 Summary 中显示。
  */
 function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, array $ids, array $templates) {
-    $hasDisplayOrder = false;
-    try {
-        $colStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
-        $hasDisplayOrder = $colStmt && $colStmt->fetch(PDO::FETCH_ASSOC);
-    } catch (Exception $e) { /* ignore */ }
+    $hasDisplayOrder = summaryApiHasDisplayOrder($pdo); // static 缓存，不重复 SHOW
     $orderBy = $hasDisplayOrder ? "ORDER BY COALESCE(display_order, 999), id" : "ORDER BY id";
     $cols = $hasDisplayOrder ? "id_product_main, id_product_sub, product_type, account_id, display_order, rate" : "id_product_main, id_product_sub, product_type, account_id, rate";
     $detailStmt = $pdo->prepare("
@@ -1371,6 +1413,98 @@ function resolveAccountDisplayInTemplates(PDO $pdo, int $companyId, array &$temp
     unset($group);
 }
 
+/**
+ * 把 Main Acc 的 Formula 动态派生一份给 Sub Acc，通过 account_link 表中的 unidirectional 映射。
+ */
+function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates): array {
+    try {
+        // 先检查是否存在 link_type，如果不存在直接退出（防止表结构过旧报错）
+        $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
+        if ($check_column_stmt->rowCount() === 0) {
+            return $templates;
+        }
+
+        // 查找所有 unidirectional 相关的连接关系
+        $stmt = $pdo->prepare("
+            SELECT account_id_1, account_id_2, source_account_id 
+            FROM account_link 
+            WHERE company_id = ? AND link_type = 'unidirectional'
+        ");
+        $stmt->execute([$companyId]);
+        $links = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 建立结构：Main Acc => [Sub Acc 1, Sub Acc 2, ...]
+        $inheritanceMap = [];
+        foreach ($links as $link) {
+            $source = (int)$link['source_account_id'];
+            $acc1 = (int)$link['account_id_1'];
+            $acc2 = (int)$link['account_id_2'];
+            if ($source > 0) {
+                $sub = ($acc1 === $source) ? $acc2 : $acc1;
+                $inheritanceMap[$source][] = $sub;
+            }
+        }
+
+        if (empty($inheritanceMap)) {
+            return $templates;
+        }
+
+        // 提取一下所有受影响的 Sub Acc 的 Display Name
+        $subAccountDisplayMap = [];
+        foreach ($inheritanceMap as $source => $subs) {
+            foreach ($subs as $sub) {
+                $subAccountDisplayMap[$sub] = null;
+            }
+        }
+        
+        if (!empty($subAccountDisplayMap)) {
+            $subIds = array_keys($subAccountDisplayMap);
+            $placeholders = implode(',', array_fill(0, count($subIds), '?'));
+            $accStmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id IN ($placeholders)");
+            $accStmt->execute($subIds);
+            foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $accRow) {
+                $display = trim((string)$accRow['account_id']);
+                if (!empty($accRow['name'])) {
+                    $display .= ' (' . trim((string)$accRow['name']) . ')';
+                }
+                $subAccountDisplayMap[(int)$accRow['id']] = $display;
+            }
+        }
+
+        // 遍历当前的模板，如果有 Main Acc 的模板，复制并塞入 Sub Acc
+        foreach ($templates as $mainKey => $templateGroup) {
+            $allMains = $templateGroup['allMains'] ?? [];
+            $newMains = $allMains;
+            $addedForSubAcc = [];
+
+            foreach ($allMains as $t) {
+                $accId = (int)$t['account_id'];
+                if (isset($inheritanceMap[$accId])) {
+                    foreach ($inheritanceMap[$accId] as $subAccId) {
+                        $subT = $t;
+                        $subT['account_id'] = $subAccId;
+                        $subT['account_display'] = $subAccountDisplayMap[$subAccId] ?? $t['account_display'];
+                        // 为了避免前端 JS 防止重复 ID，这里打个标记
+                        $subT['id'] = $t['id'] . '_' . $subAccId; 
+                        
+                        // 防止同一个模板被插入多次
+                        $dedupKey = $subAccId . '_' . ($t['process_id'] ?? 0) . '_' . ($t['id_product'] ?? '') . '_' . ($t['row_index'] ?? '') . '_' . ($t['formula_variant'] ?? 0);
+                        if (!isset($addedForSubAcc[$dedupKey])) {
+                            $newMains[] = $subT;
+                            $addedForSubAcc[$dedupKey] = true;
+                        }
+                    }
+                }
+            }
+            $templates[$mainKey]['allMains'] = $newMains;
+        }
+    } catch (Exception $e) {
+        error_log('inheritFormulasToSubAccounts Error: ' . $e->getMessage());
+    }
+
+    return $templates;
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
@@ -1580,6 +1714,10 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                 // Otherwise keep existing (existing is specific, current is generic)
             }
         }
+    }
+
+    if (isset($companyId) && $companyId > 0) {
+        $templates = inheritFormulasToSubAccounts($pdo, (int)$companyId, $templates);
     }
 
     return $templates;
@@ -2092,6 +2230,8 @@ if ($action === 'templates') {
 
 if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle submit action
+    $immediateAckMode = false;
+    $queueJobId = null;
     try {
         // 使用全局的 $company_id（已经过验证）
         $companyId = $company_id;
@@ -2198,6 +2338,37 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (!isset($data['summaryRows']) || !is_array($data['summaryRows']) || count($data['summaryRows']) === 0) {
             throw new Exception('No summary rows to submit');
+        }
+
+        // 可选：前端要求“立即回成功”，后端继续处理
+        $immediateAckMode = !empty($data['immediateAck']);
+        if ($immediateAckMode) {
+            ensureSummarySubmitQueueTable($pdo);
+            $queueStmt = $pdo->prepare("
+                INSERT INTO data_capture_submit_queue (company_id, user_id, status, request_json, rows_count)
+                VALUES (:company_id, :user_id, 'processing', :request_json, :rows_count)
+            ");
+            $queueStmt->execute([
+                ':company_id' => $companyId,
+                ':user_id' => (isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null),
+                ':request_json' => $jsonData,
+                ':rows_count' => count($data['summaryRows'])
+            ]);
+            $queueJobId = (int)$pdo->lastInsertId();
+
+            echo json_encode([
+                'success' => true,
+                'queued' => true,
+                'jobId' => $queueJobId,
+                'message' => 'Data received. Processing in background.'
+            ]);
+
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            } else {
+                @ob_end_flush();
+                @flush();
+            }
         }
         
         $resolvedCurrencyId = resolveCompanyCurrencyId(
@@ -2318,15 +2489,13 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             // 然后在下面的 INSERT 里一并写入。
             
             // Ensure display_order column exists to preserve row ordering
-            try {
-                $displayOrderColumnStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
-                $hasDisplayOrder = $displayOrderColumnStmt && $displayOrderColumnStmt->fetch(PDO::FETCH_ASSOC);
-                if (!$hasDisplayOrder) {
+            if (!summaryApiHasDisplayOrder($pdo)) { // static 缓存，不重复 SHOW
+                try {
                     $pdo->exec("ALTER TABLE data_capture_details ADD COLUMN display_order INT NULL AFTER rate");
                     error_log('Added display_order column to data_capture_details');
+                } catch (Exception $columnException) {
+                    error_log('display_order column check warning: ' . $columnException->getMessage());
                 }
-            } catch (Exception $columnException) {
-                error_log('display_order column check warning: ' . $columnException->getMessage());
             }
             
             $stmt = $pdo->prepare("
@@ -2352,6 +2521,61 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Track display_order to preserve row order from frontend
             $displayOrder = 0;
+            // Performance optimization:
+            // Build in-memory formula_variant maps to avoid per-row SQL lookups.
+            // Key format:
+            // - main formula key: "<id_product_main>|<account_id>|<formula>"
+            // - main max key: "<id_product_main>|<account_id>"
+            // - sub formula key: "<id_product_sub>|<id_product_main>|<account_id>|<formula>"
+            // - sub max key: "<id_product_sub>|<id_product_main>|<account_id>"
+            $variantByFormulaMain = [];
+            $variantMaxMain = [];
+            $variantByFormulaSub = [];
+            $variantMaxSub = [];
+
+            if ($isBatchAppend) {
+                $variantSeedStmt = $pdo->prepare("
+                    SELECT
+                        product_type,
+                        COALESCE(id_product_main, '') AS id_product_main,
+                        COALESCE(id_product_sub, '') AS id_product_sub,
+                        account_id,
+                        COALESCE(formula, '') AS formula,
+                        COALESCE(formula_variant, 0) AS formula_variant
+                    FROM data_capture_details
+                    WHERE company_id = ? AND capture_id = ?
+                ");
+                $variantSeedStmt->execute([$companyId, $captureId]);
+                while ($seed = $variantSeedStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $seedType = trim((string)($seed['product_type'] ?? 'main'));
+                    $seedMain = trim((string)($seed['id_product_main'] ?? ''));
+                    $seedSub = trim((string)($seed['id_product_sub'] ?? ''));
+                    $seedAccountId = (int)($seed['account_id'] ?? 0);
+                    $seedFormula = (string)($seed['formula'] ?? '');
+                    $seedVariant = (int)($seed['formula_variant'] ?? 0);
+
+                    if ($seedType === 'sub') {
+                        $formulaKey = $seedSub . '|' . $seedMain . '|' . $seedAccountId . '|' . $seedFormula;
+                        $maxKey = $seedSub . '|' . $seedMain . '|' . $seedAccountId;
+                        if (!isset($variantByFormulaSub[$formulaKey])) {
+                            $variantByFormulaSub[$formulaKey] = $seedVariant;
+                        }
+                        if (!isset($variantMaxSub[$maxKey]) || $seedVariant > $variantMaxSub[$maxKey]) {
+                            $variantMaxSub[$maxKey] = $seedVariant;
+                        }
+                    } else {
+                        $formulaKey = $seedMain . '|' . $seedAccountId . '|' . $seedFormula;
+                        $maxKey = $seedMain . '|' . $seedAccountId;
+                        if (!isset($variantByFormulaMain[$formulaKey])) {
+                            $variantByFormulaMain[$formulaKey] = $seedVariant;
+                        }
+                        if (!isset($variantMaxMain[$maxKey]) || $seedVariant > $variantMaxMain[$maxKey]) {
+                            $variantMaxMain[$maxKey] = $seedVariant;
+                        }
+                    }
+                }
+            }
+
             foreach ($data['summaryRows'] as $row) {
                 // Validate row data
                 if (!isset($row['accountId'])) {
@@ -2411,93 +2635,35 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // If formula_variant not provided or is null, find the next available variant for this id_product and account_id
                 if ($formulaVariant === null) {
-                    $formula = $row['formula'] ?? '';
+                    $formula = (string)($row['formula'] ?? '');
                     if ($productType === 'main') {
-                        $variantCheckStmt = $pdo->prepare("
-                            SELECT formula_variant FROM data_capture_details 
-                            WHERE company_id = :company_id
-                              AND capture_id = :capture_id 
-                              AND product_type = 'main'
-                              AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                              AND COALESCE(id_product_sub, '') = ''
-                              AND account_id = :account_id
-                              AND COALESCE(formula, '') = COALESCE(:formula, '')
-                            LIMIT 1
-                        ");
-                        $variantCheckStmt->execute([
-                            ':company_id' => $companyId,
-                            ':capture_id' => $captureId,
-                            ':id_product_main' => $row['idProductMain'] ?? null,
-                            ':account_id' => $row['accountId'],
-                            ':formula' => $formula
-                        ]);
-                        $existingVariant = $variantCheckStmt->fetch();
-                        if ($existingVariant) {
-                            $formulaVariant = (int)$existingVariant['formula_variant'];
+                        $keyMain = trim((string)($row['idProductMain'] ?? ''));
+                        $keyAccountId = (int)($row['accountId'] ?? 0);
+                        $formulaKey = $keyMain . '|' . $keyAccountId . '|' . $formula;
+                        $maxKey = $keyMain . '|' . $keyAccountId;
+
+                        if (isset($variantByFormulaMain[$formulaKey])) {
+                            $formulaVariant = (int)$variantByFormulaMain[$formulaKey];
                         } else {
-                            $maxVariantStmt = $pdo->prepare("
-                                SELECT MAX(formula_variant) as max_variant FROM data_capture_details 
-                                WHERE company_id = :company_id
-                                  AND capture_id = :capture_id 
-                                  AND product_type = 'main'
-                                  AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                                  AND COALESCE(id_product_sub, '') = ''
-                                  AND account_id = :account_id
-                            ");
-                            $maxVariantStmt->execute([
-                                ':company_id' => $companyId,
-                                ':capture_id' => $captureId,
-                                ':id_product_main' => $row['idProductMain'] ?? null,
-                                ':account_id' => $row['accountId']
-                            ]);
-                            $maxVariantResult = $maxVariantStmt->fetch();
-                            $maxVariant = $maxVariantResult && $maxVariantResult['max_variant'] !== null ? (int)$maxVariantResult['max_variant'] : 0;
-                            $formulaVariant = $maxVariant + 1;
+                            $next = (isset($variantMaxMain[$maxKey]) ? (int)$variantMaxMain[$maxKey] : 0) + 1;
+                            $formulaVariant = $next;
+                            $variantByFormulaMain[$formulaKey] = $formulaVariant;
+                            $variantMaxMain[$maxKey] = $formulaVariant;
                         }
                     } else {
-                        $variantCheckStmt = $pdo->prepare("
-                            SELECT formula_variant FROM data_capture_details 
-                            WHERE company_id = :company_id
-                              AND capture_id = :capture_id 
-                              AND product_type = 'sub'
-                              AND COALESCE(id_product_sub, '') = COALESCE(:id_product_sub, '')
-                              AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                              AND account_id = :account_id
-                              AND COALESCE(formula, '') = COALESCE(:formula, '')
-                            LIMIT 1
-                        ");
-                        $parentIdProduct = $row['parentIdProduct'] ?? $row['idProductMain'] ?? null;
-                        $variantCheckStmt->execute([
-                            ':company_id' => $companyId,
-                            ':capture_id' => $captureId,
-                            ':id_product_sub' => $row['idProductSub'] ?? null,
-                            ':id_product_main' => $parentIdProduct,
-                            ':account_id' => $row['accountId'],
-                            ':formula' => $formula
-                        ]);
-                        $existingVariant = $variantCheckStmt->fetch();
-                        if ($existingVariant) {
-                            $formulaVariant = (int)$existingVariant['formula_variant'];
+                        $keySub = trim((string)($row['idProductSub'] ?? ''));
+                        $keyMain = trim((string)($row['parentIdProduct'] ?? $row['idProductMain'] ?? ''));
+                        $keyAccountId = (int)($row['accountId'] ?? 0);
+                        $formulaKey = $keySub . '|' . $keyMain . '|' . $keyAccountId . '|' . $formula;
+                        $maxKey = $keySub . '|' . $keyMain . '|' . $keyAccountId;
+
+                        if (isset($variantByFormulaSub[$formulaKey])) {
+                            $formulaVariant = (int)$variantByFormulaSub[$formulaKey];
                         } else {
-                            $maxVariantStmt = $pdo->prepare("
-                                SELECT MAX(formula_variant) as max_variant FROM data_capture_details 
-                                WHERE company_id = :company_id
-                                  AND capture_id = :capture_id 
-                                  AND product_type = 'sub'
-                                  AND COALESCE(id_product_sub, '') = COALESCE(:id_product_sub, '')
-                                  AND COALESCE(id_product_main, '') = COALESCE(:id_product_main, '')
-                                  AND account_id = :account_id
-                            ");
-                            $maxVariantStmt->execute([
-                                ':company_id' => $companyId,
-                                ':capture_id' => $captureId,
-                                ':id_product_sub' => $row['idProductSub'] ?? null,
-                                ':id_product_main' => $parentIdProduct,
-                                ':account_id' => $row['accountId']
-                            ]);
-                            $maxVariantResult = $maxVariantStmt->fetch();
-                            $maxVariant = $maxVariantResult && $maxVariantResult['max_variant'] !== null ? (int)$maxVariantResult['max_variant'] : 0;
-                            $formulaVariant = $maxVariant + 1;
+                            $next = (isset($variantMaxSub[$maxKey]) ? (int)$variantMaxSub[$maxKey] : 0) + 1;
+                            $formulaVariant = $next;
+                            $variantByFormulaSub[$formulaKey] = $formulaVariant;
+                            $variantMaxSub[$maxKey] = $formulaVariant;
                         }
                     }
                 }
@@ -2650,12 +2816,24 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             // Log success
             error_log("Data capture submitted successfully - Capture ID: $captureId, Rows: " . count($data['summaryRows']));
             
-            echo json_encode([
-                'success' => true,
-                'captureId' => $captureId,
-                'message' => 'Data submitted successfully',
-                'rowsInserted' => count($data['summaryRows'])
-            ]);
+            if ($queueJobId) {
+                $qDoneStmt = $pdo->prepare("
+                    UPDATE data_capture_submit_queue
+                    SET status = 'success', capture_id = :capture_id, finished_at = NOW(), error_message = NULL
+                    WHERE id = :id
+                ");
+                $qDoneStmt->execute([
+                    ':capture_id' => $captureId,
+                    ':id' => $queueJobId
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => true,
+                    'captureId' => $captureId,
+                    'message' => 'Data submitted successfully',
+                    'rowsInserted' => count($data['summaryRows'])
+                ]);
+            }
             
         } catch (Exception $e) {
             // Rollback transaction on error
@@ -2665,11 +2843,29 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         
     } catch (Exception $e) {
         error_log("Submit Error: " . $e->getMessage());
-        echo json_encode([
-            'success' => false,
-            'message' => $e->getMessage(),
-            'data' => null
-        ]);
+        if ($queueJobId) {
+            try {
+                ensureSummarySubmitQueueTable($pdo);
+                $qFailStmt = $pdo->prepare("
+                    UPDATE data_capture_submit_queue
+                    SET status = 'failed', finished_at = NOW(), error_message = :error_message
+                    WHERE id = :id
+                ");
+                $qFailStmt->execute([
+                    ':error_message' => mb_substr($e->getMessage(), 0, 1000),
+                    ':id' => $queueJobId
+                ]);
+            } catch (Exception $qe) {
+                error_log("Submit queue update failed: " . $qe->getMessage());
+            }
+            // 已经提前响应给前端，这里不再二次输出
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => null
+            ]);
+        }
     }
     
 } else {

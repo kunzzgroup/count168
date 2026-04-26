@@ -5,6 +5,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 // ---------- 数据库与业务辅助函数 ----------
 
@@ -67,11 +68,76 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
     }
 }
 
+function hasAccountCreatedSourceColumn(PDO $pdo): bool {
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `account` LIKE 'created_source'");
+        $has = $stmt && $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+function formatDomainAutoDisplayAccountId(string $rawAccountId): string {
+    $rawAccountId = trim($rawAccountId);
+    if ($rawAccountId === '') {
+        return $rawAccountId;
+    }
+
+    // Domain 自动建账兼容显示：
+    // 1) OWNERCODE_COMPANY -> COMPANY（如 TEST_AA / K_95 -> AA / 95）
+    // 2) OWNERCODE_COMPANY_数字(冲突后缀) -> COMPANY（如 TEST_AA_1 / K_95_1 -> AA / 95）
+    if (strpos($rawAccountId, '_') !== false) {
+        $parts = explode('_', $rawAccountId);
+        $count = count($parts);
+        if ($count >= 3) {
+            $last = trim((string)$parts[count($parts) - 1]);
+            $prev = trim((string)$parts[count($parts) - 2]);
+
+            // 仅当存在 3 段及以上且末段是数字时，视为冲突后缀（..._COMPANY_1）
+            if ($last !== '' && ctype_digit($last) && $prev !== '') {
+                return $prev;
+            }
+        }
+
+        if ($count >= 2) {
+            $last = trim((string)$parts[$count - 1]);
+            // 常规 OWNERCODE_COMPANY，直接显示 company_id（最后一段）
+            if ($last !== '') {
+                return $last;
+            }
+        }
+    }
+
+    return $rawAccountId;
+}
+
+function shouldFormatAsCompanyId(string $rawAccountId): bool {
+    $rawAccountId = trim($rawAccountId);
+    if ($rawAccountId === '') {
+        return false;
+    }
+
+    // 仅处理类似 K_95 或 K_95_1 这类“前缀 + 数字公司ID(+冲突后缀)”格式
+    if (preg_match('/^[^_]+_[0-9]+(?:_[0-9]+)?$/', $rawAccountId)) {
+        return true;
+    }
+
+    return false;
+}
+
 function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, bool $showInactive, bool $showAll, ?array $accountIdFilter, ?array $rolesFilter = null): array {
+    $hasCreatedSource = hasAccountCreatedSourceColumn($pdo);
+    $selectCreatedSource = $hasCreatedSource ? ", a.created_source" : ", NULL AS created_source";
     $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.status, a.last_login, a.role,
             COALESCE(a.payment_alert, 0) AS payment_alert,
             a.alert_day, a.alert_day AS alert_type, a.alert_specific_date, a.alert_specific_date AS alert_start_date,
             a.alert_amount, a.remark
+            {$selectCreatedSource}
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             WHERE ac.company_id = ?";
@@ -103,7 +169,7 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     }
 
     if ($showAll) {
-        $sql .= " AND a.status = 'active'";
+        // Show All: include both active and inactive (no status constraint)
     } elseif ($showInactive) {
         $sql .= " AND a.status = 'inactive'";
     } else {
@@ -113,7 +179,16 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
     $sql .= " ORDER BY a.account_id ASC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as &$row) {
+        $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
+        if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId((string)($row['account_id'] ?? ''))) {
+            $row['account_id'] = formatDomainAutoDisplayAccountId((string)($row['account_id'] ?? ''));
+        }
+        unset($row['created_source']);
+    }
+    unset($row);
+    return $rows;
 }
 
 function computeAlertStatus(array $accounts): array {

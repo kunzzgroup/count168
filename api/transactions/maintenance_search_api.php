@@ -5,6 +5,7 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 
@@ -19,6 +20,65 @@ function formatRateForDisplay($rate): ?string
     $rounded = round((float)$rate, 8);
     $text = rtrim(rtrim(number_format($rounded, 8, '.', ''), '0'), '.');
     return $text === '' ? '0' : $text;
+}
+
+/**
+ * Id_Product 列：与 Transaction History 里 Data Capture 行的 Product 规则一致（history_api.php 678-712），
+ * 优先 id_product_sub/main + description，再兜底 id_product、columns_value（与 Summary 行内容来源一致）。
+ */
+function formatMaintenanceIdProductLikeDataSummary(array $row): string
+{
+    $idSub = trim((string)($row['id_product_sub'] ?? ''));
+    $idMain = trim((string)($row['id_product_main'] ?? ''));
+    $idCol = trim((string)($row['id_product'] ?? ''));
+    $descSub = isset($row['description_sub']) ? trim((string)$row['description_sub']) : '';
+    $descMain = isset($row['description_main']) ? trim((string)$row['description_main']) : '';
+    $productType = isset($row['product_type']) ? strtolower(trim((string)$row['product_type'])) : '';
+
+    $product = '';
+    $productDescription = null;
+
+    if ($productType === 'sub' && $idSub !== '') {
+        $product = $idSub;
+        if ($descSub !== '') {
+            $productDescription = $descSub;
+        }
+    } elseif ($idMain !== '') {
+        $product = $idMain;
+        if ($descMain !== '') {
+            $productDescription = $descMain;
+        }
+    } else {
+        $product = $idSub !== '' ? $idSub : ($idMain !== '' ? $idMain : '');
+        if ($product === '') {
+            $product = $idCol !== '' ? $idCol : 'Data Capture';
+        }
+        if ($idSub !== '' && $descSub !== '') {
+            $productDescription = $descSub;
+        } elseif ($descMain !== '') {
+            $productDescription = $descMain;
+        }
+    }
+
+    if ($productDescription !== null && $productDescription !== '') {
+        $wrapped = '(' . $productDescription . ')';
+        if (stripos($product, $wrapped) === false) {
+            $product = $product . ' ' . $wrapped;
+        }
+    }
+
+    $product = trim($product);
+    if ($product === '' || $product === 'Data Capture') {
+        if ($idCol !== '') {
+            return $idCol;
+        }
+        $cv = trim((string)($row['columns_value'] ?? ''));
+        if ($cv !== '') {
+            return $cv;
+        }
+        return '-';
+    }
+    return $product;
 }
 
 /**
@@ -234,6 +294,7 @@ try {
             'capture_detail_id' => null,
             'process' => $row['process_id'] ?? '-',
             'process_id' => $row['process_id'] ?? null,
+            'id_product' => '-',
             'account' => $row['account_id'] ?? '-',
             'from_account' => $row['from_account'] ?? '-',
             'description' => $row['description'] ?? '-',
@@ -298,7 +359,14 @@ try {
                 NULL AS dts_deleted,
                 dcd.source_value,
                 dcd.source_percent,
-                dcd.rate
+                dcd.rate,
+                dcd.id_product,
+                dcd.id_product_main,
+                dcd.id_product_sub,
+                dcd.product_type,
+                dcd.description_main,
+                dcd.description_sub,
+                dcd.columns_value
             FROM data_capture_details dcd
             INNER JOIN data_captures dc ON dcd.capture_id = dc.id
             INNER JOIN process p ON dc.process_id = p.id
@@ -331,6 +399,7 @@ try {
             }
             
             $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+            $idProductDisplay = formatMaintenanceIdProductLikeDataSummary($row);
             
             $formatted[] = [
                 'no' => $no++,
@@ -339,6 +408,7 @@ try {
                 'capture_detail_id' => $row['capture_detail_id'] ?? null,
                 'process' => $row['process_id'] ?? '-',
                 'process_id' => $row['process_id'] ?? null,
+                'id_product' => $idProductDisplay,
                 'account' => $row['account_id'] ?? '-',
                 'from_account' => null,
                 'description' => $row['description'] ?? '-',
@@ -445,6 +515,7 @@ try {
                     'capture_detail_id' => null,
                     'process' => $row['process_id'] ?? ($process ?: '-'),
                     'process_id' => $row['process_id'] ?? null,
+                    'id_product' => '-',
                     'account' => $row['account_id'] ?? '-',
                     'from_account' => $row['from_account'] ?? '-',
                     'description' => $row['description'] ?? '-',
@@ -511,7 +582,14 @@ try {
                     DATE_FORMAT(dcd.deleted_at, '%d/%m/%Y %H:%i:%s') AS dts_deleted,
                     dcd.source_value,
                     dcd.source_percent,
-                    dcd.rate
+                    dcd.rate,
+                    dcd.id_product,
+                    dcd.id_product_main,
+                    dcd.id_product_sub,
+                    dcd.product_type,
+                    dcd.description_main,
+                    dcd.description_sub,
+                    dcd.columns_value
                 FROM data_captures_deleted dcd
                 INNER JOIN process p ON dcd.process_id = p.id
                 INNER JOIN account a ON dcd.account_id = a.id
@@ -544,6 +622,7 @@ try {
                 }
                 
                 $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+                $idProductDelDisplay = formatMaintenanceIdProductLikeDataSummary($row);
                 
                 $formatted[] = [
                     'no' => $no++,
@@ -552,6 +631,7 @@ try {
                     'capture_detail_id' => $row['capture_detail_id'] ?? null,
                     'process' => $row['process_id'] ?? '-',
                     'process_id' => $row['process_id'] ?? null,
+                    'id_product' => $idProductDelDisplay,
                     'account' => $row['account_id'] ?? '-',
                     'from_account' => null,
                     'description' => $row['description'] ?? '-',

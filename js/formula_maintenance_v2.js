@@ -343,65 +343,36 @@ let selectedPermission = null;
 let hasSearched = false;
 let searchInputDebounce = null;
 const SEARCH_INPUT_DEBOUNCE_MS = 300;
+const FORMULA_EMPTY_STATE_INITIAL = 'Use search or filters to view data.'
+const FORMULA_EMPTY_STATE_NO_RESULTS =
+    'No data found. Please adjust your search criteria and try again.'
 
-function loadOwnerCompanies() {
-    return fetch('/api/transactions/get_owner_companies_api.php')
-        .then(response => response.json())
-        .then(data => {
-            const wrapper = document.getElementById('companyButtonsWrapper');
-            const container = document.getElementById('companyButtonsContainer');
-            
-            const companies = data.success && Array.isArray(data.data)
-                ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
-                : []
-            if (companies.length > 0 && wrapper && container) {
-                ownerCompanies = companies;
-                container.innerHTML = '';
-                
-                companies.forEach(company => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'maintenance-company-btn';
-                    btn.textContent = company.company_id;
-                    btn.dataset.companyId = company.id;
-                    btn.addEventListener('click', () => switchCompany(company.id));
-                    container.appendChild(btn);
-                });
-                
-                // 如果 session 中有 company_id，优先使用它；否则使用第一个
-                if (!currentCompanyId) {
-                    currentCompanyId = companies[0].id;
-                } else {
-                    // 验证 session 中的 company_id 是否在列表中
-                    const exists = companies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                    if (!exists && companies.length > 0) {
-                        currentCompanyId = companies[0].id;
-                    }
-                }
-                
-                updateCompanyButtonsState();
-                wrapper.style.display = companies.length > 1 ? 'flex' : 'none';
-                const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
-                currentCompanyCode = cur ? (cur.company_id || '') : (currentCompanyCode || '');
-                loadPermissionButtons();
-            } else if (wrapper) {
-                wrapper.style.display = 'none';
-                ownerCompanies = [];
-                currentCompanyId = null;
-                loadPermissionButtons();
-            }
-        })
-        .catch(error => {
-            console.warn('❌ 加载Company列表失败:', error);
-            const wrapper = document.getElementById('companyButtonsWrapper');
-            if (wrapper) {
-                wrapper.style.display = 'none';
-            }
-            ownerCompanies = [];
-            currentCompanyId = null;
-            loadPermissionButtons();
-        });
+
+
+
+function setFormulaEmptyStateMessage(text) {
+    const emptyState = document.getElementById('emptyState')
+    const emptyP = emptyState && emptyState.querySelector('p')
+    if (emptyP) emptyP.textContent = text
 }
+
+function showFormulaInitialEmptyState() {
+    hasSearched = false
+    const tbody = document.getElementById('dataCaptureTableBody')
+    if (tbody) tbody.innerHTML = ''
+    const container = document.getElementById('dataCaptureTableContainer')
+    if (container) container.style.display = 'none'
+    
+    setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_INITIAL)
+    const emptyState = document.getElementById('emptyState')
+    if (emptyState) emptyState.style.display = 'block'
+
+    if (typeof updateClearFiltersButtonVisibility === 'function') {
+        updateClearFiltersButtonVisibility();
+    }
+}
+
+
 
 async function loadPermissionButtons() {
     const filterEl = document.getElementById('maintenance-permission-filter');
@@ -426,7 +397,7 @@ async function loadPermissionButtons() {
         permissions = permissions.filter(p => p !== 'Bank');
         containerEl.innerHTML = '';
         if (permissions.length > 0) {
-            filterEl.style.display = 'flex';
+            filterEl.style.display = (permissions.length <= 1) ? 'none' : 'flex';
             permissions.forEach(permission => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
@@ -438,9 +409,9 @@ async function loadPermissionButtons() {
             });
             const savedPermission = localStorage.getItem(`selectedPermission_${code}`);
             if (savedPermission && permissions.includes(savedPermission)) {
-                switchPermission(savedPermission);
+                switchPermission(savedPermission, true);
             } else if (permissions.length > 0) {
-                switchPermission(permissions[0]);
+                switchPermission(permissions[0], true);
             }
         } else {
             filterEl.style.display = 'none';
@@ -451,7 +422,32 @@ async function loadPermissionButtons() {
     }
 }
 
-function switchPermission(permission) {
+async function fetchCompanyPermissions(companyCode) {
+    if (!companyCode) return [];
+    try {
+        const response = await fetch('/api/domain/domain_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
+        });
+        const result = await response.json();
+        if (result.success && result.data && Array.isArray(result.data.permissions)) {
+            return result.data.permissions;
+        }
+    } catch (err) {
+        console.error('Error fetching company permissions:', err);
+    }
+    return [];
+}
+
+function isBankOnlyCategoryCompany(permissions) {
+    if (!Array.isArray(permissions) || permissions.length === 0) return false;
+    const hasBank = permissions.includes('Bank');
+    const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+    return hasBank && !hasGames;
+}
+
+function switchPermission(permission, skipLoad) {
     selectedPermission = permission;
     if (currentCompanyCode) {
         localStorage.setItem(`selectedPermission_${currentCompanyCode}`, permission);
@@ -464,54 +460,107 @@ function switchPermission(permission) {
             btn.classList.remove('active');
         }
     });
-    loadDataCaptureList();
+    if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
+        window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
+    }
+    if (!skipLoad) {
+        searchData();
+    }
 }
 
-async function switchCompany(companyId) {
+async function switchCompany(companyId, companyCode) {
     if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
-    
-    // 先更新 session
+    let hasGamblingFromSession = undefined;
+    let hasBankFromSession = undefined;
     try {
         const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
         const result = await response.json();
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
-            // 即使 API 失败，也继续更新前端状态
-        } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-            window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+        } else if (result.data) {
+            if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
+            if (result.data.has_bank !== undefined) hasBankFromSession = result.data.has_bank;
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);
-        // 即使 API 失败，也继续更新前端状态
     }
-    
     currentCompanyId = companyId;
-    const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(companyId, 10));
-    currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
-    updateCompanyButtonsState();
+    currentCompanyCode = companyCode || '';
+    if (typeof window !== 'undefined') {
+        window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+    }
+    const permissions = await fetchCompanyPermissions(currentCompanyCode);
+    if (isBankOnlyCategoryCompany(permissions)) {
+        window.location.href = 'dashboard.php';
+        return;
+    }
+    if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
+        const hg = hasGamblingFromSession !== undefined
+            ? hasGamblingFromSession
+            : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
+        window.updateSidebarDataCaptureVisibility(hg, hasBankFromSession);
+    }
+
+    // Clear filters when switching company
+    const searchFilter = document.getElementById('search_filter');
+    if (searchFilter) searchFilter.value = '';
+    const processButton = document.getElementById('filter_process');
+    if (processButton) {
+        processButton.removeAttribute('data-value');
+        processButton.textContent = processButton.getAttribute('data-placeholder') || '--Select All--';
+    }
+
     loadPermissionButtons();
     loadProcesses();
-    if (hasSearched) {
-        searchData();
-    }
+    
+    // Instead of auto-searching, reset to initial state
+    showFormulaInitialEmptyState();
 }
 
-function updateCompanyButtonsState() {
-    const buttons = document.querySelectorAll('#companyButtonsContainer .maintenance-company-btn');
-    buttons.forEach(btn => {
-        if (parseInt(btn.dataset.companyId, 10) === parseInt(currentCompanyId, 10)) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-}
+
 
 // Search function
 function searchData() {
     hasSearched = true;
+    updateClearFiltersButtonVisibility();
     // 直接加载数据捕获列表
     loadDataCaptureList();
+}
+
+function clearFormulaFilters() {
+    const searchFilter = document.getElementById('search_filter');
+    if (searchFilter) searchFilter.value = '';
+    
+    const processButton = document.getElementById('filter_process');
+    if (processButton) {
+        processButton.removeAttribute('data-value');
+        processButton.textContent = processButton.getAttribute('data-placeholder') || '--Select All--';
+        
+        const dropdown = document.getElementById('filter_process_dropdown');
+        if (dropdown) {
+            dropdown.querySelectorAll('.custom-select-option').forEach(opt => {
+                opt.classList.remove('selected');
+                if (!opt.getAttribute('data-value')) {
+                    opt.classList.add('selected');
+                }
+            });
+        }
+    }
+    
+    showFormulaInitialEmptyState();
+}
+
+function updateClearFiltersButtonVisibility() {
+    const btn = document.getElementById('clear_filters_btn');
+    if (!btn) return;
+    
+    if (hasSearched) {
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+    } else {
+        btn.style.opacity = '0';
+        btn.style.pointerEvents = 'none';
+    }
 }
 
 function initAutoSearchFilters() {
@@ -535,18 +584,6 @@ function initAutoSearchFilters() {
     }
 }
 
-// dd/mm/yyyy -> YYYY-MM-DD for API
-function formulaDateToYmd(str) {
-    if (!str || typeof str !== 'string') return '';
-    const parts = str.trim().split(/[/\-.]/);
-    if (parts.length !== 3) return '';
-    const day = parts[0].padStart(2, '0');
-    const month = parts[1].padStart(2, '0');
-    const year = parts[2];
-    if (day.length > 2 || month.length > 2 || year.length !== 4) return '';
-    return year + '-' + month + '-' + day;
-}
-
 // ==================== 加载模板列表 ====================
 function loadDataCaptureList() {
     const processButton = document.getElementById('filter_process');
@@ -557,15 +594,11 @@ function loadDataCaptureList() {
         ? selectedProcessDisplay.toUpperCase()
         : '';
     const searchFilter = document.getElementById('search_filter').value.trim();
-    const dateFromEl = document.getElementById('date_from');
-    const dateToEl = document.getElementById('date_to');
-    const dateFrom = dateFromEl && dateFromEl.value ? formulaDateToYmd(dateFromEl.value) : '';
-    const dateTo = dateToEl && dateToEl.value ? formulaDateToYmd(dateToEl.value) : '';
 
     // 显示加载状态
     const tbody = document.getElementById('dataCaptureTableBody');
     if (tbody) {
-        tbody.innerHTML = '<div class="maintenance-list-card"><div class="maintenance-list-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">Loading...</div></div>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
     }
     document.getElementById('emptyState').style.display = 'none';
     const container = document.getElementById('dataCaptureTableContainer');
@@ -593,10 +626,6 @@ function loadDataCaptureList() {
     }
     if (searchFilter) {
         params.push(`search=${encodeURIComponent(searchFilter)}`);
-    }
-    if (dateFrom && dateTo) {
-        params.push(`date_from=${encodeURIComponent(dateFrom)}`);
-        params.push(`date_to=${encodeURIComponent(dateTo)}`);
     }
 
     let url = `/api/formula_maintenance/list_api.php`;
@@ -646,6 +675,7 @@ function loadDataCaptureList() {
                     const searchUpper = searchFilter.toUpperCase();
                     filteredData = filteredData.filter(row => 
                         (row.formula && row.formula.toUpperCase().includes(searchUpper)) ||
+                        (row.formula_edit && row.formula_edit.toUpperCase().includes(searchUpper)) ||
                         (row.description && row.description.toUpperCase().includes(searchUpper)) ||
                         (row.product && row.product.toUpperCase().includes(searchUpper)) ||
                         (row.account && row.account.toUpperCase().includes(searchUpper)) ||
@@ -656,10 +686,12 @@ function loadDataCaptureList() {
                 }
                 
                 if (filteredData.length === 0) {
+                    setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_NO_RESULTS);
                     document.getElementById('emptyState').style.display = 'block';
                     if (container) {
                         container.style.display = 'none';
                     }
+                    
                     showNotification('No data found', 'info');
                 } else {
                     renderDataCaptureTable(filteredData);
@@ -668,6 +700,7 @@ function loadDataCaptureList() {
             } else {
                 console.error('❌ 加载数据捕获列表失败:', data.message || data.error);
                 showNotification(data.message || data.error || 'Search failed', 'error');
+                setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_NO_RESULTS);
                 document.getElementById('emptyState').style.display = 'block';
                 if (container) {
                     container.style.display = 'none';
@@ -677,6 +710,7 @@ function loadDataCaptureList() {
         .catch(error => {
             console.error('❌ 加载数据捕获列表失败:', error);
             showNotification('Search failed: ' + error.message, 'error');
+            setFormulaEmptyStateMessage(FORMULA_EMPTY_STATE_NO_RESULTS);
             document.getElementById('emptyState').style.display = 'block';
             if (container) {
                 container.style.display = 'none';
@@ -705,9 +739,8 @@ function renderDataCaptureTable(data) {
     
     // 渲染每一行
     data.forEach((row, index) => {
-        const card = document.createElement('div');
-        card.className = 'maintenance-list-card';
-        card.setAttribute('data-row-id', row.id);
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-row-id', row.id);
         
         // 保存原始数据
         const rowData = {
@@ -717,9 +750,10 @@ function renderDataCaptureTable(data) {
             source: row.source || '',
             input_method: row.input_method || '',
             formula: row.formula || '',
+            formula_edit: row.formula_edit || row.formula || '',
             description: row.description || ''
         };
-        card.setAttribute('data-row-data', JSON.stringify(rowData));
+        tr.setAttribute('data-row-data', JSON.stringify(rowData));
         
         // 创建所有列的内容
         
@@ -741,49 +775,51 @@ function renderDataCaptureTable(data) {
             inputMethodOptionsHtml += `<option value="${option.value}" ${selected}>${option.text}</option>`;
         });
         
-        card.innerHTML = `
-            <div class="maintenance-list-card-item">${row.no}</div>
-            <div class="maintenance-list-card-item">${toUpperDisplay(row.process)}</div>
-            <div class="maintenance-list-card-item account-cell" data-original-account="${escapeHtml(row.account || '')}" data-original-account-id="${row.account_id || ''}">
+        tr.innerHTML = `
+            <td>${row.no}</td>
+            <td>${toUpperDisplay(row.process)}</td>
+            <td class="account-cell" data-original-account="${escapeHtml(row.account || '')}" data-original-account-id="${row.account_id || ''}">
                 <span class="account-display">${toUpperDisplay(row.account)}</span>
                 <select class="account-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);"></select>
-            </div>
-            <div class="maintenance-list-card-item currency-cell">${toUpperDisplay(row.currency)}</div>
-            <div class="maintenance-list-card-item source-cell" data-original-source="${escapeHtml(row.source || '')}">
+            </td>
+            <td class="currency-cell">${toUpperDisplay(row.currency)}</td>
+            <td class="source-cell" data-original-source="${escapeHtml(row.source || '')}">
                 <span class="source-display" title="${escapeHtml(row.source || '')}">${toUpperDisplay(row.source)}</span>
                 <input type="text" class="source-input" value="${escapeHtml(row.source || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
-            </div>
-            <div class="maintenance-list-card-item">${toUpperDisplay(row.product)}</div>
-            <div class="maintenance-list-card-item input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
+            </td>
+            <td>${toUpperDisplay(row.product)}</td>
+            <td class="input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
                 <span class="input-method-display" title="${escapeHtml(row.input_method || '')}">${toUpperDisplay(row.input_method)}</span>
                 <select class="input-method-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">${inputMethodOptionsHtml}</select>
-            </div>
-            <div class="maintenance-list-card-item formula-cell" data-original-formula="${escapeHtml(row.formula || '')}">
+            </td>
+            <td class="formula-cell" data-original-formula="${escapeHtml(row.formula_edit || row.formula || '')}">
                 <span class="formula-display" style="word-break: break-word;" title="${escapeHtml(row.formula || '')}">${toUpperDisplay(row.formula)}</span>
-                <input type="text" class="formula-input" value="${escapeHtml(row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
-            </div>
-            <div class="maintenance-list-card-item description-cell" data-original-description="${escapeHtml(row.description || '')}">
+                <input type="text" class="formula-input" value="${escapeHtml(row.formula_edit || row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
+            </td>
+            <td class="description-cell" data-original-description="${escapeHtml(row.description || '')}">
                 <span class="description-display" style="word-break: break-word;">${toUpperDisplay(row.description)}</span>
                 <input type="text" class="description-input" value="${escapeHtml(row.description || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
-            </div>
-            <div class="maintenance-list-card-item" style="display: flex; align-items: center; justify-content: center; gap: clamp(8px, 0.73vw, 12px);">
-                <button class="maintenance-edit-btn" onclick="editDataCaptureRow(${row.id}, this)" aria-label="Edit" title="Edit">
-                    <img src="images/edit.svg" alt="Edit" class="edit-icon" />
-                    <svg class="save-icon" style="display: none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                </button>
-                <button class="maintenance-cancel-btn" onclick="cancelEditDataCaptureRow(${row.id}, this)" aria-label="Cancel" title="Cancel" style="display: none;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-                <input type="checkbox" class="data-capture-row-checkbox" data-id="${row.id}" onchange="updateDeleteButtonState()">
-            </div>
+            </td>
+            <td style="text-align: center; vertical-align: middle;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: clamp(8px, 0.73vw, 12px);">
+                    <button class="maintenance-edit-btn" onclick="editDataCaptureRow(${row.id}, this)" aria-label="Edit" title="Edit">
+                        <img src="images/edit.svg" alt="Edit" class="edit-icon" />
+                        <svg class="save-icon" style="display: none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                    <button class="maintenance-cancel-btn" onclick="cancelEditDataCaptureRow(${row.id}, this)" aria-label="Cancel" title="Cancel" style="display: none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                    <input type="checkbox" class="data-capture-row-checkbox" data-id="${row.id}" onchange="updateDeleteButtonState()">
+                </div>
+            </td>
         `;
         
-        container.appendChild(card);
+        container.appendChild(tr);
     });
     
     console.log(`✅ 数据捕获列表渲染完成，共 ${data.length} 条记录`);
@@ -831,7 +867,7 @@ function toUpperDisplay(value) {
 
 // ==================== 编辑数据捕获行 ====================
 function editDataCaptureRow(rowId, editBtn) {
-    const row = editBtn.closest('.maintenance-list-card');
+    const row = editBtn.closest('tr');
     const accountCell = row.querySelector('.account-cell');
     const sourceCell = row.querySelector('.source-cell');
     const inputMethodCell = row.querySelector('.input-method-cell');
@@ -853,6 +889,8 @@ function editDataCaptureRow(rowId, editBtn) {
     
     // 加载 account 列表
     loadAccountList(accountSelect, accountCell.getAttribute('data-original-account-id')).then(() => {
+        const rowDataForEdit = JSON.parse(row.getAttribute('data-row-data') || '{}');
+        formulaInput.value = rowDataForEdit.formula_edit || rowDataForEdit.formula || '';
         // 显示输入框/下拉列表，隐藏显示文本
         accountDisplay.style.display = 'none';
         accountSelect.style.display = 'block';
@@ -940,7 +978,7 @@ function loadAccountList(selectElement, currentAccountId) {
 
 // ==================== 取消编辑数据捕获行 ====================
 function cancelEditDataCaptureRow(rowId, cancelBtn) {
-    const row = cancelBtn.closest('.maintenance-list-card');
+    const row = cancelBtn.closest('tr');
     const accountCell = row.querySelector('.account-cell');
     const sourceCell = row.querySelector('.source-cell');
     const inputMethodCell = row.querySelector('.input-method-cell');
@@ -966,7 +1004,7 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
     accountSelect.value = rowData.account_id || '';
     sourceInput.value = rowData.source || '';
     inputMethodSelect.value = rowData.input_method || '';
-    formulaInput.value = rowData.formula || '';
+    formulaInput.value = rowData.formula_edit || rowData.formula || '';
     descriptionInput.value = rowData.description || '';
     
     accountDisplay.textContent = toUpperDisplay(rowData.account);
@@ -974,6 +1012,7 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
     sourceDisplay.title = rowData.source || '';
     inputMethodDisplay.textContent = toUpperDisplay(rowData.input_method);
     formulaDisplay.textContent = toUpperDisplay(rowData.formula);
+    formulaDisplay.title = rowData.formula || '';
     descriptionDisplay.textContent = toUpperDisplay(rowData.description);
     
     // 隐藏输入框/下拉列表，显示显示文本
@@ -1009,7 +1048,7 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
 
 // ==================== 保存数据捕获行 ====================
 function saveDataCaptureRow(rowId, saveBtn) {
-    const row = saveBtn.closest('.maintenance-list-card');
+    const row = saveBtn.closest('tr');
     const accountCell = row.querySelector('.account-cell');
     const sourceCell = row.querySelector('.source-cell');
     const inputMethodCell = row.querySelector('.input-method-cell');
@@ -1073,12 +1112,17 @@ function saveDataCaptureRow(rowId, saveBtn) {
     })
     .then(data => {
         if (data.success) {
+            const norm = data.data || {};
+            const disp = norm.formula_display_paren != null ? norm.formula_display_paren : formulaValue;
+            const edit = norm.formula_edit != null ? norm.formula_edit : formulaValue;
             // 更新显示文本
             accountDisplay.textContent = accountText ? toUpperDisplay(accountText.split(' (')[0]) : '-';
             sourceDisplay.textContent = toUpperDisplay(sourceValue);
             sourceDisplay.title = sourceValue || '';
             inputMethodDisplay.textContent = toUpperDisplay(inputMethodValue);
-            formulaDisplay.textContent = toUpperDisplay(formulaValue);
+            formulaDisplay.textContent = toUpperDisplay(disp);
+            formulaDisplay.title = disp || '';
+            formulaInput.value = edit;
             descriptionDisplay.textContent = toUpperDisplay(descriptionValue);
             
             // 隐藏输入框/下拉列表，显示显示文本
@@ -1118,7 +1162,8 @@ function saveDataCaptureRow(rowId, saveBtn) {
                 account_id: accountId || null,
                 source: sourceValue,
                 input_method: inputMethodValue,
-                formula: formulaValue,
+                formula: disp,
+                formula_edit: edit,
                 description: descriptionValue
             };
             row.setAttribute('data-row-data', JSON.stringify(newRowData));
@@ -1248,26 +1293,18 @@ function confirmDelete() {
 }
 
 
-// Date range picker + Quick Select (same as other maintenance pages; formula list API does not filter by date yet)
-function initDateRangePicker() {
-    if (typeof window.MaintenanceDateRangePicker !== 'undefined') {
-        window.MaintenanceDateRangePicker.init({ onChange: loadDataCaptureList });
-    }
-}
-
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
-    initDateRangePicker();
     initMaintenanceDropdownHover();
     initAutoSearchFilters();
 
-    loadOwnerCompanies()
+    Promise.resolve()
         .then(() => (typeof loadPermissionButtons === 'function' ? loadPermissionButtons() : Promise.resolve()))
         .catch(() => {})
         .then(() => loadProcesses().catch(() => {}))
         .then(() => {
             initProcessSelect();
-            searchData();
+            showFormulaInitialEmptyState();
         });
     
     
@@ -1286,3 +1323,4 @@ document.addEventListener('DOMContentLoaded', function() {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 });
+window.switchCompany = switchCompany;

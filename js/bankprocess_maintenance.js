@@ -32,6 +32,18 @@
             updateDeleteButtonState();
         }
 
+        function notifyTransactionDataChanged() {
+            const ts = String(Date.now());
+            try {
+                localStorage.setItem('count168_tx_invalidate_ts', ts);
+            } catch (eInv) { /* ignore */ }
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                try {
+                    window.dispatchEvent(new CustomEvent('tx-data-changed', { detail: { ts: ts, source: 'bankprocess_maintenance_delete' } }));
+                } catch (eEvt) { /* ignore */ }
+            }
+        }
+
         function escapeHtml(str) {
             if (str === null || str === undefined) return '';
             return String(str)
@@ -60,93 +72,53 @@
             });
         }
 
+        /** One column: "MYR 1,200.00" */
+        function formatCurrencyAmountCell(currency, amount) {
+            const cur = currency ? String(currency).trim() : '';
+            const n = parseFloat(amount);
+            const hasAmount = !isNaN(n);
+            if (!cur && !hasAmount) return '-';
+            if (!cur) return formatNumber(amount);
+            if (!hasAmount) return escapeHtml(cur);
+            return escapeHtml(cur) + ' ' + formatNumber(amount);
+        }
+
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
         let currentCompanyCode = '';
         let ownerCompanies = [];
         let selectedCurrency = null;
         let selectedPermission = null;
 
-        function loadOwnerCompanies() {
-            const container = document.getElementById('company-buttons-container');
-            const wrapper = document.getElementById('company-buttons-wrapper');
-            return fetch('api/transactions/get_owner_companies_api.php')
-                .then(response => response.json())
-                .then(data => {
-                    const companies = data.success && Array.isArray(data.data)
-                        ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
-                        : []
-                    if (companies.length > 0) {
-                        ownerCompanies = companies;
-                        if (companies.length > 1) {
-                            container.innerHTML = '';
-                            companies.forEach((company) => {
-                                const btn = document.createElement('button');
-                                btn.className = 'maintenance-company-btn';
-                                btn.textContent = company.company_id;
-                                btn.dataset.companyId = company.id;
-                                btn.addEventListener('click', () => switchCompany(company.id));
-                                container.appendChild(btn);
-                            });
-                            if (!currentCompanyId) {
-                                currentCompanyId = companies[0].id;
-                            } else {
-                                const exists = companies.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                                if (!exists && companies.length > 0) {
-                                    currentCompanyId = companies[0].id;
-                                }
-                            }
-                            const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
-                            currentCompanyCode = cur ? (cur.company_id || '') : '';
-                            wrapper.style.display = 'flex';
-                            activateCompanyButton(currentCompanyId);
-                        } else {
-                            currentCompanyId = companies[0].id;
-                            const cur = companies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
-                            currentCompanyCode = cur ? (cur.company_id || '') : '';
-                            wrapper.style.display = 'none';
-                        }
-                    } else {
-                        ownerCompanies = [];
-                        currentCompanyCode = '';
-                        wrapper.style.display = 'none';
-                    }
-                })
-                .catch(error => {
-                    console.warn('加载公司列表失败或非 Owner 用户:', error);
-                    ownerCompanies = [];
-                    wrapper.style.display = 'none';
-                });
-        }
 
-        function activateCompanyButton(companyId) {
-            const buttons = document.querySelectorAll('#company-buttons-container .maintenance-company-btn');
-            buttons.forEach(btn => {
-                if (parseInt(btn.dataset.companyId, 10) === parseInt(companyId, 10)) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-        }
 
-        async function switchCompany(companyId) {
+        async function switchCompany(companyId, companyCode) {
             const newCompanyId = parseInt(companyId, 10);
             if (currentCompanyId === newCompanyId) return;
+            let hasGamblingFromSession = undefined;
+            let hasBankFromSession = undefined;
             try {
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${newCompanyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+                } else if (result.data) {
+                    if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
+                    if (result.data.has_bank !== undefined) hasBankFromSession = result.data.has_bank;
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
             }
             currentCompanyId = newCompanyId;
-            const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(newCompanyId, 10));
-            currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
-            activateCompanyButton(currentCompanyId);
+            currentCompanyCode = companyCode || '';
+            if (typeof window !== 'undefined') {
+                window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+            }
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
+                const hg = hasGamblingFromSession !== undefined
+                    ? hasGamblingFromSession
+                    : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
+                window.updateSidebarDataCaptureVisibility(hg, hasBankFromSession);
+            }
             loadPermissionButtons();
             loadCompanyCurrencies()
                 .then(() => {
@@ -250,7 +222,7 @@
                 permissions = permissions.filter(p => p !== 'Games');
                 containerEl.innerHTML = '';
                 if (permissions.length > 0) {
-                    filterEl.style.display = 'flex';
+                    filterEl.style.display = (permissions.length <= 1) ? 'none' : 'flex';
                     permissions.forEach(permission => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
@@ -292,13 +264,19 @@
             if (titleEl) {
                 titleEl.textContent = 'Maintenance - ' + (permission || 'Process');
             }
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
+                window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
+            }
         }
 
-        function searchData() {
+        function searchData(options = {}) {
+            const { silent = false } = options || {};
             const dateFrom = document.getElementById('date_from').value.trim();
             const dateTo = document.getElementById('date_to').value.trim();
             if (!dateFrom || !dateTo) {
-                showNotification('Please select date range', 'error');
+                if (!silent) {
+                    showNotification('Please select date range', 'error');
+                }
                 return;
             }
             let url = `api/bankprocess_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
@@ -308,8 +286,12 @@
             if (selectedCurrency) {
                 url += `&currency=${encodeURIComponent(selectedCurrency)}`;
             }
+            const fromSearchEl = document.getElementById('filter_from_search');
+            if (fromSearchEl && fromSearchEl.value.trim()) {
+                url += `&q=${encodeURIComponent(fromSearchEl.value.trim())}`;
+            }
             const tbody = document.getElementById('dataTableBody');
-            tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>';
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('tableContainer').style.display = 'block';
             fetch(url)
@@ -325,19 +307,27 @@
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification('No bank process transactions found', 'info');
+                            if (!silent) {
+                                showNotification('No bank process transactions found', 'info');
+                            }
                         } else {
-                            showNotification(`Found ${data.data.length} record(s)`, 'success');
+                            if (!silent) {
+                                showNotification(`Found ${data.data.length} record(s)`, 'success');
+                            }
                         }
                     } else {
-                        showNotification(data.message || 'Search failed', 'error');
+                        if (!silent) {
+                            showNotification(data.message || 'Search failed', 'error');
+                        }
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
                 })
                 .catch(error => {
                     console.error('搜索失败:', error);
-                    showNotification('Search failed: ' + error.message, 'error');
+                    if (!silent) {
+                        showNotification('Search failed: ' + error.message, 'error');
+                    }
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('tableContainer').style.display = 'none';
                 });
@@ -350,7 +340,7 @@
                 const emptyRow = document.createElement('tr');
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
-                    <td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 16px;">
+                    <td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 16px;">
                         No data
                     </td>
                 `;
@@ -359,27 +349,33 @@
             }
             data.forEach((row, index) => {
                 const tr = document.createElement('tr');
-                tr.className = 'maintenance-row';
+                const isDeleted = !!row.is_deleted;
+                tr.className = 'maintenance-row' + (isDeleted ? ' maintenance-row-deleted' : '');
                 const dateDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
-                const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';
-                const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
-                const descriptionDisplay = escapeHtml(toUpperDisplay(row.description));
+                const fromDisplay = escapeHtml(toUpperDisplay(row.from_account));
+                const currencyAmountDisplay = formatCurrencyAmountCell(row.currency, row.amount);
+                const descriptionDisplay = escapeHtml(
+                    row.description != null && String(row.description).trim() !== '' ? String(row.description) : '-'
+                );
                 const remarkDisplay = escapeHtml(toUpperDisplay(row.remark));
-                const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
+                const submitterDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
+                const rowCheckboxHtml = isDeleted
+                    ? '<input type="checkbox" class="maintenance-row-checkbox" disabled title="Already deleted">'
+                    : `<input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="updateDeleteButtonState()">`;
                 tr.setAttribute('data-transaction-id', row.transaction_id);
+                tr.setAttribute('data-is-deleted', isDeleted ? '1' : '0');
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
                     <td class="maintenance-table-cell">${dateDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
-                    <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>
-                    <td class="maintenance-table-cell maintenance-cell-amount">${formatNumber(row.amount)}</td>
-                    <td class="maintenance-table-cell text-uppercase">${descriptionDisplay}</td>
+                    <td class="maintenance-table-cell maintenance-cell-currency-amount">${currencyAmountDisplay}</td>
+                    <td class="maintenance-table-cell">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell text-uppercase">${remarkDisplay}</td>
-                    <td class="maintenance-table-cell">${createdByDisplay}</td>
+                    <td class="maintenance-table-cell">${submitterDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-checkbox">
-                        <input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="updateDeleteButtonState()">
+                        ${rowCheckboxHtml}
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -387,7 +383,7 @@
         }
 
         function toggleSelectAllRows(source) {
-            const rowCheckboxes = document.querySelectorAll('.maintenance-row-checkbox');
+            const rowCheckboxes = document.querySelectorAll('.maintenance-row-checkbox:not(:disabled)');
             const targetState = !!source.checked;
             rowCheckboxes.forEach(cb => {
                 cb.checked = targetState;
@@ -396,8 +392,8 @@
         }
 
         function updateDeleteButtonState() {
-            const checkboxes = document.querySelectorAll('.maintenance-row-checkbox');
-            const checkedCheckboxes = document.querySelectorAll('.maintenance-row-checkbox:checked');
+            const checkboxes = document.querySelectorAll('.maintenance-row-checkbox:not(:disabled)');
+            const checkedCheckboxes = document.querySelectorAll('.maintenance-row-checkbox:not(:disabled):checked');
             const deleteBtn = document.getElementById('deleteBtn');
             const confirmCheckbox = document.getElementById('confirmDelete');
             const selectAllCheckbox = document.getElementById('select_all_bankprocess');
@@ -438,6 +434,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            notifyTransactionDataChanged();
                             showNotification(data.message || `Deleted ${transactionIds.length} record(s)`, 'success');
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;
@@ -447,7 +444,7 @@
                             }
                             updateDeleteButtonState();
                             setTimeout(() => {
-                                searchData();
+                                searchData({ silent: true });
                             }, 300);
                         } else {
                             showNotification(data.message || 'Delete failed', 'error');
@@ -492,16 +489,37 @@
             }
         }
 
+        function bindFromSearchControls() {
+            const input = document.getElementById('filter_from_search');
+            const btn = document.getElementById('filter_from_search_apply');
+            const runIfReady = () => {
+                const dateFrom = document.getElementById('date_from').value.trim();
+                const dateTo = document.getElementById('date_to').value.trim();
+                if (dateFrom && dateTo && selectedCurrency) {
+                    searchData();
+                }
+            };
+            if (input) {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        runIfReady();
+                    }
+                });
+            }
+            // Bank Process List search bar has no explicit search button; keep click support only if present.
+            if (btn) btn.addEventListener('click', runIfReady);
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             initDatePickers();
+            bindFromSearchControls();
             updateDeleteButtonState();
-            loadOwnerCompanies()
-                .catch(() => {})
+            Promise.resolve()
                 .then(() => {
                     loadPermissionButtons();
                     return loadCompanyCurrencies();
                 })
-                .catch(() => {})
                 .then(() => {
                     const dateFrom = document.getElementById('date_from').value.trim();
                     const dateTo = document.getElementById('date_to').value.trim();
@@ -526,3 +544,4 @@
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         });
+window.switchCompany = switchCompany;

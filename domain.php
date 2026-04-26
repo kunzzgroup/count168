@@ -1,19 +1,30 @@
 <?php
 // 使用统一的session检查
 require_once 'session_check.php';
+require_once __DIR__ . '/includes/c168_domain_access.php';
 
 // 强制浏览器使用最新 JS/CSS，避免旧缓存导致 permission/Expiration Date 行为异常
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-// 检查当前登录用户是否为 owner/admin 且与 c168 相关
+// 检查当前用户是否为 C168 上下文下的 Domain 白名单角色
 $user_id      = $_SESSION['user_id']  ?? null;
 $user_role    = strtolower($_SESSION['role'] ?? '');
 $company_id   = $_SESSION['company_id'] ?? null;      // company 表数字主键
+// 按 id 同步 company_code，避免 Remember me 等场景下 code 缺失导致无法进入本页
+if ($company_id) {
+    try {
+        $stmtCc = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
+        $stmtCc->execute([(int) $company_id]);
+        $ccDb = $stmtCc->fetchColumn();
+        if ($ccDb !== false && $ccDb !== null && trim((string) $ccDb) !== '') {
+            $_SESSION['company_code'] = trim((string) $ccDb);
+        }
+    } catch (PDOException $e) {
+        error_log('domain.php company_code sync: ' . $e->getMessage());
+    }
+}
 $company_code = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选的公司代码
-
-// 角色必须是 owner 或 admin
-$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
 
 // 条件1：当前 session 的 company_code 就是 c168（登录时选 c168）
 $isC168ByCode = ($company_code === 'C168');
@@ -33,11 +44,13 @@ if ($company_id) {
 
 $hasC168Context = ($isC168ByCode || $isC168ById);
 
-if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
-    // 不是登录用户，或角色不是 owner/admin，或当前公司/登录公司不是 c168，拒绝访问
+if (!$user_id || !$hasC168Context || !userHasC168DomainPageAccess($user_role)) {
     header("Location: dashboard.php");
     exit();
 }
+
+// 前端二级密码编辑区：仍仅 owner/admin（与 domain_api 一致）
+$isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
 
 // Get owners (domains) data
 try {
@@ -50,7 +63,7 @@ try {
             o.created_by,
             o.created_at,
             GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
-            GROUP_CONCAT(c.company_id ORDER BY c.company_id SEPARATOR ', ') as companies
+            GROUP_CONCAT(NULLIF(TRIM(c.company_id), '') ORDER BY c.company_id SEPARATOR ', ') as companies
         FROM owner o
         LEFT JOIN company c ON o.id = c.owner_id
         GROUP BY o.id
@@ -87,11 +100,15 @@ try {
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/domain.css?v=<?php echo $assetVer('css/domain.css'); ?>">
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo $assetVer('css/accountCSS.css'); ?>">
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
         window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
+        window.DOMAIN_SESSION_COMPANY_ID = <?php echo $company_id ? (int)$company_id : 'null'; ?>;
+        window.DOMAIN_SESSION_COMPANY_CODE = <?php echo json_encode($company_code ?: ''); ?>;
     </script>
     <script src="js/domain.js?v=<?php echo $assetVer('js/domain.js'); ?>"></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">
@@ -104,8 +121,10 @@ try {
                     <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                         </svg>
-                    <input type="text" id="searchInput" placeholder="Search by Owner/Name/Email" class="search-input">
+                    <input type="text" id="searchInput" placeholder="Search by Owner Name/Company" class="search-input">
                 </div>
+                <button type="button" class="btn btn-fee-settings" id="domainFeeSettingsBtn" onclick="openDomainFeeSettingsModal()">Price</button>
+                <span id="domainFeeInlineSummary" class="domain-fee-inline-summary" aria-live="polite"></span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()">Delete</button>
@@ -140,7 +159,13 @@ try {
                         <?php 
                         if (!empty($domain['companies'])) {
                             $companyList = explode(', ', $domain['companies']);
-                            foreach ($companyList as $idx => $companyId) {
+                            $maxVisible = 3;
+                            $visible    = array_slice($companyList, 0, $maxVisible);
+                            $hidden     = array_slice($companyList, $maxVisible);
+
+                            echo '<div class="chip-group">';
+                            // 渲染可见项
+                            foreach ($visible as $companyId) {
                                 $companyId = trim($companyId);
                                 $expDate = null;
                                 if (!empty($domain['companies_full'])) {
@@ -152,11 +177,14 @@ try {
                                     }
                                 }
                                 $expAttr = $expDate ? ' data-exp="' . htmlspecialchars($expDate) . '"' : '';
-                                echo '<span class="company-badge"' . $expAttr . '>' . htmlspecialchars($companyId) . '</span>';
-                                if ($idx < count($companyList) - 1) {
-                                    echo ', ';
-                                }
+                                echo '<span class="chip company-badge"' . $expAttr . '>' . htmlspecialchars($companyId) . '</span>';
                             }
+                            // 渲染 +N chip
+                            if (!empty($hidden)) {
+                                $hiddenNames = implode(', ', array_map('trim', $hidden));
+                                echo '<span class="chip-more" title="' . htmlspecialchars($hiddenNames) . '">+' . count($hidden) . '</span>';
+                            }
+                            echo '</div>';
                         } else {
                             echo '-';
                         }
@@ -180,6 +208,27 @@ try {
             <button class="pagination-btn" id="prevBtn" onclick="changePage(-1)">◀</button>
             <span class="pagination-info" id="paginationInfo">1 of 10</span>
             <button class="pagination-btn" id="nextBtn" onclick="changePage(1)">▶</button>
+        </div>
+    </div>
+
+    <!-- Domain list: global price -->
+    <div id="domainFeeSettingsModal" class="modal" style="z-index: 10004;">
+        <div class="modal-content" style="max-width: 440px;">
+            <span class="close" onclick="closeDomainFeeSettingsModal()">&times;</span>
+            <h2>Price</h2>
+            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
+                <p style="color: #64748b; font-size: clamp(10px, 0.78vw, 14px); margin: 0 0 10px 0;">Set default amounts for the domain list (saved for C168 admin use).</p>
+                <div id="domainFeeSummaryDisplay" class="domain-fee-summary-display" aria-live="polite"></div>
+                <p class="domain-fee-edit-hint">Edit fields below support up to 2 decimal places.</p>
+                <div class="form-group">
+                    <label for="domainFeePrice">Price <span class="domain-fee-decimals-hint">(edit)</span></label>
+                    <input type="number" id="domainFeePrice" class="form-group input" step="0.01" placeholder="0.00" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
+                </div>
+                <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-save" onclick="saveDomainFeeSettings()">Save</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeDomainFeeSettingsModal()">Cancel</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -215,10 +264,13 @@ try {
 
     <!-- Company Expiration Date Setting Modal -->
     <div id="companyExpDateModal" class="modal" style="z-index: 10003;">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content company-settings-modal-content company-settings-modal-content--split">
             <span class="close" onclick="closeCompanyExpDateModal(true)">&times;</span>
             <h2>Company Settings</h2>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
+            <div class="modal-body company-settings-modal-body">
+                <div class="company-settings-split">
+                    <div id="companySettingsPanelGeneral" class="company-settings-split-left">
+                        <h3 class="company-settings-column-title">Company settings</h3>
                 <div class="form-group">
                     <label id="expDateCompanyName" style="font-weight: bold; font-size: clamp(12px, 1.04vw, 16px); color: #1e293b; margin-bottom: 15px;">Company: </label>
                 </div>
@@ -250,29 +302,180 @@ try {
                     <label style="margin-bottom: 2px;">Permissions (for Process List & Data Capture)</label>
                     <div class="permission-toggle-row">
                         <label class="permission-toggle-btn" id="permissionLabelGambling">
-                            <input type="checkbox" value="Games" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Games" id="permissionGambling" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Games</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelBank">
-                            <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Bank</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelLoan">
-                            <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Loan</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelRate">
-                            <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Rate</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelMoney">
-                            <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="onPermissionCheckboxChange(this)">
                             <span>Money</span>
                         </label>
                     </div>
                     <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
                 </div>
-                <div class="form-actions" style="margin-top: 20px;">
+                    </div>
+
+                    <div class="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true"></div>
+
+                    <div id="companySettingsPanelShare" class="company-settings-split-right">
+                        <div class="company-settings-share-header">
+                            <h3 class="company-settings-column-title company-settings-share-title">Share %</h3>
+                            <div class="company-share-charge-on-save" title="On: After you Confirm the domain (main modal), post domain list fee and Share% commission to Transaction Payment / Payment History. Off: allocations only until Confirm.">
+                                <span class="company-share-charge-on-save__state" id="companyShareChargeState" aria-hidden="true">Off</span>
+                                <label class="company-share-charge-switch">
+                                    <input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" aria-label="Charge when domain is confirmed" onchange="syncCompanyShareChargeToggleUi()">
+                                    <span class="company-share-charge-switch__track" aria-hidden="true"><span class="company-share-charge-switch__thumb"></span></span>
+                                </label>
+                            </div>
+                        </div>
+                    <div class="company-share-scroll">
+                        <div class="company-share-role-card company-share-role-card--profit-pool" data-share-card="profit">
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsProfit" onclick="toggleShareRoleCard('profit')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('profit');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--profit">Profit</span>
+                                    <span class="company-share-account-count-display" id="shareAccountSummary-profit">0 accounts</span>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalProfit">0.00%</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-profit"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('profit');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('profit');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="company-share-role-body company-share-role-body--profit-pool">
+                            <div class="company-share-column-labels company-share-column-labels--profit-pool">
+                                <span>Account</span>
+                                <span>Total</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsProfit" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('profit')">+ Add Account</button>
+                            </div>
+                        </div>
+                        <div class="company-share-role-card" data-share-card="sales">
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsSales" onclick="toggleShareRoleCard('sales')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('sales');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--sales">Sales</span>
+                                    <span class="company-share-account-count-display" id="shareAccountSummary-sales">0 accounts</span>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalSales">0.00%</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-sales"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('sales');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('sales');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="company-share-role-body">
+                            <div class="company-share-column-labels">
+                                <span>Account</span>
+                                <span>Share</span>
+                                <span>Total</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsSales" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('sales')">+ Add Account</button>
+                            </div>
+                        </div>
+                        <div class="company-share-role-card" data-share-card="cs">
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsCs" onclick="toggleShareRoleCard('cs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('cs');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--cs">CS</span>
+                                    <span class="company-share-account-count-display" id="shareAccountSummary-cs">0 accounts</span>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalCs">0.00%</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-cs"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('cs');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('cs');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="company-share-role-body">
+                            <div class="company-share-column-labels">
+                                <span>Account</span>
+                                <span>Share</span>
+                                <span>Total</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsCs" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('cs')">+ Add Account</button>
+                            </div>
+                        </div>
+                        <div class="company-share-role-card" data-share-card="it">
+                            <div class="company-share-role-header" role="button" tabindex="0" aria-expanded="false" aria-controls="shareRowsIt" onclick="toggleShareRoleCard('it')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShareRoleCard('it');}">
+                                <div class="company-share-role-header-left">
+                                    <span class="company-share-role-badge company-share-role-badge--it">IT</span>
+                                    <span class="company-share-account-count-display" id="shareAccountSummary-it">0 accounts</span>
+                                </div>
+                                <div class="company-share-role-header-middle">
+                                    <div class="company-share-role-alloc-row">
+                                        <span class="company-share-role-alloc-label">Share total</span>
+                                        <span class="company-share-card-sum" id="shareTotalIt">0.00%</span>
+                                    </div>
+                                    <div class="company-share-progress-track">
+                                        <div class="company-share-progress-fill" id="shareProgressFill-it"></div>
+                                    </div>
+                                </div>
+                                <div class="company-share-role-header-right">
+                                    <button type="button" class="company-share-btn-manage" onclick="event.stopPropagation(); toggleShareRoleCard('it');">Manage</button>
+                                    <button type="button" class="company-share-icon-chevron" onclick="event.stopPropagation(); toggleShareRoleCard('it');" aria-label="Expand or collapse">
+                                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="company-share-role-body">
+                            <div class="company-share-column-labels">
+                                <span>Account</span>
+                                <span>Share</span>
+                                <span>Total</span>
+                                <span class="company-share-col-actions" aria-hidden="true"></span>
+                            </div>
+                            <div class="company-share-rows" id="shareRowsIt" role="list"></div>
+                            <button type="button" class="company-share-add-btn" onclick="addCompanyShareRow('it')">+ Add Account</button>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <div class="form-actions company-settings-form-actions">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #ffa2b6 0%, #c91212 100%); color: white; margin-right: 8px;">Reset</button>
                     <button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal(true)">Cancel</button>
@@ -315,7 +518,7 @@ try {
                             </div>
                             <div class="form-group">
                                 <label for="email">Email *</label>
-                                <input type="email" id="email" name="email" required>
+                                <input type="email" id="email" name="email" required pattern=".*@gmail\.com$" title="Only @gmail.com addresses are allowed">
                             </div>
                             <div class="form-group" id="passwordGroup">
                                 <label for="password">Password *</label>
@@ -382,5 +585,104 @@ try {
 
     <!-- 通知容器：内联 z-index 最高，确保压过所有弹窗（含 inline 10001~10003） -->
     <div id="notificationContainer" class="notification-container" style="z-index: 2147483647;"></div>
+
+    <!-- Add Account Modal (for Share % + button) -->
+    <div id="domainAddAccountModal" class="account-modal" style="display: none; z-index: 10010;">
+        <div class="account-modal-content">
+            <div class="account-modal-header">
+                <h2>Add Account</h2>
+                <span class="account-close" onclick="closeDomainAddAccountModal()">&times;</span>
+            </div>
+            <div class="account-modal-body">
+                <form id="domainAddAccountForm" class="account-form">
+                    <div class="account-form-columns">
+                        <div class="account-form-column">
+                            <h3 class="account-section-header">Personal Information</h3>
+                            <div class="account-form-group">
+                                <label for="domain_add_account_id">Account ID *</label>
+                                <input type="text" id="domain_add_account_id" name="account_id" required>
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_name">Name *</label>
+                                <input type="text" id="domain_add_name" name="name" required>
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_role">Role *</label>
+                                <select id="domain_add_role" name="role" required>
+                                    <option value="">Select Role</option>
+                                </select>
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_password">Password *</label>
+                                <input type="password" id="domain_add_password" name="password" required>
+                            </div>
+                        </div>
+                        <div class="account-form-column">
+                            <h3 class="account-section-header">Payment</h3>
+                            <div class="account-form-group">
+                                <label>Payment Alert</label>
+                                <div class="account-radio-group">
+                                    <label class="account-radio-label">
+                                        <input type="radio" name="add_payment_alert" value="1">
+                                        Yes
+                                    </label>
+                                    <label class="account-radio-label">
+                                        <input type="radio" name="add_payment_alert" value="0" checked>
+                                        No
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="account-form-row" id="domain_add_alert_fields" style="display: none;">
+                                <div class="account-form-group">
+                                    <label for="domain_add_alert_type">Alert Type</label>
+                                    <select id="domain_add_alert_type" name="alert_type">
+                                        <option value="">Select Type</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                        <?php for ($i = 1; $i <= 31; $i++): ?>
+                                            <option value="<?php echo $i; ?>"><?php echo $i; ?> Days</option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="domain_add_alert_start_date">Start Date</label>
+                                    <input type="date" id="domain_add_alert_start_date" name="alert_start_date">
+                                </div>
+                            </div>
+                            <div class="account-form-group" id="domain_add_alert_amount_row" style="display: none;">
+                                <label for="domain_add_alert_amount">Alert (Amount)</label>
+                                <input type="number" id="domain_add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount">
+                            </div>
+                            <div class="account-form-group">
+                                <label for="domain_add_remark">Remark</label>
+                                <textarea id="domain_add_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="account-form-section">
+                        <div class="account-advance-section">
+                            <h3>Advanced Account</h3>
+                            <div class="account-other-currency">
+                                <label>Other Currency:</label>
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                    <input type="text" id="domainAddCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputDomain(); return false;">Create Currency</button>
+                                </div>
+                                <div class="account-currency-list" id="domainAddCurrencyList"></div>
+                            </div>
+                            <div class="account-other-currency" style="margin-top: 20px;">
+                                <label>Company:</label>
+                                <div class="account-currency-list" id="domainAddCompanyList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="account-form-actions">
+                        <button type="submit" class="account-btn account-btn-save">Add Account</button>
+                        <button type="button" class="account-btn account-btn-cancel" onclick="closeDomainAddAccountModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

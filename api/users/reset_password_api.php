@@ -35,12 +35,23 @@ try {
     $company_id_upper = strtoupper($company_id_raw);
     $email_lower = strtolower($email);
 
-    // 1) 先按 Company ID 查公司
-    $stmt = $pdo->prepare("SELECT id FROM company WHERE UPPER(company_id) = ?");
-    $stmt->execute([$company_id_upper]);
-    $company_numeric_id = (int) $stmt->fetchColumn();
+    // 1) 尝试验证普通用户的 TAC（支持 Company ID 或 Group ID）
+    $stmt = $pdo->prepare("
+        SELECT u.id AS user_id, c.id AS numeric_company_id
+        FROM user u
+        INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+        INNER JOIN company c ON ucm.company_id = c.id
+        WHERE u.email = ? AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?) AND u.status = 'active'
+        ORDER BY c.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$email, $company_id_upper, $company_id_upper]);
+    $user_info = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($company_numeric_id) {
+    if ($user_info) {
+        $user_id = $user_info['user_id'];
+        $company_numeric_id = $user_info['numeric_company_id'];
+
         // 用户重置：验证 password_reset_tac
         $stmt = $pdo->prepare("
             SELECT email, company_id, code, expires_at
@@ -50,22 +61,12 @@ try {
         ");
         $stmt->execute([$email, $company_numeric_id, $tac]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
         if (!$row) {
             echo json_encode(['success' => false, 'message' => 'Invalid or expired TAC. Please request a new code.']);
             exit;
         }
-        $user_stmt = $pdo->prepare("
-            SELECT u.id FROM user u
-            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-            WHERE u.email = ? AND ucm.company_id = ? AND u.status = 'active'
-            LIMIT 1
-        ");
-        $user_stmt->execute([$email, $company_numeric_id]);
-        $user_id = $user_stmt->fetchColumn();
-        if (!$user_id) {
-            echo json_encode(['success' => false, 'message' => 'User not found']);
-            exit;
-        }
+
         $hashed = password_hash($new_password, PASSWORD_DEFAULT);
         $pdo->prepare("UPDATE user SET password = ? WHERE id = ?")->execute([$hashed, $user_id]);
         $pdo->prepare("DELETE FROM password_reset_tac WHERE email = ? AND company_id = ?")->execute([$email, $company_numeric_id]);
@@ -73,7 +74,7 @@ try {
         exit;
     }
 
-    // 2) 按 Owner Code + email 查 owner，验证 password_reset_tac_owner
+    // 2) 如果未找到匹配的普通用户，按 Owner Code + email 查 owner，验证 password_reset_tac_owner
     $stmt = $pdo->prepare("
         SELECT id FROM owner
         WHERE UPPER(owner_code) = ? AND LOWER(TRIM(email)) = ?
@@ -82,7 +83,7 @@ try {
     $stmt->execute([$company_id_upper, $email_lower]);
     $owner_id = $stmt->fetchColumn();
     if (!$owner_id) {
-        echo json_encode(['success' => false, 'message' => 'No owner found for this Owner Code and email. Enter your Owner Code in the Company ID field.']);
+        echo json_encode(['success' => false, 'message' => 'No active user found for this email in the selected company/group. For owner reset, enter your Owner Code in the Company ID field.']);
         exit;
     }
 

@@ -58,6 +58,49 @@ h1 {
     gap: 10px;
 }
 
+/* Keep Date Range and Search bar same height */
+.maintenance-search-section {
+    --maintenance-control-height: clamp(36px, 2.8vw, 40px);
+}
+
+/* Bank Process List search bar (1:1 with processlist) */
+.maintenance-search-section .maintenance-search-container {
+    position: relative;
+}
+
+.maintenance-search-section .maintenance-search-container .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 25%;
+    z-index: 2;
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(14px, 0.83vw, 16px);
+    pointer-events: none;
+    object-fit: contain;
+}
+
+.maintenance-search-section .maintenance-search-input {
+    width: clamp(165px, 13vw, 250px);
+    padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.8vw, 15px);
+    background: rgba(255, 255, 255, 1);
+    color: #000000ff;
+    backdrop-filter: blur(8px) saturate(1.2);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    box-shadow: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.maintenance-search-section .maintenance-search-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    background: rgba(255, 255, 255, 1);
+}
+
 .maintenance-filters {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
@@ -119,7 +162,7 @@ h1 {
 }
 
 .maintenance-company-filter {
-    display: none;
+    display: flex;
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
@@ -163,6 +206,120 @@ h1 {
     flex-direction: column;
     align-items: flex-start;
     gap: clamp(4px, 0.52vw, 8px);
+}
+
+.maintenance-from-search-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: clamp(10px, 1vw, 16px);
+    margin-top: clamp(6px, 0.52vw, 10px);
+    width: 100%;
+    max-width: min(100%, 560px);
+}
+
+.maintenance-from-search-row .maintenance-from-search-field {
+    flex: 1 1 200px;
+    min-width: clamp(160px, 28vw, 320px);
+}
+
+/* Search bar inline with Date Range (right side) */
+.maintenance-date-inline,
+.maintenance-search-inline {
+    /* Match Bank Process List search bar sizing (1:1) */
+    min-width: clamp(165px, 13vw, 250px);
+    max-width: clamp(165px, 13vw, 250px);
+}
+
+/* Ensure date-range picker fits the group width */
+.maintenance-date-inline .date-range-picker {
+    width: 100%;
+    min-width: 0;
+}
+
+.maintenance-search-inline-wrap {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.52vw, 10px);
+}
+
+.maintenance-search-inline-controls {
+    /* Make it look/size like .date-range-picker */
+    display: flex;
+    align-items: center;
+    gap: clamp(4px, 0.42vw, 8px);
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    height: var(--maintenance-control-height);
+    padding: 0 clamp(8px, 0.83vw, 16px);
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.maintenance-search-inline-controls .maintenance-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+
+/* Search button outside the bar */
+.maintenance-search-inline-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--maintenance-control-height); /* match Date Range */
+    width: clamp(38px, 3vw, 44px);    /* slightly smaller */
+    margin: 0;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
+}
+
+.maintenance-search-inline-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.35);
+}
+
+.maintenance-search-inline-btn:active {
+    transform: translateY(0);
+}
+
+/* Date Range uses shared styles from css/date-range-picker.css (do not override here). */
+
+.maintenance-from-search-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(40px, 3.2vw, 44px);
+    height: clamp(36px, 2.8vw, 40px);
+    margin-bottom: 2px;
+    border: 0.125rem solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.15s ease;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
+}
+
+.maintenance-from-search-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+.maintenance-from-search-btn:active {
+    transform: translateY(0);
 }
 
 .maintenance-company-btn {
@@ -314,7 +471,13 @@ h1 {
     border-bottom: none;
 }
 
-/* 10 columns: No., Dts Created, Account, From, Currency, Amount, Description, Remark, Submitted By, Checkbox */
+/* 已删除记录样式：与 payment_maintenance 一致（红色 + 文字删除线） */
+.maintenance-row-deleted .maintenance-table-cell {
+    color: #b91c1c;
+    text-decoration: line-through;
+}
+
+/* 9 columns: No., Dts Created, Account, From, Amount, Description, Remark, Submitted By, Checkbox */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
     width: 3%;
@@ -337,31 +500,26 @@ h1 {
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 5%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 8%;
+    width: 22%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 22%;
+    width: 8%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 8%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 11%;
-}
-
-.maintenance-table th:nth-child(10),
-.maintenance-table td:nth-child(10) {
     width: 2%;
 }
 
@@ -376,16 +534,13 @@ h1 {
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
 
-.maintenance-cell-amount {
-    text-align: right;
-}
-
 .maintenance-header-amount {
     text-align: right !important;
 }
 
-.maintenance-cell-currency {
-    text-align: center;
+.maintenance-cell-currency-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .maintenance-cell-checkbox {
@@ -432,6 +587,13 @@ h1 {
     font-size: clamp(10px, 0.83vw, 14px);
     font-weight: bold;
     line-height: 1;
+}
+
+.maintenance-row-checkbox:disabled {
+    border-color: #cbd5e1;
+    background-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 .maintenance-select-all-header {

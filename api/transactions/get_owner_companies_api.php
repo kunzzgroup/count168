@@ -6,28 +6,15 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
 
-function getCompaniesByUser(PDO $pdo, int $userId): array {
-    $stmt = $pdo->prepare("
-        SELECT DISTINCT c.id, c.company_id, c.group_id 
-        FROM company c
-        INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-        WHERE ucm.user_id = ?
-        ORDER BY c.company_id ASC
-    ");
-    $stmt->execute([$userId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+require_once __DIR__ . '/../get_companies_helper.php';
 
-function getCompaniesByOwner(PDO $pdo, int $ownerId): array {
-    $stmt = $pdo->prepare("SELECT id, company_id, group_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-    $stmt->execute([$ownerId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+
 
 try {
     if (!isset($_SESSION['user_id'])) {
@@ -35,16 +22,40 @@ try {
         exit;
     }
 
+    $fetchAll = isset($_GET['all']) && $_GET['all'] == '1';
+
     $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
     if ($userRole !== 'owner') {
-        $companies = getCompaniesByUser($pdo, (int)$_SESSION['user_id']);
-        api_success($companies);
+        // Dashboard view — include reverse-direction group-link visibility so that
+        // clicking group AP also exposes IG's companies when IG has been pooled into AP.
+        $companies = getCompaniesByUser($pdo, (int)$_SESSION['user_id'], $fetchAll, true);
+        
+        $active_companies = [];
+        foreach ($companies as $c) {
+            if (!empty($c['expiration_date']) && strtotime($c['expiration_date']) < strtotime(date('Y-m-d'))) {
+                continue; // Skip expired
+            }
+            $active_companies[] = $c; // Keep active or no-expiration
+        }
+        
+        // Users normally don't have large complex group mapping in dashboard
+        api_success($active_companies);
         exit;
     }
 
-    $ownerId = (int)($_SESSION['owner_id'] ?? $_SESSION['user_id']);
-    $companies = getCompaniesByOwner($pdo, $ownerId);
-    api_success($companies);
+    // Always use real_owner_id (the permanent, un-swapped ID) for company listing
+    $ownerId = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+    $companies = getCompaniesByOwner($pdo, $ownerId, $fetchAll, true);
+    
+    $active_companies = [];
+    foreach ($companies as $c) {
+        if (!empty($c['expiration_date']) && strtotime($c['expiration_date']) < strtotime(date('Y-m-d'))) {
+            continue; // Skip expired
+        }
+        $active_companies[] = $c; // Keep active or no-expiration
+    }
+    
+    api_success($active_companies);
 } catch (PDOException $e) {
     api_error('数据库错误: ' . $e->getMessage(), 500);
 } catch (Exception $e) {

@@ -5,8 +5,10 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/c168_domain_access.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -20,27 +22,13 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 }
 
 /**
- * 校验当前用户是否为 C168 的 owner 或 admin
+ * 与 announcement.php / Domain 白名单一致：C168 上下文 + userlist 角色（含 manager、supervisor、customer service）。
  */
-function requireC168OwnerOrAdmin(PDO $pdo) {
+function requireC168InformationManagementAccess(PDO $pdo): void {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('User not logged in');
     }
-    $user_role = strtolower($_SESSION['role'] ?? '');
-    if (!in_array($user_role, ['owner', 'admin'], true)) {
-        throw new Exception('No permission to access this function');
-    }
-    $companyCode = strtoupper($_SESSION['company_code'] ?? '');
-    $companyId = $_SESSION['company_id'] ?? null;
-    if ($companyCode === 'C168') {
-        return;
-    }
-    if (!$companyId) {
-        throw new Exception('No permission to access this function');
-    }
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
-    $stmt->execute([$companyId]);
-    if ($stmt->fetchColumn() <= 0) {
+    if (!userCanAccessC168InformationApis($pdo)) {
         throw new Exception('No permission to access this function');
     }
 }
@@ -63,7 +51,7 @@ function deleteMaintenanceById(PDO $pdo, int $id) {
 }
 
 try {
-    requireC168OwnerOrAdmin($pdo);
+    requireC168InformationManagementAccess($pdo);
 
     $maintenanceId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     if ($maintenanceId <= 0) {

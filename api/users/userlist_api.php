@@ -11,6 +11,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 require_once __DIR__ . '/../../config.php';
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 // 检查用户是否登录
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['company_id'])) {
@@ -89,7 +90,7 @@ function validateUserData($data, $isUpdate = false) {
     }
     
     // Validate role
-    $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+    $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
     if (!in_array($data['role'], $validRoles)) {
         return "Invalid role";
     }
@@ -164,7 +165,7 @@ try {
             }
             
             // Validate role
-            $validRoles = ['admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+            $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
             if (!in_array($input['role'], $validRoles)) {
                 sendResponse(false, "Invalid role");
             }
@@ -254,8 +255,9 @@ try {
             
             try {
                 // Insert new user (不再使用 company_id，因为已移除)
-                $sql = "INSERT INTO user (login_id, name, password, secondary_password, email, role, permissions, status, created_by, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                $readOnly = isset($input['read_only']) ? (int)$input['read_only'] : 1;
+                $sql = "INSERT INTO user (login_id, name, password, secondary_password, email, role, permissions, read_only, status, created_by, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                 
                 $stmt = $pdo->prepare($sql);
                 $result = $stmt->execute([
@@ -266,6 +268,7 @@ try {
                     $input['email'],
                     $input['role'],
                     $permissions,
+                    $readOnly,
                     $input['status'],
                     getCurrentUser()
                 ]);
@@ -522,6 +525,12 @@ try {
             $updateFields[] = "status = ?";
             $updateValues[] = $input['status'];
 
+            // 保存 read_only 字段（只有 partnership 角色才有意义，但所有用户都存储）
+            if (isset($input['read_only'])) {
+                $updateFields[] = "read_only = ?";
+                $updateValues[] = (int)$input['read_only'];
+            }
+
             // 添加权限字段到更新列表（系统级权限仍然存储在 user 表）
             $updateFields[] = "permissions = ?";
             $updateValues[] = isset($input['permissions']) ? json_encode($input['permissions']) : null;
@@ -559,6 +568,12 @@ try {
                 
                 if (!$result) {
                     throw new Exception('Failed to update user');
+                }
+                
+                // 同步 read_only 到 company_ownership
+                if (isset($input['read_only']) && strtolower($input['role']) === 'partnership') {
+                    $updCoStmt = $pdo->prepare("UPDATE company_ownership SET read_only = ? WHERE company_id = ? AND account_id = ? AND owner_type = 'user'");
+                    $updCoStmt->execute([(int)$input['read_only'], $current_company_id, $input['id']]);
                 }
                 
                 // 如果提供了 company_ids，更新 company 关联
@@ -742,12 +757,14 @@ try {
             // 检查是否试图删除同等级或更高层级的用户
             $role_hierarchy = [
                 'owner' => 0,
-                'admin' => 1,
-                'manager' => 2,
-                'supervisor' => 3,
-                'accountant' => 4,
-                'audit' => 5,
-                'customer service' => 6
+                'partnership' => 1,
+                'admin' => 2,
+                'manager' => 3,
+                'supervisor' => 4,
+                'accountant' => 5,
+                'audit' => 6,
+                'customer service' => 7,
+
             ];
             $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
             $target_user_level = $role_hierarchy[strtolower($user['role'] ?? '')] ?? 999;
@@ -1043,7 +1060,7 @@ try {
             global $current_company_id;
             if (isset($input['id'])) {
                 // Get specific user - 只从 user 表获取基本字段，权限从 user_company_permissions 表获取
-                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, permissions, status, created_by, created_at, last_login FROM user WHERE id = ?");
+                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, permissions, status, read_only, created_by, created_at, last_login FROM user WHERE id = ?");
                 $stmt->execute([$input['id']]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
@@ -1067,6 +1084,16 @@ try {
                         // 如果公司特定的权限不存在，设置为 null（表示未设置，默认可以看到所有）
                         $user['account_permissions'] = null;
                         $user['process_permissions'] = null;
+                    }
+                    
+                    // 同步获取 company_ownership 中的 read_only 状态（如果有，优先级更高）
+                    if (strtolower($user['role']) === 'partnership') {
+                        $roStmt = $pdo->prepare("SELECT read_only FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = 'user'");
+                        $roStmt->execute([$current_company_id, $user['id']]);
+                        $co_ro = $roStmt->fetchColumn();
+                        if ($co_ro !== false) {
+                            $user['read_only'] = (int)$co_ro;
+                        }
                     }
                     
                     sendResponse(true, 'User found', $user);

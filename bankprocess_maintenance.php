@@ -23,6 +23,23 @@ if ($session_company_id) {
     exit;
 }
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_id) {
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true, true);
+        }
+    }
+} catch (Exception $e) { }
+
+$company_id = $session_company_id;
+
 // Get URL parameters for notifications
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
@@ -43,6 +60,7 @@ $error = isset($_GET['error']) ? true : false;
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">
@@ -60,7 +78,7 @@ $error = isset($_GET['error']) ? true : false;
         <!-- Search Section -->
         <div class="maintenance-search-section">
             <div class="maintenance-filters">
-                <div class="maintenance-form-group">
+                <div class="maintenance-form-group maintenance-date-inline">
                     <label class="maintenance-label">Date Range</label>
                     <div class="date-range-picker" id="date-range-picker">
                         <i class="fas fa-calendar-alt"></i>
@@ -68,6 +86,15 @@ $error = isset($_GET['error']) ? true : false;
                     </div>
                     <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
                     <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
+                </div>
+                <div class="maintenance-form-group maintenance-search-inline" id="from-search-row">
+                    <label class="maintenance-label" for="filter_from_search">Search</label>
+                    <div class="search-container maintenance-search-container">
+                        <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                        </svg>
+                        <input type="text" id="filter_from_search" placeholder="e.g. TEST M16(CIMB) / CIMB" class="search-input maintenance-search-input" autocomplete="off">
+                    </div>
                 </div>
                 <div class="maintenance-form-group quick-select-wrap">
                     <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
@@ -93,12 +120,18 @@ $error = isset($_GET['error']) ? true : false;
             
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
-                    <div id="company-buttons-wrapper" class="maintenance-company-filter" style="display: none;">
-                        <span class="maintenance-company-label">Company:</span>
-                        <div class="maintenance-company-buttons" id="company-buttons-container">
-                            <!-- Company buttons injected here -->
-                        </div>
-                    </div>
+                    <!-- Shared Group & Company Filter (SSR) -->
+                    <?php
+                    $filter_prefix = 'maintenance'; 
+                    include 'includes/company_filter.php'; 
+                    ?>
+                    <script>
+                        window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                            if (typeof switchCompany === 'function') {
+                                switchCompany(companyId, companyCode);
+                            }
+                        };
+                    </script>
 
                     <div id="currency-buttons-wrapper" class="maintenance-company-filter" style="display: none;">
                         <span class="maintenance-company-label">Currency:</span>
@@ -127,7 +160,6 @@ $error = isset($_GET['error']) ? true : false;
                         <th>Dts Created</th>
                         <th>Account</th>
                         <th>From</th>
-                        <th>Currency</th>
                         <th class="maintenance-header-amount">Amount</th>
                         <th>Description</th>
                         <th>Remark</th>

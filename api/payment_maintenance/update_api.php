@@ -6,6 +6,7 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 
@@ -73,8 +74,8 @@ try {
     if ($transaction_id <= 0) {
         throw new Exception('缺少交易记录 ID');
     }
-    if ($amount === null || $amount <= 0) {
-        throw new Exception('金额必须大于 0');
+    if ($amount === null || $amount < 0) {
+        throw new Exception('金额不能小于 0');
     }
 
     if (!checkTransactionBelongsToCompany($pdo, $transaction_id, $company_id)) {

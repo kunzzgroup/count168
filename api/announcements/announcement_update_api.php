@@ -5,7 +5,9 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/c168_domain_access.php';
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 function hasC168AnnouncementAccess(PDO $pdo): bool {
     $companyCode = strtoupper($_SESSION['company_code'] ?? '');
@@ -48,7 +50,7 @@ try {
     }
 
     $userRole = strtolower($_SESSION['role'] ?? '');
-    if (!in_array($userRole, ['owner', 'admin'], true)) {
+    if (!userHasC168AnnouncementPageAccess($userRole)) {
         http_response_code(403);
         jsonResponse(false, 'No permission to access this function', null);
         return;

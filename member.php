@@ -34,6 +34,8 @@ if (isset($_SESSION['member_login_account_id'])) {
     }
 }
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+
 // 获取当前 member 用户有权限的公司列表（用于前端公司按钮切换）
 $memberCompanies = [];
 $debugInfo = []; // 用于调试
@@ -77,7 +79,7 @@ try {
                 SELECT DISTINCT c.id, c.company_id, c.company_id AS company_name
                 FROM company c
                 INNER JOIN account_company ac ON c.id = ac.company_id
-                WHERE ac.account_id = ?
+                WHERE ac.account_id = ? AND c.company_id != ''
                 ORDER BY c.company_id ASC
             ");
             $stmt->execute([$currentUserId]);
@@ -89,7 +91,7 @@ try {
                 $directStmt = $pdo->prepare("
                     SELECT id, company_id, company_id AS company_name
                     FROM company
-                    WHERE id IN ($placeholders)
+                    WHERE id IN ($placeholders) AND company_id != ''
                     ORDER BY company_id ASC
                 ");
                 $directStmt->execute($storedCompanyIds);
@@ -109,27 +111,20 @@ try {
         }
     } elseif ($currentUserRole === 'owner') {
         // owner：查询自己名下所有公司
-        $ownerId = $_SESSION['owner_id'] ?? $currentUserId;
-        $stmt = $pdo->prepare("
-            SELECT id, company_id, company_id AS company_name
-            FROM company
-            WHERE owner_id = ?
-            ORDER BY company_id ASC
-        ");
-        $stmt->execute([$ownerId]);
-        $memberCompanies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? $currentUserId;
+        $allOwnerComps = getCompaniesByOwner($pdo, $ownerId, false);
+        $memberCompanies = array_map(function($c) {
+            $c['company_name'] = $c['company_id'];
+            return $c;
+        }, $allOwnerComps);
         $debugInfo['companies_found'] = count($memberCompanies);
     } else {
         // 普通后台用户：通过 user_company_map 关联公司
-        $stmt = $pdo->prepare("
-            SELECT DISTINCT c.id, c.company_id, c.company_id AS company_name
-            FROM company c
-            INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-            WHERE ucm.user_id = ?
-            ORDER BY c.company_id ASC
-        ");
-        $stmt->execute([$currentUserId]);
-        $memberCompanies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $allUserComps = getCompaniesByUser($pdo, $_SESSION['user_id'] ?? $currentUserId);
+        $memberCompanies = array_map(function($c) {
+            $c['company_name'] = $c['company_id'];
+            return $c;
+        }, $allUserComps);
         $debugInfo['companies_found'] = count($memberCompanies);
     }
 } catch (PDOException $e) {
@@ -160,12 +155,13 @@ $default_date_to = $today_dt->format('d/m/Y');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Win/Loss</title>
-    <link rel="icon" type="image/png" href="images/count_logo.png">
+    <link rel="icon" type="image/png" href="/images/count_logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/member.css?v=<?php echo file_exists('css/member.css') ? filemtime('css/member.css') : time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body class="transaction-page member-winloss-page">
     <?php include 'sidebar.php'; ?>

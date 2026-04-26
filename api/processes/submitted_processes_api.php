@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../permissions.php';
 // 开启 session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 }
 
 header('Content-Type: application/json');
@@ -70,6 +71,13 @@ if ($current_user_role === 'owner') {
 
 $user_id = $_SESSION['user_id'];
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+// Enforce Data-Level Category Permission for Data Capture (Currently inherently 'Games')
+if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized category permission (Games required)']);
+    exit;
+}
 
 try {
     switch ($action) {
@@ -433,40 +441,74 @@ function getSubmissionsByCaptureDate($user_id)
             $hasCaptureDateColumn = false;
         }
 
-        if ($hasCaptureDateColumn) {
-            // Use capture_date for filtering
-            $dateFilter = "DATE(sp.capture_date) = ?";
-            $dateParam = $capture_date;
-        } else {
-            // Fall back to date_submitted if capture_date column doesn't exist
-            $dateFilter = "DATE(sp.date_submitted) = ?";
-            $dateParam = $capture_date;
-        }
+        // 账务日：capture_date 为空时退回 date_submitted（与维护页删除、下拉排除一致）
+        $spDateFilter = $hasCaptureDateColumn
+            ? "DATE(COALESCE(sp.capture_date, sp.date_submitted)) = ?"
+            : "DATE(sp.date_submitted) = ?";
+        $dateParam = $capture_date;
 
+        // NOT EXISTS 内用关联表达式，避免与账务日列不一致时漏列
+        $notExistsSpDateClause = $hasCaptureDateColumn
+            ? "DATE(COALESCE(spx.capture_date, spx.date_submitted)) = DATE(dc.capture_date)"
+            : "DATE(spx.date_submitted) = DATE(dc.capture_date)";
+
+        // 合并 submitted_processes 与已有 data_captures（Summary 成功但 save_submission 未写入时仍能显示/去重）
         $stmt = $pdo->prepare("
-            SELECT 
-                sp.id,
-                sp.process_id,
-                sp.date_submitted,
-                sp.created_at,
-                sp.user_type,
-                p.process_id as process_code,
-                d.name as description_name,
-                COALESCE(u.login_id, o.owner_code) as submitted_by
-            FROM submitted_processes sp
-            JOIN process p ON sp.process_id = p.id
-            LEFT JOIN description d ON p.description_id = d.id
-            LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
-            LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
-            WHERE sp.company_id = ?
-              AND $dateFilter
-              AND p.company_id = ?
-            $permissionCondition
-            ORDER BY sp.created_at DESC
+            SELECT * FROM (
+                SELECT 
+                    sp.id,
+                    sp.process_id,
+                    sp.date_submitted,
+                    sp.created_at,
+                    sp.user_type,
+                    p.process_id as process_code,
+                    d.name as description_name,
+                    COALESCE(u.login_id, o.owner_code) as submitted_by
+                FROM submitted_processes sp
+                JOIN process p ON sp.process_id = p.id
+                LEFT JOIN description d ON p.description_id = d.id
+                LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
+                LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
+                WHERE sp.company_id = ?
+                  AND $spDateFilter
+                  AND p.company_id = ?
+                $permissionCondition
+
+                UNION ALL
+
+                SELECT 
+                    NULL AS id,
+                    dc.process_id,
+                    DATE_FORMAT(dc.capture_date, '%Y-%m-%d') AS date_submitted,
+                    dc.created_at,
+                    dc.user_type,
+                    p.process_id as process_code,
+                    d.name as description_name,
+                    COALESCE(u.login_id, o.owner_code) as submitted_by
+                FROM data_captures dc
+                JOIN process p ON dc.process_id = p.id
+                LEFT JOIN description d ON p.description_id = d.id
+                LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
+                LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
+                WHERE dc.company_id = ?
+                  AND DATE(dc.capture_date) = ?
+                  AND p.company_id = ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM submitted_processes spx
+                      WHERE spx.process_id = dc.process_id
+                        AND spx.company_id = dc.company_id
+                        AND $notExistsSpDateClause
+                  )
+                  $permissionCondition
+            ) AS merged
+            ORDER BY merged.created_at DESC
         ");
 
-        // 调整参数顺序：company_id, date, company_id (for process), processIds...
-        $params = array_merge([$currentCompanyId, $dateParam, $currentCompanyId], !empty($processIds) ? $processIds : []);
+        $paramsSegment = array_merge(
+            [$currentCompanyId, $dateParam, $currentCompanyId],
+            !empty($processIds) ? $processIds : []
+        );
+        $params = array_merge($paramsSegment, $paramsSegment);
 
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -514,7 +556,20 @@ function getProcessesByDay($user_id)
     // 获取选择的日期是星期几
     $day_of_week = date('N', strtotime($selected_date)); // 1=Monday, 7=Sunday
 
-    // 构建基础 SQL 查询
+    // 与 getSubmissionsByCaptureDate、维护页删除 submitted_processes 的逻辑一致：按账务日判断是否已提交
+    try {
+        $testStmt = $pdo->prepare("SELECT capture_date FROM submitted_processes LIMIT 1");
+        $testStmt->execute();
+        $hasCaptureDateColumn = true;
+    } catch (PDOException $e) {
+        $hasCaptureDateColumn = false;
+    }
+    $submittedDateMatchSql = $hasCaptureDateColumn
+        ? "DATE(COALESCE(sp.capture_date, sp.date_submitted)) = ?"
+        : "DATE(sp.date_submitted) = ?";
+
+    // 已提交：submitted_processes 或已有 data_captures（与维护页一致，避免仅一侧有数据时下拉仍可选）
+    // 按 process.process_id（业务代码，如 MGALAXYDM683）排除：同一公司+账务日下任一变体（不同 id / 不同币别描述）已提交则整组不再出现在下拉
     $baseSql = "
         SELECT 
             p.id,
@@ -525,16 +580,24 @@ function getProcessesByDay($user_id)
         LEFT JOIN description d ON p.description_id = d.id
         JOIN process_day pd ON p.id = pd.process_id
         JOIN day ON pd.day_id = day.id
-        LEFT JOIN submitted_processes sp ON p.id = sp.process_id 
-            AND sp.company_id = ?
-            AND DATE(sp.date_submitted) = ?
         WHERE day.id = ?
         AND p.status = 'active'
         AND p.company_id = ?
-        AND sp.id IS NULL";
+        AND NOT EXISTS (
+            SELECT 1 FROM submitted_processes sp
+            WHERE sp.process_id = p.id
+              AND sp.company_id = ?
+              AND $submittedDateMatchSql
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM data_captures dc
+            WHERE dc.process_id = p.id
+              AND dc.company_id = ?
+              AND DATE(dc.capture_date) = ?
+        )";
 
-    // 基础参数：currentCompanyId (for submitted_processes), selected_date (用于排除已提交), day_of_week, currentCompanyId (for process)
-    $baseParams = [$currentCompanyId, $selected_date, $day_of_week, $currentCompanyId];
+    // 参数顺序：day_of_week, p.company_id, sp.company_id, sp账务日, dc.company_id, dc.capture_date
+    $baseParams = [$day_of_week, $currentCompanyId, $currentCompanyId, $selected_date, $currentCompanyId, $selected_date];
 
     // 应用权限过滤（使用 permissions.php 中的 filterProcessesByPermissions 函数）
     list($baseSql, $baseParams) = filterProcessesByPermissions($pdo, $baseSql, $baseParams);

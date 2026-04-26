@@ -6,8 +6,10 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../get_companies_helper.php';
 
 /**
  * 标准 JSON 响应
@@ -49,24 +51,22 @@ function dbGetAccountCompanies($pdo, $account_id) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/**
- * 获取当前用户可访问的公司列表（owner 或 user_company_map）
- */
 function dbGetAvailableCompaniesForUser($pdo, $user_id, $role, $owner_id) {
     if ($role === 'owner') {
-        $sql = "SELECT id, company_id AS company_code FROM company WHERE owner_id = ? ORDER BY company_id ASC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$owner_id]);
+        $fetched = getCompaniesByOwner($pdo, $owner_id, false);
+        $res = [];
+        foreach ($fetched as $c) {
+            $res[] = ['id' => $c['id'], 'company_code' => $c['company_id']];
+        }
+        return $res;
     } else {
-        $sql = "SELECT DISTINCT c.id, c.company_id AS company_code
-                FROM company c
-                INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
-                ORDER BY c.company_id ASC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$user_id]);
+        $fetched = getCompaniesByUser($pdo, $user_id);
+        $res = [];
+        foreach ($fetched as $c) {
+            $res[] = ['id' => $c['id'], 'company_code' => $c['company_id']];
+        }
+        return $res;
     }
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**

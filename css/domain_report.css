@@ -72,52 +72,6 @@ body {
     background: white;
 }
 
-.transaction-company-filter {
-    display: none;
-    align-items: center;
-    gap: clamp(8px, 0.83vw, 16px);
-    flex-wrap: wrap;
-    margin-top: 10px;
-}
-
-.transaction-company-label {
-    font-weight: bold;
-    color: #374151;
-    font-size: clamp(10px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
-    white-space: nowrap;
-}
-
-.transaction-company-buttons {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-}
-
-.transaction-company-btn {
-    padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
-    background: #f1f5f9;
-    border: 1px solid #d0d7de;
-    border-radius: 999px;
-    cursor: pointer;
-    font-size: clamp(9px, 0.63vw, 12px);
-    transition: all 0.2s ease;
-    color: #1f2937;
-    font-weight: 600;
-}
-
-.transaction-company-btn:hover {
-    background: #e2e8f0;
-    border-color: #a5b4fc;
-}
-
-.transaction-company-btn.active {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-}
 
 .domain-report-table-header,
 .domain-report-card,

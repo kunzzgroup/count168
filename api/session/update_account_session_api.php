@@ -4,6 +4,9 @@
  * 路径: api/session/update_account_session_api.php
  */
 
+// 此 API 需要写入 session（切换账户），不能让 session_check.php 提前关闭锁
+define('SESSION_KEEP_OPEN', true);
+
 require_once __DIR__ . '/../../session_check.php';
 
 header('Content-Type: application/json');
@@ -117,11 +120,15 @@ try {
     $_SESSION['name'] = $target_account['name'];
     $_SESSION['account_id'] = $target_account['account_id'];
 
+    // 写入完成，立即释放 session 锁
+    session_write_close();
+
     jsonResponse(true, '账户已切换', [
-        'account_id' => $requested_account_id,
+        'account_id'   => $requested_account_id,
         'account_code' => $target_account['account_id'],
         'account_name' => $target_account['name']
     ]);
 } catch (Exception $e) {
+    session_write_close();
     jsonResponse(false, $e->getMessage(), null, 500);
 }

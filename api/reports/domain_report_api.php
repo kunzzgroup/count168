@@ -5,8 +5,10 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -171,6 +173,10 @@ function buildReportResult(array $rows, string $date_from, string $date_to) {
 try {
     $action = isset($_GET['action']) ? trim($_GET['action']) : '';
     $company_id = getCompanyIdForRequest($pdo);
+
+    if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+        throw new Exception('Unauthorized permission category');
+    }
 
     if ($action === 'processes') {
         $processes = fetchProcesses($pdo, $company_id);

@@ -32,7 +32,7 @@ if (isset($_COOKIE['remember_token'])) {
                 SELECT c.id 
                 FROM company c
                 INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
+                WHERE ucm.user_id = ? AND c.company_id != ''
                 ORDER BY c.company_id ASC
                 LIMIT 1
             ");
@@ -71,10 +71,14 @@ if (isset($_COOKIE['remember_token'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EazyCount</title>
+    <link rel="icon" type="image/png" href="/images/count_logo.png">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/images/count_logo.png">
     <link rel="stylesheet" href="css/style.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/index.css?v=<?php echo time(); ?>" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
 <body class="bg">

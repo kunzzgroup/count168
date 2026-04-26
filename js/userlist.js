@@ -1,4 +1,4 @@
-﻿// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
+// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
     const basePath = pathname.replace(/[^/]*$/, '') || '/';
@@ -8,7 +8,7 @@ function buildApiUrl(pathAndQuery) {
 
 // 分页相关变量
 let currentPage = 1;
-let rowsPerPage = 15;
+let rowsPerPage = 20;
 let filteredRows = [];
 let allRows = [];
 
@@ -16,7 +16,8 @@ let allRows = [];
 let sortColumn = 'loginId'; // 'loginId' 或 'role'
 let sortDirection = 'asc'; // 'asc' 或 'desc'
 
-// Show inactive 状态
+// Show inactive / Show all（与 account-list、processlist 行为对齐）
+let showAll = (typeof window.USERLIST_SHOW_ALL !== 'undefined' && !!window.USERLIST_SHOW_ALL);
 let showInactive = false;
 
 // 当前用户信息
@@ -37,23 +38,38 @@ let selectedProcesses = [];
 // 角色层级定义（数字越小，层级越高）
 const roleHierarchy = {
     'owner': 0,
-    'admin': 1,
-    'manager': 2,
-    'supervisor': 3,
-    'accountant': 4,
-    'audit': 5,
-    'customer service': 6
+    'partnership': 1,
+    'admin': 2,
+    'manager': 3,
+    'supervisor': 4,
+    'accountant': 5,
+    'audit': 6,
+    'customer service': 7,
+   
 };
 
 // 所有可用角色列表
 const allRoles = [
+    { value: 'partnership', label: 'Partnership' },
     { value: 'admin', label: 'Admin' },
     { value: 'manager', label: 'Manager' },
     { value: 'supervisor', label: 'Supervisor' },
     { value: 'accountant', label: 'Accountant' },
     { value: 'audit', label: 'Audit' },
     { value: 'customer service', label: 'Customer Service' },
+    
 ];
+
+// ── Read Only Toggle 显示/隐藏（只有 Partnership 角色才显示）──
+function updateReadOnlyToggleVisibility(role) {
+    const wrapper = document.getElementById('readOnlyToggleWrapper');
+    if (!wrapper) return;
+    if (role && role.toLowerCase() === 'partnership') {
+        wrapper.style.display = 'block';
+    } else {
+        wrapper.style.display = 'none';
+    }
+}
 
 // 根据当前用户角色获取可创建的角色列表
 function getAvailableRolesForCreation() {
@@ -185,12 +201,14 @@ function applySorting() {
         // Role 层级顺序（根据常见的层级）
         const roleOrder = {
             'OWNER': 0,
-            'ADMIN': 1,
-            'MANAGER': 2,
-            'SUPERVISOR': 3,
-            'ACCOUNTANT': 4,
-            'AUDIT': 5,
-            'CUSTOMER SERVICE': 6
+            'PARTNERSHIP': 1,
+            'ADMIN': 2,
+            'MANAGER': 3,
+            'SUPERVISOR': 4,
+            'ACCOUNTANT': 5,
+            'AUDIT': 6,
+            'CUSTOMER SERVICE': 7,
+           
         };
 
         usersData.sort((a, b) => {
@@ -294,6 +312,12 @@ function initializePagination() {
     // 获取当前搜索过滤的行
     filteredRows = allRows.filter(row => !row.classList.contains('table-row-hidden'));
 
+    if (showAll) {
+        updatePagination();
+        showCurrentPage();
+        return;
+    }
+
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
 
     // 如果当前页超过总页数，回到第一页
@@ -327,6 +351,12 @@ function closeConfirmModal() {
 
 // 更新分页控件
 function updatePagination() {
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (showAll) {
+        if (paginationContainer) paginationContainer.style.display = 'none';
+        return;
+    }
+
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
 
     // 更新分页控件信息
@@ -340,9 +370,7 @@ function updatePagination() {
     document.getElementById('nextBtn').disabled = isNextDisabled;
 
     // 如果只有一页或没有数据，隐藏分页控件
-    const paginationContainer = document.getElementById('paginationContainer');
-
-    if (totalPages <= 1) {
+    if (filteredRows.length === 0) {
         paginationContainer.style.display = 'none';
     } else {
         paginationContainer.style.display = 'flex';
@@ -355,6 +383,15 @@ function showCurrentPage() {
     allRows.forEach(row => {
         row.classList.remove('show-card');
     });
+
+    if (showAll) {
+        filteredRows.forEach((row, i) => {
+            row.classList.add('show-card');
+            const noCell = row.querySelector('.card-item');
+            if (noCell) noCell.textContent = String(i + 1);
+        });
+        return;
+    }
 
     // 计算当前页的起始和结束索引
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -373,6 +410,8 @@ function showCurrentPage() {
 
 // 切换页面
 function changePage(direction) {
+    if (showAll) return;
+
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
 
     if (direction === -1 && currentPage > 1) {
@@ -383,6 +422,29 @@ function changePage(direction) {
 
     updatePagination();
     showCurrentPage();
+}
+
+function syncUserListShowAllUrl() {
+    try {
+        const url = new URL(window.location.href);
+        if (showAll) {
+            url.searchParams.set('showAll', '1');
+        } else {
+            url.searchParams.delete('showAll');
+        }
+        history.replaceState({}, '', url);
+    } catch (e) {
+        /* ignore */
+    }
+}
+
+function updateUserListScrollMode() {
+    if (!document.body) return;
+    if (showAll) {
+        document.body.classList.add('user-page--show-all');
+    } else {
+        document.body.classList.remove('user-page--show-all');
+    }
 }
 
 let isEditMode = false;
@@ -583,13 +645,13 @@ function openAddModal() {
         hiddenLoginId.remove();
     }
 
-    // 切换到添加模式 UI
+    // 切换到添加模式 UI (修正: 在新建用户时也展示 Right Panel 和 Bottom Bar，避免留白过大)
     const editModeRightPanel = document.getElementById('editModeRightPanel');
     const editModeBottomBar = document.getElementById('editModeBottomBar');
     const addModeActions = document.querySelector('.add-mode-actions');
-    if (editModeRightPanel) editModeRightPanel.style.display = 'none';
-    if (editModeBottomBar) editModeBottomBar.style.display = 'none';
-    if (addModeActions) addModeActions.style.display = 'flex';
+    if (editModeRightPanel) editModeRightPanel.style.display = 'flex';
+    if (editModeBottomBar) editModeBottomBar.style.display = 'flex';
+    if (addModeActions) addModeActions.style.display = 'none';
 
     // 根据当前用户角色更新可选择的角色选项
     const availableRoles = getAvailableRolesForCreation();
@@ -618,14 +680,20 @@ function openAddModal() {
     // 重置 company 选择
     selectedCompanyIds = [];
 
-    // 隐藏 Account 和 Process 权限区域（只在编辑模式显示）
-    document.getElementById('accountProcessPermissionsSection').style.display = 'none';
+    // 显示 Account 和 Process 权限区域（既然要像 Desktop 正常展示所有，就让它全程显示）
+    const accProcSection = document.getElementById('accountProcessPermissionsSection');
+    if (accProcSection) accProcSection.style.display = 'flex';
 
-    // 重置 Account 和 Process 选择
+    // 重置并默认全选 Account 和 Process（因为新建用户通常拥有所有可见权限）
     selectedAccounts = [];
     selectedProcesses = [];
-    clearAllAccounts();
-    clearAllProcesses();
+    selectAllAccounts();
+    selectAllProcesses();
+
+    // 重置 Read Only toggle（创建模式默认隐藏，打开时 role 还未选，等 role change 时触发）
+    updateReadOnlyToggleVisibility('');
+    const readOnlyToggle = document.getElementById('readOnlyToggle');
+    if (readOnlyToggle) readOnlyToggle.checked = true; // 默认 read-only ON
 
     document.getElementById('userModal').style.display = 'block';
     // 设置输入格式化
@@ -881,8 +949,24 @@ function editUser(id, isOwnerShadow = false) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const permissions = data.data.permissions ? JSON.parse(data.data.permissions) : [];
+                    if (!isEditMode) return;
+                    if (String(document.getElementById('userId').value) !== String(id)) return;
+
+                    let permissions = [];
+                    try {
+                        if (data.data.permissions) {
+                            const parsed = JSON.parse(data.data.permissions);
+                            permissions = Array.isArray(parsed) ? parsed : [];
+                        }
+                    } catch (e) {
+                        permissions = [];
+                    }
                     setUserPermissions(permissions);
+
+                    const apiRole = (data.data.role || '').toLowerCase().trim();
+                    if (apiRole) {
+                        applyRoleTemplateChecks(apiRole);
+                    }
 
                     // 加载 Account 和 Process 权限
                     // null 表示未设置（默认全选），[] 表示已设置但为空（不选），有值表示只选这些
@@ -920,6 +1004,20 @@ function editUser(id, isOwnerShadow = false) {
                             processPermissions = [];
                         }
                     }
+
+                    // 加载 read_only 值并更新 Toggle
+                    const readOnlyToggle = document.getElementById('readOnlyToggle');
+                    if (readOnlyToggle) {
+                        // read_only: 1 = 只读（toggle ON/checked），0 = 可编辑（toggle OFF/unchecked）
+                        // 默认为 1（只读）
+                        const readOnlyVal = data.data.read_only !== undefined ? parseInt(data.data.read_only) : 1;
+                        readOnlyToggle.checked = (readOnlyVal === 1);
+                    }
+
+                    // 根据被编辑用户的角色显示/隐藏 Read Only toggle
+                    const editedCard = document.querySelector(`.user-card[data-id="${id}"]`);
+                    const editedRole = editedCard ? editedCard.getAttribute('data-role') : '';
+                    updateReadOnlyToggleVisibility(editedRole);
 
                     // 添加小延迟确保 DOM 已完全渲染
                     setTimeout(() => {
@@ -1088,6 +1186,7 @@ function editUser(id, isOwnerShadow = false) {
 
 
 function closeModal() {
+    isEditMode = false;
     document.getElementById('userModal').style.display = 'none';
 
     // 清理隐藏的 login_id 字段
@@ -1158,6 +1257,11 @@ function closeModal() {
     selectedProcesses = [];
     clearAllAccounts();
     clearAllProcesses();
+
+    // 重置 Read Only toggle
+    updateReadOnlyToggleVisibility('');
+    const readOnlyToggle = document.getElementById('readOnlyToggle');
+    if (readOnlyToggle) readOnlyToggle.checked = true;
 }
 
 // 切换删除模式
@@ -1394,6 +1498,32 @@ function restoreAllPermissionsCheckboxes() {
     });
 }
 
+// 目标用户 Role 对应的 Sidebar 权限模板（与下拉框 Role 一致）
+function getRoleTemplateSidebarList(role) {
+    if (!role) return [];
+    const rolePermissions = {
+        'partnership': [],
+        'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
+        'accountant': ['payment', 'report', 'maintenance'],
+        'audit': ['payment', 'report', 'maintenance'],
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
+    };
+
+    return rolePermissions[role.toLowerCase()] || [];
+}
+
+// 按角色模板补勾（与 DB 已有勾选合并，不清空已有勾选）
+function applyRoleTemplateChecks(role) {
+    getRoleTemplateSidebarList(role).forEach(permission => {
+        const checkbox = document.querySelector(`.permission-checkbox[value="${permission}"]`);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+    });
+}
+
 // 根据角色设置默认权限
 function setDefaultPermissionsByRole(role, options = {}) {
     const { force = false } = options;
@@ -1417,17 +1547,7 @@ function setDefaultPermissionsByRole(role, options = {}) {
         checkbox.checked = false; // 清除所有权限
     });
 
-    // 根据角色设置默认权限
-    const rolePermissions = {
-        'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
-        'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'accountant': ['payment', 'report', 'maintenance'],
-        'audit': ['payment', 'report', 'maintenance'],
-        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
-    };
-
-    const permissions = rolePermissions[role.toLowerCase()] || [];
+    const permissions = getRoleTemplateSidebarList(role);
 
     // 设置新账号 role 的所有默认权限（不受当前用户权限限制）
     permissions.forEach(permission => {
@@ -1924,9 +2044,10 @@ function filterUsers() {
             email.includes(searchTerm);
 
         // Show Inactive 过滤：
-        // - 未勾选（showInactive = false）：只显示 active 用户
-        // - 勾选（showInactive = true）：只显示 inactive 用户
-        const matchesInactiveFilter = showInactive ? isInactive : !isInactive;
+        // - Show All：不按状态过滤（active + inactive 均可）
+        // - 未勾选 Show Inactive：只显示 active
+        // - 勾选 Show Inactive：只显示 inactive
+        const matchesInactiveFilter = showAll ? true : (showInactive ? isInactive : !isInactive);
 
         // 只有当两个条件都满足时才显示
         if (matchesSearch && matchesInactiveFilter) {
@@ -1983,6 +2104,28 @@ function setupSearch() {
     if (showInactiveCheckbox) {
         showInactiveCheckbox.addEventListener('change', function () {
             showInactive = this.checked;
+            if (showInactive && showAll) {
+                showAll = false;
+                const sa = document.getElementById('showAll');
+                if (sa) sa.checked = false;
+                syncUserListShowAllUrl();
+                updateUserListScrollMode();
+            }
+            filterUsers();
+        });
+    }
+
+    const showAllCheckbox = document.getElementById('showAll');
+    if (showAllCheckbox) {
+        showAllCheckbox.addEventListener('change', function () {
+            showAll = this.checked;
+            if (showAll) {
+                showInactive = false;
+                if (showInactiveCheckbox) showInactiveCheckbox.checked = false;
+            }
+            currentPage = 1;
+            syncUserListShowAllUrl();
+            updateUserListScrollMode();
             filterUsers();
         });
     }
@@ -2001,8 +2144,12 @@ async function switchUserListCompany(companyId, companyCode) {
         const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
         const result = await response.json();
         if (!result.success) {
+            const blocked = (typeof window.handleCompanySwitchDenied === 'function')
+                ? await window.handleCompanySwitchDenied(result)
+                : false;
+            if (blocked) return;
             console.error('更新 session 失败:', result.error);
-            // 即使 API 失败，也继续刷新页面（PHP 端会处理）
+            // 非到期/未设置类错误：保持原行为
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);
@@ -2020,6 +2167,12 @@ document.addEventListener('DOMContentLoaded', function () {
     extractUsersData();
     applySorting(); // 应用默认排序
     updateSortIndicators(); // 初始化排序指示器
+    if (showAll) {
+        showInactive = false;
+        const si = document.getElementById('showInactive');
+        if (si) si.checked = false;
+    }
+    updateUserListScrollMode();
     setupSearch();
     filterUsers(); // 初始化过滤（默认隐藏 inactive 用户）
     updateDeleteButton(); // 初始化删除按钮状态
@@ -2051,9 +2204,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (roleSelect) {
         roleSelect.addEventListener('change', function () {
             const selectedRole = this.value;
+            // 显示/隐藏 Read Only toggle（只在 Partnership 角色时显示）
+            updateReadOnlyToggleVisibility(selectedRole);
             if (selectedRole) {
-                // setDefaultPermissionsByRole 内部已经会处理权限限制（创建模式时）
-                setDefaultPermissionsByRole(selectedRole, { force: isEditMode });
+                // 用户主动改 Role：始终按角色模板套用；编辑模式下再按当前登录者限制可勾选项
+                setDefaultPermissionsByRole(selectedRole, { force: true });
+                if (isEditMode) {
+                    restrictPermissionsByCurrentUserRole();
+                }
             } else {
                 // 选择"Select Role"时，无论模式都清空权限
                 clearAllPermissions();
@@ -2118,6 +2276,13 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     }
     // 编辑模式：所有角色都可以编辑其他用户（但只能编辑 Account 和 Process Permissions）
 
+    // 添加 read_only 字段（只针对 partnership 角色）
+    const roleForReadOnly = data.role || (card ? card.getAttribute('data-role') : '');
+    if (roleForReadOnly && roleForReadOnly.toLowerCase() === 'partnership') {
+        const readOnlyToggle = document.getElementById('readOnlyToggle');
+        data.read_only = (readOnlyToggle && readOnlyToggle.checked) ? 1 : 0;
+    }
+
     // 只有非owner影子才添加权限数据
     if (!isOwnerShadow) {
         // 检查是否是编辑自己
@@ -2126,8 +2291,14 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
 
         // 权限数据处理
         if (!isEditMode) {
+            // 创建模式：在提交前更新选择，确保提交了用户分配的账号和进程
+            updateAccountSelection();
+            updateProcessSelection();
+            
             // 创建模式：合并默认权限和用户手动修改的权限
             data.permissions = getFinalPermissionsForCreation(data.role);
+            data.account_permissions = selectedAccounts;
+            data.process_permissions = selectedProcesses;
         } else {
             // 编辑模式：在提交前更新选择，确保数据是最新的
             updateAccountSelection();

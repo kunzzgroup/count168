@@ -6,8 +6,10 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/maintenance_accounting_resend_lib.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -45,12 +47,38 @@ function ensureTransactionsDeletedTable(PDO $pdo) {
             deleted_by_user_id INT NULL,
             deleted_by_owner_id INT NULL,
             deleted_at TIMESTAMP NULL,
+            source_bank_process_id INT NULL,
+            source_bank_process_period_type VARCHAR(64) NULL,
+            currency_id INT NULL,
             INDEX idx_company_date (company_id, transaction_date),
             INDEX idx_transaction_id (transaction_id),
-            INDEX idx_deleted_at (deleted_at)
+            INDEX idx_deleted_at (deleted_at),
+            INDEX idx_source_bank_process_id (source_bank_process_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
     $pdo->exec($sql);
+}
+
+/**
+ * 兼容旧库：为 transactions_deleted 补齐 bank process 相关列
+ */
+function ensureTransactionsDeletedExtraColumns(PDO $pdo) {
+    $checks = [
+        'source_bank_process_id' => "ALTER TABLE transactions_deleted ADD COLUMN source_bank_process_id INT NULL",
+        'source_bank_process_period_type' => "ALTER TABLE transactions_deleted ADD COLUMN source_bank_process_period_type VARCHAR(64) NULL",
+        'currency_id' => "ALTER TABLE transactions_deleted ADD COLUMN currency_id INT NULL",
+    ];
+    foreach ($checks as $column => $ddl) {
+        try {
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM transactions_deleted LIKE ?");
+            $stmt->execute([$column]);
+            if ($stmt->rowCount() === 0) {
+                $pdo->exec($ddl);
+            }
+        } catch (Throwable $e) {
+            // 并发/重复添加时忽略，避免阻塞删除流程
+        }
+    }
 }
 
 /**
@@ -85,12 +113,14 @@ function backupTransactionsToDeleted(PDO $pdo, array $ids, $company_id, $deleted
         INSERT INTO transactions_deleted (
             transaction_id, company_id, transaction_type, account_id, from_account_id,
             amount, transaction_date, description, sms, created_by, created_by_owner, created_at,
-            deleted_by_user_id, deleted_by_owner_id, deleted_at
+            deleted_by_user_id, deleted_by_owner_id, deleted_at,
+            source_bank_process_id, source_bank_process_period_type, currency_id
         )
         SELECT
             t.id AS transaction_id, ? AS company_id, t.transaction_type, t.account_id, t.from_account_id,
             t.amount, t.transaction_date, t.description, t.sms, t.created_by, t.created_by_owner, t.created_at,
-            ?, ?, NOW()
+            ?, ?, NOW(),
+            t.source_bank_process_id, t.source_bank_process_period_type, t.currency_id
         FROM transactions t
         INNER JOIN account a ON t.account_id = a.id
         INNER JOIN account_company ac ON a.id = ac.account_id
@@ -125,6 +155,101 @@ function deleteTransactions(PDO $pdo, array $ids, $company_id) {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->rowCount();
+}
+
+/**
+ * 删除「Inactive Compensation Sell Price」后，立即清掉对应 manual_inactive posted 标记，
+ * 让 Transaction Payment / Accounting Due 无需切状态即可实时出现。
+ *
+ * @return array{pap_removed:int,pending_removed:int}
+ */
+function clearManualInactiveMarkersAfterDelete(PDO $pdo, array $ids, int $company_id): array
+{
+    if (empty($ids)) {
+        return ['pap_removed' => 0, 'pending_removed' => 0];
+    }
+
+    $hasSourceBpIdCol = false;
+    $hasSourcePtCol = false;
+    try {
+        $hasSourceBpIdCol = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasSourceBpIdCol = false;
+    }
+    try {
+        $hasSourcePtCol = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasSourcePtCol = false;
+    }
+    if (!$hasSourceBpIdCol) {
+        return ['pap_removed' => 0, 'pending_removed' => 0];
+    }
+
+    $hasPendingTable = false;
+    try {
+        $hasPendingTable = $pdo->query("SHOW TABLES LIKE 'bank_process_maintenance_resend_pending'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasPendingTable = false;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $periodSelect = $hasSourcePtCol ? "COALESCE(t.source_bank_process_period_type, '')" : "''";
+    $sql = "SELECT
+                t.id,
+                t.source_bank_process_id,
+                DATE(t.transaction_date) AS txd,
+                t.transaction_type,
+                t.description,
+                $periodSelect AS source_period_type
+            FROM transactions t
+            INNER JOIN account a ON t.account_id = a.id
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE t.id IN ($placeholders)
+              AND ac.company_id = ?
+              AND t.source_bank_process_id IS NOT NULL";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge($ids, [$company_id]));
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $seen = [];
+    $papRemoved = 0;
+    $pendingRemoved = 0;
+    $delPendingStmt = null;
+    if ($hasPendingTable) {
+        $delPendingStmt = $pdo->prepare(
+            "DELETE FROM bank_process_maintenance_resend_pending
+             WHERE company_id = ? AND bank_process_id = ? AND period_type = 'manual_inactive'
+               AND (transaction_date = ? OR transaction_date IS NULL)"
+        );
+    }
+
+    foreach ($rows as $r) {
+        $bpId = (int) ($r['source_bank_process_id'] ?? 0);
+        $txd = trim((string) ($r['txd'] ?? ''));
+        if ($bpId <= 0 || $txd === '') {
+            continue;
+        }
+        $pt = strtolower(trim((string) ($r['source_period_type'] ?? '')));
+        $desc = trim((string) ($r['description'] ?? ''));
+        $isManualInactiveCompensation = ($pt === 'manual_inactive')
+            || (stripos($desc, 'Inactive Compensation Sell Price') === 0);
+        if (!$isManualInactiveCompensation) {
+            continue;
+        }
+        $dedupeKey = $bpId . '|' . $txd;
+        if (isset($seen[$dedupeKey])) {
+            continue;
+        }
+        $seen[$dedupeKey] = true;
+
+        $papRemoved += bmp_deletePapFallback($pdo, $company_id, $bpId, 'manual_inactive', $txd);
+        if ($delPendingStmt) {
+            $delPendingStmt->execute([$company_id, $bpId, $txd]);
+            $pendingRemoved += $delPendingStmt->rowCount();
+        }
+    }
+
+    return ['pap_removed' => $papRemoved, 'pending_removed' => $pendingRemoved];
 }
 
 try {
@@ -172,14 +297,46 @@ try {
     }
 
     ensureTransactionsDeletedTable($pdo);
+    ensureTransactionsDeletedExtraColumns($pdo);
+    // Ensure resend-pending table exists BEFORE starting a DB transaction
+    // (DDL inside transaction can cause implicit commit).
+    bmp_ensureMaintenanceResendPendingTable($pdo);
+
+    $placeholdersBp = implode(',', array_fill(0, count($allowedIds), '?'));
+    $bpStmt = $pdo->prepare(
+        "SELECT DISTINCT t.source_bank_process_id FROM transactions t
+         INNER JOIN account a ON t.account_id = a.id
+         INNER JOIN account_company ac ON a.id = ac.account_id
+         WHERE t.id IN ($placeholdersBp) AND ac.company_id = ? AND t.source_bank_process_id IS NOT NULL"
+    );
+    $bpStmt->execute(array_merge($allowedIds, [$company_id]));
+    $affectedBankProcessIds = [];
+    foreach ($bpStmt->fetchAll(PDO::FETCH_COLUMN) as $bid) {
+        $bid = (int) $bid;
+        if ($bid > 0 && !in_array($bid, $affectedBankProcessIds, true)) {
+            $affectedBankProcessIds[] = $bid;
+        }
+    }
+
     $pdo->beginTransaction();
 
+    bmp_recordResendPendingForTransactionIds($pdo, $company_id, $allowedIds);
+    $manualInactiveSync = clearManualInactiveMarkersAfterDelete($pdo, $allowedIds, $company_id);
     backupTransactionsToDeleted($pdo, $allowedIds, $company_id, $deletedByUserId, $deletedByOwnerId);
     deleteTransactionEntries($pdo, $allowedIds);
     $deleted = deleteTransactions($pdo, $allowedIds, $company_id);
 
     $pdo->commit();
-    jsonResponse(true, "已删除 {$deleted} 条 Bank process 交易记录", ['deleted' => $deleted]);
+
+    foreach ($affectedBankProcessIds as $bpId) {
+        bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $company_id, $bpId);
+    }
+
+    jsonResponse(true, "已删除 {$deleted} 条 Bank process 交易记录", [
+        'deleted' => $deleted,
+        'manual_inactive_posted_removed' => (int) ($manualInactiveSync['pap_removed'] ?? 0),
+        'manual_inactive_pending_removed' => (int) ($manualInactiveSync['pending_removed'] ?? 0),
+    ]);
 } catch (Exception $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();

@@ -5,8 +5,10 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/formula_fields_helper.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -51,27 +53,11 @@ function getCompanyIdForRequest(PDO $pdo) {
 }
 
 /**
- * 解析前端传来的日期为 Y-m-d（支持 d/m/Y 或 Y-m-d）
- */
-function parseDateForFilter($input) {
-    $input = trim((string) $input);
-    if ($input === '') return null;
-    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $input, $m)) {
-        return $input;
-    }
-    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $input, $m)) {
-        return $m[3] . '-' . str_pad($m[2], 2, '0', STR_PAD_LEFT) . '-' . str_pad($m[1], 2, '0', STR_PAD_LEFT);
-    }
-    return null;
-}
-
-/**
- * 获取公式列表（含搜索、process 筛选、日期筛选），返回原始行
- * 日期筛选按 created_at 在 date_from～date_to 之间（含首尾）
+ * 获取公式列表（含搜索、process 筛选），返回原始行
  * 直接 JOIN process 表，避免 GROUP BY 导致同一 process 代码下多条 process 行时只匹配 MIN(id)、
  * 其余模板在 Maintenance 不显示却在 Data Capture Summary 仍显示的问题。
  */
-function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter, $dateFrom, $dateTo) {
+function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter) {
     $sql = "SELECT 
                 dct.id,
                 dct.process_id,
@@ -87,6 +73,8 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 dct.input_method,
                 dct.formula_display,
                 dct.formula_operators,
+                dct.source_percent,
+                dct.enable_source_percent,
                 dct.description,
                 p.process_id AS process_code,
                 p.description_id,
@@ -124,11 +112,6 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
         )";
         $params = array_merge($params, [$like, $like, $like, $like, $like, $like, $like, $like, $like]);
     }
-    if ($dateFrom !== null && $dateTo !== null) {
-        $sql .= " AND DATE(dct.created_at) BETWEEN ? AND ?";
-        $params[] = $dateFrom;
-        $params[] = $dateTo;
-    }
     $sql .= " ORDER BY p.process_id ASC, dct.id ASC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -145,13 +128,9 @@ function mapRowsToDisplay(array $rows) {
     $displayRowsByKey = [];
     foreach ($rows as $row) {
         $sourceValue = $row['columns_display'] ?? $row['source_columns'] ?? '';
-        // 优先使用 formula_operators（原始公式，可能包含 $2 / 引用格式），
-        // 这样 Maintenance - Formula 的 Formula 列显示的是符号公式而不是代入数值后的结果。
-        // 若 formula_operators 为空，再回退到 formula_display。
-        $formulaValue = $row['formula_operators'] ?? '';
-        if ($formulaValue === null || $formulaValue === '') {
-            $formulaValue = $row['formula_display'] ?? '';
-        }
+        // 列表展示：$5 * (0.18)；编辑框用 $5*0.18（与 update 解析一致）
+        $formulaDisplayParen = buildFormulaDisplayParenFromRow($row);
+        $formulaEdit = buildFormulaEditFromRow($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
         $processDisplay = $processCode;
@@ -193,7 +172,8 @@ function mapRowsToDisplay(array $rows) {
                 'source' => $sourceValue,
                 'product' => $product,
                 'input_method' => $inputMethod,
-                'formula' => $formulaValue,
+                'formula' => $formulaDisplayParen,
+                'formula_edit' => $formulaEdit,
                 'description' => $description,
                 'product_type' => $productType
             ];
@@ -202,6 +182,16 @@ function mapRowsToDisplay(array $rows) {
             $existingId = (int)$displayRowsByKey[$dedupKey]['id'];
             if ($currentId > $existingId) {
                 $displayRowsByKey[$dedupKey]['id'] = $currentId;
+                $displayRowsByKey[$dedupKey]['formula'] = $formulaDisplayParen;
+                $displayRowsByKey[$dedupKey]['formula_edit'] = $formulaEdit;
+                $displayRowsByKey[$dedupKey]['source'] = $sourceValue;
+                $displayRowsByKey[$dedupKey]['input_method'] = $inputMethod;
+                $displayRowsByKey[$dedupKey]['description'] = $description;
+                $displayRowsByKey[$dedupKey]['account'] = $accountDisplay;
+                $displayRowsByKey[$dedupKey]['account_id'] = $row['account_id'];
+                $displayRowsByKey[$dedupKey]['account_name'] = $row['account_name'] ?? '';
+                $displayRowsByKey[$dedupKey]['currency'] = $currencyDisplay;
+                $displayRowsByKey[$dedupKey]['product'] = $product;
             }
         }
     }
@@ -237,10 +227,7 @@ try {
     if ($processFilter === '' && isset($_POST['process'])) {
         $processFilter = trim((string)$_POST['process']);
     }
-    $dateFrom = parseDateForFilter(isset($_GET['date_from']) ? $_GET['date_from'] : '');
-    $dateTo = parseDateForFilter(isset($_GET['date_to']) ? $_GET['date_to'] : '');
-
-    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processFilter, $dateFrom, $dateTo);
+    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processFilter);
     $list = mapRowsToDisplay($rows);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {

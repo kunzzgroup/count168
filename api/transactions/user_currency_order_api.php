@@ -1,11 +1,12 @@
 <?php
 /**
- * Member 货币显示顺序 API（按账号永久化）
- * GET: 返回当前账号保存的货币顺序
- * POST: 保存当前账号的货币顺序
+ * User 货币显示顺序 API（按账号/用户永久化）
+ * GET: 返回当前用户保存的货币顺序
+ * POST: 保存当前用户的货币顺序
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../api_response.php';
@@ -15,12 +16,13 @@ try {
         api_error('未登录', 401);
         exit;
     }
+    
     $userType = strtolower($_SESSION['user_type'] ?? '');
-    if ($userType !== 'member') {
-        api_error('仅 Member 账号可使用', 403);
-        exit;
-    }
-    $accountId = (int) $_SESSION['user_id'];
+    $baseId = (int) $_SESSION['user_id'];
+    
+    // 巧妙利用正负号：Member 使用正数 ID，非 Member（Admin/Owner 等）使用负数 ID，
+    // 这样不用修改 SQL 表结构也能完美区分两类用户，避免查表时发生覆盖。
+    $accountId = ($userType === 'member') ? $baseId : -$baseId;
 
     $method = $_SERVER['REQUEST_METHOD'] ?? '';
 
@@ -60,6 +62,6 @@ try {
 
     api_error('方法不允许', 405);
 } catch (Exception $e) {
-    error_log('member_currency_order_api: ' . $e->getMessage());
+    error_log('user_currency_order_api: ' . $e->getMessage());
     api_error($e->getMessage(), 500);
 }

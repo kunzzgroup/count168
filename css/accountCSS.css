@@ -29,6 +29,36 @@ body {
     overflow: hidden;
 }
 
+/* account-list：在 global-13inch 等使用 !important 时仍保持一屏无滚动 */
+body.account-page:not(.account-page--show-all) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    height: 100vh !important;
+}
+
+/* 固定一屏布局：标题/筛选/表头/列表20行/分页（与 processlist Games 一致） */
+.account-page .content {
+    height: calc(100vh - 22px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 表头 + 数据区：占据中间剩余高度，避免整页滚动 */
+.account-page .account-table-wrapper {
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 52px;
+    box-sizing: border-box;
+}
+
+.account-page .account-table-header {
+    flex-shrink: 0;
+}
+
 .page-header {
     display: none;
 }
@@ -37,7 +67,7 @@ body {
     color: #002C49;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
-    margin-bottom: clamp(16px, 1.35vw, 26px);
+    margin-bottom: clamp(8px, 0.83vw, 14px);
     font-size: clamp(26px, 2.08vw, 40px);
     font-weight: 500;
     letter-spacing: -0.025em;
@@ -221,6 +251,7 @@ body {
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
+    padding: 0 20px 10px 20px;
 }
 
 .account-company-label {
@@ -280,7 +311,7 @@ body {
     padding: 0px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
-    margin-top: 20px;
+    margin-top: 8px;
     font-weight: bold;
     color: white;
     font-size: clamp(10px, 0.89vw, 17px);
@@ -319,24 +350,65 @@ body {
     display: inline !important;
 }
 
-/* Account Cards - copied from userlist */
+/* Show All 模式：允许页面纵向滚动，一页展示所有数据 */
+body.account-page--show-all {
+    overflow-y: auto !important;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.account-page--show-all .container {
+    overflow-y: visible;
+    height: auto;
+    min-height: 100vh;
+}
+
+body.account-page--show-all .account-cards {
+    display: flex;
+    flex-direction: column;
+    max-height: none;
+    overflow-y: visible;
+}
+
+body.account-page--show-all .content {
+    height: auto;
+    min-height: calc(100vh - 22px);
+    overflow: visible;
+}
+
+body.account-page--show-all .account-table-wrapper {
+    flex: 0 1 auto;
+    overflow: visible;
+    padding-bottom: 72px;
+}
+
+/* Account Cards：纵向 flex；行高随内容，空白留在列表底部（与 userlist 一致） */
 .account-cards {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    justify-content: flex-start;
 }
 
 .account-card {
     display: grid;
     grid-template-columns: 0.5fr 1.5fr 1.5fr 0.6fr 0.6fr 0.6fr 2fr 1.2fr 0.42fr;
     gap: 15px;
-    padding: 0px 22px;
+    padding: 0 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
     transition: all 0.2s ease;
-    min-height: fit-content;
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+body.account-page:not(.account-page--show-all) .account-card {
+    flex: 0 1 auto;
+    min-height: 0;
+    height: auto;
 }
 
 .account-card:hover {
@@ -345,7 +417,7 @@ body {
 }
 
 .account-card-item {
-    font-size: clamp(12px, 0.82vw, 15px);
+    font-size: clamp(10px, 0.7vw, 13px);
     font-weight: bold;
     color: #374151;
     display: flex;
@@ -355,7 +427,7 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-height: 0;
-    line-height: 1;
+    line-height: 1.1;
 }
 
 .account-edit-btn {
@@ -447,28 +519,28 @@ body {
     margin: 0 auto;
     padding: 0;
     border-radius: 1rem;
-    overflow: hidden;
+    /* Removed overflow: hidden to allow sticky actions to work */
 }
 
 /* Form Section Headers */
 .account-form-section {
-    padding: 0 clamp(1.25rem, 2.5vw, 2rem);
+    padding: 0 clamp(0.75rem, 1.5vw, 1.25rem);
 }
 
 .account-form-section:first-child {
-    padding-top: clamp(0.75rem, 1.5vw, 1rem);
+    padding-top: clamp(0.5rem, 1vw, 0.75rem);
 }
 
 .account-form-section:last-child {
-    padding-bottom: clamp(1rem, 2vw, 1.5rem);
+    padding-bottom: clamp(0.5rem, 1vw, 0.75rem);
 }
 
 /* 两列布局容器 - 固定 1:1 两列 */
 .account-form-columns {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: clamp(1rem, 2vw, 1.5rem);
-    padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1.25rem, 2.5vw, 2rem);
+    gap: clamp(0.5rem, 1.5vw, 1.25rem);
+    padding: clamp(0.5rem, 1vw, 0.75rem) clamp(1rem, 2vw, 1.5rem);
     border-bottom: 1px solid #e2e8f0;
     align-items: start;
 }
@@ -482,9 +554,9 @@ body {
 }
 
 .account-form-column .account-section-header {
-    font-size: clamp(12px, 0.95vw, 15px);
-    margin-bottom: clamp(0.5rem, 1vw, 0.75rem);
-    padding-bottom: clamp(0.25rem, 0.5vw, 0.375rem);
+    font-size: clamp(13px, 1vw, 15px);
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
     border-bottom: 0.0625rem solid #e2e8f0;
     margin-top: 0;
 }
@@ -524,14 +596,14 @@ body {
 
 .account-form-group {
     flex: 1;
-    margin-bottom: clamp(0.5rem, 1vw, 0.875rem);
+    margin-bottom: 1rem;
     min-width: clamp(180px, 28vw, 300px);
 }
 
 /* 两列布局中的表单组 */
 .account-form-column .account-form-group {
     min-width: 100%;
-    margin-bottom: clamp(0.5rem, 1vw, 0.75rem);
+    margin-bottom: 1rem;
 }
 
 /* form-row 中的 form-group 可以并排显示 */
@@ -541,8 +613,8 @@ body {
 }
 
 .account-form-column .account-form-row {
-    gap: clamp(6px, 0.8vw, 10px);
-    margin-bottom: clamp(0.5rem, 1vw, 0.75rem);
+    gap: 1.125rem;
+    margin-bottom: 1rem;
 }
 
 /* 隐藏的 alert 字段不占空间 */
@@ -558,27 +630,27 @@ body {
 
 .account-form-group label {
     display: block;
-    margin-bottom: clamp(0.25rem, 0.5vw, 0.375rem);
+    margin-bottom: 0.5rem;
     font-weight: 600;
     color: #374151;
-    font-size: clamp(11px, 0.85vw, 13px);
+    font-size: 0.875rem;
     letter-spacing: 0.025em;
     font-family: 'Amaranth', sans-serif;
 }
 
 /* Payment Alert label 更紧凑 */
 .account-form-column .account-form-group:has(.account-radio-group) label {
-    margin-bottom: clamp(0.375rem, 0.6vw, 0.5rem);
+    margin-bottom: 0.5rem;
 }
 
 .account-form-group input,
 .account-form-group select,
 .account-form-group textarea {
     width: 100%;
-    padding: clamp(6px, 0.65vw, 9px) clamp(10px, 1vw, 14px);
+    padding: 0.625rem 0.875rem;
     border: 0.125rem solid #e5e7eb;
     border-radius: 0.5rem;
-    font-size: clamp(11px, 0.85vw, 14px);
+    font-size: 0.875rem;
     background: #ffffff;
     color: #374151;
     box-sizing: border-box;
@@ -657,17 +729,17 @@ body {
 
 .account-advance-section {
     margin-top: 0;
-    padding-bottom: clamp(0.625rem, 1.2vw, 0.875rem);
+    padding-bottom: clamp(0.25rem, 0.6vw, 0.5rem);
     border-top: none;
 }
 
 .account-advance-section h3 {
-    font-size: clamp(13px, 1vw, 16px);
+    font-size: clamp(12px, 0.95vw, 15px);
     font-weight: 700;
     color: #1e293b;
-    margin-bottom: clamp(0.625rem, 1vw, 0.875rem);
-    padding-bottom: clamp(0.375rem, 0.6vw, 0.5rem);
-    border-bottom: 0.125rem solid #e2e8f0;
+    margin-bottom: clamp(0.25rem, 0.8vw, 0.5rem);
+    padding-bottom: clamp(0.15rem, 0.4vw, 0.25rem);
+    border-bottom: 0.0625rem solid #e2e8f0;
     position: relative;
     text-align: left;
 }
@@ -685,11 +757,11 @@ body {
 .account-other-currency {
     display: flex;
     align-items: center;
-    gap: clamp(0.75rem, 1.5vw, 1rem);
-    margin-bottom: clamp(0.625rem, 1vw, 0.875rem);
+    gap: clamp(0.5rem, 1vw, 0.75rem);
+    margin-bottom: clamp(0.25rem, 0.6vw, 0.5rem);
     background: #f8fafc;
-    padding: clamp(0.625rem, 1.2vw, 0.875rem) clamp(0.875rem, 1.5vw, 1.125rem);
-    border-radius: 0.625rem;
+    padding: clamp(0.25rem, 0.8vw, 0.5rem) clamp(0.5rem, 1vw, 0.75rem);
+    border-radius: 0.5rem;
     border: 0.125rem solid #e2e8f0;
     transition: all 0.2s ease;
     flex-wrap: wrap;
@@ -991,12 +1063,14 @@ body {
 .account-form-actions {
     text-align: right;
     margin-top: 0;
-    padding: clamp(1rem, 2vw, 1.5rem) clamp(1.5rem, 3vw, 2.5rem);
+    padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1.5rem, 3vw, 2.5rem);
     border-top: 0.0625rem solid #e2e8f0;
     display: flex;
     justify-content: flex-end;
     gap: clamp(0.625rem, 1.2vw, 0.875rem);
     flex-wrap: wrap;
+    background-color: #ffffff;
+    border-radius: 0 0 1rem 1rem;
 }
 
 /* Modal Styles (align with userlist) */
@@ -1137,7 +1211,7 @@ body {
     border-radius: 1rem;
     width: clamp(700px, 85vw, 950px);
     max-width: none;
-    max-height: clamp(75vh, 85vh, 90vh);
+    max-height: 90vh;
     box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
     overflow-y: auto;
     position: relative;
@@ -1149,6 +1223,12 @@ body {
 #account-addModal .account-modal-content {
     transform: translateY(-50%) scale(clamp(0.85, 0.9, 0.95));
     transform-origin: center center;
+}
+
+.account-modal-header {
+    background-color: #ffffff;
+    padding-bottom: 0.5rem;
+    border-radius: 1rem 1rem 0 0;
 }
 
 .account-modal-header h2 {
@@ -1222,6 +1302,18 @@ body {
     border-left-color: #ef4444;
 }
 
+.account-notification-info {
+    background-color: #eff6ff;
+    color: #1e40af;
+    border-left-color: #3b82f6;
+}
+
+.account-notification-warning {
+    background-color: #fffbeb;
+    color: #92400e;
+    border-left-color: #f59e0b;
+}
+
 .account-btn {
     padding: clamp(6px, 0.42vw, 8px) 20px;
     border: none;
@@ -1237,6 +1329,13 @@ body {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-family: 'Amaranth';
+    min-width: clamp(90px, 7vw, 130px);
+    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+    font-size: clamp(0.625rem, 0.83vw, 1rem);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     --sweep-color: rgba(255, 255, 255, 0.2);
     position: relative;
     overflow: hidden;
@@ -1281,9 +1380,13 @@ body {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;
     font-family: 'Amaranth';
-    width: clamp(5rem, 6.25vw, 7.5rem);
+    min-width: clamp(90px, 7vw, 130px);
     padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
     font-size: clamp(0.625rem, 0.83vw, 1rem);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     border-radius: 0.375rem;
     box-shadow: 0 0.125rem 0.25rem rgba(88, 88, 88, 0.3);
@@ -1441,9 +1544,9 @@ body {
 }
 
 .account-role-company {
-    background-color: #ede3d4;
-    color: #6f4900;
-    border: 1px solid #e6d5c3;
+    background-color: #ecfccb;
+    color: #3f6212;
+    border: 1px solid #bef264;
 }
 
 .account-role-partner {
@@ -1497,11 +1600,13 @@ body {
     pointer-events: none;
 }
 
-/* Pagination Button Styles */
+/* Pagination：固定在视口右下角（与 userlist / bank processlist 一致） */
 .account-pagination-container {
     position: fixed;
-    bottom: clamp(15px, 1.56vw, 30px);
-    right: 40px;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    margin: 0;
+    width: fit-content;
     display: flex;
     align-items: center;
     gap: 0;
@@ -1511,8 +1616,9 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    z-index: 100;
+    z-index: 120;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    flex-shrink: 0;
 }
 
 .account-pagination-btn {
@@ -1596,5 +1702,41 @@ body {
 
     .account-cards {
         min-height: calc(100vh - 250px);
+    }
+}
+
+/* ========================================================
+   Compact Mode for Small Screens (Laptops, Tablets, etc.)
+   ======================================================== */
+@media (max-height: 800px),
+(max-width: 1200px) {
+
+    .account-form-group input,
+    .account-form-group select,
+    .account-form-group textarea {
+        padding: 0.4rem 0.75rem !important;
+        font-size: 0.8125rem !important;
+    }
+
+    .account-form-group label {
+        font-size: 0.8125rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    .account-form-column .account-form-group:has(.account-radio-group) label {
+        margin-bottom: 0.25rem !important;
+    }
+
+    .account-form-column .account-form-row {
+        margin-bottom: 0.75rem !important;
+        gap: 0.875rem !important;
+    }
+
+    .account-form-column .account-form-group {
+        margin-bottom: 0.75rem !important;
+    }
+
+    .account-form-row .account-form-group {
+        margin-bottom: 0 !important;
     }
 }

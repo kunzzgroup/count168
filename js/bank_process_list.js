@@ -1,7 +1,7 @@
 window.BankProcessList = (function () {
     'use strict';
 /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
-const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
+const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.36fr';
 const BANK_STATUS_SELECT_OPTIONS = [
     { value: 'active', label: 'ACTIVE' },
     { value: 'inactive', label: 'INACTIVE' },
@@ -17,6 +17,42 @@ let bankAddProcessDataLoaded = false;
 let currentQuickRemarkProcessId = null;
 let pendingBankStatusSelection = null;
 let bankProcessSubmitInFlight = false;
+const pendingResendScheduleByProcessId = {};
+const BANK_ALLOWED_ACCOUNT_ROLES = ['PARTNER', 'SUPPLIER', 'UPLINE', 'STAFF', 'AGENT', 'MEMBER', 'PROFIT'];
+
+function normalizeBankAccountRole(role) {
+    return String(role || '').trim().toUpperCase();
+}
+
+function isAllowedBankAccountRole(role) {
+    return BANK_ALLOWED_ACCOUNT_ROLES.includes(normalizeBankAccountRole(role));
+}
+
+function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
+    const code = String(codeRaw || '').trim();
+    const name = String(nameRaw || '').trim();
+    const fallback = String(fallbackRaw || '').trim();
+    // Always show account_id[name] when account_id exists.
+    // If name is empty, fall back to account_id itself: EXPENSES[EXPENSES].
+    if (code) {
+        const safeName = name || code;
+        return code + '[' + safeName + ']';
+    }
+    if (name) return name;
+    return fallback;
+}
+
+function notifyTransactionDataChanged(sourceTag) {
+    const ts = String(Date.now());
+    try {
+        localStorage.setItem('count168_tx_invalidate_ts', ts);
+    } catch (eInv) { /* ignore */ }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        try {
+            window.dispatchEvent(new CustomEvent('tx-data-changed', { detail: { ts: ts, source: sourceTag || 'bank_process_list' } }));
+        } catch (eEvt) { /* ignore */ }
+    }
+}
 
 function sortBankProcessesBySupplier() {
     if (!Array.isArray(processes) || processes.length === 0) return;
@@ -42,8 +78,7 @@ function toggleBankSupplierSort() {
     bankSupplierSortDirection = bankSupplierSortDirection === 'asc' ? 'desc' : 'asc';
     sortBankProcessesBySupplier();
     currentPage = 1;
-    renderBankTable();
-    renderPagination();
+    renderTable();
     updateBankSupplierSortIndicator();
 }
 
@@ -51,6 +86,18 @@ function buildBankRemarkActionButton(processId) {
     return '<button class="edit-btn remark-action-btn" onclick="openQuickRemarkModal(' + processId + ')" aria-label="Remark" title="Remark">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
         '<path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>' +
+        '</button>';
+}
+
+/** Icon control aligned with Edit / Remark; restores row to Accounting Due after Maintenance deleted the posting. */
+function buildBankResendActionButton(processId) {
+    return '<button type="button" class="bank-resend-btn" data-bank-resend-for="' + processId + '" onclick="resendBankProcessAccountingDue(' + processId + ')" ' +
+        'aria-label="Resend to Accounting Due" ' +
+        'title="Resend">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+        '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="M3 3v5h5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' +
         '</svg>' +
         '</button>';
 }
@@ -81,6 +128,74 @@ function isBankInactiveLike(status, issueFlag) {
     const normalizedStatus = String(status || '').trim().toLowerCase();
     const normalizedIssueFlag = normalizeBankIssueFlag(issueFlag);
     return normalizedStatus === 'inactive' || normalizedIssueFlag === 'official' || normalizedIssueFlag === 'e_invoice' || normalizedIssueFlag === 'block';
+}
+
+function bankProcessNormalizeDayStartYmd(dayStartField) {
+    if (dayStartField == null) return null;
+    const s = String(dayStartField).trim();
+    if (!s) return null;
+    const head = s.length >= 10 ? s.substring(0, 10) : String(s.split(' ')[0] || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(head) ? head : null;
+}
+
+/**
+ * Resend 弹窗 Day start 客户端校验（曾禁止等于今天，现已允许与后端一致）。
+ * @returns {string|null} 错误提示文案；null 表示可提交
+ */
+function bankResendScheduleDayStartForbiddenMessage(chosenTrim, anchorRaw) {
+    void anchorRaw;
+    void chosenTrim;
+    return null;
+}
+
+function isBankResendDayStartBackendErrorMessage(text) {
+    const s = String(text || '');
+    return s.indexOf('不可与今天相同') !== -1
+        || s.indexOf('Day start cannot be today') !== -1
+        || s.indexOf('Resend 所填 Day start') !== -1
+        || s.indexOf('same calendar date as the current contract Day start') !== -1;
+}
+
+function clearBankResendDayStartInlineError() {
+    const box = document.getElementById('bankResendDayStartInlineError');
+    const input = document.getElementById('bank_resend_day_start');
+    if (box) {
+        box.textContent = '';
+        box.hidden = true;
+    }
+    if (input) {
+        input.classList.remove('bank-resend-control--error');
+        input.removeAttribute('aria-invalid');
+    }
+}
+
+/** 弹窗打开时：在表单项旁显示醒目错误；无弹窗时：仅走右上角强提示 toast（仅此业务） */
+function presentBankResendDayStartValidationError(message) {
+    const msg = String(message || '').trim();
+    if (!msg) return;
+    const modal = document.getElementById('confirmBankResendModal');
+    const modalOpen = modal && modal.style.display === 'block';
+    const box = document.getElementById('bankResendDayStartInlineError');
+    const input = document.getElementById('bank_resend_day_start');
+    if (modalOpen && box) {
+        box.textContent = msg;
+        box.hidden = false;
+        box.setAttribute('role', 'alert');
+        if (input) {
+            input.classList.add('bank-resend-control--error');
+            input.setAttribute('aria-invalid', 'true');
+            try {
+                input.focus();
+            } catch (e) { /* ignore */ }
+        }
+        try {
+            box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (e2) { /* ignore */ }
+        return;
+    }
+    if (typeof showNotification === 'function') {
+        showNotification(msg, 'danger', { durationMs: 14500, prominent: true });
+    }
 }
 
 function isBankProcessInactiveLike(process) {
@@ -115,6 +230,36 @@ function parseIsoDate(value) {
     if (isNaN(date.getTime())) return null;
     date.setHours(0, 0, 0, 0);
     return date;
+}
+
+function normalizeBankScheduleValue(value) {
+    return value == null ? '' : String(value).trim();
+}
+
+function getPendingResendScheduleForProcess(processId) {
+    const id = parseInt(processId, 10);
+    if (!id) return null;
+    const row = pendingResendScheduleByProcessId[id];
+    if (!row || typeof row !== 'object') return null;
+    return {
+        day_start: normalizeBankScheduleValue(row.day_start),
+        day_end: normalizeBankScheduleValue(row.day_end),
+        day_start_frequency: row.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
+}
+
+function setPendingResendScheduleForProcess(processId, schedule) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
+    if (!schedule || typeof schedule !== 'object') {
+        delete pendingResendScheduleByProcessId[id];
+        return;
+    }
+    pendingResendScheduleByProcessId[id] = {
+        day_start: normalizeBankScheduleValue(schedule.day_start),
+        day_end: normalizeBankScheduleValue(schedule.day_end),
+        day_start_frequency: schedule.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month'
+    };
 }
 
 function getProcessListDateRange() {
@@ -179,8 +324,16 @@ function initProcessListDateFilter() {
 }
 
 function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) {
-    const actionButtons = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-        buildBankRemarkActionButton(processId);
+    const isBankStatusActive = String(status || '').trim().toLowerCase() === 'active';
+    // Official / E-INVOICE / Block 仍为 status=active；Resend 不依赖 Maintenance 待办表
+    const showResend = isBankStatusActive && !isBankInactiveLike(status, issueFlag);
+    const resendBtn = showResend ? buildBankResendActionButton(processId) : '';
+    const actionButtons =
+        '<span class="bank-action-tools">' +
+        '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+        buildBankRemarkActionButton(processId) +
+        resendBtn +
+        '</span>';
     const showDeleteCheckbox = isRealBankInactive(status);
     if (!showDeleteCheckbox) {
         return actionButtons;
@@ -188,6 +341,162 @@ function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) 
     const disabledAttr = hasTransactions ? ' disabled' : '';
     const titleText = hasTransactions ? 'Cannot delete: process has transactions' : 'Select for deletion';
     return actionButtons + '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + titleText + '"' + disabledAttr + ' onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
+}
+
+function resendBankProcessAccountingDue(processId) {
+    const id = parseInt(processId, 10);
+    if (id) {
+        const proc = processes.find(function (p) { return p.id === id; });
+        if (proc) {
+            const st = String(proc.status || '').trim().toLowerCase();
+            if (st !== 'active' || isBankInactiveLike(proc.status, proc.issue_flag)) {
+                showNotification('Resend is only available for Active processes (not Inactive, Official, E-INVOICE, or Block).', 'warning');
+                return;
+            }
+        }
+    }
+    if (typeof window.showConfirmBankResendModal === 'function') {
+        window.showConfirmBankResendModal(processId);
+        return;
+    }
+    if (id) {
+        void executeAccountingDueResend(id);
+    }
+}
+window.resendBankProcessAccountingDue = resendBankProcessAccountingDue;
+
+async function executeAccountingDueResend(processId, scheduleOpts) {
+    const id = parseInt(processId, 10);
+    if (!id) return;
+    await persistOpenBankEditBeforeResend(id);
+    const procGuard = processes.find(function (p) { return p.id === id; });
+    if (procGuard) {
+        const st = String(procGuard.status || '').trim().toLowerCase();
+        if (st !== 'active' || isBankInactiveLike(procGuard.status, procGuard.issue_flag)) {
+            showNotification('Resend is only available for Active processes (not Inactive, Official, E-INVOICE, or Block).', 'warning');
+            return;
+        }
+    }
+    const payload = { bank_process_id: id };
+    if (scheduleOpts && typeof scheduleOpts === 'object') {
+        payload.day_start = scheduleOpts.day_start != null && String(scheduleOpts.day_start).trim() !== ''
+            ? String(scheduleOpts.day_start).trim() : '';
+        payload.day_end = scheduleOpts.day_end != null && String(scheduleOpts.day_end).trim() !== ''
+            ? String(scheduleOpts.day_end).trim() : '';
+        payload.day_start_frequency = (scheduleOpts.day_start_frequency === 'monthly') ? 'monthly' : '1st_of_every_month';
+        const forbidMsg = bankResendScheduleDayStartForbiddenMessage(payload.day_start, procGuard ? procGuard.day_start : null);
+        if (forbidMsg) {
+            presentBankResendDayStartValidationError(forbidMsg);
+            return;
+        }
+    }
+    try {
+        const response = await fetch(buildApiUrl('api/bankprocess_maintenance/resend_accounting_due_api.php'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.success) {
+            const proc = processes.find(function (p) { return p.id === id; });
+            if (proc) {
+                proc.maintenance_resend_pending = false;
+            }
+            setPendingResendScheduleForProcess(id, null);
+            showNotification(result.message || 'You can post from Accounting Due again', 'success');
+            if (typeof loadAccountingInbox === 'function') {
+                await loadAccountingInbox();
+            }
+            if (typeof fetchProcesses === 'function') {
+                await fetchProcesses();
+            } else {
+                const rowB = document.querySelector('#bankTableBody tr[data-id="' + id + '"]');
+                if (rowB) {
+                    rowB.setAttribute('data-maintenance-resend-pending', '0');
+                    const actionCell = rowB.querySelector('.bank-td-action');
+                    if (actionCell) {
+                        const p = processes.find(function (x) { return x.id === id; });
+                        actionCell.innerHTML = buildBankActionCellHtml(
+                            id,
+                            rowB.getAttribute('data-status') || '',
+                            rowB.getAttribute('data-has-transactions') === '1',
+                            normalizeBankIssueFlag(p ? p.issue_flag : rowB.getAttribute('data-issue-flag'))
+                        );
+                    }
+                }
+            }
+        } else {
+            const failMsg = result.message || 'Resend failed';
+            if (isBankResendDayStartBackendErrorMessage(failMsg) && typeof showNotification === 'function') {
+                showNotification(failMsg, 'danger', { durationMs: 14500, prominent: true });
+            } else {
+                showNotification(failMsg, 'danger');
+            }
+        }
+    } catch (err) {
+        console.error('executeAccountingDueResend:', err);
+        showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
+    }
+}
+
+async function persistOpenBankEditBeforeResend(targetProcessId) {
+    const modal = document.getElementById('addBankModal');
+    const editIdEl = document.getElementById('bank_edit_id');
+    const formEl = document.getElementById('addBankProcessForm');
+    if (!modal || !editIdEl || !formEl) return true;
+    if (modal.style.display !== 'block') return true;
+    const editId = parseInt(editIdEl.value || '', 10);
+    if (!editId || editId !== targetProcessId) return true;
+    if (bankProcessSubmitInFlight) {
+        // Do not block resend while another save is in flight.
+        return true;
+    }
+    if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+    // Resend must remain available even when Edit form is incomplete.
+    if (typeof markBankRequiredErrors === 'function') markBankRequiredErrors();
+    if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
+
+    const formData = new FormData(formEl);
+    ['country', 'bank', 'type', 'name', 'day_start', 'day_end', 'day_start_frequency'].forEach(function (key) {
+        formData.delete(key);
+    });
+    const cost = parseFloat(document.getElementById('bank_cost')?.value || '0') || 0;
+    const price = parseFloat(document.getElementById('bank_price')?.value || '0') || 0;
+    formData.set('profit', (price - cost).toFixed(2));
+    formData.append('permission', 'Bank');
+    formData.set('id', String(editId));
+
+    const cardMerchantBtn = document.getElementById('bank_card_merchant');
+    const customerBtn = document.getElementById('bank_customer');
+    const profitAccountBtn = document.getElementById('bank_profit_account');
+    if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
+        formData.set('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
+    }
+    if (customerBtn && customerBtn.getAttribute('data-value')) {
+        formData.set('customer_id', customerBtn.getAttribute('data-value'));
+    }
+    if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
+        formData.set('profit_account_id', profitAccountBtn.getAttribute('data-value'));
+    }
+    try {
+        bankProcessSubmitInFlight = true;
+        const response = await fetch(buildApiUrl('api/processes/processlist_api.php?action=update_process'), {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!result.success) {
+            // Non-blocking: continue resend even if edit auto-save fails.
+            return true;
+        }
+        return true;
+    } catch (error) {
+        console.error('persistOpenBankEditBeforeResend failed:', error);
+        // Non-blocking: continue resend even if edit auto-save fails.
+        return true;
+    } finally {
+        bankProcessSubmitInFlight = false;
+    }
 }
 
 function syncBankFilterCheckboxes() {
@@ -420,10 +729,12 @@ if (!window.__bankStatusDropdownBound) {
 function matchesCurrentBankFilters(process) {
     if (!process) return false;
     if (!processMatchesSelectedDate(process)) return false;
+    if (showAll) return true;
     const status = String(process.status || '').toLowerCase();
     const issueFlag = normalizeBankIssueFlag(process.issue_flag);
     const matches = [];
-    if (showInactive) matches.push(status === 'inactive');
+    const isPlainInactive = status === 'inactive' && issueFlag !== 'official' && issueFlag !== 'e_invoice' && issueFlag !== 'block';
+    if (showInactive) matches.push(isPlainInactive);
     if (showOfficial) matches.push(issueFlag === 'official');
     if (showEInvoice) matches.push(issueFlag === 'e_invoice');
     if (showBlock) matches.push(issueFlag === 'block');
@@ -548,7 +859,10 @@ function renderBankTable() {
 
     const headRow = document.getElementById('bankTableHeadRow');
     const tbody = document.getElementById('bankTableBody');
-    if (!headRow || !tbody) return;
+    if (!headRow || !tbody) {
+        if (typeof updateBankListScrollMode === 'function') updateBankListScrollMode();
+        return;
+    }
 
     const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
     headRow.innerHTML = thLabels.map((label, i) => {
@@ -594,22 +908,24 @@ function renderBankTable() {
     if (waiting) {
         listToShow = listToShow.filter(function (p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
     }
-    window.__bankFilteredLength = waiting ? listToShow.length : null;
+    // Pagination must use the same row count as the table (filters + date + Waiting), not raw processes.length.
+    window.__bankFilteredLength = listToShow.length;
 
     if (listToShow.length === 0) {
         tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
         renderPagination();
         updateSelectAllProcessesVisibility();
+        if (typeof updateBankListScrollMode === 'function') updateBankListScrollMode();
         return;
     }
 
     let pageItems, startIndex;
     if (showAll) {
-        pageItems = listToShow;
         startIndex = 0;
+        pageItems = listToShow;
     } else {
-        const totalPages = Math.max(1, Math.ceil(listToShow.length / pageSize));
-        if (currentPage > totalPages) currentPage = totalPages;
+        const totalPagesBank = Math.max(1, Math.ceil(listToShow.length / pageSize));
+        if (currentPage > totalPagesBank) currentPage = totalPagesBank;
         startIndex = (currentPage - 1) * pageSize;
         pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
     }
@@ -640,6 +956,7 @@ function renderBankTable() {
         tr.setAttribute('data-status', process.status || '');
         tr.setAttribute('data-issue-flag', normalizeBankIssueFlag(process.issue_flag));
         tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
+        tr.setAttribute('data-maintenance-resend-pending', process.maintenance_resend_pending ? '1' : '0');
         tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
             '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
             '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
@@ -662,6 +979,7 @@ function renderBankTable() {
     renderPagination();
     updateSelectAllProcessesVisibility();
     updateDeleteButton();
+    if (typeof updateBankListScrollMode === 'function') updateBankListScrollMode();
 }
 
 /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
@@ -684,6 +1002,8 @@ function openAddProcessForSelectedPermission() {
         document.getElementById('addBankModal').style.display = 'block';
         setBankModalLoadingState(true, 'Add Process');
         ensureAddBankProcessDataLoaded().then(async () => {
+            setBankProcessEditLockedFields(false);
+            setBankProcessBillingScheduleLocked(false);
             const countryEl = document.getElementById('bank_country');
             if (countryEl) countryEl.value = '';
             applySelectedBanksToDropdown('');
@@ -745,7 +1065,59 @@ function ensureAddBankProcessDataLoaded(forceReload) {
     return bankAddProcessDataPromise;
 }
 
+function isBankProcessBillingScheduleLocked() {
+    const form = document.getElementById('addBankProcessForm');
+    return !!(form && form.getAttribute('data-billing-schedule-locked') === '1');
+}
+
+function setBankProcessEditLockedFields(locked) {
+    const lockableFieldIds = ['bank_country', 'bank_bank', 'bank_type', 'bank_name'];
+    lockableFieldIds.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Edit mode: lock as disabled so user cannot type or open picker.
+        el.disabled = !!locked;
+        if ('readOnly' in el) el.readOnly = !!locked;
+        // Match Profit field visual style (gray but not faded).
+        el.style.backgroundColor = locked ? '#f5f5f5' : '';
+        el.style.color = locked ? '#495057' : '';
+        el.style.opacity = locked ? '1' : '';
+        el.style.cursor = locked ? 'not-allowed' : '';
+    });
+    ['button[onclick="showAddCountryModal()"]', 'button[onclick="showAddBankModal()"]'].forEach(function (selector) {
+        const btn = document.querySelector(selector);
+        if (!btn) return;
+        btn.disabled = !!locked;
+        btn.style.opacity = locked ? '0.6' : '';
+        btn.style.cursor = locked ? 'not-allowed' : '';
+    });
+}
+
+function setBankProcessBillingScheduleLocked(locked) {
+    const form = document.getElementById('addBankProcessForm');
+    if (form) {
+        if (locked) {
+            form.setAttribute('data-billing-schedule-locked', '1');
+        } else {
+            form.removeAttribute('data-billing-schedule-locked');
+        }
+    }
+    ['bank_day_start', 'bank_day_end'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.readOnly = !!locked;
+        el.style.backgroundColor = locked ? '#f5f5f5' : '';
+    });
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    if (freqEl) {
+        freqEl.disabled = !!locked;
+        freqEl.style.backgroundColor = locked ? '#f5f5f5' : '';
+    }
+}
+
 function closeAddBankModal() {
+    setBankProcessEditLockedFields(false);
+    setBankProcessBillingScheduleLocked(false);
     document.getElementById('addBankModal').style.display = 'none';
     document.getElementById('bank_edit_id').value = '';
     window.selectedProfitSharingEntries = [];
@@ -869,7 +1241,10 @@ async function openBankEditModal(id) {
     document.getElementById('addBankModal').style.display = 'block';
     setBankModalLoadingState(true, 'Edit Process');
     try {
-        const processRequest = fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
+        const processRequest = fetch(
+            buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank&_=${Date.now()}`),
+            { method: 'GET', cache: 'no-store' }
+        );
         const bankDataRequest = ensureAddBankProcessDataLoaded();
         const response = await processRequest;
         const result = await response.json();
@@ -951,15 +1326,21 @@ async function openBankEditModal(id) {
             cardMerchantBtnEarly.setAttribute('data-value', process.card_merchant_id || '');
             const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
             const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-            cardMerchantBtnEarly.textContent = process.card_merchant_id ? (cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account')) : (cardMerchantBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+            cardMerchantBtnEarly.textContent = process.card_merchant_id
+                ? (formatBankAccountDisplay(cmCode, cmName, process.card_merchant_id) || 'Select Account')
+                : (cardMerchantBtnEarly.getAttribute('data-placeholder') || 'Select Account');
         }
         if (customerBtnEarly) {
             customerBtnEarly.setAttribute('data-value', process.customer_id || '');
-            customerBtnEarly.textContent = process.customer_id ? ((process.customer_account || process.customer_name || process.customer_id) || 'Select Account') : (customerBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+            customerBtnEarly.textContent = process.customer_id
+                ? (formatBankAccountDisplay(process.customer_account, process.customer_name, process.customer_id) || 'Select Account')
+                : (customerBtnEarly.getAttribute('data-placeholder') || 'Select Account');
         }
         if (profitAccountBtnEarly) {
             profitAccountBtnEarly.setAttribute('data-value', process.profit_account_id || '');
-            profitAccountBtnEarly.textContent = process.profit_account_id ? ((process.profit_account_name || process.profit_account_id) || 'Select Account') : (profitAccountBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+            profitAccountBtnEarly.textContent = process.profit_account_id
+                ? (formatBankAccountDisplay(process.profit_account_account_id || process.profit_account_name, process.profit_account_name, process.profit_account_id) || 'Select Account')
+                : (profitAccountBtnEarly.getAttribute('data-placeholder') || 'Select Account');
         }
 
         await bankDataRequest;
@@ -996,14 +1377,14 @@ async function openBankEditModal(id) {
             cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
             const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
             const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-            cardMerchantBtn.textContent = cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
+            cardMerchantBtn.textContent = formatBankAccountDisplay(cmCode, cmName, process.card_merchant_id) || 'Select Account';
         } else if (cardMerchantBtn) {
             cardMerchantBtn.removeAttribute('data-value');
             cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
         }
         if (customerBtn && process.customer_id) {
             customerBtn.setAttribute('data-value', process.customer_id);
-            customerBtn.textContent = (process.customer_account || process.customer_name || process.customer_id) || 'Select Account';
+            customerBtn.textContent = formatBankAccountDisplay(process.customer_account, process.customer_name, process.customer_id) || 'Select Account';
         } else if (customerBtn) {
             customerBtn.removeAttribute('data-value');
             customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
@@ -1011,14 +1392,15 @@ async function openBankEditModal(id) {
         const profitAccountBtn = document.getElementById('bank_profit_account');
         if (profitAccountBtn && process.profit_account_id) {
             profitAccountBtn.setAttribute('data-value', process.profit_account_id);
-            profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || 'Select Account';
+            profitAccountBtn.textContent = formatBankAccountDisplay(process.profit_account_account_id || process.profit_account_name, process.profit_account_name, process.profit_account_id) || 'Select Account';
         } else if (profitAccountBtn) {
             profitAccountBtn.removeAttribute('data-value');
             profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
         }
         updateBankSubmitButtonState();
         document.getElementById('bankSubmitBtn').disabled = false;
-        if (typeof autoCalculateBankDayEnd === 'function') autoCalculateBankDayEnd();
+        setBankProcessEditLockedFields(true);
+        setBankProcessBillingScheduleLocked(false);
     } catch (error) {
         console.error('Error opening bank edit modal:', error);
         closeAddBankModal();
@@ -1102,7 +1484,7 @@ function renderAccountingInbox(items) {
         const cbDisabled = row.already_posted_today ? ' disabled' : '';
         const cbChecked = row.already_posted_today ? '' : ' checked';
         const cbClass = 'process-accounting-inbox-row-cb';
-        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'));
+        const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_resend_consolidated_range ? 'resend_consolidated_range' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly')));
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
         const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
@@ -1216,12 +1598,13 @@ async function postAccountingInboxToTransaction() {
         const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
         const result = await response.json();
         if (result.success) {
+            notifyTransactionDataChanged('bank_accounting_due_post');
             showNotification(result.message || 'Posted successfully.', 'success');
             closeAccountingInbox();
             loadAccountingInbox();
             fetchProcesses();
         } else {
-            showNotification(result.error || 'Post failed.', 'danger');
+            showNotification(result.error || result.message || 'Post failed.', 'danger');
         }
     } catch (err) {
         console.error('transaction error:', err);
@@ -1289,6 +1672,9 @@ async function confirmAccountingDueDelete() {
         if (result.success) {
             showNotification(result.message || 'Removed from Accounting Due', 'success');
             loadAccountingInbox();
+            if (typeof fetchProcesses === 'function') {
+                fetchProcesses();
+            }
         } else {
             showNotification(result.message || result.error || 'Remove failed', 'danger');
         }
@@ -1323,11 +1709,12 @@ async function postToTransactionSelected() {
         });
         const result = await response.json();
         if (result.success) {
+            notifyTransactionDataChanged('bank_list_bulk_post');
             showNotification(result.message || 'Posted successfully', 'success');
             updateDeleteButton();
             fetchProcesses();
         } else {
-            showNotification(result.error || 'Post failed', 'danger');
+            showNotification(result.error || result.message || 'Post failed', 'danger');
         }
     } catch (err) {
         console.error('transaction error:', err);
@@ -1337,21 +1724,55 @@ async function postToTransactionSelected() {
 
 // 执行状态切换（API + 本地更新）
 async function performToggleStatus(processId) {
-    const formData = new FormData();
-    formData.append('id', processId);
-    if (selectedPermission === 'Bank') {
-        formData.append('permission', 'Bank');
-    }
-    const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
-        method: 'POST',
-        body: formData
-    });
-    const result = await response.json();
+    try {
+        const formData = new FormData();
+        formData.append('id', processId);
 
-    if (result.success) {
+        // Bank list page may rely on body class even before selectedPermission settles
+        const isBank = selectedPermission === 'Bank' || document.body.classList.contains('process-page--bank');
+        if (isBank) {
+            formData.append('permission', 'Bank');
+        }
+
+        const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            let msg = 'Status toggle failed';
+            try {
+                const errJson = await response.json();
+                msg = errJson?.error || errJson?.message || msg;
+            } catch (_) {
+                try {
+                    const txt = await response.text();
+                    if (txt && txt.trim()) msg = txt.trim();
+                } catch (_) { /* ignore */ }
+            }
+            showNotification(msg, 'danger');
+            return;
+        }
+
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (parseErr) {
+            // Backend updated but response was not valid JSON (e.g. warning output). Treat as success and refresh.
+            console.warn('toggle status: invalid JSON response, refreshing list', parseErr);
+            await fetchProcesses();
+            showNotification('Status updated', 'success');
+            return;
+        }
+
+        if (!result || result.success !== true) {
+            showNotification((result && (result.error || result.message)) || 'Status toggle failed', 'danger');
+            return;
+        }
+
         const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
         const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
-        const process = processes.find(p => p.id === processId);
+        const process = processes.find(p => String(p.id) === String(processId));
         if (process) {
             process.status = newStatus;
             if (newDayEnd) process.day_end = newDayEnd;
@@ -1362,13 +1783,13 @@ async function performToggleStatus(processId) {
             : (showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active'));
 
         if (!shouldShow) {
-            const processIndex = processes.findIndex(p => p.id === processId);
+            const processIndex = processes.findIndex(p => String(p.id) === String(processId));
             if (processIndex > -1) processes.splice(processIndex, 1);
             renderTable();
         } else if (newDayEnd) {
             renderTable();
         } else {
-            const process = processes.find(p => p.id === processId);
+            const process = processes.find(p => String(p.id) === String(processId));
             const statusSelect = renderBankStatusSelect(processId, process);
 
             if (selectedPermission === 'Bank') {
@@ -1414,7 +1835,7 @@ async function performToggleStatus(processId) {
                                 if (existingCheckbox) existingCheckbox.remove();
                                 if (existingMuted) existingMuted.remove();
                             } else {
-                                const proc = processes.find(function (p) { return p.id === processId; });
+                                const proc = processes.find(function (p) { return String(p.id) === String(processId); });
                                 if (!existingCheckbox && !existingMuted && (!proc || !proc.has_transactions)) {
                                     const checkbox = document.createElement('input');
                                     checkbox.type = 'checkbox';
@@ -1436,13 +1857,19 @@ async function performToggleStatus(processId) {
         updateSelectAllProcessesVisibility();
 
         if (selectedPermission === 'Bank' && newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
-            await loadAccountingInbox();
+            try {
+                await loadAccountingInbox();
+            } catch (inboxErr) {
+                // 状态切换已成功；inbox 刷新失败不应回滚为 toggle failed
+                console.warn('loadAccountingInbox failed after status toggle:', inboxErr);
+            }
         }
 
         const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
         showNotification(`Process status changed to ${statusText}`, 'success');
-    } else {
-        showNotification(result.error || 'Status toggle failed', 'danger');
+    } catch (e) {
+        console.error('performToggleStatus error:', e);
+        showNotification('Status toggle failed', 'danger');
     }
 }
 
@@ -1508,7 +1935,12 @@ async function confirmInactive() {
         // 无论目标是 Active 还是 Inactive，都交给同一个切换函数处理
         await performToggleStatus(processId);
         if (pendingStatusSelection && pendingStatusSelection.processId === processId) {
-            await updateBankIssueFlag(processId, '', { silent: true });
+            try {
+                await updateBankIssueFlag(processId, '', { silent: true });
+            } catch (flagError) {
+                // 状态切换已成功时，不因清空 issue_flag 失败而提示整体失败，避免误报
+                console.warn('Status changed but clearing issue_flag failed:', flagError);
+            }
         }
     } catch (error) {
         console.error('Error:', error);
@@ -1629,6 +2061,11 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
             submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
         }
         const formData = new FormData(this);
+        if (editId) {
+            ['country', 'bank', 'type', 'name'].forEach(function (key) {
+                formData.delete(key);
+            });
+        }
         // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
         const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
         formData.set('profit', grossProfit.toFixed(2));
@@ -1707,6 +2144,7 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
 // Sync Frequency based on Day End
 function updateBankFrequencyOptions() {
+    if (isBankProcessBillingScheduleLocked()) return;
     const dayEndEl = document.getElementById('bank_day_end');
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (!dayEndEl || !freqEl) return;
@@ -1811,6 +2249,7 @@ function contractBillingEndYmdForBankForm(startYmd, termMonths, frequency) {
  * 明显高于旧合约结束日的日期视为尾段延长，不因缩短月数被自动改掉。
  */
 function autoCalculateBankDayEnd() {
+    if (isBankProcessBillingScheduleLocked()) return;
     const dayStartEl = document.getElementById('bank_day_start');
     const dayEndEl = document.getElementById('bank_day_end');
     const contractEl = document.getElementById('bank_contract');
@@ -1967,7 +2406,8 @@ if (addDescriptionForm) {
 
 // Add Country form submit (in modal: save to DB via API, then add to Available; user selects to move to Selected)
 const addCountryForm = document.getElementById('addCountryForm');
-if (addCountryForm) {
+if (addCountryForm && !window.__processlistModalAddCountryFormBound) {
+    window.__processlistModalAddCountryFormBound = true;
     addCountryForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_country_name');
@@ -2004,7 +2444,8 @@ if (addCountryForm) {
 
 // Add Bank form submit (in modal: add new bank to Available only; user selects it to move to Selected)
 const addBankFormEl = document.getElementById('addBankForm');
-if (addBankFormEl) {
+if (addBankFormEl && !window.__processlistModalAddBankFormBound) {
+    window.__processlistModalAddBankFormBound = true;
     addBankFormEl.addEventListener('submit', function (e) {
         e.preventDefault();
         const nameInput = document.getElementById('new_bank_name');
@@ -2017,7 +2458,8 @@ if (addBankFormEl) {
             availableBanksList.push(bankName);
             availableBanksList.sort((a, b) => a.localeCompare(b));
         }
-        loadExistingBanks();
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
+        loadExistingBanks(currentBankModalCountry);
         if (nameInput) nameInput.value = '';
         showNotification('Bank added to available list', 'success');
     });
@@ -2037,8 +2479,8 @@ let bankAddAccountTriggerFieldId = null;
 let bankAddAccountTriggerHiddenInputId = null;
 
 let bankAccountRoles = [];
-/** Role 排序优先级（与 account-list 一致，Add Account 弹窗开放完整 Role 列表） */
-const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+/** 与 js/account-list.js 中 ROLE_PRIORITY 保持完全一致 */
+const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
 
 function getOrderedRolesBank(roles, includeStaff = true) {
     const normalizedMap = new Map();
@@ -2050,16 +2492,30 @@ function getOrderedRolesBank(roles, includeStaff = true) {
             normalizedMap.set(upper, trimmed);
         }
     });
+
     if (includeStaff) {
         normalizedMap.set('STAFF', 'STAFF');
     }
+
+    if (!normalizedMap.has('PARTNER')) {
+        normalizedMap.set('PARTNER', 'PARTNER');
+    }
+
+    if (!normalizedMap.has('DEBTOR')) {
+        normalizedMap.set('DEBTOR', 'DEBTOR');
+    }
+
     const orderedRoles = [];
     BANK_ROLE_PRIORITY.forEach(role => {
         if (normalizedMap.has(role)) {
             orderedRoles.push(normalizedMap.get(role));
             normalizedMap.delete(role);
+        } else if (role === 'SUPPLIER' && normalizedMap.has('UPLINE')) {
+            orderedRoles.push(normalizedMap.get('UPLINE'));
+            normalizedMap.delete('UPLINE');
         }
     });
+
     const remaining = Array.from(normalizedMap.values()).sort((a, b) => a.localeCompare(b));
     return orderedRoles.concat(remaining);
 }
@@ -2072,14 +2528,14 @@ function populateRoleSelectBank(selectElement, roles, selectedRole = '', include
     orderedRoles.forEach(role => {
         const opt = document.createElement('option');
         opt.value = role;
-        opt.textContent = role;
+        opt.textContent = (role.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : role;
         if (selectedUpper && role.toUpperCase() === selectedUpper) opt.selected = true;
         selectElement.appendChild(opt);
     });
     if (selectedUpper && !orderedRoles.some(r => r.toUpperCase() === selectedUpper)) {
         const fallback = document.createElement('option');
         fallback.value = selectedRole;
-        fallback.textContent = selectedRole;
+        fallback.textContent = (selectedRole.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : selectedRole;
         fallback.selected = true;
         selectElement.appendChild(fallback);
     }
@@ -2101,13 +2557,7 @@ async function loadEditDataBank() {
         console.error('loadEditDataBank', e);
         const addRoleSelect = document.getElementById('add_role');
         if (addRoleSelect) {
-            addRoleSelect.innerHTML = '<option value="">Select Role</option>';
-            (bankAccountRoles.length > 0 ? getOrderedRolesBank(bankAccountRoles) : BANK_ROLE_PRIORITY).forEach(code => {
-                const opt = document.createElement('option');
-                opt.value = code;
-                opt.textContent = code;
-                addRoleSelect.appendChild(opt);
-            });
+            populateRoleSelectBank(addRoleSelect, bankAccountRoles);
         }
     }
 }
@@ -2411,10 +2861,23 @@ async function addCurrencyFromInputBank(type) {
 
 // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
 const addAccountFormEl = document.getElementById('addAccountForm');
-if (addAccountFormEl) {
+if (addAccountFormEl && !window.__globalAddAccountSubmitHandlerBound) {
+    window.__globalAddAccountSubmitHandlerBound = true;
     addAccountFormEl.addEventListener('submit', async function (e) {
         e.preventDefault();
-        if (!validatePaymentAlertForAddBank()) return;
+        if (window.__globalAddAccountSubmitInFlight) return;
+        // Guard against double-submit (double click / Enter key repeat / duplicated trigger)
+        if (this.dataset.submitting === '1') return;
+        window.__globalAddAccountSubmitInFlight = true;
+        this.dataset.submitting = '1';
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        if (!validatePaymentAlertForAddBank()) {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
+            return;
+        }
         const formData = new FormData(this);
         const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
         if (paymentAlert) {
@@ -2500,6 +2963,10 @@ if (addAccountFormEl) {
         } catch (err) {
             console.error('Add account error', err);
             showNotification('Failed to add account', 'danger');
+        } finally {
+            this.dataset.submitting = '0';
+            if (submitBtn) submitBtn.disabled = false;
+            window.__globalAddAccountSubmitInFlight = false;
         }
     });
 }
@@ -2771,7 +3238,7 @@ async function ensureAccountHasCountryCurrency(accountId) {
     }
 }
 
-// Load accounts for Bank form（不按 role 过滤，显示该公司下全部账户）
+// Load accounts for Bank form（仅显示允许的 role 账户）
 async function loadBankAccounts() {
     try {
         const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -2779,14 +3246,14 @@ async function loadBankAccounts() {
         if (currentCompanyId) {
             url.searchParams.set('company_id', currentCompanyId);
         }
-        // 不传 roles 参数，API 返回该公司下全部账户（含所有 role）
+        url.searchParams.set('roles', BANK_ALLOWED_ACCOUNT_ROLES.join(','));
 
         const response = await fetch(url.toString());
         const result = await response.json();
 
         if (result.success && result.data != null) {
-            // API 返回格式为 data: { accounts: [...], count, ... }，与 Account List 一致
-            window.bankAccounts = (result.data.accounts && Array.isArray(result.data.accounts)) ? result.data.accounts : [];
+            const rawAccounts = (result.data.accounts && Array.isArray(result.data.accounts)) ? result.data.accounts : [];
+            window.bankAccounts = rawAccounts.filter(account => isAllowedBankAccountRole(account.role));
         } else {
             window.bankAccounts = [];
         }
@@ -2797,8 +3264,7 @@ async function loadBankAccounts() {
 }
 
 // Initialize Bank Account Select (custom dropdown with search, like datacapturesummary Account)
-// showNameInParentheses: only for Supplier – display "account_id (name)" in dropdown
-function initBankAccountSelect(buttonId, dropdownId, showNameInParentheses) {
+function initBankAccountSelect(buttonId, dropdownId) {
     const accountButton = document.getElementById(buttonId);
     const accountDropdown = document.getElementById(dropdownId);
     const searchInput = accountDropdown?.querySelector('.custom-select-search input');
@@ -2872,15 +3338,9 @@ function initBankAccountSelect(buttonId, dropdownId, showNameInParentheses) {
             optionsContainer.appendChild(selectOpt);
         }
 
-        // Filter by the same text we display so search matches what user sees (exact match on displayed string)
-        // Supplier only: show name only (no id); others: show account_id only
+        // Display as "account_id[name]" to show both code and name
         function getDisplayText(account) {
-            const code = String(account.account_id ?? account.name ?? '').trim();
-            const nameStr = (account.name != null && String(account.name).trim() !== '') ? String(account.name).trim() : '';
-            if (showNameInParentheses) {
-                return nameStr !== '' ? nameStr : code;
-            }
-            return code;
+            return formatBankAccountDisplay(account.account_id, account.name, account.id);
         }
         let filteredAccounts = accounts.filter(account => {
             const displayText = getDisplayText(account).toLowerCase();
@@ -3163,15 +3623,21 @@ async function showAddCountryModal() {
     }
     let allCountries = [];
     try {
-        allCountries = await fetchCompanyCurrencyCodes();
-        if (allCountries.length === 0) {
-            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        const currencyCodes = await fetchCompanyCurrencyCodes();
+        let fromListApi = [];
+        const cid = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+        try {
             let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-            if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+            if (cid) url += '&company_id=' + encodeURIComponent(cid);
             const res = await fetch(url);
             const result = await res.json();
-            allCountries = (result.success && result.data) ? result.data : [];
-        }
+            if (result.success && Array.isArray(result.data)) fromListApi = result.data;
+        } catch (e2) { console.warn('get_countries', e2); }
+        allCountries = [...new Set(
+            [...(currencyCodes || []), ...fromListApi]
+                .map(function (x) { return String(x || '').trim(); })
+                .filter(Boolean)
+        )].sort(function (a, b) { return a.localeCompare(b); });
     } catch (e) { console.warn('country list', e); }
     loadExistingCountries(allCountries);
     updateSelectedCountriesInModal();
@@ -3226,7 +3692,7 @@ function loadExistingCountries(allFromServer) {
         deleteBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            removeCountryFromAvailable(name, item);
+            void removeCountryFromAvailable(name, item);
         });
         item.appendChild(left);
         item.appendChild(deleteBtn);
@@ -3325,7 +3791,7 @@ function moveCountryBackToAvailable(countryName, countryId) {
     delBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        removeCountryFromAvailable(countryName, newItem);
+        void removeCountryFromAvailable(countryName, newItem);
     });
     newItem.appendChild(left);
     newItem.appendChild(delBtn);
@@ -3353,7 +3819,37 @@ function moveCountryToAvailable(checkbox) {
     }
 }
 
-function removeCountryFromAvailable(countryName, itemEl) {
+async function removeCountryFromAvailable(countryName, itemEl) {
+    const name = (countryName || '').trim();
+    if (!name) {
+        if (itemEl && itemEl.parentNode) itemEl.remove();
+        return;
+    }
+    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+    if (companyId) {
+        try {
+            const formData = new FormData();
+            formData.append('company_id', String(companyId));
+            formData.append('country', name);
+            const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=remove_country'), { method: 'POST', body: formData });
+            let result = { success: false, error: 'Invalid response' };
+            try {
+                result = await res.json();
+            } catch (parseErr) { /* use default */ }
+            if (!result.success) {
+                showNotification(result.error || result.message || 'Failed to remove country', 'danger');
+                return;
+            }
+        } catch (err) {
+            console.warn('remove_country', err);
+            showNotification('Failed to remove country', 'danger');
+            return;
+        }
+    }
+    if (Array.isArray(availableCountriesList)) {
+        const idx = availableCountriesList.indexOf(name);
+        if (idx > -1) availableCountriesList.splice(idx, 1);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
@@ -3403,7 +3899,31 @@ async function confirmCountries() {
 
 // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 company + Country 分别存储）
 const DEFAULT_BANKS = [];
+let currentBankModalCountry = '';
 let availableBanksList = [];
+let availableBanksByCountry = {};
+
+function normalizeBankCountryKey(country) {
+    return String(country || '').trim();
+}
+
+function getAvailableBanksForCountry(country) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return [];
+    if (!availableBanksByCountry[key] || !Array.isArray(availableBanksByCountry[key])) {
+        availableBanksByCountry[key] = [];
+    }
+    return availableBanksByCountry[key];
+}
+
+function setAvailableBanksForCountry(country, list) {
+    const key = normalizeBankCountryKey(country);
+    if (!key) return;
+    const normalized = Array.isArray(list)
+        ? [...new Set(list.map(function (n) { return (n || '').trim(); }).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+        : [];
+    availableBanksByCountry[key] = normalized;
+}
 
 function getSelectedBanksByCountryStorageKey() {
     const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -3479,6 +3999,8 @@ async function showAddBankModal() {
         showNotification('Please select Country first', 'danger');
         return;
     }
+    currentBankModalCountry = country;
+    availableBanksList = getAvailableBanksForCountry(country).slice();
     // Selected Banks 从当前 Country 的已选列表恢复；Available 由 loadExistingBanks 按接口拉取
     window.selectedBanks = (window.selectedBanksByCountry && window.selectedBanksByCountry[country]) ? window.selectedBanksByCountry[country].slice() : [];
     await loadExistingBanks(country);
@@ -3491,18 +4013,20 @@ async function showAddBankModal() {
 }
 
 async function loadExistingBanks(countryForApi) {
+    const country = normalizeBankCountryKey(countryForApi || currentBankModalCountry || ((document.getElementById('bank_country') && document.getElementById('bank_country').value) ? document.getElementById('bank_country').value : ''));
+    const countryAvailable = getAvailableBanksForCountry(country);
     let all = [];
-    if (countryForApi) {
+    if (country) {
         try {
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+            let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
             if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
             const res = await fetch(url);
             const result = await res.json();
             all = (result.success && result.data) ? result.data : [];
-            all = [...new Set([...all, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+            all = [...new Set([...all, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
         } catch (e) {
-            all = [...(availableBanksList || [])].sort((a, b) => a.localeCompare(b));
+            all = [...countryAvailable].sort((a, b) => a.localeCompare(b));
         }
     } else {
         const select = document.getElementById('bank_bank');
@@ -3513,11 +4037,12 @@ async function loadExistingBanks(countryForApi) {
                 if (v) existingOptions.push(v);
             }
         }
-        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+        all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...countryAvailable])].sort((a, b) => a.localeCompare(b));
     }
     const selectedSet = new Set(window.selectedBanks || []);
     const combined = all.filter(name => !selectedSet.has(name));
-    availableBanksList = combined;
+    availableBanksList = combined.slice();
+    setAvailableBanksForCountry(country, combined);
 
     const listEl = document.getElementById('existingBanks');
     if (!listEl) return;
@@ -3672,6 +4197,12 @@ function moveBankToAvailable(checkbox) {
 }
 
 function removeBankFromAvailable(bankName, itemEl) {
+    if (availableBanksList && bankName != null && bankName !== '') {
+        const n = String(bankName).trim();
+        const idx = availableBanksList.indexOf(n);
+        if (idx > -1) availableBanksList.splice(idx, 1);
+        setAvailableBanksForCountry(currentBankModalCountry, availableBanksList);
+    }
     if (itemEl && itemEl.parentNode) itemEl.remove();
 }
 
@@ -3686,6 +4217,7 @@ function closeBankSelectionModal() {
     const search = document.getElementById('bankSearch');
     if (search) search.value = '';
     document.querySelectorAll('input[name="available_banks"]').forEach(cb => cb.checked = false);
+    currentBankModalCountry = '';
 }
 
 async function confirmBanks() {
@@ -4074,7 +4606,13 @@ return {
     postToTransactionSelected: postToTransactionSelected,
     toggleProcessStatus: toggleProcessStatus,
     refreshAfterFetch: function () { sortBankProcessesBySupplier(); },
-    renderAfterStatusChange: function () { renderBankTable(); renderPagination(); },
-    isRealBankInactive: isRealBankInactive
+    renderAfterStatusChange: function () { renderTable(); },
+    isRealBankInactive: isRealBankInactive,
+    executeAccountingDueResend: executeAccountingDueResend,
+    getPendingResendScheduleForProcess: getPendingResendScheduleForProcess,
+    setPendingResendScheduleForProcess: setPendingResendScheduleForProcess,
+    bankResendScheduleDayStartForbiddenMessage: bankResendScheduleDayStartForbiddenMessage,
+    presentBankResendDayStartValidationError: presentBankResendDayStartValidationError,
+    clearBankResendDayStartInlineError: clearBankResendDayStartInlineError
 };
 })();

@@ -49,82 +49,32 @@ let currencyList = []; // currency 列表（包含 id 和 code，按 ID 排序�
 let selectedCurrencies = []; // 当前选中的 currency 数组（可多选）
 let showAllCurrencies = false; // 是否显示所有 currency
 
-// 加载当前用户可用的公司（owner 和普通 user 通用）
-async function loadOwnerCompanies() {
+async function fetchCompanyPermissions(companyCode) {
+    if (!companyCode) return [];
     try {
-        const response = await fetch('/api/transactions/get_owner_companies_api.php');
-        const data = await response.json();
-
-        if (data.success && data.data.length > 0) {
-            // 如果有多个 company，显示按钮
-            if (data.data.length > 1) {
-                const wrapper = document.getElementById('company-buttons-wrapper');
-                const container = document.getElementById('company-buttons-container');
-                container.innerHTML = '';
-
-                data.data.forEach(company => {
-                    const btn = document.createElement('button');
-                    btn.className = 'transaction-company-btn';
-                    btn.textContent = company.company_id;
-                    btn.dataset.companyId = company.id;
-                    btn.addEventListener('click', function() {
-                        switchCompany(company.id, company.company_id);
-                    });
-                    container.appendChild(btn);
-                });
-
-                wrapper.style.display = 'flex';
-
-                // 如果 session 中有 company_id，优先使用它；否则使用第一个
-                if (!currentCompanyId) {
-                    if (data.data.length > 0) {
-                        const firstCompany = data.data[0];
-                        currentCompanyId = firstCompany.id;
-                        const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
-                        if (firstBtn) {
-                            firstBtn.classList.add('active');
-                        }
-                    }
-                } else {
-                    const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                    if (exists) {
-                        const sessionCompany = data.data.find(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                        if (sessionCompany) {
-                            const sessionBtn = container.querySelector(`button[data-company-id="${sessionCompany.id}"]`);
-                            if (sessionBtn) {
-                                sessionBtn.classList.add('active');
-                            }
-                        }
-                    } else if (data.data.length > 0) {
-                        const firstCompany = data.data[0];
-                        currentCompanyId = firstCompany.id;
-                        const firstBtn = container.querySelector(`button[data-company-id="${firstCompany.id}"]`);
-                        if (firstBtn) {
-                            firstBtn.classList.add('active');
-                        }
-                    }
-                }
-
-                console.log('✅ Company 按钮加载成功:', data.data, '当前选中的 company_id:', currentCompanyId);
-            } else if (data.data.length === 1) {
-                // 只有一个 company，直接设置（不显示按钮）
-                currentCompanyId = data.data[0].id;
-                console.log('✅ 单个 Company 已设置:', data.data[0]);
-            }
-        } else {
-            // 没有 company 数据，使用 session 中的 company_id（后端控制）
-            console.log('⚠️ 没有 company 数据，API 将使用 session company_id');
+        const response = await fetch('/api/domain/domain_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
+        });
+        const result = await response.json();
+        if (result.success && result.data && Array.isArray(result.data.permissions)) {
+            return result.data.permissions;
         }
-
-        console.log('✅ loadOwnerCompanies 完成，currentCompanyId:', currentCompanyId);
-        return data;
-    } catch (error) {
-        console.error('❌ 加载 Company 列表失败:', error);
-        // 不弹错误，因为普通 user 可能只有一个或零家公司
-        return { success: true, data: [] };
+    } catch (err) {
+        console.error('Error fetching company permissions:', err);
     }
+    return [];
 }
 
+function isBankOnlyCategoryCompany(permissions) {
+    if (!Array.isArray(permissions) || permissions.length === 0) return false;
+    const hasBank = permissions.includes('Bank');
+    const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+    return hasBank && !hasGames;
+}
+
+// Company filtering is now handled by SSR includes/company_filter.php
 // Switch company
 async function switchCompany(companyId, companyCode) {
     // 先更新 session
@@ -134,8 +84,8 @@ async function switchCompany(companyId, companyCode) {
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
             // 即使 API 失败，也继续更新前端状态
-        } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-            window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+        } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
+            window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);
@@ -143,6 +93,11 @@ async function switchCompany(companyId, companyCode) {
     }
     
     currentCompanyId = companyId;
+    const permissions = await fetchCompanyPermissions(companyCode || '');
+    if (isBankOnlyCategoryCompany(permissions)) {
+        window.location.href = 'dashboard.php';
+        return;
+    }
     
     // 更新按钮状态
     const buttons = document.querySelectorAll('#company-buttons-container .transaction-company-btn');
@@ -836,8 +791,26 @@ function renderCurrencyGroupedReports(groupedByCurrency, currencies, totalWin, t
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async function() {
+    let modeCode = typeof window.SIDEBAR_COMPANY_CODE !== 'undefined' ? String(window.SIDEBAR_COMPANY_CODE) : '';
+    if (!modeCode && typeof window.CUSTOMER_REPORT_COMPANY_ID !== 'undefined') {
+        modeCode = String(window.CUSTOMER_REPORT_COMPANY_ID);
+    }
+    if (modeCode) {
+        let rawMode = localStorage.getItem('selectedPermission_' + modeCode);
+        if (rawMode === 'Gambling') rawMode = 'Games';
+        if (rawMode === 'Bank') {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'dashboard.php';
+            }
+            return;
+        }
+    }
+
     initCustomerReportDateRange();
-    await loadOwnerCompanies(); // Load company buttons first (for owner)
+    // Company filter loaded via SSR
+
     await loadCompanyCurrencies(); // Load currency buttons
     await loadAccounts();
     

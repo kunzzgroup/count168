@@ -102,13 +102,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }).catch(function () { });
         }
 
-        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-        loadAndRenderCapturedTable().catch(function (e) {
-            console.warn('loadAndRenderCapturedTable error:', e);
-            hideLoadingState();
-            showEmptyState();
-        });
-
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
@@ -121,11 +114,38 @@ document.addEventListener('DOMContentLoaded', function () {
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
+
+        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
+        // IMPORTANT: 必须在 __summaryFreshFromCapture 设置后执行，避免首屏误走旧缓存恢复分支。
+        loadAndRenderCapturedTable().catch(function (e) {
+            console.warn('loadAndRenderCapturedTable error:', e);
+            hideLoadingState();
+            showEmptyState();
+        });
     } catch (error) {
         console.error('Error in DOMContentLoaded:', error);
         // Ensure loading state is hidden even if there's an error
         hideLoadingState();
         showEmptyState();
+    }
+});
+
+// 从 bfcache 返回（浏览器后退等）时 DOM 不会重新跑 DOMContentLoaded，页脚合计可能仍为旧值；此处按当前表格强制对齐
+window.addEventListener('pageshow', function (ev) {
+    if (!ev.persisted) return;
+    const body = document.getElementById('summaryTableBody');
+    if (!body || !body.querySelector('tr')) return;
+    try {
+        if (typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
+            recalculateSummaryProcessedAmountsFromDisplayedFormula();
+        } else if (typeof updateProcessedAmountTotal === 'function') {
+            updateProcessedAmountTotal();
+        }
+    } catch (e) {
+        console.warn('pageshow summary total refresh failed:', e);
+        if (typeof updateProcessedAmountTotal === 'function') {
+            updateProcessedAmountTotal();
+        }
     }
 });
 
@@ -911,7 +931,10 @@ function restoreFormulaSourceFromRefresh() {
             // If formulaOperators itself contains $ notation, also set it as template version
             row.setAttribute('data-template-formula-operators', data.formulaOperators);
         }
-        if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+        const existingSourceAttr = String(row.getAttribute('data-source-percent') || '').trim();
+        const existingSourceCellText = cells[5] ? String(cells[5].textContent || '').trim() : '';
+        const existingSourceForRow = existingSourceAttr || existingSourceCellText;
+        if (!existingSourceForRow && data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
         const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
@@ -934,8 +957,9 @@ function restoreFormulaSourceFromRefresh() {
             else row.removeAttribute('data-formula-display');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
-        if (cells[5]) cells[5].textContent = source;
-        const sourcePercentText = source;
+        // Source 优先保留当前行（后端最新）值，避免被 refresh/localStorage 里的旧值覆盖
+        if (cells[5] && !existingSourceForRow) cells[5].textContent = source;
+        const sourcePercentText = existingSourceForRow || source;
         const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
         const inputMethod = row.getAttribute('data-input-method') || '';
         const enableInputMethod = !!(inputMethod && inputMethod.trim());
@@ -955,7 +979,7 @@ function restoreFormulaSourceFromRefresh() {
             : formula;
         recalculateAndRenderProcessedAmount(row, {
             formula: formulaForRecalc,
-            sourcePercent: srcPct || sourcePercentText,
+            sourcePercent: existingSourceForRow || srcPct || sourcePercentText,
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
@@ -1142,6 +1166,12 @@ function refreshPage() {
 // Load captured table data from localStorage and render it. 会先从服务端拉取 Summary 状态（若有），供后续恢复顺序与公式，减少对 localStorage 的依赖。
 async function loadAndRenderCapturedTable() {
     try {
+        // 兜底：确保 fresh 标记在异步链路里可用（避免调用顺序变化导致首屏判定错误）
+        if (typeof window.__summaryFreshFromCapture === 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            window.__summaryFreshFromCapture = urlParams.get('success') === '1';
+        }
+
         const tableData = localStorage.getItem('capturedTableData');
         const processData = localStorage.getItem('capturedProcessData');
 
@@ -1317,11 +1347,9 @@ function hideLoadingState() {
     }
     if (summarySubmitContainer) {
         summarySubmitContainer.style.display = 'flex';
-        setTimeout(function () {
-            if (typeof updateProcessedAmountTotal === 'function') {
-                updateProcessedAmountTotal();
-            }
-        }, 100);
+        // 不在此处延迟刷新 Total：populate + 模板/恢复 的链路是异步的，
+        // setTimeout(100) 曾与 autoPopulate/restore 竞态，导致「各行已是 0.00 但页脚仍为旧合计」。
+        // 合计由 populate / restore / reorder 等路径显式调用 updateProcessedAmountTotal 更新。
     }
 }
 
@@ -1684,47 +1712,60 @@ function populateOriginalTableWithColumnAData(tableData) {
     autoPopulateSummaryRowsFromTemplates(columnAData)
         .catch(error => console.error('Auto-populate templates error:', error))
         .finally(() => {
-            const isFreshFromCapture = window.__summaryFreshFromCapture === true;
-            if (isFreshFromCapture) {
-                try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
-                try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
-                try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
-                window._summaryStateFromServer = null;
-            } else {
-                // 先恢复 Formula/Source（含行 rowUid），再按 rowUid 恢复 Rate，避免同 Id_Product+Account 多行 Rate 串行
-                restoreFormulaSourceFromRefresh();
-                restoreRateValuesFromRefresh();
-                if (typeof restoreRateValuesFromRefresh === 'function') {
-                    setTimeout(restoreRateValuesFromRefresh, 80);
+            try {
+                const isFreshFromCapture = window.__summaryFreshFromCapture === true;
+                if (isFreshFromCapture) {
+                    try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
+                    window._summaryStateFromServer = null;
+                } else {
+                    // 先恢复 Formula/Source（含行 rowUid），再按 rowUid 恢复 Rate，避免同 Id_Product+Account 多行 Rate 串行
+                    restoreFormulaSourceFromRefresh();
+                    restoreRateValuesFromRefresh();
+                    if (typeof restoreRateValuesFromRefresh === 'function') {
+                        setTimeout(restoreRateValuesFromRefresh, 80);
+                    }
                 }
-            }
-            // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
-            if (window.currentProcessHadTemplates !== true && window._summaryHasRefreshStateToPreserve !== true) {
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    summaryTableBody.querySelectorAll('tr').forEach((row) => {
-                        const cells = row.querySelectorAll('td');
-                        if (cells[4]) {
-                            cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
-                            const span = cells[4].querySelector('.formula-text');
-                            if (span) span.textContent = '';
-                        }
-                        if (cells[5]) cells[5].textContent = '';
-                        row.removeAttribute('data-formula-operators');
-                        row.removeAttribute('data-template-formula-operators');
-                        row.removeAttribute('data-formula-display');
-                        row.removeAttribute('data-formula-raw');
-                        row.removeAttribute('data-source-columns');
-                        row.removeAttribute('data-source-percent');
-                        row.setAttribute('data-base-processed-amount', '0');
-                        if (cells[8]) cells[8].textContent = '0.00';
-                    });
+                // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
+                if (window.currentProcessHadTemplates !== true && window._summaryHasRefreshStateToPreserve !== true) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody) {
+                        summaryTableBody.querySelectorAll('tr').forEach((row) => {
+                            const cells = row.querySelectorAll('td');
+                            if (cells[4]) {
+                                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
+                                const span = cells[4].querySelector('.formula-text');
+                                if (span) span.textContent = '';
+                            }
+                            if (cells[5]) cells[5].textContent = '';
+                            row.removeAttribute('data-formula-operators');
+                            row.removeAttribute('data-template-formula-operators');
+                            row.removeAttribute('data-formula-display');
+                            row.removeAttribute('data-formula-raw');
+                            row.removeAttribute('data-source-columns');
+                            row.removeAttribute('data-source-percent');
+                            row.setAttribute('data-base-processed-amount', '0');
+                            if (cells[8]) cells[8].textContent = '0.00';
+                        });
+                    }
                 }
+                if (isFreshFromCapture && typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
+                    recalculateSummaryProcessedAmountsFromDisplayedFormula();
+                }
+            } catch (e) {
+                console.warn('Summary init (restore / clear formulas) failed:', e);
             }
-            if (isFreshFromCapture && typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
-                recalculateSummaryProcessedAmountsFromDisplayedFormula()
+            // 无论上面哪一步抛错，都必须用当前表格重算页脚合计，避免与各行 Processed Amount 脱节
+            if (typeof updateProcessedAmountTotal === 'function') {
+                updateProcessedAmountTotal();
             }
-            updateProcessedAmountTotal();
+            // 第二次延迟恢复 Rate 后再对齐一次合计（restoreRateValuesFromRefresh 内部也会 update，此处兜底）
+            setTimeout(function () {
+                if (typeof updateProcessedAmountTotal === 'function') {
+                    updateProcessedAmountTotal();
+                }
+            }, 120);
         });
 }
 
@@ -2309,8 +2350,11 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
         modalContent = document.getElementById('editFormulaModalContent');
     }
 
-    // Find and store the current row for calculator keypad
-    if (productValue) {
+    // 与 $n / 计算器一致：必须绑定「正在编辑」的 Summary 行。同 id_product 下多条 sub 时不能按 productValue 扫到第一条就停。
+    const activeSummaryRowForModal = getActiveSummaryRowForEditFormula();
+    if (activeSummaryRowForModal) {
+        currentSelectedRowForCalculator = activeSummaryRowForModal;
+    } else if (productValue) {
         const summaryTableBody = document.getElementById('summaryTableBody');
         if (summaryTableBody) {
             const rows = summaryTableBody.querySelectorAll('tr');
@@ -2681,6 +2725,14 @@ function getColumnValueFromSelectedRow(columnNumber) {
     // Get the row that was last clicked or is currently being edited
     let targetRow = currentSelectedRowForCalculator;
 
+    if (!targetRow) {
+        const ar = getActiveSummaryRowForEditFormula();
+        if (ar) {
+            targetRow = ar;
+            currentSelectedRowForCalculator = ar;
+        }
+    }
+
     // If no stored row, try to find it from the form's process value
     if (!targetRow) {
         const processInput = document.getElementById('process');
@@ -2713,7 +2765,7 @@ function getColumnValueFromSelectedRow(columnNumber) {
     // Get column data from the data capture table
     // Column number corresponds to the column index in the data capture table
     // columnNumber 1 = Column A = first data column (index 1 in table)
-    const columnData = getColumnDataFromTable(processValue, columnNumber.toString(), '');
+    const columnData = getColumnDataFromTable(processValue, columnNumber.toString(), '', targetRow);
 
     if (columnData && columnData !== '') {
         // Extract numeric value from column data (remove any formatting)
@@ -3130,7 +3182,7 @@ async function loadFormData() {
                     // Add account options
                     result.accounts.forEach(account => {
                         // Only for upline (Supplier in UI), agent, member: display "Account [name]"; other roles show account_id only
-                        const rolesToShowName = ['upline', 'supplier', 'agent', 'member','debtor'];
+                        const rolesToShowName = ['upline', 'supplier', 'agent', 'member', 'debtor'];
                         let displayText;
                         if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
                             displayText = account.account_id + ' [' + account.name + ']';
@@ -3689,6 +3741,8 @@ function loadIdProductList() {
 
         // Store row index in data attribute for reference
         option.setAttribute('data-row-index', String(item.rowIndex));
+        // id_product 本身可含冒号（如 AD:ADVANT PLAY），不能用 option.value 拆 lastIndexOf(':') 推 id
+        option.setAttribute('data-id-product', item.idProduct);
 
         descriptionSelect1.appendChild(option);
     });
@@ -3699,15 +3753,46 @@ function loadIdProductList() {
         const currentProduct = processInput ? (processInput.value || '').trim() : '';
         const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
         let valueToSelect = null;
+        const editSummaryRow = typeof getActiveSummaryRowForEditFormula === 'function' ? getActiveSummaryRowForEditFormula() : null;
+        const preferredRowIdx = editSummaryRow && typeof getDataCaptureRowIndexOverrideFromSummaryRow === 'function'
+            ? getDataCaptureRowIndexOverrideFromSummaryRow(editSummaryRow)
+            : null;
         if (currentProduct) {
+            const normCur = normalizeSpaces(currentProduct);
+            const candidates = [];
             for (let i = 0; i < descriptionSelect1.options.length; i++) {
                 const opt = descriptionSelect1.options[i];
                 const optVal = (opt.value || '').trim();
                 if (!optVal) continue;
-                const optId = optVal.indexOf(':') >= 0 ? optVal.substring(0, optVal.lastIndexOf(':')).trim() : optVal;
-                if (normalizeSpaces(optId) === normalizeSpaces(currentProduct)) {
-                    valueToSelect = opt.value;
-                    break;
+                const fullId = (opt.getAttribute('data-id-product') || optVal).trim();
+                if (normalizeSpaces(fullId) !== normCur) continue;
+                candidates.push(opt);
+            }
+            if (candidates.length === 1) {
+                valueToSelect = candidates[0].value;
+            } else if (candidates.length > 1) {
+                if (preferredRowIdx !== null && preferredRowIdx >= 0) {
+                    for (const opt of candidates) {
+                        const ri = parseInt(opt.getAttribute('data-row-index') || '', 10);
+                        if (!Number.isNaN(ri) && ri === preferredRowIdx) {
+                            valueToSelect = opt.value;
+                            break;
+                        }
+                    }
+                }
+                if (valueToSelect == null) {
+                    valueToSelect = candidates[0].value;
+                }
+            }
+        }
+        if (valueToSelect == null) {
+            if (preferredRowIdx !== null && preferredRowIdx >= 0) {
+                const hit = idProductRows.find(r => r.rowIndex === preferredRowIdx);
+                if (hit) {
+                    const c = idProductCount.get(hit.idProduct);
+                    valueToSelect = (c > 1 && hit.rowLabel)
+                        ? `${hit.idProduct}:${hit.rowLabel}`
+                        : hit.idProduct;
                 }
             }
         }
@@ -3942,10 +4027,11 @@ function updateFormulaDataGrid() {
 
     let idProduct = selectedIdProductValue;
     let rowLabel = null;
+    const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
 
     // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
     // 让重复 id_product 的底部灰色块只显示自己那一行。
-    if (currentActiveProductType !== 'sub' && currentActiveRow && capturedTableBody) {
+    if (currentActiveRow && capturedTableBody) {
         const currentRowIndexCandidates = [
             currentActiveRow.getAttribute('data-preserved-row-index'),
             currentActiveRow.getAttribute('data-row-index')
@@ -3955,7 +4041,22 @@ function updateFormulaDataGrid() {
             if (rowIndexAttr == null || rowIndexAttr === '' || Number.isNaN(Number(rowIndexAttr))) continue;
             const currentRowIndex = Number(rowIndexAttr);
             const capturedRow = capturedTableBody.querySelectorAll('tr')[currentRowIndex];
-            const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
+            if (!capturedRow) continue;
+            let capId = capturedRow.getAttribute('data-id-product') || '';
+            if (!capId.trim()) {
+                const cs = capturedRow.querySelectorAll('td');
+                if (cs.length > 1 && cs[1]) {
+                    capId = cs[1].textContent ? cs[1].textContent.trim() : '';
+                }
+            }
+            const capTrim = (capId || '').trim();
+            const selTrim = (selectedIdProductValue || '').trim();
+            let idOnRowMatches = normalizeSpaces(capTrim) === normalizeSpaces(selTrim);
+            if (!idOnRowMatches && typeof normalizeIdProductText === 'function') {
+                idOnRowMatches = normalizeIdProductText(capTrim) === normalizeIdProductText(selTrim);
+            }
+            if (!idOnRowMatches) continue;
+            const rowHeaderCell = capturedRow.querySelector('.row-header');
             const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
             if (matchedRowLabel) {
                 rowLabel = matchedRowLabel;
@@ -3965,7 +4066,7 @@ function updateFormulaDataGrid() {
     }
 
     // 兼容旧行为：若 process 本身带 row_label（如 "ABC:A"），仍可解析使用。
-    if (!rowLabel && currentActiveProductType !== 'sub') {
+    if (!rowLabel) {
         const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
         if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
             const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
@@ -3976,9 +4077,25 @@ function updateFormulaDataGrid() {
         }
     }
 
-    const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
     const isFullId = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
     const normalizedTargetIdProduct = isFullId ? normalizeSpaces(idProduct) : normalizeIdProductText(idProduct);
+
+    function capturedDomRowMatchesEditIdProduct(domRow) {
+        if (!domRow) return false;
+        let rowIdProduct = domRow.getAttribute('data-id-product');
+        if (!rowIdProduct || rowIdProduct.trim() === '') {
+            const cells = domRow.querySelectorAll('td');
+            if (cells.length > 1 && cells[1]) {
+                rowIdProduct = cells[1].textContent ? cells[1].textContent.trim() : '';
+            }
+        }
+        const rowIdTrim = (rowIdProduct || '').trim();
+        const idTrim = (idProduct || '').trim();
+        const normalizedRowIdProduct = isFullId ? normalizeSpaces(rowIdProduct || '') : normalizeIdProductText(rowIdProduct || '');
+        return isFullId
+            ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim))
+            : !!(normalizedRowIdProduct && normalizedRowIdProduct === normalizedTargetIdProduct);
+    }
 
     // Get table data
     let parsedTableData;
@@ -3994,6 +4111,91 @@ function updateFormulaDataGrid() {
     }
 
     const rows = capturedTableBody.querySelectorAll('tr');
+
+    const appendFormulaGridItemsFromCapturedRow = function (row, rowIndex) {
+        if (!row) return false;
+        const rowContainer = document.createElement('div');
+        rowContainer.className = 'formula-data-grid-row';
+
+        // Get all data cells (skip row header and id_product column)
+        const cells = row.querySelectorAll('td');
+        cells.forEach((cell) => {
+            const columnIndex = cell.getAttribute('data-column-index');
+            if (columnIndex && parseInt(columnIndex) > 1) {
+                // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                if (cellValue !== '') {
+                    // Create a grid item for each column data
+                    const gridItem = document.createElement('div');
+                    gridItem.className = 'formula-data-grid-item';
+                    gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                    gridItem.setAttribute('data-row-index', rowIndex);
+                    gridItem.setAttribute('data-column-index', columnIndex);
+
+                    // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                    gridItem.addEventListener('click', function () {
+                        const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                        const targetColumnIndex = this.getAttribute('data-column-index');
+
+                        // Re-get rows to ensure we have the latest data
+                        const capturedTableBody = document.getElementById('capturedTableBody');
+                        if (!capturedTableBody) {
+                            console.warn('Captured data table body not found.');
+                            return;
+                        }
+
+                        const currentRows = capturedTableBody.querySelectorAll('tr');
+                        const targetRow = currentRows[targetRowIndex];
+                        if (!targetRow) {
+                            console.warn('Row not found for index:', targetRowIndex);
+                            return;
+                        }
+
+                        // Find the cell with matching data-column-index
+                        const targetCells = targetRow.querySelectorAll('td');
+                        let targetCell = null;
+                        targetCells.forEach(cell => {
+                            const colIdx = cell.getAttribute('data-column-index');
+                            if (colIdx === targetColumnIndex) {
+                                targetCell = cell;
+                            }
+                        });
+
+                        if (!targetCell) {
+                            console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                            return;
+                        }
+
+                        // Reuse existing logic: behave exactly like clicking the cell
+                        insertCellValueToFormula(targetCell);
+                    });
+
+                    rowContainer.appendChild(gridItem);
+                }
+            }
+        });
+
+        // Only append row container if it has items
+        if (rowContainer.children.length > 0) {
+            formulaDataGrid.appendChild(rowContainer);
+            return true;
+        }
+        return false;
+    };
+
+    // 优先按当前编辑行 data-row-index 渲染（尤其 sub row），避免同 id_product 场景下匹配到错误行或匹配不到。
+    // data-row-index 过期（如 Capture 重排）时须与 findProcessRow 一致：下标行 id 与当前编辑 id 不符则不要用该下标。
+    const activeRowIndexOverride = currentActiveRow ? getDataCaptureRowIndexOverrideFromSummaryRow(currentActiveRow) : null;
+    if (activeRowIndexOverride !== null) {
+        const targetRow = rows[activeRowIndexOverride];
+        if (targetRow && capturedDomRowMatchesEditIdProduct(targetRow)) {
+            appendFormulaGridItemsFromCapturedRow(targetRow, activeRowIndexOverride);
+            if (formulaDataGrid.children.length > 0) {
+                return;
+            }
+        }
+    }
+
     rows.forEach((row, rowIndex) => {
         // Try to get id_product from data-id-product attribute first
         let rowIdProduct = row.getAttribute('data-id-product');
@@ -4032,75 +4234,7 @@ function updateFormulaDataGrid() {
             }
         }
 
-        {
-            // Create a separate row container for each matching row
-            const rowContainer = document.createElement('div');
-            rowContainer.className = 'formula-data-grid-row';
-
-            // Get all data cells (skip row header and id_product column)
-            const cells = row.querySelectorAll('td');
-
-            cells.forEach((cell, cellIndex) => {
-                const columnIndex = cell.getAttribute('data-column-index');
-                if (columnIndex && parseInt(columnIndex) > 1) {
-                    // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                    const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                    if (cellValue !== '') {
-                        // Create a grid item for each column data
-                        const gridItem = document.createElement('div');
-                        gridItem.className = 'formula-data-grid-item';
-                        gridItem.textContent = `[${columnIndex}] ${cellValue}`;
-                        gridItem.setAttribute('data-row-index', rowIndex);
-                        gridItem.setAttribute('data-column-index', columnIndex);
-
-                        // Add click event to insert value into formula (same behavior as descriptionSelect2)
-                        gridItem.addEventListener('click', function () {
-                            const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
-                            const targetColumnIndex = this.getAttribute('data-column-index');
-
-                            // Re-get rows to ensure we have the latest data
-                            const capturedTableBody = document.getElementById('capturedTableBody');
-                            if (!capturedTableBody) {
-                                console.warn('Captured data table body not found.');
-                                return;
-                            }
-
-                            const currentRows = capturedTableBody.querySelectorAll('tr');
-                            const targetRow = currentRows[targetRowIndex];
-                            if (!targetRow) {
-                                console.warn('Row not found for index:', targetRowIndex);
-                                return;
-                            }
-
-                            // Find the cell with matching data-column-index
-                            const targetCells = targetRow.querySelectorAll('td');
-                            let targetCell = null;
-                            targetCells.forEach(cell => {
-                                const colIdx = cell.getAttribute('data-column-index');
-                                if (colIdx === targetColumnIndex) {
-                                    targetCell = cell;
-                                }
-                            });
-
-                            if (!targetCell) {
-                                console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
-                                return;
-                            }
-
-                            // Reuse existing logic: behave exactly like clicking the cell
-                            insertCellValueToFormula(targetCell);
-                        });
-
-                        rowContainer.appendChild(gridItem);
-                    }
-                }
-            });
-
-            // Only append row container if it has items
-            if (rowContainer.children.length > 0) {
-                formulaDataGrid.appendChild(rowContainer);
-            }
-        }
+        appendFormulaGridItemsFromCapturedRow(row, rowIndex);
     });
 }
 
@@ -5006,6 +5140,32 @@ function getRowLabelFromProcessValue(processValue, rowIndexOverride = null) {
     }
 }
 
+/** Edit Formula 当前对应的 Summary 行（区分同 id_product 的 main / 多条 sub） */
+function getActiveSummaryRowForEditFormula() {
+    if (window.currentEditRow) return window.currentEditRow;
+    if (window.currentAddAccountButton) {
+        try {
+            const r = window.currentAddAccountButton.closest('tr');
+            if (r) return r;
+        } catch (e) { /* ignore */ }
+    }
+    return null;
+}
+
+/** Summary 行上的 data-row-index → Data Capture 行序；占位 999999 视为无 */
+function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
+    if (!row || !row.getAttribute) return null;
+    const rowIdxStr = row.getAttribute('data-row-index');
+    if (rowIdxStr == null || rowIdxStr === '' || rowIdxStr === '999999') return null;
+    const n = Number(rowIdxStr);
+    if (Number.isNaN(n) || n < 0) return null;
+    return n;
+}
+
+function getEditFormulaDataCaptureRowIndexOverride() {
+    return getDataCaptureRowIndexOverrideFromSummaryRow(getActiveSummaryRowForEditFormula());
+}
+
 // 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
 // 这确保删除数据后，data-clicked-cell-refs 也被正确更新
 function syncClickedCellRefsWithFormula(formulaInput, formulaValue, processValue) {
@@ -5149,6 +5309,8 @@ function updateFormulaDisplay(formulaValue, processValue) {
     }
 
     try {
+        const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
+
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 这样当用户选择其他 id product 的数据时，能正确显示那些数据
         // 重要：优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
@@ -5289,10 +5451,10 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
                     // 如果从引用中找不到值，使用当前编辑的id_product
                     if (columnValue === null && currentIdProduct) {
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
                         if (rowLabel) {
                             const dataColumnIndex = match.columnNumber - 1;
-                            columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
+                            columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel, editFormulaRowIndexOverride);
                             console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                         }
                     }
@@ -5325,7 +5487,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
         } else {
             // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
             // 获取行标签
-            const rowLabel = getRowLabelFromProcessValue(processValue);
+            const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
             if (!rowLabel) {
                 formulaDisplayInput.value = formulaValue;
                 return;
@@ -5359,7 +5521,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 const match = allMatches[i];
                 // 获取列的实际值
                 const columnReference = rowLabel + match.columnNumber;
-                let columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                let columnValue = getColumnValueFromCellReference(columnReference, processValue, editFormulaRowIndexOverride);
 
                 if (columnValue === null) {
                     columnValue = '0';
@@ -5375,7 +5537,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
         // 如果还有列引用（如 A5），也转换为实际值
         // 使用 parseReferenceFormula 来处理列引用
-        const parsedFormula = parseReferenceFormula(displayFormula);
+        const parsedFormula = parseReferenceFormula(displayFormula, null, undefined, editFormulaRowIndexOverride);
 
         // 格式化负数：将负数用括号包裹（例如：-1416.03 -> (-1416.03)）
         let finalDisplayFormula = parsedFormula || displayFormula;
@@ -5417,6 +5579,8 @@ function processDollarColumnReferences(formulaValue, processValue) {
         return formulaValue;
     }
 
+    const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
+
     // 匹配 $ 后跟数字的模式 (例如 $5, $10, $123)
     // 使用正则表达式: \$(\d+)
     const dollarPattern = /\$(\d+)/g;
@@ -5425,13 +5589,20 @@ function processDollarColumnReferences(formulaValue, processValue) {
     const replacements = [];
 
     // 获取行标签 (A, B, C 等)
-    const rowLabel = getRowLabelFromProcessValue(processValue);
+    const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
     if (!rowLabel) {
         return formulaValue; // 如果无法获取行标签，返回原值
     }
 
     // 获取当前选中的行
     let targetRow = currentSelectedRowForCalculator;
+    if (!targetRow) {
+        const ar = getActiveSummaryRowForEditFormula();
+        if (ar) {
+            targetRow = ar;
+            currentSelectedRowForCalculator = ar;
+        }
+    }
     if (!targetRow) {
         const processInput = document.getElementById('process');
         if (processInput && processInput.value) {
@@ -5577,14 +5748,23 @@ function processManualFormulaInput(currentValue, previousValue, cursorPos, proce
         return currentValue;
     }
 
+    const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
+
     // Get the row label (A, B, C, etc.) for column reference
-    const rowLabel = getRowLabelFromProcessValue(processValue);
+    const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
     if (!rowLabel) {
         return currentValue;
     }
 
     // Get the row for column lookup
     let targetRow = currentSelectedRowForCalculator;
+    if (!targetRow) {
+        const ar = getActiveSummaryRowForEditFormula();
+        if (ar) {
+            targetRow = ar;
+            currentSelectedRowForCalculator = ar;
+        }
+    }
     if (!targetRow) {
         const processInput = document.getElementById('process');
         if (processInput && processInput.value) {
@@ -6547,10 +6727,26 @@ function insertCellValueToFormula(cell) {
             currentActiveRow.getAttribute('data-row-index')
         ];
         const capturedRows = capturedTableBody.querySelectorAll('tr');
+        const normLbl = (s) => (s || '').trim().replace(/\s+/g, '');
         for (const rowIndexAttr of currentRowIndexCandidates) {
             if (rowIndexAttr == null || rowIndexAttr === '' || Number.isNaN(Number(rowIndexAttr))) continue;
             const capturedRow = capturedRows[Number(rowIndexAttr)];
-            const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
+            if (!capturedRow) continue;
+            if (currentIdProduct && currentIdProduct.trim()) {
+                let capId = capturedRow.getAttribute('data-id-product') || '';
+                if (!capId.trim()) {
+                    const cs = capturedRow.querySelectorAll('td');
+                    if (cs.length > 1 && cs[1]) {
+                        capId = cs[1].textContent ? cs[1].textContent.trim() : '';
+                    }
+                }
+                let idOnRowMatches = normLbl(capId) === normLbl(currentIdProduct);
+                if (!idOnRowMatches && typeof normalizeIdProductText === 'function') {
+                    idOnRowMatches = normalizeIdProductText(capId) === normalizeIdProductText(currentIdProduct);
+                }
+                if (!idOnRowMatches) continue;
+            }
+            const rowHeaderCell = capturedRow.querySelector('.row-header');
             const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
             if (matchedRowLabel) {
                 currentRowLabel = matchedRowLabel;
@@ -7392,13 +7588,17 @@ function extractRowDataForTemplate(row, formData) {
 // options.skipResequence: true 时不触发同组 sub_order 重排（用于内部调用避免递归）
 async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
     try {
-        // Account、Currency、Formula 必填：任一项空则不保存到后端
+        // Account、Currency 必填。Formula 对 sub 必填，对 main 可选
         const hasAccount = rowData.account_id != null && String(rowData.account_id).trim() !== '';
         const hasCurrency = rowData.currency_id != null && String(rowData.currency_id).trim() !== '';
         const hasFormula = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
             (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
-        if (hasAccount && (!hasCurrency || !hasFormula)) {
-            return { success: false, message: 'Currency and Formula are required.' };
+
+        if (hasAccount && !hasCurrency) {
+            return { success: false, message: 'Currency is required.' };
+        }
+        if (hasAccount && rowData.product_type === 'sub' && !hasFormula) {
+            return { success: false, message: 'Formula is required for sub rows.' };
         }
 
         const processId = getCurrentProcessId();
@@ -7604,11 +7804,13 @@ async function autoSaveTemplateFromRow(row) {
             // Skip auto-save if row has no bound account yet
             return;
         }
-        // Account、Currency、Formula 必填：任一项空则不自动保存
+        // Account、Currency 必填。对于 sub 行，Formula 也必填。对于 main 行，Formula 可选。
         const currencyEmpty = !formData.currencyValue || (typeof formData.currencyValue === 'string' && !formData.currencyValue.trim());
         const currencyPlaceholder = (formData.currencyName || '').trim() && /^select\s*curren/i.test(String(formData.currencyName).trim());
         const formulaEmpty = !formData.formulaValue || (typeof formData.formulaValue === 'string' && !formData.formulaValue.trim());
-        if (currencyEmpty || currencyPlaceholder || formulaEmpty) {
+        const productType = row.getAttribute('data-product-type') || 'main';
+
+        if (currencyEmpty || currencyPlaceholder || (productType === 'sub' && formulaEmpty)) {
             return;
         }
 
@@ -7718,6 +7920,8 @@ function saveFormula() {
     const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
     // 用于让 Summary 表的 Formula 与 Edit Formula 的 Display Formula 一致（解析 $n / [id,n] 必需）
     const clickedCellRefsForPayload = formulaInput ? String(formulaInput.getAttribute('data-clicked-cell-refs') || '').trim() : '';
+    // $n-only 公式（无 [id,n] 跨行引用）标识：若 refs 全部指向其他 id_product，视为历史脏数据，应丢弃
+    const formulaOnlyCurrentRowRefs = !!(formulaValue && formulaValue.includes('$') && !formulaValue.includes('[') && /^[\s\$0-9+\-*/().]+$/.test(formulaValue.trim()));
 
     if (!accountValue) {
         showNotification('Error', 'Please select an account', 'error');
@@ -7754,6 +7958,26 @@ function saveFormula() {
     const isEditMode = !!window.currentEditRow;
     const currentButton = window.currentAddAccountButton;
     const row = currentButton ? currentButton.closest('tr') : null;
+    // 与 Edit 弹窗 Display 一致：用当前编辑行上的 id / refs / row_index 解析 $n，避免重复 id_product 时落到首行（如 MARI 2800 vs GXS 3200）
+    const editingRowForSave = window.currentEditRow || row;
+    const processValueForCalc = (editingRowForSave && typeof getProcessValueFromRow === 'function')
+        ? (String(getProcessValueFromRow(editingRowForSave) || '').trim() || String(processValue || '').trim())
+        : String(processValue || '').trim();
+    let clickedForCalc = (clickedCellRefsForPayload && clickedCellRefsForPayload.trim() !== '')
+        ? clickedCellRefsForPayload.trim()
+        : (editingRowForSave && typeof getSummaryRowFormulaRefContext === 'function'
+            ? getSummaryRowFormulaRefContext(editingRowForSave).clickedCellRefs
+            : '');
+    const rowIdxForCalc = (() => {
+        if (!editingRowForSave) return null;
+        const a = editingRowForSave.getAttribute('data-row-index');
+        if (a === null || a === '' || a === '999999') return null;
+        const n = Number(a);
+        return !Number.isNaN(n) && n >= 0 ? n : null;
+    })();
+    clickedForCalc = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
+        ? getEffectiveClickedRefsForDollarOnlyFormula(formulaValue, processValueForCalc, clickedForCalc)
+        : clickedForCalc
     const idProductCell = row ? row.querySelector('td:first-child') : null;
     const productValues = getProductValuesFromCell(idProductCell);
     // 优先用 data-product-type 判断：点击 sub 行的 + 时新行必须插在该 sub 底下；否则用单元格 main 是否为空
@@ -7776,8 +8000,8 @@ function saveFormula() {
         isSubIdProduct: isSubIdProduct
     });
 
-    // Evaluate the formula expression directly
-    const formulaResult = evaluateFormulaExpression(formulaValue);
+    // Evaluate the formula expression directly（与下方 calculateFormulaResultFromExpression 同一套上下文）
+    const formulaResult = evaluateFormulaExpression(formulaValue, processValueForCalc, clickedForCalc, rowIdxForCalc);
 
     // Get Columns display from clicked columns (preferred) or extract from formula
     const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
@@ -7795,7 +8019,10 @@ function saveFormula() {
     if (formulaInput && formulaValue && formulaValue.trim() !== '' && hasDollarSign) {
         // 优先从 data-clicked-cell-refs 读取引用（格式：id_product:row_label:column_index 或 id_product:column_index）
         // 这包含了用户从其他 id product 选择的数据的正确引用
-        const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+        const _rawClickedRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+        const clickedCellRefs = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
+            ? getEffectiveClickedRefsForDollarOnlyFormula(formulaValue, processValueForCalc, _rawClickedRefs)
+            : _rawClickedRefs
         if (clickedCellRefs && clickedCellRefs.trim() !== '') {
             // 直接使用 data-clicked-cell-refs 中的引用，它们已经包含了正确的 id_product
             // 但是需要转换为保存格式：id_product:row_label:column_index（如果引用中没有 row_label，需要添加）
@@ -7856,12 +8083,15 @@ function saveFormula() {
                     const refRowLabel = matchedRef.rowLabel;
                     // 当前编辑行保存时一律用 processValue，保证 source_columns/columns_display 为当前账号（如 ALLBET95MS(KM)MYR）
                     const normalizeSpaces = function (s) { return (s || '').trim().replace(/\s+/g, ''); };
-                    if (processValue && normalizeSpaces(refIdProduct) === normalizeSpaces(processValue)) {
-                        refIdProduct = processValue;
+                    if (processValueForCalc && normalizeSpaces(refIdProduct) === normalizeSpaces(processValueForCalc)) {
+                        refIdProduct = processValueForCalc;
                     }
                     let rowLabel = refRowLabel;
                     if (!rowLabel) {
-                        rowLabel = getRowLabelFromProcessValue(refIdProduct);
+                        const idxForRef = (processValueForCalc && normalizeSpaces(refIdProduct) === normalizeSpaces(processValueForCalc))
+                            ? rowIdxForCalc
+                            : null;
+                        rowLabel = getRowLabelFromProcessValue(refIdProduct, idxForRef);
                     }
                     if (rowLabel) {
                         const columnRef = `${refIdProduct}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
@@ -7879,10 +8109,10 @@ function saveFormula() {
 
                 // 如果没有找到匹配的引用，使用当前编辑的 id_product 作为回退
                 if (!matched) {
-                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    const rowLabel = getRowLabelFromProcessValue(processValueForCalc, rowIdxForCalc);
                     if (rowLabel) {
                         // IMPORTANT: 保存 dataColumnIndex 而不是 displayColumnIndex
-                        const columnRef = `${processValue}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
+                        const columnRef = `${processValueForCalc}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
                         if (!columnRefs.includes(columnRef)) {
                             columnRefs.push(columnRef);
                         }
@@ -7899,7 +8129,7 @@ function saveFormula() {
         // 如果没有 data-clicked-cell-refs，从 formulaValue 中提取所有 $数字，转换为列引用格式
         // 这种情况下，使用当前编辑的 id_product（processValue）
         if (!sourceColumns) {
-            const rowLabel = getRowLabelFromProcessValue(processValue);
+            const rowLabel = getRowLabelFromProcessValue(processValueForCalc, rowIdxForCalc);
             if (rowLabel) {
                 const dollarPattern = /\$(\d+)(?!\d)/g;
                 let match;
@@ -7912,7 +8142,7 @@ function saveFormula() {
                         // 格式：id_product:row_label:dataColumnIndex
                         // IMPORTANT: columnNumber 是 displayColumnIndex，需要转换为 dataColumnIndex
                         const dataColumnIndex = columnNumber - 1;
-                        const columnRef = `${processValue}:${rowLabel}:${dataColumnIndex}`;
+                        const columnRef = `${processValueForCalc}:${rowLabel}:${dataColumnIndex}`;
                         if (!columnRefs.includes(columnRef)) {
                             columnRefs.push(columnRef);
                         }
@@ -7930,14 +8160,14 @@ function saveFormula() {
             if (!sourceColumns && formulaInput && hasDollarSign) {
                 const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
                 if (clickedColumns && clickedColumns.trim() !== '') {
-                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    const rowLabel = getRowLabelFromProcessValue(processValueForCalc, rowIdxForCalc);
                     if (rowLabel) {
                         const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
                         if (columnsArray.length > 0) {
                             // IMPORTANT: colNum 是 displayColumnIndex，需要转换为 dataColumnIndex
                             const columnRefs = columnsArray.map(colNum => {
                                 const dataColumnIndex = colNum - 1;
-                                return `${processValue}:${rowLabel}:${dataColumnIndex}`;
+                                return `${processValueForCalc}:${rowLabel}:${dataColumnIndex}`;
                             });
                             sourceColumns = columnRefs.join(' ');
                             console.log('saveFormula - Built sourceColumns from data-clicked-columns:', sourceColumns);
@@ -7982,15 +8212,29 @@ function saveFormula() {
         // 因此：保存前先用 formulaValue 同步 formulaDisplay，再读取，避免显示被截断
         const trimmedFormula = formulaValue.trim();
         const hasRefs = /\[\s*[^,\]]+\s*,\s*\d+\s*\]|\$\d+/.test(trimmedFormula);
-        const processValueForDisplay = processValue;
+        const processValueForDisplay = processValueForCalc || processValue;
         updateFormulaDisplay(trimmedFormula, processValueForDisplay);
 
         const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
         if (convertedFormula && convertedFormula !== '') {
-            formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+            formulaDisplay = createFormulaDisplayFromExpression(
+                convertedFormula,
+                sourcePercentValue,
+                sourcePercentEnableValue,
+                processValueForCalc,
+                clickedForCalc,
+                rowIdxForCalc
+            );
             console.log('saveFormula - Using formulaDisplay (synced from formula):', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
         } else {
-            formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+            formulaDisplay = createFormulaDisplayFromExpression(
+                trimmedFormula,
+                sourcePercentValue,
+                sourcePercentEnableValue,
+                processValueForCalc,
+                clickedForCalc,
+                rowIdxForCalc
+            );
             console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
         }
     }
@@ -8007,7 +8251,16 @@ function saveFormula() {
         // 不再根据公式中是否包含 *0.1 之类来决定是否应用 Source Percent，
         // 一律走统一的计算函数，由 enableSourcePercent 和 sourcePercentValue 控制是否乘以百分比
         // 计算原始值后按「第三位小数≥5则进位」舍入再保存，与页面显示一致
-        const rawAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
+        const rawAmount = calculateFormulaResultFromExpression(
+            formulaValue,
+            sourcePercentValue,
+            inputMethodValue,
+            enableValue,
+            sourcePercentEnableValue,
+            processValueForCalc,
+            clickedForCalc,
+            rowIdxForCalc
+        );
         processedAmount = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(rawAmount) : rawAmount;
         console.log('saveFormula - Calculated processedAmount:', {
             formulaValue: formulaValue,
@@ -8060,7 +8313,11 @@ function saveFormula() {
             currency: currencyName || 'Currency',
             currencyDbId: currencyValue,
             columns: columnsDisplay,
-            clickedColumns: clickedCellRefsForPayload,
+            // $n-only 公式若检测到脏 refs 已丢弃（clickedForCalc=''），用正确构建的 sourceColumns 覆盖，
+            // 以便同步更新行的 data-clicked-cell-refs，避免下次重算时仍读到 MARI 等历史错误引用
+            clickedColumns: (formulaOnlyCurrentRowRefs && clickedForCalc === '' && clickedCellRefsForPayload && sourceColumns)
+                ? sourceColumns
+                : clickedCellRefsForPayload,
             // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
             // 如果formula为空，清空sourceColumns以防止页面刷新时重新生成formula
             sourceColumns: sourceColumns || finalSourceColumns,
@@ -8827,7 +9084,7 @@ function getColumnValueFromCellReference(cellReference, processValue, rowIndexOv
 // Parse reference format formula and replace with actual values
 // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
 // Also supports cell references: "A4 + A3" -> "17 + 42"
-function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = null, rowIndexOverride = null) {
+function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return '';
@@ -8904,10 +9161,13 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 重要：优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         const formulaInput = document.getElementById('formula');
-        const clickedCellRefs = (
-            (clickedCellRefsOverride != null ? String(clickedCellRefsOverride) : '') ||
-            (formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '')
-        );
+        // undefined：沿用 #formula（编辑弹窗/预览）；传入字符串（含 ''）则只用该值，避免 Summary 重算吃到弹窗里其他行的 refs
+        let clickedCellRefs = '';
+        if (clickedCellRefsOverride === undefined) {
+            clickedCellRefs = (formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '').trim();
+        } else {
+            clickedCellRefs = String(clickedCellRefsOverride || '').trim();
+        }
 
         if (processValue) {
             // Match $ followed by digits (e.g., $2, $10, $123)
@@ -8950,10 +9210,20 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
                     const dataColumnIndex = dollarMatch.columnNumber - 1;
 
                     // 按顺序查找匹配的引用（使用 parseIdProductColumnRef 保留完整 id_product）
+                    // IMPORTANT: $数字 仅应解析为当前编辑行；不能只按列号匹配，否则会串到其他 id_product 的引用。
                     for (let j = refIndex; j < refs.length; j++) {
                         const ref = refs[j];
                         const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
                         if (parsed && parsed.dataColumnIndex === dataColumnIndex) {
+                            const refIdProduct = parsed.idProduct;
+                            const isCurrentRowRef = processValue && (
+                                (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
+                                    ? (refIdProduct.trim() === String(processValue).trim())
+                                    : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(processValue))
+                            );
+                            if (!isCurrentRowRef) {
+                                continue;
+                            }
                             columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel, parsed.captureRowIndex);
                             refIndex = j + 1;
                             break;
@@ -9146,7 +9416,7 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
 }
 
 // Evaluate formula expression directly
-function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = null, rowIndexOverride = null) {
+function evaluateFormulaExpression(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return 0;
@@ -9441,7 +9711,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         : String(row.getAttribute('data-input-method') || '').trim();
     const enableInputMethod = options.enableInputMethod !== undefined
         ? !!options.enableInputMethod
-        : !!inputMethod;
+        : row.getAttribute('data-enable-input-method') === 'true';
 
     let sourcePercentText = '';
     if (options.sourcePercent !== undefined && options.sourcePercent !== null) {
@@ -9460,12 +9730,29 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
     } else if (options.formula !== undefined && options.formula !== null && String(options.formula).trim() !== '') {
         formulaText = String(options.formula).trim();
     } else {
-        formulaText = String(row.getAttribute('data-formula-operators') || '').trim() || getFormulaForCalculation(row);
+        const operators = String(row.getAttribute('data-formula-operators') || '').trim();
+        let displayExpanded = String(row.getAttribute('data-formula-display') || '').trim();
+        if (!displayExpanded && cells[4]) {
+            const span = cells[4].querySelector('.formula-text');
+            const fromCell = (span ? span.textContent : cells[4].textContent || '').trim();
+            if (fromCell && fromCell !== 'Formula') displayExpanded = fromCell;
+        }
+        const hasDollarColumnRef = /\$(\d+)/.test(displayExpanded);
+        if (displayExpanded && displayExpanded !== 'Formula' && !hasDollarColumnRef) {
+            formulaText = displayExpanded;
+        } else {
+            formulaText = operators || getFormulaForCalculation(row);
+        }
     }
 
     const processValueForRefs = options.processValue != null && String(options.processValue).trim() !== ''
         ? String(options.processValue).trim()
         : (typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null)
+
+    const refCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null }
+    const effectiveClickedForCalc = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
+        ? getEffectiveClickedRefsForDollarOnlyFormula(formulaText, processValueForRefs, refCtx.clickedCellRefs)
+        : refCtx.clickedCellRefs
 
     let baseProcessedAmount = 0;
     if (formulaText && formulaText !== 'Formula') {
@@ -9475,7 +9762,9 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
-            processValueForRefs
+            processValueForRefs,
+            effectiveClickedForCalc,
+            refCtx.rowIndexOverride
         );
     }
 
@@ -9540,7 +9829,8 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
         let processedAmount = 0
         try {
             const processValue = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null
-            processedAmount = evaluateFormulaExpression(formulaText, processValue)
+            const refCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null }
+            processedAmount = evaluateFormulaExpression(formulaText, processValue, refCtx.clickedCellRefs, refCtx.rowIndexOverride)
 
             const inputMethod = String(row.getAttribute('data-input-method') || '').trim()
             const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true'
@@ -9579,6 +9869,83 @@ function balanceParentheses(s) {
     return s + ')'.repeat(open - close);
 }
 
+// 前缀在「括号深度 0」是否存在二元 + / -（非一元负号）。用于判断末尾 *占成 是否只作用于最后一项，
+// 避免把 0.16+64.60*3.15*(0.12) 误剥成 0.16+64.60*3.15 再乘 Source（会变成先加后乘）。
+function hasBinaryAdditiveAtDepthZero(prefix) {
+    if (!prefix || typeof prefix !== 'string') return false
+    const str = prefix.replace(/\s+/g, '')
+    let depth = 0
+    for (let i = 0; i < str.length; i++) {
+        const c = str[i]
+        if (c === '(') {
+            depth++
+            continue
+        }
+        if (c === ')') {
+            depth--
+            continue
+        }
+        if (depth !== 0) continue
+        if (c === '+') {
+            if (i === 0) continue
+            const prev = str[i - 1]
+            if ('(*/^+-'.includes(prev)) continue
+            if (/[0-9.)]/.test(prev)) return true
+            continue
+        }
+        if (c === '-') {
+            if (i === 0) continue
+            const prev = str[i - 1]
+            if (prev === '(' || '*/^+-'.includes(prev)) continue
+            if (/[0-9.)]/.test(prev)) return true
+        }
+    }
+    return false
+}
+
+// 仅当尾段乘子与当前 Source 数值相同时才剥掉，避免「公式里已乘 Source、外面再乘 Source」叠两层。
+// 不再按 (0,1] 盲剥，否则会误删用户刻意写的 *0.2（Source=1 时）。
+// 与 Source 同值时仍用 hasBinaryAdditiveAtDepthZero，避免误剥加法表达式末尾项上的占成。
+function stripTrailingEmbeddedCommissionFactors(expr, sourceDecimal, options) {
+    if (!expr || typeof expr !== 'string') return ''
+    const stripDuplicateOfSource = options && options.stripDuplicateOfSource === true
+    if (!stripDuplicateOfSource || sourceDecimal == null || !Number.isFinite(Number(sourceDecimal))) {
+        return expr.trim()
+    }
+    const src = Number(sourceDecimal)
+    const eps = 0.0001
+    let s = expr.trim().replace(/\s+/g, '')
+    const maxIter = 24
+    for (let i = 0; i < maxIter && s.length > 0; i++) {
+        const mParen = s.match(/^(.*)\*\(([0-9.]+)\)$/)
+        if (mParen) {
+            const v = parseFloat(mParen[2])
+            if (!Number.isNaN(v) && Math.abs(v - src) < eps) {
+                const nextPrefix = mParen[1].trim()
+                if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
+                    break
+                }
+                s = nextPrefix
+                continue
+            }
+        }
+        const mStar = s.match(/^(.*)\*([0-9.]+)$/)
+        if (mStar) {
+            const v = parseFloat(mStar[2])
+            if (!Number.isNaN(v) && Math.abs(v - src) < eps) {
+                const nextPrefix = mStar[1].trim()
+                if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
+                    break
+                }
+                s = nextPrefix
+                continue
+            }
+        }
+        break
+    }
+    return s
+}
+
 // Create Formula display from expression with source percent
 function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableSourcePercent = true, processValueOverride = null, clickedCellRefsOverride = null, rowIndexOverride = null) {
     try {
@@ -9591,8 +9958,23 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
+        // IMPORTANT: 仅在 Source≠1 且启用 Source % 时剥「与 Source 同值」的尾段乘子，避免与 Source 列叠乘；
+        // Source≈1 时不剥，以免误删公式内手写的 *0.2。
+        let shouldStripDuplicateOfSource = false
+        let sourceDecimalForStrip = 1
+        if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
+            try {
+                const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
+                const sp = evaluateExpression(sanitizedForStrip)
+                if (Number.isFinite(sp) && Math.abs(sp - 1) >= 0.0001) {
+                    shouldStripDuplicateOfSource = true
+                    sourceDecimalForStrip = sp
+                }
+            } catch (e) { /* ignore */ }
+        }
+        parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim(), sourceDecimalForStrip, { stripDuplicateOfSource: shouldStripDuplicateOfSource })
 
-        // If source percent is disabled, return parsed formula as-is
+        // If source percent is disabled, return parsed formula as-is (without stripping)
         if (!enableSourcePercent) {
             return formatNegativeNumbersInFormula(parsedFormula.trim());
         }
@@ -9603,7 +9985,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             return formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`);
         }
 
-        // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
+        // 公式本体已剥掉误写进式子的占成，只在结尾统一乘上 Source 列（展示为括号）
         const trimmedFormula = parsedFormula.trim();
         const formulaPart = trimmedFormula;
 
@@ -9712,25 +10094,47 @@ function getFormulaEditButtonHtml(formulaText) {
 }
 
 // Calculate formula result from expression
-function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null) {
+function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
     try {
         if (!formula) {
             return 0;
         }
 
-        // Evaluate the formula expression（Summary 页常无 #process，必须显式传入当前行 id_product 才能解析 $数字）
-        const formulaResult = evaluateFormulaExpression(formula, processValueForRefs);
+        // 先解析 $/[id:n]；仅当尾段与 Source 同值时才剥，避免与 Source 叠乘，且不剥用户手写的 *0.2（Source≈1 时）
+        const afterRefs = parseReferenceFormula(String(formula).trim(), processValueForRefs, clickedCellRefsOverride, rowIndexOverride)
 
-        // If source percent is disabled, return formula result directly (without applying source percent)
+        let shouldStripDuplicateOfSource = false
+        let sourceDecimalForStrip = 1
+        if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
+            try {
+                const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
+                const sp = evaluateExpression(sanitizedForStrip)
+                if (Number.isFinite(sp) && Math.abs(sp - 1) >= 0.0001) {
+                    shouldStripDuplicateOfSource = true
+                    sourceDecimalForStrip = sp
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        // IMPORTANT: 只在启用 Source % 时才剥末尾乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
+        // 当 Source % 未启用时，公式末尾的 *(0.12) 等是用户手写的公式结构（先乘除后加减），
+        // 不能剥掉，否则会破坏运算符优先级（例如 a+b*c*(0.12) 被错误计算为 (a+b*c)*0.12）
+        let strippedBody, formulaResult;
         if (!enableSourcePercent) {
-            let result = formulaResult;
+            // Source % 未启用：直接对完整公式求值，保留所有乘子，确保运算优先级正确
+            strippedBody = afterRefs.trim();
+            formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
             // Apply input method transformation if enabled
+            let result = formulaResult;
             if (enableInputMethod && inputMethod) {
                 result = applyInputMethodTransformation(result, inputMethod);
             }
-            console.log('Formula result calculated from expression (source percent disabled):', result);
+            console.log('Formula result calculated from expression (source percent disabled, no strip):', result);
             return result;
         }
+        // Source % 启用时才剥与 Source 同值的末尾乘子，防止与 Source % 重复叠乘
+        strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim(), sourceDecimalForStrip, { stripDuplicateOfSource: shouldStripDuplicateOfSource })
+        formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If enableSourcePercent is true but sourcePercentValue is empty, treat as 1 (100%)
         // IMPORTANT: Empty sourcePercentValue should be treated as 1 (100%), not 0, to avoid incorrect 0 results
@@ -9752,8 +10156,8 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         const decimalValue = evaluateExpression(sanitizedSourcePercent);
 
         // If source is 1, don't multiply (multiplying by 1 has no effect)
-        // If formula already ends with *(sourcePercent) or *(expr that equals source), don't multiply again (avoid double application)
-        const formulaTrimmed = (formula || '').trim().replace(/\s+/g, '');
+        // If formula已经含与 Source 相同的尾段，不再乘（用剥完后的式子判断，与 evaluate 输入一致）
+        const formulaTrimmed = (strippedBody || '').trim().replace(/\s+/g, '');
         const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
         let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
         if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
@@ -10578,13 +10982,17 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount 专用：.xxx 第三位小数≥5 则进位（round half up），避免浮点误差导致 36.785 显示为 36.78
+// Processed Amount：固定展示 2 位小数，向 0 截断（不四舍五入）。例：-2.089 -> -2.08，2.089 -> 2.08
+// 说明：少数二进制浮点（如语义为 -2.07 但乘 100 略小于 -207）截断后可能显示 -2.06，与「仅截断」规则一致
 function roundProcessedAmountTo2Decimals(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
-    const sign = num >= 0 ? 1 : -1;
-    const absNum = Math.abs(num);
-    return sign * (Math.floor(absNum * 100 + 0.5 + 1e-10) / 100);
+    // 先做极小纠偏，修正 2.07 -> 2.069999999999... 这类二进制浮点噪音，
+    // 再执行向 0 截断，保持既有业务规则不变。
+    const epsilon = num >= 0 ? 1e-9 : -1e-9;
+    const scaled = (num + epsilon) * 100;
+    const truncated = Math.trunc(scaled) / 100;
+    return Object.is(truncated, -0) ? 0 : truncated;
 }
 
 // Evaluate mathematical expression safely
@@ -10593,12 +11001,8 @@ function formatNumberWithThousands(value) {
     if (!Number.isFinite(num)) {
         return '0.00';
     }
-    // Round to 2 decimal places for display (四舍五入到2位小数用于显示)
-    // 使用一致的舍入逻辑：先取绝对值舍入，再恢复符号，确保正负数舍入结果一致
-    const sign = num >= 0 ? 1 : -1;
-    const absNum = Math.abs(num);
-    const rounded = sign * (Math.round(absNum * 100) / 100);
-    return rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const truncated = roundProcessedAmountTo2Decimals(num);
+    return truncated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function removeThousandsSeparators(value) {
@@ -10620,10 +11024,9 @@ function formatDecimalValue(value) {
     if (isNaN(num) || !Number.isFinite(num)) {
         return value;
     }
-    // Convert to string and remove trailing zeros
-    // Use toFixed with enough precision, then remove trailing zeros
-    const fixed = num.toFixed(15); // Use 15 decimal places to avoid precision issues
-    // Remove trailing zeros and optional decimal point
+    // 先按固定小数位圆整再 strip，消除 9.2 -> 9.199999999999999 / 9.200000000000001 等二进制浮点展示噪声
+    const rounded = parseFloat(num.toFixed(12));
+    const fixed = rounded.toFixed(12);
     return fixed.replace(/\.?0+$/, '');
 }
 
@@ -10739,6 +11142,17 @@ function getColumnDataFromTable(processValue, sourceColumnValue, formulaValue, c
         // Determine which row index to use in data capture table
         let rowIndex = null;
         if (currentEditRow) {
+            const idxDirect = getDataCaptureRowIndexOverrideFromSummaryRow(currentEditRow);
+            if (idxDirect !== null) {
+                const verifyRow = findProcessRow(parsedTableData, processValue, idxDirect);
+                if (verifyRow) {
+                    rowIndex = idxDirect;
+                    console.log('getColumnDataFromTable: Using Summary data-row-index:', rowIndex);
+                }
+            }
+        }
+
+        if (rowIndex === null && currentEditRow) {
             const summaryTableBody = document.getElementById('summaryTableBody');
             if (summaryTableBody) {
                 const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
@@ -10938,6 +11352,16 @@ function getColumnDataFromTableWithParentheses(processValue, originalInput, colu
         // Determine which row index to use in data capture table (same logic as getColumnDataFromTable)
         let rowIndex = null;
         if (currentEditRow) {
+            const idxDirect = getDataCaptureRowIndexOverrideFromSummaryRow(currentEditRow);
+            if (idxDirect !== null) {
+                const verifyRow = findProcessRow(parsedTableData, processValue, idxDirect);
+                if (verifyRow) {
+                    rowIndex = idxDirect;
+                }
+            }
+        }
+
+        if (rowIndex === null && currentEditRow) {
             const summaryTableBody = document.getElementById('summaryTableBody');
             if (summaryTableBody) {
                 const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
@@ -11954,9 +12378,11 @@ function getPreferredFormulaDisplay(data, row) {
 // Update formula and processed amount when batch selection is checked
 function updateFormulaAndProcessedAmount(row, data) {
     const cells = row.querySelectorAll('td');
-    const clickedCellRefsForDisplay = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
-    const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-    const rowIndexOverrideForDisplay = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
+    const rowRefCtxDisplay = typeof getSummaryRowFormulaRefContext === 'function'
+        ? getSummaryRowFormulaRefContext(row)
+        : { clickedCellRefs: '', rowIndexOverride: null }
+    const clickedCellRefsForDisplay = rowRefCtxDisplay.clickedCellRefs
+    const rowIndexOverrideForDisplay = rowRefCtxDisplay.rowIndexOverride
 
     // Update Formula column (now index 4)
     if (cells[4]) {
@@ -12036,12 +12462,16 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // Replace from back to front to preserve indices
                             allMatches.sort((a, b) => b.index - a.index);
 
+                            // 无 [id,n] 括号引用时，$n 表示「当前 Summary 行」对应 Data Capture 列，与 Edit Formula 一致。
+                            // 若仍用 data-source-columns 里历史错误的 id（如 MARI）会显示 2800 而实际 GXS 为 3200。
+                            const formulaHasBracketRefs = formulaOperators.includes('[');
+
                             for (let i = 0; i < allMatches.length; i++) {
                                 const match = allMatches[i];
                                 let columnValue = null;
 
-                                // Try to get from columnRefMap first (uses correct id_product from sourceColumns)
-                                if (columnRefMap.has(match.columnNumber)) {
+                                // 仅当公式含 [id,n] 跨行引用时，才用 sourceColumns 里存的 id 解析 $n；否则只用当前行 + row_index
+                                if (formulaHasBracketRefs && columnRefMap.has(match.columnNumber)) {
                                     const ref = columnRefMap.get(match.columnNumber);
                                     columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel, ref.captureRowIndex);
                                     console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
@@ -12050,7 +12480,11 @@ function updateFormulaAndProcessedAmount(row, data) {
                                 // Fallback to current row id_product if not found in columnRefMap
                                 if (columnValue === null) {
                                     const columnReference = rowLabel + match.columnNumber;
-                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                    columnValue = getColumnValueFromCellReference(
+                                        columnReference,
+                                        processValue,
+                                        rowIndexOverrideForDisplay
+                                    );
                                     console.log('Fallback to current row id_product:', processValue, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
 
@@ -12117,7 +12551,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                     const enableSourcePercent = data.enableSourcePercent !== undefined
                         ? data.enableSourcePercent
                         : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                        formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
+                    formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent, null, clickedCellRefsForDisplay, rowIndexOverrideForDisplay);
                     rawFormula = formulaText;
                 }
             }
@@ -12623,6 +13057,49 @@ function getProcessValueFromRow(row) {
     return '';
 }
 
+// $n-only 且无 [id,n] 时，若 data-clicked-cell-refs 全部指向非当前行 id_product，视为历史脏数据，返回 ''，按当前行 + row_index 解析（与 Edit Formula 一致）
+function getEffectiveClickedRefsForDollarOnlyFormula(formulaOperators, processValue, clickedCellRefs) {
+    const ft = (formulaOperators || '').trim()
+    const refs = String(clickedCellRefs || '').trim()
+    if (!ft || !processValue) return String(clickedCellRefs || '')
+    const formulaOnlyCurrentRowRefs = !!(ft.includes('$') && !ft.includes('[') && /^[\s\$0-9+\-*/().]+$/.test(ft))
+    if (!formulaOnlyCurrentRowRefs) return refs
+    if (!refs) return ''
+    const norm = s => (s || '').trim().replace(/\s+/g, '')
+    const parts = refs.split(/\s+/).filter(r => r.trim())
+    if (parts.length === 0) return ''
+    const allOther = parts.every(ref => {
+        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null
+        if (!parsed) return false
+        const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
+            ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct
+        return norm(fullId) !== norm(processValue)
+    })
+    if (allOther) {
+        console.log('getEffectiveClickedRefsForDollarOnlyFormula: stale refs discarded:', refs, '=> processValue:', processValue)
+        return ''
+    }
+    return refs
+}
+
+// Summary 行重算 Processed Amount 时用：禁止沿用 #formula 上别的行的 data-clicked-cell-refs
+function getSummaryRowFormulaRefContext(row) {
+    if (!row) {
+        return { clickedCellRefs: '', rowIndexOverride: null };
+    }
+    const refsAttr = row.getAttribute('data-clicked-cell-refs');
+    const clickedCellRefs = refsAttr !== null ? refsAttr : '';
+    const rowIdxStr = row.getAttribute('data-row-index');
+    let rowIndexOverride = null;
+    if (rowIdxStr !== null && rowIdxStr !== '' && rowIdxStr !== '999999') {
+        const n = Number(rowIdxStr);
+        if (!Number.isNaN(n) && n >= 0) {
+            rowIndexOverride = n;
+        }
+    }
+    return { clickedCellRefs, rowIndexOverride };
+}
+
 // Helper function to extract description from process value
 function getDescriptionFromProcessValue(processValue) {
     const match = processValue.match(/\(([^)]+)\)$/);
@@ -12839,7 +13316,7 @@ function enableFormulaInlineEdit(element, row) {
                 try {
                     const sanitized = removeThousandsSeparators(newSourcePercent);
                     const evaluated = evaluateExpression(sanitized);
-                    currentSourcePercentDecimal = evaluated.toString();
+                    currentSourcePercentDecimal = formatDecimalValue(evaluated);
 
                     // Update Source % cell display
                     if (sourcePercentCell) {
@@ -14155,7 +14632,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
             // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
             // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
             const numValue = parseFloat(sourcePercentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to decimal
                 sourcePercentValue = (numValue / 100).toString();
             }
@@ -14471,6 +14948,16 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             }
         }
 
+        // 与 Edit Formula 一致：用当前行单元格解析出的 id_product + 行上 refs/row_index，禁止回落到 #process 或 data 里可能串行的 clickedColumns 字符串
+        const rowProcessValueForFormula = (() => {
+            const fromRow = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : ''
+            if (fromRow && String(fromRow).trim() !== '') return String(fromRow).trim()
+            return (processValue && String(processValue).trim() !== '') ? String(processValue).trim() : ''
+        })()
+        const rowRefCtxForFormula = typeof getSummaryRowFormulaRefContext === 'function'
+            ? getSummaryRowFormulaRefContext(row)
+            : { clickedCellRefs: '', rowIndexOverride: null }
+
         // Formula column (index 4)
         if (cells[4]) {
             // 需求：第二张 Summary 表里的公式，直接显示与 Edit Formula 底部一致的结果，不要再额外“变来变去”
@@ -14491,10 +14978,12 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 ? String(data.formulaOperators).trim()
                 : String(row.getAttribute('data-formula-operators') || '').trim()
             if (formulaOperatorsForForce && formulaOperatorsForForce !== 'Formula' && typeof evaluateFormulaExpression === 'function') {
-                const clickedRefs = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
-                const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-                const rowIndexOverrideForEval = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
-                const evaluated = evaluateFormulaExpression(formulaOperatorsForForce, processValue, clickedRefs, rowIndexOverrideForEval)
+                const evaluated = evaluateFormulaExpression(
+                    formulaOperatorsForForce,
+                    rowProcessValueForFormula,
+                    rowRefCtxForFormula.clickedCellRefs,
+                    rowRefCtxForFormula.rowIndexOverride
+                )
                 if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated))) {
                     rawFormula = formulaOperatorsForForce
                     const display = formatFormulaDisplayTo2Decimals(String(evaluated))
@@ -14517,10 +15006,12 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 (data.formulaOperators && String(data.formulaOperators).trim() !== '' && String(data.formulaOperators).trim() !== 'Formula') &&
                 typeof evaluateFormulaExpression === 'function'
             )) {
-                const clickedRefs = row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || data.clicked_columns || ''
-                const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-                const rowIndexOverrideForEval = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
-                const evaluated = evaluateFormulaExpression(String(data.formulaOperators).trim(), processValue, clickedRefs, rowIndexOverrideForEval)
+                const evaluated = evaluateFormulaExpression(
+                    String(data.formulaOperators).trim(),
+                    rowProcessValueForFormula,
+                    rowRefCtxForFormula.clickedCellRefs,
+                    rowRefCtxForFormula.rowIndexOverride
+                )
                 if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated)) && Number(evaluated) !== 0) {
                     rawFormula = String(data.formulaOperators).trim()
                     const display = formatFormulaDisplayTo2Decimals(String(evaluated))
@@ -14535,15 +15026,13 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 const enableSourcePercent = data.enableSourcePercent !== undefined
                     ? data.enableSourcePercent
                     : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                const rowIndexFromRowAttr = parseInt(row.getAttribute('data-row-index') || '', 10)
-                const rowIndexOverrideForDisplay = (!isNaN(rowIndexFromRowAttr) && Number.isFinite(rowIndexFromRowAttr)) ? rowIndexFromRowAttr : null
                 formulaText = createFormulaDisplayFromExpression(
                     data.formula,
                     sourcePercentText,
                     enableSourcePercent,
-                    processValue,
-                    row.getAttribute('data-clicked-cell-refs') || data.clickedColumns || '',
-                    rowIndexOverrideForDisplay
+                    rowProcessValueForFormula,
+                    rowRefCtxForFormula.clickedCellRefs,
+                    rowRefCtxForFormula.rowIndexOverride
                 );
             }
 
@@ -14596,8 +15085,18 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                             const dataColumnIndex = refMatch.displayColumnIndex - 1;
 
                             // Get cell value using id_product and column index
-                            const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct);
-                            let columnValue = getCellValueByIdProductAndColumn(refMatch.idProduct, dataColumnIndex, rowLabel);
+                            const sameProductAsRow =
+                                (refMatch.idProduct || '').trim() === rowProcessValueForFormula ||
+                                (typeof normalizeIdProductText === 'function' &&
+                                    normalizeIdProductText(refMatch.idProduct) === normalizeIdProductText(rowProcessValueForFormula));
+                            const rowIdxForBracket = sameProductAsRow ? rowRefCtxForFormula.rowIndexOverride : null;
+                            const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct, rowIdxForBracket);
+                            let columnValue = getCellValueByIdProductAndColumn(
+                                refMatch.idProduct,
+                                dataColumnIndex,
+                                rowLabel,
+                                rowIdxForBracket
+                            );
 
                             // DEFAULT TO 0: satisfy user requirement to use 0 instead of old data for missing cells
                             if (columnValue === null || columnValue === '') {
@@ -14639,7 +15138,14 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                     const enableSourcePercent = data.enableSourcePercent !== undefined
                         ? data.enableSourcePercent
                         : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                    formulaText = createFormulaDisplayFromExpression(formulaOperatorsValue, sourcePercentText, enableSourcePercent);
+                    formulaText = createFormulaDisplayFromExpression(
+                        formulaOperatorsValue,
+                        sourcePercentText,
+                        enableSourcePercent,
+                        rowProcessValueForFormula,
+                        rowRefCtxForFormula.clickedCellRefs,
+                        rowRefCtxForFormula.rowIndexOverride
+                    );
                 }
             }
 
@@ -15412,7 +15918,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
                 const formulaCell = targetRow.querySelector('td:nth-child(5)');
                 if (formulaCell) formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
-                const processedCell = targetRow.querySelector('td:nth-child(8)');
+                const processedCell = targetRow.querySelector('td:nth-child(9)');
                 if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
                     const val = Number(mainTemplate.last_processed_amount);
                     processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
@@ -15433,7 +15939,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Convert old percentage format to new decimal format if needed
             if (percentValue) {
                 const numValue = parseFloat(percentValue);
-                if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+                if (false) {
                     percentValue = (numValue / 100).toString();
                 }
             } else {
@@ -15674,7 +16180,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 const numValue = parseFloat(percentValue);
                 // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
                 // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
-                if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+                if (false) {
                     // Likely old percentage format, convert to decimal
                     convertedPercentValue = (numValue / 100).toString();
                 }
@@ -15852,84 +16358,55 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
         // Priority 2: Match by account_id + formula_variant (primary business logic match)
         // This ensures templates are matched to the correct id_product + account combination
-        // regardless of row position changes in Data Capture Table
+        // regardless of row position changes in Data Capture Table.
+        // IMPORTANT: 多候选时禁止 fallback 到第一条，避免首屏套错行。
         if (!targetRow && templateAccountId && templateFormulaVariant) {
-            // First, try exact match by account_id + formula_variant
-            for (const candidate of candidateRows) {
-                if (candidate.alreadyApplied) continue
-                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
-                    break;
-                }
-            }
+            const matchingCandidates = findUnappliedCandidates(c =>
+                c.accountId === templateAccountId && c.formulaVariant === templateFormulaVariant
+            );
 
-            // If multiple rows match account_id + formula_variant, use row_index as tiebreaker
-            if (!targetRow && templateRowIndex !== null) {
-                const matchingCandidates = findUnappliedCandidates(c =>
-                    c.accountId === templateAccountId && c.formulaVariant === templateFormulaVariant
-                );
-
-                if (matchingCandidates.length > 0) {
-                    // Try to find exact row_index match first
-                    let matchedByRowIndex = false;
-                    for (const candidate of matchingCandidates) {
-                        if (candidate.rowIndex === templateRowIndex) {
-                            targetRow = candidate.row;
-                            console.log('Matched row by account_id + formula_variant + row_index (exact):', templateAccountId, templateFormulaVariant, templateRowIndex);
-                            matchedByRowIndex = true;
-                            break;
-                        }
+            if (matchingCandidates.length === 1) {
+                targetRow = matchingCandidates[0].row;
+                console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
+            } else if (matchingCandidates.length > 1) {
+                if (templateRowIndex !== null) {
+                    const exactRow = matchingCandidates.find(c => c.rowIndex === templateRowIndex);
+                    if (exactRow) {
+                        targetRow = exactRow.row;
+                        console.log('Matched row by account_id + formula_variant + row_index (exact):', templateAccountId, templateFormulaVariant, templateRowIndex);
+                    } else {
+                        console.warn('Ambiguous account_id + formula_variant match without exact row_index; skip first-row fallback:', templateAccountId, templateFormulaVariant, templateRowIndex, idProduct);
                     }
-
-                    // If no exact row_index match, use first matching candidate
-                    if (!matchedByRowIndex) {
-                        targetRow = matchingCandidates[0].row;
-                        console.log('Matched row by account_id + formula_variant (multiple matches, using first):', templateAccountId, templateFormulaVariant);
-                    }
+                } else {
+                    console.warn('Ambiguous account_id + formula_variant match (no row_index); skip first-row fallback:', templateAccountId, templateFormulaVariant, idProduct);
                 }
             }
         }
 
         // Priority 3: Match by account_id only (if formula_variant not available)
-        // 同时匹配：行有 data-account-id，或行仅有显示文本但包含 account_id（如 "CITIZENX [3300]" 未写 data-account-id）
+        // 同时匹配：行有 data-account-id，或行仅有显示文本但包含 account_id（如 "CITIZENX [3300]" 未写 data-account-id）。
+        // IMPORTANT: 多候选时必须命中 row_index；否则跳过，避免首屏套到邻行。
         if (!targetRow && templateAccountId) {
-            for (const candidate of candidateRows) {
-                if (candidate.alreadyApplied) continue
-                if (candidate.accountId === templateAccountId) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id:', templateAccountId);
-                    break;
-                }
-                const displayHasId = candidate.accountDisplay && (String(candidate.accountDisplay).indexOf('[' + templateAccountId + ']') >= 0 || String(candidate.accountDisplay).trim() === templateAccountId);
-                if (displayHasId) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id in display text:', templateAccountId);
-                    break;
-                }
-            }
+            const matchingCandidates = findUnappliedCandidates(c => {
+                if (c.accountId === templateAccountId) return true;
+                const displayHasId = c.accountDisplay && (String(c.accountDisplay).indexOf('[' + templateAccountId + ']') >= 0 || String(c.accountDisplay).trim() === templateAccountId);
+                return !!displayHasId;
+            });
 
-            // If multiple rows match account_id, use row_index as tiebreaker
-            if (!targetRow && templateRowIndex !== null) {
-                const matchingCandidates = findUnappliedCandidates(c => c.accountId === templateAccountId);
-
-                if (matchingCandidates.length > 0) {
-                    // Try to find exact row_index match first
-                    let matchedByRowIndex = false;
-                    for (const candidate of matchingCandidates) {
-                        if (candidate.rowIndex === templateRowIndex) {
-                            targetRow = candidate.row;
-                            console.log('Matched row by account_id + row_index (exact):', templateAccountId, templateRowIndex);
-                            matchedByRowIndex = true;
-                            break;
-                        }
+            if (matchingCandidates.length === 1) {
+                targetRow = matchingCandidates[0].row;
+                console.log('Matched row by account_id:', templateAccountId);
+            } else if (matchingCandidates.length > 1) {
+                if (templateRowIndex !== null) {
+                    const exactRow = matchingCandidates.find(c => c.rowIndex === templateRowIndex);
+                    if (exactRow) {
+                        targetRow = exactRow.row;
+                        console.log('Matched row by account_id + row_index (exact):', templateAccountId, templateRowIndex);
+                    } else {
+                        console.warn('Ambiguous account_id match without exact row_index; skip first-row fallback:', templateAccountId, templateRowIndex, idProduct);
                     }
-
-                    // If no exact row_index match, use first matching candidate
-                    if (!matchedByRowIndex) {
-                        targetRow = matchingCandidates[0].row;
-                        console.log('Matched row by account_id (multiple matches, using first):', templateAccountId);
-                    }
+                } else {
+                    console.warn('Ambiguous account_id match (no row_index); skip first-row fallback:', templateAccountId, idProduct);
                 }
             }
         }
@@ -16269,7 +16746,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             if (formulaCell) {
                 formulaCell.innerHTML = `<span class="formula-text">${formulaDisplayForManual}</span>`;
             }
-            const processedCell = targetRow.querySelector('td:nth-child(8)');
+            const processedCell = targetRow.querySelector('td:nth-child(9)');
             if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
                 const val = Number(mainTemplate.last_processed_amount);
                 processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
@@ -16293,7 +16770,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
         // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
         if (percentValue) {
             const numValue = parseFloat(percentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format (e.g., 100 = 100%), convert to decimal
                 percentValue = (numValue / 100).toString();
             }
@@ -16397,10 +16874,16 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
                 // 回退到使用当前行的 id_product（如果没有在 sourceColumns 中找到）
                 if (columnValue === null) {
-                    const rowLabel = getRowLabelFromProcessValue(idProduct);
+                    const rowIdxAttr = targetRow.getAttribute('data-row-index');
+                    let rowIdxForLbl = null;
+                    if (rowIdxAttr !== null && rowIdxAttr !== '' && rowIdxAttr !== '999999') {
+                        const n = Number(rowIdxAttr);
+                        if (!Number.isNaN(n) && n >= 0) rowIdxForLbl = n;
+                    }
+                    const rowLabel = getRowLabelFromProcessValue(idProduct, rowIdxForLbl);
                     if (rowLabel) {
                         const columnReference = rowLabel + match.columnNumber;
-                        columnValue = getColumnValueFromCellReference(columnReference, idProduct);
+                        columnValue = getColumnValueFromCellReference(columnReference, idProduct, rowIdxForLbl);
                         console.log('applyMainTemplateToRow: Fallback to current row id_product:', idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                     }
                 }
@@ -16420,7 +16903,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             // Always proceed using the resolved (possibly 0-filled) displayFormula
             {
                 // 如果还有列引用（如 A5），也转换为实际值
-                const parsedFormula = parseReferenceFormula(displayFormula);
+                const tplRefCtx = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(targetRow) : { clickedCellRefs: '', rowIndexOverride: null };
+                const parsedFormula = parseReferenceFormula(displayFormula, idProduct, tplRefCtx.clickedCellRefs, tplRefCtx.rowIndexOverride);
                 const baseFormula = parsedFormula || displayFormula;
 
                 // 应用 source percent
@@ -16433,7 +16917,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
             console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
         } else if (!hasDollarSigns && hasBracketReferenceFormula) {
-            const parsedOperatorFormula = parseReferenceFormula(formulaOperatorsValue);
+            const tplRefCtx2 = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(targetRow) : { clickedCellRefs: '', rowIndexOverride: null };
+            const parsedOperatorFormula = parseReferenceFormula(formulaOperatorsValue, idProduct, tplRefCtx2.clickedCellRefs, tplRefCtx2.rowIndexOverride);
             if (parsedOperatorFormula && parsedOperatorFormula.trim() !== '') {
                 formulaDisplay = createFormulaDisplayFromExpression(parsedOperatorFormula, percentValue, enableSourcePercent);
                 console.log('applyMainTemplateToRow: formula_operators contains bracket references, recalculated from current table data:', formulaDisplay);
@@ -16654,10 +17139,15 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 
         // Always recalculate processed amount from current formula
         let processedAmount = 0;
+        const processValFromTargetRow = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(targetRow) : null;
+        const procValForTpl = (processValFromTargetRow && String(processValFromTargetRow).trim() !== '')
+            ? String(processValFromTargetRow).trim()
+            : idProduct;
+        const refCtxTplMain = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(targetRow) : { clickedCellRefs: '', rowIndexOverride: null };
         if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
             try {
                 console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
-                const formulaResult = evaluateFormulaExpression(formulaDisplay, idProduct);
+                const formulaResult = evaluateFormulaExpression(formulaDisplay, procValForTpl, refCtxTplMain.clickedCellRefs, refCtxTplMain.rowIndexOverride);
 
                 if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
                     processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
@@ -16675,7 +17165,10 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                         percentValue,
                         mainTemplate.input_method || '',
                         mainTemplate.enable_input_method == 1,
-                        enableSourcePercent
+                        enableSourcePercent,
+                        procValForTpl,
+                        refCtxTplMain.clickedCellRefs,
+                        refCtxTplMain.rowIndexOverride
                     );
                 } else {
                     processedAmount = 0;
@@ -16709,7 +17202,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             const numValue = parseFloat(percentValue);
             // Only convert if value is >= 10 (old percentage format)
             // Values < 10 are already in multiplier format (1 = multiply by 1, 2 = multiply by 2)
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to multiplier
                 convertedPercentValue = (numValue / 100).toString();
             }
@@ -16777,10 +17270,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
     }
 }
 
-// After all templates are applied, reorder rows globally by row_index (if present)
-// IMPORTANT: This function should maintain the exact order of Data Capture Table
-// Rows are sorted by row_index directly, preserving the original order from Data Capture Table
-// Same id_product rows are NOT grouped together - they maintain their individual positions
+// After all templates are applied, reorder Summary 全表：以 Data Capture 行序为主键，
+// 同一完整 Id Product（去空格，含 MARI/GXS 等后缀）内 Main 在上、Sub 在下，避免「按 DOM 顺序切块」把 Sub 挂到别的 Main 组。
 function reorderSummaryRowsByRowIndex() {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -16792,141 +17283,6 @@ function reorderSummaryRowsByRowIndex() {
         if (rows.length === 0) {
             return;
         }
-        const originalOrderMap = new Map();
-        rows.forEach((row, idx) => originalOrderMap.set(row, idx));
-
-        const normalizeGroupKey = (value) => (value || '')
-            .toString()
-            .replace(/[\u200B-\u200D\uFEFF]/g, '')
-            .trim()
-            .replace(/\s+/g, ' ')
-            .toUpperCase();
-        const getRowGroupKey = (row, fallbackMainText) => {
-            if (!row) return normalizeGroupKey(fallbackMainText || '');
-            const productType = (row.getAttribute('data-product-type') || 'main').trim();
-            const parentAttr = row.getAttribute('data-parent-id-product');
-            const idCell = row.querySelector('td:first-child');
-            const mainAttr = idCell ? (idCell.getAttribute('data-main-product') || '') : '';
-            const cellText = idCell && idCell.textContent ? idCell.textContent : '';
-            // sub 行优先用 parent 分组，main 行优先用 data-main-product，再退回可见文本
-            const raw = (productType === 'sub' && parentAttr && parentAttr.trim() !== '')
-                ? parentAttr
-                : (mainAttr || cellText || fallbackMainText || '');
-            return normalizeGroupKey(raw);
-        };
-
-        // NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
-        // 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
-        // 这样 Summary 里所有 main 的顺序会和 console 打印的 row_index 完全一致，
-        // 而 group 内部（main/sub 的相对顺序）保持不变。
-        const groups = [];
-        let currentGroup = null;
-
-        rows.forEach((row) => {
-            const idProductCell = row.querySelector('td:first-child');
-            const productValues = getProductValuesFromCell(idProductCell);
-            const mainTextRaw = (productValues.main || '').trim();
-            const productTypeAttr = row.getAttribute('data-product-type') || 'main';
-            const isSub = productTypeAttr === 'sub' || (!mainTextRaw && productTypeAttr !== 'main');
-
-            if (!isSub && mainTextRaw) {
-                // 新的 main 行，开启一个新 group
-                currentGroup = {
-                    rows: [],
-                    mainRow: row,
-                    groupKey: getRowGroupKey(row, mainTextRaw),
-                    originalGroupIndex: groups.length
-                };
-                groups.push(currentGroup);
-            }
-
-            if (!currentGroup) {
-                // 理论上不应该出现：在第一个 main 之前的行，单独当成一个 group
-                currentGroup = {
-                    rows: [],
-                    mainRow: row,
-                    groupKey: getRowGroupKey(row, mainTextRaw),
-                    originalGroupIndex: groups.length
-                };
-                groups.push(currentGroup);
-            }
-
-            currentGroup.rows.push(row);
-        });
-
-        // 为每个 group 计算排序用的 row_index：优先 preserved，其次 data-row-index
-        groups.forEach(group => {
-            const mainRow = group.mainRow || group.rows[0];
-            let sortIndex = 999999;
-            if (mainRow) {
-                const preservedAttr = mainRow.getAttribute('data-preserved-row-index');
-                const rowIndexAttr = mainRow.getAttribute('data-row-index');
-                const preserved = (preservedAttr !== null && preservedAttr !== '' && !Number.isNaN(Number(preservedAttr)))
-                    ? Number(preservedAttr)
-                    : null;
-                const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
-                    ? Number(rowIndexAttr)
-                    : null;
-                const effective = preserved !== null ? preserved : rowIndex;
-                if (effective !== null && effective >= 0 && !Number.isNaN(effective)) {
-                    sortIndex = effective;
-                }
-            }
-            group.sortIndex = sortIndex;
-        });
-
-        // 按 sortIndex 升序排序；相同 sortIndex 时按照原本的 group 顺序
-        groups.sort((a, b) => {
-            if (a.sortIndex !== b.sortIndex) {
-                return a.sortIndex - b.sortIndex;
-            }
-            return a.originalGroupIndex - b.originalGroupIndex;
-        });
-
-        const getEffectiveProductType = (row) => {
-            const type = (row.getAttribute('data-product-type') || 'main').trim();
-            if (type === 'main') {
-                const parent = (row.getAttribute('data-parent-id-product') || '').trim();
-                if (parent !== '') return 'sub';
-            }
-            return type === 'sub' ? 'sub' : 'main';
-        };
-        const getSubOrderValue = (row) => {
-            const raw = row.getAttribute('data-sub-order');
-            if (raw == null || String(raw).trim() === '') return Number.POSITIVE_INFINITY;
-            const num = Number(raw);
-            return Number.isFinite(num) ? num : Number.POSITIVE_INFINITY;
-        };
-
-        // 组内强制排序：main 在前，sub 严格按 sub_order 升序。
-        groups.forEach(group => {
-            group.rows.sort((a, b) => {
-                const typeA = getEffectiveProductType(a);
-                const typeB = getEffectiveProductType(b);
-                if (typeA !== typeB) {
-                    return typeA === 'main' ? -1 : 1;
-                }
-                if (typeA === 'sub' && typeB === 'sub') {
-                    const subA = getSubOrderValue(a);
-                    const subB = getSubOrderValue(b);
-                    if (subA !== subB) {
-                        return subA - subB;
-                    }
-                }
-                return (originalOrderMap.get(a) ?? 0) - (originalOrderMap.get(b) ?? 0);
-            });
-        });
-
-        groups.forEach(group => {
-            group.rows.forEach(row => summaryTableBody.appendChild(row));
-        });
-
-        console.log(
-            'Reordered rows by preserved row_index groups (main + subs).',
-            'Total groups:', groups.length,
-            'Total rows:', rows.length
-        );
-        return;
 
         // 用「去空格」完整 id 做顺序与分组，ALLBET95MS(SV)/(KM)/(SEXY)MYR 各为独立 main，Sub 只跟自己的 Main
         const normalizeSpacesForReorder = (s) => (s || '').trim().replace(/\s+/g, '');
@@ -17032,6 +17388,14 @@ function reorderSummaryRowsByRowIndex() {
                     normalizedMain = normalizeSpacesForReorder(parentIdProduct);
                 } else if (mainTextRaw) {
                     normalizedMain = normalizeSpacesForReorder(mainTextRaw);
+                } else if (idProductCell) {
+                    let cellTxt = (idProductCell.textContent || '').trim();
+                    if (cellTxt.indexOf(' / ') >= 0) {
+                        cellTxt = cellTxt.split(' / ')[0].trim();
+                    }
+                    if (cellTxt) {
+                        normalizedMain = normalizeSpacesForReorder(cellTxt);
+                    }
                 }
             } else {
                 normalizedMain = normalizeSpacesForReorder(mainTextRaw);
@@ -17081,6 +17445,29 @@ function reorderSummaryRowsByRowIndex() {
                 accountOrder,
                 dataCapturePosition
             };
+        });
+
+        // IMPORTANT FIX: Guarantee elements of the same group stay contiguous!
+        // Array.prototype.sort() pairwise comparisons cannot logically group separate items
+        // if their primary sort keys (dataCapturePosition) are vastly different.
+        // E.g. Main is pos 0, Sub is pos 9 (from DB history). A new item pos 1 will be inserted between them.
+        // To fix this, force all items of the same normalizeMain to adopt the minimum dataCapturePosition of that group.
+        const groupPositions = new Map();
+        rowData.forEach(item => {
+            if (item.productType !== 'sub' && item.normalizedMain && item.dataCapturePosition !== null && item.dataCapturePosition !== undefined && item.dataCapturePosition < 999999) {
+                if (!groupPositions.has(item.normalizedMain)) {
+                    groupPositions.set(item.normalizedMain, item.dataCapturePosition);
+                } else {
+                    groupPositions.set(item.normalizedMain, Math.min(groupPositions.get(item.normalizedMain), item.dataCapturePosition));
+                }
+            }
+        });
+
+        // Apply unified group position to all rows (Main and Sub) of that group
+        rowData.forEach(item => {
+            if (item.normalizedMain && groupPositions.has(item.normalizedMain)) {
+                item.dataCapturePosition = groupPositions.get(item.normalizedMain);
+            }
         });
 
         // IMPORTANT: 全局排序逻辑说明（以 Data Capture 行顺序为绝对基准）：
@@ -17167,6 +17554,10 @@ function reorderSummaryRowsByRowIndex() {
             'Reordered rows by Data Capture Table order.',
             'Total rows:', orderedRows.length
         );
+
+        if (typeof updateProcessedAmountTotal === 'function') {
+            updateProcessedAmountTotal();
+        }
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -17646,7 +18037,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
         if (percentValue) {
             const numValue = parseFloat(percentValue);
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to decimal
                 percentValue = (numValue / 100).toString();
             }
@@ -18165,7 +18556,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             const numValue = parseFloat(percentValue);
             // Only convert if value is >= 10 (old percentage format)
             // Values < 10 are already in multiplier format (1 = multiply by 1, 2 = multiply by 2)
-            if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
+            if (false) {
                 // Likely old percentage format, convert to multiplier
                 convertedPercentValue = (numValue / 100).toString();
             }
@@ -18421,11 +18812,8 @@ function updateProcessedAmountCell(processValue, processedAmount) {
         if (mainText === processValue || subText === processValue) {
             // Update the "Processed Amount" column
             const cells = row.querySelectorAll('td');
-            // Column order:
-            // 0: Id Product, 1: Account, 2: (+) button, 3: Currency, 4: Columns,
-            // 5: Batch Selection, 6: Source, 7: Source %, 8: Formula,
-            // 9: Rate, 10: Processed Amount, 11: Select
-            const processedAmountCell = cells[7];
+            // 与 datacapturesummary.php 表头一致：0 Id Product … 8 Processed Amount
+            const processedAmountCell = cells[8];
             if (processedAmountCell) {
                 let val = Number(processedAmount);
                 // Apply rate multiplication if checkbox is checked
@@ -18441,6 +18829,46 @@ function updateProcessedAmountCell(processValue, processedAmount) {
 }
 
 // Update the total processed amount displayed in the summary table footer
+function decimalTextToScaledInt(value, scale) {
+    const text = String(value ?? '').trim().replace(/,/g, '');
+    if (!text) return null;
+
+    const matched = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+    if (matched) {
+        const sign = matched[1] === '-' ? -1 : 1;
+        const integerPart = Number(matched[2]);
+        const decimalPart = (matched[3] || '').padEnd(scale, '0').slice(0, scale);
+        const scaled = (integerPart * Math.pow(10, scale)) + Number(decimalPart);
+        return sign * scaled;
+    }
+
+    const fallbackNum = Number(text);
+    if (!Number.isFinite(fallbackNum)) return null;
+    return Math.trunc(fallbackNum * Math.pow(10, scale));
+}
+
+function getSummaryRowFinalAmount(row, cells) {
+    const safeCells = cells || row.querySelectorAll('td');
+    const baseAmountText = row.getAttribute('data-base-processed-amount');
+    const hasBaseAmount = baseAmountText !== null && String(baseAmountText).trim() !== '';
+
+    if (hasBaseAmount) {
+        const baseAmount = Number(baseAmountText);
+        if (Number.isFinite(baseAmount) && typeof applyRateToProcessedAmount === 'function') {
+            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+            if (Number.isFinite(finalAmount)) {
+                return finalAmount;
+            }
+        }
+    }
+
+    const processedAmountCell = safeCells[8];
+    if (!processedAmountCell) return 0;
+    const fallbackText = (processedAmountCell.textContent || '').trim().replace(/,/g, '');
+    const fallbackNum = Number(fallbackText);
+    return Number.isFinite(fallbackNum) ? fallbackNum : 0;
+}
+
 function updateProcessedAmountTotal() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     const totalCell = document.getElementById('summaryTotalAmount');
@@ -18450,7 +18878,7 @@ function updateProcessedAmountTotal() {
         return;
     }
 
-    let total = 0;
+    let totalMicros = 0; // 先按 6 位小数相加减
     let hasValue = false;
     let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
 
@@ -18476,20 +18904,16 @@ function updateProcessedAmountTotal() {
             }
         }
 
-        const processedAmountCell = cells[8]; // Processed Amount column (index 8)
-        if (processedAmountCell) {
-            const text = processedAmountCell.textContent.trim().replace(/,/g, '');
-            if (text !== '') {
-                const value = parseFloat(text);
-                if (!isNaN(value)) {
-                    total += value;
-                    hasValue = true;
-                }
-            }
+        const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+        const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
+        if (rowMicros !== null) {
+            totalMicros += rowMicros;
+            hasValue = true;
         }
     });
 
-    const finalTotal = hasValue ? total : 0;
+    const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+    const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 只在显示时截断到 2 位
     totalCell.textContent = formatNumberWithThousands(finalTotal);
     if (finalTotal >= -0.05 && finalTotal <= 0.05) {
         totalCell.style.color = '#0D60FF';
@@ -18504,7 +18928,7 @@ function updateProcessedAmountTotal() {
         submitBtn.disabled = !canSubmit;
 
         if (!isWithinRange) {
-            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${finalTotal.toFixed(2)}`;
+            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousands(finalTotal)}`;
         } else if (!allRowsHaveCurrencyAndFormula) {
             submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
         } else {
@@ -19083,7 +19507,7 @@ async function submitSummaryData() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     const totalCell = document.getElementById('summaryTotalAmount');
     if (summaryTableBody && totalCell) {
-        let total = 0;
+        let totalMicros = 0;
         let hasValue = false;
 
         summaryTableBody.querySelectorAll('tr').forEach(row => {
@@ -19094,20 +19518,16 @@ async function submitSummaryData() {
             }
 
             const cells = row.querySelectorAll('td');
-            const processedAmountCell = cells[8]; // Processed Amount column
-            if (processedAmountCell) {
-                const text = processedAmountCell.textContent.trim().replace(/,/g, '');
-                if (text !== '') {
-                    const value = parseFloat(text);
-                    if (!isNaN(value)) {
-                        total += value;
-                        hasValue = true;
-                    }
-                }
+            const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
+            const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
+            if (rowMicros !== null) {
+                totalMicros += rowMicros;
+                hasValue = true;
             }
         });
 
-        const finalTotal = hasValue ? total : 0;
+        const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+        const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
         if (finalTotal < -0.05 || finalTotal > 0.05) {
             // Re-enable button on validation error
             if (submitBtn) {
@@ -19115,7 +19535,7 @@ async function submitSummaryData() {
                 submitBtn.textContent = 'Submit';
             }
             isSubmitting = false;
-            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${finalTotal.toFixed(2)}`, 'error');
+            showNotification('Error', `Cannot submit: The sum of Processed Amount must be between -0.05 and 0.05. Current sum: ${formatNumberWithThousands(finalTotal)}`, 'error');
             return;
         }
     }
@@ -19273,7 +19693,8 @@ async function submitSummaryData() {
                 const displayedFormula = formula && formula.trim() !== '' && formula !== 'Formula' ? formula.trim() : '';
                 if (displayedFormula) {
                     const processValueForFormula = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null;
-                    let recalculatedBaseAmount = evaluateFormulaExpression(displayedFormula, processValueForFormula);
+                    const refCtxSubmit = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null };
+                    let recalculatedBaseAmount = evaluateFormulaExpression(displayedFormula, processValueForFormula, refCtxSubmit.clickedCellRefs, refCtxSubmit.rowIndexOverride);
                     if (!Number.isNaN(Number(recalculatedBaseAmount)) && Number.isFinite(Number(recalculatedBaseAmount))) {
                         recalculatedBaseAmount = Number(recalculatedBaseAmount);
                         if (enableInputMethodAttr && inputMethodAttr && typeof applyInputMethodTransformation === 'function') {
@@ -19310,12 +19731,17 @@ async function submitSummaryData() {
                 const enableInputMethod = enableInputMethodAttr;
                 if (sourceData && sourceData !== 'Source') {
                     try {
+                        const pvFallback = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null;
+                        const refCtxFb = typeof getSummaryRowFormulaRefContext === 'function' ? getSummaryRowFormulaRefContext(row) : { clickedCellRefs: '', rowIndexOverride: null };
                         const recalc = calculateFormulaResultFromExpression(
                             sourceData,
                             sourcePercent,
                             inputMethod,
                             enableInputMethod,
-                            enableSourcePercentAttr
+                            enableSourcePercentAttr,
+                            pvFallback,
+                            refCtxFb.clickedCellRefs,
+                            refCtxFb.rowIndexOverride
                         );
                         if (recalc != null && !isNaN(parseFloat(String(recalc)))) {
                             processedAmountValue = String(recalc);
@@ -19374,6 +19800,12 @@ async function submitSummaryData() {
             const templateKeyAttr = row.getAttribute('data-template-key') || '';
             const productTypeAttr = row.getAttribute('data-product-type');
             const parentIdProductAttr = row.getAttribute('data-parent-id-product');
+            const templateIdAttr = row.getAttribute('data-template-id');
+            const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
+            const subOrderAttr = row.getAttribute('data-sub-order');
+            const subOrder = subOrderAttr && subOrderAttr !== '' && !Number.isNaN(Number(subOrderAttr))
+                ? Number(subOrderAttr)
+                : null;
             // Get formulaVariant from row attribute if available
             const formulaVariantAttr = row.getAttribute('data-formula-variant');
             const formulaVariant = formulaVariantAttr && formulaVariantAttr !== '' ? parseInt(formulaVariantAttr, 10) : null;
@@ -19481,6 +19913,9 @@ async function submitSummaryData() {
                 inputMethod: inputMethodAttr,
                 enableInputMethod: enableInputMethodAttr ? 1 : 0,
                 batchSelection: batchSelectionValue ? 1 : 0,
+                templateKey: templateKeyAttr || null,
+                templateId: templateId, // Keep template identity so submit updates the exact sub row
+                subOrder: subOrder, // Keep sub row order so same formula/account rows don't collapse
                 formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                 rateChecked: rateChecked, // Rate checkbox state
                 rateValue: rateValue, // Rate Value column value (priority) or global rateInput value (if checkbox checked)
@@ -19571,7 +20006,7 @@ async function submitSummaryData() {
         console.log(`Size breakdown - Blob: ${blobSize}, TextEncoder: ${textEncoderSize}, String: ${stringLength}`);
 
         // 自动分批提交函数
-        async function submitBatch(batchData, captureId = null, batchNumber = 1, totalBatches = 1) {
+        async function submitBatch(batchData, captureId = null, batchNumber = 1, totalBatches = 1, options = {}) {
             const batchJsonData = JSON.stringify(batchData);
             const batchSizeKB = batchJsonData.length / 1024;
 
@@ -19600,6 +20035,7 @@ async function submitSummaryData() {
                 },
                 body: JSON.stringify({
                     ...batchData,
+                    immediateAck: options.immediateAck ? 1 : 0,
                     company_id: currentCompanyId
                 })
             });
@@ -19645,6 +20081,37 @@ async function submitSummaryData() {
             }
 
             return result;
+        }
+
+        // Fast mode: immediately acknowledge submit and process in background.
+        // Use this first to make submit feel instant; fallback to legacy batching if it fails.
+        try {
+            const quickSubmitData = {
+                captureDate: parsedProcessData.date,
+                processId: parsedProcessData.process,
+                processName: parsedProcessData.processName,
+                currencyId: parsedProcessData.currency,
+                currencyName: parsedProcessData.currencyName,
+                remark: parsedProcessData.remark || '',
+                summaryRows: summaryRows
+            };
+            const quickResult = await submitBatch(quickSubmitData, null, 1, 1, { immediateAck: true });
+            if (quickResult && quickResult.success && quickResult.queued) {
+                showNotification('Success', 'Data received by server. Processing in background...', 'success');
+                setTimeout(() => {
+                    window.isNavigatingAwayByBackOrSubmit = true;
+                    try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
+                    try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
+                    try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
+                    localStorage.removeItem('capturedTableData');
+                    localStorage.removeItem('capturedProcessData');
+                    window.location.href = 'datacapture.php?submitted=1';
+                }, 600);
+                return;
+            }
+        } catch (quickError) {
+            console.warn('Immediate-ack submit failed, fallback to batched submit:', quickError);
         }
 
         // 分批提交主逻辑
@@ -19852,7 +20319,7 @@ async function submitSummaryData() {
 }
 
 // Only upline (Supplier in UI), member, agent show "Account [name]"; other roles show account_id only.
-const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member','debtor'];
+const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'supplier', 'agent', 'member', 'debtor'];
 
 // Format account display by role: strip [name] for roles not in ROLES_TO_SHOW_ACCOUNT_NAME.
 // accountList: optional array with { id, account_id, name, role }; uses window.__accountListWithRoles or __summaryAccountListCache if not provided.
@@ -19967,3 +20434,30 @@ function getCurrencyIdByCode(currencyCode) {
     }
     return null;
 }
+
+// Add Global Enter=Save Logic for Edit Formula Modal
+document.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+        const modal = document.getElementById('editFormulaModal');
+        // Only trigger if modal is open (even if focus isn't strictly inside it yet)
+        if (modal && modal.style.display !== 'none') {
+            // Check if dropdown is active AND the user is interacting with it
+            const activeDropdown = modal.querySelector('.custom-select-dropdown.show');
+            if (activeDropdown && event.target.closest('.custom-select-wrapper')) {
+                return; // Let the dropdown handle the Select
+            }
+
+            // Do not trigger if SweetAlert or another library's confirmation popup is open and focused
+            if (document.body.classList.contains('swal2-shown') || event.target.closest('.swal2-container')) {
+                return;
+            }
+
+            // Prevent default form submission or other Enter behaviors
+            event.preventDefault();
+            // Call saveFormula directly to ensure validation popups trigger even if button appears visually disabled
+            if (typeof saveFormula === 'function') {
+                saveFormula();
+            }
+        }
+    }
+});

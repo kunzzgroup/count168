@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../config.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 }
 
 function jsonOut(bool $success, string $message, $data = null) {

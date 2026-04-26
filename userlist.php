@@ -10,27 +10,17 @@ header('Pragma: no-cache');
 $current_user_role = $_SESSION['role'] ?? '';
 $current_user_id = $_SESSION['user_id'] ?? null;
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+
 // 获取当前用户关联的所有 company（用于显示 company 按钮）
 $user_companies = [];
 try {
     if ($current_user_id) {
-        // 如果是 owner，获取所有拥有的 company
         if ($current_user_role === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true, true);
         } else {
-            // 普通用户，获取通过 user_company_map 关联的 company
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id 
-                FROM company c
-                INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$current_user_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true, true);
         }
     }
 } catch(PDOException $e) {
@@ -56,6 +46,12 @@ if ($current_user_id && count($user_companies) > 0) {
         $company_id = $user_companies[0]['id'];
         // 更新 session（确保登录后默认使用第一个 company）
         $_SESSION['company_id'] = $company_id;
+        
+        // 如果 URL 带有无效的 company_id，重定向以清除参数或修正为合法的 company_id
+        if (isset($_GET['company_id'])) {
+            header("Location: ?company_id=" . $company_id . (isset($_GET['search']) ? "&search=" . urlencode($_GET['search']) : ""));
+            exit();
+        }
     } elseif (isset($_GET['company_id']) && $company_id == (int)$_GET['company_id']) {
         // 如果 URL 中有 company_id 参数且验证通过，更新 session（实现跨页面同步）
         $_SESSION['company_id'] = $company_id;
@@ -99,7 +95,7 @@ try {
             0 as is_owner_shadow
         FROM user u
         INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-        WHERE ucm.company_id = ?
+        WHERE ucm.company_id = ?" . ($current_user_role !== 'owner' ? " AND LOWER(u.role) != 'partnership'" : "") . "
         ORDER BY 
         CASE 
             WHEN login_id REGEXP '^[0-9]' THEN 0 
@@ -162,6 +158,8 @@ try {
     error_log("Process query failed: " . $e->getMessage());
     $processes = [];
 }
+
+$showAllUsers = isset($_GET['showAll']);
 ?>
 
 <!DOCTYPE html>
@@ -181,11 +179,13 @@ try {
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/userlist.css?v=<?php echo $assetVer('css/userlist.css'); ?>">
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
-<body>
+<body class="user-page">
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
-        <h1>User List</h1>
+        <div class="content">
+            <h1>User List</h1>
         
         <div class="separator-line"></div>
 
@@ -203,52 +203,53 @@ try {
                         <input type="checkbox" id="showInactive" name="showInactive">
                         <label for="showInactive">Show Inactive</label>
                     </div>
+                    <div class="checkbox-section">
+                        <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllUsers ? 'checked' : ''; ?>>
+                        <label for="showAll">Show All</label>
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()">Delete</button>
                 </div>
             </div>
             
-            <!-- Company Buttons (显示多个 company 时) -->
-            <?php if (count($user_companies) > 1): ?>
-            <div id="user-list-company-filter" class="transaction-company-filter" style="display: flex; padding: 0 20px 15px 20px;">
-                <span class="transaction-company-label">Company:</span>
-                <div id="user-list-company-buttons" class="transaction-company-buttons">
-                    <?php foreach($user_companies as $comp): ?>
-                        <button type="button" 
-                                class="transaction-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                data-company-id="<?php echo $comp['id']; ?>"
-                                onclick="switchUserListCompany(<?php echo $comp['id']; ?>, '<?php echo htmlspecialchars($comp['company_id']); ?>')">
-                            <?php echo htmlspecialchars($comp['company_id']); ?>
-                        </button>
-                    <?php endforeach; ?>
-                </div>
+            <!-- Shared Group & Company Filter (SSR) -->
+            <div id="user-list-company-filter-wrapper" style="padding: 0 20px 15px 20px; width: 100%; overflow-x: auto; box-sizing: border-box;">
+                <?php
+                $filter_prefix = 'transaction'; 
+                include 'includes/company_filter.php'; 
+                ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchUserListCompany === 'function') {
+                            switchUserListCompany(companyId, companyCode);
+                        }
+                    };
+                </script>
             </div>
-            <?php endif; ?>
         </div>    
         
-        <!-- 表头 -->
-        <div class="table-header">
-            <div class="header-item">No</div>
-            <div class="header-item header-sortable" onclick="sortByLoginId()">
-                Login Id
-                <span class="sort-indicator" id="sortLoginIdIndicator">▲</span>
+        <div class="user-table-wrapper" id="userTableWrapper">
+            <!-- 表头 -->
+            <div class="table-header">
+                <div class="header-item">No</div>
+                <div class="header-item header-sortable" onclick="sortByLoginId()">
+                    Login Id
+                    <span class="sort-indicator" id="sortLoginIdIndicator">▲</span>
+                </div>
+                <div class="header-item">Name</div>
+                <div class="header-item">Email</div>
+                <div class="header-item header-sortable" onclick="sortByRole()">
+                    Role
+                    <span class="sort-indicator" id="sortRoleIndicator"></span>
+                </div>
+                <div class="header-item">Status</div>
+                <div class="header-item">Last Login</div>
+                <div class="header-item">Created By</div>
+                <div class="header-item">Action
+                    <input type="checkbox" id="selectAllUsers" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllUsers()">
+                </div>
             </div>
-            <div class="header-item">Name</div>
-            <div class="header-item">Email</div>
-            <div class="header-item header-sortable" onclick="sortByRole()">
-                Role
-                <span class="sort-indicator" id="sortRoleIndicator"></span>
-            </div>
-            <div class="header-item">Status</div>
-            <div class="header-item">Last Login</div>
-            <div class="header-item">Created By</div>
-            <div class="header-item">Action
-                <input type="checkbox" id="selectAllUsers" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllUsers()">
-            </div>
-        </div>
-        
-        <div class="table-container">
             <!-- 用户卡片列表 -->
             <div class="user-cards" id="userTableBody">
                 <?php foreach($users as $index => $user): 
@@ -272,12 +273,14 @@ try {
                     // 定义角色层级（数字越小，层级越高）
                     $role_hierarchy = [
                         'owner' => 0,
-                        'admin' => 1,
-                        'manager' => 2,
-                        'supervisor' => 3,
-                        'accountant' => 4,
-                        'audit' => 5,
-                        'customer service' => 6
+                        'partnership' => 1,
+                        'admin' => 2,
+                        'manager' => 3,
+                        'supervisor' => 4,
+                        'accountant' => 5,
+                        'audit' => 6,
+                        'customer service' => 7,
+
                     ];
                     $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
                     $target_user_level = $role_hierarchy[strtolower($user_role)] ?? 999;
@@ -382,6 +385,7 @@ try {
             <span class="pagination-info" id="paginationInfo">1 of 10</span>
             <button class="pagination-btn" id="nextBtn" onclick="changePage(1)">▶</button>
         </div>
+        </div>
     </div>
 
     <!-- Custom Confirmation Modal -->
@@ -465,12 +469,15 @@ try {
                                 <label for="role">Role *</label>
                                 <select id="role" name="role" required>
                                     <option value="">Select Role</option>
+                                    <option value="partnership">Partnership</option>
                                     <option value="admin">Admin</option>
                                     <option value="manager">Manager</option>
                                     <option value="supervisor">Supervisor</option>
                                     <option value="accountant">Accountant</option>
                                     <option value="audit">Audit</option>
                                     <option value="customer service">Customer Service</option>
+                                    <option value="company">Company</option>
+
                                 </select>
                             </div>
                             <div class="form-group user-info-field">
@@ -487,7 +494,16 @@ try {
 
                         <!-- Sidebar Permissions (always in left panel) -->
                         <div id="sidebarPermissionsWrapper" class="sidebar-permissions-section">
-                            <h3 class="sidebar-permissions-title">Permissions</h3>
+                            <h3 class="sidebar-permissions-title">
+                                Permissions
+                                <span id="readOnlyToggleWrapper" class="read-only-toggle-inline" style="display:none;">
+                                    <span class="read-only-label">Read Only</span>
+                                    <label class="toggle-switch" id="readOnlyToggleLabel">
+                                        <input type="checkbox" id="readOnlyToggle" name="read_only" value="1" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </span>
+                            </h3>
                             <div class="permissions-container">
                                 <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="home" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</span></label></div>
                                 <div class="permission-item"><label class="permission-label"><input type="checkbox" name="permissions[]" value="admin" class="permission-checkbox"><span class="permission-name"><svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Admin</span></label></div>
@@ -521,18 +537,13 @@ try {
                             <label class="acc-proc-label">Account</label>
                             <div class="account-grid" id="accountGrid">
                                 <?php
-                                $colCount = 0;
                                 foreach($accounts as $account):
-                                    if ($colCount % 3 == 0) {
-                                        if ($colCount > 0) echo '</div>';
-                                        echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
-                                    }
                                 ?>
                                     <div class="account-item-compact" data-search="<?php echo strtolower($account['account_id']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); border-radius: 4px; background-color: white; border: 1px solid #eee;">
                                         <input type="checkbox" id="account_<?php echo $account['id']; ?>" value="<?php echo $account['id']; ?>" data-account-id="<?php echo htmlspecialchars($account['account_id']); ?>" onchange="updateAccountSelection()" style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
                                         <label for="account_<?php echo $account['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;"><?php echo htmlspecialchars($account['account_id']); ?></label>
                                     </div>
-                                <?php $colCount++; endforeach; if ($colCount > 0) echo '</div>'; ?>
+                                <?php endforeach; ?>
                             </div>
                             <!-- Fixed buttons at bottom of account section -->
                             <div class="account-control-buttons">
@@ -546,18 +557,13 @@ try {
                             <label class="acc-proc-label">Process</label>
                             <div class="account-grid" id="processGrid">
                                 <?php
-                                $colCount = 0;
                                 foreach($processes as $process):
-                                    if ($colCount % 3 == 0) {
-                                        if ($colCount > 0) echo '</div>';
-                                        echo '<div class="account-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);">';
-                                    }
                                 ?>
                                     <div class="account-item-compact" data-search="<?php echo strtolower($process['process_id'] . ' ' . $process['description']); ?>" style="display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); border-radius: 4px; background-color: white; border: 1px solid #eee;">
                                         <input type="checkbox" id="process_<?php echo $process['id']; ?>" value="<?php echo $process['id']; ?>" data-process-name="<?php echo htmlspecialchars($process['process_id']); ?>" data-process-description="<?php echo htmlspecialchars($process['description']); ?>" onchange="updateProcessSelection()" style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
                                         <label for="process_<?php echo $process['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;"><?php echo htmlspecialchars($process['process_id']); ?><?php if (!empty($process['description'])): ?><br><?php echo htmlspecialchars($process['description']); ?><?php endif; ?></label>
                                     </div>
-                                <?php $colCount++; endforeach; if ($colCount > 0) echo '</div>'; ?>
+                                <?php endforeach; ?>
                             </div>
                             <!-- Fixed buttons at bottom of process section -->
                             <div class="account-control-buttons">
@@ -581,6 +587,7 @@ try {
         window.USERLIST_CURRENT_USER_ID = <?php echo json_encode($current_user_id); ?>;
         window.USERLIST_CURRENT_USER_ROLE = '<?php echo strtolower($current_user_role); ?>';
         window.USERLIST_CURRENT_COMPANY_ID = <?php echo json_encode($_SESSION['company_id'] ?? null); ?>;
+        window.USERLIST_SHOW_ALL = <?php echo $showAllUsers ? 'true' : 'false'; ?>;
     </script>
     <script src="js/userlist.js?v=<?php echo $assetVer('js/userlist.js'); ?>"></script>
 </body>

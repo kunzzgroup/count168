@@ -734,7 +734,64 @@
     max-height: 95vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden !important; /* Force modal scrolling to be handled by body */
+    overflow: hidden !important;
+}
+
+/* Bank modal body: flex column — scrollable field area + fixed action bar */
+#addBankModal .modal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden !important; /* body itself doesn't scroll, form does */
+}
+
+/* The bank form: flex column layout */
+#addBankModal .bank-form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden; /* contain the scrollable area */
+}
+
+/* Scrollable area: all form rows */
+#addBankModal .bank-form-fields-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: visible;
+    padding-bottom: 10px; /* breathing room above the pinned buttons */
+}
+
+/* The action buttons bar: pinned at bottom, never scrolls */
+#addBankModal .bank-form > .bank-actions {
+    flex-shrink: 0;
+    background: #ffffff;
+    z-index: 10;
+    border-top: 1px solid #eee;
+}
+
+/* Laptop screens: compact the form spacing */
+@media (max-height: 820px) {
+    #addBankModal .bank-form-fields-scroll .bank-form-row + .bank-form-row {
+        margin-top: 12px;
+    }
+    #addBankModal .bank-form-fields-scroll .bank-form-row {
+        gap: 20px;
+    }
+    #addBankModal .bank-profit-sharing-container {
+        margin-top: 6px;
+    }
+    #addBankModal .bank-profit-sharing-header {
+        padding: 8px 12px;
+    }
+    #addBankModal .no-profit-sharing {
+        padding: 16px 12px;
+    }
+    #addBankModal .bank-form > .bank-actions {
+        padding: 12px 0 16px 0;
+    }
 }
 
 .bank-form {
@@ -1195,10 +1252,7 @@
     border-top: 1px solid #eee;
 }
 
-/* Supplier/Customer/Company 账户下拉可溢出 Bank 弹窗显示，不被裁切 */
-#addBankModal .modal-content,
-#addBankModal .modal-body,
-#addBankModal .bank-form,
+/* Supplier/Customer/Company 下拉可溢出各层祖先显示（但不影响 modal-body / bank-form 的 overflow 控制） */
 #addBankModal .bank-form-row,
 #addBankModal .bank-form-cell,
 #addBankModal .bank-form-cell-left,
@@ -1208,11 +1262,6 @@
 #addBankModal .account-select-with-buttons,
 #addBankModal .custom-select-wrapper {
     overflow: visible;
-}
-
-#addBankModal .modal-body {
-    overflow-y: auto !important;
-    flex: 1;
 }
 
 #addBankModal .custom-select-wrapper {

@@ -2,12 +2,55 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
+// 仅当公司具有 Games category 权限时才可访问此页（Bank-only 自动跳转 dashboard）
+$session_company_id = $_SESSION['company_id'] ?? null;
+if ($session_company_id) {
+    try {
+        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+        $stmt->execute([$session_company_id]);
+        $permsJson = $stmt->fetchColumn();
+        $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
+        $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
+        $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
+        if ($isBankOnlyCategory) {
+            header('Location: dashboard.php');
+            exit;
+        }
+        if (!$hasGamesPermission) {
+            header('Location: processlist.php?error=no_gambling_permission');
+            exit;
+        }
+    } catch (PDOException $e) {
+        header('Location: processlist.php?error=permission_check_failed');
+        exit;
+    }
+} else {
+    header('Location: processlist.php');
+    exit;
+}
+
 // Get URL parameters for notifications
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+$user_companies = [];
+try {
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? '';
+    if ($current_user_id) {
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true, true);
+        } else {
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true, true);
+        }
+    }
+} catch (Exception $e) { }
+
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
+$company_id = $session_company_id;
 
 // 当前 session 公司的 company_code（用于 Category 权限按钮）
 $session_company_code = '';
@@ -38,6 +81,7 @@ if (!empty($session_company_id)) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">
@@ -101,12 +145,18 @@ if (!empty($session_company_id)) {
             
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
-                    <div class="maintenance-company-filter" id="companyButtonsWrapper" style="display: none;">
-                        <span class="maintenance-company-label">Company:</span>
-                        <div class="maintenance-company-buttons" id="companyButtonsContainer">
-                            <!-- Company buttons injected here -->
-                        </div>
-                    </div>
+                    <!-- Shared Group & Company Filter (SSR) -->
+                    <?php
+                    $filter_prefix = 'maintenance'; 
+                    include 'includes/company_filter.php'; 
+                    ?>
+                    <script>
+                        window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                            if (typeof switchCompany === 'function') {
+                                switchCompany(companyId, companyCode);
+                            }
+                        };
+                    </script>
                 </div>
                 
                 <!-- No delete actions for transaction maintenance -->
@@ -122,6 +172,7 @@ if (!empty($session_company_id)) {
                         <th>No.</th>
                         <th>Created At</th>
                         <th>Process</th>
+                        <th>Id_Product</th>
                         <th>Account</th>
                         <th>Description</th>
                         <th>Remark</th>
@@ -193,7 +244,33 @@ if (!empty($session_company_id)) {
         let ownerCompanies = [];
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = <?php echo json_encode($session_company_id); ?>;
+        let currentCompanyCode = <?php echo json_encode($session_company_code); ?>;
         let hasSearched = false;
+
+        async function fetchCompanyPermissions(companyCode) {
+            if (!companyCode) return [];
+            try {
+                const response = await fetch('api/domain/domain_api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
+                });
+                const result = await response.json();
+                if (result.success && result.data && Array.isArray(result.data.permissions)) {
+                    return result.data.permissions;
+                }
+            } catch (err) {
+                console.error('Error fetching company permissions:', err);
+            }
+            return [];
+        }
+
+        function isBankOnlyCategoryCompany(permissions) {
+            if (!Array.isArray(permissions) || permissions.length === 0) return false;
+            const hasBank = permissions.includes('Bank');
+            const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+            return hasBank && !hasGames;
+        }
 
         // Notification functions
         function showNotification(message, type = 'success') {
@@ -298,90 +375,47 @@ if (!empty($session_company_id)) {
             }
         });
 
-        function loadOwnerCompanies() {
-            return fetch('api/transactions/get_owner_companies_api.php')
-                .then(response => response.json())
-                .then(data => {
-                    const wrapper = document.getElementById('companyButtonsWrapper');
-                    const container = document.getElementById('companyButtonsContainer');
-                    
-                    const companies = data.success && Array.isArray(data.data)
-                        ? data.data.filter(company => String(company.company_id || '').trim().toUpperCase() !== 'C168')
-                        : []
-                    if (companies.length > 0 && wrapper && container) {
-                        ownerCompanies = companies;
-                        container.innerHTML = '';
-                        
-                        companies.forEach(company => {
-                            const btn = document.createElement('button');
-                            btn.type = 'button';
-                            btn.className = 'maintenance-company-btn';
-                            btn.textContent = company.company_id;
-                            btn.dataset.companyId = company.id;
-                            btn.addEventListener('click', () => switchCompany(company.id));
-                            container.appendChild(btn);
-                        });
-                        
-                        // 仅在没有选中公司时使用第一个；在 TEST 公司时打开本页保持选 TEST，不自动选 C168
-                        if (!currentCompanyId && companies.length > 0) {
-                            currentCompanyId = companies[0].id;
-                        }
-                        
-                        updateCompanyButtonsState();
-                        wrapper.style.display = companies.length > 1 ? 'flex' : 'none';
-                    } else if (wrapper) {
-                        wrapper.style.display = 'none';
-                        ownerCompanies = [];
-                        currentCompanyId = null;
-                    }
-                })
-                .catch(error => {
-                    console.warn('❌ 加载Company列表失败:', error);
-                    const wrapper = document.getElementById('companyButtonsWrapper');
-                    if (wrapper) {
-                        wrapper.style.display = 'none';
-                    }
-                    ownerCompanies = [];
-                    currentCompanyId = null;
-                });
-        }
 
-        async function switchCompany(companyId) {
+
+        async function switchCompany(companyId, companyCode) {
             if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
             
             // 先更新 session
+            let hasGamblingFromSession = undefined;
             try {
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                    // 即使 API 失败，也继续更新前端状态
-                } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+                } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
+                    if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
+                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
-                // 即使 API 失败，也继续更新前端状态
             }
             
             currentCompanyId = companyId;
-            updateCompanyButtonsState();
+            currentCompanyCode = companyCode || '';
+            if (typeof window !== 'undefined') {
+                window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
+            }
+            if (hasGamblingFromSession === false) {
+                window.location.href = 'dashboard.php';
+                return;
+            }
+            const permissions = await fetchCompanyPermissions(currentCompanyCode);
+            if (isBankOnlyCategoryCompany(permissions)) {
+                window.location.href = 'dashboard.php';
+                return;
+            }
             loadProcesses();
             if (hasSearched) {
                 searchData();
             }
         }
 
-        function updateCompanyButtonsState() {
-            const buttons = document.querySelectorAll('.maintenance-company-btn');
-            buttons.forEach(btn => {
-                if (parseInt(btn.dataset.companyId, 10) === parseInt(currentCompanyId, 10)) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-        }
+
 
         // Load Process list
         function loadProcesses() {
@@ -697,7 +731,7 @@ if (!empty($session_company_id)) {
                 const emptyRow = document.createElement('tr');
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
-                    <td class="maintenance-table-cell" colspan="14" style="text-align: center; padding: 16px;">
+                    <td class="maintenance-table-cell" colspan="13" style="text-align: center; padding: 16px;">
                         No data
                     </td>
                 `;
@@ -711,6 +745,7 @@ if (!empty($session_company_id)) {
                 
                 const dtsCreatedDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const processDisplay = row.process ? escapeHtml(row.process) : '-';
+                const idProductDisplay = (row.id_product !== null && row.id_product !== undefined && row.id_product !== '') ? escapeHtml(row.id_product) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const descriptionDisplay = row.description ? escapeHtml(row.description) : '-';
                 const remarkDisplay = row.remark ? escapeHtml(row.remark) : '-';
@@ -733,6 +768,7 @@ if (!empty($session_company_id)) {
                     <td class="maintenance-table-cell">${row.no || index + 1}</td>
                     <td class="maintenance-table-cell">${dtsCreatedDisplay}</td>
                     <td class="maintenance-table-cell">${processDisplay}</td>
+                    <td class="maintenance-table-cell">${idProductDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell">${remarkDisplay}</td>
@@ -766,13 +802,17 @@ if (!empty($session_company_id)) {
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
+                window.location.href = 'dashboard.php';
+                return;
+            }
             // Initialize date pickers
             initDatePickers();
             initMaintenanceDropdownHover();
             
             initAutoSearchFilters();
 
-            loadOwnerCompanies()
+            Promise.resolve()
                 .then(() => (typeof loadPermissionButtons === 'function' ? loadPermissionButtons() : Promise.resolve()))
                 .catch(() => {})
                 .then(() => loadProcesses())

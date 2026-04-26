@@ -163,27 +163,17 @@ $showAll = isset($_GET['showAll']) ? true : false;
 $current_user_id = $_SESSION['user_id'] ?? null;
 $current_user_role = $_SESSION['role'] ?? '';
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+
 // ΦÄ╖σÅûσ╜ôσëìτö¿µê╖σà│ΦüöτÜäµëÇµ£ë company∩╝êτö¿Σ║Äµÿ╛τñ║ company µîëΘÆ«∩╝ë
 $user_companies = [];
 try {
     if ($current_user_id) {
-        // σªéµ₧£µÿ» owner∩╝îΦÄ╖σÅûµëÇµ£ëµïÑµ£ëτÜä company
         if ($current_user_role === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true, true);
         } else {
-            // µÖ«ΘÇÜτö¿µê╖∩╝îΦÄ╖σÅûΘÇÜΦ┐ç user_company_map σà│ΦüöτÜä company
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id 
-                FROM company c
-                INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$current_user_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true, true);
         }
     }
 } catch (PDOException $e) {
@@ -209,6 +199,12 @@ if ($current_user_id && count($user_companies) > 0) {
         $company_id = $user_companies[0]['id'];
         // µ¢┤µû░ session∩╝êτí«Σ┐¥τÖ╗σ╜òσÉÄΘ╗ÿΦ«ñΣ╜┐τö¿τ¼¼Σ╕ÇΣ╕¬ company∩╝ë
         $_SESSION['company_id'] = $company_id;
+
+        // 如果 URL 带有无效的 company_id，重定向以清除参数或修正为合法的 company_id
+        if (isset($_GET['company_id'])) {
+            header("Location: ?company_id=" . $company_id . (isset($_GET['search']) ? "&search=" . urlencode($_GET['search']) : ""));
+            exit();
+        }
     } elseif (isset($_GET['company_id']) && $company_id == (int) $_GET['company_id']) {
         // σªéµ₧£ URL Σ╕¡µ£ë company_id σÅéµò░Σ╕öΘ¬îΦ»üΘÇÜΦ┐ç∩╝îµ¢┤µû░ session∩╝êσ«₧τÄ░Φ╖¿Θí╡Θ¥óσÉîµ¡Ñ∩╝ë
         $_SESSION['company_id'] = $company_id;
@@ -238,15 +234,18 @@ if ($current_user_id && count($user_companies) > 0) {
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet"
+        href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 
-<body class="process-page">
+<body class="process-page<?php echo $processListPageFile === 'bank_process_list.php' ? ' process-page--bank' : ''; ?>">
     <div class="container">
         <div class="content">
             <div
-                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
+                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0px; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars($processListPageTitle); ?></h1>
+                    <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars($processListPageTitle); ?>
+                    </h1>
                     <?php renderBankProcessToolbarAction(); ?>
                 </div>
                 <!-- Permission Filter -->
@@ -263,7 +262,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
             <div class="action-buttons-container">
                 <div class="action-buttons">
-                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div class="action-controls-row" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <button class="btn btn-add" onclick="addProcess()">Add Process</button>
                         <div class="process-list-date-filter" id="processListDateFilter" style="display: none;">
                             <div class="date-range-picker" id="date-range-picker">
@@ -293,7 +292,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         ?>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllChecked ? 'checked' : ''; ?>>
-                            <label for="showAll">Show Active</label>
+                            <label for="showAll">Show All</label>
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
@@ -305,22 +304,18 @@ if ($current_user_id && count($user_companies) > 0) {
                         title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
 
-                <?php if (count($user_companies) > 1): ?>
-                    <div id="process-list-company-filter" class="process-company-filter"
-                        style="display: flex; margin-top: 10px;">
-                        <span class="process-company-label">Company:</span>
-                        <div id="process-list-company-buttons" class="process-company-buttons">
-                            <?php foreach ($user_companies as $comp): ?>
-                                <button type="button"
-                                    class="process-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>"
-                                    data-company-id="<?php echo $comp['id']; ?>"
-                                    onclick="switchProcessListCompany(<?php echo $comp['id']; ?>)">
-                                    <?php echo htmlspecialchars($comp['company_id']); ?>
-                                </button>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
+                <!-- Shared Group & Company Filter (SSR) -->
+                <?php
+                $filter_prefix = 'process'; 
+                include 'includes/company_filter.php'; 
+                ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchProcessListCompany === 'function') {
+                            switchProcessListCompany(companyId);
+                        }
+                    };
+                </script>
             </div>
 
             <!-- σîàΦúàσÖ¿Σ┐¥Φ»ü th Σ╕Äµò░µì«σî║σÉîσ«╜∩╝îσêùσ»╣Θ╜É -->
@@ -728,7 +723,8 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_SHOW_ALL = <?php echo $showAllChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
-            return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+            return $c['id'] == $company_id;
+        }))[0]['company_id'] ?? '' : ''); ?>;
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
         window.PROCESSLIST_PAGE_FILE = <?php echo json_encode($processListPageFile); ?>;
         window.PROCESSLIST_FORCED_PERMISSION = <?php echo json_encode($processListForcedPermission); ?>;

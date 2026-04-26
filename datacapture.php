@@ -14,8 +14,9 @@ if ($session_company_id) {
         $stmt->execute([$session_company_id]);
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
-        if (!is_array($companyPerms) || (!in_array('Games', $companyPerms) && !in_array('Gambling', $companyPerms))) {
-            header('Location: processlist.php?error=no_gambling_permission');
+        if (!is_array($companyPerms) || empty($companyPerms)) {
+            // IF no permissions, block. If any permissions (Games, Bank etc.), allow page load, API will filter later
+            header('Location: processlist.php?error=no_permission');
             exit;
         }
     } catch (PDOException $e) {
@@ -51,48 +52,34 @@ $error = isset($_GET['error']) ? true : false;
 $current_user_id = $_SESSION['user_id'] ?? null;
 $current_user_role = $_SESSION['role'] ?? '';
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+
 // Get all companies associated with the current user (for displaying company buttons)
 $user_companies = [];
 try {
     if ($current_user_id) {
-        // If owner, get all owned companies
         if ($current_user_role === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true, true);
         } else {
-            // Regular user, get companies associated via user_company_map
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id 
-                FROM company c
-                INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$current_user_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true, true);
         }
     }
 } catch(PDOException $e) {
     error_log("Failed to get user company list: " . $e->getMessage());
 }
 
-// Data Capture 页面不显示 C168 公司按钮
-if (!empty($user_companies)) {
-    $user_companies = array_values(array_filter($user_companies, function($comp) {
-        return strtoupper(trim((string)($comp['company_id'] ?? ''))) !== 'C168';
-    }));
-}
+$user_companies_all = $user_companies;
+
 
 // If company_id parameter exists in URL, use it (for switching company)
 $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
 
 // Validate if company_id belongs to current user
-if ($current_user_id && count($user_companies) > 0) {
+if ($current_user_id && count($user_companies_all) > 0) {
     $valid_company = false;
     if ($company_id) {
-        foreach ($user_companies as $comp) {
+        foreach ($user_companies_all as $comp) {
             if ($comp['id'] == $company_id) {
                 $valid_company = true;
                 break;
@@ -101,7 +88,7 @@ if ($current_user_id && count($user_companies) > 0) {
     }
     if (!$valid_company) {
         // If company_id is invalid or does not exist, use the first company
-        $company_id = $user_companies[0]['id'];
+        $company_id = $user_companies_all[0]['id'];
         // Update session (ensure first company is used by default after login)
         $_SESSION['company_id'] = $company_id;
     } elseif (isset($_GET['company_id']) && $company_id == (int)$_GET['company_id']) {
@@ -134,16 +121,20 @@ if ($current_user_id && count($user_companies) > 0) {
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
 <body>
     <div class="container">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
             <h1 style="margin: 0;">Data Capture</h1>
-            <!-- Permission Filter -->
-            <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
-                <span class="data-capture-company-label">Category:</span>
-                <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
-                    <!-- Permission buttons will be loaded dynamically -->
+            
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <!-- Permission Filter -->
+                <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
+                    <span class="data-capture-company-label">Category:</span>
+                    <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
+                        <!-- Permission buttons will be loaded dynamically -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -153,22 +144,23 @@ if ($current_user_id && count($user_companies) > 0) {
                 <!-- Left Column - Data Capture Form -->
                 <div class="form-column">
                     <div class="form-container">
-                        <?php if (count($user_companies) > 1): ?>
-                        <div id="data-capture-company-filter" class="data-capture-company-filter" style="display: flex; margin-bottom: clamp(10px, 1.04vw, 20px);">
-                            <span class="data-capture-company-label">Company:</span>
-                            <div id="data-capture-company-buttons" class="data-capture-company-buttons">
-                                <?php foreach($user_companies as $comp): ?>
-                                    <button type="button" 
-                                            class="data-capture-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                            data-company-id="<?php echo $comp['id']; ?>"
-                                            onclick="switchDataCaptureCompany(<?php echo $comp['id']; ?>)">
-                                        <?php echo htmlspecialchars($comp['company_id']); ?>
-                                    </button>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
+
                         <form id="dataCaptureForm" class="process-form" method="POST">
+                            <!-- Shared Group & Company Filter (SSR) -->
+                            <?php
+                            $filter_prefix = 'data-capture';
+                            include 'includes/company_filter.php';
+                            ?>
+                            <script>
+                                window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                                    if (typeof switchDataCaptureCompany === 'function') {
+                                        switchDataCaptureCompany(companyId);
+                                    } else if (typeof window.switchDataCaptureCompany === 'function') {
+                                        window.switchDataCaptureCompany(companyId);
+                                    }
+                                };
+                            </script>
+
                             <div class="form-group">
                                 <label for="capture_date">Date</label>
                                 <select style id="capture_date" name="capture_date" required>
@@ -434,7 +426,18 @@ if ($current_user_id && count($user_companies) > 0) {
 
     <script>
         window.DATACAPTURE_COMPANY_ID = <?php echo json_encode($company_id); ?>;
-        window.DATACAPTURE_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+        window.DATACAPTURE_COMPANY_CODE = <?php
+            $dcCode = '';
+            if (!empty($user_companies_all) && $company_id) {
+                foreach ($user_companies_all as $c) {
+                    if ((int) $c['id'] === (int) $company_id) {
+                        $dcCode = (string) ($c['company_id'] ?? '');
+                        break;
+                    }
+                }
+            }
+            echo json_encode($dcCode);
+        ?>;
     </script>
     <script src="js/datacapture.js?v=<?php echo $assetVer('js/datacapture.js'); ?>"></script>
 

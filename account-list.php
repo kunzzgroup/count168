@@ -10,27 +10,17 @@ header('Pragma: no-cache');
 $current_user_role = $_SESSION['role'] ?? '';
 $current_user_id = $_SESSION['user_id'] ?? null;
 
+require_once __DIR__ . '/api/get_companies_helper.php';
+
 // 获取当前用户关联的所有 company（用于显示 company 按钮）
 $user_companies = [];
 try {
     if ($current_user_id) {
-        // 如果是 owner，获取所有拥有的 company
         if ($current_user_role === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-            $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
-            $stmt->execute([$owner_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id;
+            $user_companies = getCompaniesByOwner($pdo, $owner_id, true, true);
         } else {
-            // 普通用户，获取通过 user_company_map 关联的 company
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id 
-                FROM company c
-                INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-                WHERE ucm.user_id = ?
-                ORDER BY c.company_id ASC
-            ");
-            $stmt->execute([$current_user_id]);
-            $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $user_companies = getCompaniesByUser($pdo, $current_user_id, true, true);
         }
     }
 } catch(PDOException $e) {
@@ -56,6 +46,12 @@ if ($current_user_id && count($user_companies) > 0) {
         $company_id = $user_companies[0]['id'];
         // 更新 session（确保登录后默认使用第一个 company）
         $_SESSION['company_id'] = $company_id;
+        
+        // 如果 URL 带有无效的 company_id，重定向以清除参数或修正为合法的 company_id
+        if (isset($_GET['company_id'])) {
+            header("Location: ?company_id=" . $company_id . (isset($_GET['search']) ? "&search=" . urlencode($_GET['search']) : ""));
+            exit();
+        }
     } elseif (isset($_GET['company_id']) && $company_id == (int)$_GET['company_id']) {
         // 如果 URL 中有 company_id 参数且验证通过，更新 session（实现跨页面同步）
         $_SESSION['company_id'] = $company_id;
@@ -225,8 +221,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
     <link rel="stylesheet" href="css/account-list.css?v=<?php echo $assetVer('css/account-list.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
-<body>
+<body class="account-page">
     <div class="container">
         <div class="content">
             <h1 class="account-page-title">Account List</h1>
@@ -252,55 +249,51 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             <label for="showAll">Show All</label>
                         </div>
                     </div>
-                    <button class="account-btn account-btn-delete" id="accountDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive accounts can be deleted">Delete</button>
-                </div>
-                
-                <!-- Company Buttons (显示多个 company 时) -->
-                <?php if (count($user_companies) > 1): ?>
-                <div id="account-list-company-filter" class="account-company-filter" style="display: flex; padding: 0 20px 10px 20px;">
-                    <span class="account-company-label">Company:</span>
-                    <div id="account-list-company-buttons" class="account-company-buttons">
-                        <?php foreach($user_companies as $comp): ?>
-                            <button type="button" 
-                                    class="account-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                    data-company-id="<?php echo $comp['id']; ?>"
-                                    onclick="switchAccountListCompany(<?php echo $comp['id']; ?>, '<?php echo htmlspecialchars($comp['company_id']); ?>')">
-                                <?php echo htmlspecialchars($comp['company_id']); ?>
-                            </button>
-                        <?php endforeach; ?>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <button class="account-btn account-btn-setting" onclick="openCurrencySettingModal()">Currency Setting</button>
+                        <button class="account-btn account-btn-delete" id="accountDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive accounts can be deleted">Delete</button>
                     </div>
                 </div>
-                <?php endif; ?>
+                <!-- Shared Group & Company Filter (SSR) -->
+                <?php include 'includes/company_filter.php'; ?>
+                <script>
+                    window.onSharedCompanyFilterChanged = function(companyId, companyCode) {
+                        if (typeof switchAccountListCompany === 'function') {
+                            switchAccountListCompany(companyId, companyCode);
+                        }
+                    };
+                </script>
             </div>
             
-            <!-- Table Header -->
-            <div class="account-table-header">
-                <div class="account-header-item">No</div>
-                <div class="account-header-item account-header-sortable" onclick="sortByAccount()">
-                    Account
-                    <span class="account-sort-indicator" id="sortAccountIndicator">▲</span>
+            <div class="account-table-wrapper" id="accountTableWrapper">
+                <!-- Table Header -->
+                <div class="account-table-header">
+                    <div class="account-header-item">No</div>
+                    <div class="account-header-item account-header-sortable" onclick="sortByAccount()">
+                        Account
+                        <span class="account-sort-indicator" id="sortAccountIndicator">▲</span>
+                    </div>
+                    <div class="account-header-item">Name</div>
+                    <div class="account-header-item account-header-sortable" onclick="sortByRole()">
+                        Role
+                        <span class="account-sort-indicator" id="sortRoleIndicator"></span>
+                    </div>
+                    <div class="account-header-item">Alert</div>
+                    <div class="account-header-item">Status</div>
+                    <div class="account-header-item">Last Login</div>
+                    <div class="account-header-item">Remark</div>
+                    <div class="account-header-item">Action
+                        <input type="checkbox" id="selectAllAccounts" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
+                    </div>
                 </div>
-                <div class="account-header-item">Name</div>
-                <div class="account-header-item account-header-sortable" onclick="sortByRole()">
-                    Role
-                    <span class="account-sort-indicator" id="sortRoleIndicator"></span>
-                </div>
-                <div class="account-header-item">Alert</div>
-                <div class="account-header-item">Status</div>
-                <div class="account-header-item">Last Login</div>
-                <div class="account-header-item">Remark</div>
-                <div class="account-header-item">Action
-                    <input type="checkbox" id="selectAllAccounts" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
+                
+                <!-- Account Cards List -->
+                <div class="account-cards" id="accountTableBody">
+                    <div class="account-card">
+                        <div class="account-card-item">Loading...</div>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Account Cards List -->
-            <div class="account-cards" id="accountTableBody">
-                <div class="account-card">
-                    <div class="account-card-item">Loading...</div>
-                </div>
-            </div>
-            
             <!-- 分页控件 - 浮动在右下角 -->
             <div class="account-pagination-container" id="paginationContainer">
                 <button class="account-pagination-btn" id="prevBtn" onclick="changePage(currentPage - 1)">◀</button>
@@ -603,6 +596,74 @@ $showAll = isset($_GET['showAll']) ? true : false;
             <div class="account-form-actions link-account-form-actions">
                 <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()">Save</button>
                 <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currency Setting Fullscreen Modal -->
+    <div id="currencySettingModal" class="currency-fullscreen-modal" style="display: none;">
+        <div class="currency-fullscreen-modal-content">
+            <!-- Top Header Bar -->
+            <div class="currency-fullscreen-modal-header-bar">
+                <h2>Currency Setting</h2>
+                <button type="button" class="currency-btn-back" onclick="closeCurrencySettingModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    Back
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div class="currency-fullscreen-modal-body">
+                <!-- Left Panel: Currency Management -->
+                <div class="currency-left-panel">
+                    <div class="currency-setting-add-row-stacked" style="margin-top: 10px;">
+                        <label for="currencySettingAddInput">Add Currency :</label>
+                        <div style="display: flex; gap: 10px; width: 100%;">
+                            <input type="text" id="currencySettingAddInput" class="currency-setting-input" placeholder="Please enter new currency" style="flex: 1;">
+                            <button type="button" class="account-btn account-btn-add currency-setting-add-btn" onclick="addCurrencyFromSettingModal()">Add</button>
+                        </div>
+                    </div>
+                    
+                    <div class="currency-setting-divider"></div>
+                    
+                    <div class="currency-setting-list-row-stacked">
+                        <label>Currency :</label>
+                        <div class="currency-setting-pill-list" id="currencySettingPillList">
+                            <!-- Currency pills will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Panel: Accounts -->
+                <div class="currency-right-panel" style="padding-top: 24px;">
+                    <div class="currency-setting-filter-row">
+                        <div class="currency-setting-search-wrap">
+                            <svg class="currency-setting-search-icon" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <input type="text" id="currencySettingSearchInput" class="currency-setting-search-input" placeholder="Search Bar" autocomplete="off">
+                        </div>
+                        <div class="currency-setting-role-filter">
+                            <select id="currencySettingRoleSelect" class="currency-setting-select">
+                                <option value="">Filter Row</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="currency-setting-selectall-row">
+                        <button type="button" id="currencySettingSelectAllBtn" class="account-btn currency-setting-selectall-btn" onclick="toggleSelectAllCurrencyAccounts()">Select All</button>
+                        <span id="currencySettingSelectedCount" class="currency-setting-selected-count">0 selected</span>
+                    </div>
+                    
+                    <div class="currency-setting-account-list" id="currencySettingAccountList">
+                        <!-- Account items like in Image 2 will be loaded here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Fixed Bottom Bar -->
+            <div class="currency-fullscreen-bottom-bar">
+                <button type="button" class="account-btn account-btn-save currency-setting-submit-btn" onclick="saveCurrencySetting()">Save</button>
+                <button type="button" class="account-btn account-btn-cancel currency-setting-cancel-btn" onclick="closeCurrencySettingModal()">Cancel</button>
             </div>
         </div>
     </div>

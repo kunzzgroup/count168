@@ -5,8 +5,10 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/formula_fields_helper.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -98,10 +100,41 @@ function getTemplateProcessInfo(PDO $pdo, int $templateId) {
 }
 
 /**
- * 更新主模板记录
+ * 更新主模板记录（可选同步 source_percent / enable_source_percent）
  */
 function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accountDisplay,
-    string $sourceColumns, string $sourceDisplay, string $inputMethod, string $formula, string $description) {
+    string $sourceColumns, string $sourceDisplay, string $inputMethod, string $formulaBase, string $description,
+    $sourcePercent = null, $enableSourcePercent = null) {
+    if ($sourcePercent !== null && $enableSourcePercent !== null) {
+        $sql = "UPDATE data_capture_templates
+            SET account_id = :account_id,
+                account_display = :account_display,
+                source_columns = :source_columns,
+                columns_display = :columns_display,
+                input_method = :input_method,
+                formula_display = :formula_display,
+                formula_operators = :formula_operators,
+                source_percent = :source_percent,
+                enable_source_percent = :enable_source_percent,
+                description = :description,
+                updated_at = NOW()
+            WHERE id = :id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':account_id' => $accountId,
+            ':account_display' => $accountDisplay,
+            ':source_columns' => $sourceColumns,
+            ':columns_display' => $sourceDisplay,
+            ':input_method' => $inputMethod ?: null,
+            ':formula_display' => $formulaBase,
+            ':formula_operators' => $formulaBase,
+            ':source_percent' => (string) $sourcePercent,
+            ':enable_source_percent' => (int) $enableSourcePercent,
+            ':description' => $description,
+            ':id' => $templateId
+        ]);
+        return;
+    }
     $sql = "UPDATE data_capture_templates
             SET account_id = :account_id,
                 account_display = :account_display,
@@ -120,8 +153,8 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
         ':source_columns' => $sourceColumns,
         ':columns_display' => $sourceDisplay,
         ':input_method' => $inputMethod ?: null,
-        ':formula_display' => $formula,
-        ':formula_operators' => $formula,
+        ':formula_display' => $formulaBase,
+        ':formula_operators' => $formulaBase,
         ':description' => $description,
         ':id' => $templateId
     ]);
@@ -145,7 +178,8 @@ function getSyncedProcesses(PDO $pdo, int $sourceProcessId, int $companyId) {
  */
 function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateInfo,
     int $accountId, string $accountDisplay, string $sourceColumns, string $sourceDisplay,
-    string $inputMethod, string $formula, string $description) {
+    string $inputMethod, string $formulaBase, string $description,
+    $sourcePercent = null, $enableSourcePercent = null) {
     $syncedProcesses = getSyncedProcesses($pdo, (int)$templateInfo['process_id'], $companyId);
     if (empty($syncedProcesses)) {
         return;
@@ -160,7 +194,24 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
           AND formula_variant = ?
         LIMIT 1
     ");
-    $updateStmt = $pdo->prepare("
+    if ($sourcePercent !== null && $enableSourcePercent !== null) {
+        $updateStmt = $pdo->prepare("
+        UPDATE data_capture_templates SET
+            account_id = ?,
+            account_display = ?,
+            source_columns = ?,
+            columns_display = ?,
+            input_method = ?,
+            formula_display = ?,
+            formula_operators = ?,
+            source_percent = ?,
+            enable_source_percent = ?,
+            description = ?,
+            updated_at = NOW()
+        WHERE id = ?
+    ");
+    } else {
+        $updateStmt = $pdo->prepare("
         UPDATE data_capture_templates SET
             account_id = ?,
             account_display = ?,
@@ -173,6 +224,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
             updated_at = NOW()
         WHERE id = ?
     ");
+    }
     foreach ($syncedProcesses as $proc) {
         $targetProcessId = $proc['id'];
         $findStmt->execute([
@@ -185,17 +237,33 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
         ]);
         $target = $findStmt->fetch(PDO::FETCH_ASSOC);
         if ($target) {
-            $updateStmt->execute([
-                $accountId,
-                $accountDisplay,
-                $sourceColumns,
-                $sourceDisplay,
-                $inputMethod ?: null,
-                $formula,
-                $formula,
-                $description,
-                $target['id']
-            ]);
+            if ($sourcePercent !== null && $enableSourcePercent !== null) {
+                $updateStmt->execute([
+                    $accountId,
+                    $accountDisplay,
+                    $sourceColumns,
+                    $sourceDisplay,
+                    $inputMethod ?: null,
+                    $formulaBase,
+                    $formulaBase,
+                    (string) $sourcePercent,
+                    (int) $enableSourcePercent,
+                    $description,
+                    $target['id']
+                ]);
+            } else {
+                $updateStmt->execute([
+                    $accountId,
+                    $accountDisplay,
+                    $sourceColumns,
+                    $sourceDisplay,
+                    $inputMethod ?: null,
+                    $formulaBase,
+                    $formulaBase,
+                    $description,
+                    $target['id']
+                ]);
+            }
         }
     }
 }
@@ -219,7 +287,7 @@ try {
     $sourceColumns = isset($input['source_columns']) ? trim($input['source_columns']) : '';
     $sourceDisplay = isset($input['source_display']) ? trim($input['source_display']) : $sourceColumns;
     $inputMethod = isset($input['input_method']) ? trim($input['input_method']) : '';
-    $formula = isset($input['formula']) ? trim($input['formula']) : '';
+    $formulaRaw = isset($input['formula']) ? trim($input['formula']) : '';
     $description = isset($input['description']) ? trim($input['description']) : '';
 
     if ($templateId <= 0) {
@@ -234,14 +302,27 @@ try {
     $templateInfo = getTemplateProcessInfo($pdo, $templateId);
     $sourceProcessId = $templateInfo ? (int)$templateInfo['process_id'] : null;
 
+    $parsed = parseMaintenanceFormulaInput($formulaRaw);
+    $formulaBase = $parsed['base'];
+    $sp = $parsed['source_percent'];
+    $en = $parsed['enable_source_percent'];
+
     $pdo->beginTransaction();
     try {
-        updateTemplate($pdo, $templateId, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formula, $description);
+        if ($sp !== null && $en !== null) {
+            updateTemplate($pdo, $templateId, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $description, $sp, $en);
+        } else {
+            updateTemplate($pdo, $templateId, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $description);
+        }
         if ($sourceProcessId && $templateInfo) {
-            syncFormulaToTargetTemplates($pdo, $companyId, $templateInfo, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formula, $description);
+            syncFormulaToTargetTemplates($pdo, $companyId, $templateInfo, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $description, $sp, $en);
         }
         $pdo->commit();
-        jsonResponse(true, '更新成功');
+        $respData = [
+            'formula_display_paren' => buildFormulaDisplayParenFromParts($formulaBase, $sp !== null ? $sp : '', $sp !== null ? $en : 0),
+            'formula_edit' => buildFormulaEditFromParts($formulaBase, $sp !== null ? $sp : '', $sp !== null ? $en : 0),
+        ];
+        jsonResponse(true, '更新成功', $respData);
     } catch (Exception $e) {
         $pdo->rollBack();
         throw $e;
