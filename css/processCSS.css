@@ -480,6 +480,10 @@ body.process-page {
     width: 100%;
 }
 
+.process-page .bank-status-dropdown.open {
+    z-index: 1200;
+}
+
 .process-page .bank-status-button {
     width: 72%;
     min-height: 24px;
@@ -562,7 +566,7 @@ body.process-page {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 250, 252, 0.98) 100%);
     box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
     backdrop-filter: blur(10px);
-    z-index: 30;
+    z-index: 1210;
     box-sizing: border-box;
     white-space: normal;
 }
