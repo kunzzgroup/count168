@@ -269,14 +269,14 @@ try {
     }
     
     // 转换日期格式 (严格按 dd/mm/yyyy 转为 yyyy-mm-dd，避免 strtotime 把 7/04 解析成 07/04)
-    $transaction_date_obj = DateTime::createFromFormat('d/m/Y', $transaction_date);
+    $transaction_date_obj = DateTime::createFromFormat('d/m/Y', trim($transaction_date));
     $transaction_date_errors = DateTime::getLastErrors();
-    if (
-        !$transaction_date_obj ||
-        !is_array($transaction_date_errors) ||
-        ($transaction_date_errors['warning_count'] ?? 0) > 0 ||
-        ($transaction_date_errors['error_count'] ?? 0) > 0
-    ) {
+    $has_parse_error = is_array($transaction_date_errors)
+        && (
+            ($transaction_date_errors['warning_count'] ?? 0) > 0
+            || ($transaction_date_errors['error_count'] ?? 0) > 0
+        );
+    if (!$transaction_date_obj || $has_parse_error) {
         throw new Exception('交易日期格式无效，请使用 dd/mm/yyyy');
     }
     $transaction_date_db = $transaction_date_obj->format('Y-m-d');
