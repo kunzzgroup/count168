@@ -43,6 +43,7 @@ function resolveContraCompanyId(PDO $pdo): int {
 
 function fetchPendingContras(PDO $pdo, int $companyId): array {
     $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
+    $hasCreatedAt = tableHasColumn($pdo, 'transactions', 'created_at');
     $sql = "SELECT t.id, DATE_FORMAT(t.transaction_date, '%d/%m/%Y') AS transaction_date, t.amount,
             COALESCE(t.description, '') AS description,
             to_acc.account_id AS to_account_code, to_acc.name AS to_account_name,
@@ -55,8 +56,11 @@ function fetchPendingContras(PDO $pdo, int $companyId): array {
             LEFT JOIN user u ON t.created_by = u.id
             LEFT JOIN owner o ON t.created_by_owner = o.id";
     if ($hasCurrencyId) $sql .= " LEFT JOIN currency c ON t.currency_id = c.id";
-    $sql .= " WHERE t.company_id = ? AND t.transaction_type = 'CONTRA' AND t.approval_status = 'PENDING'
-            ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC";
+    $orderBy = $hasCreatedAt
+        ? " ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC"
+        : " ORDER BY t.transaction_date ASC, t.id ASC";
+    $sql .= " WHERE t.company_id = ? AND t.transaction_type = 'CONTRA' AND t.approval_status = 'PENDING'"
+        . $orderBy;
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$companyId]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);

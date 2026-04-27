@@ -44,7 +44,7 @@ function isManagerOrAboveRole(string $role): bool
 /**
  * 是否需要 Contra 审批：
  * - 仅对 CONTRA 生效
- * - manager 以下：只要是“今天之前”的交易日期，就需要审批
+ * - manager 以下：只要是“今天及之前”的交易日期，就需要审批
  */
 function requiresContraApproval(string $role, string $transactionDateDb): bool
 {
@@ -52,7 +52,7 @@ function requiresContraApproval(string $role, string $transactionDateDb): bool
         return false;
     }
     $today = date('Y-m-d');
-    return $transactionDateDb < $today;
+    return $transactionDateDb <= $today;
 }
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool

@@ -3360,7 +3360,7 @@
             .then(data => {
                 if (data.success) {
                     console.log('✅ 提交成功:', data.data);
-                    // Manager 以下提交“非当天”的 CONTRA：需要等待批准（后端会返回 approval_status = PENDING）
+                    // Manager 以下提交“当天及之前”的 CONTRA：需要等待批准（后端会返回 approval_status = PENDING）
                     const approvalStatus = data?.data?.approval_status ? String(data.data.approval_status).toUpperCase() : '';
                     if (approvalStatus === 'PENDING') {
                         showNotification('Submitted. Waiting for Manager+ approval to take effect.', 'info');
