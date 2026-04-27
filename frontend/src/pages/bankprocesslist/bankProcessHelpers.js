@@ -2,7 +2,7 @@ export const PAGE_SIZE = 20;
 
 /** 与旧版 bank_process_list.js BANK_GRID_TEMPLATE_COLUMNS 一致，保证列宽对齐 */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "0.2fr 0.65fr 0.5fr 0.7fr 0.5fr 0.75fr 0.6fr 0.6fr 0.7fr 0.2fr 0.3fr 0.3fr 0.6fr 0.5fr 0.36fr";
+  "0.2fr 0.64fr 0.48fr 0.62fr 0.44fr 0.78fr 0.56fr 0.5fr 0.56fr 0.3fr 0.3fr 0.3fr 0.5fr 0.44fr 0.34fr";
 
 export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];
