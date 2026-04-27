@@ -15297,7 +15297,8 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
 // Auto-populate summary table rows from saved templates
 // 优先精确匹配整串 id_product（如 GAMS(SV)HKD），避免与 GAMS(SV)MYR 等仅 normalize 相同的行混用
-function findSummaryRowByIdProduct(idProduct) {
+// ctx 为可选精确定位条件（rowIndex/productType/subOrder/accountId），不传时保持旧逻辑
+function findSummaryRowByIdProduct(idProduct, ctx = null) {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) {
         return null;
@@ -15309,19 +15310,51 @@ function findSummaryRowByIdProduct(idProduct) {
         return null;
     }
 
-    const rows = summaryTableBody.querySelectorAll('tr');
-    // 1) 先找整串完全一致的行，避免 GAMS(SV)HKD 匹配到 GAMS(SV)MYR
-    for (const row of rows) {
+    const rows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    const exactCandidates = [];
+    const normalizedCandidates = [];
+
+    const rowMatchesCtx = function (row) {
+        if (!ctx || typeof ctx !== 'object') return true;
+        const rowType = (row.getAttribute('data-product-type') || 'main').trim();
+        if (ctx.productType && String(ctx.productType).trim() !== '' && rowType !== String(ctx.productType).trim()) {
+            return false;
+        }
+        if (ctx.rowIndex !== undefined && ctx.rowIndex !== null && ctx.rowIndex !== '') {
+            const rowIdxAttr = row.getAttribute('data-row-index');
+            const rowIdx = (rowIdxAttr !== null && rowIdxAttr !== '' && !Number.isNaN(Number(rowIdxAttr))) ? Number(rowIdxAttr) : null;
+            if (rowIdx === null || rowIdx !== Number(ctx.rowIndex)) return false;
+        }
+        if (ctx.subOrder !== undefined && ctx.subOrder !== null && ctx.subOrder !== '') {
+            const rowSubOrderAttr = row.getAttribute('data-sub-order');
+            const rowSubOrder = (rowSubOrderAttr !== null && rowSubOrderAttr !== '' && !Number.isNaN(Number(rowSubOrderAttr))) ? Number(rowSubOrderAttr) : null;
+            if (rowSubOrder === null || rowSubOrder !== Number(ctx.subOrder)) return false;
+        }
+        if (ctx.accountId !== undefined && ctx.accountId !== null && String(ctx.accountId).trim() !== '') {
+            const accountCell = row.querySelector('td:nth-child(2)');
+            const rowAccountId = accountCell && accountCell.getAttribute ? String(accountCell.getAttribute('data-account-id') || '').trim() : '';
+            if (rowAccountId !== String(ctx.accountId).trim()) return false;
+        }
+        return true;
+    };
+
+    // 1) 先找整串完全一致的候选
+    rows.forEach((row) => {
         const idProductCell = row.querySelector('td:first-child');
         const productValues = getProductValuesFromCell(idProductCell);
         const mainRaw = (productValues.main || '').trim();
         const subRaw = (productValues.sub || '').trim();
         if (idProductTrimmed && (mainRaw === idProductTrimmed || subRaw === idProductTrimmed)) {
-            return row;
+            exactCandidates.push(row);
         }
+    });
+    if (exactCandidates.length > 0) {
+        const precise = exactCandidates.find(rowMatchesCtx);
+        return precise || exactCandidates[0];
     }
+
     // 2) 再按 normalize 匹配（兼容旧逻辑）
-    for (const row of rows) {
+    rows.forEach((row) => {
         const idProductCell = row.querySelector('td:first-child');
         const productValues = getProductValuesFromCell(idProductCell);
         const mainCellText = normalizeIdProductText(productValues.main || '');
@@ -15331,9 +15364,11 @@ function findSummaryRowByIdProduct(idProduct) {
         const mainMatch = mainCellText === desired || subCellText === desired
             || (desired && mainRaw.indexOf(' - ') >= 0 && (mainRaw === desired || mainRaw.startsWith(desired + ' ') || mainRaw.startsWith(desired + '(')));
         const subMatch = desired && subRaw.indexOf(' - ') >= 0 && (subRaw === desired || subRaw.startsWith(desired + ' ') || subRaw.startsWith(desired + '('));
-        if (mainMatch || subMatch) {
-            return row;
-        }
+        if (mainMatch || subMatch) normalizedCandidates.push(row);
+    });
+    if (normalizedCandidates.length > 0) {
+        const precise = normalizedCandidates.find(rowMatchesCtx);
+        return precise || normalizedCandidates[0];
     }
 
     return null;
@@ -15555,7 +15590,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     });
                     // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
                     if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                        const firstRow = findSummaryRowByIdProduct(originalIdProduct);
+                        const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
                         if (firstRow) {
                             const idProductCell = firstRow.querySelector('td:first-child');
                             const productValues = getProductValuesFromCell(idProductCell);
@@ -15686,7 +15721,14 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
 function applyTemplateToSummaryRow(idProduct, template) {
     try {
-        const targetRow = findSummaryRowByIdProduct(idProduct);
+        const targetCtx = { productType: 'main' };
+        if (template && template.row_index !== undefined && template.row_index !== null && !Number.isNaN(Number(template.row_index))) {
+            targetCtx.rowIndex = Number(template.row_index);
+        }
+        if (template && template.account_id !== undefined && template.account_id !== null && String(template.account_id).trim() !== '') {
+            targetCtx.accountId = String(template.account_id).trim();
+        }
+        const targetRow = findSummaryRowByIdProduct(idProduct, targetCtx);
 
         if (!targetRow) {
             return;
@@ -17428,12 +17470,16 @@ function reorderSummaryRowsByRowIndex() {
                 const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
                 if (index !== -1) dataCapturePosition = index;
             }
+            const groupKey = normalizedMain
+                ? (normalizedMain + '|' + (effectiveIndex !== null && !Number.isNaN(effectiveIndex) ? String(effectiveIndex) : 'na'))
+                : '';
 
             return {
                 row,
                 rowIndex,
                 originalIndex,
                 normalizedMain,
+                groupKey,
                 hasMain: !!mainTextRaw,
                 productType,
                 accountId,
@@ -17448,22 +17494,22 @@ function reorderSummaryRowsByRowIndex() {
         // Array.prototype.sort() pairwise comparisons cannot logically group separate items
         // if their primary sort keys (dataCapturePosition) are vastly different.
         // E.g. Main is pos 0, Sub is pos 9 (from DB history). A new item pos 1 will be inserted between them.
-        // To fix this, force all items of the same normalizeMain to adopt the minimum dataCapturePosition of that group.
+        // To fix this, force all items of the same groupKey(normalizedMain + row_index) to adopt the minimum dataCapturePosition of that group.
         const groupPositions = new Map();
         rowData.forEach(item => {
-            if (item.productType !== 'sub' && item.normalizedMain && item.dataCapturePosition !== null && item.dataCapturePosition !== undefined && item.dataCapturePosition < 999999) {
-                if (!groupPositions.has(item.normalizedMain)) {
-                    groupPositions.set(item.normalizedMain, item.dataCapturePosition);
+            if (item.productType !== 'sub' && item.groupKey && item.dataCapturePosition !== null && item.dataCapturePosition !== undefined && item.dataCapturePosition < 999999) {
+                if (!groupPositions.has(item.groupKey)) {
+                    groupPositions.set(item.groupKey, item.dataCapturePosition);
                 } else {
-                    groupPositions.set(item.normalizedMain, Math.min(groupPositions.get(item.normalizedMain), item.dataCapturePosition));
+                    groupPositions.set(item.groupKey, Math.min(groupPositions.get(item.groupKey), item.dataCapturePosition));
                 }
             }
         });
 
         // Apply unified group position to all rows (Main and Sub) of that group
         rowData.forEach(item => {
-            if (item.normalizedMain && groupPositions.has(item.normalizedMain)) {
-                item.dataCapturePosition = groupPositions.get(item.normalizedMain);
+            if (item.groupKey && groupPositions.has(item.groupKey)) {
+                item.dataCapturePosition = groupPositions.get(item.groupKey);
             }
         });
 
@@ -17484,36 +17530,36 @@ function reorderSummaryRowsByRowIndex() {
                 const aHasValidPos = aPos !== null && aPos !== undefined && !Number.isNaN(aPos) && aPos < 999999;
                 const bHasValidPos = bPos !== null && bPos !== undefined && !Number.isNaN(bPos) && bPos < 999999;
 
-                // 如果是同一组（同一个 Main 的 main/sub），不要用 dataCapturePosition 把它们拆开
-                const sameGroup =
-                    a.normalizedMain &&
-                    b.normalizedMain &&
-                    a.normalizedMain === b.normalizedMain;
+                    // 如果是同一组（同一个 Main 的 main/sub），不要用 dataCapturePosition 把它们拆开
+                    const sameGroup =
+                        a.groupKey &&
+                        b.groupKey &&
+                        a.groupKey === b.groupKey;
 
-                if (!sameGroup) {
-                    // 先按是否在 Data Capture Table 中找到位置（有位置的始终在前）
-                    if (aHasValidPos && !bHasValidPos) return -1;
-                    if (!aHasValidPos && bHasValidPos) return 1;
+                    if (!sameGroup) {
+                        // 先按是否在 Data Capture Table 中找到位置（有位置的始终在前）
+                        if (aHasValidPos && !bHasValidPos) return -1;
+                        if (!aHasValidPos && bHasValidPos) return 1;
 
-                    // 双方都有有效 dataCapturePosition：完全以 Data Capture 行号排序
-                    if (aHasValidPos && bHasValidPos && aPos !== bPos) {
-                        return aPos - bPos;
+                        // 双方都有有效 dataCapturePosition：完全以 Data Capture 行号排序
+                        if (aHasValidPos && bHasValidPos && aPos !== bPos) {
+                            return aPos - bPos;
+                        }
                     }
-                }
 
-                // 走到这里，要么：
-                // - 两边都没有有效位置，或
-                // - 位置相同，或
-                // - 同一 Id Product 分组（sameGroup=true），我们有意忽略 dataCapturePosition 差异
-                const aHasIndex = a.rowIndex !== null;
-                const bHasIndex = b.rowIndex !== null;
+                    // 走到这里，要么：
+                    // - 两边都没有有效位置，或
+                    // - 位置相同，或
+                    // - 同一 Id Product 分组（sameGroup=true），我们有意忽略 dataCapturePosition 差异
+                    const aHasIndex = a.rowIndex !== null;
+                    const bHasIndex = b.rowIndex !== null;
 
-                // 再按 row_index（如果双方都有且不在同一 Id Product 分组）
-                // 注意：同一分组（sameGroup=true）时，不使用 row_index 拆散 main / sub，
-                // 只在不同 Id Product 之间用 row_index 作为次级排序条件。
-                if (!sameGroup && aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
-                    return a.rowIndex - b.rowIndex;
-                }
+                    // 再按 row_index（如果双方都有且不在同一 Id Product 分组）
+                    // 注意：同一分组（sameGroup=true）时，不使用 row_index 拆散 main / sub，
+                    // 只在不同 Id Product 之间用 row_index 作为次级排序条件。
+                    if (!sameGroup && aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
+                        return a.rowIndex - b.rowIndex;
+                    }
 
                 // 在同一 Id Product 分组里，main 永远排在 sub 上面
                 if (sameGroup) {
