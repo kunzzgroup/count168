@@ -1056,7 +1056,7 @@ function positionContextMenu(menu, e, anchorElement) {
         anchorElement,
         offsetX: Math.max(0, Math.min(e.clientX - anchorRect.left, anchorRect.width)),
         offsetY: Math.max(0, Math.min(e.clientY - anchorRect.top, anchorRect.height)),
-        scrollContainer: anchorElement.closest('.excel-table-container')
+        scrollContainer: anchorElement.closest('.excel-table-scroll-body') || anchorElement.closest('.excel-table-container')
     };
 
     menu.style.display = 'block';
@@ -1110,14 +1110,6 @@ function positionContextMenuAtPoint(menuElement, cursorX, cursorY) {
     menuElement.style.left = left + 'px';
     menuElement.style.top = top + 'px';
     menuElement.style.visibility = 'visible';
-}
-
-function syncExcelStickyHeaderOffset() {
-    const excelTableContainer = document.querySelector('.excel-table-container');
-    const excelTableHeader = excelTableContainer?.querySelector('.excel-table-header');
-    if (!excelTableContainer || !excelTableHeader) return;
-
-    excelTableContainer.style.setProperty('--excel-header-sticky-offset', `${excelTableHeader.offsetHeight}px`);
 }
 
 // Show context menu
@@ -24556,18 +24548,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 初始化 Data Capture Type 选择器
     const typeSelect = document.getElementById('dataCaptureTypeSelector');
     const excelTableContainer = document.querySelector('.excel-table-container');
-    if (excelTableContainer) {
-        syncExcelStickyHeaderOffset();
+    const excelTableScrollBody = document.querySelector('.excel-table-scroll-body');
+    if (excelTableScrollBody) {
+        excelTableScrollBody.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
+    } else if (excelTableContainer) {
         excelTableContainer.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
-        const excelTableHeader = excelTableContainer.querySelector('.excel-table-header');
-        if (excelTableHeader && window.ResizeObserver) {
-            new ResizeObserver(syncExcelStickyHeaderOffset).observe(excelTableHeader);
-        }
     }
-    window.addEventListener('resize', () => {
-        syncExcelStickyHeaderOffset();
-        updateActiveContextMenuPosition();
-    });
+    window.addEventListener('resize', updateActiveContextMenuPosition);
 
     if (typeSelect) {
         currentDataCaptureType = typeSelect.value || '1.Text';
