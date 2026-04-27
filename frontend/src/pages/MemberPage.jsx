@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
 
@@ -69,7 +69,14 @@ export default function MemberPage() {
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const initialAvatarId = readCookie("selectedAvatar") || "male1";
-  const avatarSrc = useMemo(() => AVATAR_MAP[initialAvatarId] || AVATAR_MAP.male1, [initialAvatarId]);
+  const [selectedAvatarId, setSelectedAvatarId] = useState(initialAvatarId);
+  const [selectedGender, setSelectedGender] = useState(initialAvatarId.startsWith("female") ? "female" : "male");
+  const [showAvatarOptions, setShowAvatarOptions] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
+  const avatarContainerRef = useRef(null);
 
   const today = useMemo(() => new Date(), []);
   const monday = useMemo(() => {
@@ -132,6 +139,7 @@ export default function MemberPage() {
         injectStylesheet(assetUrl("css/sidebar.css")),
         injectStylesheet(assetUrl("css/global-13inch.css")),
         injectStylesheet("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"),
+        injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
       ]);
       if (cancelled) return;
       window.MEMBER_ACCOUNT_ID = Number(me.user_id) || 0;
@@ -148,13 +156,42 @@ export default function MemberPage() {
     };
   }, [loading, me]);
 
-  const switchCompany = async (companyId) => {
-    if (!companyId || Number(companyId) === Number(me?.company_id || 0)) return;
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (avatarContainerRef.current && !avatarContainerRef.current.contains(e.target)) {
+        setShowAvatarOptions(false);
+      }
+    };
+    document.addEventListener("click", onClickOutside);
+    return () => document.removeEventListener("click", onClickOutside);
+  }, []);
+
+  const handleSelectAvatar = (avatarId) => {
+    setSelectedAvatarId(avatarId);
+    setShowAvatarOptions(false);
+    document.cookie = `selectedAvatar=${encodeURIComponent(avatarId)}; path=/; max-age=31536000; SameSite=Lax`;
     try {
-      await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), { credentials: "include" });
-      window.location.reload();
+      localStorage.setItem("selectedAvatar", avatarId);
     } catch {
-      // Keep member.js behavior for API errors after reload attempts.
+      // ignore storage write errors
+    }
+  };
+
+  const toggleNotifications = async () => {
+    if (showNotifications) {
+      setShowNotifications(false);
+      return;
+    }
+    setShowNotifications(true);
+    setAnnouncementsLoading(true);
+    try {
+      const res = await fetch(buildApiUrl("api/announcements/announcement_get_dashboard_api.php"), { credentials: "include" });
+      const json = await res.json();
+      setAnnouncements(json?.success && Array.isArray(json?.data) ? json.data : []);
+    } catch {
+      setAnnouncements([]);
+    } finally {
+      setAnnouncementsLoading(false);
     }
   };
 
@@ -176,11 +213,49 @@ export default function MemberPage() {
         <div className="informationmenu-header">
           <div className="header-logo-section">
             <img src="/images/count_whitelogo.png" alt="EAZYCOUNT Logo" className="header-logo" />
+            <div className="notification-bell" title="Notifications" onClick={toggleNotifications}>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
+              </svg>
+            </div>
           </div>
           <div className="user-info-container">
-            <div className="avatar-selector-container">
-              <div className="current-avatar">
+            <div className="avatar-selector-container" ref={avatarContainerRef}>
+              <div className="current-avatar" onClick={() => setShowAvatarOptions((prev) => !prev)}>
                 <img id="currentAvatarImg" className="current-avatar-img" src={avatarSrc} alt="Avatar" />
+              </div>
+              <div className={`avatar-options ${showAvatarOptions ? "show" : ""}`} id="avatarOptions">
+                <div className="options-title">Choose Avatar</div>
+                <div className="gender-selection">
+                  <button type="button" className={`gender-btn ${selectedGender === "male" ? "active" : ""}`} onClick={() => setSelectedGender("male")}>
+                    Male
+                  </button>
+                  <button type="button" className={`gender-btn ${selectedGender === "female" ? "active" : ""}`} onClick={() => setSelectedGender("female")}>
+                    Female
+                  </button>
+                </div>
+                <div className={`avatar-list ${selectedGender === "male" ? "show" : ""}`}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                    <div
+                      key={`male-${num}`}
+                      className={`avatar-option ${selectedAvatarId === `male${num}` ? "selected" : ""}`}
+                      onClick={() => handleSelectAvatar(`male${num}`)}
+                    >
+                      <img src={`/images/avatar${num}.png`} alt={`Male Avatar ${num}`} className="avatar-option-img" />
+                    </div>
+                  ))}
+                </div>
+                <div className={`avatar-list ${selectedGender === "female" ? "show" : ""}`}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                    <div
+                      key={`female-${num}`}
+                      className={`avatar-option ${selectedAvatarId === `female${num}` ? "selected" : ""}`}
+                      onClick={() => handleSelectAvatar(`female${num}`)}
+                    >
+                      <img src={`/images/female${num}.png`} alt={`Female Avatar ${num}`} className="avatar-option-img" />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="user-avatar-dropdown">
@@ -238,20 +313,20 @@ export default function MemberPage() {
                 </div>
                 <div className="transaction-quick-select-wrap">
                   <div className="dropdown transaction-quick-select-dropdown">
-                    <button type="button" className="btn btn-secondary dropdown-toggle transaction-quick-select-btn">
+                    <button type="button" className="btn btn-secondary dropdown-toggle transaction-quick-select-btn" onClick={() => window.toggleQuickSelectDropdown?.()}>
                       <i className="fas fa-calendar-alt" />
                       <span id="quick-select-text">Period</span>
                       <i className="fas fa-chevron-down" />
                     </button>
                     <div className="dropdown-menu" id="quick-select-dropdown">
-                      <button type="button" className="dropdown-item">Today</button>
-                      <button type="button" className="dropdown-item">Yesterday</button>
-                      <button type="button" className="dropdown-item">This Week</button>
-                      <button type="button" className="dropdown-item">Last Week</button>
-                      <button type="button" className="dropdown-item">This Month</button>
-                      <button type="button" className="dropdown-item">Last Month</button>
-                      <button type="button" className="dropdown-item">This Year</button>
-                      <button type="button" className="dropdown-item">Last Year</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("today")}>Today</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("yesterday")}>Yesterday</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisWeek")}>This Week</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastWeek")}>Last Week</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisMonth")}>This Month</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastMonth")}>Last Month</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisYear")}>This Year</button>
+                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastYear")}>Last Year</button>
                     </div>
                   </div>
                 </div>
@@ -270,7 +345,6 @@ export default function MemberPage() {
                       className={`transaction-company-btn ${Number(company.company_id) === Number(me.company_id) ? "active" : ""}`}
                       data-company-id={company.company_id}
                       data-company-label={String(company.company_code || "").toUpperCase()}
-                      onClick={() => switchCompany(company.company_id)}
                     >
                       {String(company.company_code || "").toUpperCase()}
                     </button>
@@ -296,6 +370,39 @@ export default function MemberPage() {
           </div>
         </div>
         <div id="notificationContainer" className="transaction-notification-container" />
+      </div>
+
+      <div className={`notification-overlay ${showNotifications ? "show" : ""}`} onClick={toggleNotifications} />
+      <div className={`notification-panel ${showNotifications ? "show" : ""}`}>
+        <div className="notification-header">
+          <h2>Announcements</h2>
+          <button className="notification-close" onClick={toggleNotifications} title="Close" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div className="notification-content">
+          {announcementsLoading ? (
+            <div className="notification-empty"><p>Loading announcements...</p></div>
+          ) : announcements.length > 0 ? (
+            announcements.map((a, idx) => (
+              <div key={`${a.title || "announcement"}-${idx}`} className="notification-item unread">
+                <div className="notification-title">{a.title}</div>
+                <div className="notification-message">{a.content}</div>
+                <div className="notification-time">{a.created_at}</div>
+              </div>
+            ))
+          ) : (
+            <div className="notification-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
+              </svg>
+              <p>No announcements</p>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
