@@ -173,7 +173,7 @@ export default function AccountAddModalSameAsList({ open, onClose, companyId, co
   if (!open) return null;
 
   return (
-    <div className="account-modal" style={{ display: "block" }}>
+    <div id="addAccountModal" className="account-modal" style={{ display: "block" }}>
       <div className="account-modal-content">
         <div className="account-modal-header">
           <h2>Add Account</h2>

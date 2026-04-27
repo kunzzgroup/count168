@@ -1993,6 +1993,22 @@ export default function BankProcessListPage() {
           </div>
         </div>
       )}
+      <AccountAddModalSameAsList
+        open={addAccountModalOpen}
+        onClose={() => {
+          setAddAccountModalOpen(false);
+          setAccountPlusTarget(null);
+        }}
+        companyId={companyId}
+        companies={companies}
+        roles={rolesList}
+        currencies={accountModalCurrencies}
+        setCurrencies={setAccountModalCurrencies}
+        notify={notify}
+        onSuccess={(data) => {
+          void handleAccountModalSuccess(data);
+        }}
+      />
       <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
         <div className="calendar-header">
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
