@@ -503,6 +503,21 @@ function paymentMaintenanceClassifyDomainFeeOrCommissionRow(array $row): ?array
     return null;
 }
 
+/**
+ * 将 DB datetime/date 转为 Payment Maintenance 列表用的 d/m/Y H:i:s（与 fetchMainTransactions 一致）。
+ */
+function paymentMaintenanceFormatRowDtsCreated(?string $dbDatetime): string
+{
+    if ($dbDatetime === null || trim($dbDatetime) === '') {
+        return '';
+    }
+    $ts = strtotime($dbDatetime);
+    if ($ts === false) {
+        return '';
+    }
+    return date('d/m/Y H:i:s', $ts);
+}
+
 function appendVirtualDomainNetProfitItem(
     PDO $pdo,
     array &$data,
@@ -521,12 +536,17 @@ function appendVirtualDomainNetProfitItem(
     }
 
     $profitCode = resolveProfitDisplayCode($pdo, $companyId);
-    $submitter = resolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
+    $fallbackSubmitter = resolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
     $ownerCodeU = strtoupper(trim($ownerCode));
 
-    $sql = "SELECT t.sms, t.description, t.amount, UPPER(COALESCE(c.code, '')) AS currency_code
+    // 与 Payment History rollup 一致：展示元数据取自「同源 List Fee 入账」中按业务时间最早的一笔（fee_tx 口径）
+    $sql = "SELECT t.sms, t.description, t.amount, t.transaction_date, t.created_at,
+                UPPER(COALESCE(c.code, '')) AS currency_code,
+                u.login_id AS created_by_login, o.owner_code AS created_by_owner
             FROM transactions t
             LEFT JOIN currency c ON t.currency_id = c.id
+            LEFT JOIN user u ON t.created_by = u.id
+            LEFT JOIN owner o ON t.created_by_owner = o.id
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
@@ -536,10 +556,12 @@ function appendVirtualDomainNetProfitItem(
                  OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
                  OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
                  OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISSION FOR %'
-              )";
+              )
+            ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC";
     $st = $pdo->prepare($sql);
     $st->execute([$companyId, $dateFromDb, $dateToDb]);
-    $agg = []; // [src][currency] => ['fee'=>float,'comm'=>float]
+    // [src][currency] => fee, comm, fee_ref（首笔 List Fee 元数据，供日期/创建人/创建时间展示）
+    $agg = [];
     while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
         $cls = paymentMaintenanceClassifyDomainFeeOrCommissionRow($r);
         if ($cls === null) {
@@ -551,11 +573,19 @@ function appendVirtualDomainNetProfitItem(
             continue;
         }
         if (!isset($agg[$src][$currencyCode])) {
-            $agg[$src][$currencyCode] = ['fee' => 0.0, 'comm' => 0.0];
+            $agg[$src][$currencyCode] = ['fee' => 0.0, 'comm' => 0.0, 'fee_ref' => null];
         }
         $amt = round((float) ($r['amount'] ?? 0), 2);
         if ($cls['kind'] === 'fee') {
             $agg[$src][$currencyCode]['fee'] += $amt;
+            if ($agg[$src][$currencyCode]['fee_ref'] === null) {
+                $agg[$src][$currencyCode]['fee_ref'] = [
+                    'transaction_date' => $r['transaction_date'] ?? null,
+                    'created_at' => $r['created_at'] ?? null,
+                    'created_by_login' => $r['created_by_login'] ?? '',
+                    'created_by_owner' => $r['created_by_owner'] ?? '',
+                ];
+            }
         } else {
             $agg[$src][$currencyCode]['comm'] += $amt;
         }
@@ -570,17 +600,33 @@ function appendVirtualDomainNetProfitItem(
                 continue;
             }
             $labelSrc = $src !== '' ? $src : ($ownerCodeU !== '' ? $ownerCodeU : $profitCode);
+            $feeRef = isset($tot['fee_ref']) && is_array($tot['fee_ref']) ? $tot['fee_ref'] : null;
+            $txDateRaw = $feeRef['transaction_date'] ?? null;
+            $dateDisplay = ($txDateRaw !== null && $txDateRaw !== '')
+                ? date('d/m/Y', strtotime((string) $txDateRaw))
+                : date('d/m/Y', strtotime($dateToDb));
+            $dtsCreated = paymentMaintenanceFormatRowDtsCreated(isset($feeRef['created_at']) ? (string) $feeRef['created_at'] : null);
+            if ($dtsCreated === '') {
+                $dtsCreated = paymentMaintenanceFormatRowDtsCreated($dateToDb . ' 00:00:00');
+            }
+            $createdBy = '';
+            if ($feeRef !== null) {
+                $createdBy = !empty($feeRef['created_by_login']) ? trim((string) $feeRef['created_by_login']) : trim((string) ($feeRef['created_by_owner'] ?? ''));
+            }
+            if ($createdBy === '') {
+                $createdBy = $fallbackSubmitter;
+            }
             $data[] = [
                 'transaction_id' => 0,
-                'date' => date('d/m/Y', strtotime($dateToDb)),
+                'date' => $dateDisplay,
                 'account' => $profitCode,
                 'from_account' => '-',
                 'currency' => $currencyCode,
                 'amount' => $net,
                 'description' => 'PROFIT BY ' . $labelSrc,
                 'remark' => '',
-                'dts_created' => date('d/m/Y H:i:s'),
-                'created_by' => $submitter,
+                'dts_created' => $dtsCreated,
+                'created_by' => $createdBy,
                 'transaction_type' => 'PAYMENT',
                 'is_deleted' => 0,
                 'deleted_by' => null,

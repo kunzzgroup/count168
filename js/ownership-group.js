@@ -8,6 +8,7 @@
 let geGroupsData = [];
 let geGroupStates = {};   // { [groupId]: { accounts:[], rows:[] } }
 let geCurrentlyExpandedId = null;
+const geReadOnlyMode = window._ownReadOnlyMode === true;
 
 function geIsApiSuccess(res) {
     return res && (res.success === true || res.status === 'success');
@@ -28,6 +29,12 @@ function geApiData(res, fallback = []) {
     if (!res) return fallback;
     if (res.data !== undefined) return res.data;
     return fallback;
+}
+
+function geWriteBlocked() {
+    if (!geReadOnlyMode) return false;
+    showToast('Read-only: only owner can modify ownership', 'error');
+    return true;
 }
 
 // ── Tab Switching (called from inline onclick) ───────────────
@@ -187,6 +194,10 @@ function renderGroupCards() {
             const action = e.target.closest('[data-action]')?.dataset.action;
             if (!action) return;
             e.stopPropagation();
+            if (geReadOnlyMode && ['add-row', 'confirm', 'link-partner'].includes(action)) {
+                geWriteBlocked();
+                return;
+            }
             switch (action) {
                 case 'toggle':     geToggleCard(gid); break;
                 case 'add-row':    geAddAccountRow(gid); break;
@@ -394,6 +405,15 @@ function geCreateRowElement(groupId, idx, rowData) {
     rowActions.appendChild(deleteBtn);
     div.appendChild(rowActions);
 
+    if (geReadOnlyMode) {
+        select.disabled = true;
+        input.disabled = true;
+        slider.disabled = true;
+        roCheck.disabled = true;
+        deleteBtn.style.display = 'none';
+        dragHandle.style.display = 'none';
+    }
+
     // Initialize slider gradient
     requestAnimationFrame(() => geApplySliderBackground(slider));
 
@@ -403,6 +423,7 @@ function geCreateRowElement(groupId, idx, rowData) {
 // ── Row Data Operations ──────────────────────────────────────
 
 function geAddAccountRow(groupId) {
+    if (geWriteBlocked()) return;
     geGroupStates[groupId].rows.push({
         account_id: '', percentage: 0, role: '', user_raw_id: null, read_only: 1
     });
@@ -410,6 +431,7 @@ function geAddAccountRow(groupId) {
 }
 
 function geRemoveRow(groupId, idx) {
+    if (geWriteBlocked()) return;
     geGroupStates[groupId].rows.splice(idx, 1);
     geRenderCardBodyRows(groupId);
 }
@@ -516,6 +538,7 @@ function geUpdateCardHeaderDisplay(groupId, total) {
 // ── Save / Confirm ───────────────────────────────────────────
 
 function geConfirmEdit(groupId) {
+    if (geWriteBlocked()) return;
     const rows = geGroupStates[groupId].rows;
     let total = 0;
     let hasError = false;
@@ -579,6 +602,7 @@ function geConfirmEdit(groupId) {
 // ── External Partner ─────────────────────────────────────────
 
 function geLinkExternalPartner(groupId, event, forceType = '') {
+    if (geWriteBlocked()) return;
     const loginIdInput = document.getElementById(`ge-partner-login-${groupId}`);
     const loginId = loginIdInput.value.trim().toUpperCase();
     if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }

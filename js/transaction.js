@@ -58,6 +58,29 @@
         });
     }
 
+    /**
+     * Payment History 专用：history_api 已给两位小数时直接加千分位，避免 parseFloat(-40.80)+Math.trunc 变成 -40.79。
+     * 非标准两位时：与 datacapture 一致 epsilon + 向 0 截断再 toLocaleString。
+     */
+    function formatPaymentHistoryMoney(value) {
+        if (value === '-' || value === null || value === undefined) return '-';
+        const cleaned = typeof value === 'string' ? value.replace(/,/g, '').trim() : String(value).replace(/,/g, '').trim();
+        if (cleaned === '' || cleaned === '-') return '0.00';
+        const exact2 = cleaned.match(/^(-?)(\d+)\.(\d{2})$/);
+        if (exact2) {
+            const neg = exact2[1] === '-';
+            const intPart = exact2[2];
+            const dec = exact2[3];
+            const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return (neg ? '-' : '') + intWithSep + '.' + dec;
+        }
+        const n = parseFloat(cleaned);
+        if (!Number.isFinite(n)) return '0.00';
+        const epsilon = n >= 0 ? 1e-9 : -1e-9;
+        const cents = Math.trunc((n + epsilon) * 100) / 100;
+        return cents.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     // ==================== 文本转大写显示 ====================
     function toUpperDisplay(value) {
         if (value === null || value === undefined) {
@@ -2293,19 +2316,19 @@
         tbody.innerHTML = `
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">B/F</td>
-            <td>${formatNumber(totals.bf)}</td>
+            <td>${formatPaymentHistoryMoney(totals.bf)}</td>
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Win/Loss</td>
-            <td>${formatNumber(totals.win_loss)}</td>
+            <td>${formatPaymentHistoryMoney(totals.win_loss)}</td>
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Cr/Dr</td>
-            <td>${formatNumber(totals.cr_dr)}</td>
+            <td>${formatPaymentHistoryMoney(totals.cr_dr)}</td>
         </tr>
         <tr class="transaction-table-row">
             <td class="transaction-summary-label">Balance</td>
-            <td>${formatNumber(totals.balance)}</td>
+            <td>${formatPaymentHistoryMoney(totals.balance)}</td>
         </tr>
     `;
         table.appendChild(tbody);
@@ -2368,10 +2391,10 @@
                     ${row.account_id}
                 </td>
                 <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
-                <td>${formatNumber(row.bf)}</td>
-                <td>${formatNumber(winLossValue)}</td>
-                <td>${formatNumber(crDrValue)}</td>
-                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(balanceValue)}</td>
+                <td>${formatPaymentHistoryMoney(row.bf)}</td>
+                <td>${formatPaymentHistoryMoney(winLossValue)}</td>
+                <td>${formatPaymentHistoryMoney(crDrValue)}</td>
+                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoney(balanceValue)}</td>
             `;
 
                 // 点击账户单元格打开历史记录
@@ -2402,10 +2425,10 @@
         <tr class="transaction-table-footer">
             <td>Total</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};"></td>
-            <td>${formatNumber(totals.bf)}</td>
-            <td>${formatNumber(totals.win_loss)}</td>
-            <td>${formatNumber(totals.cr_dr)}</td>
-            <td>${formatNumber(totals.balance)}</td>
+            <td>${formatPaymentHistoryMoney(totals.bf)}</td>
+            <td>${formatPaymentHistoryMoney(totals.win_loss)}</td>
+            <td>${formatPaymentHistoryMoney(totals.cr_dr)}</td>
+            <td>${formatPaymentHistoryMoney(totals.balance)}</td>
         </tr>
     `;
         table.appendChild(tfoot);
@@ -2700,10 +2723,10 @@
             tr.innerHTML = `
             <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">${row.account_id}</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
-            <td>${formatNumber(row.bf)}</td>
-            <td>${formatNumber(row.win_loss)}</td>
-            <td>${formatNumber(row.cr_dr)}</td>
-            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(row.balance)}</td>
+            <td>${formatPaymentHistoryMoney(row.bf)}</td>
+            <td>${formatPaymentHistoryMoney(row.win_loss)}</td>
+            <td>${formatPaymentHistoryMoney(row.cr_dr)}</td>
+            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatPaymentHistoryMoney(row.balance)}</td>
         `;
             tr.querySelector('.transaction-account-cell').addEventListener('click', function () {
                 openHistoryModal(this.getAttribute('data-account-id'), this.getAttribute('data-account-code'), this.getAttribute('data-account-name'), this.getAttribute('data-currency'));
@@ -2745,18 +2768,18 @@
 
     // ==================== 更新总和 ====================
     function updateTotals(side, totals) {
-        document.getElementById(`${side}_total_bf`).textContent = formatNumber(totals.bf);
-        document.getElementById(`${side}_total_winloss`).textContent = formatNumber(totals.win_loss);
-        document.getElementById(`${side}_total_crdr`).textContent = formatNumber(totals.cr_dr);
-        document.getElementById(`${side}_total_balance`).textContent = formatNumber(totals.balance);
+        document.getElementById(`${side}_total_bf`).textContent = formatPaymentHistoryMoney(totals.bf);
+        document.getElementById(`${side}_total_winloss`).textContent = formatPaymentHistoryMoney(totals.win_loss);
+        document.getElementById(`${side}_total_crdr`).textContent = formatPaymentHistoryMoney(totals.cr_dr);
+        document.getElementById(`${side}_total_balance`).textContent = formatPaymentHistoryMoney(totals.balance);
     }
 
     // ==================== 更新汇总 ====================
     function updateSummary(totals) {
-        document.getElementById('sum_total_bf').textContent = formatNumber(totals.bf);
-        document.getElementById('sum_total_winloss').textContent = formatNumber(totals.win_loss);
-        document.getElementById('sum_total_crdr').textContent = formatNumber(totals.cr_dr);
-        document.getElementById('sum_total_balance').textContent = formatNumber(totals.balance);
+        document.getElementById('sum_total_bf').textContent = formatPaymentHistoryMoney(totals.bf);
+        document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoney(totals.win_loss);
+        document.getElementById('sum_total_crdr').textContent = formatPaymentHistoryMoney(totals.cr_dr);
+        document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoney(totals.balance);
     }
 
     // ==================== Show Name 切换 ====================
@@ -3454,10 +3477,10 @@
                             tr.style.backgroundColor = '#f0f0f0';
                         }
 
-                        // 格式化数字列（如果不是 '-'）
-                        const winLoss = row.win_loss === '-' ? '-' : formatNumber(row.win_loss);
-                        const crDr = row.cr_dr === '-' ? '-' : formatNumber(row.cr_dr);
-                        const balance = row.balance === '-' ? '-' : formatNumber(row.balance);
+                        // 格式化数字列（如果不是 '-'）；须用 formatPaymentHistoryMoney，勿用 formatNumber(Math.trunc) 否则 -40.80 变 -40.79
+                        const winLoss = row.win_loss === '-' ? '-' : formatPaymentHistoryMoney(row.win_loss);
+                        const crDr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoney(row.cr_dr);
+                        const balance = row.balance === '-' ? '-' : formatPaymentHistoryMoney(row.balance);
                         const remarkValue = getHistoryRemark(row);
                         const descriptionDisplay = toUpperDisplay(row.description);
                         const descriptionCells = showDescriptionColumn

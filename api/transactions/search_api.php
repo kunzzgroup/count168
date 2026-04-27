@@ -15,6 +15,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -1500,9 +1501,10 @@ try {
         ];
         $contra_where_t = contraApprovedWhere($pdo, 't');
 
+        $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
-                       SUM(CASE WHEN dc.capture_date < ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS bf_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN ROUND(dcd.processed_amount, 2) ELSE 0 END) AS wl_total,
+                       SUM(CASE WHEN dc.capture_date < ? THEN {$dcdQ} ELSE 0 END) AS bf_total,
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN {$dcdQ} ELSE 0 END) AS wl_total,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                        COUNT(*) AS up_to_count
                 FROM data_capture_details dcd
@@ -1747,12 +1749,12 @@ try {
         }
 
         // 4. 计算 Balance（显示口径）
-        // 公式：Balance = trunc(B/F,2) + trunc(Win/Loss,2) + trunc(Cr/Dr,2)
-        // 这样与表格上可见列值的手算结果一致，避免 0.01 浮点尾差
-        $bf_display = trunc2((float) $bf);
-        $win_loss_display = trunc2((float) $win_loss);
-        $cr_dr_display = trunc2((float) $cr_dr);
-        $balance = trunc2($bf_display + $win_loss_display + $cr_dr_display);
+        // 与 Payment History / 前端一致：B/F、Win/Loss、Cr/Dr 用 dcd_processed_amount_float_quant2（epsilon+向0截断），
+        // 勿用 trunc2 直接吃 float，否则 -40.799999… 会显示成 -40.79。
+        $bf_display = dcd_processed_amount_float_quant2((float) $bf);
+        $win_loss_display = dcd_processed_amount_float_quant2((float) $win_loss);
+        $cr_dr_display = dcd_processed_amount_float_quant2((float) $cr_dr);
+        $balance = dcd_processed_amount_float_quant2((float) ($bf_display + $win_loss_display + $cr_dr_display));
 
         // 4b. 本期是否有 RATE Middle-Man 分录（与 Win/Loss 内 RATE_MIDDLEMAN 查询合并，避免每条组合多一次 EXISTS）
         $is_rate_middleman = !empty($wlPack['has_rate_middleman']);
@@ -1873,7 +1875,7 @@ try {
             'bf' => $bf_display,
             'win_loss' => $win_loss_display,
             'cr_dr' => $cr_dr_display,
-            'balance' => trunc2((float) $balance),
+            'balance' => $balance,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
             'has_win_loss_history' => $has_win_loss_history ? 1 : 0,
@@ -2163,15 +2165,13 @@ function calculateTotals($data)
         $totals['balance'] += $row['balance'];
     }
 
-    // IMPORTANT: Keep raw values (not rounded) for accurate calculations
-    // Frontend will round to 2 decimal places for display
-    // 重要：保持原始值（不四舍五入）以确保计算精度
-    // 前端会在显示时四舍五入到2位小数
-    // Note: Totals are calculated from already-rounded row values in the array,
-    // but we keep them as-is to maintain precision for display formatting
-    // 注意：总计是从数组中已四舍五入的行值计算的，但我们保持原样以保持显示格式化的精度
-
-    return $totals;
+    // 多行 float 累加仍可能有 IEEE 尾差；与单行展示一致再量化一次，避免表脚 Total 与逐行手加差 0.01
+    return [
+        'bf' => dcd_processed_amount_float_quant2((float) $totals['bf']),
+        'win_loss' => dcd_processed_amount_float_quant2((float) $totals['win_loss']),
+        'cr_dr' => dcd_processed_amount_float_quant2((float) $totals['cr_dr']),
+        'balance' => dcd_processed_amount_float_quant2((float) $totals['balance']),
+    ];
 }
 
 /**
@@ -2239,8 +2239,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
 
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
-    // 必须与 calculateWinLossByCurrency 一致：SUM(ROUND(processed_amount,2))，否则「当日 Balance」与「次日 B/F」会因舍入顺序差 0.01
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
+    // 与 calculateWinLossByCurrency / Payment History 一致：每行 dcd 金额先按「向 0 截断到分 + 微纠偏」再 SUM（dcd_processed_amount_sql_quant2）
+    $dcdQbf = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+    $sql = "SELECT COALESCE(SUM({$dcdQbf}), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -2520,7 +2521,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     }
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total, COUNT(*) AS cnt
+    $dcdQwl = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+    $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total, COUNT(*) AS cnt
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?

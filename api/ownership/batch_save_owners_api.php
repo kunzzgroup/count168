@@ -13,6 +13,10 @@ if (!isset($_SESSION['user_id'])) {
     echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit();
 }
+if (strtolower($_SESSION['role'] ?? '') !== 'owner') {
+    echo json_encode(['status' => 'error', 'message' => 'Read-only: only owner can modify ownership']);
+    exit();
+}
 
 /**
  * Expected JSON payload:

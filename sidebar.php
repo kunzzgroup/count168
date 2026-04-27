@@ -389,8 +389,10 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         Account
                     </div>
                 </div>
+            <?php endif; ?>
 
-
+            <!-- Ownership：仅由 ownership 权限控制显示 -->
+            <?php if (empty($permissions) || in_array('ownership', $permissions)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="ownership.php"
                         onclick="window.location.href='ownership.php'">
@@ -401,7 +403,6 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         Ownership
                     </div>
                 </div>
-
             <?php endif; ?>
 
             <!-- Process Section -->

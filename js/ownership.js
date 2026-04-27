@@ -35,6 +35,7 @@ let allGroupIds = []; // unique group IDs extracted from allCompaniesData
 
 let draggedRowIdx = null;
 let draggedCompanyId = null;
+const ownReadOnlyMode = window._ownReadOnlyMode === true;
 
 // ── Multi-select state ────────────────────────────────────────────
 const selectedCompanyIds = new Set(); // IDs of checked independent companies
@@ -74,6 +75,12 @@ function getApiData(res, fallback = []) {
     if (!res) return fallback;
     if (res.data !== undefined) return res.data;
     return fallback;
+}
+
+function ownershipWriteBlocked() {
+    if (!ownReadOnlyMode) return false;
+    showToast('Read-only: only owner can modify ownership', 'error');
+    return true;
 }
 
 // ---------------------------------------------
@@ -203,7 +210,7 @@ function renderCompanyCards() {
 
         // ── Group management buttons in header-right ──────────────────
         const headerRight = card.querySelector('.own-card-header-right');
-        if (headerRight && allGroupIds.length > 0) {
+        if (headerRight && allGroupIds.length > 0 && !ownReadOnlyMode) {
             if (!groupId) {
                 // Feature 1: Independent company → "+ Group" button with dropdown
                 const wrap = document.createElement('div');
@@ -289,6 +296,10 @@ function renderCompanyCards() {
             const action = e.target.closest('[data-action]')?.dataset.action;
             if (!action) return;
             e.stopPropagation();
+            if (ownReadOnlyMode && ['add-row', 'confirm', 'link-partner'].includes(action)) {
+                ownershipWriteBlocked()
+                return
+            }
             switch (action) {
                 case 'toggle': toggleCard(id, e); break;
                 case 'add-row': addAccountRow(id); break;
@@ -492,6 +503,17 @@ function createRowElement(companyId, idx, rowData) {
         }
     }
 
+    if (ownReadOnlyMode) {
+        select.disabled = true;
+        input.disabled = true;
+        slider.disabled = true;
+        if (roCheck) roCheck.disabled = true;
+        const deleteBtn = div.querySelector('[data-action="delete"]');
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        const dragHandle = div.querySelector('.own-drag-handle');
+        if (dragHandle) dragHandle.style.display = 'none';
+    }
+
     // Initialize slider gradient
     requestAnimationFrame(() => applySliderBackground(slider));
 
@@ -584,11 +606,13 @@ function createRowElement(companyId, idx, rowData) {
 // ---------------------------------------------
 
 function addAccountRow(companyId) {
+    if (ownershipWriteBlocked()) return;
     companyStates[companyId].rows.push({ account_id: '', percentage: 0, role: '', user_raw_id: null, read_only: 1 });
     renderCardBodyRows(companyId);
 }
 
 function removeRow(companyId, idx) {
+    if (ownershipWriteBlocked()) return;
     companyStates[companyId].rows.splice(idx, 1);
     renderCardBodyRows(companyId);
 }
@@ -709,6 +733,7 @@ function updateCardHeaderDisplay(companyId, total) {
 // ---------------------------------------------
 
 function confirmEdit(companyId) {
+    if (ownershipWriteBlocked()) return;
     const rows = companyStates[companyId].rows;
     let total = 0;
     let hasError = false;
@@ -872,6 +897,7 @@ function _clearSelection() {
 
 /** Enter selection mode: cursor changes on selectable cards, button becomes "Cancel". */
 function _toggleSelectionMode() {
+    if (ownershipWriteBlocked()) return;
     if (selectionMode) {
         _exitSelectionMode();
     } else {
@@ -904,6 +930,7 @@ function _exitSelectionMode() {
 
 /** Batch-assign all selected companies to the chosen group. */
 function _bulkJoinGroup() {
+    if (ownershipWriteBlocked()) return;
     const groupId = document.getElementById('own-bulk-group-select').value;
     if (!groupId) {
         showToast('Please select a group first', 'error');
@@ -946,6 +973,7 @@ function _bulkJoinGroup() {
 
 /** Batch-ungroup all selected companies from their current group. */
 function _bulkUngroupCompanies() {
+    if (ownershipWriteBlocked()) return;
     const ids = [...selectedCompanyIds];
     if (ids.length === 0) return;
 
@@ -1062,7 +1090,7 @@ function _renderGroupFilterBar() {
 
     // Select button: visible for both independent and group views
     const selectBtn = document.getElementById('own-select-mode-btn');
-    if (selectBtn) selectBtn.style.display = '';
+    if (selectBtn) selectBtn.style.display = ownReadOnlyMode ? 'none' : '';
 }
 
 /** Sets the active group filter. Clicking the already-active group toggles it off (→ independent view). */
@@ -1079,6 +1107,7 @@ function _selectGroupFilter(groupId) {
 }
 
 function joinCompanyGroup(companyId, groupId, companyName) {
+    if (ownershipWriteBlocked()) return;
     fetch('api/ownership/update_company_group_api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1101,6 +1130,7 @@ function joinCompanyGroup(companyId, groupId, companyName) {
 }
 
 function ungroupCompany(companyId, companyName) {
+    if (ownershipWriteBlocked()) return;
     fetch('api/ownership/update_company_group_api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1123,6 +1153,7 @@ function ungroupCompany(companyId, companyName) {
 }
 
 function linkExternalPartner(companyId, event, forceType = '') {
+    if (ownershipWriteBlocked()) return;
     const loginIdInput = document.getElementById(`partner-login-${companyId}`);
     const loginId = loginIdInput.value.trim().toUpperCase();
     if (!loginId) { showToast('Please enter a Login ID/Group ID', 'error'); return; }

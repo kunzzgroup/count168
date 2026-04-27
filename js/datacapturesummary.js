@@ -9711,7 +9711,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         : String(row.getAttribute('data-input-method') || '').trim();
     const enableInputMethod = options.enableInputMethod !== undefined
         ? !!options.enableInputMethod
-        : !!inputMethod;
+        : row.getAttribute('data-enable-input-method') === 'true';
 
     let sourcePercentText = '';
     if (options.sourcePercent !== undefined && options.sourcePercent !== null) {
@@ -9730,7 +9730,19 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
     } else if (options.formula !== undefined && options.formula !== null && String(options.formula).trim() !== '') {
         formulaText = String(options.formula).trim();
     } else {
-        formulaText = String(row.getAttribute('data-formula-operators') || '').trim() || getFormulaForCalculation(row);
+        const operators = String(row.getAttribute('data-formula-operators') || '').trim();
+        let displayExpanded = String(row.getAttribute('data-formula-display') || '').trim();
+        if (!displayExpanded && cells[4]) {
+            const span = cells[4].querySelector('.formula-text');
+            const fromCell = (span ? span.textContent : cells[4].textContent || '').trim();
+            if (fromCell && fromCell !== 'Formula') displayExpanded = fromCell;
+        }
+        const hasDollarColumnRef = /\$(\d+)/.test(displayExpanded);
+        if (displayExpanded && displayExpanded !== 'Formula' && !hasDollarColumnRef) {
+            formulaText = displayExpanded;
+        } else {
+            formulaText = operators || getFormulaForCalculation(row);
+        }
     }
 
     const processValueForRefs = options.processValue != null && String(options.processValue).trim() !== ''
@@ -10970,12 +10982,16 @@ function applyInputMethodTransformation(result, inputMethod) {
     }
 }
 
-// Processed Amount 专用：不四舍五入，直接截断到 2 位小数（不进位）
+// Processed Amount：固定展示 2 位小数，向 0 截断（不四舍五入）。例：-2.089 -> -2.08，2.089 -> 2.08
+// 说明：少数二进制浮点（如语义为 -2.07 但乘 100 略小于 -207）截断后可能显示 -2.06，与「仅截断」规则一致
 function roundProcessedAmountTo2Decimals(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
-    // 直接截断：12.349 -> 12.34, -12.349 -> -12.34
-    const truncated = Math.trunc(num * 100) / 100;
+    // 先做极小纠偏，修正 2.07 -> 2.069999999999... 这类二进制浮点噪音，
+    // 再执行向 0 截断，保持既有业务规则不变。
+    const epsilon = num >= 0 ? 1e-9 : -1e-9;
+    const scaled = (num + epsilon) * 100;
+    const truncated = Math.trunc(scaled) / 100;
     return Object.is(truncated, -0) ? 0 : truncated;
 }
 
@@ -10985,7 +11001,6 @@ function formatNumberWithThousands(value) {
     if (!Number.isFinite(num)) {
         return '0.00';
     }
-    // 显示层也保持“截断到 2 位小数”，避免 toLocaleString 自带舍入进位
     const truncated = roundProcessedAmountTo2Decimals(num);
     return truncated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

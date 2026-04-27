@@ -13,6 +13,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
+require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
  * Contra 审批：过滤/标记未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -48,9 +49,28 @@ function historyTrunc2($value): float
     return ceil($n * 100) / 100;
 }
 
+/**
+ * Data Capture 的 processed_amount 与前端 js/datacapturesummary.js roundProcessedAmountTo2Decimals 对齐：
+ * 向 0 截断到 2 位 + 1e-9/-1e-9 纠偏，避免库内浮点 -40.799999… 在 Payment History 被 historyTrunc2 显示成 -40.79。
+ * 仅用于 data_capture 行，其它交易类型仍用 historyTrunc2。
+ */
+function historyDataCaptureProcessed2($value): float
+{
+    return dcd_processed_amount_float_quant2((float) $value);
+}
+
 function historyFormat2($value): string
 {
     return number_format(historyTrunc2($value), 2, '.', '');
+}
+
+/**
+ * 将已是「分」粒度的金额格式化为两位小数字符串，不再套 historyTrunc2。
+ * data_capture 的 Win/Loss 若再走 historyFormat2，IEEE 浮点 -40.8 会变成 -40.7999… 再被截成 -40.79。
+ */
+function historyFormatExactCents2(float $value): string
+{
+    return number_format($value, 2, '.', '');
 }
 
 /** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
@@ -1222,7 +1242,7 @@ try {
         'rate' => '-',
         'win_loss' => '-',
         'cr_dr' => '-',
-        'balance' => historyFormat2($bf),
+        'balance' => historyFormatExactCents2(dcd_processed_amount_float_quant2((float) $bf)),
         'description' => $bfDescription,
         'sms' => '-',
         'created_by' => '-'
@@ -1448,23 +1468,38 @@ try {
             case 'PAYMENT':
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
-                } elseif ($is_to_account) {
-                    // 收款账户（Account To）统一按入账显示正数，与 Transaction List 口径一致
-                    $cr_dr = (float) $t['amount'];
-                } else {
-                    // 付款账户（Account From）统一按出账显示负数
+                    break;
+                }
+                // 显示与 CONTRA 一致：TO（account_id）默认负、FROM（from_account_id）默认正。
+                // B/F（calculateBFByCurrency 2b/3）对 PAYMENT：TO 默认 -amount、FROM 默认 +amount；Share/List Fee 等例外与 BF CASE 对齐。
+                $smsPay = trim((string) ($t['sms'] ?? ''));
+                $descPay = trim((string) $rawDescription);
+                if ($is_to_account) {
                     if (
-                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_LIST_FEE|') === 0
-                        || stripos((string) $rawDescription, 'Domain list fee FROM ') === 0
+                        stripos($smsPay, '[DOMAIN_SHARE_COMMISSION|') === 0
+                        || $smsPay === '[DOMAIN_SHARE_COMMISSION]'
                     ) {
-                        $cr_dr = -(float) $t['amount'];
+                        $cr_dr = (float) $t['amount'];
                     } elseif (
-                        stripos((string) ($t['sms'] ?? ''), '[DOMAIN_NET_PROFIT|') === 0
-                        || stripos((string) $rawDescription, 'Profit By ') === 0
+                        stripos($smsPay, '[DOMAIN_LIST_FEE|') === 0
+                        || $smsPay === '[DOMAIN_LIST_FEE]'
+                        || stripos($descPay, 'Domain list fee FROM ') === 0
+                        || stripos($descPay, 'Pay Domain Fee') === 0
+                        || stripos($descPay, 'Pay Domain Fee To ') === 0
+                    ) {
+                        $cr_dr = (float) $t['amount'];
+                    } else {
+                        $cr_dr = -(float) $t['amount'];
+                    }
+                } else {
+                    if (
+                        stripos($smsPay, '[DOMAIN_NET_PROFIT|') === 0
+                        || stripos($descPay, 'Profit By ') === 0
                     ) {
                         $cr_dr = 0;
                     } else {
-                        $cr_dr = -(float) $t['amount'];
+                        // FROM 侧（含 Domain List Fee 付款方）：与 CONTRA 一致为正，与 calculateBFByCurrency 第 3 段 PAYMENT +amount 对齐
+                        $cr_dr = (float) $t['amount'];
                     }
                 }
                 break;
@@ -1949,7 +1984,7 @@ try {
         }
 
         $amount = (float) $row['amount'];
-        // RATE 第二行/第四行：TO 负数、FROM 正数（与 PAYMENT 一致）
+        // RATE 第二行/第四行：TO 负数、FROM 正数（与 CONTRA / PAYMENT 默认展示一致）
         // Middle-Man（RATE_MIDDLEMAN）保留正数，并显示在 Win/Loss
         $entryType = $row['entry_type'] ?? '';
         if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
@@ -2048,7 +2083,8 @@ try {
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
-        $balance_by_currency[$bfCurrency] = round((float) $bf, 2);
+        // 与逐行累加一致：先量化 B/F，避免 round 后仍带 IEEE 尾差再被 historyTrunc2 错成少 0.01
+        $balance_by_currency[$bfCurrency] = dcd_processed_amount_float_quant2((float) $bf);
     }
 
     foreach ($events as $event) {
@@ -2057,10 +2093,15 @@ try {
         if (!isset($balance_by_currency[$curKey])) {
             $balance_by_currency[$curKey] = 0;
         }
-        $eventWinLoss = historyTrunc2((float) ($event['win_loss'] ?? 0));
-        $eventCrDr = historyTrunc2((float) ($event['cr_dr'] ?? 0));
-        $balance_by_currency[$curKey] += $eventWinLoss + $eventCrDr;
-        $row_balance = historyTrunc2($balance_by_currency[$curKey]);
+        $rawWl = (float) ($event['win_loss'] ?? 0);
+        $eventWinLoss = (($event['row_type'] ?? '') === 'data_capture')
+            ? historyDataCaptureProcessed2($rawWl)
+            : dcd_processed_amount_float_quant2($rawWl);
+        $eventCrDr = dcd_processed_amount_float_quant2((float) ($event['cr_dr'] ?? 0));
+        $balance_by_currency[$curKey] = dcd_processed_amount_float_quant2(
+            (float) ($balance_by_currency[$curKey] + $eventWinLoss + $eventCrDr)
+        );
+        $row_balance = $balance_by_currency[$curKey];
 
         // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化
         $finalDescription = $event['description'];
@@ -2139,9 +2180,9 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $eventWinLoss != 0 ? historyFormat2($eventWinLoss) : '0.00',
-            'cr_dr' => $eventCrDr != 0 ? historyFormat2($eventCrDr) : '0.00',
-            'balance' => historyFormat2($row_balance),
+            'win_loss' => $eventWinLoss != 0 ? historyFormatExactCents2($eventWinLoss) : '0.00',
+            'cr_dr' => $eventCrDr != 0 ? historyFormatExactCents2($eventCrDr) : '0.00',
+            'balance' => historyFormatExactCents2($row_balance),
             'description' => $finalDescription,
             'sms' => $event['sms'],
             'remark' => $event['remark'] ?? null,
@@ -2274,7 +2315,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
     // 1. 计算起始日期之前所有 data_capture（按 currency 过滤）
     // 与 search_api 一致：account_id 可能存数字 id 或账户代码
-    $sql = "SELECT COALESCE(SUM(ROUND(dcd.processed_amount, 2)), 0) as total
+    $dcdQhistBf = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+    $sql = "SELECT COALESCE(SUM({$dcdQhistBf}), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
