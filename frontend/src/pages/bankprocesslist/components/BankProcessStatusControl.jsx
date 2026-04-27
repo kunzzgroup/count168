@@ -1,19 +1,41 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { deriveBankProcessUiStatus, normalizeBankIssueFlag, normalizeBankProcessStatus } from "../bankProcessHelpers.js";
 
 export default function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUrl: apiUrl }) {
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, minWidth: 118 });
   const wrapRef = useRef(null);
+  const buttonRef = useRef(null);
   const ui = deriveBankProcessUiStatus(row);
   const pillClass = `bank-status-button is-${ui.toLowerCase().replace(/_/g, "-")}`;
 
   useEffect(() => {
     if (!open) return;
+    const updateMenuPos = () => {
+      const btn = buttonRef.current;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      setMenuPos({
+        top: Math.round(rect.bottom + 6),
+        left: Math.round(rect.left),
+        minWidth: Math.max(118, Math.round(rect.width)),
+      });
+    };
+
+    updateMenuPos();
     const onDoc = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
     };
+    const onScroll = () => updateMenuPos();
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    window.addEventListener("resize", updateMenuPos);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("resize", updateMenuPos);
+      window.removeEventListener("scroll", onScroll, true);
+    };
   }, [open]);
 
   const postIssueFlag = async (id, issueFlag) => {
@@ -78,33 +100,46 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
 
   return (
     <div className={`bank-status-dropdown${open ? " open" : ""}`} ref={wrapRef}>
-      <button type="button" className={`${pillClass}${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)}>
+      <button ref={buttonRef} type="button" className={`${pillClass}${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)}>
         {label}
       </button>
-      {open ? (
-        <div
-          className="bank-status-menu"
-          role="listbox"
-          style={{ display: "flex", flexDirection: "column", alignItems: "stretch", whiteSpace: "normal", minWidth: 118 }}
-        >
-          {options.map((opt) => {
-            const optLabel = opt === "E_INVOICE" ? "E-INVOICE" : opt;
-            const cur = ui === opt;
-            return (
-              <button
-                key={opt}
-                type="button"
-                className={`bank-status-option${cur ? " selected" : ""}`}
-                onClick={() => void apply(opt)}
-                data-value={opt.toLowerCase()}
-                style={{ display: "block", width: "100%" }}
-              >
-                {optLabel}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      {open
+        ? createPortal(
+            <div
+              className="bank-status-menu bank-status-menu-floating"
+              role="listbox"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                whiteSpace: "normal",
+                position: "fixed",
+                top: menuPos.top,
+                left: menuPos.left,
+                minWidth: menuPos.minWidth,
+                zIndex: 10020,
+              }}
+            >
+              {options.map((opt) => {
+                const optLabel = opt === "E_INVOICE" ? "E-INVOICE" : opt;
+                const cur = ui === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={`bank-status-option${cur ? " selected" : ""}`}
+                    onClick={() => void apply(opt)}
+                    data-value={opt.toLowerCase()}
+                    style={{ display: "block", width: "100%" }}
+                  >
+                    {optLabel}
+                  </button>
+                );
+              })}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
