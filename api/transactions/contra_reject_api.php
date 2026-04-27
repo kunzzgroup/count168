@@ -18,7 +18,7 @@ function isManagerOrAboveRole(string $role): bool {
 
 function canRejectTransactionType(string $transactionType): bool {
     $type = strtoupper(trim($transactionType));
-    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'PROFIT', 'WIN', 'LOSE'], true);
+    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'PROFIT'], true);
 }
 
 function resolveContraCompanyIdPost(PDO $pdo): int {
