@@ -365,7 +365,7 @@ export default function DomainPage() {
                     >
                       <img src="/images/edit.svg" alt="Edit" />
                     </button>
-                    {!isProtected && (
+                    {!isProtected && domain.owner_code !== "K" && (
                       <input
                         type="checkbox"
                         className="domain-checkbox"

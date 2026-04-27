@@ -482,6 +482,8 @@ export default function DomainFormModal({
         <CompanySettingsModal
           company={csCompany}
           domainFeePrice={domainFeePrice}
+          sessionCompanyId={sessionCompanyId}
+          sessionCompanyCode={sessionCompanyCode}
           onSave={handleCompanySettingsSaved}
           onClose={() => setCsModalCompanyId(null)}
         />

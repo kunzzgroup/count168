@@ -14,6 +14,7 @@ import {
   computeShareTotals,
   formatShareRowAmount2,
 } from "../domainHelpers.js";
+import AddAccountModal from "./AddAccountModal.jsx";
 
 const PERMISSION_LIST = [
   { value: "Games", id: "permGambling" },
@@ -31,10 +32,19 @@ const SHARE_ROLES = ["profit", "sales", "cs", "it"];
  * Props:
  *   company          — the tempCompanies entry being edited (snapshot for cancel)
  *   domainFeePrice   — number, for share amount calculation
+ *   sessionCompanyId — fallback if company.company_id is missing
+ *   sessionCompanyCode — used for adding accounts
  *   onSave(updatedCompany) — callback with updated company data
  *   onClose()
  */
-export default function CompanySettingsModal({ company: initCompany, domainFeePrice, onSave, onClose }) {
+export default function CompanySettingsModal({
+  company: initCompany,
+  domainFeePrice,
+  sessionCompanyId,
+  sessionCompanyCode,
+  onSave,
+  onClose,
+}) {
   // Local copy of company being edited
   const [company, setCompany] = useState(() => JSON.parse(JSON.stringify(initCompany)));
   const [period, setPeriod] = useState("");
@@ -52,9 +62,10 @@ export default function CompanySettingsModal({ company: initCompany, domainFeePr
     return c.fee_share_allocations;
   });
   const [expandedCards, setExpandedCards] = useState({});
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [addAccountRole, setAddAccountRole] = useState("");
 
-  // Load share accounts from API
-  useEffect(() => {
+  const loadAccounts = useCallback(() => {
     fetch(buildApiUrl("api/domain/domain_api.php"), {
       cache: "no-cache",
       method: "POST",
@@ -71,6 +82,11 @@ export default function CompanySettingsModal({ company: initCompany, domainFeePr
         }
       })
       .catch(() => { setShareAccounts([]); setShareAccountsProfit([]); });
+  }, [company.company_id, fsa]);
+
+  // Load share accounts from API
+  useEffect(() => {
+    loadAccounts();
 
     // Load permissions if not cached
     if (!Array.isArray(initCompany.permissions) || initCompany.permissions.length === 0) {
@@ -217,6 +233,11 @@ export default function CompanySettingsModal({ company: initCompany, domainFeePr
 
   function toggleCard(role) {
     setExpandedCards((prev) => ({ ...prev, [role]: !prev[role] }));
+  }
+
+  function handleOpenAddAccount(role) {
+    setAddAccountRole(role);
+    setShowAddAccount(true);
   }
 
   const accountsForRole = (role) => role === "profit" ? shareAccountsProfit : shareAccounts;
@@ -427,7 +448,7 @@ export default function CompanySettingsModal({ company: initCompany, domainFeePr
                                       </select>
                                       <button type="button" className="company-share-account-plus-btn"
                                         title="Add New Account" aria-label="Add New Account"
-                                        onClick={() => showDomainAlert("Please use Add Account from the Company Settings panel", "danger")}>+</button>
+                                        onClick={() => handleOpenAddAccount(role)}>+</button>
                                     </div>
                                   </div>
                                   {!isProfit && (
@@ -506,6 +527,18 @@ export default function CompanySettingsModal({ company: initCompany, domainFeePr
           </div>
         </div>
       </div>
+
+      {showAddAccount && (
+        <AddAccountModal
+          companyId={company.id || sessionCompanyId}
+          companyCode={company.company_id || sessionCompanyCode}
+          preferredRole={addAccountRole}
+          onClose={() => setShowAddAccount(false)}
+          onSuccess={() => {
+            loadAccounts();
+          }}
+        />
+      )}
     </div>
   );
 }
