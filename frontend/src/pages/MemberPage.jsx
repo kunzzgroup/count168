@@ -37,6 +37,20 @@ function dmy(date) {
   return `${d}/${m}/${y}`;
 }
 
+function parseDmy(value) {
+  const s = String(value || "").trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const dt = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function formatMoney(v) {
+  const n = Number(String(v ?? "0").replace(/,/g, ""));
+  if (!Number.isFinite(n)) return "0.00";
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : "";
@@ -68,6 +82,11 @@ export default function MemberPage() {
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
+  const [linkedAccounts, setLinkedAccounts] = useState([]);
+  const [currencySummary, setCurrencySummary] = useState([]);
+  const [selectedCurrencies, setSelectedCurrencies] = useState([]);
+  const [historyRows, setHistoryRows] = useState([]);
+  const [loadingTable, setLoadingTable] = useState(false);
   const initialAvatarId = readCookie("selectedAvatar") || "male1";
   const [selectedAvatarId, setSelectedAvatarId] = useState(initialAvatarId);
   const [selectedGender, setSelectedGender] = useState(initialAvatarId.startsWith("female") ? "female" : "male");
@@ -75,8 +94,14 @@ export default function MemberPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [accountId, setAccountId] = useState(0);
+  const [companyId, setCompanyId] = useState(0);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const avatarContainerRef = useRef(null);
+  const dateRangeInputRef = useRef(null);
+  const flatpickrRef = useRef(null);
 
   const today = useMemo(() => new Date(), []);
   const monday = useMemo(() => {
@@ -118,6 +143,10 @@ export default function MemberPage() {
         if (!cancelled) {
           setMe(u);
           setCompanies(Array.isArray(cJson?.data) ? cJson.data : []);
+          setAccountId(Number(u.user_id) || 0);
+          setCompanyId(Number(u.company_id) || 0);
+          setDateFrom(dmy(monday));
+          setDateTo(dmy(today));
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -128,7 +157,7 @@ export default function MemberPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [navigate, monday, today]);
 
   useEffect(() => {
     if (loading || !me) return;
@@ -142,19 +171,29 @@ export default function MemberPage() {
         injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
       ]);
       if (cancelled) return;
-      window.MEMBER_ACCOUNT_ID = Number(me.user_id) || 0;
-      window.MEMBER_ACCOUNT_CODE = me.login_id || "";
-      window.MEMBER_ACCOUNT_NAME = me.name || "";
-      window.MEMBER_COMPANY_ID = Number(me.company_id) || 0;
-      await loadScriptOnce(assetUrl("js/decimal.min.js"));
-      await loadScriptOnce(assetUrl("js/money-decimal.js"));
       await loadScriptOnce("https://cdn.jsdelivr.net/npm/flatpickr", "flatpickr-cdn");
-      await loadScriptOnce(assetUrl("js/member.js"));
+      const inputEl = dateRangeInputRef.current;
+      if (inputEl && window.flatpickr) {
+        flatpickrRef.current = window.flatpickr(inputEl, {
+          mode: "range",
+          dateFormat: "d/m/Y",
+          defaultDate: [parseDmy(dateFrom), parseDmy(dateTo)],
+          onChange: (dates) => {
+            if (dates.length === 2) {
+              setDateFrom(dmy(dates[0]));
+              setDateTo(dmy(dates[1]));
+            }
+          },
+        });
+      }
     })();
     return () => {
       cancelled = true;
+      if (flatpickrRef.current && typeof flatpickrRef.current.destroy === "function") {
+        flatpickrRef.current.destroy();
+      }
     };
-  }, [loading, me]);
+  }, [loading, me, dateFrom, dateTo]);
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -166,6 +205,107 @@ export default function MemberPage() {
     return () => document.removeEventListener("click", onClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!accountId || !companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          buildApiUrl(`api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}`),
+          { credentials: "include" },
+        );
+        const json = await res.json();
+        if (!cancelled) setLinkedAccounts(Array.isArray(json?.data) ? json.data : []);
+      } catch {
+        if (!cancelled) setLinkedAccounts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, companyId]);
+
+  useEffect(() => {
+    if (!accountId || !companyId || !dateFrom || !dateTo) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          date_from: dateFrom,
+          date_to: dateTo,
+          target_account_id: String(accountId),
+          company_id: String(companyId),
+          show_inactive: "1",
+          hide_zero_balance: "0",
+        });
+        const res = await fetch(buildApiUrl(`api/transactions/search_api.php?${params.toString()}`), { credentials: "include" });
+        const json = await res.json();
+        if (!json?.success) throw new Error();
+        const rows = [...(json?.data?.left_table || []), ...(json?.data?.right_table || [])].filter(
+          (r) => Number(r.account_db_id) === Number(accountId),
+        );
+        if (!cancelled) {
+          setCurrencySummary(rows);
+          setSelectedCurrencies([...new Set(rows.map((r) => String(r.currency || "").trim()).filter(Boolean))]);
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrencySummary([]);
+          setSelectedCurrencies([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, companyId, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!accountId || !companyId || !dateFrom || !dateTo) return;
+    let cancelled = false;
+    setLoadingTable(true);
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          account_id: String(accountId),
+          date_from: dateFrom,
+          date_to: dateTo,
+          company_id: String(companyId),
+        });
+        const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params.toString()}`), { credentials: "include" });
+        const json = await res.json();
+        if (!json?.success) throw new Error();
+        if (!cancelled) setHistoryRows(Array.isArray(json?.data?.history) ? json.data.history : []);
+      } catch {
+        if (!cancelled) setHistoryRows([]);
+      } finally {
+        if (!cancelled) setLoadingTable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, companyId, dateFrom, dateTo]);
+
+  const availableCurrencies = useMemo(
+    () => [...new Set(currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean))],
+    [currencySummary],
+  );
+
+  const groupedRows = useMemo(() => {
+    const selected = new Set(selectedCurrencies);
+    const map = new Map();
+    for (const row of historyRows) {
+      const c = String(row.currency || "-").trim() || "-";
+      if (selectedCurrencies.length > 0 && !selected.has(c)) continue;
+      if (!map.has(c)) map.set(c, []);
+      map.get(c).push(row);
+    }
+    return selectedCurrencies.length > 0
+      ? selectedCurrencies.map((c) => [c, map.get(c) || []])
+      : Array.from(map.entries());
+  }, [historyRows, selectedCurrencies]);
+
   const handleSelectAvatar = (avatarId) => {
     setSelectedAvatarId(avatarId);
     setShowAvatarOptions(false);
@@ -173,8 +313,55 @@ export default function MemberPage() {
     try {
       localStorage.setItem("selectedAvatar", avatarId);
     } catch {
-      // ignore storage write errors
+      // ignore
     }
+  };
+
+  const applyQuickRange = (range) => {
+    const now = new Date();
+    let start = new Date(now);
+    let end = new Date(now);
+    switch (range) {
+      case "today":
+        break;
+      case "yesterday":
+        start.setDate(start.getDate() - 1);
+        end = new Date(start);
+        break;
+      case "thisWeek": {
+        const dow = now.getDay();
+        const toMon = dow === 0 ? 6 : dow - 1;
+        start.setDate(start.getDate() - toMon);
+        break;
+      }
+      case "lastWeek": {
+        const dow = now.getDay();
+        const toSun = dow === 0 ? 0 : dow;
+        end.setDate(end.getDate() - toSun - 1);
+        start = new Date(end);
+        start.setDate(start.getDate() - 6);
+        break;
+      }
+      case "thisMonth":
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case "lastMonth":
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+      case "thisYear":
+        start = new Date(now.getFullYear(), 0, 1);
+        break;
+      case "lastYear":
+        start = new Date(now.getFullYear() - 1, 0, 1);
+        end = new Date(now.getFullYear() - 1, 11, 31);
+        break;
+      default:
+        return;
+    }
+    setDateFrom(dmy(start));
+    setDateTo(dmy(end));
+    if (flatpickrRef.current) flatpickrRef.current.setDate([start, end], true);
   };
 
   const toggleNotifications = async () => {
@@ -192,6 +379,31 @@ export default function MemberPage() {
       setAnnouncements([]);
     } finally {
       setAnnouncementsLoading(false);
+    }
+  };
+
+  const switchCompany = async (nextCompanyId) => {
+    if (!nextCompanyId || Number(nextCompanyId) === Number(companyId)) return;
+    try {
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
+      const json = await res.json();
+      if (json?.success) {
+        setCompanyId(Number(nextCompanyId));
+        setMe((prev) => (prev ? { ...prev, company_id: Number(nextCompanyId) } : prev));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const switchAccount = async (nextAccountId) => {
+    if (!nextAccountId || Number(nextAccountId) === Number(accountId)) return;
+    try {
+      const res = await fetch(buildApiUrl(`api/session/update_account_session_api.php?account_id=${nextAccountId}`), { credentials: "include" });
+      const json = await res.json();
+      if (json?.success) setAccountId(Number(json?.data?.account_id || nextAccountId));
+    } catch {
+      // ignore
     }
   };
 
@@ -227,31 +439,19 @@ export default function MemberPage() {
               <div className={`avatar-options ${showAvatarOptions ? "show" : ""}`} id="avatarOptions">
                 <div className="options-title">Choose Avatar</div>
                 <div className="gender-selection">
-                  <button type="button" className={`gender-btn ${selectedGender === "male" ? "active" : ""}`} onClick={() => setSelectedGender("male")}>
-                    Male
-                  </button>
-                  <button type="button" className={`gender-btn ${selectedGender === "female" ? "active" : ""}`} onClick={() => setSelectedGender("female")}>
-                    Female
-                  </button>
+                  <button type="button" className={`gender-btn ${selectedGender === "male" ? "active" : ""}`} onClick={() => setSelectedGender("male")}>Male</button>
+                  <button type="button" className={`gender-btn ${selectedGender === "female" ? "active" : ""}`} onClick={() => setSelectedGender("female")}>Female</button>
                 </div>
                 <div className={`avatar-list ${selectedGender === "male" ? "show" : ""}`}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <div
-                      key={`male-${num}`}
-                      className={`avatar-option ${selectedAvatarId === `male${num}` ? "selected" : ""}`}
-                      onClick={() => handleSelectAvatar(`male${num}`)}
-                    >
+                    <div key={`male-${num}`} className={`avatar-option ${selectedAvatarId === `male${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`male${num}`)}>
                       <img src={`/images/avatar${num}.png`} alt={`Male Avatar ${num}`} className="avatar-option-img" />
                     </div>
                   ))}
                 </div>
                 <div className={`avatar-list ${selectedGender === "female" ? "show" : ""}`}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <div
-                      key={`female-${num}`}
-                      className={`avatar-option ${selectedAvatarId === `female${num}` ? "selected" : ""}`}
-                      onClick={() => handleSelectAvatar(`female${num}`)}
-                    >
+                    <div key={`female-${num}`} className={`avatar-option ${selectedAvatarId === `female${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`female${num}`)}>
                       <img src={`/images/female${num}.png`} alt={`Female Avatar ${num}`} className="avatar-option-img" />
                     </div>
                   ))}
@@ -269,9 +469,7 @@ export default function MemberPage() {
         <div className="informationmenu-content">
           <div className="content-separator" />
           <div className="informationmenu-section">
-            <div className="informationmenu-section-title current-page" data-page="member">
-              Win/Loss
-            </div>
+            <div className="informationmenu-section-title current-page">Win/Loss</div>
           </div>
         </div>
         <div className="informationmenu-footer">
@@ -285,9 +483,7 @@ export default function MemberPage() {
               <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
             </div>
           </div>
-          <button className="btn logout-btn" onClick={logout} type="button">
-            Logout
-          </button>
+          <button className="btn logout-btn" onClick={logout} type="button">Logout</button>
         </div>
       </div>
 
@@ -301,72 +497,130 @@ export default function MemberPage() {
               <div className="transaction-capture-date-row">
                 <div className="transaction-date-range-wrap" id="capture_date_range_wrap">
                   <i className="fas fa-calendar-alt" aria-hidden="true" />
-                  <input
-                    type="text"
-                    id="capture_date_range"
-                    className="transaction-input transaction-date-range-input"
-                    defaultValue={`${dmy(monday)} - ${dmy(today)}`}
-                    placeholder="Select date range"
-                    readOnly
-                    style={{ cursor: "pointer" }}
-                  />
+                  <input ref={dateRangeInputRef} type="text" id="capture_date_range" className="transaction-input transaction-date-range-input" defaultValue={`${dateFrom} - ${dateTo}`} placeholder="Select date range" readOnly style={{ cursor: "pointer" }} />
                 </div>
                 <div className="transaction-quick-select-wrap">
                   <div className="dropdown transaction-quick-select-dropdown">
-                    <button type="button" className="btn btn-secondary dropdown-toggle transaction-quick-select-btn" onClick={() => window.toggleQuickSelectDropdown?.()}>
+                    <button type="button" className="btn btn-secondary dropdown-toggle transaction-quick-select-btn">
                       <i className="fas fa-calendar-alt" />
                       <span id="quick-select-text">Period</span>
                       <i className="fas fa-chevron-down" />
                     </button>
                     <div className="dropdown-menu" id="quick-select-dropdown">
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("today")}>Today</button>
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("yesterday")}>Yesterday</button>
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisWeek")}>This Week</button>
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastWeek")}>Last Week</button>
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisMonth")}>This Month</button>
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastMonth")}>Last Month</button>
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisYear")}>This Year</button>
-                      <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastYear")}>Last Year</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("today")}>Today</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("yesterday")}>Yesterday</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("thisWeek")}>This Week</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("lastWeek")}>Last Week</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("thisMonth")}>This Month</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("lastMonth")}>Last Month</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("thisYear")}>This Year</button>
+                      <button type="button" className="dropdown-item" onClick={() => applyQuickRange("lastYear")}>Last Year</button>
                     </div>
                   </div>
                 </div>
               </div>
-              <input type="hidden" id="date_from" defaultValue={dmy(monday)} />
-              <input type="hidden" id="date_to" defaultValue={dmy(today)} />
+              <input type="hidden" id="date_from" value={dateFrom} readOnly />
+              <input type="hidden" id="date_to" value={dateTo} readOnly />
             </div>
             {companies.length > 1 && (
               <div className="member-company-filter" id="member_company_filter" style={{ display: "flex", visibility: "visible" }}>
                 <span className="transaction-company-label">Company:</span>
                 <div id="member_company_buttons" className="transaction-company-buttons member-currency-buttons">
                   {companies.map((company) => (
-                    <button
-                      key={company.id}
-                      type="button"
-                      className={`transaction-company-btn ${Number(company.company_id) === Number(me.company_id) ? "active" : ""}`}
-                      data-company-id={company.company_id}
-                      data-company-label={String(company.company_code || "").toUpperCase()}
-                    >
+                    <button key={company.id} type="button" className={`transaction-company-btn ${Number(company.company_id) === Number(companyId) ? "active" : ""}`} onClick={() => switchCompany(company.company_id)}>
                       {String(company.company_code || "").toUpperCase()}
                     </button>
                   ))}
                 </div>
               </div>
             )}
-            <div className="member-account-filter transaction-company-filter" id="member_account_filter" style={{ display: "none" }}>
+            <div className="member-account-filter transaction-company-filter" id="member_account_filter" style={{ display: linkedAccounts.length > 1 ? "flex" : "none" }}>
               <span className="transaction-company-label">Account:</span>
               <div id="member_account_buttons" className="transaction-company-buttons member-currency-buttons">
-                <span className="member-account-loading" id="member_account_loading">Loading...</span>
+                {linkedAccounts.map((acc) => (
+                  <button key={acc.id} type="button" className={`transaction-company-btn ${Number(acc.id) === Number(accountId) ? "active" : ""}`} onClick={() => switchAccount(acc.id)}>
+                    {String(acc.account_id || acc.name || acc.id)}
+                  </button>
+                ))}
               </div>
             </div>
             <div className="transaction-company-filter member-currency-filter" id="member_currency_filter" style={{ display: "flex", visibility: "visible" }}>
               <span className="transaction-company-label">Currency:</span>
-              <div id="member_currency_buttons" className="transaction-company-buttons member-currency-buttons" />
+              <div id="member_currency_buttons" className="transaction-company-buttons member-currency-buttons">
+                {availableCurrencies.map((code) => (
+                  <button key={code} type="button" className={`transaction-company-btn ${selectedCurrencies.includes(code) ? "active" : ""}`} onClick={() => setSelectedCurrencies((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))}>
+                    {code}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
         <div className="member-currency-section" id="member_currency_tables_section" style={{ display: "flex", visibility: "visible" }}>
           <div id="member_currency_tables" className="member-currency-tables">
-            <p className="member-currency-empty" style={{ margin: 0 }}>Loading...</p>
+            {loadingTable ? (
+              <p className="member-currency-empty" style={{ margin: 0 }}>Loading...</p>
+            ) : groupedRows.length === 0 ? (
+              <p className="member-currency-empty" style={{ margin: 0 }}>No data in the selected date range.</p>
+            ) : (
+              groupedRows.map(([currency, rows]) => {
+                const totalWinLoss = rows.reduce((sum, r) => sum + Number(String(r.win_loss || 0).replace(/,/g, "")), 0);
+                const totalCrDr = rows.reduce((sum, r) => sum + Number(String(r.cr_dr || 0).replace(/,/g, "")), 0);
+                const closing = rows.length ? Number(String(rows[rows.length - 1].balance || 0).replace(/,/g, "")) : 0;
+                return (
+                  <div className="member-currency-table-wrapper" key={currency}>
+                    <h3 className="member-currency-table-title">{`Currency: ${currency}`}</h3>
+                    <table className="transaction-table member-winloss-table">
+                      <thead>
+                        <tr className="transaction-table-header">
+                          <th className="transaction-history-col-date">Date</th>
+                          <th className="transaction-history-col-product">Id Product</th>
+                          <th className="transaction-history-col-currency">Currency</th>
+                          <th className="transaction-history-col-rate">Rate</th>
+                          <th className="transaction-history-col-winloss">Win/Loss</th>
+                          <th className="transaction-history-col-crdr">Cr/Dr</th>
+                          <th className="transaction-history-col-balance">Balance</th>
+                          <th className="transaction-history-col-description">Description</th>
+                          <th className="transaction-history-col-remark">Remark</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.length === 0 ? (
+                          <tr className="transaction-table-row"><td colSpan={9} style={{ textAlign: "center" }}>No data</td></tr>
+                        ) : (
+                          rows.map((row, idx) => (
+                            <tr className={`transaction-table-row ${row.row_type === "bf" ? "member-bf-row" : ""}`} key={`${currency}-${idx}`}>
+                              <td className="transaction-history-col-date">{row.date || "-"}</td>
+                              <td className="transaction-history-col-product">{row.is_bank_process_transaction ? row.card_owner || "-" : row.product || "-"}</td>
+                              <td className="transaction-history-col-currency">{row.currency || "-"}</td>
+                              <td className="transaction-history-col-rate">{row.rate || "-"}</td>
+                              <td className="transaction-history-col-winloss">{formatMoney(row.win_loss)}</td>
+                              <td className="transaction-history-col-crdr">{formatMoney(row.cr_dr)}</td>
+                              <td className="transaction-history-col-balance">{formatMoney(row.balance)}</td>
+                              <td className="transaction-history-col-description">{row.description || "-"}</td>
+                              <td className="transaction-history-col-remark text-uppercase">{row.remark || row.sms || "-"}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr className="transaction-table-row transaction-summary-total">
+                          <td className="transaction-summary-total-label">{`Total (${currency})`}</td>
+                          <td className="transaction-history-col-product">-</td>
+                          <td className="transaction-history-col-currency">-</td>
+                          <td className="transaction-history-col-rate">-</td>
+                          <td className="transaction-history-col-winloss">{formatMoney(totalWinLoss)}</td>
+                          <td className="transaction-history-col-crdr">{formatMoney(totalCrDr)}</td>
+                          <td className="transaction-history-col-balance">{formatMoney(closing)}</td>
+                          <td className="transaction-history-col-description">-</td>
+                          <td className="transaction-history-col-remark">-</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
         <div id="notificationContainer" className="transaction-notification-container" />
