@@ -6,6 +6,23 @@
     if (typeof window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD === 'undefined') window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD = [];
 })();
 
+function accountMoneyDecimal(value, fallback) {
+    return MoneyDecimal.toDecimal(value, fallback === undefined ? 0 : fallback);
+}
+
+function accountMoneyIsValid(value) {
+    try {
+        accountMoneyDecimal(value);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function accountMoneyCmp(a, b) {
+    return MoneyDecimal.cmp(a || '0', b || '0');
+}
+
 // Notification functions - 与 userlist 保持一致
 function showNotification(message, type = 'success') {
     const container = document.getElementById('accountNotificationContainer');
@@ -1790,7 +1807,7 @@ function validatePaymentAlert() {
             return false;
         }
         // Validate alert amount must be a negative number
-        if (alertAmount && (isNaN(parseFloat(alertAmount)) || parseFloat(alertAmount) >= 0)) {
+        if (alertAmount && (!accountMoneyIsValid(alertAmount) || accountMoneyCmp(alertAmount, '0') >= 0)) {
             showNotification('Alert Amount must be a negative number.', 'danger');
             return false;
         }
@@ -1974,7 +1991,7 @@ function validatePaymentAlertForAdd() {
             return false;
         }
         // Validate alert amount must be a negative number
-        if (alertAmount && (isNaN(parseFloat(alertAmount)) || parseFloat(alertAmount) >= 0)) {
+        if (alertAmount && (!accountMoneyIsValid(alertAmount) || accountMoneyCmp(alertAmount, '0') >= 0)) {
             showNotification('Alert Amount must be a negative number.', 'danger');
             return false;
         }
@@ -2326,15 +2343,13 @@ document.addEventListener('DOMContentLoaded', function () {
             // 澶卞幓鐒︾偣鏃讹紝纭繚鏄湁鏁堢殑璐熸暟
             if (value) {
                 if (value.startsWith('-')) {
-                    const numValue = parseFloat(value);
-                    if (isNaN(numValue) || numValue >= 0) {
+                    if (!accountMoneyIsValid(value) || accountMoneyCmp(value, '0') >= 0) {
                         // 鏃犳晥鐨勮礋鏁帮紝娓呯┖
                         this.value = '';
                     }
                 } else {
                     // 濡傛灉鏄鏁帮紝杞崲涓鸿礋鏁?
-                    const numValue = parseFloat(value);
-                    if (!isNaN(numValue) && numValue > 0) {
+                    if (accountMoneyIsValid(value) && accountMoneyCmp(value, '0') > 0) {
                         this.value = '-' + value;
                     } else {
                         this.value = '';

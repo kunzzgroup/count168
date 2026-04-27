@@ -439,6 +439,8 @@ if ($current_user_id && count($user_companies_all) > 0) {
             echo json_encode($dcCode);
         ?>;
     </script>
+    <script src="js/decimal.min.js?v=<?php echo $assetVer('js/decimal.min.js'); ?>"></script>
+    <script src="js/money-decimal.js?v=<?php echo $assetVer('js/money-decimal.js'); ?>"></script>
     <script src="js/datacapture.js?v=<?php echo $assetVer('js/datacapture.js'); ?>"></script>
 
 </body>

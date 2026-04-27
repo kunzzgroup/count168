@@ -13,6 +13,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 
 // Helper function to convert PHP ini size values to bytes
 function return_bytes($val) {
@@ -216,8 +217,8 @@ function ensureTemplateSchema(PDO $pdo) {
                 }
 
                 if ($needsUpgrade) {
-                    $pdo->exec("ALTER TABLE data_capture_details MODIFY COLUMN rate DECIMAL(20,8) NULL");
-                    error_log('Template schema: Upgraded data_capture_details.rate to DECIMAL(20,8)');
+                    $pdo->exec("ALTER TABLE data_capture_details MODIFY COLUMN rate DECIMAL(25,8) NULL");
+                    error_log('Template schema: Upgraded data_capture_details.rate to DECIMAL(25,8)');
                 }
             }
         } catch (Exception $columnException) {
@@ -325,6 +326,14 @@ function computeTemplateKey(array $row): string {
     return substr($idProduct, 0, 250);
 }
 
+function summary_money_value(array $row, string $key, string $default = '0'): string
+{
+    if (!array_key_exists($key, $row) || $row[$key] === null || trim((string)$row[$key]) === '') {
+        return money_normalize($default);
+    }
+    return money_normalize($row[$key]);
+}
+
 ensureTemplateSchema($pdo);
 
 /**
@@ -421,7 +430,7 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
                         $templateData['currency_id'],
                         $templateData['currency_display'],
                         isset($templateData['last_source_value']) ? $templateData['last_source_value'] : null,
-                        isset($templateData['last_processed_amount']) ? $templateData['last_processed_amount'] : null,
+                        isset($templateData['last_processed_amount']) ? money_normalize($templateData['last_processed_amount']) : null,
                         $targetTemplate['id']
                     ]);
                     error_log("Updated template ID {$targetTemplate['id']} for process $targetProcessCode (ID: $targetProcessId)");
@@ -463,7 +472,7 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
                         isset($templateData['columns_display']) ? $templateData['columns_display'] : null,
                         isset($templateData['formula_display']) ? $templateData['formula_display'] : null,
                         isset($templateData['last_source_value']) ? $templateData['last_source_value'] : null,
-                        isset($templateData['last_processed_amount']) ? $templateData['last_processed_amount'] : 0,
+                        isset($templateData['last_processed_amount']) ? money_normalize($templateData['last_processed_amount']) : money_normalize('0'),
                         isset($templateData['row_index']) ? (int)$templateData['row_index'] : null,
                         $subOrder,
                         $templateData['formula_variant'],
@@ -933,7 +942,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':columns_display' => $row['columns_display'] ?? null,
             ':formula_display' => $row['formula_display'] ?? null,
             ':last_source_value' => $row['last_source_value'] ?? null,
-            ':last_processed_amount' => isset($row['last_processed_amount']) ? $row['last_processed_amount'] : 0,
+            ':last_processed_amount' => summary_money_value($row, 'last_processed_amount'),
             ':process_id' => $processId,
             ':data_capture_id' => $dataCaptureId,
             ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
@@ -956,6 +965,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 'enable_input_method' => isset($row['enable_input_method']) ? (int)$row['enable_input_method'] : 0,
                 'columns_display' => $row['columns_display'] ?? null,
                 'formula_display' => $row['formula_display'] ?? null,
+                'last_processed_amount' => summary_money_value($row, 'last_processed_amount'),
                 'description' => $row['description'] ?? null,
                 'account_display' => $row['account_display'] ?? null,
                 'currency_id' => $row['currency_id'] ?? null,
@@ -1076,7 +1086,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         ':columns_display' => $row['columns_display'] ?? null,
         ':formula_display' => $row['formula_display'] ?? null,
         ':last_source_value' => $row['last_source_value'] ?? null,
-        ':last_processed_amount' => isset($row['last_processed_amount']) ? $row['last_processed_amount'] : 0,
+        ':last_processed_amount' => summary_money_value($row, 'last_processed_amount'),
         ':process_id' => $processId,
         ':data_capture_id' => isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null,
         ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
@@ -1101,6 +1111,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             'enable_input_method' => isset($row['enable_input_method']) ? (int)$row['enable_input_method'] : 0,
             'columns_display' => $row['columns_display'] ?? null,
             'formula_display' => $row['formula_display'] ?? null,
+            'last_processed_amount' => summary_money_value($row, 'last_processed_amount'),
             'description' => $row['description'] ?? null,
             'account_display' => $row['account_display'] ?? null,
             'currency_id' => $row['currency_id'] ?? null,
@@ -2130,6 +2141,7 @@ if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'rowOrder' => $payload['rowOrder'] ?? [],
             'rateValuesByKey' => $payload['rateValuesByKey'] ?? [],
             'rateValuesByRowUid' => $payload['rateValuesByRowUid'] ?? [],
+            'rateValuesByRateFingerprint' => $payload['rateValuesByRateFingerprint'] ?? [],
             'savedAt' => $payload['savedAt'] ?? null,
         ]);
         $stmt = $pdo->prepare("

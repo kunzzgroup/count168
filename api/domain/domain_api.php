@@ -3,6 +3,7 @@ session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -144,6 +145,11 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
         $stmt = $pdo->query("SHOW TABLES LIKE 'domain_list_fee_settings'");
         if ($stmt && $stmt->fetch(PDO::FETCH_NUM) !== false) {
             $pdo->exec("INSERT IGNORE INTO `domain_list_fee_settings` (`id`, `price`) VALUES (1, NULL)");
+            try {
+                $pdo->exec("ALTER TABLE `domain_list_fee_settings` MODIFY COLUMN `price` DECIMAL(25,8) NULL DEFAULT NULL");
+            } catch (Exception $e) {
+                // Best effort for old schemas.
+            }
             $ensured = true;
             return;
         }
@@ -153,10 +159,15 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `domain_list_fee_settings` (
             `id` TINYINT UNSIGNED NOT NULL PRIMARY KEY,
-            `price` DECIMAL(14,4) NULL DEFAULT NULL,
+            `price` DECIMAL(25,8) NULL DEFAULT NULL,
             `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+    try {
+        $pdo->exec("ALTER TABLE `domain_list_fee_settings` MODIFY COLUMN `price` DECIMAL(25,8) NULL DEFAULT NULL");
+    } catch (Exception $e) {
+        // Best effort for old schemas; save will still fail visibly if the column is incompatible.
+    }
     $pdo->exec("INSERT IGNORE INTO `domain_list_fee_settings` (`id`, `price`) VALUES (1, NULL)");
     $ensured = true;
 }
@@ -211,7 +222,7 @@ function domainApiHasAccountCreatedSourceColumn(PDO $pdo): bool {
 
 /**
  * @param mixed $raw
- * @return array{profit: list<array{account_id:int,percentage:float}>, sales: list, cs: list, it: list}
+ * @return array{profit: list<array{account_id:int,percentage:string}>, sales: list, cs: list, it: list}
  */
 function normalizeFeeShareAllocationsInput($raw): array {
     $empty = ['profit' => [], 'sales' => [], 'cs' => [], 'it' => []];
@@ -237,12 +248,12 @@ function normalizeFeeShareAllocationsInput($raw): array {
                 continue;
             }
             $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
-            $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
+            $pct = isset($row['percentage']) && money_is_valid($row['percentage']) ? money_normalize($row['percentage'], 4) : '0.0000';
             // 正数 = account.id（须为 C168 旗下 Account）；负数 = -user.id（Admin 用户）
-            if ($aid !== 0 && $pct >= 0) {
+            if ($aid !== 0 && money_cmp($pct, '0', 4) >= 0) {
                 $out[$role][] = [
                     'account_id' => $aid,
-                    'percentage' => round($pct, 4),
+                    'percentage' => money_strip_zeros($pct),
                 ];
             }
         }
@@ -482,7 +493,7 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
  * 表单或 JSON 中的可选十进制数：空为 null，非法返回 false
  *
  * @param mixed $val
- * @return float|null|false
+ * @return string|null|false
  */
 function normalizeOptionalDecimal($val) {
     if ($val === null || $val === '') {
@@ -494,10 +505,10 @@ function normalizeOptionalDecimal($val) {
             return null;
         }
     }
-    if (!is_numeric($val)) {
+    if (!money_is_valid($val)) {
         return false;
     }
-    return round((float) $val, 2);
+    return money_normalize($val);
 }
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
@@ -511,7 +522,7 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool
     }
 }
 
-function getDomainFeePrice(PDO $pdo): ?float
+function getDomainFeePrice(PDO $pdo): ?string
 {
     ensureDomainListFeeSettingsTable($pdo);
     $stmt = $pdo->query("SELECT `price` FROM `domain_list_fee_settings` WHERE `id` = 1");
@@ -519,7 +530,7 @@ function getDomainFeePrice(PDO $pdo): ?float
     if ($price === false || $price === null || $price === '') {
         return null;
     }
-    return (float) $price;
+    return money_normalize($price);
 }
 
 function domainApiClearTransactionSearchCache(): void
@@ -698,8 +709,8 @@ function resolveC168ProfitRoleAccountId(PDO $pdo, int $c168Pk, int $excludeAccou
 function createDomainNetProfitPayment(
     PDO $pdo,
     string $sourceCompanyCode,
-    float $feeAmount,
-    float $commissionTotal,
+    string $feeAmount,
+    string $commissionTotal,
     ?int $fromPoolAccountId,
     ?int $createdByUser,
     ?int $createdByOwner
@@ -708,15 +719,15 @@ function createDomainNetProfitPayment(
         'created' => false,
         'skipped_duplicate' => false,
         'skipped_zero_or_negative' => false,
-        'amount' => 0.0,
+        'amount' => '0',
     ];
     $c168Pk = getC168CompanyPk($pdo);
     if (!$c168Pk) {
         return $out;
     }
-    $net = round((float)$feeAmount - (float)$commissionTotal, 2);
-    $out['amount'] = $net;
-    if ($net <= 0) {
+    $net = money_sub($feeAmount, $commissionTotal, 2);
+    $out['amount'] = money_out($net);
+    if (money_cmp($net, '0') <= 0) {
         $out['skipped_zero_or_negative'] = true;
         return $out;
     }
@@ -1073,15 +1084,15 @@ function createDomainListFeePayment(
         'skipped_no_customer' => false,
         'skipped_no_c168' => false,
         'skipped_no_accounts' => false,
-        'amount' => 0.0,
+        'amount' => '0',
         'pool_account_id' => null,
     ];
     $feePrice = getDomainFeePrice($pdo);
-    if ($feePrice === null || $feePrice <= 0) {
+    if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         $out['skipped_no_price'] = true;
         return $out;
     }
-    $out['amount'] = round((float) $feePrice, 2);
+    $out['amount'] = money_normalize($feePrice, 2);
     $customerPk = getCompanyPkByCode($pdo, $customerCompanyCode);
     if (!$customerPk) {
         $out['skipped_no_customer'] = true;
@@ -1199,11 +1210,11 @@ function createDomainShareCommissionPayments(
         'skipped_invalid_account_count' => 0,
         'skipped_no_from_account_count' => 0,
         'skipped_duplicate_account_count' => 0,
-        'commission_total' => 0.0,
+        'commission_total' => '0',
     ];
 
     $feePrice = getDomainFeePrice($pdo);
-    if ($feePrice === null || $feePrice <= 0) {
+    if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         return $result;
     }
 
@@ -1252,18 +1263,18 @@ function createDomainShareCommissionPayments(
         $description = $roleLabel . ' Commision for ' . $c168OwnerCode;
         foreach ($rows as $row) {
             $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
-            $pct = isset($row['percentage']) ? (float) $row['percentage'] : 0.0;
+            $pct = isset($row['percentage']) && money_is_valid($row['percentage']) ? money_normalize($row['percentage'], 4) : '0.0000';
 
             if ($aid < 0) {
                 $result['skipped_admin_count']++;
                 continue;
             }
-            if ($aid <= 0 || $pct <= 0) {
+            if ($aid <= 0 || money_cmp($pct, '0', 4) <= 0) {
                 continue;
             }
 
-            $amount = round($feePrice * ($pct / 100), 2);
-            if ($amount <= 0) {
+            $amount = money_div(money_mul($feePrice, $pct, MONEY_CALC_SCALE), '100', 2);
+            if (money_cmp($amount, '0') <= 0) {
                 continue;
             }
 
@@ -1343,7 +1354,7 @@ function createDomainShareCommissionPayments(
             $stmt = $pdo->prepare($sql);
             $stmt->execute(array_values($insertCols));
             $result['created_count']++;
-            $result['commission_total'] = round($result['commission_total'] + $amount, 2);
+            $result['commission_total'] = money_add($result['commission_total'], $amount, 2);
         }
     }
 
@@ -1378,7 +1389,7 @@ function hasDomainNetProfitTransactionExecuted(PDO $pdo, string $sourceCompanyCo
 
 function getDomainFeeAndCommissionTotalsBySource(PDO $pdo, string $sourceCompanyCode): array
 {
-    $out = ['fee' => 0.0, 'commission' => 0.0];
+    $out = ['fee' => '0', 'commission' => '0'];
     $srcU = strtoupper(trim($sourceCompanyCode));
     if ($srcU === '') {
         return $out;
@@ -1390,8 +1401,8 @@ function getDomainFeeAndCommissionTotalsBySource(PDO $pdo, string $sourceCompany
     try {
         $st = $pdo->prepare("
             SELECT
-                SUM(CASE WHEN t.sms LIKE ? THEN ROUND(t.amount, 2) ELSE 0 END) AS fee_total,
-                SUM(CASE WHEN t.sms LIKE ? THEN ROUND(t.amount, 2) ELSE 0 END) AS comm_total
+                SUM(CASE WHEN t.sms LIKE ? THEN t.amount ELSE 0 END) AS fee_total,
+                SUM(CASE WHEN t.sms LIKE ? THEN t.amount ELSE 0 END) AS comm_total
             FROM transactions t
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
@@ -1405,8 +1416,8 @@ function getDomainFeeAndCommissionTotalsBySource(PDO $pdo, string $sourceCompany
             '[DOMAIN_SHARE_COMMISSION|' . $srcU . '%',
         ]);
         $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-        $out['fee'] = round((float)($row['fee_total'] ?? 0), 2);
-        $out['commission'] = round((float)($row['comm_total'] ?? 0), 2);
+        $out['fee'] = money_normalize($row['fee_total'] ?? '0');
+        $out['commission'] = money_normalize($row['comm_total'] ?? '0');
     } catch (PDOException $e) {
         return $out;
     }
@@ -1464,8 +1475,8 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
     }
 
     $totals = getDomainFeeAndCommissionTotalsBySource($pdo, $srcU);
-    $net = round((float)$totals['fee'] - (float)$totals['commission'], 2);
-    if ($net <= 0) {
+    $net = money_sub($totals['fee'], $totals['commission'], 2);
+    if (money_cmp($net, '0') <= 0) {
         return false;
     }
 
@@ -1497,7 +1508,7 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
               AND (
                     t.account_id <> ?
                     OR t.from_account_id IS NOT NULL
-                    OR ROUND(t.amount, 2) <> ?
+                    OR t.amount <> ?
                     OR COALESCE(t.description, '') <> ?
               )
         ");
@@ -1526,9 +1537,9 @@ function normalizeDomainNetProfitTransaction(PDO $pdo, string $sourceCompanyCode
         $created = createDomainNetProfitPayment(
             $pdo,
             $srcU,
-            (float)$totals['fee'],
-            (float)$totals['commission'],
-            (int)$fromAccId,
+            $totals['fee'],
+            $totals['commission'],
+            null,
             $createdByUser > 0 ? $createdByUser : null,
             $createdByOwner > 0 ? $createdByOwner : null
         );
@@ -1590,8 +1601,8 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
         $profitResult = createDomainNetProfitPayment(
             $pdo,
             $cid,
-            (float) ($feeResult['amount'] ?? 0),
-            (float) ($commissionResult['commission_total'] ?? 0),
+            (string) ($feeResult['amount'] ?? '0'),
+            (string) ($commissionResult['commission_total'] ?? '0'),
             $poolId,
             $u,
             $o
@@ -2941,6 +2952,8 @@ try {
                 $row = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$row) {
                     $row = ['price' => null];
+                } elseif ($row['price'] !== null && $row['price'] !== '') {
+                    $row['price'] = money_out($row['price']);
                 }
                 jsonResponse(true, 'OK', $row);
             } catch (Exception $e) {
@@ -2963,7 +2976,7 @@ try {
                 $stmt = $pdo->prepare("UPDATE `domain_list_fee_settings` SET `price` = ? WHERE `id` = 1");
                 $stmt->execute([$price]);
                 jsonResponse(true, 'Saved successfully', [
-                    'price' => $price
+                    'price' => $price !== null ? money_out($price) : null
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);

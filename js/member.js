@@ -306,22 +306,22 @@ function setupAccountButtons() {
 }
 
 function formatNumber(value) {
-    const number = parseFloat(String(value).replace(/,/g, ''));
-    if (isNaN(number)) {
+    try {
+        return MoneyDecimal.formatThousands(value || '0', 2);
+    } catch (e) {
         return '0.00';
     }
-    return number.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
 }
 
 function normalizeNumber(value) {
-    const parsed = parseFloat(String(value ?? '').replace(/,/g, '').trim());
-    return Number.isNaN(parsed) ? 0 : parsed;
+    try {
+        return MoneyDecimal.toDecimal(value || '0', 0);
+    } catch (e) {
+        return MoneyDecimal.toDecimal('0', 0);
+    }
 }
 
-/** Payment History：避免 parseFloat(-40.80)+toLocaleString/Math 与 transaction.js 的 trunc 导致 -40.79 */
+/** Payment History：避免浏览器浮点格式化与 transaction.js 的 trunc 导致 -40.79 */
 function formatPaymentHistoryMoney(value) {
     if (value === '-' || value === null || value === undefined) return '-';
     const cleaned = String(value).replace(/,/g, '').trim();
@@ -334,11 +334,7 @@ function formatPaymentHistoryMoney(value) {
         const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         return (neg ? '-' : '') + intWithSep + '.' + dec;
     }
-    const n = parseFloat(cleaned);
-    if (!Number.isFinite(n)) return '0.00';
-    const epsilon = n >= 0 ? 1e-9 : -1e-9;
-    const cents = Math.trunc((n + epsilon) * 100) / 100;
-    return cents.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return formatNumber(cleaned);
 }
 
 function toUpperDisplay(value) {
@@ -897,17 +893,17 @@ function createCurrencyTable(currencyKey, rows) {
     table.className = 'transaction-table member-winloss-table';
 
     const rowsHtml = [];
-    let totalWinLoss = 0;
-    let totalCrDr = 0;
-    let closingBalance = 0;
+    let totalWinLoss = MoneyDecimal.toDecimal('0', 0);
+    let totalCrDr = MoneyDecimal.toDecimal('0', 0);
+    let closingBalance = MoneyDecimal.toDecimal('0', 0);
 
     (rows || []).forEach(row => {
         const winLoss = row.win_loss === '-' ? '-' : formatPaymentHistoryMoney(row.win_loss);
         const crdr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoney(row.cr_dr);
         const balance = row.balance === '-' ? '-' : formatPaymentHistoryMoney(row.balance);
 
-        totalWinLoss += normalizeNumber(row.win_loss);
-        totalCrDr += normalizeNumber(row.cr_dr);
+        totalWinLoss = totalWinLoss.plus(normalizeNumber(row.win_loss));
+        totalCrDr = totalCrDr.plus(normalizeNumber(row.cr_dr));
         if (row.balance !== '-' && row.balance !== null && row.balance !== undefined && String(row.balance).trim() !== '') {
             closingBalance = normalizeNumber(row.balance);
         }

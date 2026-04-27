@@ -11,6 +11,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -331,7 +332,7 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         'account' => $displayAccount,
         'from_account' => $fromDisplay,
         'currency' => $row['currency_code'] ?? '-',
-        'amount' => (float) $row['amount'],
+        'amount' => money_out($row['amount'] ?? '0'),
         'description' => $description,
         'remark' => ($isDomainShareCommission || $isDomainListFee) ? '' : ($row['remark'] ?? ''),
         'dts_created' => $row['dts_created'] ?? '',
@@ -573,11 +574,11 @@ function appendVirtualDomainNetProfitItem(
             continue;
         }
         if (!isset($agg[$src][$currencyCode])) {
-            $agg[$src][$currencyCode] = ['fee' => 0.0, 'comm' => 0.0, 'fee_ref' => null];
+            $agg[$src][$currencyCode] = ['fee' => '0', 'comm' => '0', 'fee_ref' => null];
         }
-        $amt = round((float) ($r['amount'] ?? 0), 2);
+        $amt = money_normalize($r['amount'] ?? '0');
         if ($cls['kind'] === 'fee') {
-            $agg[$src][$currencyCode]['fee'] += $amt;
+            $agg[$src][$currencyCode]['fee'] = money_add($agg[$src][$currencyCode]['fee'], $amt);
             if ($agg[$src][$currencyCode]['fee_ref'] === null) {
                 $agg[$src][$currencyCode]['fee_ref'] = [
                     'transaction_date' => $r['transaction_date'] ?? null,
@@ -587,16 +588,16 @@ function appendVirtualDomainNetProfitItem(
                 ];
             }
         } else {
-            $agg[$src][$currencyCode]['comm'] += $amt;
+            $agg[$src][$currencyCode]['comm'] = money_add($agg[$src][$currencyCode]['comm'], $amt);
         }
     }
 
     foreach ($agg as $src => $curMap) {
         foreach ($curMap as $currencyCode => $tot) {
-            $fee = round((float) ($tot['fee'] ?? 0), 2);
-            $comm = round((float) ($tot['comm'] ?? 0), 2);
-            $net = round($fee - $comm, 2);
-            if ($net <= 0) {
+            $fee = money_normalize($tot['fee'] ?? '0');
+            $comm = money_normalize($tot['comm'] ?? '0');
+            $net = money_sub($fee, $comm);
+            if (money_cmp($net, '0') <= 0) {
                 continue;
             }
             $labelSrc = $src !== '' ? $src : ($ownerCodeU !== '' ? $ownerCodeU : $profitCode);
@@ -622,7 +623,7 @@ function appendVirtualDomainNetProfitItem(
                 'account' => $profitCode,
                 'from_account' => '-',
                 'currency' => $currencyCode,
-                'amount' => $net,
+                'amount' => money_out($net),
                 'description' => 'PROFIT BY ' . $labelSrc,
                 'remark' => '',
                 'dts_created' => $dtsCreated,
@@ -726,12 +727,12 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
                 $description = $rateRow['entry_description'];
             }
         }
-        $displayAmount = (float) $rateRow['amount'];
+        $displayAmount = money_normalize($rateRow['amount'] ?? '0');
         if ($entryType === 'RATE_TRANSFER_TO') {
             $rateDetailStmt->execute([$headerId]);
             $originalAmount = $rateDetailStmt->fetchColumn();
-            if ($originalAmount !== false && $originalAmount !== null && $originalAmount > 0) {
-                $displayAmount = (float) $originalAmount;
+            if ($originalAmount !== false && $originalAmount !== null && money_cmp($originalAmount, '0') > 0) {
+                $displayAmount = money_normalize($originalAmount);
             }
         }
         $description = strtoupper((string) $description);
@@ -741,7 +742,7 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
             'account' => remapPaymentMaintenanceAccountCode((string)($rateRow['account_code'] ?? '-'), $ownerCode, $profitCode),
             'from_account' => remapPaymentMaintenanceAccountCode((string)($fromAccountCode ?? '-'), $ownerCode, $profitCode),
             'currency' => $rateRow['currency_code'] ?? '-',
-            'amount' => $displayAmount,
+            'amount' => money_out($displayAmount),
             'description' => $description,
             'remark' => $rateRow['remark'] ?? '',
             'dts_created' => $rateRow['dts_created'] ?? '',

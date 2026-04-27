@@ -56,6 +56,38 @@ function $(el, bind) {
     return el.querySelector(`[data-bind="${bind}"]`);
 }
 
+function ownPct(value) {
+    return MoneyDecimal.toDecimal(String(value ?? '0').replace('%', ''), 0);
+}
+
+function ownPctDisplay(value, scale = 2) {
+    return MoneyDecimal.formatDisplay(ownPct(value), scale);
+}
+
+function ownPctFixed(value, scale = 2) {
+    return MoneyDecimal.formatFixed(ownPct(value), scale);
+}
+
+function ownPctCmp(a, b) {
+    return ownPct(a).cmp(ownPct(b));
+}
+
+function ownPctAdd(a, b) {
+    return ownPct(a).plus(ownPct(b));
+}
+
+function ownPctSub(a, b) {
+    return ownPct(a).minus(ownPct(b));
+}
+
+function ownPctClamp(value, min = '0', max = '100') {
+    return Decimal.min(Decimal.max(ownPct(value), ownPct(min)), ownPct(max));
+}
+
+function ownPctNumber(value) {
+    return ownPct(value).toNumber();
+}
+
 function isApiSuccess(res) {
     return res && (res.success === true || res.status === 'success');
 }
@@ -139,8 +171,8 @@ function renderCompanyCards() {
     }
 
     companiesData.forEach(comp => {
-        const alloc = parseFloat(comp.allocated_percentage) || 0;
-        const remaining = Math.max(0, 100 - alloc);
+        const alloc = ownPct(comp.allocated_percentage);
+        const remaining = Decimal.max(ownPct('0'), ownPctSub('100', alloc));
         const id = comp.id;
         const groupId = comp.group_id || null;
 
@@ -178,15 +210,15 @@ function renderCompanyCards() {
             }
         }
         const pctEl = $(card, 'percent');
-        pctEl.textContent = `${alloc}%`;
+        pctEl.textContent = `${ownPctDisplay(alloc)}%`;
         pctEl.id = `header-percent-${id}`;
 
         const remEl = $(card, 'remaining');
-        remEl.textContent = `${remaining}% Remaining`;
+        remEl.textContent = `${ownPctDisplay(remaining)}% Remaining`;
         remEl.id = `header-remain-${id}`;
 
         const barEl = $(card, 'bar');
-        barEl.style.width = `${Math.min(alloc, 100)}%`;
+        barEl.style.width = `${ownPctNumber(Decimal.min(alloc, ownPct('100')))}%`;
         barEl.id = `header-bar-${id}`;
 
         // Body IDs
@@ -385,7 +417,7 @@ function loadCompanyData(companyId) {
             accounts: uniqueAccounts,
             rows: (ownersRes.status === 'success' ? ownersRes.data : []).map(o => ({
                 account_id: o.account_id,
-                percentage: parseFloat(o.percentage),
+                percentage: ownPctDisplay(o.percentage),
                 role: o.role || '',
                 user_raw_id: o.user_raw_id || null,
                 ownership_id: o.ownership_id || null,
@@ -410,7 +442,7 @@ function cancelEdit(companyId, forceCollapse = false) {
 
     const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
     if (compIdx >= 0) {
-        updateCardHeaderDisplay(companyId, parseFloat(companiesData[compIdx].allocated_percentage) || 0);
+        updateCardHeaderDisplay(companyId, companiesData[compIdx].allocated_percentage || '0');
     }
 }
 
@@ -607,7 +639,7 @@ function createRowElement(companyId, idx, rowData) {
 
 function addAccountRow(companyId) {
     if (ownershipWriteBlocked()) return;
-    companyStates[companyId].rows.push({ account_id: '', percentage: 0, role: '', user_raw_id: null, read_only: 1 });
+    companyStates[companyId].rows.push({ account_id: '', percentage: '0', role: '', user_raw_id: null, read_only: 1 });
     renderCardBodyRows(companyId);
 }
 
@@ -642,7 +674,7 @@ function updateRowData(companyId, idx, field, value) {
 // ---------------------------------------------
 
 function updateInputFromSlider(companyId, idx, value) {
-    const pct = parseFloat(value) || 0;
+    const pct = ownPctDisplay(value);
     document.getElementById(`input-${companyId}-${idx}`).value = `${pct}%`;
     applySliderBackground(document.getElementById(`slider-${companyId}-${idx}`));
     companyStates[companyId].rows[idx].percentage = pct;
@@ -650,9 +682,7 @@ function updateInputFromSlider(companyId, idx, value) {
 }
 
 function updateSliderFromInput(companyId, idx, value) {
-    let pct = parseFloat(value.replace('%', ''));
-    if (isNaN(pct)) pct = 0;
-    pct = Math.max(0, Math.min(100, pct));
+    const pct = ownPctDisplay(ownPctClamp(value));
 
     document.getElementById(`slider-${companyId}-${idx}`).value = pct;
     document.getElementById(`input-${companyId}-${idx}`).value = `${pct}%`;
@@ -662,7 +692,7 @@ function updateSliderFromInput(companyId, idx, value) {
 }
 
 function tweakPercentage(companyId, idx, delta) {
-    const newPct = Math.max(0, Math.min(100, companyStates[companyId].rows[idx].percentage + delta));
+    const newPct = ownPctDisplay(ownPctClamp(ownPctAdd(companyStates[companyId].rows[idx].percentage, delta)));
     document.getElementById(`slider-${companyId}-${idx}`).value = newPct;
     updateInputFromSlider(companyId, idx, newPct);
 }
@@ -678,27 +708,27 @@ function applySliderBackground(slider) {
 // ---------------------------------------------
 
 function updateCalculations(companyId) {
-    const total = companyStates[companyId].rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
+    const total = companyStates[companyId].rows.reduce((sum, r) => sum.plus(ownPct(r.percentage)), ownPct('0'));
     updateCardHeaderDisplay(companyId, total);
 
-    const remaining = 100 - total;
+    const remaining = ownPctSub('100', total);
     const footerRm = document.getElementById(`footer-remain-${companyId}`);
     const warningBadge = document.getElementById(`warning-${companyId}`);
     const confirmBtn = document.getElementById(`confirm-btn-${companyId}`);
 
-    if (total > 100) {
+    if (ownPctCmp(total, '100') > 0) {
         warningBadge.style.display = 'flex';
         warningBadge.className = 'own-warning-badge own-warning-error';
         warningBadge.children[0].textContent = '❌';
         warningBadge.children[1].textContent = 'Total exceeds 100%!';
-        if (footerRm) footerRm.textContent = `${Math.abs(remaining).toFixed(2)}% Over Allocated`;
+        if (footerRm) footerRm.textContent = `${ownPctFixed(remaining.abs())}% Over Allocated`;
         confirmBtn.disabled = true;
-    } else if (total < 100) {
+    } else if (ownPctCmp(total, '100') < 0) {
         warningBadge.style.display = 'flex';
         warningBadge.className = 'own-warning-badge';
         warningBadge.children[0].textContent = '⚠️';
         warningBadge.children[1].textContent = 'Total is less than 100%';
-        if (footerRm) footerRm.textContent = `${remaining.toFixed(2)}% Unallocated`;
+        if (footerRm) footerRm.textContent = `${ownPctFixed(remaining)}% Unallocated`;
         confirmBtn.disabled = false;
     } else {
         warningBadge.style.display = 'none';
@@ -712,20 +742,20 @@ function updateCardHeaderDisplay(companyId, total) {
     const pctEl = document.getElementById(`header-percent-${companyId}`);
     const barEl = document.getElementById(`header-bar-${companyId}`);
 
-    if (pctEl) pctEl.textContent = `${total}%`;
+    if (pctEl) pctEl.textContent = `${ownPctDisplay(total)}%`;
 
     if (remainEl) {
-        if (total > 100) {
+        if (ownPctCmp(total, '100') > 0) {
             remainEl.textContent = 'Over limit!';
             remainEl.classList.add('own-over-limit');
             if (barEl) barEl.classList.add('own-bar-danger');
         } else {
-            remainEl.textContent = `${(100 - total).toFixed(2)}% Remaining`;
+            remainEl.textContent = `${ownPctFixed(ownPctSub('100', total))}% Remaining`;
             remainEl.classList.remove('own-over-limit');
             if (barEl) barEl.classList.remove('own-bar-danger');
         }
     }
-    if (barEl) barEl.style.width = `${Math.min(total, 100)}%`;
+    if (barEl) barEl.style.width = `${ownPctNumber(Decimal.min(ownPct(total), ownPct('100')))}%`;
 }
 
 // ---------------------------------------------
@@ -735,7 +765,7 @@ function updateCardHeaderDisplay(companyId, total) {
 function confirmEdit(companyId) {
     if (ownershipWriteBlocked()) return;
     const rows = companyStates[companyId].rows;
-    let total = 0;
+    let total = ownPct('0');
     let hasError = false;
 
     rows.forEach(r => {
@@ -743,10 +773,10 @@ function confirmEdit(companyId) {
             hasError = true;
             showToast('Please select an account for all rows.', 'error');
         }
-        total += parseFloat(r.percentage);
+        total = total.plus(ownPct(r.percentage));
     });
 
-    if (total > 100) { showToast('Total percentage exceeds 100%', 'error'); return; }
+    if (ownPctCmp(total, '100') > 0) { showToast('Total percentage exceeds 100%', 'error'); return; }
     if (hasError) return;
 
     const accIds = rows.map(r => r.account_id);
@@ -759,7 +789,7 @@ function confirmEdit(companyId) {
         company_id: companyId,
         owners: rows.map(r => ({
             account_id: r.account_id,
-            percentage: parseFloat(r.percentage),
+            percentage: ownPctDisplay(r.percentage),
             read_only: r.read_only
         }))
     };
@@ -780,7 +810,7 @@ function confirmEdit(companyId) {
             if (isApiSuccess(res)) {
                 showToast(getApiMessage(res, 'Saved successfully'), 'success');
                 const compIdx = companiesData.findIndex(c => parseInt(c.id) === companyId);
-                if (compIdx >= 0) companiesData[compIdx].allocated_percentage = total;
+                if (compIdx >= 0) companiesData[compIdx].allocated_percentage = ownPctDisplay(total);
                 cancelEdit(companyId, true);
             } else {
                 showToast(getApiMessage(res, 'Save failed'), 'error');
