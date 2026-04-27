@@ -7,6 +7,7 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0, minWidth: 118 });
   const wrapRef = useRef(null);
   const buttonRef = useRef(null);
+  const menuRef = useRef(null);
   const ui = deriveBankProcessUiStatus(row);
   const pillClass = `bank-status-button is-${ui.toLowerCase().replace(/_/g, "-")}`;
 
@@ -25,7 +26,10 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
 
     updateMenuPos();
     const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      const target = e.target;
+      const clickedInsideTrigger = !!(wrapRef.current && wrapRef.current.contains(target));
+      const clickedInsideMenu = !!(menuRef.current && menuRef.current.contains(target));
+      if (!clickedInsideTrigger && !clickedInsideMenu) setOpen(false);
     };
     const onScroll = () => updateMenuPos();
     document.addEventListener("mousedown", onDoc);
@@ -106,6 +110,7 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
       {open
         ? createPortal(
             <div
+              ref={menuRef}
               className="bank-status-menu bank-status-menu-floating"
               role="listbox"
               style={{
