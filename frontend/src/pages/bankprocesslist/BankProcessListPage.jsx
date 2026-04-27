@@ -284,12 +284,39 @@ export default function BankProcessListPage() {
     });
   }, [modalOpen, form.cost, form.price, form.profit_sharing]);
 
+  // Keep legacy bank_process_list.js rule:
+  // when Day end exists, Frequency cannot be monthly.
+  useEffect(() => {
+    if (!modalOpen) return;
+    const hasDayEnd = !!String(form.day_end || "").trim();
+    if (!hasDayEnd) return;
+    if (String(form.day_start_frequency || "") !== "monthly") return;
+    setForm((prev) => ({ ...prev, day_start_frequency: "1st_of_every_month" }));
+  }, [modalOpen, form.day_end, form.day_start_frequency]);
+
+  // Keep Day end lower bound aligned with Day start.
+  useEffect(() => {
+    if (!modalOpen) return;
+    const dayStart = String(form.day_start || "").trim();
+    const dayEnd = String(form.day_end || "").trim();
+    if (!dayStart || !dayEnd) return;
+    if (dayEnd >= dayStart) return;
+    setForm((prev) => ({ ...prev, day_end: dayStart }));
+  }, [modalOpen, form.day_start, form.day_end]);
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
       listAbortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const hasDayEnd = !!String(resendDayEnd || "").trim();
+    if (!hasDayEnd) return;
+    if (String(resendFrequency || "") !== "monthly") return;
+    setResendFrequency("1st_of_every_month");
+  }, [resendDayEnd, resendFrequency]);
 
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
@@ -537,8 +564,23 @@ export default function BankProcessListPage() {
 
   const submitForm = async (e) => {
     e.preventDefault();
+    const dayStart = String(form.day_start || "").trim();
+    const dayEnd = String(form.day_end || "").trim();
+    if (dayStart && dayEnd && dayEnd < dayStart) {
+      notify("Day end cannot be earlier than Day start", "danger");
+      return;
+    }
+    const hasDayEnd = !!dayEnd;
+    const normalizedFreq = hasDayEnd ? "1st_of_every_month" : (String(form.day_start_frequency || "") === "monthly" ? "monthly" : "1st_of_every_month");
     const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => { if (k === "id" && !editMode) return; fd.append(k, v ?? ""); });
+    Object.entries(form).forEach(([k, v]) => {
+      if (k === "id" && !editMode) return;
+      if (k === "day_start_frequency") {
+        fd.append(k, normalizedFreq);
+        return;
+      }
+      fd.append(k, v ?? "");
+    });
     if (companyId) fd.append("company_id", String(companyId));
     fd.append("permission", "Bank");
     try {
@@ -606,10 +648,19 @@ export default function BankProcessListPage() {
   const resendAccountingDue = async () => {
     if (!resendTarget) return;
     setResendInlineError("");
+    const dayStart = String(resendDayStart || "").trim();
+    const dayEnd = String(resendDayEnd || "").trim();
+    if (dayStart && dayEnd && dayEnd < dayStart) {
+      const msg = "Day end cannot be earlier than Day start";
+      setResendInlineError(msg);
+      notify(msg, "danger");
+      return;
+    }
+    const normalizedResendFrequency = dayEnd ? "1st_of_every_month" : (String(resendFrequency || "") === "monthly" ? "monthly" : "1st_of_every_month");
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ bank_process_id: Number(resendTarget.id), day_start: resendDayStart || null, day_end: resendDayEnd || null, day_start_frequency: resendFrequency || "1st_of_every_month" }),
+        body: JSON.stringify({ bank_process_id: Number(resendTarget.id), day_start: resendDayStart || null, day_end: resendDayEnd || null, day_start_frequency: normalizedResendFrequency }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -734,7 +785,14 @@ export default function BankProcessListPage() {
           tableLoading={tableLoading} showAll={showAll} pageRows={pageRows} currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
           notify={notify} fetchRows={fetchRows} openEdit={openEdit} openRemarkModal={(row) => { setRemarkRow(row); setRemarkDraft(String(row.remark || "")); setRemarkModalOpen(true); }}
-          openResendModal={(row) => { setResendInlineError(""); setResendTarget(row); setResendDayStart(String(row.day_start || row.date || "").slice(0, 10)); setResendDayEnd(""); setResendFrequency("1st_of_every_month"); setResendModalOpen(true); }}
+          openResendModal={(row) => {
+            setResendInlineError("");
+            setResendTarget(row);
+            setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
+            setResendDayEnd("");
+            setResendFrequency("1st_of_every_month");
+            setResendModalOpen(true);
+          }}
           supplierSortDir={supplierSortDir} setSupplierSortDir={setSupplierSortDir}
         />
         {!showAll && <div className="pagination-container"><button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>◀</button><span className="pagination-info">{currentPage} of {totalPages}</span><button type="button" className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>▶</button></div>}

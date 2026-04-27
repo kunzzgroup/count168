@@ -52,13 +52,21 @@ export default function ResendModal({
             </div>
             <div className="bank-resend-field">
               <label className="bank-resend-field__label" htmlFor="bank_resend_day_end">Day end</label>
-              <input id="bank_resend_day_end" className="bank-resend-control" type="date" autoComplete="off" value={resendDayEnd} onChange={(e) => setResendDayEnd(e.target.value)} />
+              <input
+                id="bank_resend_day_end"
+                className="bank-resend-control"
+                type="date"
+                autoComplete="off"
+                min={resendDayStart || undefined}
+                value={resendDayEnd}
+                onChange={(e) => setResendDayEnd(e.target.value)}
+              />
             </div>
             <div className="bank-resend-field bank-resend-field--full">
               <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">Frequency</label>
               <select id="bank_resend_frequency" className="bank-resend-control bank-resend-control--select" value={resendFrequency} onChange={(e) => setResendFrequency(e.target.value)}>
                 <option value="1st_of_every_month">1st of Every Month</option>
-                <option value="monthly">Monthly</option>
+                <option value="monthly" disabled={!!String(resendDayEnd || "").trim()}>Monthly</option>
               </select>
             </div>
           </div>

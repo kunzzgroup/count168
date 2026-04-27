@@ -17,6 +17,7 @@ export default function BankProcessFormModal({
   onOpenBankFormNoteModal,
   onOpenAddAccountForField,
 }) {
+  const hasDayEnd = !!String(form.day_end || "").trim();
   return (
     <div id="addBankModal" className="modal bank-modal" style={{ display: "block" }}>
       <div className="modal-content bank-modal-content">
@@ -191,7 +192,15 @@ export default function BankProcessFormModal({
                     </div>
                     <div className="form-group bank-day-end-input-wrap">
                       <label htmlFor="bank_day_end">Day end</label>
-                      <input id="bank_day_end" name="day_end" type="date" className="bank-input" value={form.day_end} onChange={(ev) => setForm((prev) => ({ ...prev, day_end: ev.target.value }))} />
+                      <input
+                        id="bank_day_end"
+                        name="day_end"
+                        type="date"
+                        className="bank-input"
+                        min={form.day_start || undefined}
+                        value={form.day_end}
+                        onChange={(ev) => setForm((prev) => ({ ...prev, day_end: ev.target.value }))}
+                      />
                     </div>
                   </div>
                 </div>
@@ -222,7 +231,7 @@ export default function BankProcessFormModal({
                     <label htmlFor="bank_day_start_frequency">Frequency</label>
                     <select id="bank_day_start_frequency" name="day_start_frequency" className="bank-input bank-select" value={form.day_start_frequency} onChange={(ev) => setForm((prev) => ({ ...prev, day_start_frequency: ev.target.value }))}>
                       <option value="1st_of_every_month">1st of Every Month</option>
-                      <option value="monthly">Monthly</option>
+                      <option value="monthly" disabled={hasDayEnd}>Monthly</option>
                     </select>
                   </div>
                   <input type="hidden" name="profit_sharing" value={form.profit_sharing} />
