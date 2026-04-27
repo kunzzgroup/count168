@@ -117,7 +117,7 @@ function getExistingProcessesForCopy(PDO $pdo, int $companyId): array {
         SELECT p.id as process_id, p.process_id as process_name, d.name as description_name
         FROM process p
         LEFT JOIN description d ON p.description_id = d.id
-        WHERE p.company_id = ?
+        WHERE p.company_id = ? AND p.status IN ('active', 'inactive')
         ORDER BY p.process_id, p.dts_created DESC
     ");
     $stmt->execute([$companyId]);
@@ -202,9 +202,17 @@ function getSourceTemplatesForCopy(PDO $pdo, $processIdOrDbId, int $companyId): 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function processExists(PDO $pdo, string $processId, $descriptionId): bool {
-    $stmt = $pdo->prepare("SELECT id FROM process WHERE process_id = ? AND description_id = ?");
-    $stmt->execute([$processId, $descriptionId]);
+function processExists(PDO $pdo, string $processId, $descriptionId, int $companyId): bool {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM process
+        WHERE process_id = ?
+          AND description_id = ?
+          AND company_id = ?
+          AND status IN ('active', 'inactive')
+        LIMIT 1
+    ");
+    $stmt->execute([$processId, $descriptionId, $companyId]);
     return $stmt->fetch() !== false;
 }
 
@@ -603,7 +611,7 @@ try {
         try {
             foreach ($processIds as $processId) {
                 foreach ($descriptionIds as $descriptionId) {
-                    if (processExists($pdo, $processId, $descriptionId)) {
+                    if (processExists($pdo, $processId, $descriptionId, $companyId)) {
                         $errors[] = "Process already exists for process_id $processId and description $descriptionId";
                         continue;
                     }
