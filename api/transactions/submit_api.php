@@ -919,16 +919,7 @@ try {
             // 确保金额是正数（对于所有交易类型）
             $amount = submitTrunc2(abs($amount));
             
-            // WIN/LOSE（含前端 PROFIT）：保存表单的 From 账户用于双记录；数据库触发器要求 from_account_id 必须为 NULL
-            $win_lose_from_account_id = null;
-            if (in_array($transaction_type, ['WIN', 'LOSE']) && $from_account_id && $from_account_id != $account_id) {
-                $win_lose_from_account_id = $from_account_id;
-            }
-            if (in_array($transaction_type, ['WIN', 'LOSE'])) {
-                $from_account_id = null;
-            }
-            
-            // 插入交易记录（WIN/LOSE 若选了 From 账户会插入两条：To 账户一条 + From 账户一条相反类型，使右侧表显示 From 账户）
+            // WIN/LOSE（含前端 PROFIT）：按单条记录保存（To + From + Amount），不再自动生成相反类型第二条
             $txnRow = [
                 'company_id' => $company_id,
                 'transaction_type' => $transaction_type,
@@ -958,39 +949,6 @@ try {
             }
 
             $transaction_id = insertTransactionRow($pdo, $txnRow);
-            
-            // WIN/LOSE 且选了 From 账户：再插一条相反类型到 From 账户，使右侧表显示「001 给 002 100」
-            if ($win_lose_from_account_id && $from_account) {
-                $opposite_type = ($transaction_type === 'WIN') ? 'LOSE' : 'WIN';
-                $txnRowOpposite = [
-                    'company_id' => $company_id,
-                    'transaction_type' => $opposite_type,
-                    'account_id' => $win_lose_from_account_id,
-                    'from_account_id' => null,
-                    'amount' => $amount,
-                    'transaction_date' => $transaction_date_db,
-                    'description' => $description,
-                    'sms' => $sms,
-                    'created_by' => $created_by_user,
-                    'created_by_owner' => $created_by_owner,
-                ];
-                if ($has_currency_id) {
-                    $txnRowOpposite['currency_id'] = $currency_id;
-                }
-                if ($has_approval_status) {
-                    $txnRowOpposite['approval_status'] = $approval_status;
-                    if (tableHasColumn($pdo, 'transactions', 'approved_by')) {
-                        $txnRowOpposite['approved_by'] = $approved_by;
-                    }
-                    if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
-                        $txnRowOpposite['approved_by_owner'] = $approved_by_owner;
-                    }
-                    if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
-                        $txnRowOpposite['approved_at'] = $approved_at;
-                    }
-                }
-                insertTransactionRow($pdo, $txnRowOpposite);
-            }
         
         // 提交事务
         $pdo->commit();
