@@ -17572,20 +17572,38 @@ function reorderSummaryRowsByRowIndex() {
             const accountOrder = (accountOrderAttr !== null && accountOrderAttr !== '' && !Number.isNaN(Number(accountOrderAttr))) ? Number(accountOrderAttr) : 999999;
 
             let dataCapturePosition = 999999;
-            // 优先使用「初始」row_index（data-preserved-row-index），保证 Summary 的 main id_product
-            // 顺序与控制台中打印的 “Preserved existing row_index” 完全一致。
-            // 若没有 preserved 值，再使用当前的 data-row-index；两者都没有时才回退到 Data Capture Table 顺序。
-            const effectiveIndex = (preservedRowIndex !== null ? preservedRowIndex : rowIndex);
-            if (effectiveIndex !== null && !Number.isNaN(effectiveIndex) && effectiveIndex < 999999) {
-                dataCapturePosition = effectiveIndex;
-            } else if (normalizedMain && dataCaptureTableOrder.length > 0) {
-                const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
-                if (index !== -1) dataCapturePosition = index;
+            // IMPORTANT:
+            // - 排序优先跟随当前 Data Capture 表中的位置，避免被历史模板 row_index / preserved_row_index 主导。
+            // - row_index 仍保留给模板匹配与保存逻辑使用（例如同 id_product 的多 occurrence 场景）。
+            const hasValidIndex = (v) => (v !== null && v !== undefined && !Number.isNaN(Number(v)) && Number(v) >= 0 && Number(v) < 999999);
+            // 兼容旧流程：优先当前 data-row-index，preserved 仅作兜底，不再主导显示排序。
+            const effectiveIndex = hasValidIndex(rowIndex)
+                ? Number(rowIndex)
+                : (hasValidIndex(preservedRowIndex) ? Number(preservedRowIndex) : null);
+            const groupAnchorIndex = hasValidIndex(parentRowIndex)
+                ? Number(parentRowIndex)
+                : effectiveIndex;
+
+            if (normalizedMain && idProductPositions.has(normalizedMain)) {
+                const positions = idProductPositions.get(normalizedMain) || [];
+                if (positions.length > 0) {
+                    // 若行上带有有效锚点（main 用 row-index，sub 用 parent-row-index），且该锚点存在于当前 Capture 行中，则优先用它。
+                    if (hasValidIndex(groupAnchorIndex) && positions.includes(Number(groupAnchorIndex))) {
+                        dataCapturePosition = Number(groupAnchorIndex);
+                    } else {
+                        dataCapturePosition = positions[0];
+                    }
+                }
+            }
+
+            // Capture 无对应位置时，才回退到历史 index（兼容未在 Capture 中出现的旧行）
+            if (!hasValidIndex(dataCapturePosition) && hasValidIndex(groupAnchorIndex)) {
+                dataCapturePosition = Number(groupAnchorIndex);
             }
             const groupKey = normalizedMain
                 ? (normalizedMain + '|' + (productType === 'sub'
-                    ? (parentRowIndex !== null && !Number.isNaN(parentRowIndex) ? String(parentRowIndex) : (effectiveIndex !== null && !Number.isNaN(effectiveIndex) ? String(effectiveIndex) : 'na'))
-                    : (effectiveIndex !== null && !Number.isNaN(effectiveIndex) ? String(effectiveIndex) : 'na')))
+                    ? (hasValidIndex(groupAnchorIndex) ? String(Number(groupAnchorIndex)) : (hasValidIndex(dataCapturePosition) ? String(Number(dataCapturePosition)) : 'na'))
+                    : (hasValidIndex(groupAnchorIndex) ? String(Number(groupAnchorIndex)) : (hasValidIndex(dataCapturePosition) ? String(Number(dataCapturePosition)) : 'na'))))
                 : '';
 
             return {
