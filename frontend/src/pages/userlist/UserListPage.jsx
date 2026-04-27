@@ -306,10 +306,16 @@ export default function UserListPage() {
     if (isC168Company && form.secondary_password.trim()) { if (!/^\d{6}$/.test(form.secondary_password.trim())) { notify("Secondary password must be 6 digits", "danger"); return; } payload.secondary_password = form.secondary_password.trim(); }
     if (normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") payload.read_only = form.read_only ? 1 : 0;
     if (editingRow?.is_owner_shadow) { delete payload.role; } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = selectedCompanyIds; } else {
-      const curLevel = ROLE_HIERARCHY[currentUserRole] ?? 999, editLevel = ROLE_HIERARCHY[normRole(editingRow.role)] ?? 999;
-      if (Number(form.id) === Number(currentUserId)) { payload.account_permissions = accountPerms; payload.process_permissions = processPerms; }
-      else if (curLevel < editLevel) { payload.permissions = Array.from(permSelected); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) payload.company_ids = selectedCompanyIds; }
-      else { payload.account_permissions = accountPerms; payload.process_permissions = processPerms; payload.name = editingRow.name; payload.email = editingRow.email; payload.role = normRole(editingRow.role); delete payload.password; delete payload.secondary_password; }
+      const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
+      if (caps.isSelf || caps.isHigherLevel || caps.isSameLevel) {
+        payload.account_permissions = accountPerms;
+        payload.process_permissions = processPerms;
+      } else {
+        payload.permissions = Array.from(permSelected);
+        payload.account_permissions = accountPerms;
+        payload.process_permissions = processPerms;
+      }
+      if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) payload.company_ids = selectedCompanyIds;
     }
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload) });

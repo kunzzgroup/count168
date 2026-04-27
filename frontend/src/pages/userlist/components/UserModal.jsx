@@ -148,7 +148,7 @@ export default function UserModal({
               <div className="sidebar-permissions-section">
                 <h3 className="sidebar-permissions-title">
                   Permissions
-                  {(normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") && (
+                  {normRole(currentUserRole) === "owner" && (normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") && (
                     <span className="read-only-toggle-inline" style={{ marginLeft: 12 }}>
                       <span className="read-only-label">Read Only</span>
                       <label className="toggle-switch">
