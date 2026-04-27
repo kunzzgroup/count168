@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 import { BANK_GRID_TEMPLATE_COLUMNS, canShowBankResend, normalizeBankProcessStatus, notifyTransactionDataChanged } from "../bankProcessHelpers.js";
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
@@ -29,6 +29,39 @@ export default function BankProcessTable({
   supplierSortDir,
   setSupplierSortDir,
 }) {
+  const headerRef = useRef(null);
+  const cardsRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const syncHeaderWidth = () => {
+      const headerEl = headerRef.current;
+      const cardsEl = cardsRef.current;
+      if (!headerEl || !cardsEl) return;
+      const rect = headerEl.getBoundingClientRect();
+      cardsEl.style.setProperty("--table-header-width", `${rect.width}px`);
+    };
+
+    // Keep Bank list row width exactly aligned with the rendered header width.
+    const raf1 = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(syncHeaderWidth);
+    });
+
+    const onResize = () => syncHeaderWidth();
+    window.addEventListener("resize", onResize);
+
+    let ro = null;
+    if (typeof window.ResizeObserver === "function" && headerRef.current) {
+      ro = new window.ResizeObserver(() => syncHeaderWidth());
+      ro.observe(headerRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.removeEventListener("resize", onResize);
+      if (ro) ro.disconnect();
+    };
+  }, [pageRows.length, showAll, supplierSortDir]);
+
   const bankHeaders = [
     { key: "no", label: "No" },
     {
@@ -56,14 +89,14 @@ export default function BankProcessTable({
 
   return (
     <div className="process-table-wrapper">
-      <div className="table-header" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
+      <div ref={headerRef} className="table-header" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
         {bankHeaders.map((h) => (
           <div key={h.key} className={`header-item bank-header${h.key === "action" ? " bank-action-header" : ""}`}>
             {h.label}
           </div>
         ))}
       </div>
-      <div className="process-cards">
+      <div ref={cardsRef} className="process-cards bank-mode">
         {tableLoading && <div className="process-card"><div className="card-item">Loading...</div></div>}
         {!tableLoading && pageRows.map((r, i) => (
           <div key={r.id} className="process-card" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
