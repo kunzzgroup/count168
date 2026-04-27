@@ -273,8 +273,8 @@ function normalizeIdProductForKey(idProduct) {
     return s;
 }
 
-// 用「Id Product(去描述) + 原始 Description + Account + Currency + Formula + Source + Rate Value」生成内容 key，
-// 确保同一基础 Id + Account 下，不同描述 / 币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖（用于保存公式/Rate 等内容）
+// 用「Id Product(去描述) + data-row-index + 原始 Description + Account + Currency + Formula + Source + Rate Value」生成内容 key，
+// 确保同一基础 Id（如 M99M06）下，B/D 等不同 Data Capture 行不会互相覆盖（用于保存公式/Rate 等内容）
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
@@ -282,6 +282,7 @@ function getSummaryRowKey(row) {
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
+    const rowIndex = (row && row.getAttribute) ? String(row.getAttribute('data-row-index') || '').trim() : '';
     // 使用行上的原始描述（不从单元格文本重新解析），确保带描述与不带描述的行在 key 上可区分
     const description = (row && row.getAttribute) ? (row.getAttribute('data-original-description') || '') : '';
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
@@ -302,6 +303,7 @@ function getSummaryRowKey(row) {
 
     return [
         idProduct,
+        rowIndex,
         account,
         description,
         currency,
@@ -312,13 +314,14 @@ function getSummaryRowKey(row) {
 }
 
 // Rate 持久化专用稳定 key：只使用稳定字段，避免把 Formula/Source/RateValue 这种会变化的内容当成 key 导致 refresh 后匹配失败
-// 结构：id_product\taccount(identity)\tcurrency\tproductType\tsubOrder
+// 结构：id_product\trowIndex\taccount(identity)\tcurrency\tproductType\tsubOrder
 function getSummaryRowStableKey(row) {
     const cells = row.querySelectorAll('td');
     const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
+    const rowIndex = (row && row.getAttribute) ? String(row.getAttribute('data-row-index') || '').trim() : '';
     const accountCell = cells[1] || null;
     const accountId = accountCell && accountCell.getAttribute ? ((accountCell.getAttribute('data-account-id') || '').trim()) : '';
     const accountText = (accountCell && accountCell.textContent ? accountCell.textContent.trim().replace(/\s+/g, ' ') : '');
@@ -330,7 +333,7 @@ function getSummaryRowStableKey(row) {
     // IMPORTANT: 同一 main id_product + account 可能出现多行（不同 description/formula 等）。
     // 为避免 refresh 后 rowsByStableKey 覆盖串行，若该行已有 rowUid，则将其拼入 stableKey 以保证唯一。
     const rowUid = (row && row.getAttribute) ? (row.getAttribute('data-row-uid') || '').trim() : '';
-    const base = [idProduct, accountIdentity, currency, productType, subOrder].join('\t');
+    const base = [idProduct, rowIndex, accountIdentity, currency, productType, subOrder].join('\t');
     return rowUid ? (base + '\t' + rowUid) : base;
 }
 
