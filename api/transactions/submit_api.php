@@ -268,8 +268,18 @@ try {
         throw new Exception('请选择交易日期');
     }
     
-    // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
-    $transaction_date_db = date('Y-m-d', strtotime(str_replace('/', '-', $transaction_date)));
+    // 转换日期格式 (严格按 dd/mm/yyyy 转为 yyyy-mm-dd，避免 strtotime 把 7/04 解析成 07/04)
+    $transaction_date_obj = DateTime::createFromFormat('d/m/Y', $transaction_date);
+    $transaction_date_errors = DateTime::getLastErrors();
+    if (
+        !$transaction_date_obj ||
+        !is_array($transaction_date_errors) ||
+        ($transaction_date_errors['warning_count'] ?? 0) > 0 ||
+        ($transaction_date_errors['error_count'] ?? 0) > 0
+    ) {
+        throw new Exception('交易日期格式无效，请使用 dd/mm/yyyy');
+    }
+    $transaction_date_db = $transaction_date_obj->format('Y-m-d');
     
     // 检查 transactions 表字段（向后兼容）
     $has_currency_id = tableHasColumn($pdo, 'transactions', 'currency_id');
