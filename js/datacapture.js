@@ -1040,6 +1040,30 @@ async function loadSubmittedProcesses() {
 // Store copied data for paste operations
 let copiedData = null;
 
+function positionContextMenu(menuElement, event) {
+    if (!menuElement || !event) return;
+
+    const cursorX = event.clientX;
+    const cursorY = event.clientY;
+    const margin = 8;
+
+    // Temporarily show menu for accurate size measurement before final placement.
+    menuElement.style.visibility = 'hidden';
+    menuElement.style.display = 'block';
+
+    const menuWidth = menuElement.offsetWidth;
+    const menuHeight = menuElement.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const left = Math.max(margin, Math.min(cursorX, viewportWidth - menuWidth - margin));
+    const top = Math.max(margin, Math.min(cursorY, viewportHeight - menuHeight - margin));
+
+    menuElement.style.left = left + 'px';
+    menuElement.style.top = top + 'px';
+    menuElement.style.visibility = 'visible';
+}
+
 // Show context menu
 function showContextMenu(e, cell) {
     const contextMenu = document.getElementById('contextMenu');
@@ -1074,10 +1098,8 @@ function showContextMenu(e, cell) {
     console.log('After showContextMenu, selectedCells.size:', selectedCells.size);
     console.log('Selected cells:', Array.from(selectedCells).map(c => c.textContent || '(empty)'));
 
-    // Set menu position
-    contextMenu.style.left = e.pageX + 'px';
-    contextMenu.style.top = e.pageY + 'px';
-    contextMenu.style.display = 'block';
+    // Set menu position close to cursor for fixed-position menu.
+    positionContextMenu(contextMenu, e);
 
     // Click elsewhere to close menu
     // But don't close if clicking on menu items
@@ -1116,10 +1138,8 @@ function showColumnContextMenu(e, colIndex) {
     const columnContextMenu = document.getElementById('columnContextMenu');
     if (!columnContextMenu) return;
 
-    // Set menu position
-    columnContextMenu.style.left = e.pageX + 'px';
-    columnContextMenu.style.top = e.pageY + 'px';
-    columnContextMenu.style.display = 'block';
+    // Set menu position close to cursor for fixed-position menu.
+    positionContextMenu(columnContextMenu, e);
 
     // Click elsewhere to close menu
     setTimeout(() => {
@@ -1138,10 +1158,8 @@ function showRowContextMenu(e, rowIndex) {
     const rowContextMenu = document.getElementById('rowContextMenu');
     if (!rowContextMenu) return;
 
-    // Set menu position
-    rowContextMenu.style.left = e.pageX + 'px';
-    rowContextMenu.style.top = e.pageY + 'px';
-    rowContextMenu.style.display = 'block';
+    // Set menu position close to cursor for fixed-position menu.
+    positionContextMenu(rowContextMenu, e);
 
     // Click elsewhere to close menu
     setTimeout(() => {
