@@ -12,6 +12,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
@@ -40,13 +41,12 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
 /**
  * 截断到2位小数（不四舍五入）
  */
-function historyTrunc2($value): float
+function historyTrunc2($value): string
 {
-    $n = (float) $value;
-    if ($n >= 0) {
-        return floor($n * 100) / 100;
+    if ($value === null || trim((string)$value) === '') {
+        return money_normalize('0', 2);
     }
-    return ceil($n * 100) / 100;
+    return money_normalize($value ?? '0', 2);
 }
 
 /**
@@ -54,23 +54,42 @@ function historyTrunc2($value): float
  * 向 0 截断到 2 位 + 1e-9/-1e-9 纠偏，避免库内浮点 -40.799999… 在 Payment History 被 historyTrunc2 显示成 -40.79。
  * 仅用于 data_capture 行，其它交易类型仍用 historyTrunc2。
  */
-function historyDataCaptureProcessed2($value): float
+function historyDataCaptureProcessed2($value): string
 {
-    return dcd_processed_amount_float_quant2((float) $value);
+    if ($value === null || trim((string)$value) === '') {
+        return money_normalize('0', 2);
+    }
+    return money_normalize($value ?? '0', 2);
 }
 
 function historyFormat2($value): string
 {
-    return number_format(historyTrunc2($value), 2, '.', '');
+    return historyTrunc2($value);
 }
 
 /**
  * 将已是「分」粒度的金额格式化为两位小数字符串，不再套 historyTrunc2。
  * data_capture 的 Win/Loss 若再走 historyFormat2，IEEE 浮点 -40.8 会变成 -40.7999… 再被截成 -40.79。
  */
-function historyFormatExactCents2(float $value): string
+function historyFormatExactCents2($value): string
 {
-    return number_format($value, 2, '.', '');
+    if ($value === null || trim((string)$value) === '') {
+        return money_normalize('0', 2);
+    }
+    return money_normalize($value ?? '0', 2);
+}
+
+function historyNeg($value): string
+{
+    return money_mul($value ?? '0', '-1', 8);
+}
+
+function historyDisplayDecimal($value, int $scale = 6): string
+{
+    if ($value === null || trim((string)$value) === '') {
+        return '';
+    }
+    return money_out($value, $scale);
 }
 
 /** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
@@ -150,7 +169,7 @@ function formatExchangeRateDescription(string $description, ?string $fromCurrenc
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
         $formatted .= ' ' . trim($fromCurrencyCode);
         if ($fromAmount !== null && $fromAmount !== '') {
-            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+            $formattedAmount = historyDisplayDecimal($fromAmount, 6);
             if ($formattedAmount !== '') {
                 $formatted .= ' ' . $formattedAmount;
             }
@@ -173,14 +192,14 @@ function formatMarkupDescription(string $description, ?string $fromCurrencyCode 
         }
         $middlemanRate = trim($matches[1]);
     } else {
-        $middlemanRate = rtrim(rtrim(number_format((float) $middlemanRate, 6, '.', ''), '0'), '.');
+        $middlemanRate = historyDisplayDecimal($middlemanRate, 6);
     }
 
     $formatted = 'MARKUP ' . $middlemanRate;
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
         $formatted .= ' ' . trim($fromCurrencyCode);
         if ($fromAmount !== null && $fromAmount !== '') {
-            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+            $formattedAmount = historyDisplayDecimal($fromAmount, 6);
             if ($formattedAmount !== '') {
                 $formatted .= ' ' . $formattedAmount;
             }
@@ -331,8 +350,8 @@ function historyCollectDomainHubProfitRollup(array $transactions, array $account
         if ($src === '') {
             continue;
         }
-        $feeAmt = round((float) ($t['amount'] ?? 0), 2);
-        $commTotal = 0.0;
+        $feeAmt = historyTrunc2($t['amount'] ?? '0');
+        $commTotal = '0';
         $commIds = [];
         foreach ($transactions as $t2) {
             if (($t2['transaction_type'] ?? '') !== 'PAYMENT') {
@@ -356,14 +375,14 @@ function historyCollectDomainHubProfitRollup(array $transactions, array $account
             if ($id2 <= 0 || $id2 === $feeId) {
                 continue;
             }
-            $commTotal += round((float) ($t2['amount'] ?? 0), 2);
+            $commTotal = money_add($commTotal, historyTrunc2($t2['amount'] ?? '0'), 8);
             $commIds[] = $id2;
         }
         if (empty($commIds)) {
             continue;
         }
-        $net = historyTrunc2($feeAmt - $commTotal);
-        if (abs($net) < 0.00001) {
+        $net = historyTrunc2(money_sub($feeAmt, $commTotal, 8));
+        if (money_cmp(money_abs($net), '0.00001') < 0) {
             continue;
         }
         $skip[$feeId] = true;
@@ -372,7 +391,7 @@ function historyCollectDomainHubProfitRollup(array $transactions, array $account
         }
         $rollups[] = [
             'fee_tx' => $t,
-            'net' => (float) $net,
+            'net' => $net,
             'src' => $src,
         ];
     }
@@ -557,15 +576,15 @@ function buildVirtualDomainListFeeHistory(
         ]
     ];
 
-    $running = 0.0;
+    $running = '0';
     foreach ($rows as $r) {
-        $amt = round((float) ($r['amount'] ?? 0), 2);
-        if (abs($amt) < 0.00001)
+        $amt = historyTrunc2($r['amount'] ?? '0');
+        if (money_cmp(money_abs($amt), '0.00001') < 0)
             continue;
         $cid = (int) ($r['currency_id'] ?? 0);
         $cur = $cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency;
-        $cr = -$amt;
-        $running = historyTrunc2($running + $cr);
+        $cr = money_mul($amt, '-1', 8);
+        $running = historyTrunc2(money_add($running, $cr, 8));
         $history[] = [
             'date' => date('d/m/Y', strtotime((string) $r['transaction_date'])),
             'product' => 'PAYMENT',
@@ -654,12 +673,12 @@ function buildVirtualDomainNetProfitHistory(
                      t.currency_id,
                      SUM(CASE
                            WHEN t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %'
-                           THEN ROUND(t.amount, 2)
+                           THEN t.amount
                            ELSE 0
                          END) AS fee_total,
                      SUM(CASE
                            WHEN t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'COMMISION FOR %'
-                           THEN ROUND(t.amount, 2)
+                           THEN t.amount
                            ELSE 0
                          END) AS comm_total
                    FROM transactions t
@@ -678,10 +697,10 @@ function buildVirtualDomainNetProfitHistory(
             $cid = (int) ($ar['currency_id'] ?? 0);
             if ($cid <= 0)
                 continue;
-            $fee = round((float) ($ar['fee_total'] ?? 0), 2);
-            $comm = round((float) ($ar['comm_total'] ?? 0), 2);
-            $net = historyTrunc2($fee - $comm);
-            if ($net <= 0)
+            $fee = historyTrunc2($ar['fee_total'] ?? '0');
+            $comm = historyTrunc2($ar['comm_total'] ?? '0');
+            $net = historyTrunc2(money_sub($fee, $comm, 8));
+            if (money_cmp($net, '0') <= 0)
                 continue;
             $dynSrc = $srcCompanyParam !== '' ? $srcCompanyParam : $owner;
             $rows[] = [
@@ -725,15 +744,15 @@ function buildVirtualDomainNetProfitHistory(
         ]
     ];
 
-    $running = 0.0;
+    $running = '0';
     foreach ($rows as $r) {
-        $amt = round((float) ($r['amount'] ?? 0), 2);
-        if (abs($amt) < 0.00001)
+        $amt = historyTrunc2($r['amount'] ?? '0');
+        if (money_cmp(money_abs($amt), '0.00001') < 0)
             continue;
         $cid = (int) ($r['currency_id'] ?? 0);
         $cur = $cid > 0 ? ($currencyById[$cid] ?? $displayCurrency) : $displayCurrency;
-        $cr = $amt;
-        $running = historyTrunc2($running + $cr);
+        $cr = historyTrunc2($amt);
+        $running = historyTrunc2(money_add($running, $cr, 8));
         $srcFromRow = historyParseDomainNetProfitSourceCompany((string) ($r['sms'] ?? ''));
         if ($srcFromRow === '' || strtoupper($srcFromRow) === 'DYNAMIC') {
             $srcFromRow = $srcCompanyParam !== '' ? $srcCompanyParam : $owner;
@@ -932,9 +951,9 @@ try {
     // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
     $bfCurrency = null;
     if ($currency_id) {
-        $bf = 0;
+        $bf = '0';
         foreach ($account_ids as $aid) {
-            $bf += calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_db, $company_id, $account_code);
+            $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_db, $company_id, $account_code), 8);
         }
         $bfCurrency = $currency;
     } else {
@@ -957,14 +976,14 @@ try {
             $stmt->execute([$bfCurrency, $company_id]);
             $bfCurrencyId = $stmt->fetchColumn();
             if ($bfCurrencyId) {
-                $bf = 0;
+                $bf = '0';
                 foreach ($account_ids as $aid) {
-                    $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code);
+                    $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code), 8);
                 }
             } else {
-                $bf = 0;
+                $bf = '0';
                 foreach ($account_ids as $aid) {
-                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
+                    $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_db, $company_id), 8);
                 }
             }
         } else {
@@ -985,20 +1004,20 @@ try {
                 $stmt->execute([$bfCurrency, $company_id]);
                 $bfCurrencyId = $stmt->fetchColumn();
                 if ($bfCurrencyId) {
-                    $bf = 0;
+                    $bf = '0';
                     foreach ($account_ids as $aid) {
-                        $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code);
+                        $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code), 8);
                     }
                 } else {
-                    $bf = 0;
+                    $bf = '0';
                     foreach ($account_ids as $aid) {
-                        $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
+                        $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_db, $company_id), 8);
                     }
                 }
             } else {
-                $bf = 0;
+                $bf = '0';
                 foreach ($account_ids as $aid) {
-                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
+                    $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_db, $company_id), 8);
                 }
             }
         }
@@ -1200,7 +1219,7 @@ try {
         $dateKey = trim((string) ($txRow['transaction_date'] ?? ''));
         $accKey = (int) ($txRow['account_id'] ?? 0);
         $typeKey = trim((string) ($txRow['transaction_type'] ?? ''));
-        $amtKey = number_format((float) ($txRow['amount'] ?? 0), 2, '.', '');
+        $amtKey = money_normalize($txRow['amount'] ?? '0', 2);
         if ($pt !== 'day_end_tail') {
             $hasNonTailByKey[$pid . '|' . $dateKey . '|' . $accKey . '|' . $typeKey . '|' . $amtKey] = true;
         }
@@ -1242,7 +1261,7 @@ try {
         'rate' => '-',
         'win_loss' => '-',
         'cr_dr' => '-',
-        'balance' => historyFormatExactCents2(dcd_processed_amount_float_quant2((float) $bf)),
+        'balance' => historyFormatExactCents2($bf),
         'description' => $bfDescription,
         'sms' => '-',
         'created_by' => '-'
@@ -1313,8 +1332,7 @@ try {
         $rate = null;
         if (isset($capture['rate']) && $capture['rate'] !== null && $capture['rate'] !== '') {
             // 与 Data Summary 保持一致：保留有效小数，不强制补 0；但小数位最多 8 位
-            $rateRounded = round((float) $capture['rate'], 8);
-            $rate = rtrim(rtrim(number_format($rateRounded, 8, '.', ''), '0'), '.');
+            $rate = money_out($capture['rate'], 8);
             if ($rate === '') {
                 $rate = '0';
             }
@@ -1329,8 +1347,8 @@ try {
             'transaction_type' => 'DATA_CAPTURE',
             'order_ts' => $captureTimestamp ?: 0,
             'order_index' => $eventIndex++,
-            'win_loss' => (float) $capture['processed_amount'],
-            'cr_dr' => 0,
+            'win_loss' => $capture['processed_amount'],
+            'cr_dr' => '0',
             'date' => date('d/m/Y', strtotime($capture['capture_date'])),
             'source' => $capture['transaction_type'] ?? 'DATA_CAPTURE',
             'product' => $product ?: '-',
@@ -1355,7 +1373,7 @@ try {
             $dateKey = trim((string) ($t['transaction_date'] ?? ''));
             $accKey = (int) ($t['account_id'] ?? 0);
             $typeKey = trim((string) ($t['transaction_type'] ?? ''));
-            $amtKey = number_format((float) ($t['amount'] ?? 0), 2, '.', '');
+            $amtKey = money_normalize($t['amount'] ?? '0', 2);
             $dupKey = $pidCurrent . '|' . $dateKey . '|' . $accKey . '|' . $typeKey . '|' . $amtKey;
             if (isset($hasNonTailByKey[$dupKey])) {
                 continue;
@@ -1369,8 +1387,8 @@ try {
 
         $is_to_account = in_array((int) $t['account_id'], $account_ids_int);
         $is_from_account = in_array((int) ($t['from_account_id'] ?? 0), $account_ids_int);
-        $win_loss = 0;
-        $cr_dr = 0;
+        $win_loss = '0';
+        $cr_dr = '0';
         $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
         // 原始 description，用于判断显示文案/手动 PROFIT
         $rawDescription = $t['description'] ?? '';
@@ -1434,40 +1452,40 @@ try {
             case 'WIN':
                 if (!$is_internal_transfer && $is_to_account) {
                     // 手动 PROFIT：Select To 显示负数、Select From 显示正数
-                    $cr_dr = $isManualProfit ? -(float) $t['amount'] : (float) $t['amount'];
+                    $cr_dr = $isManualProfit ? historyNeg($t['amount']) : ($t['amount'] ?? '0');
                 }
                 break;
 
             case 'LOSE':
                 if (!$is_internal_transfer && $is_to_account) {
                     // 手动 PROFIT：Select To 显示负数、Select From 显示正数（LOSE 条是 From 账户，显示正数）
-                    $cr_dr = $isManualProfit ? (float) $t['amount'] : -(float) $t['amount'];
+                    $cr_dr = $isManualProfit ? ($t['amount'] ?? '0') : historyNeg($t['amount']);
                 }
                 break;
 
             case 'RECEIVE':
                 if ($is_internal_transfer) {
-                    $cr_dr = 0;
+                    $cr_dr = '0';
                 } elseif ($is_to_account) {
-                    $cr_dr = -$t['amount'];
+                    $cr_dr = historyNeg($t['amount']);
                 } else {
-                    $cr_dr = $t['amount'];
+                    $cr_dr = $t['amount'] ?? '0';
                 }
                 break;
 
             case 'CLAIM':
                 if ($is_internal_transfer) {
-                    $cr_dr = 0;
+                    $cr_dr = '0';
                 } elseif ($is_to_account) {
-                    $cr_dr = -$t['amount'];
+                    $cr_dr = historyNeg($t['amount']);
                 } else {
-                    $cr_dr = $t['amount'];
+                    $cr_dr = $t['amount'] ?? '0';
                 }
                 break;
 
             case 'PAYMENT':
                 if ($is_internal_transfer) {
-                    $cr_dr = 0;
+                    $cr_dr = '0';
                     break;
                 }
                 // 显示与 CONTRA 一致：TO（account_id）默认负、FROM（from_account_id）默认正。
@@ -1479,7 +1497,7 @@ try {
                         stripos($smsPay, '[DOMAIN_SHARE_COMMISSION|') === 0
                         || $smsPay === '[DOMAIN_SHARE_COMMISSION]'
                     ) {
-                        $cr_dr = (float) $t['amount'];
+                        $cr_dr = $t['amount'] ?? '0';
                     } elseif (
                         stripos($smsPay, '[DOMAIN_LIST_FEE|') === 0
                         || $smsPay === '[DOMAIN_LIST_FEE]'
@@ -1487,19 +1505,19 @@ try {
                         || stripos($descPay, 'Pay Domain Fee') === 0
                         || stripos($descPay, 'Pay Domain Fee To ') === 0
                     ) {
-                        $cr_dr = (float) $t['amount'];
+                        $cr_dr = $t['amount'] ?? '0';
                     } else {
-                        $cr_dr = -(float) $t['amount'];
+                        $cr_dr = historyNeg($t['amount']);
                     }
                 } else {
                     if (
                         stripos($smsPay, '[DOMAIN_NET_PROFIT|') === 0
                         || stripos($descPay, 'Profit By ') === 0
                     ) {
-                        $cr_dr = 0;
+                        $cr_dr = '0';
                     } else {
                         // FROM 侧（含 Domain List Fee 付款方）：与 CONTRA 一致为正，与 calculateBFByCurrency 第 3 段 PAYMENT +amount 对齐
-                        $cr_dr = (float) $t['amount'];
+                        $cr_dr = $t['amount'] ?? '0';
                     }
                 }
                 break;
@@ -1507,39 +1525,39 @@ try {
             case 'CLEAR':
                 // FROM ACCOUNT 正数，TO ACCOUNT 负数
                 if ($approvalStatus && strtoupper((string) $approvalStatus) === 'PENDING') {
-                    $cr_dr = 0;
+                    $cr_dr = '0';
                 } else {
                     if ($is_internal_transfer) {
-                        $cr_dr = 0;
+                        $cr_dr = '0';
                     } elseif ($is_to_account) {
-                        $cr_dr = -$t['amount'];
+                        $cr_dr = historyNeg($t['amount']);
                     } else {
-                        $cr_dr = $t['amount'];
+                        $cr_dr = $t['amount'] ?? '0';
                     }
                 }
                 break;
             case 'CONTRA':
                 // FROM 显示正数，TO 显示负数
                 if ($approvalStatus && strtoupper((string) $approvalStatus) === 'PENDING') {
-                    $cr_dr = 0;
+                    $cr_dr = '0';
                 } else {
                     if ($is_internal_transfer) {
-                        $cr_dr = 0;
+                        $cr_dr = '0';
                     } elseif ($is_to_account) {
-                        $cr_dr = -$t['amount'];
+                        $cr_dr = historyNeg($t['amount']);
                     } else {
-                        $cr_dr = $t['amount'];
+                        $cr_dr = $t['amount'] ?? '0';
                     }
                 }
                 break;
 
             case 'RATE':
                 if ($is_internal_transfer) {
-                    $cr_dr = 0;
+                    $cr_dr = '0';
                 } elseif ($is_to_account) {
-                    $cr_dr = (float) $t['amount'];
+                    $cr_dr = $t['amount'] ?? '0';
                 } else {
-                    $cr_dr = -(float) $t['amount'];
+                    $cr_dr = historyNeg($t['amount']);
                 }
                 break;
 
@@ -1549,7 +1567,7 @@ try {
         // History 中金额统一显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
         if (($isBankProcessTransaction || $isManualProfit) && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
             $win_loss = $cr_dr;
-            $cr_dr = 0;
+            $cr_dr = '0';
         }
 
         // 动态调整 description
@@ -1589,18 +1607,18 @@ try {
                     } else {
                         $description = 'Monthly bill';
                     }
-                    $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
+                    $amt = $t['amount'] ?? '0';
                     if ($isBankProcessTransaction && $is_to_account) {
                         $txAccountId = (int) ($t['account_id'] ?? 0);
                         $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
                         $customerId = (int) ($t['customer_id'] ?? 0);
                         $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
                         if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
-                            $amt = isset($t['process_cost']) ? (float) $t['process_cost'] : $amt;
+                            $amt = $t['process_cost'] ?? $amt;
                         } elseif ($txAccountId > 0 && $txAccountId === $customerId) {
-                            $amt = isset($t['process_price']) ? (float) $t['process_price'] : $amt;
+                            $amt = $t['process_price'] ?? $amt;
                         } elseif ($txAccountId > 0 && $txAccountId === $profitAccountId) {
-                            $amt = isset($t['process_profit']) ? (float) $t['process_profit'] : $amt;
+                            $amt = $t['process_profit'] ?? $amt;
                         }
                     }
                     $bpFreq = strtolower(trim((string) ($t['bp_frequency'] ?? '')));
@@ -1651,7 +1669,7 @@ try {
                             ? ('Full Month (' . $monthLabel . ') @Monthly')
                             : 'Full Month @Monthly';
                     }
-                    $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : historyFormat2($amt);
+                    $billAmount = money_out($amt, 2);
                     if (stripos((string) $description, 'Pro-rated(') === 0
                         || stripos((string) $description, 'Prorated(') === 0
                         || stripos((string) $description, 'DayEnd - Prorated(') === 0
@@ -1671,10 +1689,10 @@ try {
             $fallbackOther = $t['from_account_code'] ?: $t['to_account_code'] ?: '-';
             $other = $otherAccountCodeForManualProfit ?: $fallbackOther;
 
-            if ($win_loss > 0) {
+            if (money_cmp($win_loss, '0') > 0) {
                 // 当前账户这笔是赚（正数）：从对方进来的 PROFIT
                 $description = 'PROFIT FROM ' . $other;
-            } elseif ($win_loss < 0) {
+            } elseif (money_cmp($win_loss, '0') < 0) {
                 // 当前账户这笔是亏（负数）：给对方的 PROFIT
                 $description = 'PROFIT TO ' . $other;
             } else {
@@ -1877,7 +1895,7 @@ try {
     // Share% Profit 池：List Fee 入账 + 同源 Sales/CS/IT 佣金划出 → 一条净 Profit（与主表余额一致）
     foreach ($domainHubRollup['rollups'] as $rb) {
         $ft = $rb['fee_tx'];
-        $netShow = (float) $rb['net'];
+        $netShow = $rb['net'];
         $srcU = strtoupper(trim((string) $rb['src']));
         $displayDateYmdRb = trim((string) ($ft['transaction_date'] ?? ''));
         $transactionTimestampRb = strtotime($displayDateYmdRb . ' ' . ($ft['created_at'] ?? '00:00:00'));
@@ -1908,7 +1926,7 @@ try {
             'transaction_type' => 'PAYMENT',
             'order_ts' => $transactionTimestampRb ?: 0,
             'order_index' => $eventIndex++,
-            'win_loss' => 0,
+            'win_loss' => '0',
             'cr_dr' => $netShow,
             'date' => $displayDateYmdRb !== '' ? date('d/m/Y', strtotime($displayDateYmdRb)) : '-',
             'source' => 'PAYMENT',
@@ -1983,12 +2001,12 @@ try {
             $transactionTimestamp = strtotime($row['transaction_date']);
         }
 
-        $amount = (float) $row['amount'];
+        $amount = $row['amount'] ?? '0';
         // RATE 第二行/第四行：TO 负数、FROM 正数（与 CONTRA / PAYMENT 默认展示一致）
         // Middle-Man（RATE_MIDDLEMAN）保留正数，并显示在 Win/Loss
         $entryType = $row['entry_type'] ?? '';
         if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
-            $amount = -$amount;
+            $amount = historyNeg($amount);
         }
 
         $description = $row['entry_description'] ?: 'RATE';
@@ -1997,13 +2015,13 @@ try {
         // 适用于第一行与第二行（RATE_FIRST_TO / RATE_TRANSFER_TO）。
         $displayRateForSuffix = null;
         if (in_array($entryType, ['RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
-            $exchangeRate = isset($row['exchange_rate']) ? (float) $row['exchange_rate'] : null;
-            $middlemanRate = isset($row['rate_middleman_rate']) ? (float) $row['rate_middleman_rate'] : null;
+            $exchangeRate = $row['exchange_rate'] ?? null;
+            $middlemanRate = $row['rate_middleman_rate'] ?? null;
             if ($exchangeRate !== null && $middlemanRate !== null) {
-                $netRate = $exchangeRate - $middlemanRate;
-                if ($netRate > 0) {
+                $netRate = money_sub($exchangeRate, $middlemanRate, 8);
+                if (money_cmp($netRate, '0') > 0) {
                     // 保留最多 4 位小数，并去掉多余的 0
-                    $displayRateForSuffix = rtrim(rtrim(number_format($netRate, 4, '.', ''), '0'), '.');
+                    $displayRateForSuffix = money_out($netRate, 4);
                 }
             }
         }
@@ -2084,22 +2102,22 @@ try {
     $balance_by_currency = [];
     if ($bfCurrency !== null && $bfCurrency !== '') {
         // 与逐行累加一致：先量化 B/F，避免 round 后仍带 IEEE 尾差再被 historyTrunc2 错成少 0.01
-        $balance_by_currency[$bfCurrency] = dcd_processed_amount_float_quant2((float) $bf);
+        $balance_by_currency[$bfCurrency] = money_normalize($bf, 2);
     }
 
     foreach ($events as $event) {
         $displayCurrency = $event['currency'] ?? $bfCurrency;
         $curKey = ($displayCurrency !== null && (string) $displayCurrency !== '') ? (string) $displayCurrency : '-';
         if (!isset($balance_by_currency[$curKey])) {
-            $balance_by_currency[$curKey] = 0;
+            $balance_by_currency[$curKey] = '0';
         }
-        $rawWl = (float) ($event['win_loss'] ?? 0);
+        $rawWl = $event['win_loss'] ?? '0';
         $eventWinLoss = (($event['row_type'] ?? '') === 'data_capture')
             ? historyDataCaptureProcessed2($rawWl)
-            : dcd_processed_amount_float_quant2($rawWl);
-        $eventCrDr = dcd_processed_amount_float_quant2((float) ($event['cr_dr'] ?? 0));
-        $balance_by_currency[$curKey] = dcd_processed_amount_float_quant2(
-            (float) ($balance_by_currency[$curKey] + $eventWinLoss + $eventCrDr)
+            : historyTrunc2($rawWl);
+        $eventCrDr = historyTrunc2($event['cr_dr'] ?? '0');
+        $balance_by_currency[$curKey] = historyTrunc2(
+            money_add(money_add($balance_by_currency[$curKey], $eventWinLoss, 8), $eventCrDr, 8)
         );
         $row_balance = $balance_by_currency[$curKey];
 
@@ -2118,14 +2136,14 @@ try {
                     if ($fromCode && $toCode) {
                         $finalDescription = 'Markup (' . $fromCode;
                         if ($fromAmount !== null && $fromAmount !== '') {
-                            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+                        $formattedAmount = historyDisplayDecimal($fromAmount, 6);
                             if ($formattedAmount !== '') {
                                 $finalDescription .= ' ' . $formattedAmount;
                             }
                         }
                         $finalDescription .= ' > ' . $toCode . ')';
                         if ($middlemanRate !== null && $middlemanRate !== '') {
-                            $formattedRate = rtrim(rtrim(number_format((float) $middlemanRate, 6, '.', ''), '0'), '.');
+                        $formattedRate = historyDisplayDecimal($middlemanRate, 6);
                             if ($formattedRate !== '') {
                                 $finalDescription .= ' Rate ' . $formattedRate;
                             }
@@ -2142,14 +2160,14 @@ try {
                     if ($fromCode && $toCode) {
                         $finalDescription = 'Currency Exchange (' . $fromCode;
                         if ($fromAmount !== null && $fromAmount !== '') {
-                            $formattedAmount = rtrim(rtrim(number_format((float) $fromAmount, 6, '.', ''), '0'), '.');
+                        $formattedAmount = historyDisplayDecimal($fromAmount, 6);
                             if ($formattedAmount !== '') {
                                 $finalDescription .= ' ' . $formattedAmount;
                             }
                         }
                         $finalDescription .= ' > ' . $toCode . ')';
                         if ($exchangeRate !== null && $exchangeRate !== '') {
-                            $formattedRate = rtrim(rtrim(number_format((float) $exchangeRate, 6, '.', ''), '0'), '.');
+                        $formattedRate = historyDisplayDecimal($exchangeRate, 6);
                             if ($formattedRate !== '') {
                                 $finalDescription .= ' Rate ' . $formattedRate;
                             }
@@ -2180,8 +2198,8 @@ try {
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',
-            'win_loss' => $eventWinLoss != 0 ? historyFormatExactCents2($eventWinLoss) : '0.00',
-            'cr_dr' => $eventCrDr != 0 ? historyFormatExactCents2($eventCrDr) : '0.00',
+            'win_loss' => money_cmp($eventWinLoss, '0') !== 0 ? historyFormatExactCents2($eventWinLoss) : '0.00',
+            'cr_dr' => money_cmp($eventCrDr, '0') !== 0 ? historyFormatExactCents2($eventCrDr) : '0.00',
             'balance' => historyFormatExactCents2($row_balance),
             'description' => $finalDescription,
             'sms' => $event['sms'],
@@ -2235,7 +2253,7 @@ try {
  */
 function calculateBF($pdo, $account_id, $date_from, $company_id)
 {
-    $bf = 0;
+    $bf = '0';
 
     // 1. 计算日期之前所有 data_capture 的 processed_amount
     // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
@@ -2249,7 +2267,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $date_from]);
-    $bf += $stmt->fetchColumn();
+    $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
     // 2. 计算日期之前所有 transactions 的影响
     // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 影响 Cr/Dr（作为 To Account）；CONTRA/CLEAR 时 TO 显示负数
@@ -2273,7 +2291,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
-    $bf += $stmt->fetchColumn();
+    $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
     // PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM/RATE 影响 Cr/Dr（作为 From Account）；CONTRA/CLEAR 时 FROM 显示正数
     $sql = "SELECT 
@@ -2292,9 +2310,9 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
-    $bf += $stmt->fetchColumn(); // 改为加号
+    $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
-    return $bf;
+    return historyTrunc2($bf);
 }
 
 /**
@@ -2303,7 +2321,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
  */
 function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = '')
 {
-    $bf = 0;
+    $bf = '0';
     $code_str = trim((string) $account_code);
 
     // 检查 transactions 表是否有 currency_id 字段（仅检查一次）
@@ -2330,16 +2348,16 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $code_str, $code_str, $currency_id, $date_from]);
-    $bf += $stmt->fetchColumn();
+    $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
     // 2. 起始日期之前：Win/Loss 来自 WIN/LOSE（含 PROFIT）+ Cr/Dr 来自 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM（作为 To Account）；RATE 单独用 transaction_entry 处理
     if ($has_transaction_currency) {
         // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
@@ -2359,18 +2377,18 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   )" . historyContraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
-        $bf += $stmt->fetchColumn();
+        $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
         // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分（DOMAIN_NET_PROFIT 与 Cr/Dr 列一致记 0，避免重复与错误符号）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
-                        WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
-                        WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
-                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN ROUND(t.amount, 2)
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
-                        WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -2382,14 +2400,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             . historyContraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $currency_id]);
-        $bf += $stmt->fetchColumn();
+        $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
     } else {
         // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
         $sql = "SELECT COALESCE(SUM(CASE
-                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -ROUND(t.amount, 2)
-                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN ROUND(t.amount, 2)
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
+                  WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
@@ -2402,16 +2420,16 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   )" . historyContraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
-        $bf += $stmt->fetchColumn();
+        $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -ROUND(t.amount, 2)
-                        WHEN transaction_type = 'CONTRA' THEN -ROUND(t.amount, 2)
-                        WHEN transaction_type = 'CLEAR' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN -t.amount
                         WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN ROUND(t.amount, 2)
-                        WHEN transaction_type = 'PAYMENT' THEN -ROUND(t.amount, 2)
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -2431,16 +2449,16 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             . historyContraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
-        $bf += $stmt->fetchColumn();
+        $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
     }
 
     // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤；RATE 单独用 transaction_entry 处理）
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
-                        WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN t.amount
+                        WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -2458,9 +2476,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN ROUND(t.amount, 2)
-                        WHEN transaction_type = 'CLEAR' THEN ROUND(t.amount, 2)
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN ROUND(t.amount, 2)
+                        WHEN transaction_type = 'CONTRA' THEN t.amount
+                        WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -2484,15 +2502,15 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
     }
-    $bf += $stmt->fetchColumn();
+    $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
     // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
     $rateStmt = $pdo->prepare("
         SELECT COALESCE(SUM(CASE
-          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -ROUND(e.amount, 2)
-          WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -ROUND(e.amount, 2)
-          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN ROUND(e.amount, 2)
-          ELSE ROUND(e.amount, 2)
+          WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+          WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+          ELSE e.amount
         END), 0) AS total
         FROM transaction_entry e
         JOIN transactions h ON e.header_id = h.id
@@ -2504,13 +2522,13 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
           AND h.transaction_date < ?
     ");
     $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
-    $bf += $rateStmt->fetchColumn();
+    $bf = money_add($bf, $rateStmt->fetchColumn() ?: '0', 8);
 
     // 5. 池子账户：起始日前已付的 Domain Share Commission 从 B/F 扣回（与 dashboard_api / 交易列表 searchApiApplyDomainSourceCompanyRows 一致）
     if ($has_transaction_currency && (int) $currency_id > 0) {
         try {
             $adjStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(ROUND(t.amount, 2)), 0)
+                SELECT COALESCE(SUM(t.amount), 0)
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND t.transaction_type = 'PAYMENT'
@@ -2521,14 +2539,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             ");
             $adjStmt->execute([$company_id, $account_id, $date_from, $currency_id]);
             // SUM 保留符号：佣金合计为正则扣减 B/F；若存在负数冲正则代数相减
-            $adj = (float) $adjStmt->fetchColumn();
-            if (abs($adj) > 0.00001) {
-                $bf -= $adj;
+            $adj = $adjStmt->fetchColumn() ?: '0';
+            if (money_cmp(money_abs($adj), '0.00001') > 0) {
+                $bf = money_sub($bf, $adj, 8);
             }
         } catch (Throwable $e) {
         }
     }
 
-    return $bf;
+    return historyTrunc2($bf);
 }
 ?>

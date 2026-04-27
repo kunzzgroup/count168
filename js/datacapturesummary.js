@@ -55,10 +55,12 @@ function findColumnIndexByValue(processValue, numericValue) {
         for (let colIndex = 1; colIndex < processRow.length; colIndex++) {
             const cellData = processRow[colIndex];
             if (cellData && cellData.type === 'data') {
-                const cellValue = parseFloat(removeThousandsSeparators(cellData.value));
-                if (!isNaN(cellValue) && Math.abs(cellValue - numericValue) < 0.0001) {
-                    return colIndex; // Column A = 1, B = 2, ...
-                }
+                try {
+                    const cellValue = MoneyDecimal.toDecimal(removeThousandsSeparators(cellData.value), 0);
+                    if (cellValue.minus(numericValue).abs().lt('0.0001')) {
+                        return colIndex; // Column A = 1, B = 2, ...
+                    }
+                } catch (_) { /* ignore non-numeric cells */ }
             }
         }
 
@@ -869,11 +871,11 @@ function restoreFormulaSourceFromRefresh() {
                 cells[7].textContent = String(resolvedRateOnly).trim();
             }
             if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
-                const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+                const baseAmount = MoneyDecimal.toDecimal(row.getAttribute('data-base-processed-amount') || '0', 0).toString();
                 const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
+                const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(finalAmount) : finalAmount;
                 cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(rounded) : String(finalAmount);
-                cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+                cells[8].style.color = MoneyDecimal.cmp(finalAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalAmount, '0') < 0 ? '#A91215' : '#000000');
             }
             return;
         }
@@ -4735,9 +4737,16 @@ function validatePaymentAlertForAdd() {
             return false;
         }
         // Validate alert amount must be a negative number
-        if (alertAmount && (isNaN(parseFloat(alertAmount)) || parseFloat(alertAmount) >= 0)) {
-            showNotification('Alert Amount must be a negative number.', 'danger');
-            return false;
+        if (alertAmount) {
+            try {
+                if (MoneyDecimal.cmp(alertAmount, '0') >= 0) {
+                    showNotification('Alert Amount must be a negative number.', 'danger');
+                    return false;
+                }
+            } catch (e) {
+                showNotification('Alert Amount must be a negative number.', 'danger');
+                return false;
+            }
         }
     }
     return true;
@@ -7573,7 +7582,7 @@ function extractRowDataForTemplate(row, formData) {
         columns_display: formData.columnsDisplay || '',
         formula_display: formData.formulaDisplay || '',
         last_source_value: sourceValue || '',
-        last_processed_amount: formData.processedAmount || 0,
+        last_processed_amount: formData.processedAmount || '0',
         template_key: templateKey,
         process_id: getCurrentProcessId(),
         row_index: rowIndex,
@@ -7762,12 +7771,11 @@ function buildFormDataFromRow(row) {
     }
 
     const processedAmountCell = cells[8]; // Processed Amount column
-    let processedAmount = 0;
+    let processedAmount = '0';
     if (processedAmountCell) {
-        const numericValue = parseFloat(processedAmountCell.textContent.replace(/,/g, ''));
-        if (!Number.isNaN(numericValue)) {
-            processedAmount = numericValue;
-        }
+        try {
+            processedAmount = MoneyDecimal.toDecimal(processedAmountCell.textContent.replace(/,/g, ''), 0).toString();
+        } catch (_) { /* keep zero */ }
     }
 
     const productType = row.getAttribute('data-product-type') || 'main';
@@ -9754,7 +9762,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         ? getEffectiveClickedRefsForDollarOnlyFormula(formulaText, processValueForRefs, refCtx.clickedCellRefs)
         : refCtx.clickedCellRefs
 
-    let baseProcessedAmount = 0;
+    let baseProcessedAmount = '0';
     if (formulaText && formulaText !== 'Formula') {
         baseProcessedAmount = calculateFormulaResultFromExpression(
             formulaText,
@@ -9768,23 +9776,23 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         );
     }
 
-    if (baseProcessedAmount === null || isNaN(baseProcessedAmount) || !Number.isFinite(Number(baseProcessedAmount))) {
-        baseProcessedAmount = 0;
-    } else {
-        baseProcessedAmount = Number(baseProcessedAmount);
+    try {
+        baseProcessedAmount = MoneyDecimal.toDecimal(baseProcessedAmount, 0).toString();
+    } catch (_) {
+        baseProcessedAmount = '0';
     }
 
-    row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
+    row.setAttribute('data-base-processed-amount', baseProcessedAmount);
 
     let finalProcessedAmount = baseProcessedAmount;
     if (typeof applyRateToProcessedAmount === 'function') {
         finalProcessedAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
     }
 
-    if (finalProcessedAmount === null || isNaN(finalProcessedAmount) || !Number.isFinite(Number(finalProcessedAmount))) {
-        finalProcessedAmount = 0;
-    } else {
-        finalProcessedAmount = Number(finalProcessedAmount);
+    try {
+        finalProcessedAmount = MoneyDecimal.toDecimal(finalProcessedAmount, 0).toString();
+    } catch (_) {
+        finalProcessedAmount = '0';
     }
 
     if (cells[8]) {
@@ -9794,7 +9802,7 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         cells[8].textContent = typeof formatNumberWithThousands === 'function'
             ? formatNumberWithThousands(rounded)
             : String(finalProcessedAmount);
-        cells[8].style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000');
+        cells[8].style.color = MoneyDecimal.cmp(finalProcessedAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalProcessedAmount, '0') < 0 ? '#A91215' : '#000000');
     }
 
     if (options.updateTotal !== false && typeof updateProcessedAmountTotal === 'function') {
@@ -9842,10 +9850,10 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
             processedAmount = 0
         }
 
-        if (!Number.isFinite(Number(processedAmount))) {
-            processedAmount = 0
-        } else {
-            processedAmount = Number(processedAmount)
+        try {
+            processedAmount = MoneyDecimal.toDecimal(processedAmount, 0).toString()
+        } catch (_) {
+            processedAmount = '0'
         }
 
         row.setAttribute('data-base-processed-amount', String(processedAmount))
@@ -9854,7 +9862,7 @@ function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
             : processedAmount
 
         processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
-        processedAmountCell.style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000')
+        processedAmountCell.style.color = MoneyDecimal.cmp(finalProcessedAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalProcessedAmount, '0') < 0 ? '#A91215' : '#000000')
     })
 
     updateProcessedAmountTotal()
@@ -9909,18 +9917,22 @@ function hasBinaryAdditiveAtDepthZero(prefix) {
 function stripTrailingEmbeddedCommissionFactors(expr, sourceDecimal, options) {
     if (!expr || typeof expr !== 'string') return ''
     const stripDuplicateOfSource = options && options.stripDuplicateOfSource === true
-    if (!stripDuplicateOfSource || sourceDecimal == null || !Number.isFinite(Number(sourceDecimal))) {
+    let src
+    try {
+        src = MoneyDecimal.toDecimal(sourceDecimal)
+    } catch (_) {
         return expr.trim()
     }
-    const src = Number(sourceDecimal)
-    const eps = 0.0001
+    if (!stripDuplicateOfSource || sourceDecimal == null) {
+        return expr.trim()
+    }
     let s = expr.trim().replace(/\s+/g, '')
     const maxIter = 24
     for (let i = 0; i < maxIter && s.length > 0; i++) {
         const mParen = s.match(/^(.*)\*\(([0-9.]+)\)$/)
         if (mParen) {
-            const v = parseFloat(mParen[2])
-            if (!Number.isNaN(v) && Math.abs(v - src) < eps) {
+            const v = MoneyDecimal.toDecimal(mParen[2], 0)
+            if (v.minus(src).abs().lt('0.0001')) {
                 const nextPrefix = mParen[1].trim()
                 if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
                     break
@@ -9931,8 +9943,8 @@ function stripTrailingEmbeddedCommissionFactors(expr, sourceDecimal, options) {
         }
         const mStar = s.match(/^(.*)\*([0-9.]+)$/)
         if (mStar) {
-            const v = parseFloat(mStar[2])
-            if (!Number.isNaN(v) && Math.abs(v - src) < eps) {
+            const v = MoneyDecimal.toDecimal(mStar[2], 0)
+            if (v.minus(src).abs().lt('0.0001')) {
                 const nextPrefix = mStar[1].trim()
                 if (hasBinaryAdditiveAtDepthZero(nextPrefix)) {
                     break
@@ -9965,10 +9977,10 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
             try {
                 const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
-                const sp = evaluateExpression(sanitizedForStrip)
-                if (Number.isFinite(sp) && Math.abs(sp - 1) >= 0.0001) {
+                const sp = MoneyDecimal.toDecimal(evaluateExpression(sanitizedForStrip), 0)
+                if (sp.minus(1).abs().gte('0.0001')) {
                     shouldStripDuplicateOfSource = true
-                    sourceDecimalForStrip = sp
+                    sourceDecimalForStrip = sp.toString()
                 }
             } catch (e) { /* ignore */ }
         }
@@ -9995,13 +10007,13 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
         let decimalValue;
         try {
-            decimalValue = evaluateExpression(sanitizedSourcePercent);
+            decimalValue = MoneyDecimal.toDecimal(evaluateExpression(sanitizedSourcePercent), 0);
         } catch (e) {
             // If evaluation fails, treat as non-1 and add to display
-            decimalValue = 0;
+            decimalValue = MoneyDecimal.toDecimal('0');
         }
 
-        if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+        if (decimalValue.minus(1).abs().lt('0.0001')) {
             // Source is 1, return formula without multiplying
             const balanced = balanceParentheses(trimmedFormula);
             console.log('Formula display created from expression (source is 1, no multiplication):', balanced);
@@ -10029,8 +10041,8 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
                     const trailingExpr = formulaTrimmed.substring(i + 1, lastClose);
                     if (beforeParen.endsWith('*') && trailingExpr && /^[0-9+\-*/().\s]+$/.test(trailingExpr.replace(/\s/g, ''))) {
                         try {
-                            const trailingVal = evaluateExpression(trailingExpr);
-                            if (!isNaN(trailingVal) && Number.isFinite(trailingVal) && Math.abs(trailingVal - decimalValue) < 0.0001) {
+                            const trailingVal = MoneyDecimal.toDecimal(evaluateExpression(trailingExpr), 0);
+                            if (trailingVal.minus(decimalValue).abs().lt('0.0001')) {
                                 alreadyHasSource = true;
                             }
                         } catch (e) { /* ignore */ }
@@ -10108,10 +10120,10 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
             try {
                 const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
-                const sp = evaluateExpression(sanitizedForStrip)
-                if (Number.isFinite(sp) && Math.abs(sp - 1) >= 0.0001) {
+                const sp = MoneyDecimal.toDecimal(evaluateExpression(sanitizedForStrip), 0)
+                if (sp.minus(1).abs().gte('0.0001')) {
                     shouldStripDuplicateOfSource = true
-                    sourceDecimalForStrip = sp
+                    sourceDecimalForStrip = sp.toString()
                 }
             } catch (e) { /* ignore */ }
         }
@@ -10153,7 +10165,7 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         // Evaluate the source percent expression directly (no need to divide by 100)
         const sourcePercentExpr = sourcePercentValue.trim();
         const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
-        const decimalValue = evaluateExpression(sanitizedSourcePercent);
+        const decimalValue = MoneyDecimal.toDecimal(evaluateExpression(sanitizedSourcePercent), 0);
 
         // If source is 1, don't multiply (multiplying by 1 has no effect)
         // If formula已经含与 Source 相同的尾段，不再乘（用剥完后的式子判断，与 evaluate 输入一致）
@@ -10174,8 +10186,8 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
                 const trailingExpr = formulaTrimmed.substring(i + 1, lastClose);
                 if (beforeParen.endsWith('*') && trailingExpr && /^[0-9+\-*/().\s]+$/.test(trailingExpr.replace(/\s/g, ''))) {
                     try {
-                        const trailingVal = evaluateExpression(trailingExpr);
-                        if (!isNaN(trailingVal) && Number.isFinite(trailingVal) && Math.abs(trailingVal - decimalValue) < 0.0001) {
+                        const trailingVal = MoneyDecimal.toDecimal(evaluateExpression(trailingExpr), 0);
+                        if (trailingVal.minus(decimalValue).abs().lt('0.0001')) {
                             alreadyHasSource = true;
                         }
                     } catch (e) { /* ignore */ }
@@ -10184,13 +10196,13 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         }
 
         let result;
-        if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+        if (decimalValue.minus(1).abs().lt('0.0001')) {
             result = formulaResult; // Don't multiply by 1
         } else if (alreadyHasSource) {
             result = formulaResult; // Formula already contains *(source), don't multiply again
         } else {
             // Calculate: formula result * source percent (already in decimal format)
-            result = formulaResult * decimalValue;
+            result = MoneyDecimal.mul(formulaResult, decimalValue).toString();
         }
 
         // Apply input method transformation if enabled
@@ -10861,15 +10873,14 @@ function createFormulaDisplay(sourceData, sourcePercentValue) {
         const sanitizedPercent = removeThousandsSeparators(percentExpr);
         let decimalValue;
         try {
-            const percentEval = evaluateExpression(sanitizedPercent);
-            decimalValue = percentEval / 100;
-            decimalValue = parseFloat(decimalValue.toFixed(4));
+            const percentEval = MoneyDecimal.toDecimal(evaluateExpression(sanitizedPercent), 0);
+            decimalValue = percentEval.div(100).toDecimalPlaces(4, MoneyDecimal.Decimal.ROUND_DOWN);
         } catch (e) {
             // If evaluation fails, treat as non-1 and add to display
-            decimalValue = 0;
+            decimalValue = MoneyDecimal.toDecimal('0');
         }
 
-        if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+        if (decimalValue.minus(1).abs().lt('0.0001')) {
             // Source is 1 (100%), return formula without multiplying
             console.log('Formula display created (source is 1, no multiplication):', trimmedSourceData);
             return formatNegativeNumbersInFormula(trimmedSourceData);
@@ -10879,14 +10890,12 @@ function createFormulaDisplay(sourceData, sourcePercentValue) {
         let percentDisplay = '';
         const m = percentExpr.match(/^(\d+(?:\.\d+)?)(.*)$/);
         if (m) {
-            const firstNum = parseFloat(m[1]);
             const rest = m[2] || '';
-            const firstDiv100 = formatDecimalValue(firstNum / 100);
+            const firstDiv100 = formatDecimalValue(MoneyDecimal.div(m[1], '100'));
             percentDisplay = `(${firstDiv100}${rest})`;
         } else {
             // 兜底：无法解析则按旧逻辑处理
-            const decimalValue = parseFloat(percentExpr) / 100;
-            percentDisplay = `(${formatDecimalValue(decimalValue)})`;
+            percentDisplay = `(${formatDecimalValue(MoneyDecimal.div(percentExpr, '100'))})`;
         }
 
         // 不对 sourceData 强行加外层括号，保持原样
@@ -10913,11 +10922,11 @@ function calculateFormulaResult(sourceData, sourcePercentValue, inputMethod = ''
         // ensure proper evaluation by removing spaces and using evaluateExpression directly
         // This ensures real-time calculation works correctly
         const sanitizedSourceData = removeThousandsSeparators(sourceData.trim().replace(/\s+/g, ''));
-        let sourceResult = evaluateExpression(sanitizedSourceData);
+        let sourceResult = MoneyDecimal.toDecimal(evaluateExpression(sanitizedSourceData), 0);
 
         // If source percent is empty or not provided, just return the source result
         if (!sourcePercentValue || sourcePercentValue.toString().trim() === '') {
-            let result = sourceResult;
+            let result = sourceResult.toString();
             // Apply input method transformation if enabled
             if (enableInputMethod && inputMethod) {
                 result = applyInputMethodTransformation(result, inputMethod);
@@ -10928,20 +10937,17 @@ function calculateFormulaResult(sourceData, sourcePercentValue, inputMethod = ''
 
         // 将百分比作为表达式求值，然后除以100（支持 "0.85/2" 这类）
         const sanitizedPercent = removeThousandsSeparators(sourcePercentValue.toString().trim());
-        const percentEval = evaluateExpression(sanitizedPercent);
-        let decimalValue = percentEval / 100;
-
-        // Limit to maximum 4 decimal places
-        decimalValue = parseFloat(decimalValue.toFixed(4));
+        const percentEval = MoneyDecimal.toDecimal(evaluateExpression(sanitizedPercent), 0);
+        let decimalValue = percentEval.div(100).toDecimalPlaces(4, MoneyDecimal.Decimal.ROUND_DOWN);
 
         // If source is 1 (or 100% which equals 1 after dividing by 100), don't multiply
         // Only multiply when source is a different number
         let result;
-        if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
-            result = sourceResult; // Don't multiply by 1
+        if (decimalValue.minus(1).abs().lt('0.0001')) {
+            result = sourceResult.toString(); // Don't multiply by 1
         } else {
             // Calculate the final result: source result * decimal value
-            result = sourceResult * decimalValue;
+            result = sourceResult.times(decimalValue).toString();
         }
 
         // Apply input method transformation if enabled
@@ -10960,49 +10966,46 @@ function calculateFormulaResult(sourceData, sourcePercentValue, inputMethod = ''
 
 // Apply input method transformation to the result
 function applyInputMethodTransformation(result, inputMethod) {
+    const value = MoneyDecimal.toDecimal(result, 0);
     switch (inputMethod) {
         case 'positive_to_negative_negative_to_positive':
-            return -result; // Flip the sign
+            return value.neg().toString(); // Flip the sign
         case 'positive_to_negative_negative_to_zero':
-            return result > 0 ? -result : 0; // Positive becomes negative, negative becomes zero
+            return value.gt(0) ? value.neg().toString() : '0'; // Positive becomes negative, negative becomes zero
         case 'negative_to_positive_positive_to_zero':
-            return result < 0 ? -result : 0; // Negative becomes positive, positive becomes zero
+            return value.lt(0) ? value.neg().toString() : '0'; // Negative becomes positive, positive becomes zero
         case 'positive_unchanged_negative_to_zero':
-            return result > 0 ? result : 0; // Positive unchanged, negative becomes zero
+            return value.gt(0) ? value.toString() : '0'; // Positive unchanged, negative becomes zero
         case 'negative_unchanged_positive_to_zero':
-            return result < 0 ? result : 0; // Negative unchanged, positive becomes zero
+            return value.lt(0) ? value.toString() : '0'; // Negative unchanged, positive becomes zero
         case 'change_to_positive':
-            return Math.abs(result); // Always positive
+            return value.abs().toString(); // Always positive
         case 'change_to_negative':
-            return -Math.abs(result); // Always negative
+            return value.abs().neg().toString(); // Always negative
         case 'change_to_zero':
-            return 0; // Always zero
+            return '0'; // Always zero
         default:
-            return result; // No transformation
+            return value.toString(); // No transformation
     }
 }
 
 // Processed Amount：固定展示 2 位小数，向 0 截断（不四舍五入）。例：-2.089 -> -2.08，2.089 -> 2.08
 // 说明：少数二进制浮点（如语义为 -2.07 但乘 100 略小于 -207）截断后可能显示 -2.06，与「仅截断」规则一致
 function roundProcessedAmountTo2Decimals(value) {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return 0;
-    // 先做极小纠偏，修正 2.07 -> 2.069999999999... 这类二进制浮点噪音，
-    // 再执行向 0 截断，保持既有业务规则不变。
-    const epsilon = num >= 0 ? 1e-9 : -1e-9;
-    const scaled = (num + epsilon) * 100;
-    const truncated = Math.trunc(scaled) / 100;
-    return Object.is(truncated, -0) ? 0 : truncated;
+    try {
+        return MoneyDecimal.formatFixed(value, 2);
+    } catch (_) {
+        return '0.00';
+    }
 }
 
 // Evaluate mathematical expression safely
 function formatNumberWithThousands(value) {
-    const num = Number(value);
-    if (!Number.isFinite(num)) {
+    try {
+        return MoneyDecimal.formatThousands(roundProcessedAmountTo2Decimals(value), 2);
+    } catch (_) {
         return '0.00';
     }
-    const truncated = roundProcessedAmountTo2Decimals(num);
-    return truncated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function removeThousandsSeparators(value) {
@@ -11020,14 +11023,11 @@ function formatDecimalValue(value) {
     if (value === null || value === undefined || value === '') {
         return value;
     }
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    if (isNaN(num) || !Number.isFinite(num)) {
+    try {
+        return MoneyDecimal.formatDisplay(value, 12);
+    } catch (_) {
         return value;
     }
-    // 先按固定小数位圆整再 strip，消除 9.2 -> 9.199999999999999 / 9.200000000000001 等二进制浮点展示噪声
-    const rounded = parseFloat(num.toFixed(12));
-    const fixed = rounded.toFixed(12);
-    return fixed.replace(/\.?0+$/, '');
 }
 
 // Format negative numbers in formula by wrapping them with parentheses
@@ -11060,66 +11060,109 @@ function formatNegativeNumbersInFormula(formula) {
     });
 }
 
+function evaluateMoneyExpression(expression) {
+    let expr = removeThousandsSeparators(String(expression || '').trim())
+        .replace(/\u2212/g, '-')
+        .replace(/\s*\([A-Z]{2,4}\)\s*/g, ' ')
+        .replace(/\s*\(\s*\)\s*/g, ' ')
+        .replace(/\s+/g, '');
+    if (expr === '') return MoneyDecimal.toDecimal('0');
+    if (!/^[0-9+\-*/().]+$/.test(expr)) {
+        expr = expr.replace(/[^0-9+\-*/().]/g, '');
+    }
+    if (expr === '') return MoneyDecimal.toDecimal('0');
+    const openCount = (expr.match(/\(/g) || []).length;
+    const closeCount = (expr.match(/\)/g) || []).length;
+    if (openCount > closeCount) expr += ')'.repeat(openCount - closeCount);
+
+    const output = [];
+    const ops = [];
+    const precedence = { 'u-': 3, '*': 2, '/': 2, '+': 1, '-': 1 };
+    const rightAssoc = { 'u-': true };
+    let i = 0;
+    let prev = 'start';
+
+    while (i < expr.length) {
+        const ch = expr[i];
+        if (/\d|\./.test(ch)) {
+            let j = i + 1;
+            while (j < expr.length && /[\d.]/.test(expr[j])) j++;
+            const token = expr.slice(i, j);
+            output.push(MoneyDecimal.toDecimal(token));
+            i = j;
+            prev = 'number';
+            continue;
+        }
+        if (ch === '(') {
+            ops.push(ch);
+            i++;
+            prev = 'operator';
+            continue;
+        }
+        if (ch === ')') {
+            while (ops.length && ops[ops.length - 1] !== '(') output.push(ops.pop());
+            if (ops.length && ops[ops.length - 1] === '(') ops.pop();
+            i++;
+            prev = 'number';
+            continue;
+        }
+        if ('+-*/'.includes(ch)) {
+            const op = (ch === '-' && (prev === 'start' || prev === 'operator')) ? 'u-' : ch;
+            while (
+                ops.length &&
+                ops[ops.length - 1] !== '(' &&
+                (precedence[ops[ops.length - 1]] > precedence[op] ||
+                    (precedence[ops[ops.length - 1]] === precedence[op] && !rightAssoc[op]))
+            ) {
+                output.push(ops.pop());
+            }
+            ops.push(op);
+            i++;
+            prev = 'operator';
+            continue;
+        }
+        throw new Error('Invalid expression token: ' + ch);
+    }
+    while (ops.length) {
+        const op = ops.pop();
+        if (op !== '(') output.push(op);
+    }
+
+    const stack = [];
+    output.forEach((token) => {
+        if (token instanceof MoneyDecimal.Decimal) {
+            stack.push(token);
+            return;
+        }
+        if (token === 'u-') {
+            stack.push(stack.pop().neg());
+            return;
+        }
+        const b = stack.pop();
+        const a = stack.pop();
+        if (!a || !b) throw new Error('Invalid money expression');
+        if (token === '+') stack.push(a.plus(b));
+        else if (token === '-') stack.push(a.minus(b));
+        else if (token === '*') stack.push(a.times(b));
+        else if (token === '/') stack.push(a.div(b));
+    });
+    return stack.length ? stack[0] : MoneyDecimal.toDecimal('0');
+}
+
 function evaluateExpression(expression) {
     try {
         if (!expression || typeof expression !== 'string') {
             // 使用 warn 避免在控制台显示严重错误，但保持返回 0 的逻辑
             console.warn('Invalid expression:', expression);
-            return 0;
+            return '0';
         }
-
-        let sanitizedExpression = removeThousandsSeparators(expression);
-        // 统一为 ASCII 减号，避免 Unicode 减号 (U+2212) 等导致校验失败或误解析
-        sanitizedExpression = sanitizedExpression.replace(/\u2212/g, '-');
-        // 去掉货币显示 (MYR)、() 等，避免 "(MYR) 70.50" 导致 invalid characters
-        sanitizedExpression = sanitizedExpression.replace(/\s*\([A-Z]{2,4}\)\s*/g, ' ');
-        sanitizedExpression = sanitizedExpression.replace(/\s*\(\s*\)\s*/g, ' ');
-        let jsExpression = sanitizedExpression.trim();
-
-        // Validate that the expression doesn't contain invalid characters
-        // Allow: numbers, operators (+-*/), parentheses, decimal points, spaces
-        if (!/^[0-9+\-*/().\s]+$/.test(jsExpression)) {
-            console.warn('Expression contains invalid characters, trying to sanitize:', jsExpression);
-            // 尽量保留可识别的数字与运算符，其余全部移除作为兜底
-            jsExpression = jsExpression.replace(/[^0-9+\-*/().\s]/g, '').trim();
-            // 若清理后仍然为空，则只能返回 0（与原来的行为一致）
-            if (!jsExpression) {
-                console.warn('Expression still invalid after sanitization, fallback to 0.');
-                return 0;
-            }
-        }
-
-        // Remove spaces for cleaner evaluation
-        // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234.56)-(-2234.78)),
-        // removing spaces ensures proper evaluation
-        jsExpression = jsExpression.replace(/\s+/g, '');
-
-        // 若括号不成对会导致 SyntaxError: Unexpected token ')'，求值前补全缺失的右括号
-        const openCount = (jsExpression.match(/\(/g) || []).length;
-        const closeCount = (jsExpression.match(/\)/g) || []).length;
-        if (openCount > closeCount) {
-            jsExpression = jsExpression + ')'.repeat(openCount - closeCount);
-        }
-
-        console.log('Evaluating expression:', jsExpression);
-
-        // Use Function constructor for safe evaluation
-        // IMPORTANT: This handles expressions with negative numbers in parentheses correctly
-        // Example: (-1234.56)-(-2234.78) will be evaluated as -1234.56 - (-2234.78) = 1000.22
-        const result = new Function('return ' + jsExpression)();
-        const parsedResult = parseFloat(result);
-
-        if (isNaN(parsedResult) || !Number.isFinite(parsedResult)) {
-            console.warn('Invalid result from expression:', result, 'Original expression:', expression);
-            return 0;
-        }
-
-        console.log('Expression result:', parsedResult, 'from expression:', jsExpression);
-        return parsedResult;
+        const result = evaluateMoneyExpression(expression);
+        console.log('Expression result:', result.toString(), 'from expression:', expression);
+        return result.toString();
 
     } catch (error) {
         console.warn('Error evaluating expression:', error, 'Expression:', expression);
-        return 0;
+        return '0';
     }
 }
 
@@ -11846,33 +11889,29 @@ function applyRateToProcessedAmount(row, processedAmount) {
     }
 
     const cells = row.querySelectorAll('td');
+    const applyRateValue = function (rateValueStr) {
+        const value = String(rateValueStr || '').trim();
+        if (value === '') return null;
+        try {
+            if (value.startsWith('*')) {
+                const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
+                if (!rateValue.isZero()) return MoneyDecimal.mul(processedAmount, rateValue).toString();
+            } else if (value.startsWith('/')) {
+                const rateValue = MoneyDecimal.toDecimal(value.substring(1), 0);
+                if (!rateValue.isZero()) return MoneyDecimal.div(processedAmount, rateValue).toString();
+            } else {
+                const rateValue = MoneyDecimal.toDecimal(value, 0);
+                if (!rateValue.isZero()) return MoneyDecimal.mul(processedAmount, rateValue).toString();
+            }
+        } catch (_) { /* ignore invalid rate */ }
+        return null;
+    };
 
     // Priority 1: Check Rate Value column (cells[7]) - if has value, use it
     const rateValueCell = cells[7];
     if (rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '') {
-        const rateValueStr = rateValueCell.textContent.trim();
-
-        // Check if input starts with "*" for multiplication
-        if (rateValueStr.startsWith('*')) {
-            const rateValue = parseFloat(rateValueStr.substring(1));
-            if (!isNaN(rateValue) && rateValue !== 0) {
-                return processedAmount * rateValue;
-            }
-        }
-        // Check if input starts with "/" for division
-        else if (rateValueStr.startsWith('/')) {
-            const rateValue = parseFloat(rateValueStr.substring(1));
-            if (!isNaN(rateValue) && rateValue !== 0) {
-                return processedAmount / rateValue;
-            }
-        }
-        // Default: treat as multiplication (plain number)
-        else {
-            const rateValue = parseFloat(rateValueStr);
-            if (!isNaN(rateValue) && rateValue !== 0) {
-                return processedAmount * rateValue;
-            }
-        }
+        const rated = applyRateValue(rateValueCell.textContent.trim());
+        if (rated !== null) return rated;
     }
 
     // Priority 2: Check global rateInput if checkbox is checked
@@ -11891,32 +11930,11 @@ function applyRateToProcessedAmount(row, processedAmount) {
             return processedAmount;
         }
 
-        const rateInputValue = rateInput.value.trim();
-
-        // Check if input starts with "*" for multiplication
-        if (rateInputValue.startsWith('*')) {
-            const rateValue = parseFloat(rateInputValue.substring(1));
-            if (!isNaN(rateValue) && rateValue !== 0) {
-                return processedAmount * rateValue;
-            }
-        }
-        // Check if input starts with "/" for division
-        else if (rateInputValue.startsWith('/')) {
-            const rateValue = parseFloat(rateInputValue.substring(1));
-            if (!isNaN(rateValue) && rateValue !== 0) {
-                return processedAmount / rateValue;
-            }
-        }
-        // Default: treat as multiplication (backward compatibility)
-        else {
-            const rateValue = parseFloat(rateInputValue);
-            if (!isNaN(rateValue) && rateValue !== 0) {
-                return processedAmount * rateValue;
-            }
-        }
+        const rated = applyRateValue(rateInput.value.trim());
+        if (rated !== null) return rated;
     }
 
-    return processedAmount;
+    return MoneyDecimal.toDecimal(processedAmount, 0).toString();
 }
 
 // Save original values before batch update
@@ -11983,15 +12001,15 @@ function restoreOriginalRowValues(row) {
 
     // Restore Processed Amount column (index 8)
     if (cells[8] && originalProcessedAmount !== null && originalProcessedAmount !== '') {
-        const val = parseFloat(originalProcessedAmount.replace(/,/g, ''));
-        if (!isNaN(val)) {
+        try {
+            const val = MoneyDecimal.toDecimal(originalProcessedAmount.replace(/,/g, ''), 0).toString();
             // Store the base processed amount (without rate) in row attribute
-            row.setAttribute('data-base-processed-amount', val.toString());
+            row.setAttribute('data-base-processed-amount', val);
             // Apply rate multiplication if checkbox is checked or Rate Value has value
             const finalAmount = applyRateToProcessedAmount(row, val);
             cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalAmount));
-            cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-        }
+            cells[8].style.color = MoneyDecimal.cmp(finalAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalAmount, '0') < 0 ? '#A91215' : '#000000');
+        } catch (_) { /* ignore invalid original processed amount */ }
     }
 
     // Restore data attributes that are used when building form data
@@ -12564,29 +12582,24 @@ function updateFormulaAndProcessedAmount(row, data) {
 
         // Special handling: for MG95-96 + KL-ELSON, display processed amount as formula
         if (isMg95ElsonSpecialRow(data, row)) {
-            let specialAmount = (data.processedAmount !== undefined && data.processedAmount !== null)
-                ? Number(data.processedAmount)
-                : NaN;
-            if (isNaN(specialAmount)) {
+            let specialAmount = null;
+            if (data.processedAmount !== undefined && data.processedAmount !== null) {
+                try { specialAmount = MoneyDecimal.toDecimal(data.processedAmount, 0).toString(); } catch (_) { specialAmount = null; }
+            }
+            if (specialAmount === null) {
                 const baseAttr = row.getAttribute('data-base-processed-amount');
                 if (baseAttr !== null && baseAttr !== undefined && baseAttr !== '') {
-                    const num = parseFloat(baseAttr);
-                    if (!isNaN(num)) {
-                        specialAmount = num;
-                    }
+                    try { specialAmount = MoneyDecimal.toDecimal(baseAttr, 0).toString(); } catch (_) { specialAmount = null; }
                 }
             }
-            if (isNaN(specialAmount) && cells[8]) {
+            if (specialAmount === null && cells[8]) {
                 const text = (cells[8].textContent || '').replace(/,/g, '');
-                const num = parseFloat(text);
-                if (!isNaN(num)) {
-                    specialAmount = num;
-                }
+                try { specialAmount = MoneyDecimal.toDecimal(text, 0).toString(); } catch (_) { specialAmount = null; }
             }
-            if (!isNaN(specialAmount)) {
+            if (specialAmount !== null) {
                 const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
-                    ? roundProcessedAmountTo2Decimals(Number(specialAmount))
-                    : Number(specialAmount);
+                    ? roundProcessedAmountTo2Decimals(specialAmount)
+                    : specialAmount;
                 const displayVal = typeof formatNumberWithThousands === 'function'
                     ? formatNumberWithThousands(rounded)
                     : String(rounded);
@@ -12745,13 +12758,13 @@ function updateFormulaAndProcessedAmount(row, data) {
     if (canRecalculateProcessedAmount) {
         recalculateAndRenderProcessedAmount(row, restoredRecalculateOptions);
     } else if (cells[8]) {
-        const fallbackProcessedAmount = Number(data.processedAmount);
-        if (!Number.isNaN(fallbackProcessedAmount) && Number.isFinite(fallbackProcessedAmount)) {
-            row.setAttribute('data-base-processed-amount', fallbackProcessedAmount.toString());
+        try {
+            const fallbackProcessedAmount = MoneyDecimal.toDecimal(data.processedAmount, 0).toString();
+            row.setAttribute('data-base-processed-amount', fallbackProcessedAmount);
             const val = applyRateToProcessedAmount(row, fallbackProcessedAmount);
             cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-        }
+            cells[8].style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000');
+        } catch (_) { /* ignore invalid fallback processed amount */ }
         // cells[8].style.backgroundColor = '#e8f5e8'; // Removed
     }
 
@@ -14762,13 +14775,13 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
             updateTotal: false
         })
     } else if (cells[8]) {
-        const fallbackProcessedAmount = Number(data.processedAmount)
-        if (!Number.isNaN(fallbackProcessedAmount) && Number.isFinite(fallbackProcessedAmount)) {
-            row.setAttribute('data-base-processed-amount', fallbackProcessedAmount.toString())
+        try {
+            const fallbackProcessedAmount = MoneyDecimal.toDecimal(data.processedAmount, 0).toString()
+            row.setAttribute('data-base-processed-amount', fallbackProcessedAmount)
             const val = applyRateToProcessedAmount(row, fallbackProcessedAmount)
             cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val))
-            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000')
-        }
+            cells[8].style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000')
+        } catch (_) { /* ignore invalid fallback processed amount */ }
     }
 
     console.log('Updated sub id product row with data:', data);
@@ -15002,7 +15015,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 formulaText = formatNegativeNumbersInFormula(apiFormulaDisplay);
             } else if (!formulaText && (
                 // 后端给了 0（或没给），但该行 processedAmount 非 0 且存在 formulaOperators，则用 operators 重新求值得到展示
-                (data.processedAmount !== undefined && data.processedAmount !== null && String(data.processedAmount).trim() !== '' && Number(data.processedAmount) !== 0) &&
+                (data.processedAmount !== undefined && data.processedAmount !== null && String(data.processedAmount).trim() !== '' && MoneyDecimal.cmp(data.processedAmount, '0') !== 0) &&
                 (data.formulaOperators && String(data.formulaOperators).trim() !== '' && String(data.formulaOperators).trim() !== 'Formula') &&
                 typeof evaluateFormulaExpression === 'function'
             )) {
@@ -15012,7 +15025,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                     rowRefCtxForFormula.clickedCellRefs,
                     rowRefCtxForFormula.rowIndexOverride
                 )
-                if (!Number.isNaN(Number(evaluated)) && Number.isFinite(Number(evaluated)) && Number(evaluated) !== 0) {
+                if (MoneyDecimal.cmp(evaluated, '0') !== 0) {
                     rawFormula = String(data.formulaOperators).trim()
                     const display = formatFormulaDisplayTo2Decimals(String(evaluated))
                     formulaText = formatNegativeNumbersInFormula(display)
@@ -15151,20 +15164,18 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
             // Special handling: for MG95-96 + KL-ELSON, display processed amount as formula
             if (isMg95ElsonSpecialRow(data, row)) {
-                let specialAmount = (data.processedAmount !== undefined && data.processedAmount !== null)
-                    ? Number(data.processedAmount)
-                    : NaN;
-                if (isNaN(specialAmount) && cells[8]) {
-                    const text = (cells[8].textContent || '').replace(/,/g, '');
-                    const num = parseFloat(text);
-                    if (!isNaN(num)) {
-                        specialAmount = num;
-                    }
+                let specialAmount = null;
+                if (data.processedAmount !== undefined && data.processedAmount !== null) {
+                    try { specialAmount = MoneyDecimal.toDecimal(data.processedAmount, 0).toString(); } catch (_) { specialAmount = null; }
                 }
-                if (!isNaN(specialAmount)) {
+                if (specialAmount === null && cells[8]) {
+                    const text = (cells[8].textContent || '').replace(/,/g, '');
+                    try { specialAmount = MoneyDecimal.toDecimal(text, 0).toString(); } catch (_) { specialAmount = null; }
+                }
+                if (specialAmount !== null) {
                     const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
-                        ? roundProcessedAmountTo2Decimals(Number(specialAmount))
-                        : Number(specialAmount);
+                        ? roundProcessedAmountTo2Decimals(specialAmount)
+                        : specialAmount;
                     const displayVal = typeof formatNumberWithThousands === 'function'
                         ? formatNumberWithThousands(rounded)
                         : String(rounded);
@@ -15221,15 +15232,20 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         // 某些模板行在这里会先被正确计算出 processedAmount，
         // 但随后又被 updateFormulaAndProcessedAmount 内部用旧的 formulaOperators 重算覆盖。
         // 只在当前调用已明确给出 processedAmount 时，优先保留这次调用算出来的值。
-        const explicitProcessedAmount = Number(data.processedAmount)
-        const hasExplicitProcessedAmount = !Number.isNaN(explicitProcessedAmount) && Number.isFinite(explicitProcessedAmount)
+        let explicitProcessedAmount = null
+        try {
+            explicitProcessedAmount = MoneyDecimal.toDecimal(data.processedAmount, 0).toString()
+        } catch (_) {
+            explicitProcessedAmount = null
+        }
+        const hasExplicitProcessedAmount = explicitProcessedAmount !== null
         if (hasExplicitProcessedAmount && cells[8]) {
-            row.setAttribute('data-base-processed-amount', explicitProcessedAmount.toString())
+            row.setAttribute('data-base-processed-amount', explicitProcessedAmount)
             const finalProcessedAmount = typeof applyRateToProcessedAmount === 'function'
                 ? applyRateToProcessedAmount(row, explicitProcessedAmount)
                 : explicitProcessedAmount
             cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
-            cells[8].style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000')
+            cells[8].style.color = MoneyDecimal.cmp(finalProcessedAmount, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(finalProcessedAmount, '0') < 0 ? '#A91215' : '#000000')
         }
 
         // Persist row_index (if provided) on the DOM row for later reordering
@@ -15920,9 +15936,9 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 if (formulaCell) formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
                 const processedCell = targetRow.querySelector('td:nth-child(9)');
                 if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
-                    const val = Number(mainTemplate.last_processed_amount);
+                    const val = MoneyDecimal.toDecimal(mainTemplate.last_processed_amount, 0).toString();
                     processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                    processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                    processedCell.style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000');
                 }
                 targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
                 targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
@@ -16748,9 +16764,9 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             }
             const processedCell = targetRow.querySelector('td:nth-child(9)');
             if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
-                const val = Number(mainTemplate.last_processed_amount);
+                const val = MoneyDecimal.toDecimal(mainTemplate.last_processed_amount, 0).toString();
                 processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                processedCell.style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000');
             }
             targetRow.setAttribute('data-formula-display', formulaDisplayForManual);
             targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
@@ -18715,11 +18731,14 @@ function formatPercentValue(value) {
     if (value === null || value === undefined || value === '') {
         return '';
     }
-    const num = Number(value);
-    if (!Number.isFinite(num)) {
+    try {
+        return MoneyDecimal.formatDisplay(
+            MoneyDecimal.toDecimal(value, 0).toDecimalPlaces(4, Decimal.ROUND_DOWN),
+            4
+        );
+    } catch (e) {
         return '';
     }
-    return Number(num.toFixed(4)).toString();
 }
 
 // Display source percent as multiplier (no percentage conversion)
@@ -18738,28 +18757,20 @@ function formatSourcePercentForDisplay(value) {
             // Evaluate the expression
             const sanitized = removeThousandsSeparators(valueStr);
             const result = evaluateExpression(sanitized);
-            // Format to remove unnecessary decimals
-            if (result % 1 === 0) {
-                return result.toString();
-            } else {
-                return result.toFixed(6).replace(/\.?0+$/, '');
-            }
+            return MoneyDecimal.formatDisplay(result, 6);
         } catch (e) {
             console.warn('Could not evaluate source percent expression:', valueStr, e);
             return valueStr;
         }
     } else {
         // Simple number, return as-is
-        const numValue = parseFloat(valueStr);
-        if (isNaN(numValue)) {
+        let numValue;
+        try {
+            numValue = MoneyDecimal.toDecimal(valueStr, 0);
+        } catch (e) {
             return valueStr;
         }
-        // Format to remove unnecessary decimals
-        if (numValue % 1 === 0) {
-            return numValue.toString();
-        } else {
-            return numValue.toFixed(6).replace(/\.?0+$/, '');
-        }
+        return MoneyDecimal.formatDisplay(numValue, 6);
     }
 }
 
@@ -18779,10 +18790,15 @@ function convertDisplayPercentToDecimal(displayValue) {
     // If contains "%", it's old display format, just remove the % symbol
     // Only convert if it's clearly old percentage format (>= 10 with %)
     if (valueStr.includes('%')) {
-        const numValue = parseFloat(cleanValueStr);
-        if (!isNaN(numValue) && numValue >= 10) {
+        let numValue;
+        try {
+            numValue = MoneyDecimal.toDecimal(cleanValueStr, 0);
+        } catch (e) {
+            return cleanValueStr;
+        }
+        if (numValue.gte(10)) {
             // Old percentage format (e.g., 100% -> 1), convert to multiplier
-            return (numValue / 100).toString();
+            return MoneyDecimal.formatDisplay(numValue.div(100), 8);
         } else {
             // Has % but value < 10, just remove % (e.g., "1%" -> "1")
             return cleanValueStr;
@@ -18815,11 +18831,11 @@ function updateProcessedAmountCell(processValue, processedAmount) {
             // 与 datacapturesummary.php 表头一致：0 Id Product … 8 Processed Amount
             const processedAmountCell = cells[8];
             if (processedAmountCell) {
-                let val = Number(processedAmount);
+                let val = MoneyDecimal.toDecimal(processedAmount || '0', 0).toString();
                 // Apply rate multiplication if checkbox is checked
                 val = applyRateToProcessedAmount(row, val);
                 processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                processedAmountCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                processedAmountCell.style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000');
                 // processedAmountCell.style.backgroundColor = '#e8f5e8'; // Removed
                 updateProcessedAmountTotal();
             }
@@ -18828,45 +18844,29 @@ function updateProcessedAmountCell(processValue, processedAmount) {
     }
 }
 
-// Update the total processed amount displayed in the summary table footer
-function decimalTextToScaledInt(value, scale) {
-    const text = String(value ?? '').trim().replace(/,/g, '');
-    if (!text) return null;
-
-    const matched = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
-    if (matched) {
-        const sign = matched[1] === '-' ? -1 : 1;
-        const integerPart = Number(matched[2]);
-        const decimalPart = (matched[3] || '').padEnd(scale, '0').slice(0, scale);
-        const scaled = (integerPart * Math.pow(10, scale)) + Number(decimalPart);
-        return sign * scaled;
-    }
-
-    const fallbackNum = Number(text);
-    if (!Number.isFinite(fallbackNum)) return null;
-    return Math.trunc(fallbackNum * Math.pow(10, scale));
-}
-
 function getSummaryRowFinalAmount(row, cells) {
     const safeCells = cells || row.querySelectorAll('td');
     const baseAmountText = row.getAttribute('data-base-processed-amount');
     const hasBaseAmount = baseAmountText !== null && String(baseAmountText).trim() !== '';
 
     if (hasBaseAmount) {
-        const baseAmount = Number(baseAmountText);
-        if (Number.isFinite(baseAmount) && typeof applyRateToProcessedAmount === 'function') {
-            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-            if (Number.isFinite(finalAmount)) {
-                return finalAmount;
+        try {
+            const baseAmount = MoneyDecimal.toDecimal(baseAmountText, 0).toString();
+            if (typeof applyRateToProcessedAmount === 'function') {
+                return applyRateToProcessedAmount(row, baseAmount);
             }
-        }
+            return baseAmount;
+        } catch (_) { /* fallback to cell text */ }
     }
 
     const processedAmountCell = safeCells[8];
-    if (!processedAmountCell) return 0;
+    if (!processedAmountCell) return '0';
     const fallbackText = (processedAmountCell.textContent || '').trim().replace(/,/g, '');
-    const fallbackNum = Number(fallbackText);
-    return Number.isFinite(fallbackNum) ? fallbackNum : 0;
+    try {
+        return MoneyDecimal.toDecimal(fallbackText, 0).toString();
+    } catch (_) {
+        return '0';
+    }
 }
 
 function updateProcessedAmountTotal() {
@@ -18878,7 +18878,7 @@ function updateProcessedAmountTotal() {
         return;
     }
 
-    let totalMicros = 0; // 先按 6 位小数相加减
+    let total = MoneyDecimal.toDecimal('0');
     let hasValue = false;
     let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
 
@@ -18905,17 +18905,16 @@ function updateProcessedAmountTotal() {
         }
 
         const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
-        const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
-        if (rowMicros !== null) {
-            totalMicros += rowMicros;
+        try {
+            total = total.plus(MoneyDecimal.toDecimal(rowFinalAmount, 0));
             hasValue = true;
-        }
+        } catch (_) { /* ignore invalid row amount */ }
     });
 
-    const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+    const finalTotalRaw = hasValue ? total.toString() : '0';
     const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 只在显示时截断到 2 位
     totalCell.textContent = formatNumberWithThousands(finalTotal);
-    if (finalTotal >= -0.05 && finalTotal <= 0.05) {
+    if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
         totalCell.style.color = '#0D60FF';
     } else {
         totalCell.style.color = '#A91215';
@@ -18923,7 +18922,7 @@ function updateProcessedAmountTotal() {
 
     // Submit 按钮：合计在范围内 且 每行有 Account 的都有 Currency 和 Formula 才可点，否则变灰
     if (submitBtn) {
-        const isWithinRange = finalTotal >= -0.05 && finalTotal <= 0.05;
+        const isWithinRange = MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0;
         const canSubmit = isWithinRange && allRowsHaveCurrencyAndFormula;
         submitBtn.disabled = !canSubmit;
 
@@ -19307,13 +19306,13 @@ function updateBatchSourceColumns() {
 
         // Update Processed Amount column (index 8)
         if (cells[8]) {
-            let val = Number(processedAmount);
+            let val = MoneyDecimal.toDecimal(processedAmount || '0', 0).toString();
             // Store the base processed amount (without rate) in row attribute
-            row.setAttribute('data-base-processed-amount', val.toString());
+            row.setAttribute('data-base-processed-amount', val);
             // Apply rate multiplication if checkbox is checked or Rate Value has value
             val = applyRateToProcessedAmount(row, val);
             cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+            cells[8].style.color = MoneyDecimal.cmp(val, '0') > 0 ? '#0D60FF' : (MoneyDecimal.cmp(val, '0') < 0 ? '#A91215' : '#000000');
         }
 
         // Store the updated data in row attributes
@@ -19507,7 +19506,7 @@ async function submitSummaryData() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     const totalCell = document.getElementById('summaryTotalAmount');
     if (summaryTableBody && totalCell) {
-        let totalMicros = 0;
+        let totalAmount = MoneyDecimal.toDecimal('0', 0);
         let hasValue = false;
 
         summaryTableBody.querySelectorAll('tr').forEach(row => {
@@ -19519,16 +19518,15 @@ async function submitSummaryData() {
 
             const cells = row.querySelectorAll('td');
             const rowFinalAmount = getSummaryRowFinalAmount(row, cells);
-            const rowMicros = decimalTextToScaledInt(String(rowFinalAmount), 6);
-            if (rowMicros !== null) {
-                totalMicros += rowMicros;
+            try {
+                totalAmount = totalAmount.plus(MoneyDecimal.toDecimal(String(rowFinalAmount), 0));
                 hasValue = true;
-            }
+            } catch (_) { /* ignore invalid amount */ }
         });
 
-        const finalTotalRaw = hasValue ? (totalMicros / 1000000) : 0;
+        const finalTotalRaw = hasValue ? totalAmount : '0';
         const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw);
-        if (finalTotal < -0.05 || finalTotal > 0.05) {
+        if (MoneyDecimal.cmp(finalTotal, '-0.05') < 0 || MoneyDecimal.cmp(finalTotal, '0.05') > 0) {
             // Re-enable button on validation error
             if (submitBtn) {
                 submitBtn.disabled = false;

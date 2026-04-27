@@ -583,6 +583,8 @@ $default_date_to = $today_dt->format('d/m/Y');
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="js/decimal.min.js?v=<?php echo file_exists('js/decimal.min.js') ? filemtime('js/decimal.min.js') : time(); ?>"></script>
+    <script src="js/money-decimal.js?v=<?php echo file_exists('js/money-decimal.js') ? filemtime('js/money-decimal.js') : time(); ?>"></script>
     <script src="js/date-range-picker.js?v=<?php echo file_exists('js/date-range-picker.js') ? filemtime('js/date-range-picker.js') : time(); ?>"></script>
     <script src="js/transaction.js?v=<?php echo file_exists('js/transaction.js') ? filemtime('js/transaction.js') : time(); ?>"></script>
 </body>

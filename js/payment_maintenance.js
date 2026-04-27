@@ -52,12 +52,11 @@
 
         // Format number function
         function formatNumber(num) {
-            const number = parseFloat(num);
-            if (isNaN(number)) return '0.00';
-            return number.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+            try {
+                return MoneyDecimal.formatThousands(num, 2);
+            } catch (_) {
+                return '0.00';
+            }
         }
 
         // 从 PHP session 中获取 company_id（用于跨页面同步）

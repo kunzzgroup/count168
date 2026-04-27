@@ -25,32 +25,30 @@ function formatNumberToTwoDecimals(value) {
     if (value === null || value === undefined) return value;
     const str = (typeof value === 'string' ? value : String(value)).trim();
     if (str === '') return value;
-    var normalized = str;
-    // 欧洲格式：仅一个逗号且无小数点 → 逗号为小数位（65,1 → 65.1）
-    if (/^-?\d+,\d+$/.test(normalized)) normalized = normalized.replace(',', '.');
-    else normalized = normalized.replace(/,/g, '');
-    var num = parseFloat(normalized);
-    if (!Number.isFinite(num)) return value;
-    return num.toFixed(2);
+    try {
+        return MoneyDecimal.formatFixed(str, 2);
+    } catch (_) {
+        return value;
+    }
 }
 // 显示用：.xx 两位小数 + 千分位逗号（用于表格展示）
 function formatMoneyDisplay(value) {
-    var formatted = formatNumberToTwoDecimals(value);
-    if (formatted === value || formatted === null || formatted === undefined) return value;
-    var num = parseFloat(String(formatted).replace(/,/g, ''));
-    if (!Number.isFinite(num)) return value;
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    try {
+        return MoneyDecimal.formatThousands(value, 2);
+    } catch (_) {
+        return value;
+    }
 }
 // 修正 Sub Total / Grand Total 行：每组 Total = W/L + Comm（消除 0.01 舍入差）
 function fixSummaryRowTotalColumns(row) {
     if (!row || row.length < 9) return;
     for (var k = 0; 7 + 3 * k + 2 < row.length; k++) {
-        var wl = parseFloat(String(row[7 + 3 * k] || '').replace(/,/g, ''));
-        var comm = parseFloat(String(row[7 + 3 * k + 1] || '').replace(/,/g, ''));
-        if (!Number.isFinite(wl)) wl = 0;
-        if (!Number.isFinite(comm)) comm = 0;
-        var total = Math.round((wl + comm) * 100) / 100;
-        row[7 + 3 * k + 2] = formatNumberToTwoDecimals(total);
+        try {
+            var total = MoneyDecimal.add(row[7 + 3 * k] || '0', row[7 + 3 * k + 1] || '0');
+            row[7 + 3 * k + 2] = MoneyDecimal.formatFixed(total, 2);
+        } catch (_) {
+            row[7 + 3 * k + 2] = formatNumberToTwoDecimals(row[7 + 3 * k + 2]);
+        }
     }
 }
 
@@ -23368,13 +23366,10 @@ function convertBracketedToNegative(value) {
         return value;
     }
 
-    // Preserve original number string format (including decimal precision)
-    // Remove commas for parsing, but we'll add them back later
+    // Preserve original decimal string format and validate without JS Number.
     const numberWithoutCommas = numberStr.replace(/,/g, '');
-    // Convert to number to validate it's a valid number
-    const number = parseFloat(numberWithoutCommas);
-
-    if (!isNaN(number)) {
+    try {
+        MoneyDecimal.toDecimal(numberWithoutCommas);
         // We have a valid number
         // Keep the original format but make it negative
         let processedNumber = numberWithoutCommas;
@@ -23405,10 +23400,10 @@ function convertBracketedToNegative(value) {
         } else {
             return formattedNumber;
         }
+    } catch (_) {
+        // Return original value if conversion failed
+        return value;
     }
-
-    // Return original value if conversion failed
-    return value;
 }
 
 // Capture the entire table data including structure and content

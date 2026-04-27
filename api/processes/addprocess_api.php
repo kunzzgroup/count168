@@ -7,6 +7,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -474,12 +475,12 @@ try {
             'customer_id' => (isset($_POST['customer_id']) && $_POST['customer_id'] !== '') ? (int)$_POST['customer_id'] : null,
             'profit_account_id' => (isset($_POST['profit_account_id']) && $_POST['profit_account_id'] !== '') ? (int)$_POST['profit_account_id'] : null,
             'contract' => trim($_POST['contract'] ?? ''),
-            'insurance' => (isset($_POST['insurance']) && $_POST['insurance'] !== '') ? (float)$_POST['insurance'] : null,
+            'insurance' => money_optional($_POST['insurance'] ?? null),
             'sop' => trim($_POST['sop'] ?? ''),
             'remark' => trim($_POST['remark'] ?? ''),
-            'cost' => (isset($_POST['cost']) && $_POST['cost'] !== '') ? (float)$_POST['cost'] : null,
-            'price' => (isset($_POST['price']) && $_POST['price'] !== '') ? (float)$_POST['price'] : null,
-            'profit' => (isset($_POST['profit']) && $_POST['profit'] !== '') ? (float)$_POST['profit'] : null,
+            'cost' => money_optional($_POST['cost'] ?? null),
+            'price' => money_optional($_POST['price'] ?? null),
+            'profit' => money_optional($_POST['profit'] ?? null),
             'profit_sharing' => trim($_POST['profit_sharing'] ?? ''),
             'day_start' => trim($_POST['day_start'] ?? '') ?: null,
             'day_start_frequency' => $day_start_frequency,

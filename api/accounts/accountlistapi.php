@@ -4,6 +4,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
@@ -184,6 +185,9 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
         $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
         if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId((string)($row['account_id'] ?? ''))) {
             $row['account_id'] = formatDomainAutoDisplayAccountId((string)($row['account_id'] ?? ''));
+        }
+        if ($row['alert_amount'] !== null && $row['alert_amount'] !== '') {
+            $row['alert_amount'] = money_out($row['alert_amount']);
         }
         unset($row['created_source']);
     }
