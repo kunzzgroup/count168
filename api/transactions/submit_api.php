@@ -51,7 +51,7 @@ function requiresTransactionApproval(string $role, string $transactionDateDb): b
         return false;
     }
     $today = date('Y-m-d');
-    return $transactionDateDb <= $today;
+    return $transactionDateDb < $today;
 }
 
 /**
