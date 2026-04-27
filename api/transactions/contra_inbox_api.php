@@ -9,6 +9,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../api_response.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 
 header('Content-Type: application/json');
 
@@ -68,7 +69,7 @@ function fetchPendingContras(PDO $pdo, int $companyId): array {
             'to_account_code' => $r['to_account_code'] ?? null,
             'to_account_name' => $r['to_account_name'] ?? null,
             'currency' => $r['currency'] ?? '',
-            'amount' => (float)$r['amount'],
+            'amount' => money_out($r['amount'] ?? '0'),
             'submitted_by' => $r['submitted_by'] ?? '-',
             'description' => $r['description'] ?? '',
         ];

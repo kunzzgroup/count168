@@ -201,12 +201,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
 $searchTerm = isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '';
 $showInactive = isset($_GET['showInactive']) ? true : false;
 $showAll = isset($_GET['showAll']) ? true : false;
-
-// Account list UI lives in the React SPA (frontend/src/pages/AccountListPage.jsx). Legacy js/account-list.js removed.
-$qs = (!empty($_SERVER['QUERY_STRING'])) ? ('?' . $_SERVER['QUERY_STRING']) : '';
-header('Location: account-list' . $qs, true, 302);
-exit;
-
 ?>
 
 <!DOCTYPE html>
@@ -381,7 +375,7 @@ exit;
                             </div>
                             <div class="account-form-group" id="edit_alert_amount_row" style="display: none;">
                                 <label for="edit_alert_amount">Alert (Amount)</label>
-                                <input type="number" id="edit_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)">
+                                <input type="text" id="edit_alert_amount" name="alert_amount" inputmode="decimal" placeholder="Enter amount (auto-converted to negative)">
                             </div>
                             <div class="account-form-group">
                                 <label for="edit_remark">Remark</label>
@@ -508,7 +502,7 @@ exit;
                             </div>
                             <div class="account-form-group" id="add_alert_amount_row" style="display: none;">
                                 <label for="add_alert_amount">Alert (Amount)</label>
-                                <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)">
+                                <input type="text" id="add_alert_amount" name="alert_amount" inputmode="decimal" placeholder="Enter amount (auto-converted to negative)">
                             </div>
                             <div class="account-form-group">
                                 <label for="add_remark">Remark</label>
@@ -690,6 +684,18 @@ exit;
             </div>
         </div>
     </div>
+
+
+    <script>
+        window.ACCOUNT_LIST_SHOW_INACTIVE = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
+        window.ACCOUNT_LIST_SHOW_ALL = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;
+        window.ACCOUNT_LIST_COMPANY_ID = <?php echo json_encode($company_id); ?>;
+        window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD = <?php echo json_encode($company_id ? [$company_id] : []); ?>;
+    </script>
+    <script src="js/decimal.min.js?v=<?php echo $assetVer('js/decimal.min.js'); ?>"></script>
+    <script src="js/money-decimal.js?v=<?php echo $assetVer('js/money-decimal.js'); ?>"></script>
+    <script src="js/account-list.js?v=<?php echo $assetVer('js/account-list.js'); ?>"></script>
+
 
 </body>
 </html>

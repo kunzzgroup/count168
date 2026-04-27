@@ -64,19 +64,17 @@
         }
 
         function formatNumber(num) {
-            const number = parseFloat(num);
-            if (isNaN(number)) return '0.00';
-            return number.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+            try {
+                return MoneyDecimal.formatThousands(num || '0', 2);
+            } catch (e) {
+                return '0.00';
+            }
         }
 
         /** One column: "MYR 1,200.00" */
         function formatCurrencyAmountCell(currency, amount) {
             const cur = currency ? String(currency).trim() : '';
-            const n = parseFloat(amount);
-            const hasAmount = !isNaN(n);
+            const hasAmount = amount !== null && amount !== undefined && String(amount).trim() !== '';
             if (!cur && !hasAmount) return '-';
             if (!cur) return formatNumber(amount);
             if (!hasAmount) return escapeHtml(cur);
@@ -511,13 +509,7 @@
             if (btn) btn.addEventListener('click', runIfReady);
         }
 
-        function initBankprocessMaintenancePage() {
-            const fromSearch = document.getElementById('filter_from_search');
-            if (!fromSearch || fromSearch.getAttribute('data-bpm-spa-init') === '1') {
-                return;
-            }
-            fromSearch.setAttribute('data-bpm-spa-init', '1');
-
+        document.addEventListener('DOMContentLoaded', function() {
             initDatePickers();
             bindFromSearchControls();
             updateDeleteButtonState();
@@ -549,13 +541,5 @@
                 showNotification('Operation failed. Please try again.', 'error');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-        }
+        });
 window.switchCompany = switchCompany;
-
-if (window.__BANKPROCESS_MAINTENANCE_SPA_MODE) {
-    window.__initBankprocessMaintenancePage = initBankprocessMaintenancePage;
-} else if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initBankprocessMaintenancePage, { once: true });
-} else {
-    initBankprocessMaintenancePage();
-}

@@ -4,6 +4,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -35,6 +36,17 @@ function jsonResponse(bool $success, string $message, $data = null): void {
         'error' => $success ? null : $message,
         'data' => $data,
     ]);
+}
+
+function normalizeAlertAmount(?string $value): ?string {
+    $value = trim((string)($value ?? ''));
+    if ($value === '') {
+        return null;
+    }
+    if (!money_is_valid($value)) {
+        throw new Exception('Alert amount must be a valid decimal amount');
+    }
+    return money_normalize($value);
 }
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
@@ -309,7 +321,7 @@ try {
         $alert_start_date = null;
         $alert_amount = null;
     } else {
-        $alert_amount = !empty($_POST['alert_amount']) ? (float)$_POST['alert_amount'] : null;
+        $alert_amount = normalizeAlertAmount($_POST['alert_amount'] ?? null);
     }
 
     $alert_day = $alert_type;

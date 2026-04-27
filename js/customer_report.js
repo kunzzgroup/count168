@@ -1,11 +1,3 @@
-function crApi(pathWithQuery) {
-    const clean = String(pathWithQuery || '').replace(/^\//, '');
-    if (typeof window.__crApiHref === 'function') {
-        return window.__crApiHref(clean);
-    }
-    return '/' + clean;
-}
-
 // Notification functions
 function showNotification(message, type = 'success') {
     const container = document.getElementById('customerReportNotificationContainer');
@@ -48,7 +40,15 @@ function escapeHtml(text) {
 }
 
 function formatAmount(amount) {
-    return parseFloat(amount).toFixed(2);
+    return MoneyDecimal.formatFixed(amount || '0', 2);
+}
+
+function reportAdd(a, b) {
+    return MoneyDecimal.add(a || '0', b || '0');
+}
+
+function reportInt(value) {
+    return MoneyDecimal.toDecimal(value || '0', 0).toDecimalPlaces(0, Decimal.ROUND_DOWN).toNumber();
 }
 
 // Global variables
@@ -60,7 +60,7 @@ let showAllCurrencies = false; // 是否显示所有 currency
 async function fetchCompanyPermissions(companyCode) {
     if (!companyCode) return [];
     try {
-        const response = await fetch(crApi('api/domain/domain_api.php'), {
+        const response = await fetch('/api/domain/domain_api.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
@@ -87,18 +87,13 @@ function isBankOnlyCategoryCompany(permissions) {
 async function switchCompany(companyId, companyCode) {
     // 先更新 session
     try {
-        const response = await fetch(crApi(`api/session/update_company_session_api.php?company_id=${companyId}`));
+        const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
         const result = await response.json();
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
             // 即使 API 失败，也继续更新前端状态
         } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
             window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
-            if (window.__CUSTOMER_REPORT_SPA_MODE) {
-                try {
-                    window.dispatchEvent(new CustomEvent("eazycount:company-session-updated"));
-                } catch (e) { /* ignore */ }
-            }
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);
@@ -108,18 +103,14 @@ async function switchCompany(companyId, companyCode) {
     currentCompanyId = companyId;
     const permissions = await fetchCompanyPermissions(companyCode || '');
     if (isBankOnlyCategoryCompany(permissions)) {
-        if (window.__CUSTOMER_REPORT_SPA_MODE) {
-            window.location.href = '/dashboard';
-        } else {
-            window.location.href = 'dashboard.php';
-        }
+        window.location.href = 'dashboard.php';
         return;
     }
     
     // 更新按钮状态
     const buttons = document.querySelectorAll('#company-buttons-container .transaction-company-btn');
     buttons.forEach(btn => {
-        if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
+        if (reportInt(btn.dataset.companyId) === reportInt(companyId)) {
             btn.classList.add('active');
         } else {
             btn.classList.remove('active');
@@ -139,7 +130,7 @@ async function switchCompany(companyId, companyCode) {
 
 // Load company currencies
 async function loadCompanyCurrencies() {
-    let url = crApi('api/transactions/get_company_currencies_api.php');
+    let url = '/api/transactions/get_company_currencies_api.php';
     if (currentCompanyId) {
         url += `?company_id=${currentCompanyId}`;
     }
@@ -315,8 +306,8 @@ async function loadAccounts() {
         }
         
         const url = params.toString()
-            ? crApi(`api/transactions/get_accounts_api.php?${params.toString()}`)
-            : crApi('api/transactions/get_accounts_api.php');
+            ? `/api/transactions/get_accounts_api.php?${params.toString()}`
+            : '/api/transactions/get_accounts_api.php';
         
         const response = await fetch(url);
         const data = await response.json();
@@ -607,7 +598,7 @@ async function loadReport() {
             params.append('currency', selectedCurrencies.join(','));
         }
         
-        const response = await fetch(crApi(`api/reports/customer_report_api.php?${params.toString()}`));
+        const response = await fetch(`/api/reports/customer_report_api.php?${params.toString()}`);
         const result = await response.json();
         
         if (result.success) {
@@ -686,8 +677,8 @@ function renderReport(data, totalWin, totalLose) {
         }
         // 如果有 currency 为 null 的数据，也显示在默认报告中
         if (hasNullCurrency) {
-            const nullWin = nullCurrencyData.reduce((sum, item) => sum + (parseFloat(item.win) || 0), 0);
-            const nullLose = nullCurrencyData.reduce((sum, item) => sum + (parseFloat(item.lose) || 0), 0);
+            const nullWin = nullCurrencyData.reduce((sum, item) => reportAdd(sum, item.win), '0');
+            const nullLose = nullCurrencyData.reduce((sum, item) => reportAdd(sum, item.lose), '0');
             renderDefaultReport(nullCurrencyData, nullWin, nullLose);
         }
     } else {
@@ -739,11 +730,11 @@ function renderCurrencyGroupedReports(groupedByCurrency, currencies, totalWin, t
         const currencyData = groupedByCurrency[currency];
         
         // 计算该 currency 的总计
-        let currencyWin = 0;
-        let currencyLose = 0;
+        let currencyWin = '0';
+        let currencyLose = '0';
         currencyData.forEach(item => {
-            currencyWin += parseFloat(item.win) || 0;
-            currencyLose += parseFloat(item.lose) || 0;
+            currencyWin = reportAdd(currencyWin, item.win);
+            currencyLose = reportAdd(currencyLose, item.lose);
         });
 
         // 创建 currency 标题
@@ -806,13 +797,8 @@ function renderCurrencyGroupedReports(groupedByCurrency, currencies, totalWin, t
     });
 }
 
-async function initCustomerReportPage() {
-    const accountSelectBtn = document.getElementById('accountSelect');
-    if (!accountSelectBtn || accountSelectBtn.getAttribute('data-cr-spa-init') === '1') {
-        return;
-    }
-    accountSelectBtn.setAttribute('data-cr-spa-init', '1');
-
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', async function() {
     let modeCode = typeof window.SIDEBAR_COMPANY_CODE !== 'undefined' ? String(window.SIDEBAR_COMPANY_CODE) : '';
     if (!modeCode && typeof window.CUSTOMER_REPORT_COMPANY_ID !== 'undefined') {
         modeCode = String(window.CUSTOMER_REPORT_COMPANY_ID);
@@ -824,7 +810,7 @@ async function initCustomerReportPage() {
             if (window.history.length > 1) {
                 window.history.back();
             } else {
-                window.location.href = window.__CUSTOMER_REPORT_SPA_MODE ? '/dashboard' : 'dashboard.php';
+                window.location.href = 'dashboard.php';
             }
             return;
         }
@@ -851,12 +837,4 @@ async function initCustomerReportPage() {
     document.getElementById('showAll').addEventListener('change', function() {
         debouncedLoadReport();
     });
-}
-
-if (window.__CUSTOMER_REPORT_SPA_MODE) {
-    window.__initCustomerReportPage = initCustomerReportPage;
-} else if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initCustomerReportPage, { once: true });
-} else {
-    initCustomerReportPage();
-}
+});

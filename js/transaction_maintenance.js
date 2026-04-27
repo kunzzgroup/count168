@@ -5,10 +5,6 @@
 (function() {
     'use strict';
 
-    function tmDashboardHref() {
-        return window.__TRANSACTION_MAINTENANCE_SPA_MODE ? '/dashboard' : 'dashboard.php';
-    }
-
     let ownerCompanies = [];
     let currentCompanyId = (typeof window.TRANSACTION_MAINTENANCE !== 'undefined' && window.TRANSACTION_MAINTENANCE.currentCompanyId !== undefined)
         ? window.TRANSACTION_MAINTENANCE.currentCompanyId
@@ -259,7 +255,7 @@
         }
     }
 
-    async function switchCompany(companyId, companyCode) {
+    async function switchCompany(companyId) {
         if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
         let hasGamblingFromSession = undefined;
         let hasBankFromSession = undefined;
@@ -268,7 +264,7 @@
             const result = await response.json();
             if (!result.success) {
                 console.error('更新 session 失败:', result.error);
-                window.location.href = tmDashboardHref();
+                window.location.href = 'dashboard.php';
                 return;
             } else if (result.data) {
                 if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
@@ -276,22 +272,22 @@
             }
         } catch (error) {
             console.error('更新 session 时出错:', error);
-            window.location.href = tmDashboardHref();
+            window.location.href = 'dashboard.php';
             return;
         }
         currentCompanyId = companyId;
         const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(companyId, 10));
-        currentCompanyCode = companyCode || (newCompany ? (newCompany.company_id || '') : '');
+        currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
         if (typeof window !== 'undefined') {
             window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
         }
         if (hasGamblingFromSession === false) {
-            window.location.href = tmDashboardHref();
+            window.location.href = 'dashboard.php';
             return;
         }
         const permissions = await fetchCompanyPermissions(currentCompanyCode);
         if (isBankOnlyCategoryCompany(permissions)) {
-            window.location.href = tmDashboardHref();
+            window.location.href = 'dashboard.php';
             return;
         }
         if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
@@ -630,8 +626,8 @@
             const percentDisplay = (row.percent !== null && row.percent !== undefined && row.percent !== '') ? escapeHtml(row.percent) : '-';
             const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
             const rateDisplay = (row.rate !== null && row.rate !== undefined && row.rate !== '') ? escapeHtml(row.rate) : '-';
-            const crDisplay = row.cr !== null && row.cr !== undefined && row.cr !== '' ? escapeHtml(parseFloat(row.cr).toFixed(2)) : '-';
-            const drDisplay = row.dr !== null && row.dr !== undefined && row.dr !== '' ? escapeHtml(parseFloat(row.dr).toFixed(2)) : '-';
+            const crDisplay = row.cr !== null && row.cr !== undefined && row.cr !== '' ? escapeHtml(MoneyDecimal.formatFixed(row.cr, 2)) : '-';
+            const drDisplay = row.dr !== null && row.dr !== undefined && row.dr !== '' ? escapeHtml(MoneyDecimal.formatFixed(row.dr, 2)) : '-';
             const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
 
             const isDeleted = row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true;
@@ -700,15 +696,9 @@
         }
     }
 
-    function initTransactionMaintenancePage() {
-        const processSelectBtn = document.getElementById('filter_process');
-        if (!processSelectBtn || processSelectBtn.getAttribute('data-tm-spa-init') === '1') {
-            return;
-        }
-        processSelectBtn.setAttribute('data-tm-spa-init', '1');
-
+    document.addEventListener('DOMContentLoaded', function() {
         if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
-            window.location.href = tmDashboardHref();
+            window.location.href = 'dashboard.php';
             return;
         }
         initDatePickers();
@@ -735,14 +725,6 @@
             showNotification('Operation failed. Please try again.', 'error');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }
+    });
     window.switchCompany = switchCompany;
-
-    if (window.__TRANSACTION_MAINTENANCE_SPA_MODE) {
-        window.__initTransactionMaintenancePage = initTransactionMaintenancePage;
-    } else if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTransactionMaintenancePage, { once: true });
-    } else {
-        initTransactionMaintenancePage();
-    }
 })();

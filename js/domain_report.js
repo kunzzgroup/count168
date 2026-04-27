@@ -1,11 +1,3 @@
-function drApi(pathWithQuery) {
-    const clean = String(pathWithQuery || '').replace(/^\//, '');
-    if (typeof window.__drApiHref === 'function') {
-        return window.__drApiHref(clean);
-    }
-    return '/' + clean;
-}
-
 function showNotification(message, type = 'success') {
     const container = document.getElementById('domainReportNotificationContainer');
 
@@ -41,12 +33,24 @@ function showNotification(message, type = 'success') {
 }
 
 function formatAmount(amount) {
-    let num = Number(amount || 0);
-    // 避免出现 -0.00 的情况，接近 0 的负数直接当成 0 处理
-    if (Math.abs(num) < 0.005) {
-        num = 0;
-    }
-    return num.toFixed(2);
+    const value = MoneyDecimal.cmp(MoneyDecimal.abs(amount || '0'), '0.005') < 0 ? '0' : (amount || '0');
+    return MoneyDecimal.formatFixed(value, 2);
+}
+
+function reportAdd(a, b) {
+    return MoneyDecimal.add(a || '0', b || '0');
+}
+
+function reportSub(a, b) {
+    return MoneyDecimal.sub(a || '0', b || '0');
+}
+
+function reportCmp(a, b) {
+    return MoneyDecimal.cmp(a || '0', b || '0');
+}
+
+function reportInt(value) {
+    return MoneyDecimal.toDecimal(value || '0', 0).toDecimalPlaces(0, Decimal.ROUND_DOWN).toNumber();
 }
 
 let currentCompanyId = typeof window.DOMAIN_REPORT_COMPANY_ID !== 'undefined' ? window.DOMAIN_REPORT_COMPANY_ID : null;
@@ -55,7 +59,7 @@ let loadReportTimeout;
 async function fetchCompanyPermissions(companyCode) {
     if (!companyCode) return [];
     try {
-        const response = await fetch(drApi('api/domain/domain_api.php'), {
+        const response = await fetch('api/domain/domain_api.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'get_company_permissions', company_id: companyCode })
@@ -81,18 +85,13 @@ function isBankOnlyCategoryCompany(permissions) {
 async function switchCompany(companyId, companyCode) {
     // 先更新 session
     try {
-        const response = await fetch(drApi(`api/session/update_company_session_api.php?company_id=${companyId}`));
+        const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
         const result = await response.json();
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
             // 即使 API 失败，也继续更新前端状态
         } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
             window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
-            if (window.__DOMAIN_REPORT_SPA_MODE) {
-                try {
-                    window.dispatchEvent(new CustomEvent("eazycount:company-session-updated"));
-                } catch (e) { /* ignore */ }
-            }
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);
@@ -102,17 +101,13 @@ async function switchCompany(companyId, companyCode) {
     currentCompanyId = companyId;
     const permissions = await fetchCompanyPermissions(companyCode || '');
     if (isBankOnlyCategoryCompany(permissions)) {
-        if (window.__DOMAIN_REPORT_SPA_MODE) {
-            window.location.href = '/dashboard';
-        } else {
-            window.location.href = 'dashboard.php';
-        }
+        window.location.href = 'dashboard.php';
         return;
     }
 
     const buttons = document.querySelectorAll('#company-buttons-container .transaction-company-btn');
     buttons.forEach(btn => {
-        if (parseInt(btn.dataset.companyId, 10) === parseInt(companyId, 10)) {
+        if (reportInt(btn.dataset.companyId) === reportInt(companyId)) {
             btn.classList.add('active');
         } else {
             btn.classList.remove('active');
@@ -140,7 +135,7 @@ async function loadProcesses() {
         if (currentCompanyId) {
             params.append('company_id', currentCompanyId);
         }
-        const response = await fetch(drApi(`api/reports/domain_report_api.php?${params.toString()}`));
+        const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
         const data = await response.json();
         if (data.success) {
             const processButton = document.getElementById('processSelect');
@@ -410,7 +405,7 @@ async function loadReport() {
             params.append('company_id', currentCompanyId);
         }
 
-        const response = await fetch(drApi(`api/reports/domain_report_api.php?${params.toString()}`));
+        const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
         const result = await response.json();
 
         if (result.success) {
@@ -458,8 +453,7 @@ function renderReport(data, totals = null) {
         const card = document.createElement('div');
         card.className = 'domain-report-card';
         const label = item.description ? `${item.process} (${item.description})` : item.process;
-        const winLoseValue = Number(item.win_lose || 0);
-        const winLoseClass = winLoseValue > 0 ? 'domain-report-win-lose-positive' : (winLoseValue < 0 ? 'domain-report-win-lose-negative' : '');
+        const winLoseClass = reportCmp(item.win_lose || '0', '0') > 0 ? 'domain-report-win-lose-positive' : (reportCmp(item.win_lose || '0', '0') < 0 ? 'domain-report-win-lose-negative' : '');
         card.innerHTML = `
             <div class="domain-report-card-item">${label}</div>
             <div class="domain-report-card-item domain-report-amount"><strong>${formatAmount(item.turnover)}</strong></div>
@@ -470,30 +464,24 @@ function renderReport(data, totals = null) {
         container.appendChild(card);
     });
 
-    const totalTurnover = totals?.turnover ?? data.reduce((sum, item) => sum + Number(item.turnover || 0), 0);
-    const totalWin = totals?.win ?? data.reduce((sum, item) => sum + Number(item.win || 0), 0);
-    const totalLose = totals?.lose ?? data.reduce((sum, item) => sum + Number(item.lose || 0), 0);
-    const totalWinLose = totals?.win_lose ?? (totalWin - totalLose);
+    const totalTurnover = totals?.turnover ?? data.reduce((sum, item) => reportAdd(sum, item.turnover), '0');
+    const totalWin = totals?.win ?? data.reduce((sum, item) => reportAdd(sum, item.win), '0');
+    const totalLose = totals?.lose ?? data.reduce((sum, item) => reportAdd(sum, item.lose), '0');
+    const totalWinLose = totals?.win_lose ?? reportSub(totalWin, totalLose);
 
     document.getElementById('totalTurnover').innerHTML = '<strong>' + formatAmount(totalTurnover) + '</strong>';
     document.getElementById('totalWin').innerHTML = '<strong>' + formatAmount(totalWin) + '</strong>';
     document.getElementById('totalLose').innerHTML = '<strong>' + formatAmount(totalLose) + '</strong>';
     
     const totalWinLoseElement = document.getElementById('totalWinLose');
-    const totalWinLoseClass = totalWinLose > 0 ? 'domain-report-win-lose-positive' : (totalWinLose < 0 ? 'domain-report-win-lose-negative' : '');
+    const totalWinLoseClass = reportCmp(totalWinLose, '0') > 0 ? 'domain-report-win-lose-positive' : (reportCmp(totalWinLose, '0') < 0 ? 'domain-report-win-lose-negative' : '');
     totalWinLoseElement.className = 'domain-report-amount ' + totalWinLoseClass;
     totalWinLoseElement.innerHTML = '<strong>' + formatAmount(totalWinLose) + '</strong>';
     
     document.getElementById('domainReportTotal').style.display = 'grid';
 }
 
-async function initDomainReportPage() {
-    const processSelectBtn = document.getElementById('processSelect');
-    if (!processSelectBtn || processSelectBtn.getAttribute('data-dr-spa-init') === '1') {
-        return;
-    }
-    processSelectBtn.setAttribute('data-dr-spa-init', '1');
-
+document.addEventListener('DOMContentLoaded', async () => {
     let modeCode = typeof window.SIDEBAR_COMPANY_CODE !== 'undefined' ? String(window.SIDEBAR_COMPANY_CODE) : '';
     if (!modeCode && typeof window.DOMAIN_REPORT_COMPANY_ID !== 'undefined') {
         modeCode = String(window.DOMAIN_REPORT_COMPANY_ID);
@@ -505,7 +493,7 @@ async function initDomainReportPage() {
             if (window.history.length > 1) {
                 window.history.back();
             } else {
-                window.location.href = window.__DOMAIN_REPORT_SPA_MODE ? '/dashboard' : 'dashboard.php';
+                window.location.href = 'dashboard.php';
             }
             return;
         }
@@ -521,14 +509,4 @@ async function initDomainReportPage() {
     await loadReport();
 
     document.getElementById('processSelect').addEventListener('change', debouncedLoadReport);
-}
-
-window.switchCompany = switchCompany;
-
-if (window.__DOMAIN_REPORT_SPA_MODE) {
-    window.__initDomainReportPage = initDomainReportPage;
-} else if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDomainReportPage, { once: true });
-} else {
-    initDomainReportPage();
-}
+});

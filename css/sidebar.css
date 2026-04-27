@@ -1,7 +1,7 @@
 /* Sidebar 自己的字体设置，避免被各页面 body 的全局字体覆盖导致闪一下样式 */
 .informationmenu,
 .informationmenu * {
-    font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 /* 用户信息容器（包裹头像和用户信息）- 整体水平居中，名字长时向左右对称扩展 */
@@ -408,17 +408,12 @@
 }
 
 .informationmenu-content {
-    overflow: visible !important;
+    overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
     display: flex;
     flex-direction: column;
     padding: 0;
-}
-
-.informationmenu-content::-webkit-scrollbar {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
 }
 
 .informationmenu-section {
@@ -609,9 +604,7 @@
 
 /* 子菜单 - 紧凑型，显示在菜单项旁边 */
 .submenu {
-    position: absolute;
-    top: 0;
-    left: 100%;
+    position: fixed;
     width: clamp(100px, 10.42vw, 200px);
     min-height: auto;
     background:rgb(0, 84, 136);
@@ -626,20 +619,12 @@
     pointer-events: none;
     overflow: hidden;
     backdrop-filter: blur(10px);
-    margin-left: 0;
+    margin-left: 0px;
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title {
     background: rgba(255, 255, 255, 0.25);
     color: white;
-}
-
-.menu-item-wrapper:hover .submenu,
-.menu-item-wrapper:focus-within .submenu {
-    opacity: 1;
-    visibility: visible;
-    transform: translateX(0);
-    pointer-events: auto;
 }
 
 .submenu-content {

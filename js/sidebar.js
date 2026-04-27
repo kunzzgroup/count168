@@ -48,7 +48,7 @@
         document.querySelectorAll('.submenu-item').forEach(function (item) {
             item.classList.remove('current-page');
         });
-        var maintenancePages = ['capture_maintenance.php', 'transaction_maintenance.php', 'payment_maintenance.php', 'formula_maintenance.php', 'capture-maintenance', 'transaction-maintenance', 'payment-maintenance', 'formula-maintenance', 'bankprocess-maintenance'];
+        var maintenancePages = ['capture_maintenance.php', 'transaction_maintenance.php', 'payment_maintenance.php', 'formula_maintenance.php'];
         if (maintenancePages.indexOf(currentPage) !== -1) {
             var maintenanceTitle = document.querySelector('.informationmenu-section-title[data-section="maintenance"]');
             if (maintenanceTitle) maintenanceTitle.classList.add('current-page');
@@ -149,7 +149,7 @@
 
     function handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
-            window.location.href = '/logout';
+            window.location.href = 'dashboard.php?logout=1';
         }
     }
 

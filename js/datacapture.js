@@ -25,32 +25,30 @@ function formatNumberToTwoDecimals(value) {
     if (value === null || value === undefined) return value;
     const str = (typeof value === 'string' ? value : String(value)).trim();
     if (str === '') return value;
-    var normalized = str;
-    // 欧洲格式：仅一个逗号且无小数点 → 逗号为小数位（65,1 → 65.1）
-    if (/^-?\d+,\d+$/.test(normalized)) normalized = normalized.replace(',', '.');
-    else normalized = normalized.replace(/,/g, '');
-    var num = parseFloat(normalized);
-    if (!Number.isFinite(num)) return value;
-    return num.toFixed(2);
+    try {
+        return MoneyDecimal.formatFixed(str, 2);
+    } catch (_) {
+        return value;
+    }
 }
 // 显示用：.xx 两位小数 + 千分位逗号（用于表格展示）
 function formatMoneyDisplay(value) {
-    var formatted = formatNumberToTwoDecimals(value);
-    if (formatted === value || formatted === null || formatted === undefined) return value;
-    var num = parseFloat(String(formatted).replace(/,/g, ''));
-    if (!Number.isFinite(num)) return value;
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    try {
+        return MoneyDecimal.formatThousands(value, 2);
+    } catch (_) {
+        return value;
+    }
 }
 // 修正 Sub Total / Grand Total 行：每组 Total = W/L + Comm（消除 0.01 舍入差）
 function fixSummaryRowTotalColumns(row) {
     if (!row || row.length < 9) return;
     for (var k = 0; 7 + 3 * k + 2 < row.length; k++) {
-        var wl = parseFloat(String(row[7 + 3 * k] || '').replace(/,/g, ''));
-        var comm = parseFloat(String(row[7 + 3 * k + 1] || '').replace(/,/g, ''));
-        if (!Number.isFinite(wl)) wl = 0;
-        if (!Number.isFinite(comm)) comm = 0;
-        var total = Math.round((wl + comm) * 100) / 100;
-        row[7 + 3 * k + 2] = formatNumberToTwoDecimals(total);
+        try {
+            var total = MoneyDecimal.add(row[7 + 3 * k] || '0', row[7 + 3 * k + 1] || '0');
+            row[7 + 3 * k + 2] = MoneyDecimal.formatFixed(total, 2);
+        } catch (_) {
+            row[7 + 3 * k + 2] = formatNumberToTwoDecimals(row[7 + 3 * k + 2]);
+        }
     }
 }
 
@@ -1042,6 +1040,30 @@ async function loadSubmittedProcesses() {
 // Store copied data for paste operations
 let copiedData = null;
 
+function positionContextMenu(menuElement, event) {
+    if (!menuElement || !event) return;
+
+    const cursorX = event.clientX;
+    const cursorY = event.clientY;
+    const margin = 8;
+
+    // Temporarily show menu for accurate size measurement before final placement.
+    menuElement.style.visibility = 'hidden';
+    menuElement.style.display = 'block';
+
+    const menuWidth = menuElement.offsetWidth;
+    const menuHeight = menuElement.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const left = Math.max(margin, Math.min(cursorX, viewportWidth - menuWidth - margin));
+    const top = Math.max(margin, Math.min(cursorY, viewportHeight - menuHeight - margin));
+
+    menuElement.style.left = left + 'px';
+    menuElement.style.top = top + 'px';
+    menuElement.style.visibility = 'visible';
+}
+
 // Show context menu
 function showContextMenu(e, cell) {
     const contextMenu = document.getElementById('contextMenu');
@@ -1076,10 +1098,8 @@ function showContextMenu(e, cell) {
     console.log('After showContextMenu, selectedCells.size:', selectedCells.size);
     console.log('Selected cells:', Array.from(selectedCells).map(c => c.textContent || '(empty)'));
 
-    // Set menu position
-    contextMenu.style.left = e.pageX + 'px';
-    contextMenu.style.top = e.pageY + 'px';
-    contextMenu.style.display = 'block';
+    // Set menu position close to cursor for fixed-position menu.
+    positionContextMenu(contextMenu, e);
 
     // Click elsewhere to close menu
     // But don't close if clicking on menu items
@@ -1118,10 +1138,8 @@ function showColumnContextMenu(e, colIndex) {
     const columnContextMenu = document.getElementById('columnContextMenu');
     if (!columnContextMenu) return;
 
-    // Set menu position
-    columnContextMenu.style.left = e.pageX + 'px';
-    columnContextMenu.style.top = e.pageY + 'px';
-    columnContextMenu.style.display = 'block';
+    // Set menu position close to cursor for fixed-position menu.
+    positionContextMenu(columnContextMenu, e);
 
     // Click elsewhere to close menu
     setTimeout(() => {
@@ -1140,10 +1158,8 @@ function showRowContextMenu(e, rowIndex) {
     const rowContextMenu = document.getElementById('rowContextMenu');
     if (!rowContextMenu) return;
 
-    // Set menu position
-    rowContextMenu.style.left = e.pageX + 'px';
-    rowContextMenu.style.top = e.pageY + 'px';
-    rowContextMenu.style.display = 'block';
+    // Set menu position close to cursor for fixed-position menu.
+    positionContextMenu(rowContextMenu, e);
 
     // Click elsewhere to close menu
     setTimeout(() => {
@@ -23368,13 +23384,10 @@ function convertBracketedToNegative(value) {
         return value;
     }
 
-    // Preserve original number string format (including decimal precision)
-    // Remove commas for parsing, but we'll add them back later
+    // Preserve original decimal string format and validate without JS Number.
     const numberWithoutCommas = numberStr.replace(/,/g, '');
-    // Convert to number to validate it's a valid number
-    const number = parseFloat(numberWithoutCommas);
-
-    if (!isNaN(number)) {
+    try {
+        MoneyDecimal.toDecimal(numberWithoutCommas);
         // We have a valid number
         // Keep the original format but make it negative
         let processedNumber = numberWithoutCommas;
@@ -23405,10 +23418,10 @@ function convertBracketedToNegative(value) {
         } else {
             return formattedNumber;
         }
+    } catch (_) {
+        // Return original value if conversion failed
+        return value;
     }
-
-    // Return original value if conversion failed
-    return value;
 }
 
 // Capture the entire table data including structure and content
@@ -24477,14 +24490,8 @@ async function restoreFromLocalStorage() {
     }
 }
 
-// Initialize page（支持 React SPA 在 DOMContentLoaded 之后才挂载表单）
-async function initDataCapturePage() {
-    const dcForm = document.getElementById('dataCaptureForm');
-    if (!dcForm || dcForm.getAttribute('data-dc-spa-init') === '1') {
-        return;
-    }
-    dcForm.setAttribute('data-dc-spa-init', '1');
-
+// Initialize page
+document.addEventListener('DOMContentLoaded', async function () {
     // 加载权限按钮
     await loadPermissionButtons();
     // Mark page as ready after a brief delay to ensure CSS is loaded
@@ -24596,15 +24603,7 @@ async function initDataCapturePage() {
         // Restore data from localStorage
         await restoreFromLocalStorage();
     }
-}
-
-window.__initDataCapturePage = initDataCapturePage;
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDataCapturePage);
-} else {
-    initDataCapturePage();
-}
+});
 
 // 切换 data capture 的 company
 // 当前选择的权限

@@ -56,7 +56,7 @@ $company_id = $_SESSION['company_id'] ?? null;
                 localStorage.removeItem('capturedCaptureId');
             } catch (e) {}
             // 不带 restore 参数，Data Capture 不会尝试恢复旧数据
-            window.location.href = '/datacapture';
+            window.location.href = 'datacapture.php';
         }
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -328,6 +328,8 @@ $company_id = $_SESSION['company_id'] ?? null;
     <script>
         window.DATACAPTURESUMMARY_COMPANY_ID = <?php echo json_encode($company_id); ?>;
     </script>
+    <script src="js/decimal.min.js?v=<?php echo time(); ?>"></script>
+    <script src="js/money-decimal.js?v=<?php echo time(); ?>"></script>
     <script src="js/datacapturesummary.js?v=<?php echo time(); ?>"></script>
     
 </body>

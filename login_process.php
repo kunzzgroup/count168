@@ -180,8 +180,6 @@ try {
     
     if ($user) {
         // User 登录成功
-        // 每次新登录都重置二级密码验证状态，避免沿用旧会话的已验证标记。
-        unset($_SESSION['secondary_password_verified']);
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['login_id'] = $user['login_id'];
         $_SESSION['name'] = $user['name'];
@@ -223,7 +221,7 @@ try {
 
         if ($needs_secondary_password) {
             // 需要二级密码验证，跳转到二级密码验证页面
-            echo json_encode(['status' => 'success', 'redirect' => 'api/users/user_secondary_password.php']);
+            echo json_encode(['status' => 'success', 'redirect' => 'user_secondary_password.php']);
         } else {
             // 不需要二级密码验证，直接跳转到dashboard
             $_SESSION['secondary_password_verified'] = true; // 标记为已验证（对于不需要二级密码的用户）
@@ -283,8 +281,6 @@ try {
                 $update_stmt->execute([$hashed_password, $owner['id']]);
             }
 
-            // 每次新登录都重置二级密码验证状态，避免沿用旧会话的已验证标记。
-            unset($_SESSION['secondary_password_verified']);
             $_SESSION['user_id'] = $owner['id'];
             $_SESSION['login_id'] = $owner['owner_code'];
             $_SESSION['name'] = $owner['name'];
@@ -302,22 +298,8 @@ try {
             if ($remember_me) {
                 // Owner 的 remember me 可以存在 session 或另外处理
             }
-
-            // Owner 分支：若设置了二级密码则先走 Secondary Password 页面；未设置则直接放行。
-            $needs_owner_secondary = false;
-            $stmt_owner_secondary = $pdo->prepare("SELECT secondary_password FROM owner WHERE id = ?");
-            $stmt_owner_secondary->execute([$owner['id']]);
-            $owner_secondary = $stmt_owner_secondary->fetch(PDO::FETCH_ASSOC);
-            if ($owner_secondary && !empty($owner_secondary['secondary_password'])) {
-                $needs_owner_secondary = true;
-            }
-
-            if ($needs_owner_secondary) {
-                echo json_encode(['status' => 'success', 'redirect' => 'owner-secondary-password']);
-            } else {
-                $_SESSION['secondary_password_verified'] = true;
-                echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
-            }
+            
+            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
         } else {
             if ($owner_password_match && $owner_has_expired) {
                 echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);
