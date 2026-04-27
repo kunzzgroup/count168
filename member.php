@@ -1,4 +1,8 @@
 <?php
+header('Location: /member', true, 302);
+exit();
+
+// Legacy implementation retained below for rollback/reference.
 // 使用统一的session检查
 require_once __DIR__ . '/session_check.php';
 
