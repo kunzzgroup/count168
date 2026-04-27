@@ -724,13 +724,13 @@ function hasRestorableSummaryState(saved) {
 
 function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey, rowsByRowUid) {
     if (!row) return null;
-    const uid = (row.getAttribute('data-row-uid') || '').trim();
-    if (uid && rowsByRowUid && typeof rowsByRowUid === 'object' && rowsByRowUid[uid]) {
-        return rowsByRowUid[uid];
-    }
     const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
     if (stableKey && rowsByStableKey && typeof rowsByStableKey === 'object' && rowsByStableKey[stableKey]) {
         return rowsByStableKey[stableKey];
+    }
+    const uid = (row.getAttribute('data-row-uid') || '').trim();
+    if (uid && rowsByRowUid && typeof rowsByRowUid === 'object' && rowsByRowUid[uid]) {
+        return rowsByRowUid[uid];
     }
     const key = getSummaryRowKey(row);
     const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
@@ -818,17 +818,11 @@ function restoreFormulaSourceFromRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
 
-    // 在按照 rowOrder 重排之前，先为当前 DOM 行补上 data-row-uid（优先按保存时的行序与 rowOrder 对齐，避免同 Id_Product+Account 多行仅靠 stableKey 串数据）。
+    // 先为当前 DOM 行补上 data-row-uid：
+    // 只根据 stable/key 精确匹配恢复，不按 rowOrder 的数组索引硬绑定。
+    // 原因：main/sub 行在 refresh 后顺序可能变化，按索引回填 uid 会把别行数据绑定到当前行（sub row 最明显）。
     try {
         const rowsForUidRestore = summaryTableBody.querySelectorAll('tr');
-        const rowOrderArr = saved.rowOrder;
-        if (Array.isArray(rowOrderArr) && rowOrderArr.length === rowsForUidRestore.length) {
-            Array.from(rowsForUidRestore).forEach((row, idx) => {
-                if (row.getAttribute('data-row-uid')) return;
-                const uid = rowUidFromSummarySavedOrderEntry(rowOrderArr[idx]);
-                if (uid) row.setAttribute('data-row-uid', uid);
-            });
-        }
         rowsForUidRestore.forEach((row) => {
             if (row.getAttribute('data-row-uid')) return;
             const dataForUid = getSavedSummaryRowData(row, byKey, byStableKey, byRowUid);
