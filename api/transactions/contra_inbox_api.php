@@ -1,7 +1,7 @@
 <?php
 /**
- * Contra Approval Inbox API (Manager+)
- * 返回当前公司所有待批准的 CONTRA（approval_status = PENDING）
+ * Approval Inbox API (Manager+)
+ * 返回当前公司所有待批准的审批交易（approval_status = PENDING）
  * 路径: api/transactions/contra_inbox_api.php
  */
 
@@ -59,7 +59,8 @@ function fetchPendingContras(PDO $pdo, int $companyId): array {
     $orderBy = $hasCreatedAt
         ? " ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC"
         : " ORDER BY t.transaction_date ASC, t.id ASC";
-    $sql .= " WHERE t.company_id = ? AND t.transaction_type = 'CONTRA' AND t.approval_status = 'PENDING'"
+    $sql .= " WHERE t.company_id = ? AND t.approval_status = 'PENDING'
+              AND t.transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','WIN','LOSE','PROFIT')"
         . $orderBy;
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$companyId]);
