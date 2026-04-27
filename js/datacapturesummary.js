@@ -16541,19 +16541,36 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                 return a.index - b.index;
             });
             if (allCandidatesWithoutAccount) {
-                // 多行且均无 account：按 row_index、再按 DOM 顺序选第一个尚未在本轮套用过的行，使模板按顺序套用
-                const firstUnapplied = sortedByRowIndex.find(c => !c.alreadyApplied);
-                if (firstUnapplied) {
-                    targetRow = firstUnapplied.row;
-                    console.log('applyMainTemplateToRow: Multiple rows with no account — applying by order for account_id =', templateAccountId, 'idProduct =', idProduct);
+                // 多行且均无 account：若模板携带 row_index，必须优先命中同 row_index 的行；
+                // 只有在 row_index 缺失/无法命中时，才按顺序选第一个未套用行。
+                let chosen = null;
+                if (templateRowIndex !== null) {
+                    chosen = sortedByRowIndex.find(c => !c.alreadyApplied && c.rowIndex === templateRowIndex) || null;
+                }
+                if (!chosen) {
+                    chosen = sortedByRowIndex.find(c => !c.alreadyApplied) || null;
+                }
+                if (chosen) {
+                    targetRow = chosen.row;
+                    console.log('applyMainTemplateToRow: Multiple rows with no account — applying by row_index/order for account_id =', templateAccountId, 'templateRowIndex =', templateRowIndex, 'idProduct =', idProduct);
                 }
             }
             // 若仍有未匹配且存在「未设置账号且未套用」的行：套用到第一个这样的行，避免 account_id 未写入 data-account-id 时被跳过（如 H8221 + 3300）
             if (!targetRow) {
-                const firstEmptyUnapplied = sortedByRowIndex.find(c => (!c.accountId || String(c.accountId).trim() === '') && !c.alreadyApplied);
-                if (firstEmptyUnapplied) {
-                    targetRow = firstEmptyUnapplied.row;
-                    console.log('applyMainTemplateToRow: No account match — applying to first empty unapplied row for account_id =', templateAccountId, 'idProduct =', idProduct);
+                let chosen = null;
+                if (templateRowIndex !== null) {
+                    chosen = sortedByRowIndex.find(c =>
+                        (!c.accountId || String(c.accountId).trim() === '') &&
+                        !c.alreadyApplied &&
+                        c.rowIndex === templateRowIndex
+                    ) || null;
+                }
+                if (!chosen) {
+                    chosen = sortedByRowIndex.find(c => (!c.accountId || String(c.accountId).trim() === '') && !c.alreadyApplied) || null;
+                }
+                if (chosen) {
+                    targetRow = chosen.row;
+                    console.log('applyMainTemplateToRow: No account match — applying to empty row by row_index/order for account_id =', templateAccountId, 'templateRowIndex =', templateRowIndex, 'idProduct =', idProduct);
                 }
             }
             if (!targetRow) {
