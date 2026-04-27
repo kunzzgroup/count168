@@ -74,6 +74,30 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
+    // Ensure login page always restores the base background layout.
+    document.body.classList.remove(
+      "transaction-page",
+      "member-winloss-page",
+      "dashboard-page",
+      "account-page",
+      "announcement-page",
+      "datacapture-page",
+      "report-page",
+      "process-page",
+      "process-page--bank",
+      "process-page--show-all",
+      "process-page--bank-show-all",
+      "user-page",
+      "user-page--show-all",
+      "page-ready",
+    );
+    document.body.classList.add("bg");
+    return () => {
+      document.body.classList.remove("bg");
+    };
+  }, []);
+
+  useEffect(() => {
     const ac = new AbortController();
     (async () => {
       try {
