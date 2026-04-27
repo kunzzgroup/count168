@@ -944,7 +944,7 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 
 /* Bank：数据格与 th 同 padding，从 Country 起内容对齐 */
 .process-page .process-cards.bank-mode .process-card .card-item {
-    padding: 2px 4px;
+    padding: 2px 0px;
     box-sizing: border-box;
 }
 

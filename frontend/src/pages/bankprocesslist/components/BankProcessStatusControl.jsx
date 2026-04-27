@@ -82,7 +82,11 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
         {label}
       </button>
       {open ? (
-        <div className="bank-status-menu" role="listbox">
+        <div
+          className="bank-status-menu"
+          role="listbox"
+          style={{ display: "flex", flexDirection: "column", alignItems: "stretch", whiteSpace: "normal", minWidth: 118 }}
+        >
           {options.map((opt) => {
             const optLabel = opt === "E_INVOICE" ? "E-INVOICE" : opt;
             const cur = ui === opt;
@@ -93,6 +97,7 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
                 className={`bank-status-option${cur ? " selected" : ""}`}
                 onClick={() => void apply(opt)}
                 data-value={opt.toLowerCase()}
+                style={{ display: "block", width: "100%" }}
               >
                 {optLabel}
               </button>
