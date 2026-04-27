@@ -59,8 +59,8 @@ function fetchPendingContras(PDO $pdo, int $companyId): array {
     $orderBy = $hasCreatedAt
         ? " ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC"
         : " ORDER BY t.transaction_date ASC, t.id ASC";
-    $sql .= " WHERE t.company_id = ? AND t.approval_status = 'PENDING'
-              AND t.transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','PROFIT')"
+    $sql .= " WHERE t.company_id = ? AND UPPER(TRIM(COALESCE(t.approval_status, ''))) = 'PENDING'
+              AND t.transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','PROFIT','WIN','LOSE')"
         . $orderBy;
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$companyId]);
