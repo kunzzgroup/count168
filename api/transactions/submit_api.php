@@ -54,6 +54,16 @@ function requiresTransactionApproval(string $role, string $transactionDateDb): b
     return $transactionDateDb <= $today;
 }
 
+/**
+ * 需要审批的交易类型：
+ * CONTRA / PAYMENT / RECEIVE / CLAIM / CLEAR / PROFIT(实际落库为 WIN/LOSE)
+ */
+function requiresApprovalForType(string $transactionType): bool
+{
+    $type = strtoupper(trim($transactionType));
+    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'PROFIT', 'WIN', 'LOSE'], true);
+}
+
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
 {
     $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
@@ -292,7 +302,7 @@ try {
     $approved_at = date('Y-m-d H:i:s');
     $is_pending_approval = false;
 
-    if ($has_approval_status) {
+    if ($has_approval_status && requiresApprovalForType($transaction_type)) {
         if (requiresTransactionApproval($userRole, $transaction_date_db)) {
             $approval_status = 'PENDING';
             $approved_by = null;

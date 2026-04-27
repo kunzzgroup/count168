@@ -38,8 +38,11 @@ function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
         return '';
     }
     $a = $alias !== '' ? $alias . '.' : '';
-    // 所有 type 生效：PENDING 不计入 BF / CrDr / Balance
-    return " AND {$a}approval_status = 'APPROVED'";
+    // 指定 type 生效：CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR/PROFIT(落库为 WIN/LOSE) 的 PENDING 不计入
+    return " AND ((
+                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','WIN','LOSE','PROFIT')
+                AND {$a}approval_status = 'APPROVED'
+            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','WIN','LOSE','PROFIT'))";
 }
 
 function searchApiAccountHasCreatedSourceColumn(PDO $pdo): bool
