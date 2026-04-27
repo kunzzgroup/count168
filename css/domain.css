@@ -99,6 +99,10 @@ h1 {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-add:hover {
@@ -1276,7 +1280,7 @@ h1 {
     color: white;
     font-family: 'Amaranth';
     width: clamp(90px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 20px;
+    padding: clamp(6px, 0.42vw, 8px) 0px;
     font-size: clamp(10px, 0.83vw, 16px);
     margin-left: 10px;
     border: none;
@@ -1284,6 +1288,10 @@ h1 {
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-delete:hover {
