@@ -1112,6 +1112,14 @@ function positionContextMenuAtPoint(menuElement, cursorX, cursorY) {
     menuElement.style.visibility = 'visible';
 }
 
+function syncExcelStickyHeaderOffset() {
+    const excelTableContainer = document.querySelector('.excel-table-container');
+    const excelTableHeader = excelTableContainer?.querySelector('.excel-table-header');
+    if (!excelTableContainer || !excelTableHeader) return;
+
+    excelTableContainer.style.setProperty('--excel-header-sticky-offset', `${excelTableHeader.offsetHeight}px`);
+}
+
 // Show context menu
 function showContextMenu(e, cell) {
     const contextMenu = document.getElementById('contextMenu');
@@ -24549,9 +24557,17 @@ document.addEventListener('DOMContentLoaded', async function () {
     const typeSelect = document.getElementById('dataCaptureTypeSelector');
     const excelTableContainer = document.querySelector('.excel-table-container');
     if (excelTableContainer) {
+        syncExcelStickyHeaderOffset();
         excelTableContainer.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
+        const excelTableHeader = excelTableContainer.querySelector('.excel-table-header');
+        if (excelTableHeader && window.ResizeObserver) {
+            new ResizeObserver(syncExcelStickyHeaderOffset).observe(excelTableHeader);
+        }
     }
-    window.addEventListener('resize', updateActiveContextMenuPosition);
+    window.addEventListener('resize', () => {
+        syncExcelStickyHeaderOffset();
+        updateActiveContextMenuPosition();
+    });
 
     if (typeSelect) {
         currentDataCaptureType = typeSelect.value || '1.Text';
