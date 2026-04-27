@@ -1051,15 +1051,12 @@ function positionContextMenu(menu, e, anchorElement) {
     }
 
     const anchorRect = anchorElement.getBoundingClientRect();
-    const scrollContainer = anchorElement.closest('.excel-table-container');
     activeContextMenuAnchor = {
         menu,
         anchorElement,
         offsetX: Math.max(0, Math.min(e.clientX - anchorRect.left, anchorRect.width)),
         offsetY: Math.max(0, Math.min(e.clientY - anchorRect.top, anchorRect.height)),
-        scrollContainer,
-        lockedScrollTop: scrollContainer ? scrollContainer.scrollTop : 0,
-        lockedScrollLeft: scrollContainer ? scrollContainer.scrollLeft : 0
+        scrollContainer: anchorElement.closest('.excel-table-container')
     };
 
     menu.style.display = 'block';
@@ -1069,20 +1066,15 @@ function positionContextMenu(menu, e, anchorElement) {
 function updateActiveContextMenuPosition() {
     if (!activeContextMenuAnchor) return;
 
-    const { menu, anchorElement, offsetX, offsetY, scrollContainer, lockedScrollTop, lockedScrollLeft } = activeContextMenuAnchor;
+    const { menu, anchorElement, offsetX, offsetY, scrollContainer } = activeContextMenuAnchor;
     if (!menu || !anchorElement || !anchorElement.isConnected || menu.style.display === 'none') {
         activeContextMenuAnchor = null;
         return;
     }
 
+    const anchorRect = anchorElement.getBoundingClientRect();
     if (scrollContainer) {
-        if (scrollContainer.scrollTop !== lockedScrollTop || scrollContainer.scrollLeft !== lockedScrollLeft) {
-            scrollContainer.scrollTop = lockedScrollTop;
-            scrollContainer.scrollLeft = lockedScrollLeft;
-        }
-
         const containerRect = scrollContainer.getBoundingClientRect();
-        const anchorRect = anchorElement.getBoundingClientRect();
         const anchorOutsideContainer =
             anchorRect.bottom < containerRect.top ||
             anchorRect.top > containerRect.bottom ||
@@ -1095,15 +1087,7 @@ function updateActiveContextMenuPosition() {
         }
     }
 
-    const anchorRect = anchorElement.getBoundingClientRect();
     positionContextMenuAtPoint(menu, anchorRect.left + offsetX, anchorRect.top + offsetY);
-}
-
-function preventTableScrollWhileContextMenuOpen(e) {
-    if (!activeContextMenuAnchor) return;
-    const menu = activeContextMenuAnchor.menu;
-    if (!menu || menu.style.display === 'none') return;
-    e.preventDefault();
 }
 
 function positionContextMenuAtPoint(menuElement, cursorX, cursorY) {
@@ -24566,7 +24550,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     const excelTableContainer = document.querySelector('.excel-table-container');
     if (excelTableContainer) {
         excelTableContainer.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
-        excelTableContainer.addEventListener('wheel', preventTableScrollWhileContextMenuOpen, { passive: false });
     }
     window.addEventListener('resize', updateActiveContextMenuPosition);
 
