@@ -42,11 +42,10 @@ function isManagerOrAboveRole(string $role): bool
 }
 
 /**
- * 是否需要 Contra 审批：
- * - 仅对 CONTRA 生效
+ * 是否需要交易审批：
  * - manager 以下：只要是“今天及之前”的交易日期，就需要审批
  */
-function requiresContraApproval(string $role, string $transactionDateDb): bool
+function requiresTransactionApproval(string $role, string $transactionDateDb): bool
 {
     if (isManagerOrAboveRole($role)) {
         return false;
@@ -276,20 +275,20 @@ try {
     $has_currency_id = tableHasColumn($pdo, 'transactions', 'currency_id');
     $has_approval_status = tableHasColumn($pdo, 'transactions', 'approval_status');
 
-    // Contra 审批规则
+    // 交易审批规则（所有 type 与 CONTRA 保持一致）
     $approval_status = 'APPROVED';
     $approved_by = $created_by_user;
     $approved_by_owner = $created_by_owner;
     $approved_at = date('Y-m-d H:i:s');
-    $is_contra_pending = false;
+    $is_pending_approval = false;
 
-    if ($transaction_type === 'CONTRA' && $has_approval_status) {
-        if (requiresContraApproval($userRole, $transaction_date_db)) {
+    if ($has_approval_status) {
+        if (requiresTransactionApproval($userRole, $transaction_date_db)) {
             $approval_status = 'PENDING';
             $approved_by = null;
             $approved_by_owner = null;
             $approved_at = null;
-            $is_contra_pending = true;
+            $is_pending_approval = true;
         }
     }
 
@@ -982,8 +981,8 @@ try {
         // 返回成功响应
         $responsePayload = [
             'success' => true,
-            'message' => $is_contra_pending
-                ? 'CONTRA submitted, pending Manager+ approval to take effect'
+            'message' => $is_pending_approval
+                ? 'Transaction submitted, pending Manager+ approval to take effect'
                 : 'Transaction submitted successfully',
             'data' => [
                 'transaction_id' => $transaction_id,
