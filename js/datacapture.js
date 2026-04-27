@@ -1056,7 +1056,7 @@ function positionContextMenu(menu, e, anchorElement) {
         anchorElement,
         offsetX: Math.max(0, Math.min(e.clientX - anchorRect.left, anchorRect.width)),
         offsetY: Math.max(0, Math.min(e.clientY - anchorRect.top, anchorRect.height)),
-        scrollContainer: anchorElement.closest('.excel-table-scroll-body') || anchorElement.closest('.excel-table-container')
+        scrollContainer: anchorElement.closest('.excel-table-container')
     };
 
     menu.style.display = 'block';
@@ -24548,10 +24548,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 初始化 Data Capture Type 选择器
     const typeSelect = document.getElementById('dataCaptureTypeSelector');
     const excelTableContainer = document.querySelector('.excel-table-container');
-    const excelTableScrollBody = document.querySelector('.excel-table-scroll-body');
-    if (excelTableScrollBody) {
-        excelTableScrollBody.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
-    } else if (excelTableContainer) {
+    if (excelTableContainer) {
         excelTableContainer.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
     }
     window.addEventListener('resize', updateActiveContextMenuPosition);
