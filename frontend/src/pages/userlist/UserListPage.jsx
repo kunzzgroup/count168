@@ -344,7 +344,7 @@ export default function UserListPage() {
             </div>
             <div style={{ padding: "0 20px 15px 20px" }}>
               {groupIds.length > 0 && (
-                <div className="transaction-company-filter">
+                <div className="transaction-company-filter" style={{ marginBottom: "8px" }}>
                   <span>GroupID:</span>
                   <div className="transaction-company-buttons">
                     {groupIds.map(g => (
@@ -411,7 +411,13 @@ export default function UserListPage() {
               })}
             </div>
           </div>
-          {!showAll && <div className="pagination-container"><button className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>◀</button><span>{currentPage} of {totalPages}</span><button className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>▶</button></div>}
+          {!showAll && (
+            <div className="pagination-container">
+              <button className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>◀</button>
+              <span className="pagination-info">{currentPage} of {totalPages}</span>
+              <button className="pagination-btn" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>▶</button>
+            </div>
+          )}
         </div>
       </div>
       {toast && <div id="notificationContainer" className="notification-container"><div className={`notification notification-${toast.type} show`}>{toast.message}</div></div>}

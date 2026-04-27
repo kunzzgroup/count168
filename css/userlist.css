@@ -166,6 +166,10 @@ h1 {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-add:hover {
@@ -210,6 +214,10 @@ h1 {
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-delete:hover {
@@ -236,6 +244,10 @@ h1 {
     box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-cancel:hover {
@@ -793,6 +805,10 @@ h1 {
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-save:hover {
@@ -815,6 +831,10 @@ h1 {
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-secondary:hover,
@@ -836,6 +856,10 @@ h1 {
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .btn-clearall:hover {
@@ -1265,9 +1289,17 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
 .transaction-company-label {
     font-weight: bold;
     color: #374151;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: clamp(10px, 0.73vw, 14.5px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
+}
+
+.transaction-company-filter > span {
+    font-family: 'Amaranth', sans-serif;
+    font-weight: 700;
+    font-size: clamp(11px, 0.83vw, 15px);
+    color: #374151;
+    margin-right: 8px;
 }
 
 .transaction-company-buttons {
@@ -1287,6 +1319,10 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     transition: all 0.2s ease;
     color: #1f2937;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .transaction-company-btn:hover {
