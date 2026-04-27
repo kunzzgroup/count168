@@ -3119,6 +3119,12 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     border-left-color: #ef4444;
 }
 
+.process-notification-warning {
+    background-color: #fffbeb;
+    color: #92400e;
+    border-left-color: #f59e0b;
+}
+
 /* Resend：Day start 与合约同日 — 仅此场景使用 showNotification(..., { prominent: true }) */
 .process-notification.process-notification--bank-resend-day-start {
     max-width: min(100vw - 32px, 480px);
@@ -3285,19 +3291,19 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     }
 }
 
-/* Bank list: same fixed pagination as Games (viewport bottom-right) */
+/* Bank list: keep pagination under table (not fixed at viewport corner) */
 .process-page.process-page--bank .pagination-container {
-    position: fixed;
-    right: max(40px, env(safe-area-inset-right, 0px));
-    bottom: max(20px, env(safe-area-inset-bottom, 0px));
-    margin: 0 !important;
+    position: static;
+    right: auto;
+    bottom: auto;
     left: auto;
     top: auto;
-    z-index: 120;
+    z-index: auto;
+    margin: 8px auto 0 auto !important;
 }
 
 .process-page.process-page--bank .bank-table-wrapper {
-    padding-bottom: 48px;
+    padding-bottom: 0;
 }
 
 .process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper {

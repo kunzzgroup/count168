@@ -834,7 +834,13 @@ export default function BankProcessListPage() {
         </div>
         <div className="calendar-days" id="calendar-days" />
       </div>
-      {toast && <div className={`process-notification ${toast.type}`}>{toast.message}</div>}
+      {toast ? (
+        <div className="process-notification-container">
+          <div className={`process-notification process-notification-${toast.type === "danger" ? "danger" : (toast.type === "warning" ? "warning" : "success")} show`}>
+            {toast.message}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
