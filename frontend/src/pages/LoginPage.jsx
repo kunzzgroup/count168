@@ -163,15 +163,28 @@ export default function LoginPage() {
       const res = await fetch("/login_process.php", { method: "POST", body: fd, credentials: "include" });
       const data = await res.json();
       if (data.status === "success" && data.redirect) {
-        const redirect = String(data.redirect);
         const userType = String(data.user_type || "").toLowerCase();
+        const redirect = String(data.redirect || "");
+        const loginRole = role;
 
-        if (userType === "member" && /dashboard\.php/i.test(redirect)) {
+        // Smooth routing: do not follow legacy "dashboard.php -> member" chain.
+        if (loginRole === "member" || userType === "member") {
           window.location.assign(new URL("/member", `${window.location.origin}/`).toString());
           return;
         }
 
-        if (/dashboard\.php/i.test(redirect)) {
+        // Keep secondary-password flow if backend explicitly asks for it.
+        if (/owner_secondary_password\.php/i.test(redirect)) {
+          window.location.assign(new URL("/owner-secondary-password", window.location.origin).toString());
+          return;
+        }
+        if (/user_secondary_password\.php/i.test(redirect)) {
+          window.location.assign(new URL("/user-secondary-password", window.location.origin).toString());
+          return;
+        }
+
+        // Non-member users always enter dashboard directly.
+        if (loginRole !== "member") {
           window.location.assign(new URL("/dashboard", window.location.origin).toString());
           return;
         }
