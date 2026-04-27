@@ -6,7 +6,7 @@ import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import AccountListPage from "./pages/account/AccountListPage.jsx";
 import ProcessListPage from "./pages/processlist/ProcessListPage.jsx";
-import BankProcessListPage from "./pages/BankProcessListPage.jsx";
+import BankProcessListPage from "./pages/bankprocesslist/BankProcessListPage.jsx";
 import UserListPage from "./pages/userlist/UserListPage.jsx";
 import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 import DataCapturePage from "./pages/DataCapturePage.jsx";
