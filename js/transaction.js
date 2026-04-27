@@ -541,6 +541,11 @@
             });
         }
 
+        // 页面初始化时先拉一次 pending 数量，避免未点开前角标一直显示 0
+        if (canApproveContra) {
+            loadContraInbox();
+        }
+
         // 点击外部关闭 Popover
         document.addEventListener('click', (e) => {
             if (!canApproveContra) return;
