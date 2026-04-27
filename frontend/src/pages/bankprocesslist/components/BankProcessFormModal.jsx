@@ -1,6 +1,6 @@
 import React from "react";
 import BankSearchableAccountPick from "./BankSearchableAccountPick.jsx";
-import { parseProfitSharingToRows } from "../bankProcessHelpers.js";
+import { parseProfitSharingToRows, parseBankContractTermMonths, contractBillingEndYmdForBankForm } from "../bankProcessHelpers.js";
 
 export default function BankProcessFormModal({
   editMode,
@@ -18,6 +18,18 @@ export default function BankProcessFormModal({
   onOpenAddAccountForField,
 }) {
   const hasDayEnd = !!String(form.day_end || "").trim();
+  const dayStart = String(form.day_start || "").trim();
+  const contract = String(form.contract || "").trim();
+  const frequency = String(form.day_start_frequency || "1st_of_every_month").trim();
+  let dayEndMin = dayStart || undefined;
+  if (dayStart && contract) {
+    const term = parseBankContractTermMonths(contract);
+    const calculated = term ? contractBillingEndYmdForBankForm(dayStart, term, frequency) : null;
+    if (calculated) {
+      dayEndMin = calculated;
+    }
+  }
+
   return (
     <div id="addBankModal" className="modal bank-modal" style={{ display: "block" }}>
       <div className="modal-content bank-modal-content">
@@ -197,7 +209,7 @@ export default function BankProcessFormModal({
                         name="day_end"
                         type="date"
                         className="bank-input"
-                        min={form.day_start || undefined}
+                        min={dayEndMin}
                         value={form.day_end}
                         onChange={(ev) => setForm((prev) => ({ ...prev, day_end: ev.target.value }))}
                       />

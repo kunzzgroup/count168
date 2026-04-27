@@ -202,3 +202,51 @@ export const EMPTY_BANK_FORM = {
   remark: "",
   sop: "",
 };
+
+export const parseBankContractTermMonths = (contract) => {
+  if (!contract || String(contract).trim() === '') return null;
+  const c = String(contract).trim();
+  let m = c.match(/^1\+(\d+)$/i);
+  if (m) return 1 + parseInt(m[1], 10);
+  m = c.match(/^(\d+)\s*MONTHS?$/i);
+  if (m) return Math.max(1, parseInt(m[1], 10));
+  return null;
+};
+
+export const addCalendarMonthsToYmd = (ymd, months) => {
+  if (!ymd || months == null || months < 1) return null;
+  const p = String(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!p) return null;
+  const d = new Date(parseInt(p[1], 10), parseInt(p[2], 10) - 1, parseInt(p[3], 10));
+  if (isNaN(d.getTime())) return null;
+  d.setMonth(d.getMonth() + months);
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${day}`;
+};
+
+export const billingContractExclusiveEndYmdFirstOfMonthJs = (startYmd, termMonths) => {
+  if (!startYmd || termMonths < 1) return null;
+  const p = String(startYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!p) return null;
+  const y = parseInt(p[1], 10);
+  const mo = parseInt(p[2], 10);
+  const day = parseInt(p[3], 10);
+  const start = new Date(y, mo - 1, day);
+  if (isNaN(start.getTime())) return null;
+  if (day === 1) {
+    start.setMonth(start.getMonth() + termMonths);
+  } else {
+    const firstAnchor = new Date(y, mo, 1);
+    firstAnchor.setMonth(firstAnchor.getMonth() + (termMonths - 1));
+    return `${firstAnchor.getFullYear()}-${String(firstAnchor.getMonth() + 1).padStart(2, '0')}-${String(firstAnchor.getDate()).padStart(2, '0')}`;
+  }
+  return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+};
+
+export const contractBillingEndYmdForBankForm = (startYmd, termMonths, frequency) => {
+  if (!startYmd || termMonths == null || termMonths < 1) return null;
+  if (frequency === 'monthly') return addCalendarMonthsToYmd(startYmd, termMonths);
+  return billingContractExclusiveEndYmdFirstOfMonthJs(startYmd, termMonths);
+};

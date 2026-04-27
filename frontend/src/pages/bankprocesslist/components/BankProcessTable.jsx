@@ -3,12 +3,36 @@ import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 import { BANK_GRID_TEMPLATE_COLUMNS, canShowBankResend, normalizeBankProcessStatus, notifyTransactionDataChanged } from "../bankProcessHelpers.js";
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
 
-function renderBankContract(value) {
+function getContractStateClass(dayStart, dayEnd) {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
+  if (!hasDayStart) return 'contract-pending';
+  const start = String(dayStart).substring(0, 10);
+  const end = dayEnd ? String(dayEnd).substring(0, 10) : null;
+  if (todayStr < start) return 'contract-pending';
+  if (end && todayStr > end) return 'contract-expired';
+  if (start && end && todayStr >= start && todayStr <= end) return 'contract-active';
+  if (start && todayStr >= start) return 'contract-active';
+  return 'contract-expired';
+}
+
+function renderBankContract(value, dayStart, dayEnd) {
   const text = String(value || "").trim();
   if (!text) return "-";
+  
+  const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
+  const contractRaw = contractMap[text] || text;
+  
+  const baseContractClass = getContractStateClass(dayStart || null, dayEnd || null);
+  const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
+  const contractClass = (grayContracts.indexOf(contractRaw) !== -1 && baseContractClass === 'contract-active')
+      ? 'contract-1month-active'
+      : baseContractClass;
+
   return (
-    <span className="contract-badge contract-active bank-contract-pill">
-      {text}
+    <span className={`contract-badge ${contractClass} bank-contract-pill`}>
+      {contractRaw}
     </span>
   );
 }
@@ -106,7 +130,7 @@ export default function BankProcessTable({
             <div className="card-item">{r.bank || "-"}</div>
             <div className="card-item">{r.type || "-"}</div>
             <div className="card-item">{r.supplier || "-"}</div>
-            <div className="card-item bank-contract-cell">{renderBankContract(r.contract)}</div>
+            <div className="card-item bank-contract-cell">{renderBankContract(r.contract, r.day_start || r.date, r.day_end)}</div>
             <div className="card-item">{r.insurance || "-"}</div>
             <div className="card-item">{r.customer || "-"}</div>
             <div className="card-item">{r.cost || "-"}</div>

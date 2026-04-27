@@ -16,6 +16,8 @@ import {
   parseProfitSharingToRows,
   serializeProfitSharingRows,
   EMPTY_BANK_FORM,
+  parseBankContractTermMonths,
+  contractBillingEndYmdForBankForm,
 } from "./bankProcessHelpers.js";
 
 // Component imports
@@ -96,6 +98,7 @@ export default function BankProcessListPage() {
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
   const bankDatePickerInitRef = useRef(false);
+  const bankContractEndHintRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -294,15 +297,39 @@ export default function BankProcessListPage() {
     setForm((prev) => ({ ...prev, day_start_frequency: "1st_of_every_month" }));
   }, [modalOpen, form.day_end, form.day_start_frequency]);
 
-  // Keep Day end lower bound aligned with Day start.
+  // Auto calculate Day end
   useEffect(() => {
     if (!modalOpen) return;
-    const dayStart = String(form.day_start || "").trim();
-    const dayEnd = String(form.day_end || "").trim();
-    if (!dayStart || !dayEnd) return;
-    if (dayEnd >= dayStart) return;
-    setForm((prev) => ({ ...prev, day_end: dayStart }));
-  }, [modalOpen, form.day_start, form.day_end]);
+    const start = String(form.day_start || "").trim();
+    const currentEnd = String(form.day_end || "").trim();
+    const contract = String(form.contract || "").trim();
+    const frequency = String(form.day_start_frequency || "1st_of_every_month").trim();
+
+    if (!start) {
+      bankContractEndHintRef.current = null;
+      return;
+    }
+
+    const term = parseBankContractTermMonths(contract);
+    const calculated = term ? contractBillingEndYmdForBankForm(start, term, frequency) : null;
+
+    if (!calculated) {
+      bankContractEndHintRef.current = null;
+      if (currentEnd && currentEnd < start) {
+        setForm((prev) => ({ ...prev, day_end: start }));
+      }
+      return;
+    }
+
+    const prevContractEnd = bankContractEndHintRef.current;
+    if (currentEnd && currentEnd < calculated) {
+      setForm((prev) => ({ ...prev, day_end: calculated }));
+    } else if (prevContractEnd && currentEnd && calculated < prevContractEnd && currentEnd <= prevContractEnd && currentEnd > calculated) {
+      setForm((prev) => ({ ...prev, day_end: calculated }));
+    }
+    
+    bankContractEndHintRef.current = calculated;
+  }, [modalOpen, form.day_start, form.contract, form.day_start_frequency, form.day_end]);
 
   useEffect(() => {
     return () => {
