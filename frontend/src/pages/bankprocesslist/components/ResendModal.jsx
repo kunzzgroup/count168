@@ -1,0 +1,89 @@
+import React from "react";
+
+export default function ResendModal({
+  resendTarget,
+  resendDayStart,
+  setResendDayStart,
+  resendDayEnd,
+  setResendDayEnd,
+  resendFrequency,
+  setResendFrequency,
+  resendInlineError,
+  setResendInlineError,
+  onResend,
+  onClose,
+}) {
+  return (
+    <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={{ display: "block" }}>
+      <div className="process-confirm-modal-content bank-resend-modal-content">
+        <div className="bank-resend-modal-hero">
+          <div className="process-confirm-icon-container bank-resend-modal-icon-wrap">
+            <svg className="process-confirm-icon process-confirm-icon--resend" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3v5h5" />
+            </svg>
+          </div>
+          <h2 className="process-confirm-title bank-resend-modal-title">Resend to Accounting Due</h2>
+          <p className="process-confirm-message bank-resend-modal-message">
+            Process: <b>{resendTarget?.supplier || resendTarget?.bank || "-"}</b>
+          </p>
+        </div>
+        <div id="confirmBankResendScheduleFields" className="bank-resend-schedule-card">
+          <div className="bank-resend-schedule-card__head">
+            <span className="bank-resend-schedule-card__label">Billing schedule</span>
+            <p className="bank-resend-schedule-card__hint">
+              These values apply only to this Resend (which month to reopen). They are not saved to the process record; Edit Process keeps its own billing until you click Update Process.
+            </p>
+          </div>
+          <div className="bank-resend-schedule-grid">
+            <div className="bank-resend-field">
+              <label className="bank-resend-field__label" htmlFor="bank_resend_day_start">Day start</label>
+              <input
+                id="bank_resend_day_start"
+                className={`bank-resend-control${resendInlineError ? " bank-resend-control--error" : ""}`}
+                type="date"
+                autoComplete="off"
+                value={resendDayStart}
+                onChange={(e) => {
+                  setResendInlineError("");
+                  setResendDayStart(e.target.value);
+                }}
+              />
+            </div>
+            <div className="bank-resend-field">
+              <label className="bank-resend-field__label" htmlFor="bank_resend_day_end">Day end</label>
+              <input id="bank_resend_day_end" className="bank-resend-control" type="date" autoComplete="off" value={resendDayEnd} onChange={(e) => setResendDayEnd(e.target.value)} />
+            </div>
+            <div className="bank-resend-field bank-resend-field--full">
+              <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">Frequency</label>
+              <select id="bank_resend_frequency" className="bank-resend-control bank-resend-control--select" value={resendFrequency} onChange={(e) => setResendFrequency(e.target.value)}>
+                <option value="1st_of_every_month">1st of Every Month</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+          {resendInlineError ? (
+            <div id="bankResendDayStartInlineError" className="bank-resend-inline-alert" role="alert">
+              {resendInlineError}
+            </div>
+          ) : null}
+        </div>
+        <div className="process-confirm-actions bank-resend-modal-actions">
+          <button
+            type="button"
+            className="process-btn process-btn-cancel confirm-cancel confirm-bank-resend-cancel"
+            onClick={() => {
+              setResendInlineError("");
+              onClose();
+            }}
+          >
+            Cancel
+          </button>
+          <button type="button" className="process-btn process-btn-resend confirm-bank-resend-confirm" id="confirmBankResendBtn" onClick={onResend}>
+            Resend
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
