@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { deriveBankProcessUiStatus, normalizeBankIssueFlag } from "../bankProcessHelpers.js";
+import { deriveBankProcessUiStatus, normalizeBankIssueFlag, normalizeBankProcessStatus } from "../bankProcessHelpers.js";
 
 export default function BankProcessStatusControl({ row, onUpdated, notify: doNotify, buildApiUrl: apiUrl }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const ui = deriveBankProcessUiStatus(row);
-  const pillClass = `bank-process-status-pill bank-process-status-pill--${ui.toLowerCase().replace(/_/g, "-")}`;
+  const pillClass = `bank-status-button is-${ui.toLowerCase().replace(/_/g, "-")}`;
 
   useEffect(() => {
     if (!open) return;
@@ -34,7 +34,7 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
 
   const apply = async (target) => {
     const id = row.id;
-    const st = String(row.status || "").toLowerCase();
+    const st = normalizeBankProcessStatus(row?.status);
     const hasFlag = !!normalizeBankIssueFlag(row.issue_flag);
     try {
       if (target === "ACTIVE") {
@@ -77,12 +77,12 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
   const label = ui === "E_INVOICE" ? "E-INVOICE" : ui;
 
   return (
-    <div className={`bank-process-status-wrap${open ? " is-open" : ""}`} ref={wrapRef}>
-      <button type="button" className={pillClass} onClick={() => setOpen((o) => !o)}>
+    <div className={`bank-status-dropdown${open ? " open" : ""}`} ref={wrapRef}>
+      <button type="button" className={`${pillClass}${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)}>
         {label}
       </button>
       {open ? (
-        <div className="bank-process-status-menu" role="listbox">
+        <div className="bank-status-menu" role="listbox">
           {options.map((opt) => {
             const optLabel = opt === "E_INVOICE" ? "E-INVOICE" : opt;
             const cur = ui === opt;
@@ -90,8 +90,9 @@ export default function BankProcessStatusControl({ row, onUpdated, notify: doNot
               <button
                 key={opt}
                 type="button"
-                className={`bank-process-status-option bank-process-status-option--${opt.toLowerCase().replace(/_/g, "-")}${cur ? " is-current" : ""}`}
+                className={`bank-status-option${cur ? " selected" : ""}`}
                 onClick={() => void apply(opt)}
+                data-value={opt.toLowerCase()}
               >
                 {optLabel}
               </button>

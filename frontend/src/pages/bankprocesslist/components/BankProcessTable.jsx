@@ -1,6 +1,6 @@
 import React from "react";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
-import { BANK_GRID_TEMPLATE_COLUMNS, canShowBankResend, notifyTransactionDataChanged } from "../bankProcessHelpers.js";
+import { BANK_GRID_TEMPLATE_COLUMNS, canShowBankResend, normalizeBankProcessStatus, notifyTransactionDataChanged } from "../bankProcessHelpers.js";
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
 
 function renderBankContract(value) {
@@ -108,7 +108,7 @@ export default function BankProcessTable({
                   </button>
                 ) : null}
               </span>
-              {String(r.status || "").toLowerCase() === "inactive" && !r.has_transactions ? (
+              {normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions ? (
                 <input type="checkbox" className="row-checkbox bank-checkbox" style={{ marginLeft: 10 }} checked={selectedIds.has(r.id)} title="Select for deletion" onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />
               ) : null}
             </div>

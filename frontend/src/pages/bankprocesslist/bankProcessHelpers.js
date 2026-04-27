@@ -8,28 +8,43 @@ export function normalizeRows(data) {
   if (!Array.isArray(data)) return [];
   return data.map((row) => {
     const normalizedType = String(row?.type || row?.types || "").trim();
+    const normalizedStatus = normalizeBankProcessStatus(row?.status);
+    const normalizedIssueFlag = normalizeBankIssueFlag(row?.issue_flag);
     return {
       ...row,
       type: normalizedType,
+      status: normalizedStatus,
+      issue_flag: normalizedIssueFlag,
     };
   });
 }
 
 export function normalizeBankIssueFlag(v) {
-  return String(v || "")
-    .trim()
-    .toLowerCase()
-    .replace(/-/g, "_");
+  const s = String(v || "").trim().toLowerCase().replace(/-/g, "_");
+  if (!s) return "";
+  if (s.includes("e_invoice") || s.includes("einvoice") || s.includes("e invoice")) return "e_invoice";
+  if (s.includes("official")) return "official";
+  if (s.includes("block")) return "block";
+  return "";
+}
+
+export function normalizeBankProcessStatus(v) {
+  const s = String(v || "").trim().toLowerCase();
+  if (!s) return "active";
+  if (s.includes("inactive")) return "inactive";
+  if (s.includes("waiting")) return "waiting";
+  if (s.includes("active")) return "active";
+  return "active";
 }
 
 export function isBankInactiveLike(status, issueFlag) {
-  const s = String(status || "").trim().toLowerCase();
+  const s = normalizeBankProcessStatus(status);
   const f = normalizeBankIssueFlag(issueFlag);
   return s === "inactive" || f === "official" || f === "e_invoice" || f === "block";
 }
 
 export function canShowBankResend(row) {
-  const s = String(row?.status || "").trim().toLowerCase();
+  const s = normalizeBankProcessStatus(row?.status);
   return s === "active" && !isBankInactiveLike(row?.status, row?.issue_flag);
 }
 
@@ -159,7 +174,7 @@ export function deriveBankProcessUiStatus(row) {
   if (f === "official") return "OFFICIAL";
   if (f === "e_invoice") return "E_INVOICE";
   if (f === "block") return "BLOCK";
-  const s = String(row?.status || "").toLowerCase();
+  const s = normalizeBankProcessStatus(row?.status);
   if (s === "inactive") return "INACTIVE";
   if (s === "waiting") return "ACTIVE";
   return "ACTIVE";

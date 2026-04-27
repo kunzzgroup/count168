@@ -3295,3 +3295,8 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
 .process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper {
     padding-bottom: 0;
 }
+
+/* Ensure status dropdown is not clipped by card-item overflow */
+.process-page .bank-status-cell {
+    overflow: visible !important;
+}
