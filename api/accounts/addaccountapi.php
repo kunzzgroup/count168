@@ -82,11 +82,11 @@ function accountExistsInCompany(PDO $pdo, string $account_id, int $company_id): 
         $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE a.account_id = ? AND ac.company_id = ?
+            WHERE UPPER(TRIM(COALESCE(a.account_id, ''))) = UPPER(TRIM(?)) AND ac.company_id = ?
         ");
         $stmt->execute([$account_id, $company_id]);
     } else {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM account WHERE account_id = ? AND company_id = ?");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM account WHERE UPPER(TRIM(COALESCE(account_id, ''))) = UPPER(TRIM(?)) AND company_id = ?");
         $stmt->execute([$account_id, $company_id]);
     }
     return $stmt->fetchColumn() > 0;
