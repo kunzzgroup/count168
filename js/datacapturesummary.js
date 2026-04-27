@@ -339,6 +339,58 @@ function getSummaryRowStableKey(row) {
     return rowUid ? (base + '\t' + rowUid) : base;
 }
 
+// Rate 刷新恢复专用：不含 data-row-index，避免模板重载后 row_index 变化导致 rateValuesByKey 对不上。
+// 含 formula 摘要 + original description + sub 的 parent，用于区分 (B)/(D) 等同 id+account 多行。
+function getSummaryRowRateFingerprintKey(row) {
+    const cells = row.querySelectorAll('td');
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
+    const idProduct = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(rawIdProduct)
+        : rawIdProduct;
+    const accountCell = cells[1] || null;
+    const accountId = accountCell && accountCell.getAttribute ? ((accountCell.getAttribute('data-account-id') || '').trim()) : '';
+    const accountText = (accountCell && accountCell.textContent ? accountCell.textContent.trim().replace(/\s+/g, ' ') : '');
+    const accountIdentity = accountId ? ('id:' + accountId) : ('txt:' + accountText);
+    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim().replace(/\s+/g, ' ') : '');
+    const productType = (row.getAttribute('data-product-type') || 'main').trim();
+    const subOrderRaw = (row.getAttribute('data-sub-order') || '').trim();
+    const subOrder = subOrderRaw !== '' ? subOrderRaw : (productType === 'sub' ? '1' : '0');
+    const parentId = (row.getAttribute('data-parent-id-product') || '').trim().replace(/\s+/g, ' ');
+    const desc = (row.getAttribute('data-original-description') || '').trim().replace(/\s+/g, ' ');
+    let formulaFp = '';
+    if (cells[4]) {
+        const sp = cells[4].querySelector('.formula-text');
+        const t = (sp && sp.textContent ? sp.textContent : (cells[4].textContent || '')).trim().replace(/\s+/g, ' ');
+        formulaFp = t.length > 160 ? t.slice(0, 160) : t;
+    }
+    return [
+        idProduct,
+        accountIdentity,
+        currency,
+        productType,
+        subOrder,
+        parentId,
+        desc,
+        formulaFp
+    ].map(v => (v || '').trim()).join('\t');
+}
+
+// Rate Value 单元格：正在用 input 编辑时 textContent 不可靠，须读 input.value
+function getRateValueTextFromCell(rateValueCell) {
+    if (!rateValueCell) return '';
+    const inp = rateValueCell.querySelector && rateValueCell.querySelector('input');
+    if (inp && inp.tagName === 'INPUT') {
+        return String(inp.value != null ? inp.value : '').trim();
+    }
+    return String(rateValueCell.textContent || '').trim();
+}
+
+function getRateValueTextFromSummaryRow(row) {
+    if (!row) return '';
+    const cells = row.querySelectorAll('td');
+    return getRateValueTextFromCell(cells[7]);
+}
+
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
 function normalizeSummaryRowKey(key) {
     if (!key || typeof key !== 'string') return '';
@@ -500,6 +552,7 @@ function saveRateValuesForRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     const byStableKey = {};
     const byRowUid = {};
+    const byRateFingerprint = {};
     rows.forEach(row => {
         let rowUid = row.getAttribute('data-row-uid');
         if (!rowUid) {
@@ -507,14 +560,19 @@ function saveRateValuesForRefresh() {
             row.setAttribute('data-row-uid', rowUid);
         }
         const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
-        const cells = row.querySelectorAll('td');
-        const rateValueCell = cells[7];
-        const val = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+        const val = getRateValueTextFromSummaryRow(row);
+        const rateFp = typeof getSummaryRowRateFingerprintKey === 'function' ? getSummaryRowRateFingerprintKey(row) : '';
+        const rateFpNorm = rateFp && typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateFp) : rateFp;
         if (val !== '' && stableKey) byStableKey[stableKey] = val;
         if (val !== '' && rowUid) byRowUid[rowUid] = val;
+        if (val !== '' && rateFpNorm) byRateFingerprint[rateFpNorm] = val;
     });
     try {
-        localStorage.setItem('capturedTableRateValues', JSON.stringify({ byStableKey: byStableKey, byRowUid: byRowUid }));
+        localStorage.setItem('capturedTableRateValues', JSON.stringify({
+            byStableKey: byStableKey,
+            byRowUid: byRowUid,
+            byRateFingerprint: byRateFingerprint
+        }));
     } catch (e) {
         console.warn('saveRateValuesForRefresh:', e);
     }
@@ -554,8 +612,7 @@ function saveFormulaSourceForRefresh(opts) {
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
-        const rateValueCell = cells[7];
-        const rateValue = includeRateValue && rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+        const rateValue = includeRateValue ? getRateValueTextFromSummaryRow(row) : '';
         const originalDescription = row.getAttribute('data-original-description') || '';
         const existing = byKey[normKey];
         // 若已存在记录且其中公式/来源/Rate 有有效值，而当前行为空，避免用“空值”覆盖已有数据
@@ -618,27 +675,41 @@ function saveFormulaSourceForRefresh(opts) {
     // 按稳定 key 保存 Rate Value（每行一份），避免 refresh 后因 Formula/Source/Rate 变化造成 key 漂移
     const rateValuesByKey = {};
     const rateValuesByRowUid = {};
+    const rateValuesByRateFingerprint = {};
     if (includeRateValue) {
         rows.forEach(row => {
             const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
             if (!stableKey) return;
-            const cells = row.querySelectorAll('td');
-            const rateValueCell = cells[7];
-            const rv = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+            const rv = getRateValueTextFromSummaryRow(row);
             rateValuesByKey[stableKey] = rv;
             const uidForRate = (row.getAttribute('data-row-uid') || '').trim();
             if (uidForRate) rateValuesByRowUid[uidForRate] = rv;
+            const rateFp = typeof getSummaryRowRateFingerprintKey === 'function' ? getSummaryRowRateFingerprintKey(row) : '';
+            const rateFpNorm = rateFp && typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateFp) : rateFp;
+            if (rateFpNorm) rateValuesByRateFingerprint[rateFpNorm] = rv;
         });
     }
-    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowsByStableKey: byStableKey, rowsByRowUid: byRowUid, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey, rateValuesByRowUid: rateValuesByRowUid, savedAt: Date.now() };
+    const payload = {
+        processId: processId != null ? processId : null,
+        processCode,
+        rowsByKey: byKey,
+        rowsByStableKey: byStableKey,
+        rowsByRowUid: byRowUid,
+        rowOrder: rowOrder,
+        rateValuesByKey: rateValuesByKey,
+        rateValuesByRowUid: rateValuesByRowUid,
+        rateValuesByRateFingerprint: rateValuesByRateFingerprint,
+        savedAt: Date.now()
+    };
     try {
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
-        if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
+        if (includeRateValue && (Object.keys(rateValuesByKey).length > 0 || Object.keys(rateValuesByRateFingerprint).length > 0)) {
             localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
                 processId: processId != null ? processId : null,
                 processCode: processCode,
                 rateValuesByKey: rateValuesByKey,
-                rateValuesByRowUid: rateValuesByRowUid
+                rateValuesByRowUid: rateValuesByRowUid,
+                rateValuesByRateFingerprint: rateValuesByRateFingerprint
             }));
         }
     } catch (e) {
@@ -712,6 +783,14 @@ function hasRestorableSummaryRowData(data) {
 
 function hasRestorableSummaryState(saved) {
     if (!saved || typeof saved !== 'object') return false;
+    const rateFpMap = saved.rateValuesByRateFingerprint;
+    if (rateFpMap && typeof rateFpMap === 'object') {
+        const rk = Object.keys(rateFpMap);
+        for (let i = 0; i < rk.length; i++) {
+            const v = rateFpMap[rk[i]];
+            if (v != null && String(v).trim() !== '') return true;
+        }
+    }
     const maps = [saved.rowsByRowUid, saved.rowsByStableKey, saved.rowsByKey];
     for (let i = 0; i < maps.length; i++) {
         const map = maps[i];
@@ -726,17 +805,47 @@ function hasRestorableSummaryState(saved) {
 
 function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey, rowsByRowUid) {
     if (!row) return null;
-    const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
-    if (stableKey && rowsByStableKey && typeof rowsByStableKey === 'object' && rowsByStableKey[stableKey]) {
-        return rowsByStableKey[stableKey];
-    }
     const uid = (row.getAttribute('data-row-uid') || '').trim();
     if (uid && rowsByRowUid && typeof rowsByRowUid === 'object' && rowsByRowUid[uid]) {
         return rowsByRowUid[uid];
     }
+    const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+    if (stableKey && rowsByStableKey && typeof rowsByStableKey === 'object' && rowsByStableKey[stableKey]) {
+        return rowsByStableKey[stableKey];
+    }
     const key = getSummaryRowKey(row);
     const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
     return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
+}
+
+// 刷新后恢复 Rate：rowUid > 含 row_index 的 stableKey > 不含 row_index 的 fingerprint（避免模板重写 row_index 后丢失）
+function resolveSavedRateValueForRow(row, saved) {
+    if (!row || !saved || typeof saved !== 'object') return null;
+    const byRowUid = saved.rateValuesByRowUid && typeof saved.rateValuesByRowUid === 'object' ? saved.rateValuesByRowUid : null;
+    const byKey = saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object' ? saved.rateValuesByKey : null;
+    const byFp = saved.rateValuesByRateFingerprint && typeof saved.rateValuesByRateFingerprint === 'object'
+        ? saved.rateValuesByRateFingerprint
+        : null;
+    const uid = (row.getAttribute('data-row-uid') || '').trim();
+    let v = null;
+    if (byRowUid && uid && Object.prototype.hasOwnProperty.call(byRowUid, uid)) {
+        v = byRowUid[uid];
+    }
+    if ((v == null || String(v).trim() === '') && byKey) {
+        const sk = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+        if (sk && Object.prototype.hasOwnProperty.call(byKey, sk)) {
+            v = byKey[sk];
+        }
+    }
+    if ((v == null || String(v).trim() === '') && byFp) {
+        const fp = typeof getSummaryRowRateFingerprintKey === 'function' ? getSummaryRowRateFingerprintKey(row) : '';
+        const fpNorm = fp && typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(fp) : fp;
+        if (fpNorm && Object.prototype.hasOwnProperty.call(byFp, fpNorm)) {
+            v = byFp[fpNorm];
+        }
+    }
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+    return null;
 }
 
 function readSummaryStateFromLocalStorage() {
@@ -848,20 +957,10 @@ function restoreFormulaSourceFromRefresh() {
     );
 
     const rows = summaryTableBody.querySelectorAll('tr');
-    const stableRateValuesByKey = (saved && saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object') ? saved.rateValuesByKey : null;
-    const stableRateValuesByRowUid = (saved && saved.rateValuesByRowUid && typeof saved.rateValuesByRowUid === 'object') ? saved.rateValuesByRowUid : null;
     rows.forEach((row) => {
         const data = getSavedSummaryRowData(row, byKey, byStableKey, byRowUid);
         const cells = row.querySelectorAll('td');
-        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
-        const uidForStableRate = (row.getAttribute('data-row-uid') || '').trim();
-        let stableRate = null;
-        if (stableRateValuesByRowUid && uidForStableRate && Object.prototype.hasOwnProperty.call(stableRateValuesByRowUid, uidForStableRate)) {
-            stableRate = stableRateValuesByRowUid[uidForStableRate];
-        }
-        if ((stableRate == null || String(stableRate).trim() === '') && stableRateValuesByKey && stableKey) {
-            stableRate = stableRateValuesByKey[stableKey];
-        }
+        const stableRate = typeof resolveSavedRateValueForRow === 'function' ? resolveSavedRateValueForRow(row, saved) : null;
         if (!data) {
             const resolvedRateOnly = (stableRate != null && String(stableRate).trim() !== '') ? stableRate : '';
             if (resolvedRateOnly !== '' && cells[7]) {
@@ -1029,6 +1128,7 @@ function restoreRateValuesFromRefresh() {
                 const legacyFlat = !Object.prototype.hasOwnProperty.call(saved, 'byStableKey') ? saved : null;
                 const rateByStable = saved.byStableKey && typeof saved.byStableKey === 'object' ? saved.byStableKey : legacyFlat;
                 const rateByRowUid = saved.byRowUid && typeof saved.byRowUid === 'object' ? saved.byRowUid : null;
+                const rateByFp = saved.byRateFingerprint && typeof saved.byRateFingerprint === 'object' ? saved.byRateFingerprint : null;
                 let appliedFromThisBucket = 0;
                 rows.forEach((row) => {
                     const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
@@ -1039,6 +1139,13 @@ function restoreRateValuesFromRefresh() {
                     }
                     if (val === undefined || val === null || String(val).trim() === '') {
                         val = stableKey && rateByStable ? rateByStable[stableKey] : undefined;
+                    }
+                    if ((val === undefined || val === null || String(val).trim() === '') && rateByFp) {
+                        const fp = typeof getSummaryRowRateFingerprintKey === 'function' ? getSummaryRowRateFingerprintKey(row) : '';
+                        const fpNorm = fp && typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(fp) : fp;
+                        if (fpNorm && Object.prototype.hasOwnProperty.call(rateByFp, fpNorm)) {
+                            val = rateByFp[fpNorm];
+                        }
                     }
                     // 兼容旧缓存：尝试旧内容 key 的精确匹配（不再做按 id_product 广播，避免串行）
                     if (val === undefined || val === null || String(val).trim() === '') {
@@ -1079,6 +1186,9 @@ function restoreRateValuesFromRefresh() {
         const savedByProduct = JSON.parse(rawByProduct);
         const rateValuesByKey = savedByProduct && savedByProduct.rateValuesByKey && typeof savedByProduct.rateValuesByKey === 'object' ? savedByProduct.rateValuesByKey : null;
         const rateValuesByRowUid = savedByProduct && savedByProduct.rateValuesByRowUid && typeof savedByProduct.rateValuesByRowUid === 'object' ? savedByProduct.rateValuesByRowUid : null;
+        const rateValuesByRateFingerprint = savedByProduct && savedByProduct.rateValuesByRateFingerprint && typeof savedByProduct.rateValuesByRateFingerprint === 'object'
+            ? savedByProduct.rateValuesByRateFingerprint
+            : null;
         const rateValuesByProductIdLegacy = savedByProduct && savedByProduct.rateValuesByProductId && typeof savedByProduct.rateValuesByProductId === 'object' ? savedByProduct.rateValuesByProductId : null;
         const currentId = getCurrentProcessId();
         const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
@@ -1091,19 +1201,18 @@ function restoreRateValuesFromRefresh() {
             if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
             return;
         }
-        if ((rateValuesByKey && Object.keys(rateValuesByKey).length > 0) || (rateValuesByRowUid && Object.keys(rateValuesByRowUid).length > 0)) {
+        if ((rateValuesByKey && Object.keys(rateValuesByKey).length > 0) || (rateValuesByRowUid && Object.keys(rateValuesByRowUid).length > 0) || (rateValuesByRateFingerprint && Object.keys(rateValuesByRateFingerprint).length > 0)) {
             let appliedFromThisBucket = 0;
+            const rateSavedBundle = {
+                rateValuesByRowUid: rateValuesByRowUid,
+                rateValuesByKey: rateValuesByKey,
+                rateValuesByRateFingerprint: rateValuesByRateFingerprint
+            };
             rows.forEach((row) => {
-                const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
-                const uid = (row.getAttribute('data-row-uid') || '').trim();
                 let val;
-                if (rateValuesByRowUid && uid && Object.prototype.hasOwnProperty.call(rateValuesByRowUid, uid)) {
-                    val = rateValuesByRowUid[uid];
+                if (typeof resolveSavedRateValueForRow === 'function') {
+                    val = resolveSavedRateValueForRow(row, rateSavedBundle);
                 }
-                if (val === undefined || val === null || String(val).trim() === '') {
-                    val = stableKey && rateValuesByKey ? rateValuesByKey[stableKey] : undefined;
-                }
-                // 兼容旧格式：再尝试旧内容 key 精确匹配
                 if (val === undefined || val === null || String(val).trim() === '') {
                     const legacyKey = getSummaryRowKey(row);
                     const legacyNormKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(legacyKey) : legacyKey;
@@ -17572,20 +17681,38 @@ function reorderSummaryRowsByRowIndex() {
             const accountOrder = (accountOrderAttr !== null && accountOrderAttr !== '' && !Number.isNaN(Number(accountOrderAttr))) ? Number(accountOrderAttr) : 999999;
 
             let dataCapturePosition = 999999;
-            // 优先使用「初始」row_index（data-preserved-row-index），保证 Summary 的 main id_product
-            // 顺序与控制台中打印的 “Preserved existing row_index” 完全一致。
-            // 若没有 preserved 值，再使用当前的 data-row-index；两者都没有时才回退到 Data Capture Table 顺序。
-            const effectiveIndex = (preservedRowIndex !== null ? preservedRowIndex : rowIndex);
-            if (effectiveIndex !== null && !Number.isNaN(effectiveIndex) && effectiveIndex < 999999) {
-                dataCapturePosition = effectiveIndex;
-            } else if (normalizedMain && dataCaptureTableOrder.length > 0) {
-                const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
-                if (index !== -1) dataCapturePosition = index;
+            // IMPORTANT:
+            // - 排序优先跟随当前 Data Capture 表中的位置，避免被历史模板 row_index / preserved_row_index 主导。
+            // - row_index 仍保留给模板匹配与保存逻辑使用（例如同 id_product 的多 occurrence 场景）。
+            const hasValidIndex = (v) => (v !== null && v !== undefined && !Number.isNaN(Number(v)) && Number(v) >= 0 && Number(v) < 999999);
+            // 兼容旧流程：优先当前 data-row-index，preserved 仅作兜底，不再主导显示排序。
+            const effectiveIndex = hasValidIndex(rowIndex)
+                ? Number(rowIndex)
+                : (hasValidIndex(preservedRowIndex) ? Number(preservedRowIndex) : null);
+            const groupAnchorIndex = hasValidIndex(parentRowIndex)
+                ? Number(parentRowIndex)
+                : effectiveIndex;
+
+            if (normalizedMain && idProductPositions.has(normalizedMain)) {
+                const positions = idProductPositions.get(normalizedMain) || [];
+                if (positions.length > 0) {
+                    // 若行上带有有效锚点（main 用 row-index，sub 用 parent-row-index），且该锚点存在于当前 Capture 行中，则优先用它。
+                    if (hasValidIndex(groupAnchorIndex) && positions.includes(Number(groupAnchorIndex))) {
+                        dataCapturePosition = Number(groupAnchorIndex);
+                    } else {
+                        dataCapturePosition = positions[0];
+                    }
+                }
+            }
+
+            // Capture 无对应位置时，才回退到历史 index（兼容未在 Capture 中出现的旧行）
+            if (!hasValidIndex(dataCapturePosition) && hasValidIndex(groupAnchorIndex)) {
+                dataCapturePosition = Number(groupAnchorIndex);
             }
             const groupKey = normalizedMain
                 ? (normalizedMain + '|' + (productType === 'sub'
-                    ? (parentRowIndex !== null && !Number.isNaN(parentRowIndex) ? String(parentRowIndex) : (effectiveIndex !== null && !Number.isNaN(effectiveIndex) ? String(effectiveIndex) : 'na'))
-                    : (effectiveIndex !== null && !Number.isNaN(effectiveIndex) ? String(effectiveIndex) : 'na')))
+                    ? (hasValidIndex(groupAnchorIndex) ? String(Number(groupAnchorIndex)) : (hasValidIndex(dataCapturePosition) ? String(Number(dataCapturePosition)) : 'na'))
+                    : (hasValidIndex(groupAnchorIndex) ? String(Number(groupAnchorIndex)) : (hasValidIndex(dataCapturePosition) ? String(Number(dataCapturePosition)) : 'na'))))
                 : '';
 
             return {

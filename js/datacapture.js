@@ -1042,7 +1042,13 @@ let copiedData = null;
 let activeContextMenuAnchor = null;
 
 function positionContextMenu(menu, e, anchorElement) {
-    if (!menu || !anchorElement) return;
+    if (!menu || !e) return;
+
+    if (!anchorElement) {
+        activeContextMenuAnchor = null;
+        positionContextMenuAtPoint(menu, e.clientX, e.clientY);
+        return;
+    }
 
     const anchorRect = anchorElement.getBoundingClientRect();
     activeContextMenuAnchor = {
@@ -1081,22 +1087,29 @@ function updateActiveContextMenuPosition() {
         }
     }
 
-    const menuRect = menu.getBoundingClientRect();
+    positionContextMenuAtPoint(menu, anchorRect.left + offsetX, anchorRect.top + offsetY);
+}
+
+function positionContextMenuAtPoint(menuElement, cursorX, cursorY) {
+    if (!menuElement) return;
+
+    const margin = 8;
+
+    // Temporarily show menu for accurate size measurement before final placement.
+    menuElement.style.visibility = 'hidden';
+    menuElement.style.display = 'block';
+
+    const menuWidth = menuElement.offsetWidth;
+    const menuHeight = menuElement.offsetHeight;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
 
-    let left = anchorRect.left + offsetX;
-    let top = anchorRect.top + offsetY;
+    const left = Math.max(margin, Math.min(cursorX, viewportWidth - menuWidth - margin));
+    const top = Math.max(margin, Math.min(cursorY, viewportHeight - menuHeight - margin));
 
-    if (left + menuRect.width > viewportWidth) {
-        left = Math.max(0, viewportWidth - menuRect.width - 4);
-    }
-    if (top + menuRect.height > viewportHeight) {
-        top = Math.max(0, viewportHeight - menuRect.height - 4);
-    }
-
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
+    menuElement.style.left = left + 'px';
+    menuElement.style.top = top + 'px';
+    menuElement.style.visibility = 'visible';
 }
 
 // Show context menu
