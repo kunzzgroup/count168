@@ -15515,22 +15515,25 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
 
-            // Recalculate row_index for each Summary Table row based on Data Capture Table position
-            // IMPORTANT: All rows with the same id_product should use the same row_index (their position in Data Capture Table)
-            // This ensures they are grouped together and sorted correctly
-            const idProductToRowIndex = new Map(); // Cache id_product -> row_index mapping
+            // Recalculate row_index for each Summary Table row based on Data Capture Table position.
+            // IMPORTANT: 同 id_product 的多行（如 M99M06(B)/(D)）必须保留各自不同 row_index，不能合并成同一个。
+            // 因此这里按“出现顺序”建立索引数组，而不是取第一条。
+            const idProductToRowIndexes = new Map(); // Cache id_product -> row_index[]
 
             // First pass: Build mapping from Data Capture Table
             capturedRows.forEach((capturedRow, capturedIndex) => {
                 const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                 if (capturedIdProductCell) {
                     const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                    if (capturedIdProduct && !idProductToRowIndex.has(capturedIdProduct)) {
-                        // Store the first occurrence (position in Data Capture Table)
-                        idProductToRowIndex.set(capturedIdProduct, capturedIndex);
+                    if (capturedIdProduct) {
+                        if (!idProductToRowIndexes.has(capturedIdProduct)) {
+                            idProductToRowIndexes.set(capturedIdProduct, []);
+                        }
+                        idProductToRowIndexes.get(capturedIdProduct).push(capturedIndex);
                     }
                 }
             });
+            const idProductOccurrenceCounter = new Map(); // id_product -> used occurrence count
 
             // Second pass: Set row_index for all Summary Table rows
             // IMPORTANT: Only set row_index if it doesn't exist yet, to preserve initial order
@@ -15564,8 +15567,11 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     return;
                 }
 
-                // Get row_index from cache (all rows with same id_product get same row_index)
-                const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
+                // Get row_index from cache by occurrence order（同 id_product 的第 N 行 -> Data Capture 中第 N 个位置）
+                const matchedIndexes = idProductToRowIndexes.get(summaryIdProduct) || [];
+                const usedCount = idProductOccurrenceCounter.get(summaryIdProduct) || 0;
+                const matchedIndex = usedCount < matchedIndexes.length ? matchedIndexes[usedCount] : undefined;
+                idProductOccurrenceCounter.set(summaryIdProduct, usedCount + 1);
 
                 // Set row_index based on Data Capture Table position (only if not already set)
                 const idProductFullForLog = (productValues.main || '').trim() || summaryIdProduct;
