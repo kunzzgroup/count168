@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
+import ConfirmLogoutModal from "../components/ConfirmLogoutModal.jsx";
 
 function injectStylesheet(href) {
   return new Promise((resolve) => {
@@ -95,6 +96,8 @@ export default function MemberPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [accountId, setAccountId] = useState(0);
   const [companyId, setCompanyId] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
@@ -447,10 +450,14 @@ export default function MemberPage() {
     }
   };
 
-  const logout = async () => {
+  const performLogout = async () => {
+    if (logoutLoading) return;
+    setLogoutLoading(true);
     try {
       await fetch(buildApiUrl("api/session/logout_api.php"), { method: "POST", credentials: "include" });
     } finally {
+      setLogoutLoading(false);
+      setShowLogoutConfirm(false);
       navigate("/login", { replace: true });
     }
   };
@@ -523,7 +530,7 @@ export default function MemberPage() {
               <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
             </div>
           </div>
-          <button className="btn logout-btn" onClick={logout} type="button">Logout</button>
+          <button className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)} type="button">Logout</button>
         </div>
       </div>
 
@@ -721,6 +728,13 @@ export default function MemberPage() {
           )}
         </div>
       </div>
+
+      <ConfirmLogoutModal
+        open={showLogoutConfirm}
+        loading={logoutLoading}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={performLogout}
+      />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../utils/apiUrl.js";
+import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -50,6 +51,8 @@ export default function AuthenticatedLayout() {
   const [selectedAvatarId, setSelectedAvatarId] = useState(initialAvatarId);
   const [selectedGender, setSelectedGender] = useState(initialAvatarId.startsWith("female") ? "female" : "male");
   const avatarContainerRef = useRef(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -169,7 +172,9 @@ export default function AuthenticatedLayout() {
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
   const webHref = (path) => new URL(path, window.location.origin).href;
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
-  const logout = async () => {
+  const performLogout = async () => {
+    if (logoutLoading) return;
+    setLogoutLoading(true);
     try {
       await fetch(buildApiUrl("api/session/logout_api.php"), {
         method: "POST",
@@ -179,6 +184,8 @@ export default function AuthenticatedLayout() {
     } catch {
       // Even if request fails, clear client route to login.
     } finally {
+      setLogoutLoading(false);
+      setShowLogoutConfirm(false);
       navigate("/login", { replace: true });
     }
   };
@@ -483,7 +490,7 @@ export default function AuthenticatedLayout() {
               <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
             </div>
           </div>
-          <button type="button" className="btn logout-btn" onClick={logout}>
+          <button type="button" className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)}>
             Logout
           </button>
         </div>
@@ -521,6 +528,13 @@ export default function AuthenticatedLayout() {
           )}
         </div>
       </div>
+
+      <ConfirmLogoutModal
+        open={showLogoutConfirm}
+        loading={logoutLoading}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={performLogout}
+      />
 
       <Outlet />
     </>
