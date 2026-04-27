@@ -193,7 +193,7 @@ $req_company_id = $_GET['company_id'] ?? $_POST['company_id'] ?? $_SESSION['comp
 if ($req_company_id) {
     // Actions that are strictly for 'Bank' category
     $bankOnlyActions = [
-        'get_banks_by_country', 'get_countries', 'add_country', 'remove_country',
+        'get_banks_by_country', 'get_countries', 'add_country', 'remove_country', 'remove_bank',
         'save_country_banks', 'get_selected_countries', 'save_selected_countries', 
         'get_selected_banks', 'save_selected_banks', 'update_bank_process'
     ];
@@ -233,6 +233,9 @@ switch ($action) {
         break;
     case 'remove_country':
         removeCountry();
+        break;
+    case 'remove_bank':
+        removeBank();
         break;
     case 'save_country_banks':
         saveCountryBanks();
@@ -1124,11 +1127,122 @@ function removeCountry() {
             jsonResponse(false, 'Country is required', null);
             return;
         }
-        $stmt = $pdo->prepare("DELETE FROM company_countries WHERE company_id = ? AND country = ?");
-        $stmt->execute([$companyId, $country]);
-        jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
+        $deletedCountries = 0;
+        $deletedBanks = 0;
+        $deletedSelectedCountries = 0;
+        $deletedSelectedBanks = 0;
+
+        $pdo->beginTransaction();
+        try {
+            // 1) 删除可选 country 持久化来源
+            $stmt = $pdo->prepare("DELETE FROM company_countries WHERE company_id = ? AND country = ?");
+            $stmt->execute([$companyId, $country]);
+            $deletedCountries = (int)$stmt->rowCount();
+
+            // 2) 删除该 country 下所有 bank，确保不会因 union/source 数据残留再次出现
+            $stmt = $pdo->prepare("DELETE FROM country_bank WHERE company_id = ? AND country = ?");
+            $stmt->execute([$companyId, $country]);
+            $deletedBanks = (int)$stmt->rowCount();
+
+            // 3) 清理已选 country 持久化（表可能不存在）
+            try {
+                $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_countries'");
+                if ($chk && $chk->rowCount() > 0) {
+                    $stmt = $pdo->prepare("DELETE FROM company_selected_countries WHERE company_id = ? AND country = ?");
+                    $stmt->execute([$companyId, $country]);
+                    $deletedSelectedCountries = (int)$stmt->rowCount();
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            // 4) 清理该 country 的已选 bank 持久化（表可能不存在）
+            try {
+                $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_banks'");
+                if ($chk && $chk->rowCount() > 0) {
+                    $stmt = $pdo->prepare("DELETE FROM company_selected_banks WHERE company_id = ? AND country = ?");
+                    $stmt->execute([$companyId, $country]);
+                    $deletedSelectedBanks = (int)$stmt->rowCount();
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+        jsonResponse(true, 'Removed', [
+            'deleted_countries' => $deletedCountries,
+            'deleted_banks' => $deletedBanks,
+            'deleted_selected_countries' => $deletedSelectedCountries,
+            'deleted_selected_banks' => $deletedSelectedBanks
+        ]);
     } catch (Exception $e) {
         error_log("removeCountry: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), null);
+    }
+}
+
+/**
+ * Remove one bank under a country for the current company (real DB delete).
+ * Also clears the persisted selected-bank row if table exists.
+ */
+function removeBank() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'Method not allowed', null);
+        return;
+    }
+    try {
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+
+        $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
+        $bank = isset($_POST['bank']) ? trim((string)$_POST['bank']) : '';
+        if ($country === '' || $bank === '') {
+            jsonResponse(false, 'Country and bank are required', null);
+            return;
+        }
+
+        $deletedBanks = 0;
+        $deletedSelectedBanks = 0;
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("DELETE FROM country_bank WHERE company_id = ? AND country = ? AND bank = ?");
+            $stmt->execute([$companyId, $country, $bank]);
+            $deletedBanks = (int)$stmt->rowCount();
+
+            try {
+                $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_banks'");
+                if ($chk && $chk->rowCount() > 0) {
+                    $stmt = $pdo->prepare("DELETE FROM company_selected_banks WHERE company_id = ? AND country = ? AND bank = ?");
+                    $stmt->execute([$companyId, $country, $bank]);
+                    $deletedSelectedBanks = (int)$stmt->rowCount();
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+        jsonResponse(true, 'Removed', [
+            'deleted_banks' => $deletedBanks,
+            'deleted_selected_banks' => $deletedSelectedBanks
+        ]);
+    } catch (Exception $e) {
+        error_log("removeBank: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
     }
 }

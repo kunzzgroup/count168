@@ -805,6 +805,62 @@ export default function BankProcessListPage() {
     }
   };
 
+  const removeAvailableCountry = async (countryName) => {
+    const country = String(countryName || "").trim();
+    if (!country || !companyId) return;
+    if (!window.confirm(`Remove country "${country}" and all its banks?`)) return;
+    try {
+      const fd = new FormData();
+      fd.append("company_id", String(companyId));
+      fd.append("country", country);
+      const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_country"), {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        notify(json.message || json.error || "Remove country failed", "danger");
+        return;
+      }
+      setCountriesList((prev) => prev.filter((c) => c !== country));
+      setSelectedCountryChips((prev) => prev.filter((c) => c !== country));
+      setForm((f) => (f.country === country ? { ...f, country: "", bank: "" } : f));
+      notify("Country removed");
+    } catch {
+      notify("Remove country failed", "danger");
+    }
+  };
+
+  const removeAvailableBank = async (bankName) => {
+    const bank = String(bankName || "").trim();
+    const country = String(form.country || "").trim();
+    if (!bank || !country || !companyId) return;
+    if (!window.confirm(`Remove bank "${bank}" from country "${country}"?`)) return;
+    try {
+      const fd = new FormData();
+      fd.append("company_id", String(companyId));
+      fd.append("country", country);
+      fd.append("bank", bank);
+      const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_bank"), {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        notify(json.message || json.error || "Remove bank failed", "danger");
+        return;
+      }
+      setBanksList((prev) => prev.filter((b) => b !== bank));
+      setSelectedBankChips((prev) => prev.filter((b) => b !== bank));
+      setForm((f) => (f.bank === bank ? { ...f, bank: "" } : f));
+      notify("Bank removed");
+    } catch {
+      notify("Remove bank failed", "danger");
+    }
+  };
+
   const openProfitShareModal = () => {
     const rows = parseProfitSharingToRows(form.profit_sharing, accounts);
     setProfitShareRows(rows.length ? rows : [{ accountId: "", accountLabel: "", amount: "" }]);
@@ -1607,6 +1663,19 @@ export default function BankProcessListPage() {
                         <div className="country-item-left">
                           <span>{c}</span>
                         </div>
+                        <button
+                          type="button"
+                          className="remove-country-modal"
+                          aria-label={`Remove ${c}`}
+                          title={`Remove ${c}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void removeAvailableCountry(c);
+                          }}
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -1685,6 +1754,19 @@ export default function BankProcessListPage() {
                         <div className="country-item-left">
                           <span>{b}</span>
                         </div>
+                        <button
+                          type="button"
+                          className="remove-country-modal"
+                          aria-label={`Remove ${b}`}
+                          title={`Remove ${b}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void removeAvailableBank(b);
+                          }}
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
