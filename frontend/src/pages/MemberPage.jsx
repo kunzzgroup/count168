@@ -85,6 +85,7 @@ export default function MemberPage() {
   const [linkedAccounts, setLinkedAccounts] = useState([]);
   const [currencySummary, setCurrencySummary] = useState([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
+  const [currencyOrder, setCurrencyOrder] = useState([]);
   const [historyRows, setHistoryRows] = useState([]);
   const [loadingTable, setLoadingTable] = useState(false);
   const initialAvatarId = readCookie("selectedAvatar") || "male1";
@@ -261,6 +262,24 @@ export default function MemberPage() {
   }, [accountId, companyId, dateFrom, dateTo]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(buildApiUrl("api/transactions/user_currency_order_api.php"), { credentials: "include" });
+        const json = await res.json();
+        if (!cancelled) {
+          setCurrencyOrder(Array.isArray(json?.data?.order) ? json.data.order : []);
+        }
+      } catch {
+        if (!cancelled) setCurrencyOrder([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!accountId || !companyId || !dateFrom || !dateTo) return;
     let cancelled = false;
     setLoadingTable(true);
@@ -287,10 +306,14 @@ export default function MemberPage() {
     };
   }, [accountId, companyId, dateFrom, dateTo]);
 
-  const availableCurrencies = useMemo(
-    () => [...new Set(currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean))],
-    [currencySummary],
-  );
+  const availableCurrencies = useMemo(() => {
+    const codes = [...new Set(currencySummary.map((r) => String(r.currency || "").trim()).filter(Boolean))];
+    if (!currencyOrder.length) return codes;
+    const orderSet = new Set(currencyOrder);
+    const ordered = currencyOrder.filter((c) => codes.includes(c));
+    const rest = codes.filter((c) => !orderSet.has(c));
+    return [...ordered, ...rest];
+  }, [currencySummary, currencyOrder]);
 
   const groupedRows = useMemo(() => {
     const selected = new Set(selectedCurrencies);
@@ -404,6 +427,23 @@ export default function MemberPage() {
       if (json?.success) setAccountId(Number(json?.data?.account_id || nextAccountId));
     } catch {
       // ignore
+    }
+  };
+
+  const persistCurrencyOrder = async (nextOrder) => {
+    try {
+      const res = await fetch(buildApiUrl("api/transactions/user_currency_order_api.php"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order: nextOrder }),
+      });
+      const json = await res.json();
+      if (json?.success) {
+        setCurrencyOrder(Array.isArray(json?.data?.order) ? json.data.order : nextOrder);
+      }
+    } catch {
+      // ignore save failure
     }
   };
 
@@ -547,8 +587,31 @@ export default function MemberPage() {
             <div className="transaction-company-filter member-currency-filter" id="member_currency_filter" style={{ display: "flex", visibility: "visible" }}>
               <span className="transaction-company-label">Currency:</span>
               <div id="member_currency_buttons" className="transaction-company-buttons member-currency-buttons">
-                {availableCurrencies.map((code) => (
-                  <button key={code} type="button" className={`transaction-company-btn ${selectedCurrencies.includes(code) ? "active" : ""}`} onClick={() => setSelectedCurrencies((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))}>
+                {availableCurrencies.map((code, index) => (
+                  <button
+                    key={code}
+                    type="button"
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/plain", code)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const dragged = e.dataTransfer.getData("text/plain");
+                      if (!dragged || dragged === code) return;
+                      const from = availableCurrencies.indexOf(dragged);
+                      const to = index;
+                      if (from < 0 || to < 0) return;
+                      const next = [...availableCurrencies];
+                      const [moved] = next.splice(from, 1);
+                      next.splice(to, 0, moved);
+                      setCurrencyOrder(next);
+                      persistCurrencyOrder(next);
+                    }}
+                    className={`transaction-company-btn ${selectedCurrencies.includes(code) ? "active" : ""}`}
+                    onClick={() =>
+                      setSelectedCurrencies((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
+                    }
+                  >
                     {code}
                   </button>
                 ))}
