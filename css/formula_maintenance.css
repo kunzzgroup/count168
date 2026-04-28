@@ -270,6 +270,42 @@ h1 {
     flex-wrap: wrap;
 }
 
+.formula-process-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.formula-process-control .custom-select-wrapper {
+    flex: 1;
+}
+
+.formula-clear-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: opacity 0.2s ease;
+}
+
+.formula-search-input-container {
+    position: relative;
+}
+
+.formula-search-input-container .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa;
+    pointer-events: none;
+}
+
 .maintenance-search-btn {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: white;

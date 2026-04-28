@@ -9,7 +9,6 @@ export default function FormulaMaintenanceTable({
   onToggleSelectAll,
   onSaveRow,
   accounts,
-  isInitialState
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -46,23 +45,13 @@ export default function FormulaMaintenanceTable({
     }
   };
 
-  if (isInitialState) {
-    return (
-      <div className="empty-state-container" style={{ display: "block" }}>
-        <div className="empty-state">
-          <p>Use search or filters to view data.</p>
-        </div>
-      </div>
-    );
-  }
-
   if (loading && data.length === 0) {
     return (
       <div className="maintenance-list-container" style={{ display: "block" }}>
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Process</th><th>Account</th><th>Cur</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th><th className="maintenance-select-all-header"></th>
+              <th>No.</th><th>Process</th><th>Account</th><th>Currency</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th><th className="maintenance-select-all-header"></th>
             </tr>
           </thead>
           <tbody>
@@ -93,7 +82,7 @@ export default function FormulaMaintenanceTable({
             <th>No.</th>
             <th>Process</th>
             <th>Account</th>
-            <th>Cur</th>
+            <th>Currency</th>
             <th>Source</th>
             <th>Product</th>
             <th>Input Method</th>
@@ -103,7 +92,7 @@ export default function FormulaMaintenanceTable({
               <input 
                 type="checkbox" 
                 ref={selectAllRef}
-                className="maintenance-checkbox"
+                className="data-capture-row-checkbox"
                 checked={data.length > 0 && selectedIds.length === data.length}
                 onChange={onToggleSelectAll}
                 title="Select All"

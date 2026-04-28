@@ -1,121 +1,63 @@
-import { useState, useEffect, useRef } from "react";
 import ProcessSelect from "./ProcessSelect.jsx";
 
 export default function FormulaMaintenanceFilters({
   processes,
   selectedProcess,
   setSelectedProcess,
-  dateFrom,
-  dateTo,
-  today,
   searchFilter,
   setSearchFilter,
-  companyId,
   companies,
   selectedGroup,
   onGroupClick,
   onSwitchCompany,
   onClearFilters,
-  showClear
+  selectedIds,
+  confirmDelete,
+  setConfirmDelete,
+  onDelete,
 }) {
-  const [quickSelectOpen, setQuickSelectOpen] = useState(false);
-  const quickSelectRef = useRef(null);
-
-  useEffect(() => {
-    const handle = (e) => {
-      if (quickSelectRef.current && !quickSelectRef.current.contains(e.target)) setQuickSelectOpen(false);
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
-
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
+  const showClear = Boolean(searchFilter || selectedProcess);
 
   return (
-    <div className="maintenance-search-section">
+    <div className="maintenance-search-section formula-maintenance-filters-wrap">
       <div className="maintenance-filters">
         <div className="maintenance-form-group">
           <label className="maintenance-label">Process</label>
-          <ProcessSelect 
-            processes={processes}
-            selectedValue={selectedProcess}
-            onSelect={setSelectedProcess}
-          />
-        </div>
-
-        <div className="maintenance-form-group maintenance-date-inline">
-          <label className="maintenance-label">Date Range</label>
-          <div className="date-range-picker" id="date-range-picker">
-            <i className="fas fa-calendar-alt" />
-            <span id="date-range-display">Select date range</span>
-          </div>
-          <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
-          <input type="hidden" id="date_to" defaultValue={dateTo || today} />
-        </div>
-
-        <div className="maintenance-form-group quick-select-wrap" ref={quickSelectRef}>
-          <label className="maintenance-label"><i className="fas fa-clock" /> Quick Select</label>
-          <div className="quick-select-dropdown quick-select-dropdown-toggle">
+          <div className="custom-select-wrapper formula-process-control">
+            <ProcessSelect processes={processes} selectedValue={selectedProcess} onSelect={setSelectedProcess} />
             <button
               type="button"
-              className="dropdown-toggle"
-              onClick={(e) => { e.stopPropagation(); setQuickSelectOpen(!quickSelectOpen); }}
+              id="clear_filters_btn"
+              title="Clear Filters"
+              className="formula-clear-icon-btn"
+              onClick={onClearFilters}
+              style={{ opacity: showClear ? 1 : 0, pointerEvents: showClear ? "auto" : "none" }}
             >
-              <i className="fas fa-calendar-alt" />
-              <span id="quick-select-text">Period</span>
-              <i className="fas fa-chevron-down" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
             </button>
-            <div className="dropdown-menu" id="quick-select-dropdown" style={{ display: quickSelectOpen ? "block" : undefined }}>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("today"); setQuickSelectOpen(false); }}>Today</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("yesterday"); setQuickSelectOpen(false); }}>Yesterday</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("thisWeek"); setQuickSelectOpen(false); }}>This Week</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("lastWeek"); setQuickSelectOpen(false); }}>Last Week</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("thisMonth"); setQuickSelectOpen(false); }}>This Month</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("lastMonth"); setQuickSelectOpen(false); }}>Last Month</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("thisYear"); setQuickSelectOpen(false); }}>This Year</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("lastYear"); setQuickSelectOpen(false); }}>Last Year</button>
-            </div>
           </div>
         </div>
 
-        <div className="maintenance-form-group search-filter-wrap">
-          <label className="maintenance-label">Search Formula/Account</label>
-          <div className="search-input-container" style={{ position: "relative" }}>
-            <i className="fas fa-search search-icon" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
+        <div className="maintenance-form-group">
+          <label className="maintenance-label">Search</label>
+          <div className="search-input-container formula-search-input-container">
+            <i className="fas fa-search search-icon" />
             <input 
               type="text" 
               id="search_filter" 
               className="maintenance-input" 
-              placeholder="Filter by formula, account, or source..." 
+              placeholder="Search formula..." 
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               style={{ paddingLeft: "30px", width: "100%" }}
             />
           </div>
-        </div>
-
-        <div className="maintenance-form-group clear-filters-wrap">
-          <label className="maintenance-label" style={{ opacity: 0 }}>Clear</label>
-          <button 
-            type="button" 
-            id="clear_filters_btn" 
-            className="maintenance-btn maintenance-btn-outline"
-            onClick={onClearFilters}
-            style={{ 
-              opacity: showClear ? 1 : 0, 
-              pointerEvents: showClear ? "auto" : "none",
-              transition: "opacity 0.3s ease",
-              width: "100%",
-              height: "clamp(32px, 2.22vw, 40px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px"
-            }}
-          >
-            <i className="fas fa-times" /> Clear Filters
-          </button>
         </div>
       </div>
 
@@ -164,6 +106,28 @@ export default function FormulaMaintenanceFilters({
               </div>
             </div>
           )}
+        </div>
+
+        <div className="maintenance-actions">
+          <button
+            type="button"
+            className="maintenance-delete-btn"
+            id="deleteBtn"
+            onClick={onDelete}
+            disabled={selectedIds.length === 0 || !confirmDelete}
+          >
+            Delete
+          </button>
+          <label className="maintenance-confirm-delete-label">
+            <input
+              type="checkbox"
+              id="confirmDelete"
+              className="maintenance-checkbox"
+              checked={confirmDelete}
+              onChange={(e) => setConfirmDelete(e.target.checked)}
+            />
+            <span>Confirm Delete</span>
+          </label>
         </div>
       </div>
     </div>
