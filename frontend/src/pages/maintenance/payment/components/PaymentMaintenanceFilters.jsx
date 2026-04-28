@@ -64,7 +64,7 @@ export default function PaymentMaintenanceFilters({
         />
 
         <div className="maintenance-form-group quick-select-wrap" ref={quickSelectRef}>
-          <label className="form-label"><i className="fas fa-clock" /> Quick Select</label>
+          <label className="maintenance-label"><i className="fas fa-clock" /> Quick Select</label>
           <div className="quick-select-dropdown quick-select-dropdown-toggle">
             <button 
               type="button" 
