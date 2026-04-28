@@ -43,6 +43,7 @@ export default function PaymentMaintenancePage() {
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
   const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
+  const [cssReady, setCssReady] = useState(false);
 
   // -- Data State --
   const [paymentData, setPaymentData] = useState([]);
@@ -98,19 +99,32 @@ export default function PaymentMaintenancePage() {
       el.style.setProperty("max-height", "none", "important");
     });
 
-    const ensureStylesheetLast = (href) => {
-      const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-      if (existing) {
-        document.head.appendChild(existing);
-        return;
-      }
-      const l = document.createElement("link");
-      l.rel = "stylesheet";
-      l.href = href;
-      document.head.appendChild(l);
-    };
+    let cancelled = false;
 
-    // Inject legacy CSS
+    const waitForStylesheet = (href) =>
+      new Promise((resolve) => {
+        const markLoaded = (el) => {
+          try { el.dataset.loaded = "1"; } catch { /* ignore */ }
+          resolve(el);
+        };
+        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+        if (existing) {
+          document.head.appendChild(existing);
+          if (existing.dataset.loaded === "1" || existing.sheet) return resolve(existing);
+          const onLoad = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); markLoaded(existing); };
+          const onError = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); resolve(existing); };
+          existing.addEventListener("load", onLoad, { once: true });
+          existing.addEventListener("error", onError, { once: true });
+          return;
+        }
+        const l = document.createElement("link");
+        l.rel = "stylesheet";
+        l.href = href;
+        l.onload = () => markLoaded(l);
+        l.onerror = () => resolve(l);
+        document.head.appendChild(l);
+      });
+
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
@@ -120,7 +134,9 @@ export default function PaymentMaintenancePage() {
       assetUrl("css/global-13inch.css"),
     ];
 
-    links.forEach(ensureStylesheetLast);
+    Promise.all(links.map(waitForStylesheet)).then(() => {
+      if (!cancelled) setCssReady(true);
+    });
 
     const setupDatePicker = async () => {
       await new Promise((resolve, reject) => {
@@ -139,6 +155,7 @@ export default function PaymentMaintenancePage() {
     setupDatePicker().catch(() => null);
 
     return () => {
+      cancelled = true;
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -403,7 +420,7 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me || !cssReady) return null;
 
   return (
     <div className="container">
