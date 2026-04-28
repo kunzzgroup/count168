@@ -122,6 +122,24 @@ function submitTrunc2($value): string
 }
 
 /**
+ * RATE 专用：四舍五入到2位小数（half-up），其他交易类型继续使用 submitTrunc2。
+ */
+function submitRateRound2($value): string
+{
+    if ($value === null || trim((string)$value) === '') {
+        return money_normalize('0', 2);
+    }
+
+    $normalized = money_normalize($value, MONEY_CALC_SCALE);
+    $adjustment = '0.' . str_repeat('0', 2) . '5';
+    if (strpos($normalized, '-') === 0) {
+        $adjustment = '-' . $adjustment;
+    }
+
+    return money_normalize(bcadd($normalized, $adjustment, MONEY_CALC_SCALE), 2);
+}
+
+/**
  * 基于 session 的轻量幂等缓存（防止同一次点击重复提交）
  */
 function getSubmitIdempotencyCache(string $key): ?array
@@ -409,12 +427,12 @@ try {
             // 获取 RATE 相关参数
             $rate_from_account_id = !empty($_POST['rate_from_account_id']) ? (int)$_POST['rate_from_account_id'] : null;
             $rate_from_currency = trim($_POST['rate_from_currency'] ?? '');
-            $rate_from_amount = submitTrunc2($_POST['rate_from_amount'] ?? '0');
+            $rate_from_amount = submitRateRound2($_POST['rate_from_amount'] ?? '0');
             $rate_from_description = trim($_POST['rate_from_description'] ?? '');
             
             $rate_to_account_id = !empty($_POST['rate_to_account_id']) ? (int)$_POST['rate_to_account_id'] : null;
             $rate_to_currency = trim($_POST['rate_to_currency'] ?? '');
-            $rate_to_amount = submitTrunc2($_POST['rate_to_amount'] ?? '0');
+            $rate_to_amount = submitRateRound2($_POST['rate_to_amount'] ?? '0');
             $rate_to_description = trim($_POST['rate_to_description'] ?? '');
             
             // 验证第一个 Account 和 Currency 的记录
@@ -500,15 +518,15 @@ try {
             
             $rate_transfer_from_account_id = !empty($_POST['rate_transfer_from_account_id']) ? (int)$_POST['rate_transfer_from_account_id'] : null;
             $rate_transfer_to_account_id = !empty($_POST['rate_transfer_to_account_id']) ? (int)$_POST['rate_transfer_to_account_id'] : null;
-            $rate_transfer_from_amount = !empty($_POST['rate_transfer_from_amount']) ? submitTrunc2($_POST['rate_transfer_from_amount']) : null;
-            $rate_transfer_to_amount = !empty($_POST['rate_transfer_to_amount']) ? submitTrunc2($_POST['rate_transfer_to_amount']) : null;
+            $rate_transfer_from_amount = !empty($_POST['rate_transfer_from_amount']) ? submitRateRound2($_POST['rate_transfer_from_amount']) : null;
+            $rate_transfer_to_amount = !empty($_POST['rate_transfer_to_amount']) ? submitRateRound2($_POST['rate_transfer_to_amount']) : null;
             $rate_transfer_from_description = trim($_POST['rate_transfer_from_description'] ?? '');
             $rate_transfer_to_description = trim($_POST['rate_transfer_to_description'] ?? '');
             $rate_transfer_from_currency = trim($_POST['rate_transfer_from_currency'] ?? '');
             $rate_transfer_to_currency = trim($_POST['rate_transfer_to_currency'] ?? '');
             
             $rate_middleman_account_id = !empty($_POST['rate_middleman_account_id']) ? (int)$_POST['rate_middleman_account_id'] : null;
-            $rate_middleman_amount = !empty($_POST['rate_middleman_amount']) ? submitTrunc2($_POST['rate_middleman_amount']) : null;
+            $rate_middleman_amount = !empty($_POST['rate_middleman_amount']) ? submitRateRound2($_POST['rate_middleman_amount']) : null;
             $rate_middleman_description = trim($_POST['rate_middleman_description'] ?? '');
             $rate_middleman_rate = !empty($_POST['rate_middleman_rate']) ? money_normalize($_POST['rate_middleman_rate']) : null;
             $rate_middleman_currency = trim($_POST['rate_middleman_currency'] ?? $rate_transfer_to_currency ?: $rate_to_currency ?: $rate_from_currency);

@@ -149,6 +149,10 @@
         return { valid: true, value: result.toString() };
     }
 
+    function formatRateAmount(value) {
+        return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
+    }
+
     // ==================== Contra Inbox（Manager+） ====================
     function isContraInboxOpen() {
         const pop = document.getElementById('contraInboxPopover');
@@ -3276,13 +3280,13 @@
             // From Account 记录：使用第一个 currency，扣除第一个 amount
             formData.append('rate_from_account_id', fromAccountId);
             formData.append('rate_from_currency', rateCurrencyFromSelect?.value || '');
-            formData.append('rate_from_amount', rateCurrencyFromAmount);
+            formData.append('rate_from_amount', formatRateAmount(rateCurrencyFromAmount));
             formData.append('rate_from_description', fromAccountDescription);
 
             // To Account 记录：使用第二个 currency，增加第二个 amount
             formData.append('rate_to_account_id', accountId);
             formData.append('rate_to_currency', rateCurrencyToSelect?.value || '');
-            formData.append('rate_to_amount', rateCurrencyToAmount);
+            formData.append('rate_to_amount', formatRateAmount(rateCurrencyToAmount));
             formData.append('rate_to_description', toAccountDescription);
 
             // 第二行按当前下拉直接提交：
@@ -3316,14 +3320,14 @@
                 const originalTransferFromAmount = MoneyDecimal.mul(rateCurrencyFromAmount || '0', rateExchangeRate || '0');
                 formData.append('rate_transfer_from_account_id', rateTransferFromAccountId);
                 formData.append('rate_transfer_from_currency', rateCurrencyToSelect?.value || '');
-                formData.append('rate_transfer_from_amount', MoneyDecimal.formatFixed(originalTransferFromAmount, 2));
+                formData.append('rate_transfer_from_amount', formatRateAmount(originalTransferFromAmount));
                 formData.append('rate_transfer_from_description', transferFromAccountDescription);
 
                 // Transfer To Account 记录：增加完整金额（不扣除手续费）
                 // 第二个 account 行使用转换后的货币（rate_to_currency，即 MYR）
                 formData.append('rate_transfer_to_account_id', rateTransferToAccountId);
                 formData.append('rate_transfer_to_currency', rateCurrencyToSelect?.value || '');
-                formData.append('rate_transfer_to_amount', MoneyDecimal.formatFixed(transferToAmountValue, 2));
+                formData.append('rate_transfer_to_amount', formatRateAmount(transferToAmountValue));
                 formData.append('rate_transfer_to_description', transferToAccountDescription);
 
                 // Middle-Man Account 记录：如果有 middle-man，增加手续费金额
@@ -3331,16 +3335,16 @@
                 if (rateMiddlemanAccountId && MoneyDecimal.cmp(middlemanAmount || '0', '0') > 0) {
                     formData.append('rate_middleman_account_id', rateMiddlemanAccountId);
                     formData.append('rate_middleman_currency', rateCurrencyToSelect?.value || '');
-                    formData.append('rate_middleman_amount', MoneyDecimal.formatFixed(middlemanAmount, 2));
+                    formData.append('rate_middleman_amount', formatRateAmount(middlemanAmount));
                     formData.append('rate_middleman_description', middlemanDescription);
                 }
             }
 
             // 其他 Rate 相关参数
             formData.append('rate_currency_from', rateCurrencyFromSelect?.value || '');
-            formData.append('rate_currency_from_amount', rateCurrencyFromAmount);
+            formData.append('rate_currency_from_amount', formatRateAmount(rateCurrencyFromAmount));
             formData.append('rate_currency_to', rateCurrencyToSelect?.value || '');
-            formData.append('rate_currency_to_amount', rateCurrencyToAmount);
+            formData.append('rate_currency_to_amount', formatRateAmount(rateCurrencyToAmount));
             formData.append('rate_exchange_rate', String(rateExchangeRate));
             formData.append('rate_transfer_from_account', rateTransferFromAccountId);
             formData.append('rate_transfer_to_account', rateTransferToAccountId);
@@ -3350,7 +3354,7 @@
             formData.append('rate_account_to_amount', rateTransferAmount);
             formData.append('rate_middleman_account', rateMiddlemanAccountId);
             formData.append('rate_middleman_rate', rateMiddlemanRate);
-            formData.append('rate_middleman_amount', rateMiddlemanAmount);
+            formData.append('rate_middleman_amount', rateMiddlemanAmount ? formatRateAmount(rateMiddlemanAmount) : '');
         }
         if (currentCompanyId) {
             formData.append('company_id', currentCompanyId);
@@ -3857,7 +3861,7 @@
             // 公式: currency_from_amount * middle_man_rate
             if (currencyFromAmount.gt(0) && middleManRate.gt(0)) {
                 const result = currencyFromAmount.times(middleManRate);
-                middleManAmountInput.value = MoneyDecimal.formatFixed(result, 2);
+                middleManAmountInput.value = formatRateAmount(result);
             } else {
                 middleManAmountInput.value = '';
             }
@@ -3875,7 +3879,7 @@
             // 与提交入账保持一致：换算金额显示完整 from * rate，middle-man fee 另行显示并单独入账。
             if (currencyFromAmount.gt(0) && exchangeRate.gt(0)) {
                 const result = currencyFromAmount.times(exchangeRate);
-                currencyToAmountInput.value = MoneyDecimal.formatFixed(result, 2);
+                currencyToAmountInput.value = formatRateAmount(result);
             } else {
                 currencyToAmountInput.value = '';
             }
