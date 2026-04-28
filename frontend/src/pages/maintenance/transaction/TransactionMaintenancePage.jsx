@@ -67,6 +67,43 @@ export default function TransactionMaintenancePage() {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "maintenance-page");
 
+    const targets = [document.documentElement, document.body, document.getElementById("root")].filter(Boolean);
+    const originalStyles = targets.map((el) => ({
+      el,
+      overflow: el.style.getPropertyValue("overflow"),
+      overflowPriority: el.style.getPropertyPriority("overflow"),
+      overflowY: el.style.getPropertyValue("overflow-y"),
+      overflowYPriority: el.style.getPropertyPriority("overflow-y"),
+      overflowX: el.style.getPropertyValue("overflow-x"),
+      overflowXPriority: el.style.getPropertyPriority("overflow-x"),
+      height: el.style.getPropertyValue("height"),
+      heightPriority: el.style.getPropertyPriority("height"),
+      minHeight: el.style.getPropertyValue("min-height"),
+      minHeightPriority: el.style.getPropertyPriority("min-height"),
+      maxHeight: el.style.getPropertyValue("max-height"),
+      maxHeightPriority: el.style.getPropertyPriority("max-height"),
+    }));
+    targets.forEach((el) => {
+      el.style.setProperty("overflow", "auto", "important");
+      el.style.setProperty("overflow-y", "auto", "important");
+      el.style.setProperty("overflow-x", "hidden", "important");
+      el.style.setProperty("height", "auto", "important");
+      el.style.setProperty("min-height", "100vh", "important");
+      el.style.setProperty("max-height", "none", "important");
+    });
+
+    const ensureStylesheetLast = (href) => {
+      const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+      if (existing) {
+        document.head.appendChild(existing);
+        return;
+      }
+      const l = document.createElement("link");
+      l.rel = "stylesheet";
+      l.href = href;
+      document.head.appendChild(l);
+    };
+
     // Inject legacy CSS
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
@@ -78,14 +115,7 @@ export default function TransactionMaintenancePage() {
       assetUrl("css/global-13inch.css"),
     ];
 
-    links.forEach(href => {
-      if (!document.querySelector(`link[href="${href}"]`)) {
-        const l = document.createElement("link");
-        l.rel = "stylesheet";
-        l.href = href;
-        document.head.appendChild(l);
-      }
-    });
+    links.forEach(ensureStylesheetLast);
 
     const setupDatePicker = async () => {
       await new Promise((resolve, reject) => {
@@ -105,6 +135,21 @@ export default function TransactionMaintenancePage() {
     setupDatePicker().catch(() => null);
 
     return () => {
+      originalStyles.forEach((item) => {
+        const { el } = item;
+        if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
+        else el.style.removeProperty("overflow");
+        if (item.overflowY) el.style.setProperty("overflow-y", item.overflowY, item.overflowYPriority);
+        else el.style.removeProperty("overflow-y");
+        if (item.overflowX) el.style.setProperty("overflow-x", item.overflowX, item.overflowXPriority);
+        else el.style.removeProperty("overflow-x");
+        if (item.height) el.style.setProperty("height", item.height, item.heightPriority);
+        else el.style.removeProperty("height");
+        if (item.minHeight) el.style.setProperty("min-height", item.minHeight, item.minHeightPriority);
+        else el.style.removeProperty("min-height");
+        if (item.maxHeight) el.style.setProperty("max-height", item.maxHeight, item.maxHeightPriority);
+        else el.style.removeProperty("max-height");
+      });
       document.body.classList.remove("maintenance-page");
     };
   }, []);

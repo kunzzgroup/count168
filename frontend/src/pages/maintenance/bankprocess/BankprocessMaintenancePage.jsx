@@ -32,7 +32,11 @@ function loadScriptOnce(src) {
 function injectStylesheet(href) {
   return new Promise((resolve) => {
     const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-    if (existing) return resolve();
+    if (existing) {
+      // Keep current page CSS at the end to avoid cross-page overrides.
+      document.head.appendChild(existing);
+      return resolve();
+    }
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = href;
