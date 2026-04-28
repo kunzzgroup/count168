@@ -38,11 +38,11 @@ function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
         return '';
     }
     $a = $alias !== '' ? $alias . '.' : '';
-    // 指定 type 生效：CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR/PROFIT(落库为 WIN/LOSE) 的 PENDING 不计入
+    // 指定 type 生效：CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR/ADJUSTMENT/PROFIT(落库为 WIN/LOSE) 的 PENDING 不计入
     return " AND ((
-                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','WIN','LOSE','PROFIT')
+                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT')
                 AND {$a}approval_status = 'APPROVED'
-            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','WIN','LOSE','PROFIT'))";
+            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT'))";
 }
 
 function searchApiAccountHasCreatedSourceColumn(PDO $pdo): bool
@@ -974,7 +974,7 @@ try {
                 WHERE t_wl.company_id = ?
                   AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
                   AND t_wl.transaction_date BETWEEN ? AND ?
-                  AND t_wl.transaction_type IN ('WIN', 'LOSE')
+                  AND t_wl.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
             )
             OR EXISTS (
                 SELECT 1 FROM transaction_entry e
@@ -1032,7 +1032,7 @@ try {
                 WHERE t_wl.company_id = ?
                   AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
                   AND t_wl.transaction_date BETWEEN ? AND ?
-                  AND t_wl.transaction_type IN ('WIN', 'LOSE')
+                  AND t_wl.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
             )
             OR EXISTS (
                 SELECT 1 FROM transaction_entry e
@@ -1373,7 +1373,7 @@ try {
                 WHERE t.account_id IN ($all_ph)
                   AND t.currency_id IS NOT NULL
                   AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','RATE')
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','ADJUSTMENT','RATE')
                 UNION
                 SELECT DISTINCT t.from_account_id AS acc_id, t.currency_id, UPPER(c.code) AS currency_code
                 FROM transactions t
@@ -1382,7 +1382,7 @@ try {
                   AND t.from_account_id IS NOT NULL
                   AND t.currency_id IS NOT NULL
                   AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','RATE')
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','ADJUSTMENT','RATE')
             ");
             $st->execute(array_merge([$company_id], $all_ids, [$date_from_db, $date_to_db], [$company_id], $all_ids, [$date_from_db, $date_to_db]));
             while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
@@ -1608,6 +1608,7 @@ try {
                         WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                         WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                         WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                        WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS bf_total,
@@ -1617,6 +1618,7 @@ try {
                         WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                         WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                         WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                        WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_total,
@@ -1624,7 +1626,7 @@ try {
                  SUM(CASE WHEN $wlDateExpr <= ? THEN 1 ELSE 0 END) AS up_to_count
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   $contra_where_t $wlFutureGuard
                 GROUP BY t.account_id, IFNULL(t.currency_id, 0)";
         $stmt_bulk = $pdo->prepare($sql);
@@ -2100,7 +2102,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
     $stmt->execute([$company_id, $company_id, $account_id, $date_from]);
     $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
-    // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM，作为 To Account）
+    // 2. 计算起始日期之前所有余额影响（ADJUSTMENT 计入 Win/Loss，作为 To Account）
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
                     WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
@@ -2110,13 +2112,14 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
                     WHEN transaction_type = 'PAYMENT' THEN -amount
                     WHEN transaction_type = 'WIN' THEN amount
                     WHEN transaction_type = 'LOSE' THEN -amount
+                    WHEN transaction_type = 'ADJUSTMENT' THEN amount
                     ELSE 0
                 END), 0) as cr_dr
             FROM transactions
             WHERE company_id = ?
               AND account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'ADJUSTMENT')
               AND (
                   -- 对于 RATE 类型，允许 from_account_id 为 NULL（手续费记录）
                   (transaction_type = 'RATE')
@@ -2154,14 +2157,14 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
 
 /**
  * 计算 Win/Loss
- * Win/Loss = 日期范围内的 Data Capture + WIN/LOSE 交易
+ * Win/Loss = 日期范围内的 Data Capture + ADJUSTMENT（旧库 fallback）
  */
 function calculateWinLoss($pdo, $account_id, $date_from, $date_to, $company_id)
 {
     $win_loss = '0';
 
     // 只计算日期范围内的 Data Capture
-    // WIN/LOSE/RATE 交易已移到 Cr/Dr 中计算
+    // WIN/LOSE/RATE 交易已移到 Cr/Dr 中计算；ADJUSTMENT 作为 Win/Loss 调整保留在这里。
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
@@ -2172,6 +2175,17 @@ function calculateWinLoss($pdo, $account_id, $date_from, $date_to, $company_id)
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $date_from, $date_to]);
+    $win_loss = money_add($win_loss, $stmt->fetchColumn() ?: '0', 8);
+
+    $sql = "SELECT COALESCE(SUM(amount), 0) as total
+            FROM transactions
+            WHERE company_id = ?
+              AND account_id = ?
+              AND transaction_date BETWEEN ? AND ?
+              AND transaction_type = 'ADJUSTMENT'"
+        . contraApprovedWhere($pdo, '');
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$company_id, $account_id, $date_from, $date_to]);
     $win_loss = money_add($win_loss, $stmt->fetchColumn() ?: '0', 8);
 
     return trunc2($win_loss);
@@ -2349,13 +2363,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
                   AND $wlDateExpr < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND (
                       (t.currency_id = ?)
                       OR (t.currency_id IS NULL AND EXISTS (
@@ -2425,11 +2440,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND EXISTS (
                       SELECT 1 FROM data_capture_details dcd
                       JOIN data_captures dc ON dcd.capture_id = dc.id
@@ -2684,11 +2700,11 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $win_loss = money_add($win_loss, $txnBankRow['total'] ?? '0', 8);
         $wl_row_count += (int) ($txnBankRow['cnt'] ?? 0);
 
-        // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）：Select To 显示负数、Select From 显示正数（WIN -> -amount, LOSE -> +amount）
-        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN -t.amount WHEN t.transaction_type = 'LOSE' THEN t.amount ELSE 0 END), 0) as total, COUNT(*) AS cnt
+        // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）+ ADJUSTMENT
+        $sql = "SELECT COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN -t.amount WHEN t.transaction_type = 'LOSE' THEN t.amount WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount ELSE 0 END), 0) as total, COUNT(*) AS cnt
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ? AND t.account_id = ? AND $wlDateExpr BETWEEN ? AND ?
-                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL)"
             . $wlFutureGuard;
         $stmt = $pdo->prepare($sql);

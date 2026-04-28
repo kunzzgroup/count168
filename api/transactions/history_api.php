@@ -17,7 +17,7 @@ require_once __DIR__ . '/bank_process_bill_display.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
- * Contra 审批：过滤/标记未批准的 CONTRA（向后兼容：若无字段则不过滤）
+ * 审批过滤：过滤未批准的审批交易（向后兼容：若无字段则不过滤）
  */
 function historyHasContraApprovalColumns(PDO $pdo): bool
 {
@@ -35,7 +35,10 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
         return '';
     }
     $a = $alias !== '' ? $alias . '.' : '';
-    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+    return " AND ((
+                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT')
+                AND {$a}approval_status = 'APPROVED'
+            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT'))";
 }
 
 /**
@@ -1463,6 +1466,12 @@ try {
                 }
                 break;
 
+            case 'ADJUSTMENT':
+                if (!$is_internal_transfer && $is_to_account) {
+                    $win_loss = $t['amount'] ?? '0';
+                }
+                break;
+
             case 'RECEIVE':
                 if ($is_internal_transfer) {
                     $cr_dr = '0';
@@ -2270,7 +2279,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
     $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
     // 2. 计算日期之前所有 transactions 的影响
-    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 影响 Cr/Dr（作为 To Account）；CONTRA/CLEAR 时 TO 显示负数
+    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 影响 Cr/Dr；ADJUSTMENT 影响 Win/Loss（作为 To Account）
     $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
@@ -2279,13 +2288,14 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' THEN amount
                         WHEN transaction_type = 'LOSE' THEN -amount
+                        WHEN transaction_type = 'ADJUSTMENT' THEN amount
                         ELSE 0
                     END), 0) as cr_dr
             FROM transactions
             WHERE company_id = ?
               AND account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'ADJUSTMENT')
               AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)"
         . historyContraApprovedWhere($pdo, '');
 
@@ -2358,13 +2368,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND (
                       (t.currency_id = ?)
                       OR (t.currency_id IS NULL AND EXISTS (
@@ -2408,11 +2419,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
                 WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND EXISTS (
                       SELECT 1 FROM data_capture_details dcd
                       JOIN data_captures dc ON dcd.capture_id = dc.id

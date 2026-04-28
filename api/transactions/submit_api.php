@@ -56,12 +56,12 @@ function requiresTransactionApproval(string $role, string $transactionDateDb): b
 
 /**
  * 需要审批的交易类型：
- * CONTRA / PAYMENT / RECEIVE / CLAIM / CLEAR / PROFIT(实际落库为 WIN/LOSE)
+ * CONTRA / PAYMENT / RECEIVE / CLAIM / CLEAR / ADJUSTMENT / PROFIT(实际落库为 WIN/LOSE)
  */
 function requiresApprovalForType(string $transactionType): bool
 {
     $type = strtoupper(trim($transactionType));
-    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'PROFIT', 'WIN', 'LOSE'], true);
+    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
@@ -239,6 +239,7 @@ try {
     $user_type = $_SESSION['user_type'] ?? 'user';
     $created_by_user = null;
     $created_by_owner = null;
+    $from_account = null;
     
     if ($user_type === 'owner') {
         $created_by_owner = (int)($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
@@ -257,20 +258,24 @@ try {
         throw new Exception('请选择交易类型');
     }
     
-    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR'])) {
+    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT'])) {
         throw new Exception('无效的交易类型');
     }
     
     // RATE 类型有特殊的验证逻辑
     $is_rate = ($transaction_type === 'RATE');
+    $is_adjustment = ($transaction_type === 'ADJUSTMENT');
     
     if (!$is_rate) {
-    if ($account_id <= 0) {
-        throw new Exception('请选择 To Account');
-    }
-    
-    if (money_cmp($amount, '0') < 0) {
-        throw new Exception('金额不能小于 0');
+        if ($account_id <= 0) {
+            throw new Exception('请选择 To Account');
+        }
+
+        if (!$is_adjustment && money_cmp($amount, '0') < 0) {
+            throw new Exception('金额不能小于 0');
+        }
+        if ($is_adjustment && money_cmp($amount, '0') === 0) {
+            throw new Exception('ADJUSTMENT 金额不能为 0');
         }
     }
     
@@ -388,7 +393,9 @@ try {
     }
     
     // 自动生成 description（如果为空）
-    if (empty($description) && in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'])) {
+    if (empty($description) && $transaction_type === 'ADJUSTMENT') {
+        $description = 'ADJUSTMENT - WIN/LOSS CORRECTION';
+    } elseif (empty($description) && in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'])) {
         // 从 To Account 的视角生成描述
         $description = $transaction_type . ' FROM ' . $from_account['account_id'];
     }
@@ -916,8 +923,10 @@ try {
             
         } else {
             // 非 RATE 类型的原有逻辑
-            // 确保金额是正数（对于所有交易类型）
-            $amount = submitTrunc2(abs($amount));
+            // ADJUSTMENT 需要保留正负号；其他交易类型仍统一保存正数。
+            if (!$is_adjustment) {
+                $amount = submitTrunc2(abs($amount));
+            }
             
             // WIN/LOSE（含前端 PROFIT）：按单条记录保存（To + From + Amount），不再自动生成相反类型第二条
             $txnRow = [

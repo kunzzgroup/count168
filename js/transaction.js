@@ -2997,6 +2997,7 @@
         const type = document.getElementById('transaction_type').value;
         let effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
         const isRate = type === RATE_TYPE_VALUE;
+        const isAdjustment = type === 'ADJUSTMENT';
 
         const standardToAccountInput = document.getElementById('action_account_id');
         const standardFromAccountInput = document.getElementById('action_account_from');
@@ -3005,8 +3006,8 @@
 
         // PROFIT：第一个下拉为 To、第二个为 From；CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR 与 RATE：第一个为 To、第二个为 From，与 UI 标签一致
         const needsFromTo = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR'].includes(effectiveType);
-        const accountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : (needsFromTo ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput)));
-        const fromAccountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : (needsFromTo ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput)));
+        const accountId = isRate ? getAccountId(rateFromAccountInput) : ((type === 'PROFIT' || isAdjustment) ? getAccountId(standardFromAccountInput) : (needsFromTo ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput)));
+        const fromAccountId = isRate ? getAccountId(rateToAccountInput) : (isAdjustment ? '' : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : (needsFromTo ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput))));
 
         const standardAmountInput = document.getElementById('action_amount');
         const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
@@ -3210,8 +3211,8 @@
             } catch (_) {
                 amountNum = null;
             }
-            if (!amountNum || amountNum.lt(0)) {
-                showNotification('Please enter a valid amount (>= 0)', 'error');
+            if (!amountNum || (!isAdjustment && amountNum.lt(0)) || (isAdjustment && amountNum.isZero())) {
+                showNotification(isAdjustment ? 'Please enter a non-zero adjustment amount' : 'Please enter a valid amount (>= 0)', 'error');
                 return;
             }
             amount = amountNormalized;

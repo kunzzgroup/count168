@@ -226,6 +226,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                         <option value="RECEIVE">RECEIVE</option>
                         <option value="CLAIM">CLAIM</option>
                         <option value="PROFIT">PROFIT</option>
+                        <option value="ADJUSTMENT">ADJUSTMENT</option>
                         <option value="RATE">RATE</option>
                         <option value="CLEAR">CLEAR</option>
                     </select>

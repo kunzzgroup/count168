@@ -247,10 +247,10 @@ try {
         }
     }
 
-    // Payment / Receive / Contra / Claim / Rate / Clear / 手动 Profit(WIN/LOSE) 等
+    // Payment / Receive / Contra / Claim / Rate / Clear / Adjustment / 手动 Profit(WIN/LOSE) 等
     // 都通过 Transaction Payment / Payment Maintenance 页面维护，
     // 不在 Maintenance - Transaction 中显示，避免重复。
-    $where[] = "t.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'WIN', 'LOSE')";
+    $where[] = "t.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT', 'WIN', 'LOSE')";
 
     $whereSql = 'WHERE ' . implode(' AND ', $where);
 
@@ -451,8 +451,8 @@ try {
                     }
                 }
             }
-            // 同样排除 Payment / Receive / Contra / Claim / Rate / Clear / WIN / LOSE 的已删除记录
-            $delWhere .= " AND td.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'WIN', 'LOSE')";
+            // 同样排除 Payment / Receive / Contra / Claim / Rate / Clear / Adjustment / WIN / LOSE 的已删除记录
+            $delWhere .= " AND td.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT', 'WIN', 'LOSE')";
             $deletedSql = "
                 SELECT
                     td.transaction_id,

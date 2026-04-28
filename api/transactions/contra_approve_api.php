@@ -24,7 +24,7 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool {
 
 function canApproveTransactionType(string $transactionType): bool {
     $type = strtoupper(trim($transactionType));
-    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'PROFIT', 'WIN', 'LOSE'], true);
+    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
 function resolveContraCompanyIdPost(PDO $pdo): int {
