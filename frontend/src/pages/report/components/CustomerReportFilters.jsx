@@ -58,6 +58,19 @@ export default function CustomerReportFilters({
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
 
+  const [quickSelectLabel, setQuickSelectLabel] = useState("Period");
+
+  const RANGE_TEXTS = {
+    today: "Today",
+    yesterday: "Yesterday",
+    thisWeek: "This Week",
+    lastWeek: "Last Week",
+    thisMonth: "This Month",
+    lastMonth: "Last Month",
+    thisYear: "This Year",
+    lastYear: "Last Year",
+  };
+
   return (
     <div className="customer-report-filter-container">
       <div className="customer-report-filters">
@@ -113,7 +126,10 @@ export default function CustomerReportFilters({
         <ReportDatePicker
           dateFrom={dateFrom}
           dateTo={dateTo}
-          onRangeChange={onRangeChange}
+          onRangeChange={(s, e) => {
+            onRangeChange(s, e);
+            setQuickSelectLabel("Period");
+          }}
           containerClass="customer-report-filter-group"
         />
 
@@ -121,7 +137,7 @@ export default function CustomerReportFilters({
         <div className="customer-report-quick-and-showall">
           <div className="customer-report-filter-group quick-select-wrap" ref={quickSelectRef}>
             <label className="form-label">
-              <i className="fas fa-clock" style={{ color: "#007AFF" }} /> Quick Select
+              <i className="fas fa-clock" style={{ color: "#3b82f6" }} /> Quick Select
             </label>
             <div className="quick-select-dropdown quick-select-dropdown-toggle">
               <button
@@ -130,22 +146,23 @@ export default function CustomerReportFilters({
                 onClick={(e) => { e.stopPropagation(); setQuickSelectOpen(!quickSelectOpen); }}
               >
                 <i className="fas fa-calendar-alt" />
-                <span id="quick-select-text">Period</span>
+                <span id="quick-select-text">{quickSelectLabel}</span>
                 <i className="fas fa-chevron-down" />
               </button>
-              {quickSelectOpen && (
-                <div className="dropdown-menu" style={{ display: "block" }}>
-                  {["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"].map(r => (
-                    <button key={r} type="button" className="dropdown-item" onClick={() => {
-                      const dates = quickRangeToDates(r);
-                      if (dates) onRangeChange(dates.startDate, dates.endDate);
-                      setQuickSelectOpen(false);
-                    }}>
-                      {r.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className={`dropdown-menu ${quickSelectOpen ? "show" : ""}`}>
+                {Object.entries(RANGE_TEXTS).map(([key, label]) => (
+                  <button key={key} type="button" className="dropdown-item" onClick={() => {
+                    const dates = quickRangeToDates(key);
+                    if (dates) {
+                      onRangeChange(dates.startDate, dates.endDate);
+                      setQuickSelectLabel(label);
+                    }
+                    setQuickSelectOpen(false);
+                  }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <div className="customer-report-filter-group customer-report-showall-group">
