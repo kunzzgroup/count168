@@ -1743,20 +1743,23 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 /* --- Global Date Range & Quick Select Restoration --- */
 .report-date-range-picker {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: clamp(6px, 0.42vw, 8px) clamp(10px, 0.83vw, 14px);
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    justify-content: flex-start;
+    gap: 6px;
+    width: clamp(150px, 11.2vw, 190px);
+    padding: 0 clamp(8px, 0.62vw, 12px);
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
     background-color: white;
     cursor: pointer;
-    font-size: clamp(10px, 0.78vw, 14px);
+    font-size: clamp(9px, 0.73vw, 14px);
     color: #374151;
     transition: all 0.2s ease;
     min-height: 32px;
     box-sizing: border-box;
     line-height: 1.2;
+    font-family: 'Amaranth', sans-serif;
 }
 
 .report-date-range-picker:hover {
@@ -1766,7 +1769,7 @@ body.account-page:not(.account-page--show-all) .account-card {
 
 .report-date-range-picker i {
     color: #007AFF;
-    font-size: 14px;
+    font-size: clamp(9px, 0.73vw, 13px);
 }
 
 .report-date-range-input {
@@ -1774,6 +1777,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1;
 }
 
 .quick-select-wrap {
