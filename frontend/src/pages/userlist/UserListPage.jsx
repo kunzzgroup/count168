@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+/** Bundled so modal 3-column layout works even when runtime `/css/userlist.css` 404s (subdir deploy, wrong base path). */
+import "../../../../css/userlist.css";
 import {
   ALL_ROLE_OPTIONS,
   PAGE_SIZE,
@@ -49,7 +51,6 @@ export default function UserListPage() {
   const [toast, setToast] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
-  const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
   const pendingDeleteRef = useRef([]);
 
@@ -122,48 +123,9 @@ export default function UserListPage() {
   useEffect(() => {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("user-page");
-    const hrefs = [assetUrl("css/userlist.css"), assetUrl("css/global-13inch.css")];
-    let settledCount = 0;
-    const links = [];
-    const bump = () => {
-      settledCount += 1;
-      if (settledCount >= hrefs.length) setCssReady(true);
-    };
-    hrefs.forEach((href) => {
-      let done = false;
-      const settle = () => {
-        if (done) return;
-        done = true;
-        bump();
-      };
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      link.onload = settle;
-      link.onerror = settle;
-      document.head.appendChild(link);
-      links.push(link);
-      /* Cached stylesheets often expose link.sheet immediately; load may fire before onload runs in some browsers. */
-      queueMicrotask(() => {
-        try {
-          if (link.sheet) settle();
-        } catch {
-          /* ignore */
-        }
-      });
-      requestAnimationFrame(() => {
-        try {
-          if (link.sheet) settle();
-        } catch {
-          /* ignore */
-        }
-      });
-    });
-    const font = document.createElement("link"); font.href = "https://fonts.googleapis.com/css?family=Amaranth"; font.rel = "stylesheet";
-    document.head.appendChild(font); links.push(font);
     return () => {
-      document.body.classList.remove("user-page", "user-page--show-all"); document.body.classList.add("bg");
-      links.forEach((l) => { if (l.parentNode) l.parentNode.removeChild(l); }); setCssReady(false);
+      document.body.classList.remove("user-page", "user-page--show-all");
+      document.body.classList.add("bg");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
@@ -356,7 +318,7 @@ export default function UserListPage() {
     } catch { notify("Save failed", "danger"); }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
+  if (bootLoading || !me) return null;
 
   return (
     <>
