@@ -387,12 +387,10 @@
         }
 
         function parseMaintenanceSortTime(row) {
-            const date = String(row?.date || '').trim();
             const created = String(row?.dts_created || '').trim();
-            const dateMatch = date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-            const timeMatch = created.match(/^\d{2}\/\d{2}\/\d{4}\s+(\d{2}:\d{2}:\d{2})$/);
-            if (!dateMatch) return 0;
-            const iso = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}T${timeMatch ? timeMatch[1] : '00:00:00'}`;
+            const createdMatch = created.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}:\d{2})$/);
+            if (!createdMatch) return 0;
+            const iso = `${createdMatch[3]}-${createdMatch[2]}-${createdMatch[1]}T${createdMatch[4]}`;
             const ts = Date.parse(iso);
             return Number.isFinite(ts) ? ts : 0;
         }
