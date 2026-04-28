@@ -65,7 +65,7 @@ export default function DomainReportFilters({
       <div className="domain-report-filters">
         {/* Process Select */}
         <div className="domain-report-filter-group">
-          <label>Process</label>
+          <label className="maintenance-label">Process</label>
           <div className="custom-select-wrapper" ref={processDropdownRef}>
             <button
               type="button"
@@ -118,8 +118,8 @@ export default function DomainReportFilters({
 
         {/* Quick Select */}
         <div className="domain-report-filter-group quick-select-wrap" ref={quickSelectRef}>
-          <label className="form-label">
-            <i className="fas fa-clock" style={{ color: "#3b82f6" }} /> Quick Select
+          <label className="maintenance-label">
+            <i className="fas fa-clock" /> Quick Select
           </label>
           <div className="quick-select-dropdown quick-select-dropdown-toggle">
             <button

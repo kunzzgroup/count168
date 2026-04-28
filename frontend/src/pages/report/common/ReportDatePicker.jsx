@@ -104,7 +104,7 @@ export default function ReportDatePicker({ dateFrom, dateTo, onRangeChange, labe
 
   return (
     <div className={`report-filter-group ${containerClass}`} ref={containerRef}>
-      <label>{label}</label>
+      <label className="maintenance-label">{label}</label>
       <div 
         className="report-date-range-picker" 
         id="date-range-picker"

@@ -76,7 +76,7 @@ export default function CustomerReportFilters({
       <div className="customer-report-filters">
         {/* Account Select */}
         <div className="customer-report-filter-group">
-          <label>Account</label>
+          <label className="maintenance-label">Account</label>
           <div className="custom-select-wrapper" ref={accountDropdownRef}>
             <button
               type="button"
@@ -136,8 +136,8 @@ export default function CustomerReportFilters({
         {/* Quick Select & Show All */}
         <div className="customer-report-quick-and-showall">
           <div className="customer-report-filter-group quick-select-wrap" ref={quickSelectRef}>
-            <label className="form-label">
-              <i className="fas fa-clock" style={{ color: "#3b82f6" }} /> Quick Select
+            <label className="maintenance-label">
+              <i className="fas fa-clock" /> Quick Select
             </label>
             <div className="quick-select-dropdown quick-select-dropdown-toggle">
               <button
