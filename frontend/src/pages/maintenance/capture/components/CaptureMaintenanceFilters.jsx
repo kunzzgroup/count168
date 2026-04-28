@@ -55,7 +55,7 @@ export default function CaptureMaintenanceFilters({
         />
 
         <div className="maintenance-form-group quick-select-wrap" ref={quickSelectRef}>
-          <label className="form-label"><i className="fas fa-clock" /> Quick Select</label>
+          <label className="maintenance-label"><i className="fas fa-clock" /> Quick Select</label>
           <div className="quick-select-dropdown quick-select-dropdown-toggle">
             <button 
               type="button" 
@@ -87,13 +87,13 @@ export default function CaptureMaintenanceFilters({
         <div className="maintenance-filter-left">
           {snapGroupIds.length > 0 && (
             <div className="transaction-company-filter shared-group-wrapper">
-              <span className="transaction-company-label">GroupID:</span>
-              <div className="transaction-company-buttons">
+              <span className="maintenance-company-label">GroupID:</span>
+              <div className="maintenance-company-buttons">
                 {snapGroupIds.map((gid) => (
                   <button 
                     key={gid} 
                     type="button" 
-                    className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
+                    className={`maintenance-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
                     onClick={() => onGroupClick(gid)}
                   >
                     {gid}
@@ -105,8 +105,8 @@ export default function CaptureMaintenanceFilters({
 
           {snapCompanies.length > 0 && (
             <div className="transaction-company-filter shared-company-wrapper">
-              <span className="transaction-company-label">Company:</span>
-              <div className="transaction-company-buttons">
+              <span className="maintenance-company-label">Company:</span>
+              <div className="maintenance-company-buttons">
                 {snapCompanies.map((comp) => {
                   const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
                   let visible = true;
@@ -118,7 +118,7 @@ export default function CaptureMaintenanceFilters({
                       key={comp.id}
                       type="button"
                       style={{ display: visible ? "inline-block" : "none" }}
-                      className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
+                      className={`maintenance-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
                       onClick={() => onSwitchCompany(comp)}
                     >
                       {comp.company_id}
