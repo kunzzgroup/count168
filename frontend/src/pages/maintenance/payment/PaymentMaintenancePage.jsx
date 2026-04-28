@@ -43,16 +43,22 @@ export default function PaymentMaintenancePage() {
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
   // -- UI State --
-  const [toast, setToast] = useState(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const toastTimerRef = useRef(null);
+  const [toasts, setToasts] = useState([]);
+  const companyIdRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+    const id = Date.now();
+    setToasts(prev => {
+      const next = [...prev, { id, message, type }];
+      if (next.length > 2) return next.slice(1);
+      return next;
+    });
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 2000);
   }, []);
 
   // -- Initialization --
@@ -80,8 +86,26 @@ export default function PaymentMaintenancePage() {
 
     return () => {
       document.body.classList.remove("maintenance-page");
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
+  }, []);
+
+  // Handle sidebar company switch
+  useEffect(() => {
+    const handleSwitch = (e) => {
+      if (!e.detail) return;
+      const { companyId, companyCode } = e.detail;
+      if (Number(companyId) === Number(companyIdRef.current)) return;
+
+      companyIdRef.current = companyId;
+      setCompanyId(Number(companyId));
+      setCompanyCode(companyCode);
+      setPaymentData([]);
+      setSelectedIds([]);
+      setConfirmDelete(false);
+    };
+
+    window.addEventListener("eazycount:company-session-updated", handleSwitch);
+    return () => window.removeEventListener("eazycount:company-session-updated", handleSwitch);
   }, []);
 
   // -- Boot Logic --
@@ -121,6 +145,7 @@ export default function PaymentMaintenancePage() {
         // Set Initial Company
         let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
         setCompanyId(initialCompanyId);
+        companyIdRef.current = initialCompanyId;
         
         const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
@@ -222,6 +247,7 @@ export default function PaymentMaintenancePage() {
     try {
       await updateSessionCompany(c.id);
       setCompanyId(Number(c.id));
+      companyIdRef.current = Number(c.id);
       setCompanyCode(c.company_id || "");
       
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
@@ -351,13 +377,14 @@ export default function PaymentMaintenancePage() {
         message={`Are you sure you want to delete the selected ${selectedIds.length} record(s)? This action cannot be undone.`}
       />
 
-      {toast && (
-        <div id="notificationContainer" className="maintenance-notification-container">
-          <div className={`maintenance-notification maintenance-notification-${toast.type} show`}>
-            {toast.message}
+      {/* Notifications */}
+      <div id="notificationContainer" className="maintenance-notification-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
+            {t.message}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }

@@ -95,14 +95,14 @@ export default function PaymentMaintenanceFilters({
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left">
           {snapGroupIds.length > 0 && (
-            <div className="transaction-company-filter shared-group-wrapper">
-              <span className="transaction-company-label">GroupID:</span>
-              <div className="transaction-company-buttons">
-                {snapGroupIds.map((gid) => (
-                  <button 
-                    key={gid} 
-                    type="button" 
-                    className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
+            <div id="group-buttons-wrapper" className="maintenance-company-filter shared-group-wrapper">
+              <span className="maintenance-company-label">GroupID:</span>
+              <div id="group-buttons-container" className="maintenance-company-buttons">
+                {snapGroupIds.map(gid => (
+                  <button
+                    key={gid}
+                    type="button"
+                    className={`maintenance-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
                     onClick={() => onGroupClick(gid)}
                   >
                     {gid}
@@ -112,31 +112,21 @@ export default function PaymentMaintenanceFilters({
             </div>
           )}
 
-          {snapCompanies.length > 0 && (
-            <div className="transaction-company-filter shared-company-wrapper">
-              <span className="transaction-company-label">Company:</span>
-              <div className="transaction-company-buttons">
-                {snapCompanies.map((comp) => {
-                  const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-                  let visible = true;
-                  if (selectedGroup) visible = cGid === selectedGroup;
-                  else visible = !cGid;
-
-                  return (
-                    <button
-                      key={comp.id}
-                      type="button"
-                      style={{ display: visible ? "inline-block" : "none" }}
-                      className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
-                      onClick={() => onSwitchCompany(comp)}
-                    >
-                      {comp.company_id}
-                    </button>
-                  );
-                })}
-              </div>
+          <div id="company-buttons-wrapper" className="maintenance-company-filter shared-company-wrapper">
+            <span className="maintenance-company-label">Company:</span>
+            <div id="company-buttons-container" className="maintenance-company-buttons">
+              {snapCompanies.filter(c => (c.group_id ? String(c.group_id).toUpperCase().trim() : "") === (selectedGroup || "")).map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`maintenance-company-btn shared-company-btn ${Number(companyId) === Number(c.id) ? "active" : ""}`}
+                  onClick={() => onSwitchCompany(c)}
+                >
+                  {c.company_id}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {currencies.length > 0 && (
             <div id="currency-buttons-wrapper" className="maintenance-company-filter">
@@ -158,23 +148,27 @@ export default function PaymentMaintenanceFilters({
         </div>
 
         <div className="maintenance-actions">
-          <button 
-            type="button" 
-            className="maintenance-delete-btn" 
-            onClick={onDelete}
-            disabled={deleteDisabled}
-          >
-            Delete
-          </button>
-          <label className="maintenance-confirm-delete-label">
-            <input 
-              type="checkbox" 
-              className="maintenance-checkbox" 
-              checked={confirmDelete}
-              onChange={(e) => setConfirmDelete(e.target.checked)}
-            />
-            <span>Confirm Delete</span>
-          </label>
+          <div id="delete_controls" className="maintenance-delete-controls">
+            <div className="maintenance-checkbox-wrapper">
+              <input 
+                type="checkbox" 
+                id="confirm_delete" 
+                className="maintenance-checkbox" 
+                checked={confirmDelete}
+                onChange={(e) => setConfirmDelete(e.target.checked)}
+              />
+              <label htmlFor="confirm_delete" className="maintenance-checkbox-label">Confirm to delete</label>
+            </div>
+            <button 
+              type="button" 
+              id="delete_btn" 
+              className="maintenance-btn maintenance-btn-delete" 
+              onClick={onDelete}
+              disabled={deleteDisabled}
+            >
+              Delete
+            </button>
+          </div>
         </div>
       </div>
     </div>

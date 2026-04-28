@@ -60,6 +60,7 @@ export default function PaymentMaintenanceTable({
             <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
+                id="select_all_payment"
                 ref={selectAllRef}
                 className="maintenance-checkbox" 
                 checked={selectAll}
