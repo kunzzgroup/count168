@@ -1204,6 +1204,8 @@ try {
         }
     }
 
+    $sql .= historyContraApprovedWhere($pdo, 't');
+
     $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC";
 
     $stmt = $pdo->prepare($sql);
