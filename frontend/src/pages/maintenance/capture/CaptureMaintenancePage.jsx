@@ -44,14 +44,20 @@ export default function CaptureMaintenancePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   
   // -- UI State --
-  const [toast, setToast] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const toastTimerRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+    const id = Date.now();
+    setToasts(prev => {
+      const next = [...prev, { id, message, type }];
+      if (next.length > 2) return next.slice(1);
+      return next;
+    });
+    
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 2000);
   }, []);
 
   // -- Initialization --
@@ -80,7 +86,6 @@ export default function CaptureMaintenancePage() {
 
     return () => {
       document.body.classList.remove("maintenance-page");
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
 
@@ -106,6 +111,8 @@ export default function CaptureMaintenancePage() {
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canMaintenance = hasFull || perms.includes("maintenance");
+        
+        // Sidebar visibility and gambling check
         if (!canMaintenance || !u.company_has_gambling) {
           navigate("/dashboard", { replace: true });
           return;
@@ -186,7 +193,8 @@ export default function CaptureMaintenancePage() {
         dateFrom,
         dateTo,
         process: selectedProcess,
-        companyId
+        companyId,
+        category: activePermission
       });
       setCaptureData(data);
       if (data.length === 0) {
@@ -200,20 +208,27 @@ export default function CaptureMaintenancePage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, dateFrom, dateTo, selectedProcess, notify]);
+  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify]);
 
   // Auto-search when filters change
   useEffect(() => {
     if (!bootLoading && companyId) {
       performSearch();
     }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, performSearch]);
+  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     try {
-      await updateSessionCompany(c.id);
+      const sessionData = await updateSessionCompany(c.id);
+      
+      // Redirect if no gambling permission (parity with legacy js switchCompany)
+      if (sessionData && sessionData.has_gambling === false) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
       setCompanyId(Number(c.id));
       setCompanyCode(c.company_id || "");
       
@@ -226,6 +241,8 @@ export default function CaptureMaintenancePage() {
       notify(`Switched to ${c.company_id}`, "success");
     } catch (err) {
       notify(err.message || "Switch failed", "error");
+      // Fallback redirect if something goes wrong during session update
+      navigate("/dashboard", { replace: true });
     }
   };
 
@@ -240,9 +257,9 @@ export default function CaptureMaintenancePage() {
   };
 
   const handlePermissionSwitch = (p) => {
+    if (p === activePermission) return;
     setActivePermission(p);
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
-    // Note: sidebar visibility updates are usually handled by global state or re-render in SPA
   };
 
   const toggleSelect = (id) => {
@@ -355,14 +372,13 @@ export default function CaptureMaintenancePage() {
       />
 
       {/* Notifications */}
-      {toast && (
-        <div id="notificationContainer" className="maintenance-notification-container">
-          <div className={`maintenance-notification maintenance-notification-${toast.type} show`}>
-            {toast.message}
+      <div id="notificationContainer" className="maintenance-notification-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
+            {t.message}
           </div>
-        </div>
-      )}
-
+        ))}
+      </div>
       {/* Confirm Modal */}
       <ConfirmDeleteModal 
         isOpen={showDeleteModal}

@@ -44,7 +44,7 @@ export async function fetchProcesses(companyId) {
 /**
  * Search capture data
  */
-export async function searchCaptureData({ dateFrom, dateTo, process, companyId }) {
+export async function searchCaptureData({ dateFrom, dateTo, process, companyId, category }) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
@@ -53,6 +53,9 @@ export async function searchCaptureData({ dateFrom, dateTo, process, companyId }
   }
   if (companyId) {
     params.append("company_id", companyId);
+  }
+  if (category) {
+    params.append("category", category);
   }
   
   const url = buildApiUrl(`api/capture_maintenance/search_api.php?${params.toString()}`);

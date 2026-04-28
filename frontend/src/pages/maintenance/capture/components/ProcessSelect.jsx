@@ -42,14 +42,14 @@ export default function ProcessSelect({ processes, selectedValue, onSelect, plac
   };
 
   const handleSelect = (process) => {
-    const value = process.id != null ? String(process.id) : "";
+    const value = process.process_name !== placeholder ? process.process_name : "";
     onSelect(value);
     setIsOpen(false);
   };
 
   const getDisplayText = (value) => {
     if (!value) return placeholder;
-    const p = processes.find(proc => String(proc.id) === value);
+    const p = processes.find(proc => proc.process_name === value);
     if (!p) return placeholder;
     return p.description 
       ? `${p.process_name} (${p.description})`
@@ -102,8 +102,8 @@ export default function ProcessSelect({ processes, selectedValue, onSelect, plac
           <div className="custom-select-options">
             {displayProcesses.length > 0 ? (
               displayProcesses.map((p, index) => {
-                const value = p.id != null ? String(p.id) : "";
-                const text = p.id != null 
+                const value = p.process_name !== placeholder ? p.process_name : "";
+                const text = p.process_name !== placeholder 
                   ? (p.description ? `${p.process_name} (${p.description})` : p.process_name)
                   : placeholder;
                 
