@@ -1,29 +1,24 @@
 import { formatAmount } from "../customerReportLogic.js";
 
 export default function CustomerReportTable({ reportData, loading, error }) {
-  if (loading) return (
+  const renderEmpty = (message) => (
     <div className="customer-report-list-container">
-      <div className="customer-report-card">
-        <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1" }}>Loading...</div>
+      <div className="customer-report-table-header">
+        <div>Account</div><div>Name</div><div>Currency</div><div>Win</div><div>Lose</div>
+      </div>
+      <div className="customer-report-cards">
+        <div className="customer-report-card">
+          <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1", justifyContent: "center" }}>
+            {message}
+          </div>
+        </div>
       </div>
     </div>
   );
 
-  if (error) return (
-    <div className="customer-report-list-container">
-      <div className="customer-report-card">
-        <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1", color: "red" }}>{error}</div>
-      </div>
-    </div>
-  );
-
-  if (!reportData || !reportData.data || reportData.data.length === 0) return (
-    <div className="customer-report-list-container">
-      <div className="customer-report-card">
-        <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1" }}>No data found</div>
-      </div>
-    </div>
-  );
+  if (loading) return renderEmpty("Loading...");
+  if (error) return renderEmpty(error);
+  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty("No data found");
 
   const data = reportData.data;
   

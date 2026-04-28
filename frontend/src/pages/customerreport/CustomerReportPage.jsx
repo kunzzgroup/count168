@@ -56,6 +56,26 @@ export default function CustomerReportPage() {
   useEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "report-page");
+
+    // Inject fonts and legacy CSS
+    const links = [
+      "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
+      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
+      assetUrl("css/accountCSS.css"),
+      assetUrl("css/transaction.css"),
+      assetUrl("css/customer_report.css"),
+      assetUrl("css/global-13inch.css"),
+    ];
+
+    links.forEach(href => {
+      if (!document.querySelector(`link[href="${href}"]`)) {
+        const l = document.createElement("link");
+        l.rel = "stylesheet";
+        l.href = href;
+        document.head.appendChild(l);
+      }
+    });
+
     return () => {
       document.body.classList.remove("report-page");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);

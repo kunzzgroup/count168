@@ -119,7 +119,7 @@ export default function CustomerReportFilters({
         <div className="customer-report-quick-and-showall">
           <div className="customer-report-filter-group quick-select-wrap" ref={quickSelectRef}>
             <label className="form-label">
-              <i className="fas fa-clock" /> Quick Select
+              <i className="fas fa-clock" style={{ color: "#007AFF" }} /> Quick Select
             </label>
             <div className="quick-select-dropdown quick-select-dropdown-toggle">
               <button
@@ -162,76 +162,79 @@ export default function CustomerReportFilters({
         </div>
       </div>
 
-      {/* Group & Company Buttons */}
-      {snapGroupIds.length > 0 && (
-        <div className="transaction-company-filter shared-group-wrapper" style={{ marginTop: 15 }}>
-          <span className="transaction-company-label">GroupID:</span>
-          <div className="transaction-company-buttons">
-            {snapGroupIds.map((gid) => (
-              <button 
-                key={gid} 
-                type="button" 
-                className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
-                onClick={() => onGroupClick(gid)}
-              >
-                {gid}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {snapCompanies.length > 0 && (
-        <div className="transaction-company-filter shared-company-wrapper" style={{ marginTop: 10 }}>
-          <span className="transaction-company-label">Company:</span>
-          <div className="transaction-company-buttons">
-            {snapCompanies.map((comp) => {
-              const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-              let visible = true;
-              if (selectedGroup) visible = cGid === selectedGroup;
-              else visible = !cGid;
-              
-              return (
-                <button
-                  key={comp.id}
-                  type="button"
-                  style={{ display: visible ? "inline-block" : "none" }}
-                  className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
-                  onClick={() => onSwitchCompany(comp)}
+      <div className="customer-report-buttons-section" style={{ marginTop: 15 }}>
+        {/* Group ID Buttons */}
+        {snapGroupIds.length > 0 && (
+          <div className="transaction-company-filter shared-group-wrapper" style={{ marginBottom: 10 }}>
+            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>GroupID:</span>
+            <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
+              {snapGroupIds.map((gid) => (
+                <button 
+                  key={gid} 
+                  type="button" 
+                  className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
+                  onClick={() => onGroupClick(gid)}
                 >
-                  {comp.company_id}
+                  {gid}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Currency Buttons */}
-      {currencyList.length > 0 && (
-        <div className="transaction-company-filter" style={{ marginTop: 10 }}>
-          <span className="transaction-company-label">Currency:</span>
-          <div className="transaction-company-buttons">
-            <button 
-              type="button" 
-              className={`transaction-company-btn ${showAllCurrencies ? "active" : ""}`}
-              onClick={toggleAllCurrencies}
-            >
-              All
-            </button>
-            {currencyList.map(c => (
-              <button 
-                key={c.code} 
-                type="button" 
-                className={`transaction-company-btn ${selectedCurrencies.includes(c.code) ? "active" : ""}`}
-                onClick={() => toggleCurrency(c.code)}
-              >
-                {c.code}
-              </button>
-            ))}
+        {/* Company Buttons */}
+        {snapCompanies.length > 0 && (
+          <div className="transaction-company-filter shared-company-wrapper" style={{ marginBottom: 10 }}>
+            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>Company:</span>
+            <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
+              {snapCompanies.map((comp) => {
+                const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
+                let visible = true;
+                if (selectedGroup) visible = cGid === selectedGroup;
+                else visible = !cGid;
+                
+                return (
+                  <button
+                    key={comp.id}
+                    type="button"
+                    style={{ display: visible ? "inline-block" : "none" }}
+                    className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(companyId) ? "active" : ""}`}
+                    onClick={() => onSwitchCompany(comp)}
+                  >
+                    {comp.company_id}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Currency Buttons */}
+        {currencyList.length > 0 && (
+          <div className="transaction-company-filter">
+            <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>Currency:</span>
+            <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
+              <button 
+                type="button" 
+                className={`transaction-company-btn ${showAllCurrencies ? "active" : ""}`}
+                onClick={toggleAllCurrencies}
+              >
+                All
+              </button>
+              {currencyList.map(c => (
+                <button 
+                  key={c.code} 
+                  type="button" 
+                  className={`transaction-company-btn ${selectedCurrencies.includes(c.code) ? "active" : ""}`}
+                  onClick={() => toggleCurrency(c.code)}
+                >
+                  {c.code}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
