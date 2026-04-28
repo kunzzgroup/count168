@@ -419,6 +419,12 @@ h1 {
     border-spacing: 0 2px;
 }
 
+.maintenance-table th,
+.maintenance-table td {
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
 .maintenance-table thead tr {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: #ffffff;
@@ -427,7 +433,7 @@ h1 {
 }
 
 .maintenance-table thead th {
-    padding: clamp(4px, 0.6vw, 10px) 12px;
+    padding: clamp(6px, 0.65vw, 11px) clamp(10px, 0.9vw, 14px);
     text-align: center;
 }
 
@@ -465,13 +471,13 @@ h1 {
 
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 2%;
+    width: 4%;
     text-align: center;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 11%;
+    width: 15%;
 }
 
 .maintenance-table th:nth-child(3),
@@ -481,12 +487,12 @@ h1 {
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 12%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 5%;
+    width: 7%;
 }
 
 .maintenance-table th:nth-child(6),
@@ -501,23 +507,35 @@ h1 {
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 20%;
+    width: 24%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 72%;
+    width: 3%;
 }
 
 .maintenance-table-cell {
     font-size: clamp(9px, 0.82vw, 15px);
     font-weight: bold;
     color: #374151;
-    padding: 4px 12px;
+    padding: clamp(6px, 0.65vw, 11px) clamp(10px, 0.9vw, 14px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    text-align: center;
+}
+
+.maintenance-table th:nth-child(3),
+.maintenance-table td:nth-child(3),
+.maintenance-table th:nth-child(4),
+.maintenance-table td:nth-child(4),
+.maintenance-table th:nth-child(6),
+.maintenance-table td:nth-child(6),
+.maintenance-table th:nth-child(8),
+.maintenance-table td:nth-child(8) {
+    text-align: left;
 }
 
 .maintenance-cell-currency {
@@ -745,23 +763,21 @@ h1 {
 
 @media (max-width: 1400px) {
 
-
-
     .maintenance-table th:nth-child(1), .maintenance-table td:nth-child(1){
-        width: 2%;
+        width: 4%;
     }
 
     .maintenance-table th:nth-child(3), .maintenance-table td:nth-child(3){
-        width: clamp(8%, 0.52vw, 10%);
+        width: 12%;
     }
 
     .maintenance-table th:nth-child(4), .maintenance-table td:nth-child(4){
-        width: 10%;
+        width: 13%;
     }
 
 
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: clamp(60%, 40vw, 70%);
+        width: 3%;
     }
 
     .maintenance-table-cell{
@@ -772,11 +788,11 @@ h1 {
 @media (max-width: 2000px) {
     
     .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
-        width: 14%;
+        width: 24%;
     }
     
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: 84%
+        width: 3%;
     }
 
 }
