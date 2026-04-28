@@ -393,18 +393,18 @@ h1 {
     color: #1e293b;
 }
 
-/* Back button */
+/* Back button — 原版：白底、淺灰邊 */
 .btn-back {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: clamp(6px, 0.42vw, 8px) clamp(14px, 1.04vw, 20px);
-    background: #f1f5f9;
+    background: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     font-size: clamp(12px, 0.83vw, 15px);
     font-weight: 600;
-    color: #475569;
+    color: #64748b;
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -422,13 +422,65 @@ h1 {
     transform: translateX(-2px);
 }
 
-/* ── Modal Body ────────────────────────────────────────────── */
+/* ── Modal Body：淺灰底 + 內嵌白卡片（三等欄，對齊原版 Add User） ── */
 .modal-body {
     display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    background: #f0f4fa;
+    padding: clamp(12px, 1.25vw, 20px);
+}
+
+.user-modal-card {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     background: #ffffff;
+    border-radius: clamp(12px, 1.2vw, 20px);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+    align-content: stretch;
+}
+
+.user-modal-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    padding: clamp(14px, 1.04vw, 22px);
+    border-right: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.user-modal-col:last-child {
+    border-right: none;
+}
+
+/* 欄位大標題：User Information / Account / Process */
+h3.user-modal-col-title,
+label.user-modal-col-title.acc-proc-label {
+    margin: 0 calc(-1 * clamp(14px, 1.04vw, 22px)) clamp(10px, 0.73vw, 14px);
+    padding: 0 clamp(14px, 1.04vw, 22px) clamp(8px, 0.52vw, 10px);
+    color: #0f172a;
+    border-bottom: 2px solid #1a237e;
+    font-size: clamp(14px, 1vw, 18px);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+label.user-modal-col-title.acc-proc-label {
+    display: block;
+    color: #0f172a;
+}
+
+/* Permissions 子標題：淺灰底線（與主欄海軍藍線區隔） */
+.sidebar-permissions-title.user-modal-permissions-title {
+    border-bottom: 2px solid #cbd5e1;
+    color: #1e293b;
 }
 
 /* ── Left Panel: User Info + Permissions ───────────────────── */
@@ -443,12 +495,20 @@ h1 {
     border-right: 1px solid #e2e8f0;
 }
 
-.user-info-panel h3 {
-    margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(10px, 0.73vw, 14px);
-    padding: 0 clamp(14px, 1.04vw, 20px) clamp(6px, 0.52vw, 10px);
-    color: #1e293b;
+.user-modal-card .user-info-panel {
+    flex: initial;
+    max-width: none;
+    width: auto;
+    border-right: none;
+    padding: clamp(14px, 1.04vw, 22px);
+}
+
+.user-info-panel h3.user-modal-col-title {
+    margin: 0 calc(-1 * clamp(14px, 1.04vw, 22px)) clamp(10px, 0.73vw, 14px);
+    padding: 0 clamp(14px, 1.04vw, 22px) clamp(8px, 0.52vw, 10px);
+    color: #0f172a;
     border-bottom: 2px solid #1a237e;
-    font-size: clamp(13px, 0.94vw, 18px);
+    font-size: clamp(14px, 1vw, 18px);
     font-weight: 700;
     flex-shrink: 0;
 }
@@ -466,6 +526,84 @@ h1 {
     flex-shrink: 0;
 }
 
+.password-row-container--split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.user-modal-company-buttons {
+    margin-top: 8px;
+}
+
+/* Account / Process：四欄格線（對齊原版） */
+.account-grid--four {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px;
+    align-content: start;
+    padding: 10px 0;
+}
+
+.user-modal-col--account .account-control-buttons,
+.user-modal-col--process .account-control-buttons {
+    margin-top: auto;
+}
+
+.account-item-compact {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.account-item-compact--process {
+    align-items: flex-start;
+}
+
+.account-label {
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.account-label--process {
+    white-space: normal;
+    line-height: 1.2;
+}
+
+.account-label-desc {
+    display: block;
+    font-weight: 400;
+    font-size: 11px;
+    color: #64748b;
+}
+
+/* Add / Edit 共用底欄（置中 Save / Cancel） */
+.user-modal-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(12px, 1.04vw, 20px);
+    padding: clamp(14px, 1vw, 18px) clamp(24px, 2vw, 40px);
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+}
+
+.modal-content .user-modal-footer .btn-save,
+.modal-content .user-modal-footer .btn-cancel {
+    border-radius: 8px;
+    min-width: clamp(100px, 7.5vw, 130px);
+}
+
 /* ── Form fields ── */
 .form-group {
     margin-bottom: clamp(8px, 0.625vw, 12px);
@@ -475,7 +613,7 @@ h1 {
     display: block;
     margin-bottom: clamp(2px, 0.21vw, 4px);
     font-weight: 600;
-    color: #374151;
+    color: #0f172a;
     font-size: clamp(10px, 0.73vw, 14px);
 }
 
@@ -556,8 +694,8 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 0 calc(-1 * clamp(14px, 1.04vw, 20px)) clamp(8px, 0.63vw, 12px);
-    padding: 0 clamp(14px, 1.04vw, 20px) clamp(4px, 0.42vw, 8px);
+    margin: 0 calc(-1 * clamp(14px, 1.04vw, 22px)) clamp(8px, 0.63vw, 12px);
+    padding: 0 clamp(14px, 1.04vw, 22px) clamp(6px, 0.42vw, 8px);
     color: #1e293b;
     border-bottom: 2px solid #1a237e;
     font-size: clamp(12px, 0.88vw, 16px);
@@ -1420,6 +1558,10 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     align-items: center;
     gap: clamp(4px, 0.31vw, 6px);
     flex-shrink: 0;
+}
+
+.read-only-toggle-after-title {
+    margin-left: 12px;
 }
 
 .read-only-label {

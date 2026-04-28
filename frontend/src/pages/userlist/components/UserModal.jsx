@@ -39,7 +39,7 @@ export default function UserModal({
 
   return (
     <div id="userModal" className="modal" style={{ display: "block" }}>
-      <div className="modal-content">
+      <div className={`modal-content${isEditMode ? " edit-mode" : ""}`}>
         <div className="modal-header-bar">
           <h2 id="modalTitle">{isEditMode ? (editingRow?.is_owner_shadow ? "Edit Owner" : "Edit User") : "Add User"}</h2>
           <button type="button" className="btn-back" onClick={onClose}>
@@ -50,9 +50,10 @@ export default function UserModal({
           </button>
         </div>
         <div className="modal-body">
-          <div className="user-info-panel">
-            <h3>User Information</h3>
-            <form id="userForm" onSubmit={onSave}>
+          <div className="user-modal-card">
+            <div className="user-modal-col user-modal-col--info user-info-panel">
+              <h3 className="user-modal-col-title">User Information</h3>
+              <form id="userForm" onSubmit={onSave}>
               <div className="user-info-grid">
                 <div className="form-group user-info-field">
                   <label htmlFor="login_id">Login ID *</label>
@@ -65,7 +66,7 @@ export default function UserModal({
                   />
                 </div>
                 {isC168Company ? (
-                  <div className="form-group user-info-field password-row-container" style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  <div className="form-group user-info-field password-row-container password-row-container--split">
                     <div className="password-field-wrapper">
                       <label htmlFor="password">{isEditMode ? "Password" : "Password *"}</label>
                       <input id="password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
@@ -122,7 +123,7 @@ export default function UserModal({
                 {(currentUserRole === "admin" || currentUserRole === "owner" || currentUserRole === "partnership") && (
                   <div className="form-group user-info-field company-field-group">
                     <label>Company *</label>
-                    <div className="transaction-company-buttons" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                    <div className="transaction-company-buttons user-modal-company-buttons">
                       {modalCompanies.map((c) => (
                         <button
                           key={c.id}
@@ -146,10 +147,10 @@ export default function UserModal({
               </div>
 
               <div className="sidebar-permissions-section">
-                <h3 className="sidebar-permissions-title">
+                <h3 className="sidebar-permissions-title user-modal-permissions-title">
                   Permissions
                   {normRole(currentUserRole) === "owner" && (normRole(form.role) === "partnership" || normRole(editingRow?.role) === "partnership") && (
-                    <span className="read-only-toggle-inline" style={{ marginLeft: 12 }}>
+                    <span className="read-only-toggle-inline read-only-toggle-after-title">
                       <span className="read-only-label">Read Only</span>
                       <label className="toggle-switch">
                         <input type="checkbox" checked={form.read_only} onChange={(e) => setForm((f) => ({ ...f, read_only: e.target.checked }))} />
@@ -184,10 +185,10 @@ export default function UserModal({
                     </div>
                   ))}
                 </div>
-                <div className="permissions-actions">
+                <div className="permissions-actions user-modal-col-actions">
                   <button
                     type="button"
-                    className="btn-secondary"
+                    className="btn-secondary btn-select-all"
                     disabled={fieldLocks.sidebar || !!editingRow?.is_owner_shadow}
                     onClick={() => {
                       const n = new Set();
@@ -203,22 +204,14 @@ export default function UserModal({
                   >Clear All</button>
                 </div>
               </div>
-              {!isEditMode && (
-                <div className="form-actions add-mode-actions">
-                  <button type="submit" className="btn btn-save">Save</button>
-                  <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
-                </div>
-              )}
-            </form>
-          </div>
+              </form>
+            </div>
 
-          <div className="permissions-panel" style={{ display: "flex", flex: 1 }}>
-            <div style={{ display: "flex", width: "100%", gap: 0 }}>
-              <div className="account-process-col" style={{ flex: 1, borderRight: "1px solid #e2e8f0", padding: "20px", display: "flex", flexDirection: "column" }}>
-                <label className="acc-proc-label">Account</label>
-                <div className="account-grid" style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignContent: "start", padding: "10px 0" }}>
+            <div className="user-modal-col user-modal-col--account account-process-col">
+                <label className="acc-proc-label user-modal-col-title">Account</label>
+                <div className="account-grid account-grid--four">
                   {modalAccounts.map((a) => (
-                    <div key={a.id} className="account-item-compact" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <div key={a.id} className="account-item-compact">
                       <input
                         type="checkbox"
                         id={`acc-${a.id}`}
@@ -232,20 +225,21 @@ export default function UserModal({
                           });
                         }}
                       />
-                      <label htmlFor={`acc-${a.id}`} className="account-label" style={{ fontSize: "12px", fontWeight: "600", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.account_id}</label>
+                      <label htmlFor={`acc-${a.id}`} className="account-label">{a.account_id}</label>
                     </div>
                   ))}
                 </div>
-                <div className="account-control-buttons" style={{ display: "flex", gap: "10px", justifyContent: "center", paddingTop: "15px", borderTop: "1px solid #e2e8f0", marginTop: "10px" }}>
+                <div className="account-control-buttons user-modal-col-actions">
                   <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set(modalAccounts.map(x => Number(x.id))))}>Select All</button>
                   <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedAccountIds(new Set())}>Clear All</button>
                 </div>
               </div>
-              <div className="account-process-col" style={{ flex: 1, padding: "20px", display: "flex", flexDirection: "column" }}>
-                <label className="acc-proc-label">Process</label>
-                <div className="account-grid" style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignContent: "start", padding: "10px 0" }}>
+
+            <div className="user-modal-col user-modal-col--process account-process-col">
+                <label className="acc-proc-label user-modal-col-title">Process</label>
+                <div className="account-grid account-grid--four account-grid--process">
                   {modalProcesses.map((p) => (
-                    <div key={p.id} className="account-item-compact" style={{ display: "flex", alignItems: "flex-start", gap: "5px" }}>
+                    <div key={p.id} className="account-item-compact account-item-compact--process">
                       <input
                         type="checkbox"
                         id={`proc-${p.id}`}
@@ -259,26 +253,23 @@ export default function UserModal({
                           });
                         }}
                       />
-                      <label htmlFor={`proc-${p.id}`} className="account-label" style={{ fontSize: "12px", fontWeight: "600", cursor: "pointer", lineHeight: "1.2" }}>
-                        {p.process_id}{p.description ? <span style={{ fontWeight: "normal", fontSize: "11px", color: "#666", display: "block" }}>{p.description}</span> : null}
+                      <label htmlFor={`proc-${p.id}`} className="account-label account-label--process">
+                        {p.process_id}{p.description ? <span className="account-label-desc">{p.description}</span> : null}
                       </label>
                     </div>
                   ))}
                 </div>
-                <div className="account-control-buttons" style={{ display: "flex", gap: "10px", justifyContent: "center", paddingTop: "15px", borderTop: "1px solid #e2e8f0", marginTop: "10px" }}>
+                <div className="account-control-buttons user-modal-col-actions">
                   <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set(modalProcesses.map(x => Number(x.id))))}>Select All</button>
                   <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow} onClick={() => setSelectedProcessIds(new Set())}>Clear All</button>
                 </div>
               </div>
-            </div>
           </div>
         </div>
-        {isEditMode && (
-          <div className="edit-mode-bottom-bar" style={{ display: "flex" }}>
-            <button type="submit" form="userForm" className="btn btn-save">Save</button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
-          </div>
-        )}
+        <div className="user-modal-footer">
+          <button type="submit" form="userForm" className="btn btn-save">Save</button>
+          <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
+        </div>
       </div>
     </div>
   );
