@@ -6,6 +6,7 @@ import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents
 import { 
   fetchCompanyPermissions, 
   fetchProcesses, 
+  isBankOnlyCategoryCompany,
   searchTransactionData, 
   updateSessionCompany 
 } from "./transactionMaintenanceLogic.js";
@@ -38,15 +39,21 @@ export default function TransactionMaintenancePage() {
   const [processes, setProcesses] = useState([]);
   const [transactionData, setTransactionData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   
   // -- UI State --
-  const [toast, setToast] = useState(null);
-  const toastTimerRef = useRef(null);
+  const [toasts, setToasts] = useState([]);
 
   const notify = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+    const id = Date.now();
+    setToasts(prev => {
+      const next = [...prev, { id, message, type }];
+      if (next.length > 2) return next.slice(1);
+      return next;
+    });
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 2000);
   }, []);
 
   // -- Initialization --
@@ -75,7 +82,6 @@ export default function TransactionMaintenancePage() {
 
     return () => {
       document.body.classList.remove("maintenance-page");
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
 
@@ -111,18 +117,27 @@ export default function TransactionMaintenancePage() {
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
         const rows = Array.isArray(compJson?.data) ? compJson.data : [];
-        setCompanies(rows);
+        
+        // Filter out C168 like legacy JS
+        const filtered = rows.filter(c => String(c.company_id || '').trim().toUpperCase() !== 'C168');
+        setCompanies(filtered);
 
         // Set Initial Company
-        let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
+        let initialCompanyId = u.company_id ? Number(u.company_id) : (filtered[0]?.id ? Number(filtered[0].id) : null);
+        
+        // Ensure initialCompanyId exists in filtered list
+        if (initialCompanyId && !filtered.some(c => Number(c.id) === initialCompanyId)) {
+          initialCompanyId = filtered[0]?.id ? Number(filtered[0].id) : null;
+        }
+        
         setCompanyId(initialCompanyId);
         
-        const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
+        const currentComp = filtered.find(c => Number(c.id) === initialCompanyId);
         if (currentComp) {
           setCompanyCode(currentComp.company_id || "");
           
           const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-          const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
+          const groups = [...new Set(filtered.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
           
           let selGroup = null;
           if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
@@ -165,7 +180,7 @@ export default function TransactionMaintenancePage() {
         }
       } catch (err) {
         console.error("Meta data load error:", err);
-        notify("Failed to load processes", "error");
+        notify("Failed to load meta data", "error");
       }
     })();
   }, [bootLoading, companyId, companyCode, notify]);
@@ -183,6 +198,7 @@ export default function TransactionMaintenancePage() {
         category: activePermission
       });
       setTransactionData(data);
+      setHasSearched(true);
       if (data.length === 0) {
         notify("No data found", "info");
       } else {
@@ -196,7 +212,7 @@ export default function TransactionMaintenancePage() {
     }
   }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify]);
 
-  // Auto-search when filters change
+  // Auto-search when filters change (if has searched before or just loaded)
   useEffect(() => {
     if (!bootLoading && companyId) {
       performSearch();
@@ -207,7 +223,21 @@ export default function TransactionMaintenancePage() {
   const handleSwitchCompany = async (c) => {
     if (!c?.id || Number(c.id) === Number(companyId)) return;
     try {
-      await updateSessionCompany(c.id);
+      const res = await updateSessionCompany(c.id);
+      
+      // Legacy Redirect logic
+      if (res.has_gambling === false) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+      
+      // Fetch permissions for the new company to check Bank-only category
+      const perms = await fetchCompanyPermissions(c.company_id);
+      if (isBankOnlyCategoryCompany(perms)) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
       setCompanyId(Number(c.id));
       setCompanyCode(c.company_id || "");
       
@@ -283,13 +313,13 @@ export default function TransactionMaintenancePage() {
       />
 
       {/* Notifications */}
-      {toast && (
-        <div id="notificationContainer" className="maintenance-notification-container">
-          <div className={`maintenance-notification maintenance-notification-${toast.type} show`}>
-            {toast.message}
+      <div id="notificationContainer" className="maintenance-notification-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
+            {t.message}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }

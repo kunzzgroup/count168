@@ -15,11 +15,20 @@ export async function fetchCompanyPermissions(companyCode) {
     if (result.success && result.data && Array.isArray(result.data.permissions)) {
       return result.data.permissions;
     }
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
   } catch (err) {
     console.error("Error fetching company permissions:", err);
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
   }
+  return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
+}
+
+/**
+ * Check if the company only has Bank permissions (legacy redirect rule)
+ */
+export function isBankOnlyCategoryCompany(permissions) {
+  if (!Array.isArray(permissions) || permissions.length === 0) return false;
+  const hasBank = permissions.includes('Bank');
+  const hasGames = permissions.includes('Games') || permissions.includes('Gambling');
+  return hasBank && !hasGames;
 }
 
 /**
