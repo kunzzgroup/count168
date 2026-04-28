@@ -6,6 +6,7 @@ export default function FormulaMaintenanceFilters({
   setSelectedProcess,
   searchFilter,
   setSearchFilter,
+  companyId,
   companies,
   selectedGroup,
   onGroupClick,

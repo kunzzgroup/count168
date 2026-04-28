@@ -340,6 +340,7 @@ export default function FormulaMaintenancePage() {
         setSelectedProcess={setSelectedProcess}
         searchFilter={searchFilter}
         setSearchFilter={setSearchFilter}
+        companyId={companyId}
         companies={companies}
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
