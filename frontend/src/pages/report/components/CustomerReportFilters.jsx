@@ -1,6 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import ReportDatePicker from "../common/ReportDatePicker.jsx";
-import { quickRangeToDates } from "../../../utils/dateUtils.js";
 
 export default function CustomerReportFilters({
   companyId,
@@ -25,15 +24,12 @@ export default function CustomerReportFilters({
 }) {
   const [accountSearch, setAccountSearch] = useState("");
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
-  const [quickSelectOpen, setQuickSelectOpen] = useState(false);
 
   const accountDropdownRef = useRef(null);
-  const quickSelectRef = useRef(null);
 
   useEffect(() => {
     const handle = (e) => {
       if (accountDropdownRef.current && !accountDropdownRef.current.contains(e.target)) setAccountDropdownOpen(false);
-      if (quickSelectRef.current && !quickSelectRef.current.contains(e.target)) setQuickSelectOpen(false);
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
@@ -57,8 +53,6 @@ export default function CustomerReportFilters({
 
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-
-  const [quickSelectLabel, setQuickSelectLabel] = useState("Period");
 
   const RANGE_TEXTS = {
     today: "Today",
@@ -126,38 +120,35 @@ export default function CustomerReportFilters({
         <ReportDatePicker
           dateFrom={dateFrom}
           dateTo={dateTo}
-          onRangeChange={(s, e) => {
-            onRangeChange(s, e);
-            setQuickSelectLabel("Period");
-          }}
+          onRangeChange={onRangeChange}
           containerClass="customer-report-filter-group"
         />
 
         {/* Quick Select & Show All */}
         <div className="customer-report-quick-and-showall">
-          <div className="customer-report-filter-group quick-select-wrap" ref={quickSelectRef}>
-            <label className="maintenance-label">
+          <div className="customer-report-filter-group quick-select-wrap">
+            <label className="form-label">
               <i className="fas fa-clock" /> Quick Select
             </label>
             <div className="quick-select-dropdown quick-select-dropdown-toggle">
               <button
                 type="button"
                 className="dropdown-toggle"
-                onClick={(e) => { e.stopPropagation(); setQuickSelectOpen(!quickSelectOpen); }}
+                onClick={(e) => { e.stopPropagation(); window.toggleQuickSelectDropdown?.(); }}
               >
                 <i className="fas fa-calendar-alt" />
-                <span id="quick-select-text">{quickSelectLabel}</span>
+                <span id="quick-select-text">Period</span>
                 <i className="fas fa-chevron-down" />
               </button>
-              <div className={`dropdown-menu ${quickSelectOpen ? "show" : ""}`}>
+              <div className="dropdown-menu" id="quick-select-dropdown">
                 {Object.entries(RANGE_TEXTS).map(([key, label]) => (
                   <button key={key} type="button" className="dropdown-item" onClick={() => {
-                    const dates = quickRangeToDates(key);
-                    if (dates) {
-                      onRangeChange(dates.startDate, dates.endDate);
-                      setQuickSelectLabel(label);
+                    if (window.selectQuickRange) {
+                      window.selectQuickRange(key);
+                      return;
                     }
-                    setQuickSelectOpen(false);
+                    const dates = quickRangeToDates(key);
+                    if (dates) onRangeChange(dates.startDate, dates.endDate);
                   }}>
                     {label}
                   </button>
