@@ -110,7 +110,7 @@ export default function PaymentMaintenancePage() {
         const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
         if (existing) {
           document.head.appendChild(existing);
-          if (existing.dataset.loaded === "1" || existing.sheet) return resolve(existing);
+          if (existing.dataset.loaded === "1") return resolve(existing);
           const onLoad = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); markLoaded(existing); };
           const onError = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); resolve(existing); };
           existing.addEventListener("load", onLoad, { once: true });
