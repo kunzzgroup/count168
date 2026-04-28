@@ -304,12 +304,13 @@ h1 {
     display: flex;
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
+    margin-left: auto;
 }
 
 .maintenance-filter-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: clamp(12px, 1.04vw, 20px);
     flex-wrap: wrap;
 }
@@ -496,37 +497,37 @@ h1 {
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 15%;
+    width: 16%;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 12%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 13%;
+    width: 14%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 7%;
+    width: 8%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 12%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 10%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 24%;
+    width: 18%;
 }
 
 .maintenance-table th:nth-child(9),
@@ -807,7 +808,7 @@ h1 {
 @media (max-width: 2000px) {
     
     .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
-        width: 24%;
+        width: 18%;
     }
     
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
