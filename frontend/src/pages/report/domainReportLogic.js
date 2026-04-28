@@ -4,12 +4,48 @@ import { formatYmd } from "../../utils/dateUtils.js";
 /**
  * Format currency with 2 decimal places and thousands separator
  */
-export function formatAmount(value) {
-  const val = parseFloat(value || 0);
-  return val.toLocaleString("en-US", {
+export function formatAmount(amount) {
+  // Parity with legacy MoneyDecimal logic:
+  // if abs(amount) < 0.005, treat as 0
+  const valStr = String(amount || "0");
+  const absVal = Math.abs(parseFloat(valStr));
+  const finalValue = absVal < 0.005 ? 0 : parseFloat(valStr);
+
+  return finalValue.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/**
+ * Fetch company permissions
+ */
+export async function fetchCompanyPermissions(companyCode) {
+  if (!companyCode) return [];
+  try {
+    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode }),
+    });
+    const result = await response.json();
+    if (result.success && result.data && Array.isArray(result.data.permissions)) {
+      return result.data.permissions;
+    }
+  } catch (err) {
+    console.error("Error fetching company permissions:", err);
+  }
+  return [];
+}
+
+/**
+ * Check if company is bank-only
+ */
+export function isBankOnlyCategoryCompany(permissions) {
+  if (!Array.isArray(permissions) || permissions.length === 0) return false;
+  const hasBank = permissions.includes("Bank");
+  const hasGames = permissions.includes("Games") || permissions.includes("Gambling");
+  return hasBank && !hasGames;
 }
 
 /**

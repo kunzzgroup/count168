@@ -5,8 +5,10 @@ import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import {
   fetchDomainReport,
   fetchProcesses,
+  fetchCompanyPermissions,
+  isBankOnlyCategoryCompany
 } from "./domainReportLogic.js";
-import { formatYmd } from "../../utils/dateUtils.js";
+import { formatYmd, quickRangeToDates } from "../../utils/dateUtils.js";
 
 // Components
 import DomainReportFilters from "./components/DomainReportFilters.jsx";
@@ -112,6 +114,7 @@ export default function DomainReportPage() {
         effective = effective ? Number(effective) : null;
 
         setCompanyId(effective);
+        if (effective) await checkBankOnly(effective);
 
         const cur = rows.find((c) => Number(c.id) === Number(effective));
         const savedGroup = sessionStorage.getItem("dashboard_group_filter");
@@ -158,6 +161,19 @@ export default function DomainReportPage() {
     }
   }, [companyId, processId, dateFrom, dateTo]);
 
+  const checkBankOnly = useCallback(async (compId) => {
+    if (!compId) return;
+    try {
+      const comp = companies.find(c => Number(c.id) === Number(compId));
+      const perms = await fetchCompanyPermissions(comp?.company_id || "");
+      if (isBankOnlyCategoryCompany(perms)) {
+        window.location.assign(new URL("/dashboard", window.location.origin).href);
+      }
+    } catch (err) {
+      console.error("Bank only check error:", err);
+    }
+  }, [companies]);
+
   const loadMetaData = useCallback(async () => {
     if (!companyId) return;
     try {
@@ -173,7 +189,12 @@ export default function DomainReportPage() {
   }, [bootLoading, companyId, loadMetaData]);
 
   useEffect(() => {
-    if (!bootLoading && companyId) loadReport();
+    if (!bootLoading && companyId) {
+      const handler = setTimeout(() => {
+        loadReport();
+      }, 300);
+      return () => clearTimeout(handler);
+    }
   }, [bootLoading, companyId, processId, dateFrom, dateTo, loadReport]);
 
   // -- Handlers --
