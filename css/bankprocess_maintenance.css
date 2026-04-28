@@ -28,6 +28,13 @@ body.dashboard-page.maintenance-page {
     overflow-x: hidden !important;
 }
 
+body.dashboard-page.maintenance-page .container {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
 .container {
     max-width: none;
     margin: 0;
@@ -429,9 +436,8 @@ h1 {
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
-    max-height: calc(100vh - 270px);
-    overflow-y: auto;
-    overflow-x: hidden;
+    max-height: none;
+    overflow: visible;
 }
 
 .maintenance-table {

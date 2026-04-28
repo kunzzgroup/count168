@@ -91,9 +91,9 @@ export default function BankprocessMaintenancePage() {
         "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
         assetUrl("css/accountCSS.css"),
+        assetUrl("css/global-13inch.css"),
         assetUrl("css/bankprocess_maintenance.css"),
         assetUrl("css/date-range-picker.css"),
-        assetUrl("css/global-13inch.css"),
       ];
       await Promise.all(links.map((href) => injectStylesheet(href).catch(() => null)));
       await loadScriptOnce(assetUrl("js/date-range-picker.js"));
