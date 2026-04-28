@@ -3871,11 +3871,10 @@
             const currencyFromAmount = MoneyDecimal.toDecimal(currencyFromAmountInput.value || '0', 0);
             const parsedRate = parseRateExpression(exchangeRateInput.value);
             const exchangeRate = parsedRate.valid ? MoneyDecimal.toDecimal(parsedRate.value) : MoneyDecimal.toDecimal('0');
-            const middleManAmount = MoneyDecimal.toDecimal(middleManAmountInput.value || '0', 0);
 
-            // 公式: (currency_from_amount * exchange_rate) - middle_man_amount
+            // 与提交入账保持一致：换算金额显示完整 from * rate，middle-man fee 另行显示并单独入账。
             if (currencyFromAmount.gt(0) && exchangeRate.gt(0)) {
-                const result = currencyFromAmount.times(exchangeRate).minus(middleManAmount);
+                const result = currencyFromAmount.times(exchangeRate);
                 currencyToAmountInput.value = MoneyDecimal.formatFixed(result, 2);
             } else {
                 currencyToAmountInput.value = '';
