@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
-/** Bundled so modal 3-column layout works even when runtime `/css/userlist.css` 404s (subdir deploy, wrong base path). */
-import "../../../../css/userlist.css";
 import {
   ALL_ROLE_OPTIONS,
   PAGE_SIZE,
@@ -51,6 +49,7 @@ export default function UserListPage() {
   const [toast, setToast] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
+  const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
   const pendingDeleteRef = useRef([]);
 
@@ -123,9 +122,49 @@ export default function UserListPage() {
   useEffect(() => {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("user-page");
+    const href = assetUrl("css/userlist.css");
+    let ownLink = null;
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      setCssReady(true);
+    };
+
+    const existing = Array.from(document.querySelectorAll("link[rel='stylesheet']")).find(
+      (el) => el.getAttribute("href") === href,
+    );
+
+    if (existing) {
+      existing.addEventListener("load", settle, { once: true });
+      existing.addEventListener("error", settle, { once: true });
+      try {
+        if (existing.sheet) settle();
+      } catch {
+        /* ignore */
+      }
+    } else {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      link.setAttribute("data-userlist-page-css", "1");
+      link.addEventListener("load", settle, { once: true });
+      link.addEventListener("error", settle, { once: true });
+      document.head.appendChild(link);
+      ownLink = link;
+      try {
+        if (link.sheet) settle();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    requestAnimationFrame(settle);
     return () => {
       document.body.classList.remove("user-page", "user-page--show-all");
       document.body.classList.add("bg");
+      if (ownLink && ownLink.parentNode) ownLink.parentNode.removeChild(ownLink);
+      setCssReady(false);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
@@ -318,7 +357,7 @@ export default function UserListPage() {
     } catch { notify("Save failed", "danger"); }
   };
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me || !cssReady) return null;
 
   return (
     <>
