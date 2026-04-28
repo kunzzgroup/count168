@@ -1675,13 +1675,17 @@ try {
             }
         }
 
-        // 手动 PROFIT 以表单选择方向显示：
-        // account_id 是 Select To Account，from_account_id 是 Select From Account。
+        // 手动 PROFIT：History 文案按当前账户的 Win/Loss 正负显示方向。
+        // 正数表示给对方的 PROFIT；负数表示从对方来的 PROFIT。
         if ($isManualProfit) {
-            if ($is_to_account) {
-                $description = 'PROFIT TO ' . ($t['from_account_code'] ?: '-');
-            } elseif ($is_from_account) {
-                $description = 'PROFIT FROM ' . ($t['to_account_code'] ?: '-');
+            $otherProfitAccount = $is_to_account
+                ? ($t['from_account_code'] ?: '-')
+                : ($t['to_account_code'] ?: '-');
+
+            if (money_cmp($win_loss, '0') > 0) {
+                $description = 'PROFIT TO ' . $otherProfitAccount;
+            } elseif (money_cmp($win_loss, '0') < 0) {
+                $description = 'PROFIT FROM ' . $otherProfitAccount;
             } else {
                 $description = 'PROFIT';
             }
