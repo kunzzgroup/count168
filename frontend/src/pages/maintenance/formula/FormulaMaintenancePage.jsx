@@ -1,169 +1,409 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { 
+  fetchCompanyPermissions, 
+  fetchProcesses,
+  fetchAccounts,
+  listFormulaTemplates,
+  updateFormulaTemplate,
+  deleteFormulaTemplates,
+  updateSessionCompany
+} from "./formulaMaintenanceLogic.js";
 
-function loadScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    const safe = src.replace(/"/g, "");
-    const existing = document.querySelector(`script[data-fm-script="${safe}"]`);
-    if (existing) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.dataset.fmScript = safe;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.body.appendChild(s);
-  });
-}
-
-function injectStylesheet(href) {
-  return new Promise((resolve) => {
-    const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-    if (existing) return resolve();
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.onload = () => resolve();
-    link.onerror = () => resolve();
-    document.head.appendChild(link);
-  });
-}
-
-function companyButtonStyle(comp, snapGroup) {
-  const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-  if (snapGroup) return cGid === snapGroup ? {} : { display: "none" };
-  return cGid ? { display: "none" } : {};
-}
+// Components
+import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
+import FormulaMaintenanceTable from "./components/FormulaMaintenanceTable.jsx";
+import ConfirmDeleteModal from "../capture/components/ConfirmDeleteModal.jsx";
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [forbidden, setForbidden] = useState(false);
-  const [snapshot, setSnapshot] = useState(null);
 
-  useLayoutEffect(() => {
-    document.body.classList.remove("bg");
-    document.body.classList.add("dashboard-page");
+  // -- Boot State --
+  const [bootLoading, setBootLoading] = useState(true);
+  const [me, setMe] = useState(null);
+  const [companies, setCompanies] = useState([]);
+  const [permissions, setPermissions] = useState([]);
+
+  // -- Filter State --
+  const [companyId, setCompanyId] = useState(null);
+  const [companyCode, setCompanyCode] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedProcess, setSelectedProcess] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [activePermission, setActivePermission] = useState("");
+  const [processes, setProcesses] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  
+  // -- Data State --
+  const [formulaData, setFormulaData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  
+  // -- UI State --
+  const [toast, setToast] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const toastTimerRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+
+  const notify = useCallback((message, type = "success") => {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
   }, []);
 
+  // -- Initialization --
   useEffect(() => {
-    let cancelled = false;
+    document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page", "maintenance-page");
+    document.body.classList.add("dashboard-page", "maintenance-page");
+
+    const links = [
+      "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
+      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
+      assetUrl("css/accountCSS.css"),
+      assetUrl("css/formula_maintenance.css"),
+      assetUrl("css/global-13inch.css"),
+    ];
+
+    links.forEach(href => {
+      if (!document.querySelector(`link[href="${href}"]`)) {
+        const l = document.createElement("link");
+        l.rel = "stylesheet";
+        l.href = href;
+        document.head.appendChild(l);
+      }
+    });
+
+    return () => {
+      document.body.classList.remove("maintenance-page");
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
+  // -- Boot Logic --
+  useEffect(() => {
     (async () => {
       try {
-        const [meRes, companiesRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
+        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
         const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) return navigate("/login", { replace: true });
-        const u = meJson.data;
-        const perms = Array.isArray(u.permissions) ? u.permissions : [];
-        const canMaintenance = perms.length === 0 || perms.includes("maintenance");
-        if (!canMaintenance || !u.company_has_gambling) {
-          if (!cancelled) setForbidden(true);
+        if (!meRes.ok || !meJson.success || !meJson.data) {
+          navigate("/login", { replace: true });
           return;
         }
-        const companiesJson = await companiesRes.json();
-        const rows = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
-        const current = rows.find((c) => Number(c.id) === Number(u.company_id));
-        const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-        const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-        let selGroup = null;
-        if (savedGroup && groups.includes(savedGroup) && current?.group_id && String(current.group_id).toUpperCase().trim() === savedGroup) selGroup = savedGroup;
-        if (!selGroup && current?.group_id?.trim()) selGroup = String(current.group_id).toUpperCase().trim();
-        if (!cancelled) {
-          const snapRows = rows.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-          setSnapshot({ companyId: u.company_id ? Number(u.company_id) : null, companyCode: current?.company_id || "", selectedGroup: selGroup, snapCompanies: snapRows, snapGroupIds: [...new Set(snapRows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort() });
+        const u = meJson.data;
+        
+        if (String(u.user_type || "").toLowerCase() === "member") {
+          window.location.assign(new URL("/member", window.location.origin).href);
+          return;
         }
-      } catch {
-        if (!cancelled) navigate("/login", { replace: true });
+
+        const perms = Array.isArray(u.permissions) ? u.permissions : [];
+        const hasFull = perms.length === 0;
+        const canMaintenance = hasFull || perms.includes("maintenance");
+        if (!canMaintenance) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+        setMe(u);
+
+        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
+        const compJson = await compRes.json();
+        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        setCompanies(rows);
+
+        let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
+        setCompanyId(initialCompanyId);
+        
+        const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
+        if (currentComp) {
+          setCompanyCode(currentComp.company_id || "");
+          
+          const savedGroup = sessionStorage.getItem("dashboard_group_filter");
+          const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
+          
+          let selGroup = null;
+          if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
+            selGroup = savedGroup;
+          } else if (currentComp.group_id?.trim()) {
+            selGroup = String(currentComp.group_id).toUpperCase().trim();
+          }
+          
+          setSelectedGroup(selGroup);
+          if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
+        }
+
+      } catch (err) {
+        console.error("Boot error:", err);
+        navigate("/login", { replace: true });
       } finally {
-        if (!cancelled) setLoading(false);
+        setBootLoading(false);
       }
     })();
-    return () => { cancelled = true; };
   }, [navigate]);
 
-  const bootstrap = useCallback(async (snap) => {
-    window.FORMULA_MAINTENANCE_COMPANY_ID = snap.companyId;
-    window.currentCompanyCode = snap.companyCode || "";
-    window.__FORMULA_MAINTENANCE_SPA_MODE = true;
-    window.__fmApiHref = (path) => buildApiUrl(String(path || "").replace(/^\//, ""));
-    window._sharedCompanyFilterInitialized = false;
-
-    await injectStylesheet("https://fonts.googleapis.com/css?family=Amaranth");
-    await injectStylesheet("https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap");
-    await injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
-    await injectStylesheet(assetUrl("css/accountCSS.css"));
-    await injectStylesheet(assetUrl("css/transaction.css"));
-    await injectStylesheet(assetUrl("css/formula_maintenance.css"));
-    await injectStylesheet(assetUrl("css/global-13inch.css"));
-
-    await loadScriptOnce(assetUrl("js/shared_company_filter.js"));
-    window.__initSharedCompanyFilter?.();
-    await loadScriptOnce(assetUrl("js/formula_maintenance_v2.js"));
-    window.onSharedCompanyFilterChanged = (companyId, companyCode) => window.switchCompany?.(companyId, companyCode);
-    await window.__initFormulaMaintenancePage?.();
-  }, []);
-
+  // -- Load Meta Data --
   useEffect(() => {
-    if (loading || forbidden || !snapshot) return;
-    bootstrap(snapshot).catch(console.error);
-  }, [loading, forbidden, snapshot, bootstrap]);
+    if (bootLoading || !companyId) return;
 
-  if (forbidden) return <Navigate to="/dashboard" replace />;
-  if (loading || !snapshot) return null;
-  const fs = snapshot;
+    (async () => {
+      try {
+        const [permList, procList, accList] = await Promise.all([
+          fetchCompanyPermissions(companyCode),
+          fetchProcesses(companyId),
+          fetchAccounts(companyId)
+        ]);
+        setPermissions(permList);
+        setProcesses(procList);
+        setAccounts(accList);
+        
+        const savedPerm = localStorage.getItem(`selectedPermission_${companyCode}`);
+        if (savedPerm && permList.includes(savedPerm)) {
+          setActivePermission(savedPerm);
+        } else if (permList.length > 0) {
+          setActivePermission(permList[0]);
+        }
+      } catch (err) {
+        notify("Failed to load company metadata", "error");
+      }
+    })();
+  }, [bootLoading, companyId, companyCode, notify]);
+
+  // -- Search Logic --
+  const performSearch = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(true);
+    setHasSearched(true);
+    try {
+      const data = await listFormulaTemplates({
+        companyId,
+        category: activePermission,
+        process: selectedProcess,
+        search: searchFilter
+      });
+      setFormulaData(data);
+      setSelectedIds([]);
+      setConfirmDelete(false);
+      if (data.length === 0) {
+        notify("No data found", "info");
+      } else {
+        notify(`Found ${data.length} record(s)`, "success");
+      }
+    } catch (err) {
+      notify(err.message, "error");
+      setFormulaData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, activePermission, selectedProcess, searchFilter, notify]);
+
+  // Debounced search for searchFilter
+  useEffect(() => {
+    if (!bootLoading && companyId) {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        if (searchFilter || selectedProcess || activePermission) {
+          performSearch();
+        }
+      }, 300);
+    }
+  }, [bootLoading, companyId, searchFilter, selectedProcess, activePermission, performSearch]);
+
+  // -- Handlers --
+  const handleSwitchCompany = async (c) => {
+    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    try {
+      await updateSessionCompany(c.id);
+      setCompanyId(Number(c.id));
+      setCompanyCode(c.company_id || "");
+      
+      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      setSelectedGroup(newGroup);
+      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
+      else sessionStorage.removeItem("dashboard_group_filter");
+      
+      // Reset filters when switching company
+      setSearchFilter("");
+      setSelectedProcess("");
+      setFormulaData([]);
+      setHasSearched(false);
+      
+      notifyCompanySessionUpdated();
+      notify(`Switched to ${c.company_id}`, "success");
+    } catch (err) {
+      notify(err.message || "Switch failed", "error");
+    }
+  };
+
+  const handleGroupClick = (gid) => {
+    if (selectedGroup === gid) {
+      setSelectedGroup(null);
+      sessionStorage.removeItem("dashboard_group_filter");
+    } else {
+      setSelectedGroup(gid);
+      sessionStorage.setItem("dashboard_group_filter", gid);
+    }
+  };
+
+  const handlePermissionSwitch = (p) => {
+    setActivePermission(p);
+    localStorage.setItem(`selectedPermission_${companyCode}`, p);
+  };
+
+  const handleClearFilters = () => {
+    setSearchFilter("");
+    setSelectedProcess("");
+    setFormulaData([]);
+    setHasSearched(false);
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === formulaData.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(formulaData.map(r => r.id));
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (!confirmDelete) {
+      notify("Please check the confirm delete checkbox", "error");
+      return;
+    }
+    if (selectedIds.length === 0) {
+      notify("Please select at least one record", "error");
+      return;
+    }
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleteModalOpen(false);
+    try {
+      await deleteFormulaTemplates(companyId, selectedIds);
+      notify(`Successfully deleted ${selectedIds.length} record(s)`, "success");
+      performSearch();
+    } catch (err) {
+      notify(err.message || "Delete failed", "error");
+    }
+  };
+
+  const handleSaveRow = async (id, editForm) => {
+    try {
+      const payload = {
+        template_id: id,
+        company_id: companyId,
+        ...editForm
+      };
+      await updateFormulaTemplate(payload);
+      notify("Update successful", "success");
+      performSearch();
+      return true;
+    } catch (err) {
+      notify(err.message || "Save failed", "error");
+      return false;
+    }
+  };
+
+  if (bootLoading || !me) return null;
 
   return (
     <div className="container">
       <div className="maintenance-header">
         <h1 id="maintenance-page-title">Maintenance - Formula</h1>
-        <div id="maintenance-permission-filter" className="maintenance-permission-filter-header" style={{ display: "none" }}><span className="maintenance-company-label">Category:</span><div id="maintenance-permission-buttons" className="maintenance-company-buttons" /></div>
-      </div>
-      <div className="maintenance-search-section formula-maintenance-filters-wrap">
-        <div className="maintenance-filters">
-          <div className="maintenance-form-group">
-            <label className="maintenance-label">Process</label>
-            <div className="custom-select-wrapper" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ position: "relative", flex: 1 }}>
-                <button type="button" className="custom-select-button" id="filter_process" data-placeholder="--Select All--">--Select All--</button>
-                <div className="custom-select-dropdown" id="filter_process_dropdown"><div className="custom-select-search"><input type="text" placeholder="Search process..." autoComplete="off" /></div><div className="custom-select-options" /></div>
-              </div>
-              <button type="button" id="clear_filters_btn" title="Clear Filters" onClick={() => window.clearFormulaFilters?.()} style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4, borderRadius: "50%", opacity: 0, pointerEvents: "none", transition: "opacity 0.2s ease" }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
-              </button>
+        {permissions.length > 1 && (
+          <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
+            <span className="maintenance-company-label">Category:</span>
+            <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
+              {permissions.map(p => (
+                <button 
+                  key={p} 
+                  type="button" 
+                  className={`maintenance-company-btn ${p === activePermission ? 'active' : ''}`}
+                  onClick={() => handlePermissionSwitch(p)}
+                >
+                  {p}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="maintenance-form-group"><label className="maintenance-label">Search</label><input type="text" id="search_filter" className="maintenance-input" placeholder="Search formula..." /></div>
+        )}
+      </div>
+
+      <FormulaMaintenanceFilters 
+        processes={processes}
+        selectedProcess={selectedProcess}
+        setSelectedProcess={setSelectedProcess}
+        searchFilter={searchFilter}
+        setSearchFilter={setSearchFilter}
+        companyId={companyId}
+        companies={companies}
+        selectedGroup={selectedGroup}
+        onGroupClick={handleGroupClick}
+        onSwitchCompany={handleSwitchCompany}
+        onClearFilters={handleClearFilters}
+        showClear={hasSearched}
+      />
+
+      <FormulaMaintenanceTable 
+        data={formulaData}
+        loading={loading}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+        onToggleSelectAll={toggleSelectAll}
+        onSaveRow={handleSaveRow}
+        accounts={accounts}
+        isInitialState={!hasSearched}
+      />
+
+      <div className="maintenance-actions-footer" style={{ marginTop: "20px", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "15px" }}>
+        <div className="maintenance-actions">
+          <button 
+            type="button" 
+            className="maintenance-delete-btn" 
+            id="deleteBtn"
+            onClick={handleDeleteClick}
+            disabled={selectedIds.length === 0 || !confirmDelete}
+          >
+            Delete
+          </button>
+          <label className="maintenance-confirm-delete-label">
+            <input 
+              type="checkbox" 
+              id="confirmDelete" 
+              className="maintenance-checkbox"
+              checked={confirmDelete}
+              onChange={(e) => setConfirmDelete(e.target.checked)}
+            />
+            <span>Confirm Delete</span>
+          </label>
         </div>
-        <div className="maintenance-filter-row">
-          <div className="maintenance-filter-left">
-            {fs.snapGroupIds.length > 0 && <div id="group-buttons-wrapper" className="transaction-company-filter shared-group-wrapper"><span className="transaction-company-label">GroupID:</span><div id="group-buttons-container" className="transaction-company-buttons">{fs.snapGroupIds.map((gid) => <button key={gid} type="button" className={`transaction-company-btn shared-group-btn ${fs.selectedGroup === gid ? "active" : ""}`} data-group-id={gid}>{gid}</button>)}</div></div>}
-            {fs.snapCompanies.length > 0 && <div id="company-buttons-wrapper" className="transaction-company-filter shared-company-wrapper"><span className="transaction-company-label">Company:</span><div id="company-buttons-container" className="transaction-company-buttons">{fs.snapCompanies.map((comp) => <button key={comp.id} type="button" style={companyButtonStyle(comp, fs.selectedGroup)} className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(fs.companyId) ? "active" : ""}`} data-company-id={comp.id} data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""} data-company-code={comp.company_id}>{comp.company_id}</button>)}</div></div>}
+      </div>
+
+      {/* Modal & Notifications */}
+      <ConfirmDeleteModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        message={`Are you sure you want to delete the selected ${selectedIds.length} record(s)? This action cannot be undone.`}
+      />
+
+      {toast && (
+        <div id="notificationContainer" className="maintenance-notification-container">
+          <div className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+            {toast.message}
           </div>
-          <div className="maintenance-actions">
-            <button type="button" className="maintenance-delete-btn" id="deleteBtn" onClick={() => window.deleteData?.()} disabled>Delete</button>
-            <label className="maintenance-confirm-delete-label"><input type="checkbox" id="confirmDelete" className="maintenance-checkbox" onChange={() => window.toggleDeleteButton?.()} /><span>Confirm Delete</span></label>
-          </div>
         </div>
-      </div>
-      <div className="empty-state-container" id="emptyState" style={{ display: "none" }}><div className="empty-state"><p>No data found. Please adjust your search criteria and try again.</p></div></div>
-      <div className="maintenance-list-container" id="dataCaptureTableContainer" style={{ display: "none", paddingBottom: 20 }}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="maintenance-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
-            <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
-              <tr><th style={{ width: "5%" }}>No</th><th style={{ width: "10%" }}>Process</th><th style={{ width: "10%" }}>Account</th><th style={{ width: "5%" }}>Currency</th><th style={{ width: "10%" }}>Source</th><th style={{ width: "10%" }}>Product</th><th style={{ width: "15%" }}>Input Method</th><th style={{ width: "15%" }}>Formula</th><th style={{ width: "12%" }}>Description</th><th style={{ width: "8%", textAlign: "center" }}><input type="checkbox" id="select_all_data_capture" className="maintenance-checkbox" title="Select All" onChange={(e) => window.toggleSelectAllRows?.(e.target)} /></th></tr>
-            </thead>
-            <tbody id="dataCaptureTableBody" />
-          </table>
-        </div>
-      </div>
-      <div id="notificationContainer" className="maintenance-notification-container" />
-      <div id="confirmDeleteModal" className="maintenance-modal" style={{ display: "none" }}>
-        <div className="maintenance-confirm-modal-content"><div className="maintenance-confirm-icon-container"><svg className="maintenance-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div><h2 className="maintenance-confirm-title">Confirm Delete</h2><p id="confirmDeleteMessage" className="maintenance-confirm-message">This action cannot be undone.</p><div className="maintenance-confirm-actions"><button type="button" className="maintenance-btn maintenance-btn-cancel confirm-cancel" onClick={() => window.closeConfirmDeleteModal?.()}>Cancel</button><button type="button" className="maintenance-btn maintenance-btn-delete confirm-delete" onClick={() => window.confirmDelete?.()}>Delete</button></div></div>
-      </div>
+      )}
     </div>
   );
 }
