@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import DomainReportDatePicker from "./DomainReportDatePicker.jsx";
-import { quickRangeToDates } from "../../../utils/dateUtils.js";
+import ReportDatePicker from "../../common/ReportDatePicker.jsx";
+import { quickRangeToDates } from "../../../../utils/dateUtils.js";
 
 export default function DomainReportFilters({ 
   companyId, 
@@ -93,10 +93,11 @@ export default function DomainReportFilters({
         </div>
 
         {/* Date Range Picker */}
-        <DomainReportDatePicker 
+        <ReportDatePicker 
           dateFrom={dateFrom} 
           dateTo={dateTo} 
           onRangeChange={onRangeChange} 
+          containerClass="domain-report-filter-group"
         />
 
         {/* Quick Select */}

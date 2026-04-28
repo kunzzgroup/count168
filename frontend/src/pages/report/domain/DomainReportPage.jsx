@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
+import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 import {
   fetchDomainReport,
   fetchProcesses,
 } from "./domainReportLogic.js";
-import { formatYmd } from "../../utils/dateUtils.js";
+import { formatYmd } from "../../../utils/dateUtils.js";
 
 // Components
 import DomainReportFilters from "./components/DomainReportFilters.jsx";

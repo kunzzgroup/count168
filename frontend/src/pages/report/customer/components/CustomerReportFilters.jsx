@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import CustomerReportDatePicker from "./CustomerReportDatePicker.jsx";
-import { quickRangeToDates } from "../../../utils/dateUtils.js";
+import ReportDatePicker from "../../common/ReportDatePicker.jsx";
+import { quickRangeToDates } from "../../../../utils/dateUtils.js";
 
 export default function CustomerReportFilters({ 
   companyId, 
@@ -110,10 +110,11 @@ export default function CustomerReportFilters({
         </div>
 
         {/* Date Range Picker */}
-        <CustomerReportDatePicker 
+        <ReportDatePicker 
           dateFrom={dateFrom} 
           dateTo={dateTo} 
           onRangeChange={onRangeChange} 
+          containerClass="customer-report-filter-group"
         />
 
         {/* Quick Select & Show All */}
