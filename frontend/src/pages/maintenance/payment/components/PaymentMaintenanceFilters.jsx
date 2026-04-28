@@ -145,27 +145,25 @@ export default function PaymentMaintenanceFilters({
         </div>
 
         <div className="maintenance-actions">
-          <div id="delete_controls" className="maintenance-delete-controls">
-            <div className="maintenance-checkbox-wrapper">
-              <input 
-                type="checkbox" 
-                id="confirm_delete" 
-                className="maintenance-checkbox" 
-                checked={confirmDelete}
-                onChange={(e) => setConfirmDelete(e.target.checked)}
-              />
-              <label htmlFor="confirm_delete" className="maintenance-checkbox-label">Confirm to delete</label>
-            </div>
-            <button 
-              type="button" 
-              id="delete_btn" 
-              className="maintenance-btn maintenance-btn-delete" 
-              onClick={onDelete}
-              disabled={deleteDisabled}
-            >
-              Delete
-            </button>
-          </div>
+          <button
+            type="button"
+            className="maintenance-delete-btn"
+            id="deleteBtn"
+            onClick={onDelete}
+            disabled={deleteDisabled}
+          >
+            Delete
+          </button>
+          <label className="maintenance-confirm-delete-label">
+            <input
+              type="checkbox"
+              id="confirmDelete"
+              className="maintenance-checkbox"
+              checked={confirmDelete}
+              onChange={(e) => setConfirmDelete(e.target.checked)}
+            />
+            <span>Confirm Delete</span>
+          </label>
         </div>
       </div>
     </div>
