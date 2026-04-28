@@ -3048,6 +3048,11 @@
             const profitToAccountId = getAccountId(standardFromAccountInput);   // UI: Select To Account
             const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
 
+            if (!profitFromAccountId) {
+                showNotification('PROFIT: Please select From Account', 'error');
+                return;
+            }
+
             // PROFIT 不做余额正负校验，仅限制 To / From 不能同一账户
             if (profitToAccountId && profitFromAccountId && String(profitToAccountId) === String(profitFromAccountId)) {
                 showNotification('PROFIT: Select To Account and Select From Account cannot be the same', 'error');
