@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import CustomerReportDatePicker from "./CustomerReportDatePicker.jsx";
+import { quickRangeToDates } from "../../../utils/dateUtils.js";
 
 export default function CustomerReportFilters({ 
   companyId, 

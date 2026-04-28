@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { formatDmy, formatYmd, parseYmd } from "../../../utils/dateUtils.js";
 
-export default function CustomerReportDatePicker({ dateFrom, dateTo, onRangeChange }) {
+export default function DomainReportDatePicker({ dateFrom, dateTo, onRangeChange }) {
   const [open, setOpen] = useState(false);
   const today = useMemo(() => new Date(), []);
   const [calendarYear, setCalendarYear] = useState(parseYmd(dateFrom)?.getFullYear() || today.getFullYear());
@@ -57,7 +57,7 @@ export default function CustomerReportDatePicker({ dateFrom, dateTo, onRangeChan
   };
 
   return (
-    <div className="customer-report-filter-group report-date-range-group" ref={containerRef}>
+    <div className="domain-report-filter-group report-date-range-group" ref={containerRef}>
       <label>Date Range</label>
       <div 
         className="report-date-range-picker" 

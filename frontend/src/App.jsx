@@ -12,7 +12,7 @@ import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 import DataCapturePage from "./pages/DataCapturePage.jsx";
 import TransactionPaymentPage from "./pages/TransactionPaymentPage.jsx";
 import CustomerReportPage from "./pages/customerreport/CustomerReportPage.jsx";
-import DomainReportPage from "./pages/DomainReportPage.jsx";
+import DomainReportPage from "./pages/domainreport/DomainReportPage.jsx";
 import CaptureMaintenancePage from "./pages/CaptureMaintenancePage.jsx";
 import TransactionMaintenancePage from "./pages/TransactionMaintenancePage.jsx";
 import FormulaMaintenancePage from "./pages/FormulaMaintenancePage.jsx";

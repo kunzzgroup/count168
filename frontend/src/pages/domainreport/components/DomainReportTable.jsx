@@ -1,0 +1,71 @@
+import { formatAmount } from "../domainReportLogic.js";
+
+export default function DomainReportTable({ reportData, loading, error }) {
+  const renderEmpty = (message) => (
+    <div className="domain-report-list-container">
+      <div className="domain-report-table-header">
+        <div>Process</div>
+        <div>Turnover</div>
+        <div>Win</div>
+        <div>Lose</div>
+        <div>Win/Lose</div>
+      </div>
+      <div className="domain-report-cards">
+        <div className="domain-report-card">
+          <div className="domain-report-card-item" style={{ gridColumn: "1 / -1", textAlign: "center", justifyContent: "center", padding: 20 }}>
+            {message}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (loading) return renderEmpty("Loading...");
+  if (error) return renderEmpty(error);
+  if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty("No data found");
+
+  const data = reportData.data;
+  const totals = reportData.totals;
+
+  return (
+    <div className="domain-report-list-container">
+      <div className="domain-report-table-header">
+        <div>Process</div>
+        <div>Turnover</div>
+        <div>Win</div>
+        <div>Lose</div>
+        <div>Win/Lose</div>
+      </div>
+
+      <div className="domain-report-cards">
+        {data.map((item, idx) => {
+          const label = item.description ? `${item.process} (${item.description})` : item.process;
+          const wl = parseFloat(item.win_lose || 0);
+          const winLoseClass = wl > 0 ? "domain-report-win-lose-positive" : (wl < 0 ? "domain-report-win-lose-negative" : "");
+          
+          return (
+            <div key={idx} className="domain-report-card">
+              <div className="domain-report-card-item">{label}</div>
+              <div className="domain-report-card-item domain-report-amount"><strong>{formatAmount(item.turnover)}</strong></div>
+              <div className="domain-report-card-item domain-report-amount"><strong>{formatAmount(item.win)}</strong></div>
+              <div className="domain-report-card-item domain-report-amount"><strong>{formatAmount(item.lose)}</strong></div>
+              <div className={`domain-report-card-item domain-report-amount ${winLoseClass}`}><strong>{formatAmount(item.win_lose)}</strong></div>
+            </div>
+          );
+        })}
+      </div>
+
+      {totals && (
+        <div className="domain-report-total" style={{ display: "grid" }}>
+          <div className="domain-report-total-label">Total</div>
+          <div className="domain-report-amount"><strong>{formatAmount(totals.turnover)}</strong></div>
+          <div className="domain-report-amount"><strong>{formatAmount(totals.win)}</strong></div>
+          <div className="domain-report-amount"><strong>{formatAmount(totals.lose)}</strong></div>
+          <div className={`domain-report-amount ${parseFloat(totals.win_lose || 0) > 0 ? "domain-report-win-lose-positive" : (parseFloat(totals.win_lose || 0) < 0 ? "domain-report-win-lose-negative" : "")}`}>
+            <strong>{formatAmount(totals.win_lose)}</strong>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

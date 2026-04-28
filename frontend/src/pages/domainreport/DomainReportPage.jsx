@@ -3,17 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import {
-  fetchAccounts,
-  fetchCurrencies,
-  fetchCustomerReport,
-} from "./customerReportLogic.js";
-import { formatDmy, formatYmd, parseYmd, quickRangeToDates } from "../../utils/dateUtils.js";
+  fetchDomainReport,
+  fetchProcesses,
+} from "./domainReportLogic.js";
+import { formatYmd } from "../../utils/dateUtils.js";
 
 // Components
-import CustomerReportFilters from "./components/CustomerReportFilters.jsx";
-import CustomerReportTable from "./components/CustomerReportTable.jsx";
+import DomainReportFilters from "./components/DomainReportFilters.jsx";
+import DomainReportTable from "./components/DomainReportTable.jsx";
 
-export default function CustomerReportPage() {
+export default function DomainReportPage() {
   const navigate = useNavigate();
   
   // -- State: Boot / Me --
@@ -24,10 +23,7 @@ export default function CustomerReportPage() {
   // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [accountId, setAccountId] = useState("");
-  const [showAll, setShowAll] = useState(false);
-  const [selectedCurrencies, setSelectedCurrencies] = useState([]);
-  const [showAllCurrencies, setShowAllCurrencies] = useState(false);
+  const [processId, setProcessId] = useState("");
   
   // Date Range
   const today = useMemo(() => new Date(), []);
@@ -35,8 +31,7 @@ export default function CustomerReportPage() {
   const [dateTo, setDateTo] = useState(formatYmd(today));
   
   // -- State: Data --
-  const [accounts, setAccounts] = useState([]);
-  const [currencyList, setCurrencyList] = useState([]);
+  const [processes, setProcesses] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,13 +51,12 @@ export default function CustomerReportPage() {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "report-page");
 
-    // Inject fonts and legacy CSS
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       assetUrl("css/accountCSS.css"),
       assetUrl("css/transaction.css"),
-      assetUrl("css/customer_report.css"),
+      assetUrl("css/domain_report.css"),
       assetUrl("css/global-13inch.css"),
     ];
 
@@ -133,7 +127,6 @@ export default function CustomerReportPage() {
           sessionStorage.setItem("dashboard_group_filter", selGroup);
         }
         setSelectedGroup(selGroup);
-        if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
 
       } catch {
         navigate("/login", { replace: true });
@@ -149,14 +142,11 @@ export default function CustomerReportPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchCustomerReport({
-        accountId,
+      const data = await fetchDomainReport({
+        processId,
         dateFrom,
         dateTo,
-        showAll,
         companyId,
-        selectedCurrencies,
-        showAllCurrencies
       });
       setReportData(data);
     } catch (err) {
@@ -165,24 +155,13 @@ export default function CustomerReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies]);
+  }, [companyId, processId, dateFrom, dateTo]);
 
   const loadMetaData = useCallback(async () => {
     if (!companyId) return;
     try {
-      const [accs, curs] = await Promise.all([
-        fetchAccounts(companyId),
-        fetchCurrencies(companyId)
-      ]);
-      setAccounts(accs);
-      setCurrencyList(curs);
-      
-      if (curs.length > 0) {
-        const myr = curs.find(c => c.code === "MYR");
-        const def = myr || curs[0];
-        setSelectedCurrencies([def.code]);
-        setShowAllCurrencies(false);
-      }
+      const procs = await fetchProcesses(companyId);
+      setProcesses(procs);
     } catch (err) {
       console.error("Meta data load error:", err);
     }
@@ -194,7 +173,7 @@ export default function CustomerReportPage() {
 
   useEffect(() => {
     if (!bootLoading && companyId) loadReport();
-  }, [bootLoading, companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies, loadReport]);
+  }, [bootLoading, companyId, processId, dateFrom, dateTo, loadReport]);
 
   // -- Handlers --
   const onSwitchCompany = async (c) => {
@@ -222,52 +201,31 @@ export default function CustomerReportPage() {
     }
   };
 
-  const toggleCurrency = (code) => {
-    setShowAllCurrencies(false);
-    setSelectedCurrencies(prev => {
-      if (prev.includes(code)) return prev.filter(c => c !== code);
-      return [...prev, code];
-    });
-  };
-
-  const toggleAllCurrencies = () => {
-    setShowAllCurrencies(!showAllCurrencies);
-    if (!showAllCurrencies) setSelectedCurrencies([]);
-  };
-
   if (bootLoading || !me) return null;
 
   return (
     <div className="container">
       <div className="content">
         <div className="report-header">
-          <h1 className="account-page-title">Customer Report</h1>
+          <h1 className="account-page-title">Domain Report</h1>
         </div>
         <div className="account-separator-line" />
 
-        <CustomerReportFilters 
+        <DomainReportFilters 
           companyId={companyId}
           onSwitchCompany={onSwitchCompany}
           companies={companies}
           selectedGroup={selectedGroup}
           onGroupClick={onGroupClick}
-          accountId={accountId}
-          setAccountId={setAccountId}
-          accounts={accounts}
+          processId={processId}
+          setProcessId={setProcessId}
+          processes={processes}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}
-          quickRangeToDates={quickRangeToDates}
-          showAll={showAll}
-          setShowAll={setShowAll}
-          currencyList={currencyList}
-          selectedCurrencies={selectedCurrencies}
-          toggleCurrency={toggleCurrency}
-          showAllCurrencies={showAllCurrencies}
-          toggleAllCurrencies={toggleAllCurrencies}
         />
 
-        <CustomerReportTable 
+        <DomainReportTable 
           reportData={reportData}
           loading={loading}
           error={error}
@@ -276,7 +234,7 @@ export default function CustomerReportPage() {
 
       {/* Notifications */}
       {toast && (
-        <div id="customerReportNotificationContainer" className="account-notification-container">
+        <div id="domainReportNotificationContainer" className="account-notification-container">
           <div className={`account-notification account-notification-${toast.type} show`}>
             {toast.message}
           </div>
