@@ -1,4 +1,35 @@
 import React, { useLayoutEffect, useRef } from "react";
+
+/** Inline so first paint is 3-column even if extracted CSS applies one frame late */
+const modalBodyStyle = {
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  minHeight: 0,
+  overflow: "hidden",
+  width: "100%",
+};
+
+const userModalCardStyle = {
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "nowrap",
+  alignItems: "stretch",
+  flex: 1,
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
+  width: "100%",
+};
+
+const userModalColStyle = {
+  flex: "1 1 0%",
+  minWidth: 0,
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+};
 import {
   PERMISSION_KEYS,
   PERMISSION_ICONS,
@@ -36,16 +67,24 @@ export default function UserModal({
   onSave,
 }) {
   const cardRef = useRef(null);
+  const modalBodyRef = useRef(null);
 
   useLayoutEffect(() => {
     if (!open) return;
-    const el = cardRef.current;
-    if (!el) return;
-    void el.offsetHeight;
-    const id = requestAnimationFrame(() => {
-      void el.offsetHeight;
+    const forceReflow = () => {
+      const nodes = [modalBodyRef.current, cardRef.current];
+      nodes.forEach((el) => {
+        if (el) void el.getBoundingClientRect();
+      });
+    };
+    forceReflow();
+    const a = requestAnimationFrame(() => {
+      forceReflow();
+      requestAnimationFrame(() => {
+        forceReflow();
+      });
     });
-    return () => cancelAnimationFrame(id);
+    return () => cancelAnimationFrame(a);
   }, [open]);
 
   if (!open) return null;
@@ -62,9 +101,9 @@ export default function UserModal({
             Back
           </button>
         </div>
-        <div className="modal-body">
-          <div ref={cardRef} className="user-modal-card">
-            <div className="user-modal-col user-modal-col--info user-info-panel">
+        <div ref={modalBodyRef} className="modal-body" style={modalBodyStyle}>
+          <div ref={cardRef} className="user-modal-card" style={userModalCardStyle}>
+            <div className="user-modal-col user-modal-col--info user-info-panel" style={userModalColStyle}>
               <h3 className="user-modal-col-title">User Information</h3>
               <form id="userForm" onSubmit={onSave}>
               <div className="user-info-grid">
@@ -220,7 +259,7 @@ export default function UserModal({
               </form>
             </div>
 
-            <div className="user-modal-col user-modal-col--account account-process-col">
+            <div className="user-modal-col user-modal-col--account account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">Account</label>
                 <div className="account-grid account-grid--four">
                   {modalAccounts.map((a) => (
@@ -248,7 +287,7 @@ export default function UserModal({
                 </div>
               </div>
 
-            <div className="user-modal-col user-modal-col--process account-process-col">
+            <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
                 <label className="acc-proc-label user-modal-col-title">Process</label>
                 <div className="account-grid account-grid--four account-grid--process">
                   {modalProcesses.map((p) => (
