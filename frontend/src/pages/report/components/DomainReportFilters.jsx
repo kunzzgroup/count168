@@ -1,12 +1,12 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import ReportDatePicker from "../../common/ReportDatePicker.jsx";
-import { quickRangeToDates } from "../../../../utils/dateUtils.js";
+import ReportDatePicker from "../common/ReportDatePicker.jsx";
+import { quickRangeToDates } from "../../../utils/dateUtils.js";
 
-export default function DomainReportFilters({ 
-  companyId, 
-  onSwitchCompany, 
-  companies, 
-  selectedGroup, 
+export default function DomainReportFilters({
+  companyId,
+  onSwitchCompany,
+  companies,
+  selectedGroup,
   onGroupClick,
   processId,
   setProcessId,
@@ -18,7 +18,7 @@ export default function DomainReportFilters({
   const [processSearch, setProcessSearch] = useState("");
   const [processDropdownOpen, setProcessDropdownOpen] = useState(false);
   const [quickSelectOpen, setQuickSelectOpen] = useState(false);
-  
+
   const processDropdownRef = useRef(null);
   const quickSelectRef = useRef(null);
 
@@ -54,8 +54,8 @@ export default function DomainReportFilters({
         <div className="domain-report-filter-group">
           <label>Process</label>
           <div className="custom-select-wrapper" ref={processDropdownRef}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={`custom-select-button ${processDropdownOpen ? "open" : ""}`}
               onClick={() => setProcessDropdownOpen(!processDropdownOpen)}
             >
@@ -64,10 +64,10 @@ export default function DomainReportFilters({
             {processDropdownOpen && (
               <div className="custom-select-dropdown show">
                 <div className="custom-select-search">
-                  <input 
-                    type="text" 
-                    placeholder="Search process..." 
-                    autoComplete="off" 
+                  <input
+                    type="text"
+                    placeholder="Search process..."
+                    autoComplete="off"
                     value={processSearch}
                     onChange={(e) => setProcessSearch(e.target.value)}
                     autoFocus
@@ -75,8 +75,8 @@ export default function DomainReportFilters({
                 </div>
                 <div className="custom-select-options">
                   {filteredProcesses.map(p => (
-                    <div 
-                      key={p.id || "all"} 
+                    <div
+                      key={p.id || "all"}
                       className={`custom-select-option ${String(p.id) === String(processId) ? "selected" : ""}`}
                       onClick={() => { setProcessId(p.id); setProcessDropdownOpen(false); }}
                     >
@@ -93,10 +93,10 @@ export default function DomainReportFilters({
         </div>
 
         {/* Date Range Picker */}
-        <ReportDatePicker 
-          dateFrom={dateFrom} 
-          dateTo={dateTo} 
-          onRangeChange={onRangeChange} 
+        <ReportDatePicker
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onRangeChange={onRangeChange}
           containerClass="domain-report-filter-group"
         />
 
@@ -139,9 +139,9 @@ export default function DomainReportFilters({
             <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>GroupID:</span>
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               {snapGroupIds.map((gid) => (
-                <button 
-                  key={gid} 
-                  type="button" 
+                <button
+                  key={gid}
+                  type="button"
                   className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
                   onClick={() => onGroupClick(gid)}
                 >
@@ -162,7 +162,7 @@ export default function DomainReportFilters({
                 let visible = true;
                 if (selectedGroup) visible = cGid === selectedGroup;
                 else visible = !cGid;
-                
+
                 return (
                   <button
                     key={comp.id}

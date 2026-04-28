@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import {
   fetchDomainReport,
   fetchProcesses,
 } from "./domainReportLogic.js";
-import { formatYmd } from "../../../utils/dateUtils.js";
+import { formatYmd } from "../../utils/dateUtils.js";
 
 // Components
 import DomainReportFilters from "./components/DomainReportFilters.jsx";
@@ -14,28 +14,28 @@ import DomainReportTable from "./components/DomainReportTable.jsx";
 
 export default function DomainReportPage() {
   const navigate = useNavigate();
-  
+
   // -- State: Boot / Me --
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
-  
+
   // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [processId, setProcessId] = useState("");
-  
+
   // Date Range
   const today = useMemo(() => new Date(), []);
   const [dateFrom, setDateFrom] = useState(formatYmd(today));
   const [dateTo, setDateTo] = useState(formatYmd(today));
-  
+
   // -- State: Data --
   const [processes, setProcesses] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // -- State: UI --
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
@@ -90,7 +90,7 @@ export default function DomainReportPage() {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
         }
-        
+
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canReport = hasFull || perms.includes("report");
@@ -111,11 +111,11 @@ export default function DomainReportPage() {
         effective = effective ? Number(effective) : null;
 
         setCompanyId(effective);
-        
+
         const cur = rows.find((c) => Number(c.id) === Number(effective));
         const savedGroup = sessionStorage.getItem("dashboard_group_filter");
         const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-        
+
         let selGroup = null;
         if (savedGroup && groups.includes(savedGroup) && cur?.group_id && String(cur.group_id).toUpperCase().trim() === savedGroup) {
           selGroup = savedGroup;
@@ -211,7 +211,7 @@ export default function DomainReportPage() {
         </div>
         <div className="account-separator-line" />
 
-        <DomainReportFilters 
+        <DomainReportFilters
           companyId={companyId}
           onSwitchCompany={onSwitchCompany}
           companies={companies}
@@ -225,7 +225,7 @@ export default function DomainReportPage() {
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}
         />
 
-        <DomainReportTable 
+        <DomainReportTable
           reportData={reportData}
           loading={loading}
           error={error}

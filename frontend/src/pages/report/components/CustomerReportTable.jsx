@@ -21,7 +21,7 @@ export default function CustomerReportTable({ reportData, loading, error }) {
   if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty("No data found");
 
   const data = reportData.data;
-  
+
   // Grouping Logic
   const grouped = {};
   data.forEach(item => {

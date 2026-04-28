@@ -1,12 +1,12 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import ReportDatePicker from "../../common/ReportDatePicker.jsx";
-import { quickRangeToDates } from "../../../../utils/dateUtils.js";
+import ReportDatePicker from "../common/ReportDatePicker.jsx";
+import { quickRangeToDates } from "../../../utils/dateUtils.js";
 
-export default function CustomerReportFilters({ 
-  companyId, 
-  onSwitchCompany, 
-  companies, 
-  selectedGroup, 
+export default function CustomerReportFilters({
+  companyId,
+  onSwitchCompany,
+  companies,
+  selectedGroup,
   onGroupClick,
   accountId,
   setAccountId,
@@ -26,7 +26,7 @@ export default function CustomerReportFilters({
   const [accountSearch, setAccountSearch] = useState("");
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [quickSelectOpen, setQuickSelectOpen] = useState(false);
-  
+
   const accountDropdownRef = useRef(null);
   const quickSelectRef = useRef(null);
 
@@ -42,8 +42,8 @@ export default function CustomerReportFilters({
   const filteredAccounts = useMemo(() => {
     if (!accountSearch.trim()) return accounts;
     const s = accountSearch.toLowerCase();
-    return accounts.filter(a => 
-      (a.account_id || "").toLowerCase().includes(s) || 
+    return accounts.filter(a =>
+      (a.account_id || "").toLowerCase().includes(s) ||
       (a.name || "").toLowerCase().includes(s) ||
       (a.display_text || "").toLowerCase().includes(s)
     );
@@ -65,8 +65,8 @@ export default function CustomerReportFilters({
         <div className="customer-report-filter-group">
           <label>Account</label>
           <div className="custom-select-wrapper" ref={accountDropdownRef}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={`custom-select-button ${accountDropdownOpen ? "open" : ""}`}
               onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
             >
@@ -75,25 +75,25 @@ export default function CustomerReportFilters({
             {accountDropdownOpen && (
               <div className="custom-select-dropdown show">
                 <div className="custom-select-search">
-                  <input 
-                    type="text" 
-                    placeholder="Search account..." 
-                    autoComplete="off" 
+                  <input
+                    type="text"
+                    placeholder="Search account..."
+                    autoComplete="off"
                     value={accountSearch}
                     onChange={(e) => setAccountSearch(e.target.value)}
                     autoFocus
                   />
                 </div>
                 <div className="custom-select-options">
-                  <div 
+                  <div
                     className={`custom-select-option ${!accountId ? "selected" : ""}`}
                     onClick={() => { setAccountId(""); setAccountDropdownOpen(false); }}
                   >
                     All Accounts
                   </div>
                   {filteredAccounts.map(a => (
-                    <div 
-                      key={a.id} 
+                    <div
+                      key={a.id}
                       className={`custom-select-option ${String(a.id) === String(accountId) ? "selected" : ""}`}
                       onClick={() => { setAccountId(a.id); setAccountDropdownOpen(false); }}
                     >
@@ -110,10 +110,10 @@ export default function CustomerReportFilters({
         </div>
 
         {/* Date Range Picker */}
-        <ReportDatePicker 
-          dateFrom={dateFrom} 
-          dateTo={dateTo} 
-          onRangeChange={onRangeChange} 
+        <ReportDatePicker
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onRangeChange={onRangeChange}
           containerClass="customer-report-filter-group"
         />
 
@@ -151,9 +151,9 @@ export default function CustomerReportFilters({
           <div className="customer-report-filter-group customer-report-showall-group">
             <div className="customer-report-checkbox-section">
               <label className="transaction-checkbox-label">
-                <input 
-                  type="checkbox" 
-                  className="transaction-checkbox" 
+                <input
+                  type="checkbox"
+                  className="transaction-checkbox"
                   checked={showAll}
                   onChange={(e) => setShowAll(e.target.checked)}
                 />
@@ -171,9 +171,9 @@ export default function CustomerReportFilters({
             <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>GroupID:</span>
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
               {snapGroupIds.map((gid) => (
-                <button 
-                  key={gid} 
-                  type="button" 
+                <button
+                  key={gid}
+                  type="button"
                   className={`transaction-company-btn shared-group-btn ${selectedGroup === gid ? "active" : ""}`}
                   onClick={() => onGroupClick(gid)}
                 >
@@ -194,7 +194,7 @@ export default function CustomerReportFilters({
                 let visible = true;
                 if (selectedGroup) visible = cGid === selectedGroup;
                 else visible = !cGid;
-                
+
                 return (
                   <button
                     key={comp.id}
@@ -216,17 +216,17 @@ export default function CustomerReportFilters({
           <div className="transaction-company-filter">
             <span className="transaction-company-label" style={{ minWidth: 80, display: "inline-block" }}>Currency:</span>
             <div className="transaction-company-buttons" style={{ display: "inline-flex", gap: 10 }}>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={`transaction-company-btn ${showAllCurrencies ? "active" : ""}`}
                 onClick={toggleAllCurrencies}
               >
                 All
               </button>
               {currencyList.map(c => (
-                <button 
-                  key={c.code} 
-                  type="button" 
+                <button
+                  key={c.code}
+                  type="button"
                   className={`transaction-company-btn ${selectedCurrencies.includes(c.code) ? "active" : ""}`}
                   onClick={() => toggleCurrency(c.code)}
                 >

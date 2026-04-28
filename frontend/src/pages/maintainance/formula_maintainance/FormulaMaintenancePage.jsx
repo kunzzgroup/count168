@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 
 function loadScriptOnce(src) {
   return new Promise((resolve, reject) => {
