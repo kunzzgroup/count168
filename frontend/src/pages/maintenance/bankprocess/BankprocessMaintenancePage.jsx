@@ -64,6 +64,7 @@ export default function BankprocessMaintenancePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
   const today = useMemo(() => formatDmy(new Date()), []);
   const currentCompanyIdRef = useRef(null);
 
@@ -96,16 +97,7 @@ export default function BankprocessMaintenancePage() {
       ];
       await Promise.all(links.map((href) => injectStylesheet(href).catch(() => null)));
       await loadScriptOnce(assetUrl("js/date-range-picker.js"));
-      if (window?.MaintenanceDateRangePicker?.init) {
-        window.MaintenanceDateRangePicker.init({
-          onChange: () => {
-            const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-            const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-            setDateFrom(nextFrom);
-            setDateTo(nextTo);
-          },
-        });
-      }
+      setDatePickerScriptReady(true);
     };
 
     setup().catch(() => null);
@@ -113,6 +105,26 @@ export default function BankprocessMaintenancePage() {
       document.body.classList.remove("maintenance-page");
     };
   }, [today]);
+
+  useEffect(() => {
+    if (!datePickerScriptReady || bootLoading || !me) return;
+    if (!document.getElementById("date-range-picker")) return;
+    if (!window?.MaintenanceDateRangePicker?.init) return;
+
+    // Wait until current paint completes so picker nodes exist for binding.
+    const timer = setTimeout(() => {
+      window.MaintenanceDateRangePicker.init({
+        onChange: () => {
+          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
+          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
+          setDateFrom(nextFrom);
+          setDateTo(nextTo);
+        },
+      });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [datePickerScriptReady, bootLoading, me]);
 
   useEffect(() => {
     (async () => {
