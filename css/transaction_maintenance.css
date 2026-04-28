@@ -20,6 +20,17 @@ body {
     overflow-y: auto;
 }
 
+/* Transaction maintenance pages run under `body.dashboard-page` which can
+   inherit `overflow: hidden` from dashboard-level styles. Re-enable native page scrolling. */
+html,
+body.dashboard-page.maintenance-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
 .container {
     max-width: none;
     margin: 0;
