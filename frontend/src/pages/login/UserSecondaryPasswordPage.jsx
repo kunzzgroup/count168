@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
 
-export default function OwnerSecondaryPasswordPage() {
+export default function UserSecondaryPasswordPage() {
   const navigate = useNavigate();
+  const inputRef = useRef(null);
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const inputRef = useRef(null);
 
   useEffect(() => {
     document.body.classList.add("bg");
@@ -28,12 +28,8 @@ export default function OwnerSecondaryPasswordPage() {
           return;
         }
         const user = json.data;
-        if (String(user.user_type || "").toLowerCase() !== "owner") {
+        if (String(user.user_type || "").toLowerCase() !== "user") {
           if (!cancelled) navigate("/login", { replace: true });
-          return;
-        }
-        if (!user.needs_owner_secondary) {
-          if (!cancelled) navigate("/dashboard", { replace: true });
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -72,7 +68,7 @@ export default function OwnerSecondaryPasswordPage() {
     try {
       const formData = new FormData();
       formData.append("secondary_password", value);
-      const res = await fetch(buildApiUrl("api/session/verify_owner_secondary_password_api.php"), {
+      const res = await fetch(buildApiUrl("api/session/verify_user_secondary_password_api.php"), {
         method: "POST",
         body: formData,
         credentials: "include",

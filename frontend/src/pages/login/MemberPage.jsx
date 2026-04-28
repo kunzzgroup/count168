@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
-import ConfirmLogoutModal from "../components/ConfirmLogoutModal.jsx";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 
 function injectStylesheet(href) {
   return new Promise((resolve) => {
