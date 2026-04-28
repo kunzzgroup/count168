@@ -68,6 +68,19 @@ export default function PaymentMaintenancePage() {
     }, 2000);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success") === "1") {
+      notify("Operation completed successfully!", "success");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    if (params.get("error") === "1") {
+      notify("Operation failed. Please try again.", "error");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [notify]);
+
   // -- Initialization --
   useEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");

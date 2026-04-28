@@ -49,6 +49,7 @@ export default function PaymentMaintenanceFilters({
             <option value="PAYMENT">PAYMENT</option>
             <option value="RECEIVE">RECEIVE</option>
             <option value="CLAIM">CLAIM</option>
+            <option value="ADJUSTMENT">ADJUSTMENT</option>
             <option value="RATE">RATE</option>
           </select>
         </div>

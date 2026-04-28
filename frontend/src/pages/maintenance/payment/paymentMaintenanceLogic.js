@@ -55,7 +55,8 @@ export async function searchPaymentData({ dateFrom, dateTo, transactionType, com
     throw new Error(data.message || 'Search failed');
   }
   
-  return mergeProfitRows(data.data || []);
+  const merged = mergeProfitRows(data.data || []);
+  return sortAndNormalizePaymentRows(merged);
 }
 
 /**
@@ -131,6 +132,30 @@ function mergeProfitRows(data) {
     }
     return true;
   });
+}
+
+function parseMaintenanceSortTime(row) {
+  const created = String(row?.dts_created || "").trim();
+  const createdMatch = created.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}:\d{2})$/);
+  if (!createdMatch) return 0;
+  const iso = `${createdMatch[3]}-${createdMatch[2]}-${createdMatch[1]}T${createdMatch[4]}`;
+  const ts = Date.parse(iso);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function sortAndNormalizePaymentRows(data) {
+  if (!Array.isArray(data)) return [];
+  return [...data]
+    .sort((a, b) => {
+      const cmp = parseMaintenanceSortTime(b) - parseMaintenanceSortTime(a);
+      if (cmp !== 0) return cmp;
+      return Number(b?.transaction_id || 0) - Number(a?.transaction_id || 0);
+    })
+    .map((row) => ({
+      ...row,
+      // Keep behavior aligned with legacy payment_maintenance.js display.
+      remark: row?.remark ? String(row.remark).toUpperCase() : row?.remark,
+    }));
 }
 
 /**
