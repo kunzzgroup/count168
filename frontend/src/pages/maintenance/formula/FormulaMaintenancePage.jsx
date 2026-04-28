@@ -98,17 +98,6 @@ export default function FormulaMaintenancePage() {
       document.head.appendChild(l);
     };
 
-    const removeStylesheet = (href) => {
-      document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`).forEach((el) => el.remove());
-    };
-
-    [
-      assetUrl("css/payment_maintenance.css"),
-      assetUrl("css/capture_maintenance.css"),
-      assetUrl("css/bankprocess_maintenance.css"),
-      assetUrl("css/transaction_maintenance.css"),
-    ].forEach(removeStylesheet);
-
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
