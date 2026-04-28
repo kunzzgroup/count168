@@ -86,6 +86,29 @@ export default function FormulaMaintenancePage() {
       el.style.setProperty("max-height", "none", "important");
     });
 
+    const ensureStylesheetLast = (href) => {
+      const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+      if (existing) {
+        document.head.appendChild(existing);
+        return;
+      }
+      const l = document.createElement("link");
+      l.rel = "stylesheet";
+      l.href = href;
+      document.head.appendChild(l);
+    };
+
+    const removeStylesheet = (href) => {
+      document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`).forEach((el) => el.remove());
+    };
+
+    [
+      assetUrl("css/payment_maintenance.css"),
+      assetUrl("css/capture_maintenance.css"),
+      assetUrl("css/bankprocess_maintenance.css"),
+      assetUrl("css/transaction_maintenance.css"),
+    ].forEach(removeStylesheet);
+
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
@@ -95,14 +118,7 @@ export default function FormulaMaintenancePage() {
       assetUrl("css/formula_maintenance.css"),
     ];
 
-    links.forEach(href => {
-      if (!document.querySelector(`link[href="${href}"]`)) {
-        const l = document.createElement("link");
-        l.rel = "stylesheet";
-        l.href = href;
-        document.head.appendChild(l);
-      }
-    });
+    links.forEach(ensureStylesheetLast);
 
     return () => {
       originalStyles.forEach((item) => {
