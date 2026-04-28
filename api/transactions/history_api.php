@@ -1418,51 +1418,34 @@ try {
             && stripos((string) $rawDescription, 'Auto: ') !== 0
             && !$isCompensationDescription;
 
-        // 为手动 PROFIT 尝试找出对应的对手账户（另一条相反类型、相同日期和金额的交易）
-        $otherAccountCodeForManualProfit = null;
-        if ($isManualProfit) {
-            static $manualProfitPairStmt = null;
-            if ($manualProfitPairStmt === null) {
-                $manualProfitPairStmt = $pdo->prepare("
-                    SELECT a.account_id
-                    FROM transactions tt
-                    JOIN account a ON tt.account_id = a.id
-                    WHERE tt.company_id = ?
-                      AND tt.transaction_date = ?
-                      AND tt.amount = ?
-                      AND tt.transaction_type = ?
-                      AND tt.id <> ?
-                      AND tt.account_id <> ?
-                    ORDER BY tt.id ASC
-                    LIMIT 1
-                ");
-            }
-            $oppositeType = ($t['transaction_type'] === 'WIN') ? 'LOSE' : 'WIN';
-            $manualProfitPairStmt->execute([
-                $company_id,
-                $t['transaction_date'],
-                $t['amount'],
-                $oppositeType,
-                $t['id'],
-                $t['account_id'],
-            ]);
-            $otherAccountCodeForManualProfit = $manualProfitPairStmt->fetchColumn() ?: null;
-        }
-
         // 根据交易类型计算 Win/Loss 和 Cr/Dr
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
         switch ($t['transaction_type']) {
             case 'WIN':
-                if (!$is_internal_transfer && $is_to_account) {
-                    // 手动 PROFIT：Select To 显示负数、Select From 显示正数
-                    $cr_dr = $isManualProfit ? historyNeg($t['amount']) : ($t['amount'] ?? '0');
+                if (!$is_internal_transfer) {
+                    if ($isManualProfit) {
+                        if ($is_to_account) {
+                            $cr_dr = historyNeg($t['amount']);
+                        } elseif ($is_from_account) {
+                            $cr_dr = $t['amount'] ?? '0';
+                        }
+                    } elseif ($is_to_account) {
+                        $cr_dr = $t['amount'] ?? '0';
+                    }
                 }
                 break;
 
             case 'LOSE':
-                if (!$is_internal_transfer && $is_to_account) {
-                    // 手动 PROFIT：Select To 显示负数、Select From 显示正数（LOSE 条是 From 账户，显示正数）
-                    $cr_dr = $isManualProfit ? ($t['amount'] ?? '0') : historyNeg($t['amount']);
+                if (!$is_internal_transfer) {
+                    if ($isManualProfit) {
+                        if ($is_to_account) {
+                            $cr_dr = $t['amount'] ?? '0';
+                        } elseif ($is_from_account) {
+                            $cr_dr = historyNeg($t['amount']);
+                        }
+                    } elseif ($is_to_account) {
+                        $cr_dr = historyNeg($t['amount']);
+                    }
                 }
                 break;
 
@@ -1692,20 +1675,14 @@ try {
             }
         }
 
-        // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前账户在 Win/Loss 的正负来决定 FROM / TO
+        // 手动 PROFIT 以表单选择方向显示：
+        // account_id 是 Select To Account，from_account_id 是 Select From Account。
         if ($isManualProfit) {
-            // 先根据配对交易找对手账户编号，找不到就退回到 join 出来的 account code
-            $fallbackOther = $t['from_account_code'] ?: $t['to_account_code'] ?: '-';
-            $other = $otherAccountCodeForManualProfit ?: $fallbackOther;
-
-            if (money_cmp($win_loss, '0') > 0) {
-                // 当前账户这笔是赚（正数）：从对方进来的 PROFIT
-                $description = 'PROFIT FROM ' . $other;
-            } elseif (money_cmp($win_loss, '0') < 0) {
-                // 当前账户这笔是亏（负数）：给对方的 PROFIT
-                $description = 'PROFIT TO ' . $other;
+            if ($is_to_account) {
+                $description = 'PROFIT TO ' . ($t['from_account_code'] ?: '-');
+            } elseif ($is_from_account) {
+                $description = 'PROFIT FROM ' . ($t['to_account_code'] ?: '-');
             } else {
-                // 金额是 0 或资料不足时给通用描述
                 $description = 'PROFIT';
             }
         }

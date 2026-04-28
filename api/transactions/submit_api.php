@@ -394,7 +394,7 @@ try {
     
     // 自动生成 description（如果为空）
     if (empty($description) && $transaction_type === 'ADJUSTMENT') {
-        $description = 'ADJUSTMENT - WIN/LOSS CORRECTION';
+        $description = 'ADJUSTMENT - WIN/LOSS';
     } elseif (empty($description) && in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'])) {
         // 从 To Account 的视角生成描述
         $description = $transaction_type . ' FROM ' . $from_account['account_id'];

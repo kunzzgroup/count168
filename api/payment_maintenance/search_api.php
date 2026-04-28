@@ -236,7 +236,7 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
 
     $description = $row['description'] ?? '';
     if (empty($description) && ($row['transaction_type'] ?? '') === 'ADJUSTMENT') {
-        $description = 'ADJUSTMENT - WIN/LOSS CORRECTION';
+        $description = 'ADJUSTMENT - WIN/LOSS';
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
     }
