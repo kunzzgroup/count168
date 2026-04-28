@@ -1,25 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
-
-function loadScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    const safe = src.replace(/"/g, "");
-    const existing = document.querySelector(`script[data-tx-script="${safe}"]`);
-    if (existing) {
-      resolve();
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.dataset.txScript = safe;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.body.appendChild(s);
-  });
-}
+import { approveContra, getCategories, getHistory, loadContraInbox, searchTransactions as searchTransactionsApi } from "./transaction/transactionApi.js";
+import { formatDmy, formatMoney2, toUpperDisplay } from "./transaction/transactionFormat.js";
 
 function injectStylesheet(href) {
   return new Promise((resolve) => {
@@ -37,13 +21,6 @@ function injectStylesheet(href) {
   });
 }
 
-function formatDmy(d) {
-  const day = String(d.getDate()).padStart(2, "0");
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const y = d.getFullYear();
-  return `${day}/${m}/${y}`;
-}
-
 function companyButtonStyle(comp, snapGroup) {
   const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
   if (snapGroup) {
@@ -57,6 +34,26 @@ export default function TransactionPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [filterSnapshot, setFilterSnapshot] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [searchState, setSearchState] = useState({
+    showName: false,
+    showCaptureOnly: false,
+    showPaymentOnly: false,
+    showZeroBalance: false,
+  });
+  const [dateFrom, setDateFrom] = useState(null);
+  const [dateTo, setDateTo] = useState(null);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [tablesVisible, setTablesVisible] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchData, setSearchData] = useState(null);
+  const [history, setHistory] = useState({ open: false, title: "Payment History", rows: [] });
+  const [contraInbox, setContraInbox] = useState({ open: false, loading: false, items: [] });
+  const [toast, setToast] = useState([]);
+
+  const closeToastTimer = useRef(null);
 
   const todayDmy = useMemo(() => formatDmy(new Date()), []);
   const dateRangeText = useMemo(() => `${todayDmy} - ${todayDmy}`, [todayDmy]);
@@ -150,71 +147,43 @@ export default function TransactionPaymentPage() {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    if (loading || forbidden || !filterSnapshot) return;
+    (async () => {
+      await injectStylesheet("https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap");
+      await injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
+      await injectStylesheet(assetUrl("css/transaction.css"));
+      await injectStylesheet(assetUrl("css/date-range-picker.css"));
+      await injectStylesheet(assetUrl("css/global-13inch.css"));
+
+      setDateFrom((v) => v || todayDmy);
+      setDateTo((v) => v || todayDmy);
+
+      try {
+        const c = await getCategories();
+        const roles = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : [];
+        setCategories(roles.map((r) => String(r).toUpperCase()));
+      } catch {
+        setCategories([]);
+      }
+    })();
+  }, [loading, forbidden, filterSnapshot, todayDmy]);
+
+  const pushToast = useCallback((message, type = "info") => {
+    setToast((prev) => {
+      const next = [...prev, { id: `${Date.now()}-${Math.random()}`, type, message }];
+      return next.slice(-2);
+    });
+    if (closeToastTimer.current) clearTimeout(closeToastTimer.current);
+    closeToastTimer.current = setTimeout(() => {
+      setToast((prev) => prev.slice(1));
+    }, 2000);
+  }, []);
+
   const canApproveContra = useMemo(() => {
     const r = filterSnapshot?.viewerRole || "";
     return ["manager", "admin", "owner"].includes(r);
   }, [filterSnapshot]);
-
-  const bootstrapVanilla = useCallback(async (snap) => {
-    const role = String(snap.viewerRole || "").toLowerCase();
-    window.TRANSACTION_PAGE = {
-      currentCompanyId: snap.companyId,
-      viewerRole: role,
-      canApproveContra: ["manager", "admin", "owner"].includes(role),
-      showDescriptionColumn: true,
-    };
-    window.__TRANSACTION_SPA_MODE = true;
-    window.__txApiHref = (path) => buildApiUrl(String(path || "").replace(/^\//, ""));
-    window._sharedCompanyFilterInitialized = false;
-    await injectStylesheet("https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap");
-    await injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
-    await injectStylesheet(assetUrl("css/transaction.css"));
-    await injectStylesheet(assetUrl("css/date-range-picker.css"));
-    await injectStylesheet("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css");
-    await injectStylesheet(assetUrl("css/global-13inch.css"));
-
-    await loadScriptOnce("https://cdn.jsdelivr.net/npm/flatpickr");
-    await loadScriptOnce(assetUrl("js/date-range-picker.js"));
-    await loadScriptOnce(assetUrl("js/shared_company_filter.js"));
-    window.__initSharedCompanyFilter?.();
-
-    await loadScriptOnce(assetUrl("js/transaction.js"));
-
-    window.onSharedCompanyFilterChanged = (companyId, companyCode) => {
-      if (typeof window.switchCompany === "function") {
-        window.switchCompany(companyId, companyCode);
-      }
-    };
-
-    window.__initTransactionPage?.();
-  }, []);
-
-  useEffect(() => {
-    if (loading || forbidden || !filterSnapshot) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        if (cancelled) return;
-        await bootstrapVanilla(filterSnapshot);
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      try {
-        window.__transactionPageTeardown?.();
-      } catch {
-        /* ignore */
-      }
-      window.__TRANSACTION_SPA_MODE = false;
-      try {
-        delete window.__txApiHref;
-      } catch {
-        window.__txApiHref = undefined;
-      }
-    };
-  }, [loading, forbidden, filterSnapshot, bootstrapVanilla]);
 
   if (forbidden) {
     return <Navigate to="/dashboard" replace />;
@@ -224,6 +193,160 @@ export default function TransactionPaymentPage() {
   }
 
   const fs = filterSnapshot;
+  const effectiveDateFrom = dateFrom || todayDmy;
+  const effectiveDateTo = dateTo || todayDmy;
+  const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
+
+  const selectQuickRange = (key) => {
+    const now = new Date();
+    const start = new Date(now);
+    const end = new Date(now);
+
+    const setWeekStart = (d) => {
+      const day = d.getDay(); // 0 Sun
+      const diff = day; // Sunday start
+      d.setDate(d.getDate() - diff);
+    };
+
+    const setWeekEnd = (d) => {
+      const day = d.getDay();
+      const diff = 6 - day;
+      d.setDate(d.getDate() + diff);
+    };
+
+    switch (key) {
+      case "today":
+        break;
+      case "yesterday":
+        start.setDate(start.getDate() - 1);
+        end.setDate(end.getDate() - 1);
+        break;
+      case "thisWeek":
+        setWeekStart(start);
+        setWeekEnd(end);
+        break;
+      case "lastWeek": {
+        setWeekStart(start);
+        setWeekEnd(end);
+        start.setDate(start.getDate() - 7);
+        end.setDate(end.getDate() - 7);
+        break;
+      }
+      case "thisMonth":
+        start.setDate(1);
+        end.setMonth(end.getMonth() + 1, 0);
+        break;
+      case "lastMonth":
+        start.setMonth(start.getMonth() - 1, 1);
+        end.setMonth(end.getMonth(), 0);
+        break;
+      case "thisYear":
+        start.setMonth(0, 1);
+        end.setMonth(11, 31);
+        break;
+      case "lastYear":
+        start.setFullYear(start.getFullYear() - 1, 0, 1);
+        end.setFullYear(end.getFullYear() - 1, 11, 31);
+        break;
+      default:
+        break;
+    }
+
+    setDateFrom(formatDmy(start));
+    setDateTo(formatDmy(end));
+    setQuickOpen(false);
+  };
+
+  const toggleCategory = () => setCategoryOpen((v) => !v);
+  const toggleQuick = () => setQuickOpen((v) => !v);
+
+  const toggleCategoryValue = (value) => {
+    const v = String(value || "").toUpperCase().trim();
+    setSelectedCategories((prev) => {
+      const set = new Set(prev.map((x) => String(x).toUpperCase()));
+      if (set.has(v)) set.delete(v);
+      else set.add(v);
+      return [...set];
+    });
+  };
+
+
+  const onSearch = async () => {
+    if (!fs?.companyId) return;
+    setSearchLoading(true);
+    setTablesVisible(true);
+    try {
+      const result = await searchTransactionsApi({
+        companyId: fs.companyId,
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        showInactive: searchState.showPaymentOnly,
+        showCaptureOnly: searchState.showCaptureOnly,
+        hideZeroBalance: !searchState.showZeroBalance,
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+      });
+      if (result?.success && result?.data) {
+        setSearchData(result.data);
+      } else {
+        setSearchData({ left_table: [], right_table: [], totals: null });
+        pushToast(result?.message || "Search failed", "error");
+      }
+    } catch (e) {
+      console.error(e);
+      pushToast("Network error. Please try again.", "error");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const toggleContraInbox = async () => {
+    if (!canApproveContra) return;
+    setContraInbox((s) => ({ ...s, open: !s.open }));
+    if (contraInbox.items.length > 0) return;
+    setContraInbox((s) => ({ ...s, loading: true }));
+    try {
+      const refreshed = await loadContraInbox({ companyId: fs.companyId });
+      const items = Array.isArray(refreshed?.data) ? refreshed.data : [];
+      setContraInbox((s) => ({ ...s, items, loading: false }));
+    } catch {
+      setContraInbox((s) => ({ ...s, loading: false }));
+      pushToast("Failed to load contra inbox", "error");
+    }
+  };
+
+  const refreshContraInbox = async () => {
+    if (!canApproveContra) return;
+    setContraInbox((s) => ({ ...s, loading: true }));
+    try {
+      const refreshed = await loadContraInbox({ companyId: fs.companyId });
+      const items = Array.isArray(refreshed?.data) ? refreshed.data : [];
+      setContraInbox((s) => ({ ...s, items, loading: false }));
+    } catch {
+      setContraInbox((s) => ({ ...s, loading: false }));
+      pushToast("Failed to load contra inbox", "error");
+    }
+  };
+
+  const openHistory = async (row) => {
+    const aid = row?.account_db_id;
+    if (!aid) return;
+    const title = `Payment History - ${row.account_id || ""}${row.account_name ? ` (${toUpperDisplay(row.account_name)})` : ""}`;
+    setHistory({ open: true, title, rows: [] });
+    try {
+      const data = await getHistory({
+        companyId: fs.companyId,
+        accountId: aid,
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        currency: row.currency || "",
+      });
+      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data?.rows) ? data.rows : [];
+      setHistory({ open: true, title, rows });
+    } catch {
+      setHistory({ open: true, title, rows: [] });
+      pushToast("Failed to load history", "error");
+    }
+  };
 
   return (
     <>
@@ -233,28 +356,29 @@ export default function TransactionPaymentPage() {
             <h1 className="transaction-title">Transaction List</h1>
             {canApproveContra && (
               <div className="contra-inbox-wrap" id="contraInboxWrap">
-                <button type="button" className="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
+                <button type="button" className="contra-inbox-btn contra-inbox-main" id="contraInboxBtn" onClick={toggleContraInbox}>
                   <svg className="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
                   </svg>
                   Contra Inbox
                   <span className="contra-inbox-badge" id="contraInboxCount">
-                    0
+                    {contraInbox.items.length}
                   </span>
                 </button>
-                <div className="contra-inbox-popover" id="contraInboxPopover" style={{ display: "none" }}>
+                <div className="contra-inbox-popover" id="contraInboxPopover" style={{ display: contraInbox.open ? "block" : "none" }}>
                   <div className="contra-inbox-popover-header">
                     <div className="contra-inbox-popover-title">
                       Contra Inbox
                       <span className="contra-inbox-badge" id="contraInboxCount2">
-                        0
+                        {contraInbox.items.length}
                       </span>
                     </div>
-                    <button type="button" className="contra-inbox-btn" id="contraInboxRefreshBtn">
+                    <button type="button" className="contra-inbox-btn" id="contraInboxRefreshBtn" onClick={refreshContraInbox}>
                       Refresh
                     </button>
                   </div>
                   <div className="contra-inbox-popover-body">
+                    {contraInbox.loading && <div style={{ padding: 12 }}>Loading...</div>}
                     <table className="contra-inbox-table">
                       <thead>
                         <tr>
@@ -268,7 +392,38 @@ export default function TransactionPaymentPage() {
                           <th>Action</th>
                         </tr>
                       </thead>
-                      <tbody id="contraInboxTbody" />
+                      <tbody id="contraInboxTbody">
+                        {contraInbox.items.map((it) => (
+                          <tr key={it.id || `${it.transaction_id}-${it.date}`}>
+                            <td>{it.date || "-"}</td>
+                            <td>{toUpperDisplay(it.from_account_id || it.from || "-")}</td>
+                            <td>{toUpperDisplay(it.to_account_id || it.to || "-")}</td>
+                            <td>{toUpperDisplay(it.currency || "-")}</td>
+                            <td>{formatMoney2(it.amount)}</td>
+                            <td>{toUpperDisplay(it.submitted_by || it.created_by || "-")}</td>
+                            <td>{toUpperDisplay(it.description || "-")}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="contra-inbox-btn"
+                                onClick={async () => {
+                                  const tid = it.transaction_id || it.id;
+                                  if (!tid) return;
+                                  const res = await approveContra({ transactionId: tid });
+                                  if (res?.success) {
+                                    pushToast("Approved", "success");
+                                    await refreshContraInbox();
+                                  } else {
+                                    pushToast(res?.message || "Approve failed", "error");
+                                  }
+                                }}
+                              >
+                                Approve
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
                     </table>
                   </div>
                 </div>
@@ -285,20 +440,54 @@ export default function TransactionPaymentPage() {
               <label className="transaction-label">Category</label>
               <div id="filter_category" className="transaction-category-multiselect">
                 <div className="category-dropdown">
-                  <button type="button" className="category-dropdown-button" id="category_dropdown_button">
+                  <button type="button" className="category-dropdown-button" id="category_dropdown_button" onClick={toggleCategory}>
                     <div id="category_selected_tags" className="category-selected-tags">
-                      <span className="category-placeholder">--Select All--</span>
+                      {selectedCategories.length === 0 ? (
+                        <span className="category-placeholder">--Select All--</span>
+                      ) : (
+                        selectedCategories.map((c) => (
+                          <span key={c} className="category-tag">
+                            {c}
+                          </span>
+                        ))
+                      )}
                     </div>
                     <i className="fas fa-chevron-down" />
                   </button>
-                  <div className="category-dropdown-menu" id="category_dropdown_menu">
+                  <div className="category-dropdown-menu" id="category_dropdown_menu" style={{ display: categoryOpen ? "block" : "none" }}>
                     <div className="category-option">
                       <label className="category-checkbox-label">
-                        <input type="checkbox" value="" className="category-checkbox" id="category_all" />
+                        <input
+                          type="checkbox"
+                          value=""
+                          className="category-checkbox"
+                          id="category_all"
+                          checked={selectedCategories.length === 0}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedCategories([]);
+                          }}
+                        />
                         <span>--Select All--</span>
                       </label>
                     </div>
-                    <div id="category_options_container" />
+                    <div id="category_options_container">
+                      {categories.map((c) => {
+                        return (
+                          <div className="category-option" key={c}>
+                            <label className="category-checkbox-label">
+                              <input
+                                type="checkbox"
+                                className="category-checkbox"
+                                value={c}
+                                checked={selectedCategories.length === 0 ? false : selectedCategories.includes(c)}
+                                onChange={() => toggleCategoryValue(c)}
+                              />
+                              <span>{c}</span>
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -309,10 +498,10 @@ export default function TransactionPaymentPage() {
               <div className="transaction-date-range-group">
                 <div className="date-range-picker" id="date-range-picker">
                   <i className="fas fa-calendar-alt" />
-                  <span id="date-range-display">{dateRangeText}</span>
+                  <span id="date-range-display">{effectiveDateRangeText}</span>
                 </div>
-                <input type="hidden" id="date_from" defaultValue={todayDmy} />
-                <input type="hidden" id="date_to" defaultValue={todayDmy} />
+                <input type="hidden" id="date_from" value={effectiveDateFrom} readOnly />
+                <input type="hidden" id="date_to" value={effectiveDateTo} readOnly />
               </div>
               <div className="quick-select-dropdown quick-select-dropdown-toggle">
                 <button
@@ -320,36 +509,36 @@ export default function TransactionPaymentPage() {
                   className="dropdown-toggle"
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.toggleQuickSelectDropdown?.();
+                    toggleQuick();
                   }}
                 >
                   <i className="fas fa-calendar-alt" />
                   <span id="quick-select-text">Period</span>
                   <i className="fas fa-chevron-down" />
                 </button>
-                <div className="dropdown-menu" id="quick-select-dropdown">
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("today")}>
+                <div className="dropdown-menu" id="quick-select-dropdown" style={{ display: quickOpen ? "block" : "none" }}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("today")}>
                     Today
                   </button>
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("yesterday")}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("yesterday")}>
                     Yesterday
                   </button>
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisWeek")}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisWeek")}>
                     This Week
                   </button>
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastWeek")}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastWeek")}>
                     Last Week
                   </button>
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisMonth")}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisMonth")}>
                     This Month
                   </button>
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastMonth")}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastMonth")}>
                     Last Month
                   </button>
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisYear")}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisYear")}>
                     This Year
                   </button>
-                  <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastYear")}>
+                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastYear")}>
                     Last Year
                   </button>
                 </div>
@@ -358,19 +547,43 @@ export default function TransactionPaymentPage() {
 
             <div className="transaction-checkboxes">
               <label className="transaction-checkbox-label">
-                <input type="checkbox" id="show_name" className="transaction-checkbox" />
+                <input
+                  type="checkbox"
+                  id="show_name"
+                  className="transaction-checkbox"
+                  checked={searchState.showName}
+                  onChange={(e) => setSearchState((s) => ({ ...s, showName: e.target.checked }))}
+                />
                 Show Name
               </label>
               <label className="transaction-checkbox-label">
-                <input type="checkbox" id="show_capture_only" className="transaction-checkbox" />
+                <input
+                  type="checkbox"
+                  id="show_capture_only"
+                  className="transaction-checkbox"
+                  checked={searchState.showCaptureOnly}
+                  onChange={(e) => setSearchState((s) => ({ ...s, showCaptureOnly: e.target.checked }))}
+                />
                 Show Win/Loss Only
               </label>
               <label className="transaction-checkbox-label">
-                <input type="checkbox" id="show_inactive" className="transaction-checkbox" />
+                <input
+                  type="checkbox"
+                  id="show_inactive"
+                  className="transaction-checkbox"
+                  checked={searchState.showPaymentOnly}
+                  onChange={(e) => setSearchState((s) => ({ ...s, showPaymentOnly: e.target.checked }))}
+                />
                 Show Payment Only
               </label>
               <label className="transaction-checkbox-label">
-                <input type="checkbox" id="show_zero_balance" className="transaction-checkbox" />
+                <input
+                  type="checkbox"
+                  id="show_zero_balance"
+                  className="transaction-checkbox"
+                  checked={searchState.showZeroBalance}
+                  onChange={(e) => setSearchState((s) => ({ ...s, showZeroBalance: e.target.checked }))}
+                />
                 Show 0 balance
               </label>
             </div>
@@ -609,7 +822,7 @@ export default function TransactionPaymentPage() {
                 <button type="button" id="submit_btn" className="transaction-submit-btn" disabled>
                   Submit
                 </button>
-                <button type="button" id="action_search_btn" className="transaction-search-btn">
+                  <button type="button" id="action_search_btn" className="transaction-search-btn" onClick={onSearch} disabled={searchLoading}>
                   Search
                 </button>
               </div>
@@ -617,7 +830,7 @@ export default function TransactionPaymentPage() {
           </div>
         </div>
 
-        <div className="transaction-tables-section" style={{ display: "none" }}>
+        <div className="transaction-tables-section" style={{ display: tablesVisible ? "block" : "none" }}>
           <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: "none" }} aria-live="polite">
             Loading...
           </div>
@@ -640,23 +853,32 @@ export default function TransactionPaymentPage() {
                       <th>Balance</th>
                     </tr>
                   </thead>
-                  <tbody id="tbody_left" />
+                  <tbody id="tbody_left">
+                    {(searchData?.left_table || []).map((row) => (
+                      <tr key={`${row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
+                        <td className="transaction-account-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                          {row.account_id}
+                        </td>
+                        <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                          {toUpperDisplay(row.account_name)}
+                        </td>
+                        <td>{formatMoney2(row.bf)}</td>
+                        <td>{formatMoney2(row.win_loss)}</td>
+                        <td>{formatMoney2(row.cr_dr)}</td>
+                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                          {formatMoney2(row.balance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                   <tfoot>
                     <tr className="transaction-table-footer">
                       <td>Total</td>
-                      <td className="transaction-name-column" style={{ display: "none" }} />
-                      <td id="left_total_bf">
-                        0.00
-                      </td>
-                      <td id="left_total_winloss">
-                        0.00
-                      </td>
-                      <td id="left_total_crdr">
-                        0.00
-                      </td>
-                      <td id="left_total_balance">
-                        0.00
-                      </td>
+                      <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
+                      <td id="left_total_bf">{formatMoney2(searchData?.totals?.left?.bf ?? "0.00")}</td>
+                      <td id="left_total_winloss">{formatMoney2(searchData?.totals?.left?.win_loss ?? "0.00")}</td>
+                      <td id="left_total_crdr">{formatMoney2(searchData?.totals?.left?.cr_dr ?? "0.00")}</td>
+                      <td id="left_total_balance">{formatMoney2(searchData?.totals?.left?.balance ?? "0.00")}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -675,23 +897,32 @@ export default function TransactionPaymentPage() {
                       <th>Balance</th>
                     </tr>
                   </thead>
-                  <tbody id="tbody_right" />
+                  <tbody id="tbody_right">
+                    {(searchData?.right_table || []).map((row) => (
+                      <tr key={`${row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
+                        <td className="transaction-account-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                          {row.account_id}
+                        </td>
+                        <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                          {toUpperDisplay(row.account_name)}
+                        </td>
+                        <td>{formatMoney2(row.bf)}</td>
+                        <td>{formatMoney2(row.win_loss)}</td>
+                        <td>{formatMoney2(row.cr_dr)}</td>
+                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                          {formatMoney2(row.balance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                   <tfoot>
                     <tr className="transaction-table-footer">
                       <td>Total</td>
-                      <td className="transaction-name-column" style={{ display: "none" }} />
-                      <td id="right_total_bf">
-                        0.00
-                      </td>
-                      <td id="right_total_winloss">
-                        0.00
-                      </td>
-                      <td id="right_total_crdr">
-                        0.00
-                      </td>
-                      <td id="right_total_balance">
-                        0.00
-                      </td>
+                      <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
+                      <td id="right_total_bf">{formatMoney2(searchData?.totals?.right?.bf ?? "0.00")}</td>
+                      <td id="right_total_winloss">{formatMoney2(searchData?.totals?.right?.win_loss ?? "0.00")}</td>
+                      <td id="right_total_crdr">{formatMoney2(searchData?.totals?.right?.cr_dr ?? "0.00")}</td>
+                      <td id="right_total_balance">{formatMoney2(searchData?.totals?.right?.balance ?? "0.00")}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -701,7 +932,7 @@ export default function TransactionPaymentPage() {
           <div id="currency-grouped-tables-container" style={{ display: "none" }} />
         </div>
 
-        <div className="transaction-summary-section" style={{ display: "none" }}>
+        <div className="transaction-summary-section" style={{ display: tablesVisible ? "block" : "none" }}>
           <table className="transaction-summary-table">
             <thead>
               <tr className="transaction-table-header">
@@ -711,27 +942,19 @@ export default function TransactionPaymentPage() {
             <tbody>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">B/F</td>
-                <td id="sum_total_bf">
-                  0.00
-                </td>
+                <td id="sum_total_bf">{formatMoney2(searchData?.totals?.summary?.bf ?? "0.00")}</td>
               </tr>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">Win/Loss</td>
-                <td id="sum_total_winloss">
-                  0.00
-                </td>
+                <td id="sum_total_winloss">{formatMoney2(searchData?.totals?.summary?.win_loss ?? "0.00")}</td>
               </tr>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">Cr/Dr</td>
-                <td id="sum_total_crdr">
-                  0.00
-                </td>
+                <td id="sum_total_crdr">{formatMoney2(searchData?.totals?.summary?.cr_dr ?? "0.00")}</td>
               </tr>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">Balance</td>
-                <td id="sum_total_balance">
-                  0.00
-                </td>
+                <td id="sum_total_balance">{formatMoney2(searchData?.totals?.summary?.balance ?? "0.00")}</td>
               </tr>
             </tbody>
           </table>
@@ -776,13 +999,24 @@ export default function TransactionPaymentPage() {
         <div className="calendar-days" id="calendar-days" />
       </div>
 
-      <div id="notificationContainer" className="transaction-notification-container" />
+      <div id="notificationContainer" className="transaction-notification-container">
+        {toast.map((t) => (
+          <div key={t.id} className={`transaction-notification transaction-notification-${t.type} show`}>
+            {t.message}
+          </div>
+        ))}
+      </div>
 
-      <div id="historyModal" className="transaction-modal" style={{ display: "none" }}>
+      <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "block" : "none" }}>
         <div className="transaction-modal-content">
           <div className="transaction-modal-header">
-            <h3 id="modal_title">Payment History</h3>
-            <button type="button" id="modal_close" className="transaction-modal-close">
+            <h3 id="modal_title">{history.title}</h3>
+            <button
+              type="button"
+              id="modal_close"
+              className="transaction-modal-close"
+              onClick={() => setHistory((h) => ({ ...h, open: false }))}
+            >
               ×
             </button>
           </div>
@@ -803,7 +1037,22 @@ export default function TransactionPaymentPage() {
                     <th className="transaction-history-col-created">Created by</th>
                   </tr>
                 </thead>
-                <tbody id="modal_tbody" />
+                <tbody id="modal_tbody">
+                  {history.rows.map((r, idx) => (
+                    <tr key={r.id || `${idx}-${r.date || ""}`} className="transaction-table-row">
+                      <td>{r.date || "-"}</td>
+                      <td>{toUpperDisplay(r.product_id || r.id_product || r.product || "-")}</td>
+                      <td>{toUpperDisplay(r.currency || "-")}</td>
+                      <td>{toUpperDisplay(r.rate || "-")}</td>
+                      <td>{formatMoney2(r.win_loss)}</td>
+                      <td>{formatMoney2(r.cr_dr)}</td>
+                      <td>{formatMoney2(r.balance)}</td>
+                      <td>{toUpperDisplay(r.description || "-")}</td>
+                      <td>{toUpperDisplay(r.remark || r.sms || "-")}</td>
+                      <td>{toUpperDisplay(r.created_by || r.created || "-")}</td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
           </div>

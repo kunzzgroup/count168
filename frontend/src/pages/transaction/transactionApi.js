@@ -1,0 +1,125 @@
+import { buildApiUrl } from "../../utils/apiUrl.js";
+
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+export async function getCategories() {
+  const res = await fetch(buildApiUrl("api/transactions/get_categories_api.php"), { credentials: "include" });
+  return safeJson(res);
+}
+
+export async function getAccounts({ companyId, role, status = "active", currency } = {}) {
+  const params = new URLSearchParams();
+  if (companyId != null) params.set("company_id", String(companyId));
+  if (role) params.set("role", role);
+  if (status) params.set("status", status);
+  if (currency) params.set("currency", currency);
+  const res = await fetch(buildApiUrl(`api/transactions/get_accounts_api.php?${params.toString()}`), { credentials: "include" });
+  return safeJson(res);
+}
+
+export async function getCompanyCurrencies({ companyId } = {}) {
+  const params = new URLSearchParams();
+  if (companyId != null) params.set("company_id", String(companyId));
+  const res = await fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?${params.toString()}`), { credentials: "include" });
+  return safeJson(res);
+}
+
+export async function getUserCurrencyOrder() {
+  const res = await fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" });
+  return safeJson(res);
+}
+
+export async function saveUserCurrencyOrder({ companyId, currencies }) {
+  const fd = new FormData();
+  if (companyId != null) fd.append("company_id", String(companyId));
+  fd.append("currencies", JSON.stringify(currencies || []));
+  const res = await fetch(buildApiUrl("api/transactions/user_currency_order_api.php"), {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+  return safeJson(res);
+}
+
+export async function searchTransactions({
+  companyId,
+  dateFrom,
+  dateTo,
+  showInactive,
+  showCaptureOnly,
+  hideZeroBalance,
+  currencyCodes,
+  categories,
+} = {}) {
+  const params = new URLSearchParams();
+  if (companyId != null) params.set("company_id", String(companyId));
+  params.set("date_from", String(dateFrom || ""));
+  params.set("date_to", String(dateTo || ""));
+  params.set("show_inactive", showInactive ? "1" : "0");
+  params.set("show_capture_only", showCaptureOnly ? "1" : "0");
+  params.set("hide_zero_balance", hideZeroBalance ? "1" : "0");
+  if (Array.isArray(currencyCodes) && currencyCodes.length > 0) params.set("currency", currencyCodes.join(","));
+  if (Array.isArray(categories) && categories.length > 0) params.set("category", categories.join(","));
+
+  const res = await fetch(buildApiUrl(`api/transactions/search_api.php?${params.toString()}`), {
+    credentials: "include",
+    cache: "no-cache",
+  });
+  return safeJson(res);
+}
+
+export async function submitTransaction({ companyId, payload, clientRequestId }) {
+  const fd = new FormData();
+  if (companyId != null) fd.append("company_id", String(companyId));
+  if (clientRequestId) fd.append("client_request_id", clientRequestId);
+  Object.entries(payload || {}).forEach(([k, v]) => {
+    if (v === undefined || v === null) return;
+    fd.append(k, String(v));
+  });
+  const res = await fetch(buildApiUrl("api/transactions/submit_api.php"), {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+  return safeJson(res);
+}
+
+export async function getHistory({ companyId, accountId, dateFrom, dateTo, currency } = {}) {
+  const params = new URLSearchParams();
+  if (companyId != null) params.set("company_id", String(companyId));
+  if (accountId != null) params.set("account_id", String(accountId));
+  if (dateFrom) params.set("date_from", String(dateFrom));
+  if (dateTo) params.set("date_to", String(dateTo));
+  if (currency) params.set("currency", String(currency));
+
+  const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params.toString()}`), { credentials: "include", cache: "no-cache" });
+  return safeJson(res);
+}
+
+export async function loadContraInbox({ companyId } = {}) {
+  const params = new URLSearchParams();
+  if (companyId != null) params.set("company_id", String(companyId));
+  const res = await fetch(buildApiUrl(`api/transactions/contra_inbox_api.php?${params.toString()}`), { credentials: "include", cache: "no-cache" });
+  return safeJson(res);
+}
+
+export async function approveContra({ transactionId }) {
+  const fd = new FormData();
+  fd.append("transaction_id", String(transactionId));
+  const res = await fetch(buildApiUrl("api/transactions/contra_approve_api.php"), { method: "POST", body: fd, credentials: "include" });
+  return safeJson(res);
+}
+
+export async function rejectContra({ transactionId }) {
+  const fd = new FormData();
+  fd.append("transaction_id", String(transactionId));
+  const res = await fetch(buildApiUrl("api/transactions/contra_reject_api.php"), { method: "POST", body: fd, credentials: "include" });
+  return safeJson(res);
+}
+
