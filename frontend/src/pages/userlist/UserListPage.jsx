@@ -123,11 +123,41 @@ export default function UserListPage() {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("user-page");
     const hrefs = [assetUrl("css/userlist.css"), assetUrl("css/global-13inch.css")];
-    let loaded = 0; const links = [];
-    const onLoad = () => { loaded += 1; if (loaded >= hrefs.length) setCssReady(true); };
+    let settledCount = 0;
+    const links = [];
+    const bump = () => {
+      settledCount += 1;
+      if (settledCount >= hrefs.length) setCssReady(true);
+    };
     hrefs.forEach((href) => {
-      const link = document.createElement("link"); link.rel = "stylesheet"; link.href = href; link.onload = onLoad; link.onerror = onLoad;
-      document.head.appendChild(link); links.push(link);
+      let done = false;
+      const settle = () => {
+        if (done) return;
+        done = true;
+        bump();
+      };
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      link.onload = settle;
+      link.onerror = settle;
+      document.head.appendChild(link);
+      links.push(link);
+      /* Cached stylesheets often expose link.sheet immediately; load may fire before onload runs in some browsers. */
+      queueMicrotask(() => {
+        try {
+          if (link.sheet) settle();
+        } catch {
+          /* ignore */
+        }
+      });
+      requestAnimationFrame(() => {
+        try {
+          if (link.sheet) settle();
+        } catch {
+          /* ignore */
+        }
+      });
     });
     const font = document.createElement("link"); font.href = "https://fonts.googleapis.com/css?family=Amaranth"; font.rel = "stylesheet";
     document.head.appendChild(font); links.push(font);

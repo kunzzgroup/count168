@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import {
   PERMISSION_KEYS,
   PERMISSION_ICONS,
@@ -35,6 +35,19 @@ export default function UserModal({
   applyPermTemplate,
   onSave,
 }) {
+  const cardRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const el = cardRef.current;
+    if (!el) return;
+    void el.offsetHeight;
+    const id = requestAnimationFrame(() => {
+      void el.offsetHeight;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -50,7 +63,7 @@ export default function UserModal({
           </button>
         </div>
         <div className="modal-body">
-          <div className="user-modal-card">
+          <div ref={cardRef} className="user-modal-card">
             <div className="user-modal-col user-modal-col--info user-info-panel">
               <h3 className="user-modal-col-title">User Information</h3>
               <form id="userForm" onSubmit={onSave}>
