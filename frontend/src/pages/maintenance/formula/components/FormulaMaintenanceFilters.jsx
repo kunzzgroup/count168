@@ -90,7 +90,6 @@ export default function FormulaMaintenanceFilters({
                   const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
                   let visible = true;
                   if (selectedGroup) visible = cGid === selectedGroup;
-                  else visible = !cGid;
 
                   return (
                     <button

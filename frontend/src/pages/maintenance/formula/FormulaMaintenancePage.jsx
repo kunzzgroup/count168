@@ -63,6 +63,7 @@ export default function FormulaMaintenancePage() {
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       assetUrl("css/accountCSS.css"),
+      assetUrl("css/transaction.css"),
       assetUrl("css/global-13inch.css"),
       assetUrl("css/formula_maintenance.css"),
     ];
