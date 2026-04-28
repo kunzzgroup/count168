@@ -433,16 +433,22 @@ h1 {
     padding: clamp(12px, 1.25vw, 20px);
 }
 
+/* Three columns side-by-side: User info + Permissions | Account | Process (flex is more resilient than grid here with legacy flex rules on .user-info-panel) */
 .user-modal-card {
     flex: 1;
     min-height: 0;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
     background: #ffffff;
     border-radius: clamp(12px, 1.2vw, 20px);
     box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
     overflow: hidden;
-    align-content: stretch;
+}
+
+.user-modal-card > .user-modal-col {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .user-modal-col {
@@ -496,7 +502,9 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .user-modal-card .user-info-panel {
-    flex: initial;
+    /* Override standalone .user-info-panel flex-basis so the left column stays in one row with Account / Process */
+    flex: 1 1 0;
+    min-width: 0;
     max-width: none;
     width: auto;
     border-right: none;
