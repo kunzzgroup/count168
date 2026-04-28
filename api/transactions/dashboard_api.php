@@ -167,7 +167,10 @@ function dashboardContraApprovedWhere(PDO $pdo, string $alias = 't'): string
         return '';
     }
     $a = $alias !== '' ? $alias . '.' : '';
-    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+    return " AND ((
+                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT')
+                AND {$a}approval_status = 'APPROVED'
+            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT'))";
 }
 
 /**
@@ -435,6 +438,7 @@ try {
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
                         WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
                         WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
+                        WHEN transaction_type = 'ADJUSTMENT' THEN amount
                         ELSE 0
                     END), 0)
                     FROM transactions t
@@ -521,13 +525,14 @@ try {
                                WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
                                WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
                                WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                               WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                                ELSE 0
                            END), 0) as cr_dr
                     FROM transactions t
                     WHERE t.company_id = ?
                       AND t.account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
-                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
+                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'ADJUSTMENT')"
                 . $currency_filter_t_to . $clearFilter . $contraApproval . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
@@ -1046,6 +1051,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
                         WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
                         WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
+                        WHEN transaction_type = 'ADJUSTMENT' THEN amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
@@ -1053,7 +1059,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE', 'ADJUSTMENT')"
             . $clearFilter
             . dashboardContraApprovedWhere($pdo, '');
 
@@ -1144,6 +1150,15 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
                   AND (description LIKE 'Process: %')";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
+        $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
+
+        $sql = "SELECT COALESCE(SUM(amount), 0) as total
+                FROM transactions
+                WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
+                  AND currency_id = ? AND transaction_type = 'ADJUSTMENT'"
+            . dashboardContraApprovedWhere($pdo, '');
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());

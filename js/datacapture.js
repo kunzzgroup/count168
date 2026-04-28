@@ -1039,12 +1039,60 @@ async function loadSubmittedProcesses() {
 
 // Store copied data for paste operations
 let copiedData = null;
+let activeContextMenuAnchor = null;
 
-function positionContextMenu(menuElement, event) {
-    if (!menuElement || !event) return;
+function positionContextMenu(menu, e, anchorElement) {
+    if (!menu || !e) return;
 
-    const cursorX = event.clientX;
-    const cursorY = event.clientY;
+    if (!anchorElement) {
+        activeContextMenuAnchor = null;
+        positionContextMenuAtPoint(menu, e.clientX, e.clientY);
+        return;
+    }
+
+    const anchorRect = anchorElement.getBoundingClientRect();
+    activeContextMenuAnchor = {
+        menu,
+        anchorElement,
+        offsetX: Math.max(0, Math.min(e.clientX - anchorRect.left, anchorRect.width)),
+        offsetY: Math.max(0, Math.min(e.clientY - anchorRect.top, anchorRect.height)),
+        scrollContainer: anchorElement.closest('.excel-table-container')
+    };
+
+    menu.style.display = 'block';
+    updateActiveContextMenuPosition();
+}
+
+function updateActiveContextMenuPosition() {
+    if (!activeContextMenuAnchor) return;
+
+    const { menu, anchorElement, offsetX, offsetY, scrollContainer } = activeContextMenuAnchor;
+    if (!menu || !anchorElement || !anchorElement.isConnected || menu.style.display === 'none') {
+        activeContextMenuAnchor = null;
+        return;
+    }
+
+    const anchorRect = anchorElement.getBoundingClientRect();
+    if (scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const anchorOutsideContainer =
+            anchorRect.bottom < containerRect.top ||
+            anchorRect.top > containerRect.bottom ||
+            anchorRect.right < containerRect.left ||
+            anchorRect.left > containerRect.right;
+
+        if (anchorOutsideContainer) {
+            hideContextMenu();
+            return;
+        }
+    }
+
+    positionContextMenuAtPoint(menu, anchorRect.left + offsetX, anchorRect.top + offsetY);
+}
+
+function positionContextMenuAtPoint(menuElement, cursorX, cursorY) {
+    if (!menuElement) return;
+
     const margin = 8;
 
     // Temporarily show menu for accurate size measurement before final placement.
@@ -1053,8 +1101,8 @@ function positionContextMenu(menuElement, event) {
 
     const menuWidth = menuElement.offsetWidth;
     const menuHeight = menuElement.offsetHeight;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
 
     const left = Math.max(margin, Math.min(cursorX, viewportWidth - menuWidth - margin));
     const top = Math.max(margin, Math.min(cursorY, viewportHeight - menuHeight - margin));
@@ -1098,8 +1146,7 @@ function showContextMenu(e, cell) {
     console.log('After showContextMenu, selectedCells.size:', selectedCells.size);
     console.log('Selected cells:', Array.from(selectedCells).map(c => c.textContent || '(empty)'));
 
-    // Set menu position close to cursor for fixed-position menu.
-    positionContextMenu(contextMenu, e);
+    positionContextMenu(contextMenu, e, cell);
 
     // Click elsewhere to close menu
     // But don't close if clicking on menu items
@@ -1125,6 +1172,7 @@ function hideContextMenu() {
     if (contextMenu) contextMenu.style.display = 'none';
     if (columnContextMenu) columnContextMenu.style.display = 'none';
     if (rowContextMenu) rowContextMenu.style.display = 'none';
+    activeContextMenuAnchor = null;
 }
 
 // Show column header context menu
@@ -1138,8 +1186,7 @@ function showColumnContextMenu(e, colIndex) {
     const columnContextMenu = document.getElementById('columnContextMenu');
     if (!columnContextMenu) return;
 
-    // Set menu position close to cursor for fixed-position menu.
-    positionContextMenu(columnContextMenu, e);
+    positionContextMenu(columnContextMenu, e, e.currentTarget || e.target);
 
     // Click elsewhere to close menu
     setTimeout(() => {
@@ -1158,8 +1205,7 @@ function showRowContextMenu(e, rowIndex) {
     const rowContextMenu = document.getElementById('rowContextMenu');
     if (!rowContextMenu) return;
 
-    // Set menu position close to cursor for fixed-position menu.
-    positionContextMenu(rowContextMenu, e);
+    positionContextMenu(rowContextMenu, e, e.currentTarget || e.target);
 
     // Click elsewhere to close menu
     setTimeout(() => {
@@ -24502,6 +24548,11 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 初始化 Data Capture Type 选择器
     const typeSelect = document.getElementById('dataCaptureTypeSelector');
     const excelTableContainer = document.querySelector('.excel-table-container');
+    if (excelTableContainer) {
+        excelTableContainer.addEventListener('scroll', updateActiveContextMenuPosition, { passive: true });
+    }
+    window.addEventListener('resize', updateActiveContextMenuPosition);
+
     if (typeSelect) {
         currentDataCaptureType = typeSelect.value || '1.Text';
         // CITIBET 模式：为表格容器添加 class，用于完整显示数据（避免字母被裁剪）

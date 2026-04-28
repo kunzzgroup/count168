@@ -52,6 +52,11 @@
         return fixed === '-0' ? '0' : fixed;
     }
 
+    function formatFixedHalfUp(value, scale) {
+        const fixed = toDecimal(value, 0).toFixed(scale, Decimal.ROUND_HALF_UP);
+        return fixed === '-0' ? '0' : fixed;
+    }
+
     function formatDisplay(value, scale) {
         return stripTrailingZeros(formatFixed(value, scale === undefined ? 8 : scale));
     }
@@ -80,6 +85,7 @@
         toDecimal,
         stripTrailingZeros,
         formatFixed,
+        formatFixedHalfUp,
         formatDisplay,
         formatThousands,
         add,

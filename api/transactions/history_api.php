@@ -17,7 +17,7 @@ require_once __DIR__ . '/bank_process_bill_display.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
- * Contra 审批：过滤/标记未批准的 CONTRA（向后兼容：若无字段则不过滤）
+ * 审批过滤：过滤未批准的审批交易（向后兼容：若无字段则不过滤）
  */
 function historyHasContraApprovalColumns(PDO $pdo): bool
 {
@@ -35,7 +35,10 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
         return '';
     }
     $a = $alias !== '' ? $alias . '.' : '';
-    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+    return " AND ((
+                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT')
+                AND {$a}approval_status = 'APPROVED'
+            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT'))";
 }
 
 /**
@@ -1201,6 +1204,8 @@ try {
         }
     }
 
+    $sql .= historyContraApprovedWhere($pdo, 't');
+
     $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC";
 
     $stmt = $pdo->prepare($sql);
@@ -1415,51 +1420,40 @@ try {
             && stripos((string) $rawDescription, 'Auto: ') !== 0
             && !$isCompensationDescription;
 
-        // 为手动 PROFIT 尝试找出对应的对手账户（另一条相反类型、相同日期和金额的交易）
-        $otherAccountCodeForManualProfit = null;
-        if ($isManualProfit) {
-            static $manualProfitPairStmt = null;
-            if ($manualProfitPairStmt === null) {
-                $manualProfitPairStmt = $pdo->prepare("
-                    SELECT a.account_id
-                    FROM transactions tt
-                    JOIN account a ON tt.account_id = a.id
-                    WHERE tt.company_id = ?
-                      AND tt.transaction_date = ?
-                      AND tt.amount = ?
-                      AND tt.transaction_type = ?
-                      AND tt.id <> ?
-                      AND tt.account_id <> ?
-                    ORDER BY tt.id ASC
-                    LIMIT 1
-                ");
-            }
-            $oppositeType = ($t['transaction_type'] === 'WIN') ? 'LOSE' : 'WIN';
-            $manualProfitPairStmt->execute([
-                $company_id,
-                $t['transaction_date'],
-                $t['amount'],
-                $oppositeType,
-                $t['id'],
-                $t['account_id'],
-            ]);
-            $otherAccountCodeForManualProfit = $manualProfitPairStmt->fetchColumn() ?: null;
-        }
-
         // 根据交易类型计算 Win/Loss 和 Cr/Dr
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
         switch ($t['transaction_type']) {
             case 'WIN':
-                if (!$is_internal_transfer && $is_to_account) {
-                    // 手动 PROFIT：Select To 显示负数、Select From 显示正数
-                    $cr_dr = $isManualProfit ? historyNeg($t['amount']) : ($t['amount'] ?? '0');
+                if (!$is_internal_transfer) {
+                    if ($isManualProfit) {
+                        if ($is_to_account) {
+                            $cr_dr = historyNeg($t['amount']);
+                        } elseif ($is_from_account) {
+                            $cr_dr = $t['amount'] ?? '0';
+                        }
+                    } elseif ($is_to_account) {
+                        $cr_dr = $t['amount'] ?? '0';
+                    }
                 }
                 break;
 
             case 'LOSE':
+                if (!$is_internal_transfer) {
+                    if ($isManualProfit) {
+                        if ($is_to_account) {
+                            $cr_dr = $t['amount'] ?? '0';
+                        } elseif ($is_from_account) {
+                            $cr_dr = historyNeg($t['amount']);
+                        }
+                    } elseif ($is_to_account) {
+                        $cr_dr = historyNeg($t['amount']);
+                    }
+                }
+                break;
+
+            case 'ADJUSTMENT':
                 if (!$is_internal_transfer && $is_to_account) {
-                    // 手动 PROFIT：Select To 显示负数、Select From 显示正数（LOSE 条是 From 账户，显示正数）
-                    $cr_dr = $isManualProfit ? ($t['amount'] ?? '0') : historyNeg($t['amount']);
+                    $win_loss = $t['amount'] ?? '0';
                 }
                 break;
 
@@ -1683,20 +1677,18 @@ try {
             }
         }
 
-        // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前账户在 Win/Loss 的正负来决定 FROM / TO
+        // 手动 PROFIT：History 文案按当前账户的 Win/Loss 正负显示方向。
+        // 正数表示给对方的 PROFIT；负数表示从对方来的 PROFIT。
         if ($isManualProfit) {
-            // 先根据配对交易找对手账户编号，找不到就退回到 join 出来的 account code
-            $fallbackOther = $t['from_account_code'] ?: $t['to_account_code'] ?: '-';
-            $other = $otherAccountCodeForManualProfit ?: $fallbackOther;
+            $otherProfitAccount = $is_to_account
+                ? ($t['from_account_code'] ?: '-')
+                : ($t['to_account_code'] ?: '-');
 
             if (money_cmp($win_loss, '0') > 0) {
-                // 当前账户这笔是赚（正数）：从对方进来的 PROFIT
-                $description = 'PROFIT FROM ' . $other;
+                $description = 'PROFIT TO ' . $otherProfitAccount;
             } elseif (money_cmp($win_loss, '0') < 0) {
-                // 当前账户这笔是亏（负数）：给对方的 PROFIT
-                $description = 'PROFIT TO ' . $other;
+                $description = 'PROFIT FROM ' . $otherProfitAccount;
             } else {
-                // 金额是 0 或资料不足时给通用描述
                 $description = 'PROFIT';
             }
         }
@@ -2270,7 +2262,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
     $bf = money_add($bf, $stmt->fetchColumn() ?: '0', 8);
 
     // 2. 计算日期之前所有 transactions 的影响
-    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 影响 Cr/Dr（作为 To Account）；CONTRA/CLEAR 时 TO 显示负数
+    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 影响 Cr/Dr；ADJUSTMENT 影响 Win/Loss（作为 To Account）
     $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
@@ -2279,13 +2271,14 @@ function calculateBF($pdo, $account_id, $date_from, $company_id)
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' THEN amount
                         WHEN transaction_type = 'LOSE' THEN -amount
+                        WHEN transaction_type = 'ADJUSTMENT' THEN amount
                         ELSE 0
                     END), 0) as cr_dr
             FROM transactions
             WHERE company_id = ?
               AND account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'ADJUSTMENT')
               AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)"
         . historyContraApprovedWhere($pdo, '');
 
@@ -2358,13 +2351,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND (
                       (t.currency_id = ?)
                       OR (t.currency_id IS NULL AND EXISTS (
@@ -2408,11 +2402,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN -t.amount
                   WHEN t.transaction_type = 'WIN' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN -t.amount
                   WHEN t.transaction_type = 'LOSE' AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL) THEN t.amount
+                  WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                   ELSE 0
                 END), 0) as total
                 FROM transactions t
                 WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date < ?
-                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND EXISTS (
                       SELECT 1 FROM data_capture_details dcd
                       JOIN data_captures dc ON dcd.capture_id = dc.id

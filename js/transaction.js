@@ -149,6 +149,10 @@
         return { valid: true, value: result.toString() };
     }
 
+    function formatRateAmount(value) {
+        return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
+    }
+
     // ==================== Contra Inbox（Manager+） ====================
     function isContraInboxOpen() {
         const pop = document.getElementById('contraInboxPopover');
@@ -539,6 +543,11 @@
                 e.stopPropagation();
                 loadContraInbox();
             });
+        }
+
+        // 页面初始化时先拉一次 pending 数量，避免未点开前角标一直显示 0
+        if (canApproveContra) {
+            loadContraInbox();
         }
 
         // 点击外部关闭 Popover
@@ -2992,6 +3001,7 @@
         const type = document.getElementById('transaction_type').value;
         let effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
         const isRate = type === RATE_TYPE_VALUE;
+        const isAdjustment = type === 'ADJUSTMENT';
 
         const standardToAccountInput = document.getElementById('action_account_id');
         const standardFromAccountInput = document.getElementById('action_account_from');
@@ -3000,8 +3010,8 @@
 
         // PROFIT：第一个下拉为 To、第二个为 From；CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR 与 RATE：第一个为 To、第二个为 From，与 UI 标签一致
         const needsFromTo = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR'].includes(effectiveType);
-        const accountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : (needsFromTo ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput)));
-        const fromAccountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : (needsFromTo ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput)));
+        const accountId = isRate ? getAccountId(rateFromAccountInput) : ((type === 'PROFIT' || isAdjustment) ? getAccountId(standardFromAccountInput) : (needsFromTo ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput)));
+        const fromAccountId = isRate ? getAccountId(rateToAccountInput) : (isAdjustment ? '' : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : (needsFromTo ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput))));
 
         const standardAmountInput = document.getElementById('action_amount');
         const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
@@ -3047,6 +3057,11 @@
         if (type === 'PROFIT') {
             const profitToAccountId = getAccountId(standardFromAccountInput);   // UI: Select To Account
             const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
+
+            if (!profitFromAccountId) {
+                showNotification('PROFIT: Please select From Account', 'error');
+                return;
+            }
 
             // PROFIT 不做余额正负校验，仅限制 To / From 不能同一账户
             if (profitToAccountId && profitFromAccountId && String(profitToAccountId) === String(profitFromAccountId)) {
@@ -3200,8 +3215,8 @@
             } catch (_) {
                 amountNum = null;
             }
-            if (!amountNum || amountNum.lt(0)) {
-                showNotification('Please enter a valid amount (>= 0)', 'error');
+            if (!amountNum || (!isAdjustment && amountNum.lt(0)) || (isAdjustment && amountNum.isZero())) {
+                showNotification(isAdjustment ? 'Please enter a non-zero adjustment amount' : 'Please enter a valid amount (>= 0)', 'error');
                 return;
             }
             amount = amountNormalized;
@@ -3265,13 +3280,13 @@
             // From Account 记录：使用第一个 currency，扣除第一个 amount
             formData.append('rate_from_account_id', fromAccountId);
             formData.append('rate_from_currency', rateCurrencyFromSelect?.value || '');
-            formData.append('rate_from_amount', rateCurrencyFromAmount);
+            formData.append('rate_from_amount', formatRateAmount(rateCurrencyFromAmount));
             formData.append('rate_from_description', fromAccountDescription);
 
             // To Account 记录：使用第二个 currency，增加第二个 amount
             formData.append('rate_to_account_id', accountId);
             formData.append('rate_to_currency', rateCurrencyToSelect?.value || '');
-            formData.append('rate_to_amount', rateCurrencyToAmount);
+            formData.append('rate_to_amount', formatRateAmount(rateCurrencyToAmount));
             formData.append('rate_to_description', toAccountDescription);
 
             // 第二行按当前下拉直接提交：
@@ -3305,14 +3320,14 @@
                 const originalTransferFromAmount = MoneyDecimal.mul(rateCurrencyFromAmount || '0', rateExchangeRate || '0');
                 formData.append('rate_transfer_from_account_id', rateTransferFromAccountId);
                 formData.append('rate_transfer_from_currency', rateCurrencyToSelect?.value || '');
-                formData.append('rate_transfer_from_amount', MoneyDecimal.formatFixed(originalTransferFromAmount, 2));
+                formData.append('rate_transfer_from_amount', formatRateAmount(originalTransferFromAmount));
                 formData.append('rate_transfer_from_description', transferFromAccountDescription);
 
                 // Transfer To Account 记录：增加完整金额（不扣除手续费）
                 // 第二个 account 行使用转换后的货币（rate_to_currency，即 MYR）
                 formData.append('rate_transfer_to_account_id', rateTransferToAccountId);
                 formData.append('rate_transfer_to_currency', rateCurrencyToSelect?.value || '');
-                formData.append('rate_transfer_to_amount', MoneyDecimal.formatFixed(transferToAmountValue, 2));
+                formData.append('rate_transfer_to_amount', formatRateAmount(transferToAmountValue));
                 formData.append('rate_transfer_to_description', transferToAccountDescription);
 
                 // Middle-Man Account 记录：如果有 middle-man，增加手续费金额
@@ -3320,16 +3335,16 @@
                 if (rateMiddlemanAccountId && MoneyDecimal.cmp(middlemanAmount || '0', '0') > 0) {
                     formData.append('rate_middleman_account_id', rateMiddlemanAccountId);
                     formData.append('rate_middleman_currency', rateCurrencyToSelect?.value || '');
-                    formData.append('rate_middleman_amount', MoneyDecimal.formatFixed(middlemanAmount, 2));
+                    formData.append('rate_middleman_amount', formatRateAmount(middlemanAmount));
                     formData.append('rate_middleman_description', middlemanDescription);
                 }
             }
 
             // 其他 Rate 相关参数
             formData.append('rate_currency_from', rateCurrencyFromSelect?.value || '');
-            formData.append('rate_currency_from_amount', rateCurrencyFromAmount);
+            formData.append('rate_currency_from_amount', formatRateAmount(rateCurrencyFromAmount));
             formData.append('rate_currency_to', rateCurrencyToSelect?.value || '');
-            formData.append('rate_currency_to_amount', rateCurrencyToAmount);
+            formData.append('rate_currency_to_amount', formatRateAmount(rateCurrencyToAmount));
             formData.append('rate_exchange_rate', String(rateExchangeRate));
             formData.append('rate_transfer_from_account', rateTransferFromAccountId);
             formData.append('rate_transfer_to_account', rateTransferToAccountId);
@@ -3339,7 +3354,7 @@
             formData.append('rate_account_to_amount', rateTransferAmount);
             formData.append('rate_middleman_account', rateMiddlemanAccountId);
             formData.append('rate_middleman_rate', rateMiddlemanRate);
-            formData.append('rate_middleman_amount', rateMiddlemanAmount);
+            formData.append('rate_middleman_amount', rateMiddlemanAmount ? formatRateAmount(rateMiddlemanAmount) : '');
         }
         if (currentCompanyId) {
             formData.append('company_id', currentCompanyId);
@@ -3360,7 +3375,7 @@
             .then(data => {
                 if (data.success) {
                     console.log('✅ 提交成功:', data.data);
-                    // Manager 以下提交“非当天”的 CONTRA：需要等待批准（后端会返回 approval_status = PENDING）
+                    // Manager 以下提交“当天及之前”的 CONTRA：需要等待批准（后端会返回 approval_status = PENDING）
                     const approvalStatus = data?.data?.approval_status ? String(data.data.approval_status).toUpperCase() : '';
                     if (approvalStatus === 'PENDING') {
                         showNotification('Submitted. Waiting for Manager+ approval to take effect.', 'info');
@@ -3846,7 +3861,7 @@
             // 公式: currency_from_amount * middle_man_rate
             if (currencyFromAmount.gt(0) && middleManRate.gt(0)) {
                 const result = currencyFromAmount.times(middleManRate);
-                middleManAmountInput.value = MoneyDecimal.formatFixed(result, 2);
+                middleManAmountInput.value = formatRateAmount(result);
             } else {
                 middleManAmountInput.value = '';
             }
@@ -3860,12 +3875,11 @@
             const currencyFromAmount = MoneyDecimal.toDecimal(currencyFromAmountInput.value || '0', 0);
             const parsedRate = parseRateExpression(exchangeRateInput.value);
             const exchangeRate = parsedRate.valid ? MoneyDecimal.toDecimal(parsedRate.value) : MoneyDecimal.toDecimal('0');
-            const middleManAmount = MoneyDecimal.toDecimal(middleManAmountInput.value || '0', 0);
 
-            // 公式: (currency_from_amount * exchange_rate) - middle_man_amount
+            // 与提交入账保持一致：换算金额显示完整 from * rate，middle-man fee 另行显示并单独入账。
             if (currencyFromAmount.gt(0) && exchangeRate.gt(0)) {
-                const result = currencyFromAmount.times(exchangeRate).minus(middleManAmount);
-                currencyToAmountInput.value = MoneyDecimal.formatFixed(result, 2);
+                const result = currencyFromAmount.times(exchangeRate);
+                currencyToAmountInput.value = formatRateAmount(result);
             } else {
                 currencyToAmountInput.value = '';
             }
