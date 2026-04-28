@@ -54,8 +54,8 @@ export default function BankprocessMaintenanceFilters({
               <i className="fas fa-calendar-alt" />
               <span id="date-range-display">Select date range</span>
             </div>
-            <input type="hidden" id="date_from" value={dateFrom || today} readOnly />
-            <input type="hidden" id="date_to" value={dateTo || today} readOnly />
+            <input type="hidden" id="date_from" defaultValue={dateFrom || today} />
+            <input type="hidden" id="date_to" defaultValue={dateTo || today} />
           </div>
 
           <div className="maintenance-form-group maintenance-search-inline" id="from-search-row">
