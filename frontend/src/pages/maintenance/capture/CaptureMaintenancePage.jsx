@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
-import { formatYmd, quickRangeToDates } from "../../../utils/dateUtils.js";
+import { formatYmd } from "../../../utils/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { 
   fetchCompanyPermissions, 
@@ -33,8 +33,15 @@ export default function CaptureMaintenancePage() {
   const [activePermission, setActivePermission] = useState("");
   
   const today = useMemo(() => new Date(), []);
-  const [dateFrom, setDateFrom] = useState(formatYmd(today));
-  const [dateTo, setDateTo] = useState(formatYmd(today));
+  const todayDmy = useMemo(() => {
+    const d = String(today.getDate()).padStart(2, "0");
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const y = today.getFullYear();
+    return `${d}/${m}/${y}`;
+  }, [today]);
+  const [dateFrom, setDateFrom] = useState(todayDmy);
+  const [dateTo, setDateTo] = useState(todayDmy);
+  const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -72,6 +79,7 @@ export default function CaptureMaintenancePage() {
       assetUrl("css/accountCSS.css"),
       assetUrl("css/transaction.css"),
       assetUrl("css/capture_maintenance.css"),
+      assetUrl("css/date-range-picker.css"),
       assetUrl("css/global-13inch.css"),
     ];
 
@@ -84,10 +92,46 @@ export default function CaptureMaintenancePage() {
       }
     });
 
+    const setupDatePicker = async () => {
+      await new Promise((resolve, reject) => {
+        const src = assetUrl("js/date-range-picker.js");
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) return resolve();
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = false;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load date-range-picker.js"));
+        document.body.appendChild(script);
+      });
+      setDatePickerScriptReady(true);
+    };
+
+    setupDatePicker().catch(() => null);
+
     return () => {
       document.body.classList.remove("maintenance-page");
     };
   }, []);
+
+  useEffect(() => {
+    if (!datePickerScriptReady || bootLoading || !me) return;
+    if (!document.getElementById("date-range-picker")) return;
+    if (!window?.MaintenanceDateRangePicker?.init) return;
+
+    const timer = setTimeout(() => {
+      window.MaintenanceDateRangePicker.init({
+        onChange: () => {
+          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
+          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
+          setDateFrom(nextFrom);
+          setDateTo(nextTo);
+        },
+      });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [datePickerScriptReady, bootLoading, me]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -349,7 +393,7 @@ export default function CaptureMaintenancePage() {
         setSelectedProcess={setSelectedProcess}
         dateFrom={dateFrom}
         dateTo={dateTo}
-        onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}
+        today={todayDmy}
         companyId={companyId}
         companies={companies}
         selectedGroup={selectedGroup}
@@ -386,6 +430,20 @@ export default function CaptureMaintenancePage() {
         onConfirm={confirmDeleteAction}
         message={`Are you sure you want to delete the selected ${selectedIds.length} record(s)? This action cannot be undone.`}
       />
+      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
+        <div className="calendar-header">
+          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
+          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()}>
+            <select id="calendar-month-select" defaultValue="0"><option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option><option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option><option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option><option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option></select>
+            <select id="calendar-year-select" />
+          </div>
+          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
+        </div>
+        <div className="calendar-weekdays">
+          <div className="calendar-weekday">Sun</div><div className="calendar-weekday">Mon</div><div className="calendar-weekday">Tue</div><div className="calendar-weekday">Wed</div><div className="calendar-weekday">Thu</div><div className="calendar-weekday">Fri</div><div className="calendar-weekday">Sat</div>
+        </div>
+        <div className="calendar-days" id="calendar-days" />
+      </div>
     </div>
   );
 }
