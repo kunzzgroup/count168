@@ -374,18 +374,21 @@
             const fromDate = fromEl ? parseDmy(fromEl.value) : null;
             const toDate = toEl ? parseDmy(toEl.value) : null;
 
-            if (!calendarStartDate) {
-                if (fromDate) {
-                    calendarStartDate = new Date(fromDate);
-                    calendarEndDate = toDate ? new Date(toDate) : new Date(fromDate);
-                    calendarStartDate.setHours(0, 0, 0, 0);
-                    calendarEndDate.setHours(0, 0, 0, 0);
-                } else if (!config.allowEmpty) {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    calendarStartDate = new Date(today);
-                    calendarEndDate = new Date(today);
-                }
+            // Always re-seed picker state from current page inputs on init.
+            // This prevents previous page range from leaking across route transitions.
+            if (fromDate) {
+                calendarStartDate = new Date(fromDate);
+                calendarEndDate = toDate ? new Date(toDate) : new Date(fromDate);
+                calendarStartDate.setHours(0, 0, 0, 0);
+                calendarEndDate.setHours(0, 0, 0, 0);
+            } else if (!config.allowEmpty) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                calendarStartDate = new Date(today);
+                calendarEndDate = new Date(today);
+            } else {
+                calendarStartDate = null;
+                calendarEndDate = null;
             }
             syncToHiddenInputs();
             updateDateRangeDisplay();
