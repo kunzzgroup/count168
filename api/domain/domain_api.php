@@ -16,7 +16,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
+if (in_array($action, ['list', 'create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
