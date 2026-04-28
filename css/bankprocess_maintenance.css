@@ -18,6 +18,16 @@ body {
     overflow-y: auto;
 }
 
+/* Keep maintenance pages scrollable under dashboard layout. */
+html,
+body.dashboard-page.maintenance-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
 .container {
     max-width: none;
     margin: 0;
@@ -419,6 +429,9 @@ h1 {
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
+    max-height: calc(100vh - 270px);
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .maintenance-table {
@@ -520,7 +533,7 @@ h1 {
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 2%;
+    width: 4%;
 }
 
 .maintenance-table-cell {
@@ -598,6 +611,12 @@ h1 {
 
 .maintenance-select-all-header {
     text-align: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.maintenance-select-all-checkbox {
+    margin: 0 !important;
 }
 
 .empty-state-container {

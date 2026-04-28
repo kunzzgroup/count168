@@ -15,7 +15,7 @@ export default function BankprocessMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Dts Created</th><th>Account</th><th>From</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitted By</th><th className="maintenance-select-all-header"><input type="checkbox" className="maintenance-checkbox" disabled /></th>
+              <th>No.</th><th>Dts Created</th><th>Account</th><th>From</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitted By</th><th className="maintenance-select-all-header"><input type="checkbox" className="maintenance-row-checkbox maintenance-select-all-checkbox" disabled /></th>
             </tr>
           </thead>
           <tbody>
@@ -59,7 +59,7 @@ export default function BankprocessMaintenanceTable({
               <input
                 type="checkbox"
                 id="select_all_bankprocess"
-                className="maintenance-checkbox"
+                className="maintenance-row-checkbox maintenance-select-all-checkbox"
                 title="Select All"
                 checked={selectAll}
                 onChange={(e) => onToggleSelectAll(e.target.checked)}
