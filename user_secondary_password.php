@@ -128,15 +128,15 @@ function dbGetUserSecondaryPassword($pdo, $user_id) {
     <style id="secondary-pwd-layout-fallback">
         /* 若外链 style 仍失败，保证与登录页一致的居中与表单样式（背景图用根相对路径） */
         body.bg{min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:url('<?php echo htmlspecialchars($toAppPath('images/count_bg.png'), ENT_QUOTES, 'UTF-8'); ?>') center/cover no-repeat}
-        .login-container{width:100%;max-width:min(420px,90vw);margin:0 auto;position:relative;z-index:2}
-        .login-card{background:rgba(255,255,255,.95);border-radius:0 0 30px 30px;box-shadow:0 20px 40px rgba(0,0,0,.1);padding:0;overflow:hidden;backdrop-filter:blur(10px)}
-        .form-content{padding:clamp(20px,5vw,30px) clamp(15px,4vw,20px)}
-        .login-form{display:flex;flex-direction:column;gap:clamp(15px,4vw,20px)}
+        .login-container{width:100%;max-width:min(380px,92vw);margin:0 auto;position:relative;z-index:2}
+        .login-card{background:rgba(255,255,255,.95);border-radius:0 0 20px 20px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:0;overflow:hidden;backdrop-filter:blur(10px)}
+        .form-content{padding:24px 22px}
+        .login-form{display:flex;flex-direction:column;gap:16px}
         .input-group{position:relative;display:flex;align-items:center}
-        .input-icon{position:absolute;left:clamp(15px,4vw,20px);top:50%;transform:translateY(-50%);color:#56ccf2;font-size:clamp(14px,3vw,16px);z-index:2}
-        .input-group input{width:100%;padding:clamp(10px,2.5vw,12px) clamp(20px,5vw,25px) clamp(10px,2.5vw,12px) clamp(40px,10vw,46px);border:2px solid #56ccf2;border-radius:50px;font-size:clamp(14px,3vw,16px);background:rgba(255,255,255,.9);color:#333;box-sizing:border-box}
+        .input-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#56ccf2;font-size:15px;z-index:2}
+        .input-group input{width:100%;padding:10px 20px 10px 44px;border:2px solid #56ccf2;border-radius:50px;font-size:15px;background:rgba(255,255,255,.9);color:#333;box-sizing:border-box}
         .input-group input:focus{outline:none;border-color:#004ff9;box-shadow:0 0 0 3px rgba(0,79,249,.1)}
-        .login-btn{background:linear-gradient(135deg,#004ff9,#56ccf2);color:#fff;border:none;padding:clamp(11px,3vw,15px);border-radius:50px;font-size:clamp(16px,4vw,18px);font-weight:600;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 15px rgba(0,79,249,.3)}
+        .login-btn{background:linear-gradient(135deg,#004ff9,#56ccf2);color:#fff;border:none;padding:13px 16px;border-radius:50px;font-size:17px;font-weight:600;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 15px rgba(0,79,249,.3)}
     </style>
 </head>
 <body class="bg">

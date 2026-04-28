@@ -80,10 +80,10 @@ body.bg::before {
 
 
 
-/* Main Container */
+/* Main Container — card width aligned with count168.site (~380px) */
 .login-container {
     width: 100%;
-    max-width: clamp(320px, 90vw, 420px);
+    max-width: min(380px, 92vw);
     margin: 0 auto;
     position: relative;
     z-index: 2;
@@ -92,8 +92,8 @@ body.bg::before {
 /* Login Card */
 .login-card {
     background: rgba(255, 255, 255, 0.95);
-    border-radius: 0 0 30px 30px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
     padding: 0;
     position: relative;
     overflow: hidden;
@@ -104,19 +104,19 @@ body.bg::before {
 .role-tabs {
     display: flex;
     background: linear-gradient(135deg, #004ff9, #56ccf2);
-    border-radius: 30px 30px 0 0;
+    border-radius: 20px 20px 0 0;
     overflow: hidden;
 }
 
 .role-tab {
     flex: 1;
-    padding: clamp(12px, 3vw, 15px);
+    padding: 12px 14px;
     border: none;
     background: transparent;
     color: white;
     cursor: pointer;
     font-weight: 600;
-    font-size: clamp(18px, 4vw, 24px);
+    font-size: 18px;
     text-align: center;
     transition: all 0.3s ease;
     position: relative;
@@ -130,7 +130,7 @@ body.bg::before {
 
 /* Form Content */
 .form-content {
-    padding: clamp(20px, 5vw, 30px) clamp(15px, 4vw, 20px);
+    padding: 24px 22px;
 }
 
 /* Header */
@@ -138,7 +138,7 @@ body.bg::before {
     text-align: center;
     background: linear-gradient(135deg, #004ff9, #56ccf2);
     padding: clamp(12px, 3vw, 15px);
-    border-radius: 30px 30px 0 0;
+    border-radius: 20px 20px 0 0;
 }
 
 .login-header h2 {
@@ -151,7 +151,7 @@ body.bg::before {
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: clamp(15px, 4vw, 20px);
+    gap: 16px;
 }
 
 .input-group {
@@ -162,20 +162,20 @@ body.bg::before {
 
 .input-icon {
     position: absolute;
-    left: clamp(15px, 4vw, 20px);
+    left: 18px;
     top: 50%;
     transform: translateY(-50%);
     color: #56ccf2;
-    font-size: clamp(14px, 3vw, 16px);
+    font-size: 15px;
     z-index: 2;
 }
 
 .input-group input {
     width: 100%;
-    padding: clamp(10px, 2.5vw, 12px) clamp(20px, 5vw, 25px) clamp(10px, 2.5vw, 12px) clamp(40px, 10vw, 46px);
+    padding: 10px 20px 10px 44px;
     border: 2px solid #56ccf2;
     border-radius: 50px;
-    font-size: clamp(14px, 3vw, 16px);
+    font-size: 15px;
     transition: all 0.3s ease;
     background: rgba(255, 255, 255, 0.9);
     color: #333;
@@ -189,7 +189,7 @@ body.bg::before {
 
 .input-group input::placeholder {
     color: #56ccf2;
-    font-size: clamp(14px, 3vw, 16px);
+    font-size: 15px;
     font-weight: 400;
 }
 
@@ -206,7 +206,7 @@ body.bg::before {
 .tac-container input {
     border-radius: 50px 0 0 50px;
     border-right: none;
-    padding: clamp(10px, 2.5vw, 12px) clamp(20px, 5vw, 25px) clamp(10px, 2.5vw, 12px) clamp(40px, 10vw, 46px);
+    padding: 10px 20px 10px 44px;
 }
 
 .tac-btn {
@@ -311,9 +311,9 @@ body.bg::before {
     background: linear-gradient(135deg, #004ff9, #56ccf2);
     color: white;
     border: none;
-    padding: clamp(11px, 3vw, 15px);
+    padding: 13px 16px;
     border-radius: 50px;
-    font-size: clamp(16px, 4vw, 18px);
+    font-size: 17px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -382,8 +382,12 @@ body.bg::before {
 
 @media (max-width: 480px) {
     .role-tab {
-        padding: clamp(12px, 3vw, 15px) clamp(15px, 4vw, 20px);
-        font-size: clamp(12px, 3vw, 14px);
+        padding: 11px 12px;
+        font-size: 16px;
+    }
+
+    .form-content {
+        padding: 20px 18px;
     }
 }
 

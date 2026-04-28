@@ -2,7 +2,7 @@
 .maintenance-marquee-wrapper {
     width: 100%;
     overflow: hidden;
-    border-radius: 30px;
+    border-radius: 20px;
     background: linear-gradient(135deg, #004ff9, #56ccf2);
     position: relative;
     margin-bottom: 20px;
