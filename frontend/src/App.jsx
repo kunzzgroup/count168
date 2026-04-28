@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import LoginPage from "./pages/LoginPage.jsx";
+import LoginPage from "./pages/login/LoginPage.jsx";
 import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
 import DomainPage from "./pages/domain/DomainPage.jsx";
 import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
@@ -18,9 +18,9 @@ import TransactionMaintenancePage from "./pages/maintenance/transaction/Transact
 import FormulaMaintenancePage from "./pages/maintenance/formula/FormulaMaintenancePage.jsx";
 import BankprocessMaintenancePage from "./pages/maintenance/bankprocess/BankprocessMaintenancePage.jsx";
 import PaymentMaintenancePage from "./pages/maintenance/payment/PaymentMaintenancePage.jsx";
-import OwnerSecondaryPasswordPage from "./pages/OwnerSecondaryPasswordPage.jsx";
-import UserSecondaryPasswordPage from "./pages/UserSecondaryPasswordPage.jsx";
-import MemberPage from "./pages/MemberPage.jsx";
+import OwnerSecondaryPasswordPage from "./pages/login/OwnerSecondaryPasswordPage.jsx";
+import UserSecondaryPasswordPage from "./pages/login/UserSecondaryPasswordPage.jsx";
+import MemberPage from "./pages/login/MemberPage.jsx";
 
 export default function App() {
   return (
