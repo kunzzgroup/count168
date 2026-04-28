@@ -117,6 +117,7 @@ export default function CustomerReportPage() {
         effective = effective ? Number(effective) : null;
 
         setCompanyId(effective);
+        if (effective) await checkBankOnly(effective);
 
         const cur = rows.find((c) => Number(c.id) === Number(effective));
         const savedGroup = sessionStorage.getItem("dashboard_group_filter");
@@ -167,6 +168,19 @@ export default function CustomerReportPage() {
     }
   }, [companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies]);
 
+  const checkBankOnly = useCallback(async (compId) => {
+    if (!compId) return;
+    try {
+      const comp = companies.find(c => Number(c.id) === Number(compId));
+      const perms = await fetchCompanyPermissions(comp?.company_id || "");
+      if (isBankOnlyCategoryCompany(perms)) {
+        window.location.assign(new URL("/dashboard", window.location.origin).href);
+      }
+    } catch (err) {
+      console.error("Bank only check error:", err);
+    }
+  }, [companies]);
+
   const loadMetaData = useCallback(async () => {
     if (!companyId) return;
     try {
@@ -177,7 +191,7 @@ export default function CustomerReportPage() {
       setAccounts(accs);
       setCurrencyList(curs);
 
-      if (curs.length > 0) {
+      if (curs.length > 0 && selectedCurrencies.length === 0 && !showAllCurrencies) {
         const myr = curs.find(c => c.code === "MYR");
         const def = myr || curs[0];
         setSelectedCurrencies([def.code]);
@@ -186,14 +200,19 @@ export default function CustomerReportPage() {
     } catch (err) {
       console.error("Meta data load error:", err);
     }
-  }, [companyId]);
+  }, [companyId, selectedCurrencies.length, showAllCurrencies]);
 
   useEffect(() => {
     if (!bootLoading && companyId) loadMetaData();
   }, [bootLoading, companyId, loadMetaData]);
 
   useEffect(() => {
-    if (!bootLoading && companyId) loadReport();
+    if (!bootLoading && companyId) {
+      const handler = setTimeout(() => {
+        loadReport();
+      }, 300);
+      return () => clearTimeout(handler);
+    }
   }, [bootLoading, companyId, accountId, dateFrom, dateTo, showAll, selectedCurrencies, showAllCurrencies, loadReport]);
 
   // -- Handlers --
@@ -208,6 +227,8 @@ export default function CustomerReportPage() {
       setSelectedGroup(newGroup);
       if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
       else sessionStorage.removeItem("dashboard_group_filter");
+      
+      await checkBankOnly(c.id);
       notifyCompanySessionUpdated();
     } catch { notify("Switch failed", "danger"); }
   };
@@ -271,6 +292,7 @@ export default function CustomerReportPage() {
           reportData={reportData}
           loading={loading}
           error={error}
+          currencyList={currencyList}
         />
       </div>
 

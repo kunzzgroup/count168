@@ -1,6 +1,6 @@
 import { formatAmount } from "../customerReportLogic.js";
 
-export default function CustomerReportTable({ reportData, loading, error }) {
+export default function CustomerReportTable({ reportData, loading, error, currencyList = [] }) {
   const renderEmpty = (message) => (
     <div className="customer-report-list-container">
       <div className="customer-report-table-header">
@@ -17,7 +17,20 @@ export default function CustomerReportTable({ reportData, loading, error }) {
   );
 
   if (loading) return renderEmpty("Loading...");
-  if (error) return renderEmpty(error);
+  if (error) return (
+    <div className="customer-report-list-container">
+      <div className="customer-report-table-header">
+        <div>Account</div><div>Name</div><div>Currency</div><div>Win</div><div>Lose</div>
+      </div>
+      <div className="customer-report-cards">
+        <div className="customer-report-card">
+          <div className="customer-report-card-item" style={{ textAlign: "center", padding: 20, gridColumn: "1 / -1", justifyContent: "center", color: "red" }}>
+            {error}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   if (!reportData || !reportData.data || reportData.data.length === 0) return renderEmpty("No data found");
 
   const data = reportData.data;
@@ -30,17 +43,34 @@ export default function CustomerReportTable({ reportData, loading, error }) {
     grouped[c].push(item);
   });
 
-  const currenciesInReport = Object.keys(grouped).filter(c => c !== "null").sort();
+  // Sort currencies by currencyList order, then any leftovers alphabetically
+  const reportCurrencies = Object.keys(grouped).filter(c => c !== "null");
+  const sortedCurrencies = [];
+  
+  currencyList.forEach(cItem => {
+    if (reportCurrencies.includes(cItem.code)) {
+      sortedCurrencies.push(cItem.code);
+    }
+  });
+  
+  // Add leftovers
+  reportCurrencies.forEach(c => {
+    if (!sortedCurrencies.includes(c)) {
+      sortedCurrencies.push(c);
+    }
+  });
+
   const hasNull = !!grouped["null"];
 
   // If multiple currencies or null+one, show grouped
-  if (currenciesInReport.length > 1 || (currenciesInReport.length === 1 && hasNull)) {
+  if (sortedCurrencies.length > 1 || (sortedCurrencies.length >= 1 && hasNull)) {
     return (
       <div className="customer-report-list-container" id="currency-grouped-reports-container">
-        {currenciesInReport.map(c => {
+        {sortedCurrencies.map(c => {
           const items = grouped[c];
-          const win = items.reduce((acc, cur) => acc + parseFloat(cur.win || 0), 0);
-          const lose = items.reduce((acc, cur) => acc + parseFloat(cur.lose || 0), 0);
+          // Use more robust sum
+          const win = items.reduce((acc, cur) => acc + (parseFloat(cur.win) || 0), 0);
+          const lose = items.reduce((acc, cur) => acc + (parseFloat(cur.lose) || 0), 0);
           return (
             <div key={c} className="customer-report-currency-section" style={{ marginBottom: 30 }}>
               <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>
@@ -90,10 +120,10 @@ export default function CustomerReportTable({ reportData, loading, error }) {
             <div className="customer-report-total">
               <div className="customer-report-total-label">Total:</div>
               <div className="customer-report-amount win customer-report-total-win">
-                {formatAmount(grouped["null"].reduce((acc, cur) => acc + parseFloat(cur.win || 0), 0))}
+                {formatAmount(grouped["null"].reduce((acc, cur) => acc + (parseFloat(cur.win) || 0), 0))}
               </div>
               <div className="customer-report-amount lose customer-report-total-lose">
-                {formatAmount(grouped["null"].reduce((acc, cur) => acc + parseFloat(cur.lose || 0), 0))}
+                {formatAmount(grouped["null"].reduce((acc, cur) => acc + (parseFloat(cur.lose) || 0), 0))}
               </div>
             </div>
           </div>

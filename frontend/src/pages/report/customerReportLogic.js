@@ -1,15 +1,32 @@
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import { formatYmd } from "../../utils/dateUtils.js";
 
 /**
- * Format currency with 2 decimal places and thousands separator
+ * Format currency with 2 decimal places (truncated) and thousands separator
+ * Matches legacy MoneyDecimal.formatFixed(val, 2) + formatThousands
  */
 export function formatAmount(value) {
   const val = parseFloat(value || 0);
-  return val.toLocaleString("en-US", {
+  if (isNaN(val)) return "0.00";
+  
+  // Truncate towards zero (Decimal.ROUND_DOWN)
+  const factor = 100;
+  const truncated = val >= 0 
+    ? Math.floor(val * factor) / factor 
+    : Math.ceil(val * factor) / factor;
+
+  return truncated.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/**
+ * Add two values with precision (simple version of reportAdd)
+ */
+export function reportAdd(a, b) {
+  const valA = parseFloat(a || 0);
+  const valB = parseFloat(b || 0);
+  return (valA + valB).toString();
 }
 
 /**
