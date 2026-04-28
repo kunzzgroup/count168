@@ -18,6 +18,17 @@ body {
     overflow-y: auto;
 }
 
+/* Capture maintenance pages run under `body.dashboard-page` which defaults to
+   `overflow: hidden` in dashboard styles. Re-enable native page scrolling here. */
+html,
+body.dashboard-page.maintenance-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
 .container {
     max-width: none;
     margin: 0;
@@ -144,6 +155,9 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-width: 1500px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .maintenance-filters {
@@ -410,6 +424,11 @@ h1 {
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
+    max-width: 1500px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: clamp(8px, 0.9vw, 16px);
+    padding-right: clamp(8px, 0.9vw, 16px);
 }
 
 .maintenance-table {
