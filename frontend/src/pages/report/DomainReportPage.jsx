@@ -40,6 +40,7 @@ export default function DomainReportPage() {
 
   // -- State: UI --
   const [toast, setToast] = useState(null);
+  const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
@@ -53,6 +54,7 @@ export default function DomainReportPage() {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "report-page");
 
+    let cancelled = false;
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
@@ -63,16 +65,35 @@ export default function DomainReportPage() {
       assetUrl("css/global-13inch.css"),
     ];
 
-    links.forEach(href => {
-      if (!document.querySelector(`link[href="${href}"]`)) {
+    const waitForStylesheet = (href) =>
+      new Promise((resolve) => {
+        const markLoaded = (el) => {
+          try { el.dataset.loaded = "1"; } catch { /* ignore */ }
+          resolve(el);
+        };
+        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+        if (existing) {
+          if (existing.dataset.loaded === "1" || existing.sheet) return resolve(existing);
+          const onLoad = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); markLoaded(existing); };
+          const onError = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); resolve(existing); };
+          existing.addEventListener("load", onLoad, { once: true });
+          existing.addEventListener("error", onError, { once: true });
+          return;
+        }
         const l = document.createElement("link");
         l.rel = "stylesheet";
         l.href = href;
+        l.onload = () => markLoaded(l);
+        l.onerror = () => resolve(l);
         document.head.appendChild(l);
-      }
+      });
+
+    Promise.all(links.map(waitForStylesheet)).then(() => {
+      if (!cancelled) setCssReady(true);
     });
 
     return () => {
+      cancelled = true;
       document.body.classList.remove("report-page");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
@@ -223,7 +244,7 @@ export default function DomainReportPage() {
     }
   };
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me || !cssReady) return null;
 
   return (
     <div className="container">
