@@ -474,34 +474,34 @@ h1 {
 /* 按列设置宽度（thead / tbody 同时生效） */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 2%;   /* No. */
+    width: 4%;   /* No. */
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 11%;  /* Dts Created */
+    width: 12%;  /* Dts Created */
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 10%;  /* Account */
+    width: 11%;  /* Account */
     text-align: left;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 10%;  /* From */
+    width: 11%;  /* From */
     text-align: left;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 8%;   /* Currency & Amount*/
+    width: 9%;   /* Currency & Amount*/
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 20%;  /* Description*/
+    width: 21%;  /* Description*/
     text-align: left;
 }
 
@@ -518,17 +518,37 @@ h1 {
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 12%;   /* Deleted By */
+    width: 11%;   /* Deleted By */
 }
 
 .maintenance-table th:nth-child(10),
 .maintenance-table td:nth-child(10) {
-    width: 3%;   /* Checkbox */
+    width: 2%;   /* Checkbox */
 }
 
 .maintenance-table th:nth-child(11),
 .maintenance-table td:nth-child(11) {
-    width: 2%;   /* Checkbox */
+    width: 1%;   /* Checkbox */
+}
+
+/* Keep No. fully visible without ellipsis. */
+.maintenance-table td:nth-child(1).maintenance-table-cell {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* Shift Created At ~ Description slightly to the right. */
+.maintenance-table th:nth-child(2),
+.maintenance-table td:nth-child(2),
+.maintenance-table th:nth-child(3),
+.maintenance-table td:nth-child(3),
+.maintenance-table th:nth-child(4),
+.maintenance-table td:nth-child(4),
+.maintenance-table th:nth-child(5),
+.maintenance-table td:nth-child(5),
+.maintenance-table th:nth-child(6),
+.maintenance-table td:nth-child(6) {
+    padding-left: 16px;
 }
 
 .maintenance-table-cell {
