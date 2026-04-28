@@ -40,3 +40,45 @@ export function buildClientRequestId() {
   return `tx_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
+export function parseRateExpression(rawValue) {
+  const raw = String(rawValue ?? "").trim();
+  if (!raw) return { valid: false, value: 0 };
+  const normalized = raw.replace(/÷/g, "/").replace(/\s+/g, "");
+  if (!normalized) return { valid: false, value: 0 };
+
+  // Support "/3" meaning 1/3
+  if (/^\/\d*\.?\d+$/.test(normalized)) {
+    const divisor = Number(normalized.slice(1));
+    if (!Number.isFinite(divisor) || divisor <= 0) return { valid: false, value: 0 };
+    return { valid: true, value: 1 / divisor };
+  }
+
+  if (!/^[0-9.*/]+$/.test(normalized)) return { valid: false, value: 0 };
+  if (/^[*/]|[*/]$|[*/]{2,}/.test(normalized)) return { valid: false, value: 0 };
+
+  const tokens = normalized.split(/([*/])/).filter(Boolean);
+  if (tokens.length === 0) return { valid: false, value: 0 };
+  if (!/^\d*\.?\d+$/.test(tokens[0])) return { valid: false, value: 0 };
+
+  let result = Number(tokens[0]);
+  if (!Number.isFinite(result) || result <= 0) return { valid: false, value: 0 };
+
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i];
+    const rhs = Number(tokens[i + 1]);
+    if (!Number.isFinite(rhs) || rhs <= 0) return { valid: false, value: 0 };
+    if (op === "*") result *= rhs;
+    else if (op === "/") result /= rhs;
+    else return { valid: false, value: 0 };
+    if (!Number.isFinite(result) || result <= 0) return { valid: false, value: 0 };
+  }
+  return { valid: true, value: result };
+}
+
+export function formatRateAmount(value) {
+  const n = Number(String(value ?? "").replace(/,/g, "").trim());
+  if (!Number.isFinite(n)) return "0.00";
+  // Backend normalizes; keep 2dp string for stability.
+  return n.toFixed(2);
+}
+

@@ -2,8 +2,120 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
-import { approveContra, getCategories, getHistory, loadContraInbox, searchTransactions as searchTransactionsApi } from "./transaction/transactionApi.js";
-import { formatDmy, formatMoney2, toUpperDisplay } from "./transaction/transactionFormat.js";
+import {
+  approveContra,
+  getAccounts,
+  getCategories,
+  getCompanyCurrencies,
+  getHistory,
+  loadContraInbox,
+  searchTransactions as searchTransactionsApi,
+  submitTransaction,
+} from "./transaction/transactionApi.js";
+import { buildClientRequestId, formatDmy, formatMoney2, formatRateAmount, parseRateExpression, toUpperDisplay } from "./transaction/transactionFormat.js";
+
+function AccountSelect({
+  buttonId,
+  dropdownId,
+  placeholder,
+  options,
+  value,
+  onChange,
+  disabled,
+  profitType,
+  selectedCategories,
+}) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const searchRef = useRef(null);
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toUpperCase();
+    let rows = Array.isArray(options) ? options : [];
+    if (Array.isArray(selectedCategories) && selectedCategories.length > 0) {
+      const set = new Set(selectedCategories.map((c) => String(c).toUpperCase()));
+      rows = rows.filter((r) => set.has(String(r.role || "").toUpperCase()));
+    }
+    if (!q) return rows;
+    return rows.filter((r) => String(r.display_text || "").toUpperCase().includes(q));
+  }, [options, filter, selectedCategories]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      const btn = document.getElementById(buttonId);
+      const dd = document.getElementById(dropdownId);
+      if (!btn || !dd) return;
+      if (btn.contains(e.target) || dd.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open, buttonId, dropdownId]);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => searchRef.current?.focus(), 0);
+    } else {
+      setFilter("");
+    }
+  }, [open]);
+
+  const displayText = value?.display_text ? value.display_text : placeholder;
+
+  return (
+    <div className="custom-select-wrapper">
+      <button
+        type="button"
+        className={`custom-select-button${open ? " open" : ""}`}
+        id={buttonId}
+        data-placeholder={placeholder}
+        data-account-id={value?.id ?? ""}
+        data-account-code={value?.account_id ?? ""}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((v) => !v);
+        }}
+      >
+        {displayText}
+      </button>
+      <div className={`custom-select-dropdown${open ? " show" : ""}`} id={dropdownId}>
+        <div className="custom-select-search">
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Search account..."
+            autoComplete="off"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setOpen(false);
+            }}
+          />
+        </div>
+        <div className="custom-select-options">
+          {filtered.length === 0 ? (
+            <div className="custom-select-no-results">No results</div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.id}
+                className={`custom-select-option${String(value?.id) === String(opt.id) ? " selected" : ""}`}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+              >
+                {opt.display_text}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function injectStylesheet(href) {
   return new Promise((resolve) => {
@@ -52,6 +164,35 @@ export default function TransactionPaymentPage() {
   const [history, setHistory] = useState({ open: false, title: "Payment History", rows: [] });
   const [contraInbox, setContraInbox] = useState({ open: false, loading: false, items: [] });
   const [toast, setToast] = useState([]);
+
+  const [txType, setTxType] = useState("CONTRA");
+  const [txDate, setTxDate] = useState(null);
+  const [txToAccount, setTxToAccount] = useState(null);
+  const [txFromAccount, setTxFromAccount] = useState(null);
+  const [txCurrency, setTxCurrency] = useState("");
+  const [txAmount, setTxAmount] = useState("");
+  const [txRemark, setTxRemark] = useState("");
+  const [txConfirm, setTxConfirm] = useState(false);
+  const [winLoseSide, setWinLoseSide] = useState("WIN");
+  const [submitting, setSubmitting] = useState(false);
+  const [accountOptions, setAccountOptions] = useState([]);
+  const [currencyOptions, setCurrencyOptions] = useState([]);
+
+  const [rateDate, setRateDate] = useState(null);
+  const [rateToAccount, setRateToAccount] = useState(null); // UI: Select To Account (id=rate_account_from)
+  const [rateFromAccount, setRateFromAccount] = useState(null); // UI: Select From Account (id=rate_account_to)
+  const [rateCurrencyFrom, setRateCurrencyFrom] = useState("");
+  const [rateCurrencyTo, setRateCurrencyTo] = useState("");
+  const [rateCurrencyFromAmount, setRateCurrencyFromAmount] = useState("");
+  const [rateExchangeRateRaw, setRateExchangeRateRaw] = useState("");
+  const [rateCurrencyToAmount, setRateCurrencyToAmount] = useState("");
+
+  const [rateTransferToAccount, setRateTransferToAccount] = useState(null); // UI: Select To Account (id=rate_transfer_from_account)
+  const [rateTransferFromAccount, setRateTransferFromAccount] = useState(null); // UI: Select From Account (id=rate_transfer_to_account)
+
+  const [rateMiddlemanAccount, setRateMiddlemanAccount] = useState(null);
+  const [rateMiddlemanRate, setRateMiddlemanRate] = useState("");
+  const [rateMiddlemanAmount, setRateMiddlemanAmount] = useState("");
 
   const closeToastTimer = useRef(null);
 
@@ -158,6 +299,8 @@ export default function TransactionPaymentPage() {
 
       setDateFrom((v) => v || todayDmy);
       setDateTo((v) => v || todayDmy);
+      setTxDate((v) => v || todayDmy);
+      setRateDate((v) => v || todayDmy);
 
       try {
         const c = await getCategories();
@@ -166,8 +309,47 @@ export default function TransactionPaymentPage() {
       } catch {
         setCategories([]);
       }
+
+      try {
+        const [acc, cur] = await Promise.all([
+          getAccounts({ companyId: filterSnapshot.companyId }),
+          getCompanyCurrencies({ companyId: filterSnapshot.companyId }),
+        ]);
+        setAccountOptions(Array.isArray(acc?.data) ? acc.data : []);
+        const currencies = Array.isArray(cur?.data) ? cur.data : [];
+        const codes = currencies
+          .map((x) => String(x.code || x.currency || x).toUpperCase().trim())
+          .filter(Boolean);
+        setCurrencyOptions([...new Set(codes)]);
+      } catch {
+        setAccountOptions([]);
+        setCurrencyOptions([]);
+      }
     })();
   }, [loading, forbidden, filterSnapshot, todayDmy]);
+
+  useEffect(() => {
+    if (txType !== "RATE") return;
+    const parsed = parseRateExpression(rateExchangeRateRaw);
+    const fromAmt = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
+    if (!parsed.valid || !Number.isFinite(fromAmt) || fromAmt <= 0) {
+      setRateCurrencyToAmount("");
+      return;
+    }
+    const toAmt = fromAmt * parsed.value;
+    setRateCurrencyToAmount(formatRateAmount(toAmt));
+  }, [txType, rateExchangeRateRaw, rateCurrencyFromAmount]);
+
+  useEffect(() => {
+    if (txType !== "RATE") return;
+    const base = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
+    const mult = Number(String(rateMiddlemanRate || "").replace(/,/g, "").trim());
+    if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(mult) || mult <= 0) {
+      setRateMiddlemanAmount("");
+      return;
+    }
+    setRateMiddlemanAmount(formatRateAmount(base * mult));
+  }, [txType, rateCurrencyFromAmount, rateMiddlemanRate]);
 
   const pushToast = useCallback((message, type = "info") => {
     setToast((prev) => {
@@ -296,6 +478,251 @@ export default function TransactionPaymentPage() {
       pushToast("Network error. Please try again.", "error");
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  const effectiveType = txType === "PROFIT" ? winLoseSide : txType;
+  const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "CLEAR"].includes(effectiveType);
+  const isAdjustment = txType === "ADJUSTMENT";
+
+  const onReverseAccounts = () => {
+    setTxToAccount(txFromAccount);
+    setTxFromAccount(txToAccount);
+  };
+
+  const onSubmitTx = async () => {
+    if (!txConfirm) return;
+    if (submitting) return;
+
+    const companyId = fs?.companyId;
+    if (!companyId) return;
+
+    if (!txType) {
+      pushToast("Please select transaction type", "error");
+      return;
+    }
+
+    const toId = txToAccount?.id ? String(txToAccount.id) : "";
+    const fromId = txFromAccount?.id ? String(txFromAccount.id) : "";
+
+    if (!toId) {
+      pushToast("Please select To Account", "error");
+      return;
+    }
+
+    if (txType === "PROFIT") {
+      if (!fromId) {
+        pushToast("PROFIT: Please select From Account", "error");
+        return;
+      }
+      if (toId && fromId && toId === fromId) {
+        pushToast("PROFIT: Select To Account and Select From Account cannot be the same", "error");
+        return;
+      }
+    }
+
+    if (needsFromTo && (!fromId || fromId === toId)) {
+      pushToast("PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR transaction requires From Account", "error");
+      return;
+    }
+
+    if (!txDate) {
+      pushToast("Please select transaction date", "error");
+      return;
+    }
+
+    if (txType === "RATE") {
+      const toId = rateToAccount?.id ? String(rateToAccount.id) : "";
+      const fromId = rateFromAccount?.id ? String(rateFromAccount.id) : "";
+      if (!toId) {
+        pushToast("Please select To Account", "error");
+        return;
+      }
+      if (!fromId) {
+        pushToast("Rate transaction requires From Account", "error");
+        return;
+      }
+      if (!rateCurrencyFrom || !rateCurrencyTo) {
+        pushToast("Please select both currencies", "error");
+        return;
+      }
+      const fromAmt = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
+      const toAmt = Number(String(rateCurrencyToAmount || "").replace(/,/g, "").trim());
+      if (!Number.isFinite(fromAmt) || fromAmt <= 0 || !Number.isFinite(toAmt) || toAmt <= 0) {
+        pushToast("Please enter valid currency amounts", "error");
+        return;
+      }
+      const parsedRate = parseRateExpression(rateExchangeRateRaw);
+      if (!parsedRate.valid) {
+        pushToast("Please enter a valid rate value (supports * and /)", "error");
+        return;
+      }
+      if (!rateDate) {
+        pushToast("Please select transaction date", "error");
+        return;
+      }
+
+      const transferToId = rateTransferToAccount?.id ? String(rateTransferToAccount.id) : "";
+      const transferFromId = rateTransferFromAccount?.id ? String(rateTransferFromAccount.id) : "";
+      const middleId = rateMiddlemanAccount?.id ? String(rateMiddlemanAccount.id) : "";
+
+      let middleAmtNum = Number(String(rateMiddlemanAmount || "").replace(/,/g, "").trim());
+      if (!Number.isFinite(middleAmtNum)) middleAmtNum = 0;
+
+      if ((middleId || rateMiddlemanRate) && !middleId) {
+        pushToast("Please select Middle-Man account", "error");
+        return;
+      }
+      if ((middleId || rateMiddlemanRate) && (!rateMiddlemanRate || Number(rateMiddlemanRate) <= 0)) {
+        pushToast("Please enter Middle-Man rate multiplier", "error");
+        return;
+      }
+
+      const fromCode = rateFromAccount?.account_id || "";
+      const toCode = rateToAccount?.account_id || "";
+      const fromDesc = `Transaction to ${toCode} (Rate: ${rateExchangeRateRaw})`;
+      const toDesc = `Transaction from ${fromCode} (Rate: ${rateExchangeRateRaw})`;
+
+      const transferFromCode = rateTransferFromAccount?.account_id || "";
+      const transferToCode = rateTransferToAccount?.account_id || "";
+      const transferFromDesc = `Transaction to ${transferToCode} (Rate: ${rateExchangeRateRaw})`;
+      const transferToDesc = `Transaction from ${transferFromCode} (Rate: ${rateExchangeRateRaw})`;
+
+      const middleDesc =
+        middleId && middleAmtNum > 0
+          ? `Rate charge (x${rateMiddlemanRate}) from ${rateCurrencyFrom} ${formatRateAmount(fromAmt)}`
+          : "";
+
+      setSubmitting(true);
+      try {
+        const clientRequestId = buildClientRequestId();
+        const payload = {
+          transaction_type: "RATE",
+          account_id: toId,
+          from_account_id: fromId,
+          amount: formatRateAmount(fromAmt),
+          transaction_date: rateDate,
+          description: "",
+          sms: txRemark,
+          currency: rateCurrencyFrom,
+
+          rate_from_account_id: fromId,
+          rate_from_currency: rateCurrencyFrom,
+          rate_from_amount: formatRateAmount(fromAmt),
+          rate_from_description: fromDesc,
+
+          rate_to_account_id: toId,
+          rate_to_currency: rateCurrencyTo,
+          rate_to_amount: formatRateAmount(toAmt),
+          rate_to_description: toDesc,
+
+          rate_currency_from: rateCurrencyFrom,
+          rate_currency_from_amount: formatRateAmount(fromAmt),
+          rate_currency_to: rateCurrencyTo,
+          rate_currency_to_amount: formatRateAmount(toAmt),
+          rate_exchange_rate: String(parsedRate.value),
+
+          rate_middleman_rate: rateMiddlemanRate,
+          rate_middleman_amount: rateMiddlemanAmount ? formatRateAmount(middleAmtNum) : "",
+          rate_middleman_account: middleId,
+
+          // backward compatibility (legacy keeps appending these)
+          rate_transfer_amount: "",
+          rate_account_from_amount: "",
+          rate_account_to_amount: "",
+        };
+
+        if (transferToId && transferFromId) {
+          const originalTransferFromAmount = fromAmt * parsedRate.value;
+          payload.rate_transfer_from_account_id = transferToId;
+          payload.rate_transfer_from_currency = rateCurrencyTo;
+          payload.rate_transfer_from_amount = formatRateAmount(originalTransferFromAmount);
+          payload.rate_transfer_from_description = transferFromDesc;
+
+          payload.rate_transfer_to_account_id = transferFromId;
+          payload.rate_transfer_to_currency = rateCurrencyTo;
+          payload.rate_transfer_to_amount = formatRateAmount(toAmt);
+          payload.rate_transfer_to_description = transferToDesc;
+
+          payload.rate_transfer_from_account = transferToId;
+          payload.rate_transfer_to_account = transferFromId;
+
+          if (middleId && middleAmtNum > 0) {
+            payload.rate_middleman_account_id = middleId;
+            payload.rate_middleman_currency = rateCurrencyTo;
+            payload.rate_middleman_amount = formatRateAmount(middleAmtNum);
+            payload.rate_middleman_description = middleDesc;
+          }
+        }
+
+        const res = await submitTransaction({ companyId, payload, clientRequestId });
+        if (res?.success) {
+          pushToast(res?.message || "RATE transaction submitted successfully", "success");
+          setTxConfirm(false);
+          setRateCurrencyFromAmount("");
+          setRateExchangeRateRaw("");
+          setRateCurrencyToAmount("");
+          await onSearch();
+          return;
+        }
+        pushToast(res?.message || "Submit failed", "error");
+      } catch (e) {
+        console.error(e);
+        pushToast("Network error. Please try again.", "error");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    const amountStr = String(txAmount ?? "").trim();
+    const n = Number(amountStr);
+    if (!Number.isFinite(n) || amountStr === "") {
+      pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
+      return;
+    }
+    if (!isAdjustment && n < 0) {
+      pushToast("Please enter a valid amount (>= 0)", "error");
+      return;
+    }
+    if (isAdjustment && n === 0) {
+      pushToast("Please enter a non-zero adjustment amount", "error");
+      return;
+    }
+
+    if (!txCurrency) {
+      pushToast("Please select Currency", "error");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const clientRequestId = buildClientRequestId();
+      const payload = {
+        transaction_type: effectiveType,
+        account_id: toId,
+        from_account_id: isAdjustment ? "" : fromId || "",
+        amount: txAmount,
+        transaction_date: txDate,
+        description: "",
+        sms: txRemark,
+        currency: txCurrency,
+      };
+
+      const res = await submitTransaction({ companyId, payload, clientRequestId });
+      if (res?.success) {
+        pushToast(res?.message || "Transaction submitted successfully", "success");
+        setTxAmount("");
+        setTxConfirm(false);
+        await onSearch();
+        return;
+      }
+      pushToast(res?.message || "Submit failed", "error");
+    } catch (e) {
+      console.error(e);
+      pushToast("Network error. Please try again.", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -638,49 +1065,63 @@ export default function TransactionPaymentPage() {
           <div className="transaction-add-section">
             <div className="transaction-form-group">
               <label className="transaction-label">Type</label>
-              <select id="transaction_type" className="transaction-select" defaultValue="CONTRA">
+              <select
+                id="transaction_type"
+                className="transaction-select"
+                value={txType}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTxType(v);
+                }}
+              >
                 <option value="CONTRA">CONTRA</option>
                 <option value="PAYMENT">PAYMENT</option>
                 <option value="RECEIVE">RECEIVE</option>
                 <option value="CLAIM">CLAIM</option>
                 <option value="PROFIT">PROFIT</option>
                 <option value="RATE">RATE</option>
+                <option value="ADJUSTMENT">ADJUSTMENT</option>
                 <option value="CLEAR">CLEAR</option>
               </select>
             </div>
 
-            <div id="standard-transaction-fields">
+            <div id="standard-transaction-fields" style={{ display: txType === "RATE" ? "none" : "block" }}>
               <div className="transaction-form-group">
                 <label className="transaction-label">Date</label>
-                <input type="text" id="transaction_date" className="transaction-input" defaultValue={todayDmy} placeholder="dd/mm/yyyy" readOnly style={{ cursor: "pointer" }} />
+                <input
+                  type="text"
+                  id="transaction_date"
+                  className="transaction-input"
+                  value={txDate || todayDmy}
+                  onChange={(e) => setTxDate(e.target.value)}
+                  placeholder="dd/mm/yyyy"
+                  readOnly
+                  style={{ cursor: "pointer" }}
+                />
               </div>
 
               <div className="transaction-form-group transaction-inline-row">
                 <label className="transaction-label">Account</label>
                 <div className="transaction-account-inputs">
-                  <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="action_account_from" data-placeholder="--Select To Account--">
-                      --Select To Account--
-                    </button>
-                    <div className="custom-select-dropdown" id="action_account_from_dropdown">
-                      <div className="custom-select-search">
-                        <input type="text" placeholder="Search account..." autoComplete="off" />
-                      </div>
-                      <div className="custom-select-options" />
-                    </div>
-                  </div>
-                  <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="action_account_id" data-placeholder="--Select From Account--">
-                      --Select From Account--
-                    </button>
-                    <div className="custom-select-dropdown" id="action_account_id_dropdown">
-                      <div className="custom-select-search">
-                        <input type="text" placeholder="Search account..." autoComplete="off" />
-                      </div>
-                      <div className="custom-select-options" />
-                    </div>
-                  </div>
-                  <button type="button" id="account_reverse_btn" className="transaction-account-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts">
+                  <AccountSelect
+                    buttonId="action_account_from"
+                    dropdownId="action_account_from_dropdown"
+                    placeholder="--Select To Account--"
+                    options={accountOptions}
+                    value={txToAccount}
+                    onChange={setTxToAccount}
+                    selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                  />
+                  <AccountSelect
+                    buttonId="action_account_id"
+                    dropdownId="action_account_id_dropdown"
+                    placeholder="--Select From Account--"
+                    options={accountOptions}
+                    value={txFromAccount}
+                    onChange={setTxFromAccount}
+                    selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                  />
+                  <button type="button" id="account_reverse_btn" className="transaction-account-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={onReverseAccounts}>
                     Reverse
                   </button>
                 </div>
@@ -688,49 +1129,64 @@ export default function TransactionPaymentPage() {
 
               <div className="transaction-form-group transaction-inline-row">
                 <label className="transaction-label">Currency</label>
-                <select id="transaction_currency" className="transaction-select" defaultValue="">
+                <select id="transaction_currency" className="transaction-select" value={txCurrency} onChange={(e) => setTxCurrency(e.target.value)}>
                   <option value="">--Select Currency--</option>
+                  {currencyOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div className="transaction-form-group">
                 <label className="transaction-label">Amount</label>
-                <input type="number" step="0.01" id="action_amount" className="transaction-input" />
+                <input type="number" step="0.01" id="action_amount" className="transaction-input" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} />
               </div>
             </div>
 
-            <div id="rate-transaction-fields" className="rate-fields" style={{ display: "none" }}>
+            <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "block" : "none" }}>
               <div className="rate-section">
                 <label className="transaction-label">Date</label>
-                <input type="text" id="rate_transaction_date" className="transaction-input" defaultValue={todayDmy} placeholder="dd/mm/yyyy" readOnly style={{ cursor: "pointer" }} />
+                <input type="text" id="rate_transaction_date" className="transaction-input" value={rateDate || todayDmy} placeholder="dd/mm/yyyy" readOnly style={{ cursor: "pointer" }} />
               </div>
 
               <div className="rate-section">
                 <label className="transaction-label">Account</label>
                 <div className="rate-row rate-row-two-cols">
                   <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="rate_account_from" data-placeholder="--Select To Account--">
-                      --Select To Account--
-                    </button>
-                    <div className="custom-select-dropdown" id="rate_account_from_dropdown">
-                      <div className="custom-select-search">
-                        <input type="text" placeholder="Search account..." autoComplete="off" />
-                      </div>
-                      <div className="custom-select-options" />
-                    </div>
+                    <AccountSelect
+                      buttonId="rate_account_from"
+                      dropdownId="rate_account_from_dropdown"
+                      placeholder="--Select To Account--"
+                      options={accountOptions}
+                      value={rateToAccount}
+                      onChange={setRateToAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
                   </div>
                   <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="rate_account_to" data-placeholder="--Select From Account--">
-                      --Select From Account--
-                    </button>
-                    <div className="custom-select-dropdown" id="rate_account_to_dropdown">
-                      <div className="custom-select-search">
-                        <input type="text" placeholder="Search account..." autoComplete="off" />
-                      </div>
-                      <div className="custom-select-options" />
-                    </div>
+                    <AccountSelect
+                      buttonId="rate_account_to"
+                      dropdownId="rate_account_to_dropdown"
+                      placeholder="--Select From Account--"
+                      options={accountOptions}
+                      value={rateFromAccount}
+                      onChange={setRateFromAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
                   </div>
-                  <button type="button" id="rate_account_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts">
+                  <button
+                    type="button"
+                    id="rate_account_reverse_btn"
+                    className="transaction-account-reverse-btn rate-reverse-btn"
+                    title="Reverse accounts"
+                    aria-label="Reverse accounts"
+                    onClick={() => {
+                      setRateToAccount(rateFromAccount);
+                      setRateFromAccount(rateToAccount);
+                    }}
+                  >
                     Reverse
                   </button>
                 </div>
@@ -739,15 +1195,41 @@ export default function TransactionPaymentPage() {
               <div className="rate-section">
                 <label className="transaction-label">Currency</label>
                 <div className="rate-row rate-row-five-cols">
-                  <select id="rate_currency_from" className="transaction-select" defaultValue="">
+                  <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)}>
                     <option value="">Currency</option>
+                    {currencyOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
-                  <input type="number" step="0.01" id="rate_currency_from_amount" className="transaction-input" placeholder="Amount" />
-                  <input type="text" inputMode="decimal" id="rate_exchange_rate" className="transaction-input" placeholder="Rate" />
-                  <select id="rate_currency_to" className="transaction-select" defaultValue="">
+                  <input
+                    type="number"
+                    step="0.01"
+                    id="rate_currency_from_amount"
+                    className="transaction-input"
+                    placeholder="Amount"
+                    value={rateCurrencyFromAmount}
+                    onChange={(e) => setRateCurrencyFromAmount(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    id="rate_exchange_rate"
+                    className="transaction-input"
+                    placeholder="Rate"
+                    value={rateExchangeRateRaw}
+                    onChange={(e) => setRateExchangeRateRaw(e.target.value)}
+                  />
+                  <select id="rate_currency_to" className="transaction-select" value={rateCurrencyTo} onChange={(e) => setRateCurrencyTo(e.target.value)}>
                     <option value="">Currency</option>
+                    {currencyOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
-                  <input type="number" step="0.01" id="rate_currency_to_amount" className="transaction-input" placeholder="Amount" readOnly />
+                  <input type="number" step="0.01" id="rate_currency_to_amount" className="transaction-input" placeholder="Amount" readOnly value={rateCurrencyToAmount} />
                 </div>
               </div>
 
@@ -755,28 +1237,38 @@ export default function TransactionPaymentPage() {
                 <label className="transaction-label">Account</label>
                 <div className="rate-row rate-row-two-cols">
                   <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="rate_transfer_from_account" data-placeholder="--Select To Account--">
-                      --Select To Account--
-                    </button>
-                    <div className="custom-select-dropdown" id="rate_transfer_from_account_dropdown">
-                      <div className="custom-select-search">
-                        <input type="text" placeholder="Search account..." autoComplete="off" />
-                      </div>
-                      <div className="custom-select-options" />
-                    </div>
+                    <AccountSelect
+                      buttonId="rate_transfer_from_account"
+                      dropdownId="rate_transfer_from_account_dropdown"
+                      placeholder="--Select To Account--"
+                      options={accountOptions}
+                      value={rateTransferToAccount}
+                      onChange={setRateTransferToAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
                   </div>
                   <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="rate_transfer_to_account" data-placeholder="--Select From Account--">
-                      --Select From Account--
-                    </button>
-                    <div className="custom-select-dropdown" id="rate_transfer_to_account_dropdown">
-                      <div className="custom-select-search">
-                        <input type="text" placeholder="Search account..." autoComplete="off" />
-                      </div>
-                      <div className="custom-select-options" />
-                    </div>
+                    <AccountSelect
+                      buttonId="rate_transfer_to_account"
+                      dropdownId="rate_transfer_to_account_dropdown"
+                      placeholder="--Select From Account--"
+                      options={accountOptions}
+                      value={rateTransferFromAccount}
+                      onChange={setRateTransferFromAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
                   </div>
-                  <button type="button" id="rate_transfer_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts">
+                  <button
+                    type="button"
+                    id="rate_transfer_reverse_btn"
+                    className="transaction-account-reverse-btn rate-reverse-btn"
+                    title="Reverse accounts"
+                    aria-label="Reverse accounts"
+                    onClick={() => {
+                      setRateTransferToAccount(rateTransferFromAccount);
+                      setRateTransferFromAccount(rateTransferToAccount);
+                    }}
+                  >
                     Reverse
                   </button>
                 </div>
@@ -786,41 +1278,64 @@ export default function TransactionPaymentPage() {
                 <label className="transaction-label">Middle-Man</label>
                 <div className="rate-row rate-row-three-cols">
                   <div className="custom-select-wrapper">
-                    <button type="button" className="custom-select-button" id="rate_middleman_account" data-placeholder="--Select Account--">
-                      --Select Account--
-                    </button>
-                    <div className="custom-select-dropdown" id="rate_middleman_account_dropdown">
-                      <div className="custom-select-search">
-                        <input type="text" placeholder="Search account..." autoComplete="off" />
-                      </div>
-                      <div className="custom-select-options" />
-                    </div>
+                    <AccountSelect
+                      buttonId="rate_middleman_account"
+                      dropdownId="rate_middleman_account_dropdown"
+                      placeholder="--Select Account--"
+                      options={accountOptions}
+                      value={rateMiddlemanAccount}
+                      onChange={setRateMiddlemanAccount}
+                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                    />
                   </div>
-                  <input type="number" step="0.0001" id="rate_middleman_rate" className="transaction-input" placeholder="Rate multiplier" />
-                  <input type="number" step="0.01" id="rate_middleman_amount" className="transaction-input" placeholder="Amount" readOnly />
+                  <input
+                    type="number"
+                    step="0.0001"
+                    id="rate_middleman_rate"
+                    className="transaction-input"
+                    placeholder="Rate multiplier"
+                    value={rateMiddlemanRate}
+                    onChange={(e) => setRateMiddlemanRate(e.target.value)}
+                  />
+                  <input type="number" step="0.01" id="rate_middleman_amount" className="transaction-input" placeholder="Amount" readOnly value={rateMiddlemanAmount} />
                 </div>
               </div>
             </div>
 
             <div className="transaction-two-col">
+              {txType === "PROFIT" && (
+                <div className="transaction-form-group">
+                  <label className="transaction-label">Win/Lose</label>
+                  <div className="transaction-win-lose-row">
+                    <label className="transaction-radio-label">
+                      <input type="radio" name="win_lose_side" value="WIN" checked={winLoseSide === "WIN"} onChange={() => setWinLoseSide("WIN")} />
+                      WIN
+                    </label>
+                    <label className="transaction-radio-label">
+                      <input type="radio" name="win_lose_side" value="LOSE" checked={winLoseSide === "LOSE"} onChange={() => setWinLoseSide("LOSE")} />
+                      LOSE
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="transaction-form-group" style={{ display: "none" }}>
                 <label className="transaction-label">Description</label>
                 <input type="text" id="action_description" className="transaction-input text-uppercase" />
               </div>
               <div className="transaction-form-group" id="remark_form_group">
                 <label className="transaction-label">Remark</label>
-                <input type="text" id="action_sms" className="transaction-input text-uppercase" />
+                <input type="text" id="action_sms" className="transaction-input text-uppercase" value={txRemark} onChange={(e) => setTxRemark(e.target.value.toUpperCase())} />
               </div>
             </div>
 
             <div className="transaction-confirm-actions">
               <label className="transaction-checkbox-label transaction-confirm-label">
-                <input type="checkbox" id="confirm_submit" className="transaction-checkbox" />
+                <input type="checkbox" id="confirm_submit" className="transaction-checkbox" checked={txConfirm} onChange={(e) => setTxConfirm(e.target.checked)} />
                 Confirm Submit
               </label>
               <div className="transaction-action-btns">
-                <button type="button" id="submit_btn" className="transaction-submit-btn" disabled>
-                  Submit
+                <button type="button" id="submit_btn" className="transaction-submit-btn" disabled={!txConfirm || submitting} onClick={onSubmitTx}>
+                  {submitting ? "Submitting..." : "Submit"}
                 </button>
                   <button type="button" id="action_search_btn" className="transaction-search-btn" onClick={onSearch} disabled={searchLoading}>
                   Search
