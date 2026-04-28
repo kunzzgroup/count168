@@ -15,12 +15,12 @@ import CustomerReportTable from "./components/CustomerReportTable.jsx";
 
 export default function CustomerReportPage() {
   const navigate = useNavigate();
-  
+
   // -- State: Boot / Me --
   const [bootLoading, setBootLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
-  
+
   // -- State: Filters --
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -28,19 +28,19 @@ export default function CustomerReportPage() {
   const [showAll, setShowAll] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
-  
+
   // Date Range
   const today = useMemo(() => new Date(), []);
   const [dateFrom, setDateFrom] = useState(formatYmd(today));
   const [dateTo, setDateTo] = useState(formatYmd(today));
-  
+
   // -- State: Data --
   const [accounts, setAccounts] = useState([]);
   const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // -- State: UI --
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
@@ -96,7 +96,7 @@ export default function CustomerReportPage() {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
         }
-        
+
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canReport = hasFull || perms.includes("report");
@@ -117,11 +117,11 @@ export default function CustomerReportPage() {
         effective = effective ? Number(effective) : null;
 
         setCompanyId(effective);
-        
+
         const cur = rows.find((c) => Number(c.id) === Number(effective));
         const savedGroup = sessionStorage.getItem("dashboard_group_filter");
         const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-        
+
         let selGroup = null;
         if (savedGroup && groups.includes(savedGroup) && cur?.group_id && String(cur.group_id).toUpperCase().trim() === savedGroup) {
           selGroup = savedGroup;
@@ -176,7 +176,7 @@ export default function CustomerReportPage() {
       ]);
       setAccounts(accs);
       setCurrencyList(curs);
-      
+
       if (curs.length > 0) {
         const myr = curs.find(c => c.code === "MYR");
         const def = myr || curs[0];
@@ -245,7 +245,7 @@ export default function CustomerReportPage() {
         </div>
         <div className="account-separator-line" />
 
-        <CustomerReportFilters 
+        <CustomerReportFilters
           companyId={companyId}
           onSwitchCompany={onSwitchCompany}
           companies={companies}
@@ -267,7 +267,7 @@ export default function CustomerReportPage() {
           toggleAllCurrencies={toggleAllCurrencies}
         />
 
-        <CustomerReportTable 
+        <CustomerReportTable
           reportData={reportData}
           loading={loading}
           error={error}
