@@ -234,9 +234,8 @@ export default function UserListPage() {
     setFieldLocks({ name: false, email: false, role: false, password: false, sidebar: false, company: false });
     const allP = new Set(PERMISSION_KEYS.filter((k) => !permDisabledMap[k])); setPermSelected(allP);
     const { accounts: accList, processes: procList } = await fetchModalAccountsProcesses(companyId);
-    const compList = await loadCompaniesForModal();
     setSelectedAccountIds(new Set(accList.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
-    if (currentUserRole === "admin" || currentUserRole === "owner") { setSelectedCompanyIds(companyId ? [Number(companyId)] : compList[0]?.id ? [Number(compList[0].id)] : []); }
+    if (currentUserRole === "admin" || currentUserRole === "owner") { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
     setModalOpen(true);
   };
 
