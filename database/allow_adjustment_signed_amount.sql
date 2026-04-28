@@ -1,8 +1,42 @@
 -- Allow ADJUSTMENT to carry a signed amount while keeping other transaction types positive.
--- This replaces the legacy transactions validation triggers that reject every amount <= 0.
+-- This replaces legacy transactions BEFORE INSERT/UPDATE validation triggers that reject every amount <= 0.
 
-DROP TRIGGER IF EXISTS before_transaction_insert;
-DROP TRIGGER IF EXISTS before_transaction_update;
+DROP PROCEDURE IF EXISTS drop_transactions_before_validation_triggers;
+
+DELIMITER //
+
+CREATE PROCEDURE drop_transactions_before_validation_triggers()
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE v_trigger_name VARCHAR(255);
+    DECLARE cur CURSOR FOR
+        SELECT TRIGGER_NAME
+          FROM INFORMATION_SCHEMA.TRIGGERS
+         WHERE TRIGGER_SCHEMA = DATABASE()
+           AND EVENT_OBJECT_TABLE = 'transactions'
+           AND ACTION_TIMING = 'BEFORE'
+           AND EVENT_MANIPULATION IN ('INSERT', 'UPDATE');
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    OPEN cur;
+    read_loop: LOOP
+        FETCH cur INTO v_trigger_name;
+        IF done = 1 THEN
+            LEAVE read_loop;
+        END IF;
+        SET @drop_sql = CONCAT('DROP TRIGGER IF EXISTS `', REPLACE(v_trigger_name, '`', '``'), '`');
+        PREPARE stmt FROM @drop_sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END LOOP;
+    CLOSE cur;
+END//
+
+DELIMITER ;
+
+CALL drop_transactions_before_validation_triggers();
+
+DROP PROCEDURE IF EXISTS drop_transactions_before_validation_triggers;
 
 DELIMITER //
 
