@@ -286,7 +286,7 @@
             console.log('🔍 搜索参数:', { transactionType, dateFrom, dateTo, companyId: currentCompanyId, currency: selectedCurrency });
             
             // 构建URL
-            let url = `api/payment_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+            let url = `api/payment_maintenance/search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}&_=${Date.now()}`;
             if (transactionType) {
                 url += `&transaction_type=${encodeURIComponent(transactionType)}`;
             }
@@ -386,9 +386,25 @@
             });
         }
 
+        function parseMaintenanceSortTime(row) {
+            const date = String(row?.date || '').trim();
+            const created = String(row?.dts_created || '').trim();
+            const dateMatch = date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            const timeMatch = created.match(/^\d{2}\/\d{2}\/\d{4}\s+(\d{2}:\d{2}:\d{2})$/);
+            if (!dateMatch) return 0;
+            const iso = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}T${timeMatch ? timeMatch[1] : '00:00:00'}`;
+            const ts = Date.parse(iso);
+            return Number.isFinite(ts) ? ts : 0;
+        }
+
         // Fill list function
         function fillTable(data) {
             data = mergeProfitRows(data);
+            data.sort((a, b) => {
+                const cmp = parseMaintenanceSortTime(b) - parseMaintenanceSortTime(a);
+                if (cmp !== 0) return cmp;
+                return Number(b?.transaction_id || 0) - Number(a?.transaction_id || 0);
+            });
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
             
