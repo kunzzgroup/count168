@@ -19,7 +19,7 @@ require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
- * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
+ * 审批过滤：过滤未批准交易（向后兼容：若无字段则不过滤）
  */
 function hasContraApprovalColumns(PDO $pdo): bool
 {
@@ -38,8 +38,11 @@ function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
         return '';
     }
     $a = $alias !== '' ? $alias . '.' : '';
-    // 只对 CONTRA 生效：PENDING 的 CONTRA 不计入 BF / CrDr / Balance
-    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+    // 指定 type 生效：CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR/PROFIT(落库为 WIN/LOSE) 的 PENDING 不计入
+    return " AND ((
+                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','WIN','LOSE','PROFIT')
+                AND {$a}approval_status = 'APPROVED'
+            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','WIN','LOSE','PROFIT'))";
 }
 
 function searchApiAccountHasCreatedSourceColumn(PDO $pdo): bool

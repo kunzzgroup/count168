@@ -177,11 +177,20 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
         $sql .= " AND a.status = 'active'";
     }
 
-    $sql .= " ORDER BY a.account_id ASC";
+    $sql .= " ORDER BY a.account_id ASC, a.id ASC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($rows as &$row) {
+    $dedupedRows = [];
+    $seenAccountKeys = [];
+    foreach ($rows as $row) {
+        $accountKey = strtoupper(trim((string)($row['account_id'] ?? '')));
+        if ($accountKey !== '' && isset($seenAccountKeys[$accountKey])) {
+            continue;
+        }
+        if ($accountKey !== '') {
+            $seenAccountKeys[$accountKey] = true;
+        }
         $createdSource = strtolower(trim((string)($row['created_source'] ?? '')));
         if ($createdSource === 'domain_auto' || shouldFormatAsCompanyId((string)($row['account_id'] ?? ''))) {
             $row['account_id'] = formatDomainAutoDisplayAccountId((string)($row['account_id'] ?? ''));
@@ -190,9 +199,9 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
             $row['alert_amount'] = money_out($row['alert_amount']);
         }
         unset($row['created_source']);
+        $dedupedRows[] = $row;
     }
-    unset($row);
-    return $rows;
+    return $dedupedRows;
 }
 
 function computeAlertStatus(array $accounts): array {

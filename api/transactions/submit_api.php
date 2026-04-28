@@ -42,17 +42,26 @@ function isManagerOrAboveRole(string $role): bool
 }
 
 /**
- * 是否需要 Contra 审批：
- * - 仅对 CONTRA 生效
- * - manager 以下：只要是“今天之前”的交易日期，就需要审批
+ * 是否需要交易审批：
+ * - manager 以下：只要是“今天及之前”的交易日期，就需要审批
  */
-function requiresContraApproval(string $role, string $transactionDateDb): bool
+function requiresTransactionApproval(string $role, string $transactionDateDb): bool
 {
     if (isManagerOrAboveRole($role)) {
         return false;
     }
     $today = date('Y-m-d');
     return $transactionDateDb < $today;
+}
+
+/**
+ * 需要审批的交易类型：
+ * CONTRA / PAYMENT / RECEIVE / CLAIM / CLEAR / PROFIT(实际落库为 WIN/LOSE)
+ */
+function requiresApprovalForType(string $transactionType): bool
+{
+    $type = strtoupper(trim($transactionType));
+    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
@@ -269,27 +278,37 @@ try {
         throw new Exception('请选择交易日期');
     }
     
-    // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
-    $transaction_date_db = date('Y-m-d', strtotime(str_replace('/', '-', $transaction_date)));
+    // 转换日期格式 (严格按 dd/mm/yyyy 转为 yyyy-mm-dd，避免 strtotime 把 7/04 解析成 07/04)
+    $transaction_date_obj = DateTime::createFromFormat('d/m/Y', trim($transaction_date));
+    $transaction_date_errors = DateTime::getLastErrors();
+    $has_parse_error = is_array($transaction_date_errors)
+        && (
+            ($transaction_date_errors['warning_count'] ?? 0) > 0
+            || ($transaction_date_errors['error_count'] ?? 0) > 0
+        );
+    if (!$transaction_date_obj || $has_parse_error) {
+        throw new Exception('交易日期格式无效，请使用 dd/mm/yyyy');
+    }
+    $transaction_date_db = $transaction_date_obj->format('Y-m-d');
     
     // 检查 transactions 表字段（向后兼容）
     $has_currency_id = tableHasColumn($pdo, 'transactions', 'currency_id');
     $has_approval_status = tableHasColumn($pdo, 'transactions', 'approval_status');
 
-    // Contra 审批规则
+    // 交易审批规则（所有 type 与 CONTRA 保持一致）
     $approval_status = 'APPROVED';
     $approved_by = $created_by_user;
     $approved_by_owner = $created_by_owner;
     $approved_at = date('Y-m-d H:i:s');
-    $is_contra_pending = false;
+    $is_pending_approval = false;
 
-    if ($transaction_type === 'CONTRA' && $has_approval_status) {
-        if (requiresContraApproval($userRole, $transaction_date_db)) {
+    if ($has_approval_status && requiresApprovalForType($transaction_type)) {
+        if (requiresTransactionApproval($userRole, $transaction_date_db)) {
             $approval_status = 'PENDING';
             $approved_by = null;
             $approved_by_owner = null;
             $approved_at = null;
-            $is_contra_pending = true;
+            $is_pending_approval = true;
         }
     }
 
@@ -900,16 +919,7 @@ try {
             // 确保金额是正数（对于所有交易类型）
             $amount = submitTrunc2(abs($amount));
             
-            // WIN/LOSE（含前端 PROFIT）：保存表单的 From 账户用于双记录；数据库触发器要求 from_account_id 必须为 NULL
-            $win_lose_from_account_id = null;
-            if (in_array($transaction_type, ['WIN', 'LOSE']) && $from_account_id && $from_account_id != $account_id) {
-                $win_lose_from_account_id = $from_account_id;
-            }
-            if (in_array($transaction_type, ['WIN', 'LOSE'])) {
-                $from_account_id = null;
-            }
-            
-            // 插入交易记录（WIN/LOSE 若选了 From 账户会插入两条：To 账户一条 + From 账户一条相反类型，使右侧表显示 From 账户）
+            // WIN/LOSE（含前端 PROFIT）：按单条记录保存（To + From + Amount），不再自动生成相反类型第二条
             $txnRow = [
                 'company_id' => $company_id,
                 'transaction_type' => $transaction_type,
@@ -939,39 +949,6 @@ try {
             }
 
             $transaction_id = insertTransactionRow($pdo, $txnRow);
-            
-            // WIN/LOSE 且选了 From 账户：再插一条相反类型到 From 账户，使右侧表显示「001 给 002 100」
-            if ($win_lose_from_account_id && $from_account) {
-                $opposite_type = ($transaction_type === 'WIN') ? 'LOSE' : 'WIN';
-                $txnRowOpposite = [
-                    'company_id' => $company_id,
-                    'transaction_type' => $opposite_type,
-                    'account_id' => $win_lose_from_account_id,
-                    'from_account_id' => null,
-                    'amount' => $amount,
-                    'transaction_date' => $transaction_date_db,
-                    'description' => $description,
-                    'sms' => $sms,
-                    'created_by' => $created_by_user,
-                    'created_by_owner' => $created_by_owner,
-                ];
-                if ($has_currency_id) {
-                    $txnRowOpposite['currency_id'] = $currency_id;
-                }
-                if ($has_approval_status) {
-                    $txnRowOpposite['approval_status'] = $approval_status;
-                    if (tableHasColumn($pdo, 'transactions', 'approved_by')) {
-                        $txnRowOpposite['approved_by'] = $approved_by;
-                    }
-                    if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
-                        $txnRowOpposite['approved_by_owner'] = $approved_by_owner;
-                    }
-                    if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
-                        $txnRowOpposite['approved_at'] = $approved_at;
-                    }
-                }
-                insertTransactionRow($pdo, $txnRowOpposite);
-            }
         
         // 提交事务
         $pdo->commit();
@@ -982,8 +959,8 @@ try {
         // 返回成功响应
         $responsePayload = [
             'success' => true,
-            'message' => $is_contra_pending
-                ? 'CONTRA submitted, pending Manager+ approval to take effect'
+            'message' => $is_pending_approval
+                ? 'Transaction submitted, pending Manager+ approval to take effect'
                 : 'Transaction submitted successfully',
             'data' => [
                 'transaction_id' => $transaction_id,
