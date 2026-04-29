@@ -1,41 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
-
-function loadScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    const safe = src.replace(/"/g, "");
-    const existing = document.querySelector(`script[data-dc-script="${safe}"]`);
-    if (existing) {
-      resolve();
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.dataset.dcScript = safe;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.body.appendChild(s);
-  });
-}
-
-function injectStylesheet(href) {
-  return new Promise((resolve) => {
-    const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-    if (existing) {
-      resolve();
-      return;
-    }
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.onload = () => resolve();
-    link.onerror = () => resolve();
-    document.head.appendChild(link);
-  });
-}
+import { buildApiUrl } from "../utils/apiUrl.js";
+import { useDataCaptureLegacyBridge } from "./datacapture/hooks/useDataCaptureLegacyBridge.js";
 
 export default function DataCapturePage() {
   const navigate = useNavigate();
@@ -49,6 +16,12 @@ export default function DataCapturePage() {
   const [submittedProcesses, setSubmittedProcesses] = useState([]);
   const [currencyOptions, setCurrencyOptions] = useState([]);
   const [processOptions, setProcessOptions] = useState([]);
+  const [descriptionText, setDescriptionText] = useState("");
+  const [selectedDescriptionsState, setSelectedDescriptionsState] = useState([]);
+  const [removeWord, setRemoveWord] = useState("");
+  const [replaceWordFrom, setReplaceWordFrom] = useState("");
+  const [replaceWordTo, setReplaceWordTo] = useState("");
+  const [remark, setRemark] = useState("");
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
 
@@ -181,64 +154,7 @@ export default function DataCapturePage() {
     };
   }, [navigate]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const hrefs = [assetUrl("css/datacapture.css"), assetUrl("css/global-13inch.css")];
-    (async () => {
-      await Promise.all(hrefs.map((h) => injectStylesheet(h)));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (loading || forbidden || companyId == null) return;
-
-    let cancelled = false;
-
-    const runVanilla = async () => {
-      window.DATACAPTURE_COMPANY_ID = companyId;
-      window.DATACAPTURE_COMPANY_CODE = companyCode;
-      window.__DC_REACT_PERMISSION_FILTER__ = true;
-      window.__DC_REACT_DATE_SUBMITTED__ = true;
-      window.__DC_REACT_FORM_DATA__ = true;
-
-      window._sharedCompanyFilterInitialized = false;
-      try {
-        await loadScriptOnce(assetUrl("js/shared_company_filter.js"));
-        if (cancelled) return;
-        window.__initSharedCompanyFilter?.();
-
-        await loadScriptOnce(assetUrl("js/datacapture.js"));
-        if (cancelled) return;
-
-        window.onSharedCompanyFilterChanged = (id /* , companyCodeArg */) => {
-          if (typeof window.switchDataCaptureCompany === "function") {
-            window.switchDataCaptureCompany(id);
-          }
-        };
-
-        const form = document.getElementById("dataCaptureForm");
-        if (form) form.removeAttribute("data-dc-spa-init");
-        await window.__initDataCapturePage?.();
-      } catch (e) {
-        console.error(e);
-      }
-    };
-
-    runVanilla();
-
-    return () => {
-      cancelled = true;
-      window._sharedCompanyFilterInitialized = false;
-      window.__DC_REACT_PERMISSION_FILTER__ = false;
-      window.__DC_REACT_DATE_SUBMITTED__ = false;
-      window.__DC_REACT_FORM_DATA__ = false;
-      const form = document.getElementById("dataCaptureForm");
-      if (form) form.removeAttribute("data-dc-spa-init");
-    };
-  }, [loading, forbidden, companyId, companyCode]);
+  useDataCaptureLegacyBridge({ loading, forbidden, companyId, companyCode });
 
   useEffect(() => {
     const today = new Date();
@@ -279,6 +195,93 @@ export default function DataCapturePage() {
       cancelled = true;
     };
   }, [loading, forbidden, selectedDate, companyId]);
+
+  useEffect(() => {
+    if (loading || forbidden) return undefined;
+    const processButton = document.getElementById("capture_process");
+    if (!processButton) return undefined;
+
+    const clearLinkedFields = () => {
+      const currencySelect = document.getElementById("capture_currency");
+      const descriptionInput = document.getElementById("capture_description");
+      if (currencySelect) currencySelect.value = "";
+      setRemoveWord("");
+      setReplaceWordFrom("");
+      setReplaceWordTo("");
+      setRemark("");
+      setDescriptionText("");
+      setSelectedDescriptionsState([]);
+      if (descriptionInput) descriptionInput.value = "";
+      window.selectedDescriptions = [];
+    };
+
+    const onProcessChange = async () => {
+      const processId = processButton.getAttribute("data-value") || "";
+      if (!processId) {
+        clearLinkedFields();
+        return;
+      }
+      try {
+        const url = buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${encodeURIComponent(processId)}`);
+        const finalUrl = companyId ? `${url}${url.includes("?") ? "&" : "?"}company_id=${companyId}` : url;
+        const response = await fetch(finalUrl, { credentials: "include" });
+        const result = await response.json();
+        if (!result.success || !result.data) return;
+        const pd = result.data;
+
+        const currencySelect = document.getElementById("capture_currency");
+        if (currencySelect) {
+          const desired = pd.currency_id != null ? String(pd.currency_id) : "";
+          if (desired && Array.from(currencySelect.options).some((opt) => opt.value === desired)) {
+            currencySelect.value = desired;
+          } else if (pd.currency_code) {
+            const code = String(pd.currency_code).toUpperCase();
+            const matched = Array.from(currencySelect.options).find((opt) => String(opt.textContent || "").toUpperCase() === code);
+            if (matched) currencySelect.value = matched.value;
+          }
+        }
+
+        const descriptionInput = document.getElementById("capture_description");
+        setRemoveWord(pd.remove_word || "");
+        setReplaceWordFrom(pd.replace_word_from || "");
+        setReplaceWordTo(pd.replace_word_to || "");
+        setRemark(pd.remarks || "");
+        const nextDescriptions = pd.description_names ? [pd.description_names] : [];
+        setSelectedDescriptionsState(nextDescriptions);
+        setDescriptionText(nextDescriptions.join(", "));
+        if (descriptionInput) descriptionInput.value = pd.description_names || "";
+        window.selectedDescriptions = nextDescriptions;
+      } catch {
+        // keep previous values on transient request failure
+      }
+    };
+
+    processButton.addEventListener("change", onProcessChange);
+    return () => processButton.removeEventListener("change", onProcessChange);
+  }, [loading, forbidden, companyId]);
+
+  useEffect(() => {
+    window.__setDataCaptureLinkedFields = (payload = {}) => {
+      if (Object.prototype.hasOwnProperty.call(payload, "removeWord")) setRemoveWord(payload.removeWord || "");
+      if (Object.prototype.hasOwnProperty.call(payload, "replaceWordFrom")) setReplaceWordFrom(payload.replaceWordFrom || "");
+      if (Object.prototype.hasOwnProperty.call(payload, "replaceWordTo")) setReplaceWordTo(payload.replaceWordTo || "");
+      if (Object.prototype.hasOwnProperty.call(payload, "remark")) setRemark(payload.remark || "");
+    };
+    return () => {
+      delete window.__setDataCaptureLinkedFields;
+    };
+  }, []);
+
+  useEffect(() => {
+    window.__setDataCaptureDescriptions = (descriptions = []) => {
+      const next = Array.isArray(descriptions) ? descriptions : [];
+      setSelectedDescriptionsState(next);
+      setDescriptionText(next.join(", "));
+    };
+    return () => {
+      delete window.__setDataCaptureDescriptions;
+    };
+  }, []);
 
   useEffect(() => {
     if (loading || forbidden || !companyCode) return;
@@ -532,6 +535,7 @@ export default function DataCapturePage() {
                     name="description"
                     required
                     readOnly
+                    value={descriptionText}
                     placeholder="Click + to select descriptions"
                   />
                   <button type="button" className="add-icon" onClick={() => window.expandDescription?.()}>
@@ -554,7 +558,14 @@ export default function DataCapturePage() {
 
               <div className="form-group">
                 <label htmlFor="capture_remove_word">Remove Word</label>
-                <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove" />
+                <input
+                  type="text"
+                  id="capture_remove_word"
+                  name="remove_word"
+                  placeholder="Enter words to remove"
+                  value={removeWord}
+                  onChange={(e) => setRemoveWord(e.target.value)}
+                />
                 <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                   (Use semicolon to separate multiple words, e.g. abc;cde;efg)
                 </small>
@@ -563,15 +574,29 @@ export default function DataCapturePage() {
               <div className="form-group replace-word-group">
                 <label htmlFor="capture_replace_word_from">Replace Word</label>
                 <div className="replace-word-fields">
-                  <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="Old word" />
+                  <input
+                    type="text"
+                    id="capture_replace_word_from"
+                    name="replace_word_from"
+                    placeholder="Old word"
+                    value={replaceWordFrom}
+                    onChange={(e) => setReplaceWordFrom(e.target.value)}
+                  />
                   <span className="replace-arrow">→</span>
-                  <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="New word" />
+                  <input
+                    type="text"
+                    id="capture_replace_word_to"
+                    name="replace_word_to"
+                    placeholder="New word"
+                    value={replaceWordTo}
+                    onChange={(e) => setReplaceWordTo(e.target.value)}
+                  />
                 </div>
               </div>
 
               <div className="form-group">
                 <label htmlFor="capture_remark">Remark</label>
-                <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" />
+                <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" value={remark} onChange={(e) => setRemark(e.target.value)} />
               </div>
             </form>
           </div>

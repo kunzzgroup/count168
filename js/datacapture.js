@@ -991,6 +991,13 @@ document.addEventListener('keydown', function (e) {
 
 // Store submitted processes
 let submittedProcesses = [];
+function setSelectedDescriptions(nextDescriptions) {
+    const normalized = Array.isArray(nextDescriptions) ? nextDescriptions : [];
+    window.selectedDescriptions = normalized;
+    if (typeof window.__setDataCaptureDescriptions === 'function') {
+        window.__setDataCaptureDescriptions(normalized);
+    }
+}
 
 // Process data storage for searchable dropdown
 let processDataMap = new Map(); // 存储 process display_text -> {id, process_id, description_name}
@@ -2502,6 +2509,9 @@ function initProcessInput() {
     processButton.addEventListener('change', function () {
         console.log('Process selection changed to:', this.textContent);
         updateSubmitButtonState();
+        if (window.__DC_REACT_PROCESS_DETAIL__) {
+            return;
+        }
         const processId = getProcessId(this);
         if (processId) {
             loadProcessData(processId);
@@ -2632,7 +2642,7 @@ async function loadProcessData(processId) {
                 }
 
                 // Update the selected descriptions array
-                window.selectedDescriptions = [processData.description_names];
+                setSelectedDescriptions([processData.description_names]);
             }
 
             // Populate remark field
@@ -2640,6 +2650,12 @@ async function loadProcessData(processId) {
             if (remarkInput && processData.remarks) {
                 remarkInput.value = processData.remarks;
             }
+            window.__setDataCaptureLinkedFields?.({
+                removeWord: processData.remove_word || '',
+                replaceWordFrom: processData.replace_word_from || '',
+                replaceWordTo: processData.replace_word_to || '',
+                remark: processData.remarks || ''
+            });
 
             // Update submit button state
             updateSubmitButtonState();
@@ -2684,6 +2700,12 @@ function clearProcessData() {
     if (remarkInput) {
         remarkInput.value = '';
     }
+    window.__setDataCaptureLinkedFields?.({
+        removeWord: '',
+        replaceWordFrom: '',
+        replaceWordTo: '',
+        remark: ''
+    });
 
     // Clear description field
     const descriptionInput = document.getElementById('capture_description');
@@ -2692,7 +2714,7 @@ function clearProcessData() {
     }
 
     // Clear selected descriptions array
-    window.selectedDescriptions = [];
+    setSelectedDescriptions([]);
 
     // Update submit button state
     updateSubmitButtonState();
@@ -3030,11 +3052,12 @@ function moveDescriptionToSelected(checkbox) {
 
     // Add to selected descriptions array
     if (!window.selectedDescriptions) {
-        window.selectedDescriptions = [];
+        setSelectedDescriptions([]);
     }
 
     if (!window.selectedDescriptions.includes(descriptionName)) {
         window.selectedDescriptions.push(descriptionName);
+        setSelectedDescriptions(window.selectedDescriptions);
     }
 
     // Move the item to selected list
@@ -3058,6 +3081,7 @@ function moveDescriptionBackToAvailable(descriptionName, descriptionId) {
         const index = window.selectedDescriptions.indexOf(descriptionName);
         if (index > -1) {
             window.selectedDescriptions.splice(index, 1);
+            setSelectedDescriptions(window.selectedDescriptions);
         }
     }
 
@@ -3128,6 +3152,7 @@ function moveDescriptionToAvailable(checkbox) {
         const index = window.selectedDescriptions.indexOf(descriptionName);
         if (index > -1) {
             window.selectedDescriptions.splice(index, 1);
+            setSelectedDescriptions(window.selectedDescriptions);
         }
     }
 
@@ -3163,7 +3188,7 @@ async function deleteDescription(descriptionId, descriptionName, itemElement) {
             }
 
             if (Array.isArray(window.selectedDescriptions)) {
-                window.selectedDescriptions = window.selectedDescriptions.filter(desc => desc !== descriptionName);
+                setSelectedDescriptions(window.selectedDescriptions.filter(desc => desc !== descriptionName));
             }
 
             updateSelectedDescriptionsInModal();
@@ -3218,10 +3243,10 @@ function displaySelectedDescriptions(descriptions) {
         document.getElementById('capture_description').value = descriptions.join(', ');
 
         // Store selected descriptions for form submission
-        window.selectedDescriptions = descriptions;
+        setSelectedDescriptions(descriptions);
     } else {
         document.getElementById('capture_description').value = '';
-        window.selectedDescriptions = [];
+        setSelectedDescriptions([]);
     }
 }
 
@@ -22117,6 +22142,7 @@ function handleCellKeydown(e) {
 function removeDescription(index) {
     if (window.selectedDescriptions) {
         window.selectedDescriptions.splice(index, 1);
+        setSelectedDescriptions(window.selectedDescriptions);
         displaySelectedDescriptions(window.selectedDescriptions);
 
         // Update submit button state
@@ -22157,9 +22183,10 @@ document.getElementById('addDescriptionForm').addEventListener('submit', async f
             showNotification('Description added successfully!', 'success');
             // Add the new description to selected list
             if (!window.selectedDescriptions) {
-                window.selectedDescriptions = [];
+                setSelectedDescriptions([]);
             }
             window.selectedDescriptions.push(descriptionName);
+            setSelectedDescriptions(window.selectedDescriptions);
 
             // Create and add to selected list
             const selectedList = document.getElementById('selectedDescriptionsInModal');
@@ -22549,7 +22576,7 @@ function resetForm() {
         remarkInput.value = '';
     }
 
-    window.selectedDescriptions = [];
+    setSelectedDescriptions([]);
 
     // Reset process button (custom select)
     const processButton = document.getElementById('capture_process');
@@ -24388,7 +24415,7 @@ async function restoreFromLocalStorage() {
 
         // Restore descriptions
         if (processData.descriptions && Array.isArray(processData.descriptions)) {
-            window.selectedDescriptions = processData.descriptions;
+            setSelectedDescriptions(processData.descriptions);
             const descriptionInput = document.getElementById('capture_description');
             if (descriptionInput) {
                 descriptionInput.value = processData.descriptions.join(', ');
@@ -24416,6 +24443,12 @@ async function restoreFromLocalStorage() {
         if (remarkInput && processData.remark) {
             remarkInput.value = processData.remark;
         }
+        window.__setDataCaptureLinkedFields?.({
+            removeWord: processData.removeWord || '',
+            replaceWordFrom: processData.replaceWordFrom || '',
+            replaceWordTo: processData.replaceWordTo || '',
+            remark: processData.remark || ''
+        });
 
         // Restore table data
         if (tableData && tableData.rows && tableData.rows.length > 0) {
