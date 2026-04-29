@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { formatDmy } from "../transactionFormat.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
   TX_LIST_INVALIDATE_LS_KEY,
@@ -43,10 +44,26 @@ export function useTransactionSearch({
   const categoryChangedByUserRef = useRef(false);
   const initialSearchDoneRef = useRef(false);
   const lastSearchCommitMsRef = useRef(0);
+  const runSearchRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
 
   const categoryAllCheckboxRef = useRef(null);
+  const effectiveDateFrom = dateFrom || todayDmy;
+  const effectiveDateTo = dateTo || todayDmy;
+  const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
+
+  const persistCurrencyFilter = useCallback((companyId, showAll, sel) => {
+    if (!companyId) return;
+    try {
+      localStorage.setItem(
+        TRANSACTION_CURRENCY_FILTER_KEY_PREFIX + companyId,
+        JSON.stringify({ showAll: !!showAll, currencies: [...(sel || [])] }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const toggleCategory = useCallback(() => setCategoryOpen((v) => !v), []);
   const toggleQuick = useCallback(() => setQuickOpen((v) => !v), []);
@@ -220,7 +237,7 @@ export function useTransactionSearch({
     if (!filterSnapshot?.companyId) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-    void runSearch({ silent: false });
+    void runSearchRef.current?.({ silent: false });
   }, [
     selectedCategories,
     filterSnapshot?.companyId,
@@ -229,7 +246,6 @@ export function useTransactionSearch({
     effectiveDateRangeText,
     showAllCurrencies,
     selectedCurrencies,
-    runSearch,
   ]);
 
   useEffect(() => {
@@ -245,24 +261,8 @@ export function useTransactionSearch({
     }
     if (!filterSnapshot?.companyId) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
-    void runSearch({ silent: false });
-  }, [searchState.showCaptureOnly, searchState.showPaymentOnly, searchState.showZeroBalance, filterSnapshot?.companyId, effectiveDateFrom, effectiveDateTo, runSearch]);
-
-  const effectiveDateFrom = dateFrom || todayDmy;
-  const effectiveDateTo = dateTo || todayDmy;
-  const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
-
-  const persistCurrencyFilter = useCallback((companyId, showAll, sel) => {
-    if (!companyId) return;
-    try {
-      localStorage.setItem(
-        TRANSACTION_CURRENCY_FILTER_KEY_PREFIX + companyId,
-        JSON.stringify({ showAll: !!showAll, currencies: [...(sel || [])] }),
-      );
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    void runSearchRef.current?.({ silent: false });
+  }, [searchState.showCaptureOnly, searchState.showPaymentOnly, searchState.showZeroBalance, filterSnapshot?.companyId, effectiveDateFrom, effectiveDateTo]);
 
   const saveTxListToSession = useCallback(
     (data) => {
@@ -458,6 +458,7 @@ export function useTransactionSearch({
     saveTxListToSession,
     txType,
   ]);
+  runSearchRef.current = runSearch;
 
   const tablePresentation = useMemo(() => {
     if (!rawSearchData) {
