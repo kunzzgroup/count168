@@ -155,11 +155,11 @@ export default function TransactionPaymentPage() {
             dateFrom={search.dateFrom}
             dateTo={search.dateTo}
             effectiveDateRangeText={search.effectiveDateRangeText}
-            quickOpen={ui.quickOpen}
-            toggleQuick={() => ui.setQuickOpen((s) => !s)}
+            quickOpen={search.quickOpen}
+            toggleQuick={search.toggleQuick}
             selectQuickRange={search.selectQuickRange}
-            categoryOpen={ui.categoryOpen}
-            toggleCategory={() => ui.setCategoryOpen((s) => !s)}
+            categoryOpen={search.categoryOpen}
+            toggleCategory={search.toggleCategory}
             categories={data.categories}
             selectedCategories={search.selectedCategories}
             categoryAllCheckboxRef={search.categoryAllCheckboxRef}
@@ -256,20 +256,53 @@ export default function TransactionPaymentPage() {
         />
       </main>
 
+      {/* Same markup as transaction.php — required by js/date-range-picker.js (calendar popup). */}
+      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
+        <div className="calendar-header">
+          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
+            <i className="fas fa-chevron-left" />
+          </button>
+          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+            <select id="calendar-month-select" aria-label="Month">
+              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                <option key={m} value={i}>{m}</option>
+              ))}
+            </select>
+            <select id="calendar-year-select" aria-label="Year" />
+          </div>
+          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
+            <i className="fas fa-chevron-right" />
+          </button>
+        </div>
+        <div className="calendar-weekdays">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            <div key={d} className="calendar-weekday">{d}</div>
+          ))}
+        </div>
+        <div className="calendar-days" id="calendar-days" />
+      </div>
+
       <TransactionHistoryModal
         history={ui.history}
-        onClose={() => ui.setHistory((s) => ({ ...s, open: false }))}
-        moneyFormatter={formatHistoryMoney}
+        setHistory={ui.setHistory}
+        histMoney={formatHistoryMoney}
+        showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
       />
 
-      <div className="toast-container position-fixed bottom-0 end-0 p-3">
-        {ui.toast.map((t) => (
-          <div key={t.id} className={`toast show align-items-center text-white bg-${t.type === "error" ? "danger" : t.type === "success" ? "success" : "primary"} border-0`} role="alert">
-            <div className="d-flex">
-              <div className="toast-body">{t.message}</div>
+      <div id="notificationContainer" className="transaction-notification-container" aria-live="polite">
+        {ui.toast.map((t) => {
+          const typeClass =
+            t.type === "error"
+              ? "transaction-notification-error"
+              : t.type === "success"
+                ? "transaction-notification-success"
+                : "transaction-notification-info";
+          return (
+            <div key={t.id} className={`transaction-notification ${typeClass} show`} role="status">
+              {t.message}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

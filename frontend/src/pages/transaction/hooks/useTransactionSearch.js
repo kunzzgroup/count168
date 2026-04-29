@@ -155,7 +155,10 @@ export function useTransactionSearch({
 
     setDateFrom(formatDmy(start));
     setDateTo(formatDmy(end));
-  }, [formatDmy]);
+    queueMicrotask(() => {
+      runSearchRef.current?.({ silent: false });
+    });
+  }, [formatDmy, setDateFrom, setDateTo]);
 
   const toggleAllCurrenciesBtn = useCallback(() => {
     const next = !showAllCurrencies;

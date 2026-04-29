@@ -5,8 +5,6 @@ export function useTransactionUI() {
   const [toast, setToast] = useState([]);
   const [history, setHistory] = useState({ open: false, title: "", rows: [], loading: false });
   const [contraInbox, setContraInbox] = useState({ open: false, loading: false, items: [] });
-  const [quickOpen, setQuickOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
   const closeToastTimer = useRef(null);
 
   const pushToast = useCallback((message, type = "info") => {
@@ -17,13 +15,19 @@ export function useTransactionUI() {
     if (closeToastTimer.current) clearTimeout(closeToastTimer.current);
     closeToastTimer.current = setTimeout(() => {
       setToast((prev) => prev.slice(1));
-    }, 2000);
+    }, 2500);
+  }, []);
+
+  const paymentHistoryTitle = useCallback((row, accountMeta) => {
+    const code = String(accountMeta?.account_id ?? row?.account_id ?? "").trim();
+    const name = String(accountMeta?.name ?? row?.account_name ?? code ?? "").trim() || code;
+    return `Payment History - ${code} (${name})`;
   }, []);
 
   const onViewHistory = useCallback(
     async (row, dateFrom, dateTo, companyId) => {
       if (!row || !companyId) return;
-      const title = `${row.account_id} [${row.currency || ""}]`;
+      const title = paymentHistoryTitle(row, null);
       setHistory({ open: true, title, rows: [], loading: true });
       try {
         const res = await getHistory({
@@ -34,7 +38,9 @@ export function useTransactionUI() {
           currency: row.currency,
         });
         if (res?.success) {
-          setHistory((s) => ({ ...s, rows: Array.isArray(res.data) ? res.data : [], loading: false }));
+          const rows = Array.isArray(res.data) ? res.data : [];
+          const nextTitle = res.account ? paymentHistoryTitle(row, res.account) : title;
+          setHistory((s) => ({ ...s, rows, loading: false, title: nextTitle }));
         } else {
           pushToast(res?.message || "Failed to load history", "error");
           setHistory((s) => ({ ...s, loading: false }));
@@ -44,7 +50,7 @@ export function useTransactionUI() {
         setHistory((s) => ({ ...s, loading: false }));
       }
     },
-    [pushToast],
+    [pushToast, paymentHistoryTitle],
   );
 
   const refreshContraInboxBadge = useCallback(
@@ -107,10 +113,6 @@ export function useTransactionUI() {
     setHistory,
     contraInbox,
     setContraInbox,
-    quickOpen,
-    setQuickOpen,
-    categoryOpen,
-    setCategoryOpen,
     onViewHistory,
     refreshContraInboxBadge,
     onApproveContra,

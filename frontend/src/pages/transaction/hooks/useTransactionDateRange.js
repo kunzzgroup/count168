@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import flatpickr from "flatpickr";
-import { parseDmyToDate } from "../transactionPaymentPageUtils.js";
+import { assetUrl } from "../../../utils/apiUrl.js";
+import { injectStylesheet, loadTxScriptOnce, parseDmyToDate } from "../transactionPaymentPageUtils.js";
 
 export function useTransactionDateRange({
   loading,
@@ -32,13 +33,24 @@ export function useTransactionDateRange({
     if (dt.value !== t) dt.value = t;
   }, [dateFrom, dateTo, todayDmy]);
 
-  /** Legacy initDatePickers: shared Capture Date range + Flatpickr on transaction / rate dates */
+  /** Load shared date-range-picker (same as transaction.php) + init Capture Date popup. */
   useEffect(() => {
     if (loading || forbidden || !filterSnapshot) return;
 
-    // MaintenanceDateRangePicker is still a global for now, but we don't load the script here anymore.
-    // We assume it's either bundled or we will port it.
-    if (window.MaintenanceDateRangePicker?.init && !txDateRangePickerReadyRef.current) {
+    let cancelled = false;
+
+    (async () => {
+      await injectStylesheet(assetUrl("css/date-range-picker.css"));
+      if (cancelled) return;
+      try {
+        await loadTxScriptOnce(assetUrl("js/date-range-picker.js"), "date-range-picker.js");
+      } catch {
+        return;
+      }
+      if (cancelled || txDateRangePickerReadyRef.current) return;
+      if (!window.MaintenanceDateRangePicker?.init) return;
+      if (!document.getElementById("calendar-popup")) return;
+
       window.MaintenanceDateRangePicker.init({
         onChange: () => {
           const from = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
@@ -49,7 +61,16 @@ export function useTransactionDateRange({
         },
       });
       txDateRangePickerReadyRef.current = true;
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo, runSearch]);
+
+  /** Flatpickr on transaction / rate single-date fields */
+  useEffect(() => {
+    if (loading || forbidden || !filterSnapshot) return;
 
     const txInput = document.getElementById("transaction_date");
     const rateInput = document.getElementById("rate_transaction_date");
@@ -74,7 +95,7 @@ export function useTransactionDateRange({
         },
       });
     }
-  }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo, runSearch, setTxDate, setRateDate, todayDmy, fpTxDateRef, fpRateDateRef]);
+  }, [loading, forbidden, filterSnapshot, setTxDate, setRateDate, todayDmy, fpTxDateRef, fpRateDateRef]);
 
   // Sync flatpickr instances with state changes
   useEffect(() => {

@@ -114,7 +114,23 @@ export async function getHistory({
     cache: "no-cache",
     headers: { "Cache-Control": "no-cache" },
   });
-  return safeJson(res);
+  const body = await safeJson(res);
+  /** PHP returns { data: { account, date_range, history: Row[] } }; normalize to rows + meta for React. */
+  if (
+    body?.success &&
+    body.data &&
+    typeof body.data === "object" &&
+    !Array.isArray(body.data) &&
+    Array.isArray(body.data.history)
+  ) {
+    return {
+      ...body,
+      data: body.data.history,
+      account: body.data.account,
+      date_range: body.data.date_range,
+    };
+  }
+  return body;
 }
 
 export async function loadContraInbox({ companyId } = {}) {
