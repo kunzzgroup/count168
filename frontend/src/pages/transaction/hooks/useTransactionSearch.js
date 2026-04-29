@@ -585,6 +585,20 @@ export function useTransactionSearch({
     };
   }, [rawSearchData, searchState, txType, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
 
+  /** 切换公司：立刻清空结果并中止旧请求，避免短暂叠显上一间公司的数据（如多条 CAPITAL / XE）。 */
+  useEffect(() => {
+    const cid = filterSnapshot?.companyId;
+    if (cid == null) return;
+    setRawSearchData(null);
+    setTablesVisible(false);
+    lastCompletedSearchKeyRef.current = "";
+    try {
+      searchAbortRef.current?.abort();
+    } catch {
+      /* ignore */
+    }
+  }, [filterSnapshot?.companyId]);
+
   // Initial search / replay logic
   useEffect(() => {
     if (filterSnapshot?.companyId) {
