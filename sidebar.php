@@ -474,47 +474,45 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 
             <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
             <?php $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions)); ?>
-            <div class="informationmenu-section">
-                <div class="menu-item-wrapper">
-                    <div class="informationmenu-section-title" data-section="maintenance">
-                        <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                            <path
-                                d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-                        </svg>
-                        Maintenance
-                        <span class="section-arrow">▶</span>
-                    </div>
-                    <div class="submenu" id="maintenance-submenu">
-                        <div class="submenu-content">
-                            <?php if ($companyHasGambling && $hasMaintenance): ?>
-                                <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
-                                    <span>Data Capture</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ($companyHasGambling): ?>
-                                <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
-                                    <span>Transaction</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ($hasMaintenance): ?>
+            <?php if ($hasMaintenance): ?>
+                <div class="informationmenu-section">
+                    <div class="menu-item-wrapper">
+                        <div class="informationmenu-section-title" data-section="maintenance">
+                            <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                            </svg>
+                            Maintenance
+                            <span class="section-arrow">▶</span>
+                        </div>
+                        <div class="submenu" id="maintenance-submenu">
+                            <div class="submenu-content">
+                                <?php if ($companyHasGambling): ?>
+                                    <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
+                                        <span>Data Capture</span>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if ($companyHasGambling): ?>
+                                    <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
+                                        <span>Transaction</span>
+                                    </a>
+                                <?php endif; ?>
                                 <a href="payment_maintenance.php" class="submenu-item">
                                     <span>Payment</span>
                                 </a>
-                            <?php endif; ?>
-                            <?php if ($companyHasGambling): ?>
-                                <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
-                                    <span>Formula</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ($hasMaintenance): ?>
+                                <?php if ($companyHasGambling): ?>
+                                    <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
+                                        <span>Formula</span>
+                                    </a>
+                                <?php endif; ?>
                                 <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link"<?php echo $companyHasBank ? '' : ' style="display:none;"'; ?>>
                                     <span>Process</span>
                                 </a>
-                            <?php endif; ?>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 
@@ -566,6 +564,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
     window.SIDEBAR_COMPANY_HAS_GAMBLING = <?php echo $companyHasGambling ? 'true' : 'false'; ?>;
     window.SIDEBAR_COMPANY_HAS_BANK = <?php echo $companyHasBank ? 'true' : 'false'; ?>;
     window.SIDEBAR_COMPANY_CODE = <?php echo json_encode($currentCompanyCode); ?>;
+    window.SIDEBAR_USER_ROLE = <?php echo json_encode(strtolower((string) $role)); ?>;
     (function () {
         if (typeof updateExpirationCountdown === 'function') {
             if (window.SIDEBAR_EXPIRATION_DATE) {

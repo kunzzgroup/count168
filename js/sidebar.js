@@ -487,6 +487,23 @@
         return true;
     }
 
+    function redirectAfterCompanySwitch(companyId, options) {
+        options = options || {};
+        var role = String(window.SIDEBAR_USER_ROLE || '').toLowerCase();
+        var isPrivileged = role === 'admin' || role === 'owner';
+        var preferDashboard = options.preferDashboard !== false;
+        if (isPrivileged && preferDashboard) {
+            window.location.href = 'dashboard.php';
+            return;
+        }
+
+        var url = new URL(window.location.href);
+        if (companyId) {
+            url.searchParams.set('company_id', companyId);
+        }
+        window.location.href = url.toString();
+    }
+
     // 暴露给 HTML onclick 和 PHP 初始化脚本
     window.closeSidebar = closeSidebar;
     window.toggleSidebar = closeSidebar;
@@ -502,6 +519,7 @@
     window.updateSidebarDataCaptureVisibility = updateSidebarDataCaptureVisibility;
     window.showCompanyAccessModal = showCompanyAccessModal;
     window.handleCompanySwitchDenied = handleCompanySwitchDenied;
+    window.redirectAfterCompanySwitch = redirectAfterCompanySwitch;
 
     function init() {
         sidebar = document.querySelector('.informationmenu');
