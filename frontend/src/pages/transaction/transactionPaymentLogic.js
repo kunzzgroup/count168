@@ -68,6 +68,25 @@ export function dedupeRowsByAccountAndCurrency(rows) {
   return out;
 }
 
+/** 去重左右表并按行重算 totals（修复竞态/缓存叠行导致的重复 CAPITAL 等）。 */
+export function sanitizeSearchApiData(data) {
+  if (!data || typeof data !== "object") return data;
+  const left = dedupeRowsByAccountAndCurrency(data.left_table);
+  const right = dedupeRowsByAccountAndCurrency(data.right_table);
+  const totalsLeft = calculateTotals(left);
+  const totalsRight = calculateTotals(right);
+  return {
+    ...data,
+    left_table: left,
+    right_table: right,
+    totals: {
+      left: totalsLeft,
+      right: totalsRight,
+      summary: mergeTotals(totalsLeft, totalsRight),
+    },
+  };
+}
+
 function absDecimalGt(value, eps = 1e-5) {
   const n = parseBalanceValue(value);
   if (n === null) return false;

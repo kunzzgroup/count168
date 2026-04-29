@@ -13,6 +13,7 @@ import {
   readTransactionCurrencyFilterState,
   sortByRole,
   dedupeRowsByAccountAndCurrency,
+  sanitizeSearchApiData,
 } from "../transactionPaymentLogic.js";
 import { searchTransactions as searchTransactionsApi, saveUserCurrencyOrder } from "../transactionApi.js";
 
@@ -368,12 +369,13 @@ export function useTransactionSearch({
     };
 
     const commitQuiet = (data) => {
-      setRawSearchData(data);
-      saveTxListToSession(data);
+      const cleaned = sanitizeSearchApiData(data);
+      setRawSearchData(cleaned);
+      saveTxListToSession(cleaned);
       lastCompletedSearchKeyRef.current = requestKey;
       lastCompletedSearchTsRef.current = Date.now();
-      const totalAccounts = (data.left_table?.length || 0) + (data.right_table?.length || 0);
-      const displayed = countDisplayedRows(data, searchState, txType);
+      const totalAccounts = (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
+      const displayed = countDisplayedRows(cleaned, searchState, txType);
       if (!silent) {
         if (totalAccounts === 0) {
           pushToast(
@@ -393,6 +395,7 @@ export function useTransactionSearch({
 
     try {
       const result = await searchTransactionsApi(paramsBase);
+      if (searchAbortRef.current !== controller) return;
       if (!result?.success || !result?.data) {
         if (!silent) {
           setRawSearchData(null);
@@ -411,6 +414,7 @@ export function useTransactionSearch({
           ...paramsBase,
           currencyCodes: undefined,
         });
+        if (searchAbortRef.current !== controller) return;
         if (fallback?.success && fallback?.data) {
           const fbLeft = (fallback.data.left_table || []).filter(
             (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
@@ -434,6 +438,7 @@ export function useTransactionSearch({
           ...paramsBase,
           showCaptureOnly: false,
         });
+        if (searchAbortRef.current !== controller) return;
         if (fallback?.success && fallback?.data?.totals) {
           currentData = {
             ...currentData,
@@ -442,6 +447,7 @@ export function useTransactionSearch({
         }
       }
 
+      if (searchAbortRef.current !== controller) return;
       commitQuiet(currentData);
     } catch (e) {
       if (e?.name === "AbortError") return;
@@ -463,6 +469,16 @@ export function useTransactionSearch({
     txType,
   ]);
   runSearchRef.current = runSearch;
+
+  useEffect(() => {
+    return () => {
+      try {
+        searchAbortRef.current?.abort();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
 
   const tablePresentation = useMemo(() => {
     if (!rawSearchData) {
@@ -603,7 +619,7 @@ export function useTransactionSearch({
             const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
             const savedAt = o.v === 2 && typeof o.savedAt === "number" ? o.savedAt : 0;
             if (invalidateTs <= savedAt) {
-              setRawSearchData(o.data);
+              setRawSearchData(sanitizeSearchApiData(o.data));
               setTablesVisible(true);
               lastSearchCommitMsRef.current = savedAt || Date.now();
               hadReplay = true;
