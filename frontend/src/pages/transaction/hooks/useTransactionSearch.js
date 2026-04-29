@@ -541,6 +541,21 @@ export function useTransactionSearch({
       return { currency, left: l, right: r, totalsLeft: tL, totalsRight: tR, totalsSummary: tS };
     });
 
+    if (grouped.length === 0 && (sortedLeft.length > 0 || sortedRight.length > 0)) {
+      const title =
+        selectedCurrencies.length === 1 ? `Currency: ${selectedCurrencies[0]}` : null;
+      return {
+        mode: "default",
+        defaultLeft: sortedLeft,
+        defaultRight: sortedRight,
+        totalsLeft,
+        totalsRight,
+        totalsSummary,
+        grouped: [],
+        singleCurrencyTitle: title,
+      };
+    }
+
     return {
       mode: "grouped",
       defaultLeft: [],

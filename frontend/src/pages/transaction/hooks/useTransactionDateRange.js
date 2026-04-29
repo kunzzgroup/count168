@@ -65,6 +65,7 @@ export function useTransactionDateRange({
 
     return () => {
       cancelled = true;
+      txDateRangePickerReadyRef.current = false;
     };
   }, [loading, forbidden, filterSnapshot, setDateFrom, setDateTo, runSearch]);
 

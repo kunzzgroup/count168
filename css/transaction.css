@@ -37,6 +37,18 @@ body.transaction-page {
     letter-spacing: -0.025em;
 }
 
+.transaction-page .transaction-main {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(16px, 1.25vw, 24px);
+    width: 100%;
+    min-height: 0;
+}
+
+.transaction-page .date-range-picker {
+    cursor: pointer;
+}
+
 .transaction-page .transaction-main-content {
     display: flex;
     gap: 24px;

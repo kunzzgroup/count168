@@ -28,7 +28,19 @@ export function loadTxScriptOnce(src, marker) {
   return new Promise((resolve, reject) => {
     const bySrc = document.querySelector(`script[src="${src}"]`);
     if (bySrc) {
-      bySrc.addEventListener("load", () => resolve(), { once: true });
+      const finish = () => resolve();
+      /** Script may have loaded on a previous route; `load` will never fire again. */
+      if (typeof window.MaintenanceDateRangePicker?.init === "function" || typeof window.selectQuickRange === "function") {
+        queueMicrotask(finish);
+        return;
+      }
+      bySrc.addEventListener("load", finish, { once: true });
+      bySrc.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      setTimeout(() => {
+        if (typeof window.MaintenanceDateRangePicker?.init === "function" || typeof window.selectQuickRange === "function") {
+          finish();
+        }
+      }, 0);
       return;
     }
     const s = document.createElement("script");
