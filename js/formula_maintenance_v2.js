@@ -492,9 +492,9 @@ async function switchCompany(companyId, companyCode) {
     const permissions = await fetchCompanyPermissions(currentCompanyCode);
     if (isBankOnlyCategoryCompany(permissions)) {
         if (typeof window.redirectAfterCompanySwitch === 'function') {
-            window.redirectAfterCompanySwitch(companyId);
+            window.redirectAfterCompanySwitch(companyId, { preferDashboard: false });
         } else {
-            window.location.href = 'dashboard.php';
+            window.location.href = 'processlist.php';
         }
         return;
     }
