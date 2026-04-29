@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import {
@@ -14,6 +15,7 @@ export function useTransactionData({
   todayDmy,
 }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [filterSnapshot, setFilterSnapshot] = useState(null);
@@ -110,7 +112,12 @@ export function useTransactionData({
     let cancelled = false;
     (async () => {
       try {
-        const c = await getCategories();
+        const c = await queryClient.fetchQuery({
+          queryKey: ["tx-categories"],
+          queryFn: () => getCategories(),
+          staleTime: 5 * 60_000,
+          gcTime: 30 * 60_000,
+        });
         const roles = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : [];
         if (!cancelled) setCategories(roles.map((r) => String(r).toUpperCase()));
       } catch {
@@ -120,9 +127,24 @@ export function useTransactionData({
       try {
         const cid = filterSnapshot.companyId;
         const [acc, cur, ord] = await Promise.all([
-          getAccounts({ companyId: cid }),
-          getCompanyCurrencies({ companyId: cid }),
-          getUserCurrencyOrder(),
+          queryClient.fetchQuery({
+            queryKey: ["tx-accounts", Number(cid)],
+            queryFn: ({ signal }) => getAccounts({ companyId: cid, signal }),
+            staleTime: 60_000,
+            gcTime: 10 * 60_000,
+          }),
+          queryClient.fetchQuery({
+            queryKey: ["tx-company-currencies", Number(cid)],
+            queryFn: ({ signal }) => getCompanyCurrencies({ companyId: cid, signal }),
+            staleTime: 60_000,
+            gcTime: 10 * 60_000,
+          }),
+          queryClient.fetchQuery({
+            queryKey: ["tx-user-currency-order"],
+            queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
+            staleTime: 60_000,
+            gcTime: 10 * 60_000,
+          }),
         ]);
         if (cancelled) return;
         setAccountOptions(Array.isArray(acc?.data) ? acc.data : []);
@@ -142,7 +164,17 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [loading, forbidden, filterSnapshot, todayDmy, setCategories, setAccountOptions, setCurrencyOptions, setCurrencyRowsOrdered]);
+  }, [
+    loading,
+    forbidden,
+    filterSnapshot,
+    todayDmy,
+    queryClient,
+    setCategories,
+    setAccountOptions,
+    setCurrencyOptions,
+    setCurrencyRowsOrdered,
+  ]);
 
   const onGroupButtonClick = useCallback((gid) => {
     setFilterSnapshot((prev) => {

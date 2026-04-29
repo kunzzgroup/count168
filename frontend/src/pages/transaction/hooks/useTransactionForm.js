@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { parseRateExpression, buildClientRequestId } from "../transactionFormat.js";
 import { formatRateAmount } from "../transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
@@ -37,6 +38,15 @@ export function useTransactionForm({
   const [rateMiddlemanAccount, setRateMiddlemanAccount] = useState(null);
   const [rateMiddlemanRate, setRateMiddlemanRate] = useState("");
   const [rateMiddlemanAmount, setRateMiddlemanAmount] = useState("");
+  const queryClient = useQueryClient();
+
+  const submitMutation = useMutation({
+    mutationFn: ({ companyId, payload, clientRequestId }) => submitTransaction({ companyId, payload, clientRequestId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tx-search"] });
+      queryClient.invalidateQueries({ queryKey: ["tx-contra-inbox"] });
+    },
+  });
 
   const handleBalanceCellClick = useCallback((account, side) => {
     if (!account) return;
@@ -199,7 +209,7 @@ export function useTransactionForm({
           rateTransferFromAccount,
         });
 
-        const res = await submitTransaction({ companyId, payload, clientRequestId });
+        const res = await submitMutation.mutateAsync({ companyId, payload, clientRequestId });
         if (res?.success) {
           const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
           if (approvalStatus === "PENDING") {
@@ -266,7 +276,7 @@ export function useTransactionForm({
         currency: txCurrency,
       };
 
-      const res = await submitTransaction({ companyId, payload, clientRequestId });
+      const res = await submitMutation.mutateAsync({ companyId, payload, clientRequestId });
       if (res?.success) {
         const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
         if (approvalStatus === "PENDING") {

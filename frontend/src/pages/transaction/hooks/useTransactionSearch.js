@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDmy } from "../transactionFormat.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
@@ -40,7 +41,8 @@ export function useTransactionSearch({
   const [searchLoading, setSearchLoading] = useState(false);
   const [tablesVisible, setTablesVisible] = useState(false);
 
-  const searchAbortRef = useRef(null);
+  const queryClient = useQueryClient();
+  const latestRunTokenRef = useRef(0);
   const lastCompletedSearchKeyRef = useRef("");
   const lastCompletedSearchTsRef = useRef(0);
   const categoryChangedByUserRef = useRef(false);
@@ -342,16 +344,8 @@ export function useTransactionSearch({
       return;
     }
 
-    if (searchAbortRef.current) {
-      try {
-        searchAbortRef.current.abort();
-      } catch {
-        /* ignore */
-      }
-    }
-    const controller = new AbortController();
-    searchAbortRef.current = controller;
-    const { signal } = controller;
+    const runToken = ++latestRunTokenRef.current;
+    await queryClient.cancelQueries({ queryKey: ["tx-search"] });
 
     if (!silent) setSearchLoading(true);
     setTablesVisible(true);
@@ -365,8 +359,27 @@ export function useTransactionSearch({
       hideZeroBalance: !searchState.showZeroBalance,
       categories: selectedCategories.length > 0 ? selectedCategories : undefined,
       currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
-      signal,
     };
+
+    const fetchSearch = (params) =>
+      queryClient.fetchQuery({
+        queryKey: [
+          "tx-search",
+          {
+            companyId: params.companyId,
+            dateFrom: params.dateFrom,
+            dateTo: params.dateTo,
+            showInactive: !!params.showInactive,
+            showCaptureOnly: !!params.showCaptureOnly,
+            hideZeroBalance: !!params.hideZeroBalance,
+            categories: Array.isArray(params.categories) ? [...params.categories].sort() : [],
+            currencyCodes: Array.isArray(params.currencyCodes) ? [...params.currencyCodes].sort() : [],
+          },
+        ],
+        queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
+        staleTime: 15_000,
+        gcTime: 2 * 60_000,
+      });
 
     const commitQuiet = (data) => {
       const cleaned = sanitizeSearchApiData(data);
@@ -394,8 +407,8 @@ export function useTransactionSearch({
     };
 
     try {
-      const result = await searchTransactionsApi(paramsBase);
-      if (searchAbortRef.current !== controller) return;
+      const result = await fetchSearch(paramsBase);
+      if (latestRunTokenRef.current !== runToken) return;
       if (!result?.success || !result?.data) {
         if (!silent) {
           setRawSearchData(null);
@@ -410,11 +423,11 @@ export function useTransactionSearch({
       const totalAccounts = leftRows.length + rightRows.length;
 
       if (singleSelectedCurrency && totalAccounts === 0) {
-        const fallback = await searchTransactionsApi({
+        const fallback = await fetchSearch({
           ...paramsBase,
           currencyCodes: undefined,
         });
-        if (searchAbortRef.current !== controller) return;
+        if (latestRunTokenRef.current !== runToken) return;
         if (fallback?.success && fallback?.data) {
           const fbLeft = (fallback.data.left_table || []).filter(
             (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
@@ -434,11 +447,11 @@ export function useTransactionSearch({
           };
         }
       } else if (searchState.showCaptureOnly && totalAccounts === 0) {
-        const fallback = await searchTransactionsApi({
+        const fallback = await fetchSearch({
           ...paramsBase,
           showCaptureOnly: false,
         });
-        if (searchAbortRef.current !== controller) return;
+        if (latestRunTokenRef.current !== runToken) return;
         if (fallback?.success && fallback?.data?.totals) {
           currentData = {
             ...currentData,
@@ -447,10 +460,10 @@ export function useTransactionSearch({
         }
       }
 
-      if (searchAbortRef.current !== controller) return;
+      if (latestRunTokenRef.current !== runToken) return;
       commitQuiet(currentData);
     } catch (e) {
-      if (e?.name === "AbortError") return;
+      if (e?.name === "AbortError" || e?.name === "CanceledError") return;
       console.error(e);
       if (!silent) pushToast(`Search failed: ${e.message}`, "error");
     } finally {
@@ -466,19 +479,16 @@ export function useTransactionSearch({
     searchState,
     pushToast,
     saveTxListToSession,
+    queryClient,
     txType,
   ]);
   runSearchRef.current = runSearch;
 
   useEffect(() => {
     return () => {
-      try {
-        searchAbortRef.current?.abort();
-      } catch {
-        /* ignore */
-      }
+      queryClient.cancelQueries({ queryKey: ["tx-search"] });
     };
-  }, []);
+  }, [queryClient]);
 
   const tablePresentation = useMemo(() => {
     if (!rawSearchData) {
@@ -593,11 +603,12 @@ export function useTransactionSearch({
     setTablesVisible(false);
     lastCompletedSearchKeyRef.current = "";
     try {
-      searchAbortRef.current?.abort();
+      latestRunTokenRef.current += 1;
+      queryClient.cancelQueries({ queryKey: ["tx-search"] });
     } catch {
       /* ignore */
     }
-  }, [filterSnapshot?.companyId]);
+  }, [filterSnapshot?.companyId, queryClient]);
 
   // Initial search / replay logic
   useEffect(() => {
