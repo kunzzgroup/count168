@@ -42,7 +42,7 @@ export function useDataCaptureSummaryLegacyBridge() {
             } catch {
               // ignore storage cleanup errors
             }
-            window.location.href = "datacapture.php";
+            window.location.href = "/datacapture";
           };
         }
       } catch (error) {

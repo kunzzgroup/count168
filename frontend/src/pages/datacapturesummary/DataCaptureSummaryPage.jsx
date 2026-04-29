@@ -127,7 +127,7 @@ export default function DataCaptureSummaryPage() {
     if (typeof window.saveRateValuesForRefresh === "function") window.saveRateValuesForRefresh();
     if (typeof window.saveFormulaSourceForRefresh === "function") window.saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
-    window.location.href = "datacapture.php?restore=1";
+    window.location.href = "/datacapture?restore=1";
   }, []);
 
   const refreshPage = useCallback(() => {
@@ -677,7 +677,7 @@ export default function DataCaptureSummaryPage() {
         </div>
         <div className="empty-state">
           <p>No captured data found. Please go back to the Data Capture page and submit some data first.</p>
-          <button onClick={() => (window.location.href = "datacapture.php")} className="btn btn-save" type="button">
+          <button onClick={() => (window.location.href = "/datacapture")} className="btn btn-save" type="button">
             Go to Data Capture
           </button>
         </div>
