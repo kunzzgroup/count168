@@ -59,6 +59,15 @@ export function sortByRole(data) {
 export function dedupeRowsByAccountAndCurrency(rows) {
   const out = [];
   const indexByKey = new Map();
+  const norm = (v) => String(v || "").toUpperCase().trim();
+  const keyOf = (row) => {
+    const currency = norm(row?.currency);
+    // Prefer stable UI identity (account_id). account_db_id is fallback only.
+    const accountCode = norm(row?.account_id);
+    const accountDbId = norm(row?.account_db_id);
+    const anchor = accountCode || `DB:${accountDbId}`;
+    return `${anchor}_${currency}`;
+  };
   const toAbs = (v) => Math.abs(parseBalanceValue(v) ?? 0);
   const toBoolFlag = (v) => {
     if (typeof v === "boolean") return v;
@@ -80,7 +89,7 @@ export function dedupeRowsByAccountAndCurrency(rows) {
   };
 
   for (const row of rows || []) {
-    const k = `${row?.account_db_id ?? ""}_${String(row?.currency || "").toUpperCase().trim()}`;
+    const k = keyOf(row);
     if (!indexByKey.has(k)) {
       indexByKey.set(k, out.length);
       out.push(row);
