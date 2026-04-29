@@ -59,7 +59,9 @@ function AccountSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  const [highlightIdx, setHighlightIdx] = useState(-1);
   const searchRef = useRef(null);
+  const optionsContainerRef = useRef(null);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toUpperCase();
@@ -88,10 +90,29 @@ function AccountSelect({
   useEffect(() => {
     if (open) {
       setTimeout(() => searchRef.current?.focus(), 0);
+      setHighlightIdx(-1);
     } else {
       setFilter("");
+      setHighlightIdx(-1);
     }
   }, [open]);
+
+  useEffect(() => {
+    setHighlightIdx(-1);
+  }, [filter]);
+
+  useEffect(() => {
+    setHighlightIdx((hi) => {
+      if (hi < 0) return hi;
+      return hi >= filtered.length ? -1 : hi;
+    });
+  }, [filtered.length]);
+
+  useEffect(() => {
+    if (!open || highlightIdx < 0 || !optionsContainerRef.current) return;
+    const node = optionsContainerRef.current.querySelector(`[data-opt-idx="${highlightIdx}"]`);
+    node?.scrollIntoView({ block: "nearest" });
+  }, [highlightIdx, open, filtered]);
 
   const displayText = value?.display_text ? value.display_text : placeholder;
 
@@ -124,18 +145,46 @@ function AccountSelect({
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape") setOpen(false);
+              if (e.key === "Escape") {
+                setOpen(false);
+                return;
+              }
+              if (e.key === "Backspace" && !filter) {
+                e.preventDefault();
+                onChange?.(null);
+                return;
+              }
+              const len = filtered.length;
+              if (len === 0) return;
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setHighlightIdx((hi) => (hi < 0 ? 0 : (hi + 1) % len));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setHighlightIdx((hi) => (hi <= 0 ? len - 1 : hi - 1));
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                const pick = highlightIdx >= 0 ? filtered[highlightIdx] : filtered[0];
+                if (pick) {
+                  onChange(pick);
+                  setOpen(false);
+                }
+              }
             }}
           />
         </div>
-        <div className="custom-select-options">
+        <div className="custom-select-options" ref={optionsContainerRef}>
           {filtered.length === 0 ? (
             <div className="custom-select-no-results">No results</div>
           ) : (
-            filtered.map((opt) => (
+            filtered.map((opt, idx) => (
               <div
                 key={opt.id}
-                className={`custom-select-option${String(value?.id) === String(opt.id) ? " selected" : ""}`}
+                data-opt-idx={idx}
+                className={`custom-select-option${String(value?.id) === String(opt.id) ? " selected" : ""}${
+                  highlightIdx === idx && highlightIdx >= 0 ? " keyboard-focus" : ""
+                }`}
+                onMouseEnter={() => setHighlightIdx(idx)}
                 onClick={() => {
                   onChange(opt);
                   setOpen(false);
@@ -219,6 +268,7 @@ export default function TransactionPaymentPage() {
   const [dateTo, setDateTo] = useState(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const categoryAllCheckboxRef = useRef(null);
   const [tablesVisible, setTablesVisible] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [history, setHistory] = useState({ open: false, title: "", rows: [], loading: false });
@@ -1106,6 +1156,20 @@ export default function TransactionPaymentPage() {
     };
   }, [loading, forbidden, filterSnapshot?.companyId, canApproveContra]);
 
+  const removeCategoryTag = useCallback((categoryValue) => {
+    const v = String(categoryValue || "").toUpperCase().trim();
+    setSelectedCategories((prev) => prev.filter((x) => String(x).toUpperCase() !== v));
+    queueMicrotask(() => runSearchRef.current?.({ silent: false }));
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = categoryAllCheckboxRef.current;
+    if (!el) return;
+    const n = categories.length;
+    const k = selectedCategories.length;
+    el.indeterminate = n > 0 && k > 0 && k < n;
+  }, [categories.length, selectedCategories]);
+
   if (forbidden) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -1855,9 +1919,29 @@ export default function TransactionPaymentPage() {
                         <span className="category-placeholder">--Select All--</span>
                       ) : (
                         selectedCategories.map((c) => (
-                          <span key={c} className="category-tag">
-                            {c}
-                          </span>
+                          <div key={c} className="category-tag" data-category-value={c}>
+                            <span>{c}</span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="category-tag-remove"
+                              data-category-value={c}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeCategoryTag(c);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  removeCategoryTag(c);
+                                }
+                              }}
+                            >
+                              ×
+                            </span>
+                          </div>
                         ))
                       )}
                     </div>
@@ -1867,11 +1951,15 @@ export default function TransactionPaymentPage() {
                     <div className="category-option">
                       <label className="category-checkbox-label">
                         <input
+                          ref={categoryAllCheckboxRef}
                           type="checkbox"
                           value=""
                           className="category-checkbox"
                           id="category_all"
-                          checked={selectedCategories.length === 0}
+                          checked={
+                            selectedCategories.length === 0 ||
+                            (categories.length > 0 && selectedCategories.length === categories.length)
+                          }
                           onChange={(e) => {
                             if (e.target.checked) setSelectedCategories([]);
                           }}

@@ -310,6 +310,10 @@ body.transaction-page {
     font-weight: bold;
 }
 
+.transaction-page .custom-select-option.keyboard-focus {
+    background-color: #e3f2fd;
+}
+
 .transaction-page .custom-select-option:last-child {
     border-bottom: none;
 }
