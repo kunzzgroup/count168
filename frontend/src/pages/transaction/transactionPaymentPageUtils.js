@@ -48,3 +48,6 @@ export function companyButtonStyle(comp, snapGroup) {
   }
   return cGid ? { display: "none" } : {};
 }
+
+/** 与 transaction.php / TRANSACTION_PAGE.showDescriptionColumn 一致（PHP 默认为 true）。 */
+export const TRANSACTION_SHOW_DESCRIPTION_COLUMN = true;
