@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
-import { buildApiUrl } from "../utils/apiUrl.js";
-import { useDataCaptureLegacyBridge } from "./datacapture/hooks/useDataCaptureLegacyBridge.js";
-import { useDataCaptureSubmit } from "./datacapture/hooks/useDataCaptureSubmit.js";
-import { useDataCaptureRestore } from "./datacapture/hooks/useDataCaptureRestore.js";
-import { useDataCaptureTableEngine } from "./datacapture/hooks/useDataCaptureTableEngine.js";
+import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
+import { useDataCaptureLegacyBridge } from "./hooks/useDataCaptureLegacyBridge.js";
+import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
+import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
+import { useDataCaptureTableEngine } from "./hooks/useDataCaptureTableEngine.js";
 
 export default function DataCapturePage() {
   const navigate = useNavigate();

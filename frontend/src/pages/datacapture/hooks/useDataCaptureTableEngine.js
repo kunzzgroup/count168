@@ -18,6 +18,15 @@ function clearSelectionClasses() {
   });
 }
 
+function clearHeaderSelectionClasses() {
+  document.querySelectorAll("#tableHeader th").forEach((th) => {
+    th.classList.remove("column-selected", "column-active");
+  });
+  document.querySelectorAll("#tableBody .row-header").forEach((td) => {
+    td.classList.remove("row-selected", "row-active");
+  });
+}
+
 function hideAllContextMenus() {
   ["contextMenu", "columnContextMenu", "rowContextMenu"].forEach((id) => {
     const menu = document.getElementById(id);
@@ -402,6 +411,96 @@ export function useDataCaptureTableEngine() {
     }),
     []
   );
+
+  useEffect(() => {
+    const tableBody = document.getElementById("tableBody");
+    const tableHeader = document.getElementById("tableHeader");
+    const contextMenu = document.getElementById("contextMenu");
+    const columnContextMenu = document.getElementById("columnContextMenu");
+    const rowContextMenu = document.getElementById("rowContextMenu");
+    if (!tableBody || !tableHeader) return undefined;
+
+    const showMenuAt = (menu, x, y) => {
+      if (!menu) return;
+      hideAllContextMenus();
+      menu.style.display = "block";
+      menu.style.left = `${x}px`;
+      menu.style.top = `${y}px`;
+    };
+
+    const onBodyMouseDown = (event) => {
+      const cell = event.target.closest("#tableBody td[contenteditable='true']");
+      if (!cell) return;
+      clearHeaderSelectionClasses();
+      if (event.ctrlKey || event.metaKey) {
+        cell.classList.toggle("multi-selected");
+        cell.classList.add("selected");
+        return;
+      }
+      clearSelectionClasses();
+      cell.classList.add("selected", "multi-selected");
+    };
+
+    const onBodyContextMenu = (event) => {
+      const rowHeader = event.target.closest("#tableBody .row-header");
+      if (rowHeader) {
+        event.preventDefault();
+        clearSelectionClasses();
+        clearHeaderSelectionClasses();
+        rowHeader.classList.add("row-active", "row-selected");
+        showMenuAt(rowContextMenu, event.clientX, event.clientY);
+        return;
+      }
+
+      const cell = event.target.closest("#tableBody td[contenteditable='true']");
+      if (!cell) return;
+      event.preventDefault();
+      clearHeaderSelectionClasses();
+      if (!cell.classList.contains("multi-selected")) {
+        clearSelectionClasses();
+        cell.classList.add("selected", "multi-selected");
+      }
+      showMenuAt(contextMenu, event.clientX, event.clientY);
+    };
+
+    const onHeaderMouseDown = (event) => {
+      const header = event.target.closest("#tableHeader th");
+      if (!header) return;
+      if (header.cellIndex === 0) return;
+      clearSelectionClasses();
+      clearHeaderSelectionClasses();
+      header.classList.add("column-active", "column-selected");
+    };
+
+    const onHeaderContextMenu = (event) => {
+      const header = event.target.closest("#tableHeader th");
+      if (!header || header.cellIndex === 0) return;
+      event.preventDefault();
+      clearSelectionClasses();
+      clearHeaderSelectionClasses();
+      header.classList.add("column-active", "column-selected");
+      showMenuAt(columnContextMenu, event.clientX, event.clientY);
+    };
+
+    const onDocumentClick = (event) => {
+      const insideMenu = event.target.closest(".context-menu");
+      if (!insideMenu) hideAllContextMenus();
+    };
+
+    tableBody.addEventListener("mousedown", onBodyMouseDown);
+    tableBody.addEventListener("contextmenu", onBodyContextMenu);
+    tableHeader.addEventListener("mousedown", onHeaderMouseDown);
+    tableHeader.addEventListener("contextmenu", onHeaderContextMenu);
+    document.addEventListener("click", onDocumentClick);
+
+    return () => {
+      tableBody.removeEventListener("mousedown", onBodyMouseDown);
+      tableBody.removeEventListener("contextmenu", onBodyContextMenu);
+      tableHeader.removeEventListener("mousedown", onHeaderMouseDown);
+      tableHeader.removeEventListener("contextmenu", onHeaderContextMenu);
+      document.removeEventListener("click", onDocumentClick);
+    };
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event) => {
