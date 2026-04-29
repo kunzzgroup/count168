@@ -267,29 +267,9 @@ export function useTransactionSearch({
     scheduleAutoSearch,
   ]);
 
-  useEffect(() => {
-    const skipFilterSearchEffect = { current: true };
-    // This effect handles changes in searchState
-  }, []);
-
-  const skipFilterSearchEffectRef = useRef(true);
-  useEffect(() => {
-    if (skipFilterSearchEffectRef.current) {
-      skipFilterSearchEffectRef.current = false;
-      return;
-    }
-    if (!filterSnapshot?.companyId) return;
-    if (!effectiveDateFrom || !effectiveDateTo) return;
-    scheduleAutoSearch({ silent: false });
-  }, [
-    searchState.showCaptureOnly,
-    searchState.showPaymentOnly,
-    searchState.showZeroBalance,
-    filterSnapshot?.companyId,
-    effectiveDateFrom,
-    effectiveDateTo,
-    scheduleAutoSearch,
-  ]);
+  // NOTE:
+  // showName / showCaptureOnly / showPaymentOnly / showZeroBalance are now list-local filters.
+  // Do NOT auto-trigger API search on checkbox changes; only re-compute tablePresentation locally.
 
   const saveTxListToSession = useCallback(
     (data) => {
