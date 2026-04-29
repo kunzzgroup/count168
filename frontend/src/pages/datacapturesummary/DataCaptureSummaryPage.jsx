@@ -1,5 +1,17 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useDataCaptureSummaryLegacyBridge } from "./hooks/useDataCaptureSummaryLegacyBridge.js";
+import { useSummaryTableColumns } from "./hooks/useSummaryTableColumns.jsx";
+import { useDataCaptureSummarySubmit } from "./hooks/useDataCaptureSummarySubmit.js";
+import { useDataCaptureSummaryBootstrap } from "./hooks/useDataCaptureSummaryBootstrap.js";
+import {
+  computeProcessedAmounts,
+  formatAmountDisplay,
+  formatFixed2,
+  parseDisplayAmountToNumber,
+  parseLooseNumericInput,
+} from "./utils/summaryNumberUtils.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 
 function extractSummaryRowsFromCapturedTable(tableData) {
@@ -44,30 +56,17 @@ function extractSummaryRowsFromCapturedTable(tableData) {
       source: "",
       rateChecked: false,
       rateValue: "",
+      baseProcessedAmount: "0.00",
       processedAmount: "0.00",
       skipChecked: false,
       deleteChecked: false,
     }));
 }
 
-function computeProcessedAmount(formula, sourcePercent) {
-  const sanitized = String(formula || "").replace(/,/g, "").trim();
-  if (!sanitized) return "0.00";
-  const safe = sanitized.replace(/[^0-9+\-*/().\s]/g, "");
-  let base = 0;
-  try {
-    // eslint-disable-next-line no-new-func
-    base = Number(Function(`"use strict"; return (${safe});`)());
-    if (!Number.isFinite(base)) base = 0;
-  } catch {
-    base = 0;
-  }
-  const src = Number.parseFloat(String(sourcePercent || "1")) || 1;
-  return (base * src).toFixed(2);
-}
-
 export default function DataCaptureSummaryPage() {
   const { legacyReady, companyId } = useDataCaptureSummaryLegacyBridge();
+  const navigate = useNavigate();
+  const location = useLocation();
   const deleteCallbackRef = useRef(null);
   const [notification, setNotification] = useState({
     visible: false,
@@ -94,9 +93,21 @@ export default function DataCaptureSummaryPage() {
   const [rateInput, setRateInput] = useState("");
   const [accountOptions, setAccountOptions] = useState([]);
   const [currencyOptions, setCurrencyOptions] = useState([]);
+  const [roleOptions, setRoleOptions] = useState([]);
   const [processMeta, setProcessMeta] = useState({ captureDate: "", processId: null, currencyId: null, remark: "" });
   const [processCurrencyCode, setProcessCurrencyCode] = useState("");
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [addForm, setAddForm] = useState({
+    account_id: "",
+    name: "",
+    role: "",
+    password: "",
+    payment_alert: "0",
+    alert_type: "",
+    alert_start_date: "",
+    alert_amount: "",
+    remark: "",
+  });
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page");
@@ -125,12 +136,12 @@ export default function DataCaptureSummaryPage() {
   }, []);
 
   const goBackToDataCapture = useCallback(() => {
-    window.location.href = "/datacapture?restore=1";
-  }, []);
+    navigate("/datacapture?restore=1");
+  }, [navigate]);
 
   const refreshPage = useCallback(() => {
-    window.location.reload();
-  }, []);
+    navigate(0);
+  }, [navigate]);
 
   const closeConfirmDeleteModal = useCallback(() => {
     setConfirmDeleteState((prev) => ({ ...prev, visible: false }));
@@ -159,7 +170,7 @@ export default function DataCaptureSummaryPage() {
     const expr = rateInput.trim();
     if (!expr) return;
     const operator = expr[0];
-    const num = Number.parseFloat(expr.slice(1));
+    const num = parseLooseNumericInput(expr.slice(1));
     if (!Number.isFinite(num) || (operator !== "*" && operator !== "/")) {
       showNotification("Error", "Rate format must be like *3 or /3", "error");
       return;
@@ -167,12 +178,12 @@ export default function DataCaptureSummaryPage() {
     setSummaryRows((prev) =>
       prev.map((row) => {
         if (!row.rateChecked) return row;
-        const amount = Number.parseFloat(String(row.processedAmount).replace(/,/g, "")) || 0;
-        const next = operator === "*" ? amount * num : num === 0 ? amount : amount / num;
-        return { ...row, rateValue: expr, processedAmount: next.toFixed(2) };
+        const base = Number.parseFloat(String(row.baseProcessedAmount).replace(/,/g, "")) || 0;
+        const next = operator === "*" ? base * num : num === 0 ? base : base / num;
+        return { ...row, rateValue: expr, processedAmount: formatFixed2(next) };
       }),
     );
-  }, []);
+  }, [rateInput, showNotification]);
 
   const deleteSelectedRows = useCallback(() => {
     const count = summaryRows.filter((row) => row.deleteChecked).length;
@@ -185,58 +196,13 @@ export default function DataCaptureSummaryPage() {
     });
   }, [showConfirmDelete, showNotification, summaryRows]);
 
-  const submitSummaryData = useCallback(() => {
-    (async () => {
-      try {
-        if (!processMeta.captureDate || !processMeta.processId || !processMeta.currencyId) {
-          showNotification("Error", "Missing process info for submit.", "error");
-          return;
-        }
-        const summaryPayloadRows = summaryRows
-          .filter((row) => !row.skipChecked)
-          .filter((row) => row.accountId && row.idProduct)
-          .map((row, idx) => ({
-            idProductMain: row.idProduct,
-            idProductSub: "",
-            productType: "main",
-            accountId: Number(row.accountId),
-            currencyId: Number(row.currencyId || processMeta.currencyId),
-            currencyCode: row.currency || "",
-            formula: row.formula || "",
-            sourcePercent: row.source || "1",
-            processedAmount: Number.parseFloat(String(row.processedAmount).replace(/,/g, "")) || 0,
-            rateValue: row.rateValue || null,
-            displayOrder: idx,
-          }));
-        if (!summaryPayloadRows.length) {
-          showNotification("Error", "No valid rows to submit.", "error");
-          return;
-        }
-        const response = await fetch(buildApiUrl("api/datacapture_summary/summary_api.php?action=submit"), {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            captureDate: processMeta.captureDate,
-            processId: Number(processMeta.processId),
-            currencyId: Number(processMeta.currencyId),
-            remark: processMeta.remark || "",
-            summaryRows: summaryPayloadRows,
-          }),
-        });
-        const json = await response.json();
-        if (!json?.success) {
-          throw new Error(json?.message || "Submit failed");
-        }
-        showNotification("Success", "Data submitted successfully.", "success");
-        const url = new URL(window.location.href);
-        url.searchParams.set("success", "1");
-        window.location.href = url.pathname + url.search;
-      } catch (error) {
-        showNotification("Error", error?.message || "Submit failed", "error");
-      }
-    })();
-  }, [processMeta.captureDate, processMeta.currencyId, processMeta.processId, processMeta.remark, showNotification, summaryRows]);
+  const { submitSummaryData, isSubmitting } = useDataCaptureSummarySubmit({
+    processMeta,
+    summaryRows,
+    parseDisplayAmountToNumber,
+    showNotification,
+    navigate,
+  });
 
   const closeAddModal = useCallback(() => {
     setAddModalVisible(false);
@@ -245,6 +211,49 @@ export default function DataCaptureSummaryPage() {
   const openAddModal = useCallback(() => {
     setAddModalVisible(true);
   }, []);
+
+  const submitAddAccount = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        const formData = new FormData();
+        formData.set("account_id", addForm.account_id.trim().toUpperCase());
+        formData.set("name", addForm.name.trim().toUpperCase());
+        formData.set("role", addForm.role);
+        formData.set("password", addForm.password);
+        formData.set("payment_alert", addForm.payment_alert);
+        formData.set("remark", addForm.remark.trim().toUpperCase());
+        formData.set("alert_type", addForm.payment_alert === "1" ? addForm.alert_type : "");
+        formData.set("alert_start_date", addForm.payment_alert === "1" ? addForm.alert_start_date : "");
+        formData.set("alert_amount", addForm.payment_alert === "1" ? addForm.alert_amount : "");
+        if (companyId) formData.set("company_id", String(companyId));
+
+        const response = await fetch(buildApiUrl("api/accounts/addaccountapi.php"), {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        const json = await response.json();
+        if (!json?.success) throw new Error(json?.message || json?.error || "Failed to add account");
+        showNotification("Success", "Account added successfully!", "success");
+        setAddModalVisible(false);
+        setAddForm({
+          account_id: "",
+          name: "",
+          role: "",
+          password: "",
+          payment_alert: "0",
+          alert_type: "",
+          alert_start_date: "",
+          alert_amount: "",
+          remark: "",
+        });
+      } catch (error) {
+        showNotification("Error", error?.message || "Failed to add account", "error");
+      }
+    },
+    [addForm, companyId, showNotification],
+  );
 
   const addCurrencyFromInput = useCallback(() => {
     showNotification("Info", "Currency create flow is being migrated.", "info");
@@ -275,11 +284,27 @@ export default function DataCaptureSummaryPage() {
     setProcessInfoVisible(true);
   }, []);
 
-  const summaryTotal = useMemo(() => {
-    return summaryRows
-      .filter((row) => !row.skipChecked)
-      .reduce((acc, row) => acc + (Number.parseFloat(String(row.processedAmount).replace(/,/g, "")) || 0), 0);
-  }, [summaryRows]);
+  useDataCaptureSummaryBootstrap({
+    legacyReady,
+    companyId,
+    locationSearch: location.search,
+    showNotification,
+    showEmptyState,
+    hideLoadingState,
+    displayProcessInfo,
+    extractSummaryRowsFromCapturedTable,
+    setSummaryRows,
+    setProcessCurrencyCode,
+    setProcessMeta,
+    setAccountOptions,
+    setCurrencyOptions,
+    setRoleOptions,
+  });
+
+  const summaryTotal = useMemo(
+    () => summaryRows.filter((row) => !row.skipChecked).reduce((acc, row) => acc + parseDisplayAmountToNumber(row.processedAmount), 0),
+    [summaryRows],
+  );
 
   const submitState = useMemo(() => {
     const isWithinRange = summaryTotal >= -0.05 && summaryTotal <= 0.05;
@@ -292,63 +317,6 @@ export default function DataCaptureSummaryPage() {
   }, [summaryRows, summaryTotal]);
 
   useEffect(() => {
-    if (!legacyReady) return;
-    const url = new URL(window.location.href);
-    const success = url.searchParams.get("success") === "1";
-    const error = url.searchParams.get("error") === "1";
-    if (success) {
-      showNotification("Success", "Data captured and summary generated successfully!", "success");
-    } else if (error) {
-      showNotification("Error", "Failed to generate summary. Please try again.", "error");
-    }
-    if (success || error) {
-      url.searchParams.delete("success");
-      url.searchParams.delete("error");
-      window.history.replaceState({}, document.title, url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ""));
-    }
-
-    try {
-      const optionsUrl = companyId
-        ? buildApiUrl(`api/datacapture_summary/summary_api.php?company_id=${encodeURIComponent(companyId)}`)
-        : buildApiUrl("api/datacapture_summary/summary_api.php");
-      const tableDataRaw = localStorage.getItem("capturedTableData");
-      const processDataRaw = localStorage.getItem("capturedProcessData");
-      if (!tableDataRaw || !processDataRaw) {
-        showEmptyState();
-        return;
-      }
-      fetch(optionsUrl, { credentials: "include" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.success) {
-            setAccountOptions(Array.isArray(data.accounts) ? data.accounts : []);
-            setCurrencyOptions(Array.isArray(data.currencies) ? data.currencies : []);
-          }
-        })
-        .catch(() => {});
-      const tableData = JSON.parse(tableDataRaw);
-      const processData = JSON.parse(processDataRaw);
-      displayProcessInfo(processData);
-      const initialRows = extractSummaryRowsFromCapturedTable(tableData);
-      setSummaryRows(initialRows);
-      const processId = Number(processData.process ?? processData.processId ?? processData.process_id ?? 0) || null;
-      const processCurrencyText = String(processData.currencyName || processData.currency || "").trim();
-      setProcessCurrencyCode(processCurrencyText);
-      setProcessMeta({
-        captureDate: processData.date || "",
-        processId,
-        currencyId: null,
-        remark: processData.remark || "",
-      });
-      hideLoadingState();
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("load summary react error:", e);
-      showEmptyState();
-    }
-  }, [companyId, displayProcessInfo, hideLoadingState, legacyReady, showEmptyState, showNotification]);
-
-  useEffect(() => {
     if (!processCurrencyCode || !currencyOptions.length) return;
     const selectedCurrency = currencyOptions.find((c) => String(c.code || "").trim().toUpperCase() === processCurrencyCode.toUpperCase());
     if (!selectedCurrency) return;
@@ -357,6 +325,21 @@ export default function DataCaptureSummaryPage() {
       prev.map((row) => (row.currencyId ? row : { ...row, currencyId: selectedCurrency.id, currency: selectedCurrency.code })),
     );
   }, [currencyOptions, processCurrencyCode]);
+
+  const summaryColumns = useSummaryTableColumns({
+    accountOptions,
+    currencyOptions,
+    openAddModal,
+    setSummaryRows,
+    computeProcessedAmounts,
+    formatAmountDisplay,
+  });
+
+  const summaryTable = useReactTable({
+    data: summaryRows,
+    columns: summaryColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <div className="container">
@@ -422,155 +405,27 @@ export default function DataCaptureSummaryPage() {
         <div className="table-wrapper">
           <table className="summary-table" id="summaryTable">
             <thead>
-              <tr>
-                <th className="id-product-header">Id Product</th>
-                <th>Account</th>
-                <th />
-                <th>Currency</th>
-                <th>Formula</th>
-                <th>Source</th>
-                <th>Rate</th>
-                <th>Rate Value</th>
-                <th>Processed Amount</th>
-                <th>Skip</th>
-                <th>Delete</th>
-              </tr>
+              {summaryTable.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th key={header.id} className={header.column.columnDef.meta?.className || undefined}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
             </thead>
             <tbody id="summaryTableBody">
-              {summaryRows.map((row, idx) => {
-                const value = row.idProduct;
-                const rowIndex = row.originalRowIndex ?? idx;
+              {summaryTable.getRowModel().rows.map((tableRow) => {
+                const rowData = tableRow.original;
+                const rowIndex = rowData.originalRowIndex ?? tableRow.index;
                 return (
-                  <tr key={row.id} data-row-index={String(rowIndex)} data-product-type="main">
-                    <td className="id-product" data-main-product={value} data-sub-product="" title={value || undefined}>
-                      {value}
-                    </td>
-                    <td>
-                      <select
-                        value={row.accountId ?? ""}
-                        onChange={(e) => {
-                          const selected = accountOptions.find((a) => String(a.id) === e.target.value);
-                          setSummaryRows((prev) =>
-                            prev.map((item) =>
-                              item.id === row.id
-                                ? {
-                                    ...item,
-                                    accountId: selected?.id ?? null,
-                                    account: selected ? `${selected.account_id}${selected.name ? ` (${selected.name})` : ""}` : "",
-                                  }
-                                : item,
-                            ),
-                          );
-                        }}
-                      >
-                        <option value="">Select Account</option>
-                        {accountOptions.map((acc) => (
-                          <option key={acc.id} value={acc.id}>
-                            {acc.account_id}
-                            {acc.name ? ` (${acc.name})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <button
-                        className="add-account-btn"
-                        type="button"
-                        onClick={openAddModal}
-                      >
-                        +
-                      </button>
-                    </td>
-                    <td>
-                      <select
-                        value={row.currencyId ?? ""}
-                        onChange={(e) => {
-                          const selected = currencyOptions.find((c) => String(c.id) === e.target.value);
-                          setSummaryRows((prev) =>
-                            prev.map((item) =>
-                              item.id === row.id
-                                ? {
-                                    ...item,
-                                    currencyId: selected?.id ?? null,
-                                    currency: selected?.code ?? "",
-                                  }
-                                : item,
-                            ),
-                          );
-                        }}
-                      >
-                        <option value="">Currency</option>
-                        {currencyOptions.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.code}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        value={row.formula}
-                        onChange={(e) => {
-                          const formula = e.target.value;
-                          setSummaryRows((prev) =>
-                            prev.map((item) =>
-                              item.id === row.id
-                                ? { ...item, formula, processedAmount: computeProcessedAmount(formula, item.source || "1") }
-                                : item,
-                            ),
-                          );
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        value={row.source}
-                        placeholder="1"
-                        onChange={(e) => {
-                          const source = e.target.value;
-                          setSummaryRows((prev) =>
-                            prev.map((item) =>
-                              item.id === row.id
-                                ? { ...item, source, processedAmount: computeProcessedAmount(item.formula, source || "1") }
-                                : item,
-                            ),
-                          );
-                        }}
-                      />
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        className="rate-checkbox"
-                        onChange={(e) => {
-                          setSummaryRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, rateChecked: e.currentTarget.checked } : item)));
-                        }}
-                        checked={row.rateChecked}
-                      />
-                    </td>
-                    <td className="editable-cell" style={{ textAlign: "center", cursor: "text" }}>{row.rateValue}</td>
-                    <td>{row.processedAmount}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        className="summary-select-checkbox"
-                        onChange={(e) => {
-                          setSummaryRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, skipChecked: e.currentTarget.checked } : item)));
-                        }}
-                        checked={row.skipChecked}
-                      />
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        className="summary-row-checkbox"
-                        data-value={value}
-                        onChange={() => {
-                          setSummaryRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, deleteChecked: !item.deleteChecked } : item)));
-                        }}
-                        checked={row.deleteChecked}
-                      />
-                    </td>
+                  <tr key={tableRow.id} data-row-index={String(rowIndex)} data-product-type="main">
+                    {tableRow.getVisibleCells().map((cell) => (
+                      <Fragment key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </Fragment>
+                    ))}
                   </tr>
                 );
               })}
@@ -578,7 +433,7 @@ export default function DataCaptureSummaryPage() {
             <tfoot>
               <tr id="summaryTotalRow">
                 <td colSpan="8" className="summary-total-label" />
-                <td id="summaryTotalAmount" style={{ color: submitState.canSubmit ? "#0D60FF" : "#A91215" }}>{summaryTotal.toFixed(2)}</td>
+                <td id="summaryTotalAmount" style={{ color: submitState.canSubmit ? "#0D60FF" : "#A91215" }}>{formatAmountDisplay(summaryTotal)}</td>
                 <td />
                 <td />
               </tr>
@@ -588,7 +443,14 @@ export default function DataCaptureSummaryPage() {
       </div>
 
       <div className="summary-submit-container" id="summarySubmitContainer" style={{ display: contentVisible ? "flex" : "none" }}>
-        <button type="button" className="btn btn-submit" id="summarySubmitBtn" onClick={submitSummaryData} disabled={!submitState.canSubmit} title={submitState.title}>
+        <button
+          type="button"
+          className="btn btn-submit"
+          id="summarySubmitBtn"
+          onClick={submitSummaryData}
+          disabled={!submitState.canSubmit || isSubmitting}
+          title={submitState.title}
+        >
           Submit
         </button>
         <button type="button" className="btn btn-cancel" onClick={goBackToDataCapture} style={{ marginLeft: 10 }}>
@@ -650,7 +512,7 @@ export default function DataCaptureSummaryPage() {
         </div>
         <div className="empty-state">
           <p>No captured data found. Please go back to the Data Capture page and submit some data first.</p>
-          <button onClick={() => (window.location.href = "/datacapture")} className="btn btn-save" type="button">
+          <button onClick={() => navigate("/datacapture")} className="btn btn-save" type="button">
             Go to Data Capture
           </button>
         </div>
@@ -665,27 +527,32 @@ export default function DataCaptureSummaryPage() {
             </span>
           </div>
           <div className="account-modal-body">
-            <form id="addAccountForm" className="account-form">
+            <form id="addAccountForm" className="account-form" onSubmit={submitAddAccount}>
               <div className="account-form-columns">
                 <div className="account-form-column">
                   <h3 className="account-section-header">Personal Information</h3>
                   <div className="account-form-group">
                     <label htmlFor="add_account_id">Account ID *</label>
-                    <input type="text" id="add_account_id" name="account_id" required />
+                    <input type="text" id="add_account_id" name="account_id" required value={addForm.account_id} onChange={(e) => setAddForm((p) => ({ ...p, account_id: e.target.value.toUpperCase() }))} />
                   </div>
                   <div className="account-form-group">
                     <label htmlFor="add_name">Name *</label>
-                    <input type="text" id="add_name" name="name" required />
+                    <input type="text" id="add_name" name="name" required value={addForm.name} onChange={(e) => setAddForm((p) => ({ ...p, name: e.target.value.toUpperCase() }))} />
                   </div>
                   <div className="account-form-group">
                     <label htmlFor="add_role">Role *</label>
-                    <select id="add_role" name="role" required>
+                    <select id="add_role" name="role" required value={addForm.role} onChange={(e) => setAddForm((p) => ({ ...p, role: e.target.value }))}>
                       <option value="">Select Role</option>
+                      {roleOptions.map((role) => (
+                        <option key={role.id ?? role.role ?? role.name} value={role.role ?? role.name}>
+                          {role.role ?? role.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="account-form-group">
                     <label htmlFor="add_password">Password *</label>
-                    <input type="password" id="add_password" name="password" required autoComplete="new-password" />
+                    <input type="password" id="add_password" name="password" required autoComplete="new-password" value={addForm.password} onChange={(e) => setAddForm((p) => ({ ...p, password: e.target.value }))} />
                   </div>
                 </div>
                 <div className="account-form-column">
@@ -695,19 +562,19 @@ export default function DataCaptureSummaryPage() {
                     <label>Payment Alert</label>
                     <div className="account-radio-group">
                       <label className="account-radio-label">
-                        <input type="radio" name="add_payment_alert" value="1" />
+                        <input type="radio" name="add_payment_alert" value="1" checked={addForm.payment_alert === "1"} onChange={() => setAddForm((p) => ({ ...p, payment_alert: "1" }))} />
                         Yes
                       </label>
                       <label className="account-radio-label">
-                        <input type="radio" name="add_payment_alert" value="0" defaultChecked />
+                        <input type="radio" name="add_payment_alert" value="0" checked={addForm.payment_alert === "0"} onChange={() => setAddForm((p) => ({ ...p, payment_alert: "0" }))} />
                         No
                       </label>
                     </div>
                   </div>
-                  <div className="account-form-row" id="add_alert_fields" style={{ display: "none" }}>
+                  <div className="account-form-row" id="add_alert_fields" style={{ display: addForm.payment_alert === "1" ? "flex" : "none" }}>
                     <div className="account-form-group">
                       <label htmlFor="add_alert_type">Alert Type</label>
-                      <select id="add_alert_type" name="alert_type">
+                      <select id="add_alert_type" name="alert_type" value={addForm.alert_type} onChange={(e) => setAddForm((p) => ({ ...p, alert_type: e.target.value }))}>
                         <option value="">Select Type</option>
                         <option value="weekly">Weekly</option>
                         <option value="monthly">Monthly</option>
@@ -720,16 +587,16 @@ export default function DataCaptureSummaryPage() {
                     </div>
                     <div className="account-form-group">
                       <label htmlFor="add_alert_start_date">Start Date</label>
-                      <input type="date" id="add_alert_start_date" name="alert_start_date" />
+                      <input type="date" id="add_alert_start_date" name="alert_start_date" value={addForm.alert_start_date} onChange={(e) => setAddForm((p) => ({ ...p, alert_start_date: e.target.value }))} />
                     </div>
                   </div>
-                  <div className="account-form-group" id="add_alert_amount_row" style={{ display: "none" }}>
+                  <div className="account-form-group" id="add_alert_amount_row" style={{ display: addForm.payment_alert === "1" ? "block" : "none" }}>
                     <label htmlFor="add_alert_amount">Alert (Amount)</label>
-                    <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)" />
+                    <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)" value={addForm.alert_amount} onChange={(e) => setAddForm((p) => ({ ...p, alert_amount: e.target.value }))} />
                   </div>
                   <div className="account-form-group">
                     <label htmlFor="add_remark">Remark</label>
-                    <textarea id="add_remark" name="remark" rows="1" style={{ resize: "none", overflowY: "hidden", lineHeight: 1.5 }} />
+                    <textarea id="add_remark" name="remark" rows="1" style={{ resize: "none", overflowY: "hidden", lineHeight: 1.5 }} value={addForm.remark} onChange={(e) => setAddForm((p) => ({ ...p, remark: e.target.value.toUpperCase() }))} />
                   </div>
                 </div>
               </div>
