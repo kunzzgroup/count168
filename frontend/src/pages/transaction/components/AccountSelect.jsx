@@ -149,3 +149,5 @@ export function AccountSelect({
     </div>
   );
 }
+
+export default AccountSelect;
