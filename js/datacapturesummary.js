@@ -2,6 +2,10 @@
 
 // Notification functions
 function showNotification(title, message, type = 'success') {
+    if (typeof window.__DCS_SHOW_NOTIFICATION === 'function') {
+        window.__DCS_SHOW_NOTIFICATION(title, message, type);
+        return;
+    }
     const popup = document.getElementById('notificationPopup');
     const titleEl = document.getElementById('notificationTitle');
     const messageEl = document.getElementById('notificationMessage');
@@ -72,6 +76,10 @@ function findColumnIndexByValue(processValue, numericValue) {
 }
 
 function hideNotification() {
+    if (typeof window.__DCS_HIDE_NOTIFICATION === 'function') {
+        window.__DCS_HIDE_NOTIFICATION();
+        return;
+    }
     const popup = document.getElementById('notificationPopup');
     popup.classList.remove('show');
     setTimeout(() => {
@@ -81,7 +89,8 @@ function hideNotification() {
 
 
 // Initialize page
-document.addEventListener('DOMContentLoaded', function () {
+function bootstrapDataCaptureSummaryPage(options = {}) {
+    const { handleUrlParams = true, runInitialLoad = true } = options;
     try {
         // 确保页面可以滚动（覆盖 accountCSS.css 中的 overflow: hidden）
         document.body.style.overflowY = 'auto';
@@ -107,30 +116,46 @@ document.addEventListener('DOMContentLoaded', function () {
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
         window.__summaryFreshFromCapture = urlParams.get('success') === '1';
-        if (urlParams.get('success') === '1') {
-            showNotification('Success', 'Data captured and summary generated successfully!', 'success');
-            // Clean URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (urlParams.get('error') === '1') {
-            showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
-            // Clean URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+        if (handleUrlParams) {
+            if (urlParams.get('success') === '1') {
+                showNotification('Success', 'Data captured and summary generated successfully!', 'success');
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (urlParams.get('error') === '1') {
+                showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
         }
 
-        // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-        // IMPORTANT: 必须在 __summaryFreshFromCapture 设置后执行，避免首屏误走旧缓存恢复分支。
-        loadAndRenderCapturedTable().catch(function (e) {
-            console.warn('loadAndRenderCapturedTable error:', e);
-            hideLoadingState();
-            showEmptyState();
-        });
+        if (runInitialLoad) {
+            // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
+            // IMPORTANT: 必须在 __summaryFreshFromCapture 设置后执行，避免首屏误走旧缓存恢复分支。
+            loadAndRenderCapturedTable().catch(function (e) {
+                console.warn('loadAndRenderCapturedTable error:', e);
+                hideLoadingState();
+                showEmptyState();
+            });
+        }
     } catch (error) {
         console.error('Error in DOMContentLoaded:', error);
         // Ensure loading state is hidden even if there's an error
         hideLoadingState();
         showEmptyState();
     }
-});
+}
+
+window.__bootstrapDataCaptureSummaryPage = bootstrapDataCaptureSummaryPage;
+window.loadAndRenderCapturedTable = loadAndRenderCapturedTable;
+window.showNotification = showNotification;
+window.hideLoadingState = hideLoadingState;
+window.showEmptyState = showEmptyState;
+
+if (!window.__DCS_REACT_BOOTSTRAP__) {
+    document.addEventListener('DOMContentLoaded', function () {
+        bootstrapDataCaptureSummaryPage({ handleUrlParams: true });
+    });
+}
 
 // 从 bfcache 返回（浏览器后退等）时 DOM 不会重新跑 DOMContentLoaded，页脚合计可能仍为旧值；此处按当前表格强制对齐
 window.addEventListener('pageshow', function (ev) {
@@ -1258,6 +1283,10 @@ function restoreRateValuesFromRefresh() {
 // Go back to datacapture page, preserving localStorage data
 // 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
 function goBackToDataCapture() {
+    if (typeof window.__DCS_GO_BACK === 'function') {
+        window.__DCS_GO_BACK();
+        return;
+    }
     if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
     if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
@@ -1266,6 +1295,10 @@ function goBackToDataCapture() {
 
 // Refresh page function: save rate values and formula/source so they are restored after reload
 function refreshPage() {
+    if (typeof window.__DCS_REFRESH_PAGE === 'function') {
+        window.__DCS_REFRESH_PAGE();
+        return;
+    }
     saveRateValuesForRefresh();
     saveFormulaSourceForRefresh();
     window.location.reload();
@@ -1368,6 +1401,10 @@ async function loadAndRenderCapturedTable() {
 
 // Display process information
 function displayProcessInfo(processData) {
+    if (typeof window.__DCS_DISPLAY_PROCESS_INFO === 'function') {
+        window.__DCS_DISPLAY_PROCESS_INFO(processData);
+        return;
+    }
     const processInfoContainer = document.getElementById('processInfoContainer');
     if (!processInfoContainer || !processData) {
         return;
@@ -1414,6 +1451,10 @@ function displayProcessInfo(processData) {
 
 // 根据 Summary 表首行货币更新页头 Currency；若 Data Capture 已选货币则优先显示该货币（与外面选择一致）
 function updateHeaderCurrencyFromSummaryTable() {
+    if (typeof window.__DCS_UPDATE_PROCESS_CURRENCY_FROM_TABLE === 'function') {
+        window.__DCS_UPDATE_PROCESS_CURRENCY_FROM_TABLE();
+        return;
+    }
     const currencyEl = document.getElementById('processInfoCurrency');
     if (!currencyEl) return;
     const processData = window.capturedProcessData;
@@ -1439,6 +1480,10 @@ function updateHeaderCurrencyFromSummaryTable() {
 
 // Hide loading state and show content
 function hideLoadingState() {
+    if (typeof window.__DCS_HIDE_LOADING_STATE === 'function') {
+        window.__DCS_HIDE_LOADING_STATE();
+        return;
+    }
     const loadingState = document.getElementById('loadingState');
     const actionButtons = document.getElementById('actionButtons');
     const summaryTableContainer = document.getElementById('summaryTableContainer');
@@ -1687,11 +1732,22 @@ function populateOriginalTableWithColumnAData(tableData) {
         window._summaryColumnAOrder = columnAData.map(v => (v || '').trim().replace(/\s+/g, '')).filter(Boolean);
     } catch (e) { }
 
-    // 每个 Id Product 均为独立的 Main（如 ALLBET95MS(SV)MYR、ALLBET95MS(KM)MYR、GAMS(SV)MYR 等），不按 base 分组为 MAIN+SUB
-    // Create rows for the original table
-    // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-    columnAData.forEach((value, index) => {
-        if (value && value.trim() !== '') { // Only add non-empty values
+    const seedRows = columnAData
+        .map((value, index) => ({
+            value,
+            originalRowIndex: rowIndexMap[index] !== undefined ? rowIndexMap[index] : index
+        }))
+        .filter(item => item.value && String(item.value).trim() !== '');
+
+    // React bridge: let React render summary row skeletons first.
+    if (typeof window.__DCS_SEED_SUMMARY_ROWS === 'function') {
+        window.__DCS_SEED_SUMMARY_ROWS(seedRows);
+    } else {
+        // 每个 Id Product 均为独立的 Main（如 ALLBET95MS(SV)MYR、ALLBET95MS(KM)MYR、GAMS(SV)MYR 等），不按 base 分组为 MAIN+SUB
+        // Create rows for the original table
+        // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
+        seedRows.forEach((item) => {
+            const value = item.value;
             const row = document.createElement('tr');
 
             // Set data-row-index to match Data Capture Table row position
@@ -1700,7 +1756,7 @@ function populateOriginalTableWithColumnAData(tableData) {
             // 设置 data-row-index 以匹配 Data Capture Table 行位置
             // 对于 D 行（索引 3）有多个条目的情况，所有拆分的行都应使用行索引 3
             // 这确保 Summary Table 顺序与 Data Capture Table 顺序匹配
-            const originalRowIndex = rowIndexMap[index] !== undefined ? rowIndexMap[index] : index;
+            const originalRowIndex = item.originalRowIndex;
             row.setAttribute('data-row-index', String(originalRowIndex));
             row.setAttribute('data-product-type', 'main');
 
@@ -1809,8 +1865,8 @@ function populateOriginalTableWithColumnAData(tableData) {
 
             // Attach double-click event listeners for formula and source percent cells
             // Note: These cells are empty initially, listeners will be attached when cells are populated
-        }
-    });
+        });
+    }
 
     console.log(`Populated ${columnAData.filter(v => v && v.trim() !== '').length} rows in original table`);
 
@@ -19195,25 +19251,38 @@ function updateProcessedAmountTotal() {
 
     const finalTotalRaw = hasValue ? total.toString() : '0';
     const finalTotal = roundProcessedAmountTo2Decimals(finalTotalRaw); // 只在显示时截断到 2 位
-    totalCell.textContent = formatNumberWithThousands(finalTotal);
-    if (MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0) {
-        totalCell.style.color = '#0D60FF';
-    } else {
-        totalCell.style.color = '#A91215';
-    }
+    const totalText = formatNumberWithThousands(finalTotal);
+    const isWithinRange = MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0;
+    const totalColor = isWithinRange ? '#0D60FF' : '#A91215';
 
     // Submit 按钮：合计在范围内 且 每行有 Account 的都有 Currency 和 Formula 才可点，否则变灰
     if (submitBtn) {
-        const isWithinRange = MoneyDecimal.cmp(finalTotal, '-0.05') >= 0 && MoneyDecimal.cmp(finalTotal, '0.05') <= 0;
         const canSubmit = isWithinRange && allRowsHaveCurrencyAndFormula;
-        submitBtn.disabled = !canSubmit;
-
-        if (!isWithinRange) {
-            submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${formatNumberWithThousands(finalTotal)}`;
-        } else if (!allRowsHaveCurrencyAndFormula) {
-            submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
+        const submitTitle = !isWithinRange
+            ? `Total must be between -0.05 and 0.05. Current total: ${totalText}`
+            : (!allRowsHaveCurrencyAndFormula ? '请为每一行选择 Currency 并填写 Formula 后再提交。' : '');
+        if (typeof window.__DCS_UPDATE_TOTAL_AND_SUBMIT === 'function') {
+            window.__DCS_UPDATE_TOTAL_AND_SUBMIT({
+                totalText: totalText,
+                totalColor: totalColor,
+                canSubmit: canSubmit,
+                submitTitle: submitTitle
+            });
         } else {
-            submitBtn.title = '';
+            totalCell.textContent = totalText;
+            totalCell.style.color = totalColor;
+            submitBtn.disabled = !canSubmit;
+            submitBtn.title = submitTitle;
+        }
+    } else {
+        if (typeof window.__DCS_UPDATE_TOTAL_AND_SUBMIT === 'function') {
+            window.__DCS_UPDATE_TOTAL_AND_SUBMIT({
+                totalText: totalText,
+                totalColor: totalColor
+            });
+        } else {
+            totalCell.textContent = totalText;
+            totalCell.style.color = totalColor;
         }
     }
 }
@@ -19258,6 +19327,10 @@ function updateIdProductWithDescription(processValue, descriptionValue, targetRo
 
 // Show empty state when no data is available
 function showEmptyState() {
+    if (typeof window.__DCS_SHOW_EMPTY_STATE === 'function') {
+        window.__DCS_SHOW_EMPTY_STATE();
+        return;
+    }
     // Create a new container for the empty state message
     const emptyStateHTML = `
         <div class="summary-table-container empty-state-container">
@@ -19453,11 +19526,16 @@ function deleteSelectedRows() {
 let deleteCallback = null;
 
 function showConfirmDelete(message, callback) {
+    if (typeof window.__DCS_SHOW_CONFIRM_DELETE === 'function') {
+        window.__DCS_SHOW_CONFIRM_DELETE(message, callback);
+        return;
+    }
     const modal = document.getElementById('confirmDeleteModal');
     const messageEl = document.getElementById('confirmDeleteMessage');
 
     messageEl.textContent = message;
     deleteCallback = callback;
+    window.__summaryDeleteCallback = callback;
 
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -19468,6 +19546,7 @@ function closeConfirmDeleteModal() {
     modal.style.display = 'none';
     document.body.style.overflow = '';
     deleteCallback = null;
+    window.__summaryDeleteCallback = null;
 }
 
 function confirmDelete() {

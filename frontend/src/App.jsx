@@ -10,6 +10,7 @@ import BankProcessListPage from "./pages/bankprocesslist/BankProcessListPage.jsx
 import UserListPage from "./pages/userlist/UserListPage.jsx";
 import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 import DataCapturePage from "./pages/datacapture/DataCapturePage.jsx";
+import DataCaptureSummaryPage from "./pages/datacapturesummary/DataCaptureSummaryPage.jsx";
 import TransactionPaymentPage from "./pages/transaction/TransactionPaymentPage.jsx";
 import CustomerReportPage from "./pages/report/CustomerReportPage.jsx";
 import DomainReportPage from "./pages/report/DomainReportPage.jsx";
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/userlist" element={<UserListPage />} />
         <Route path="/ownership" element={<OwnershipPage />} />
         <Route path="/datacapture" element={<DataCapturePage />} />
+        <Route path="/datacapturesummary" element={<DataCaptureSummaryPage />} />
         <Route path="/transaction" element={<TransactionPaymentPage />} />
         <Route path="/customer-report" element={<CustomerReportPage />} />
         <Route path="/domain-report" element={<DomainReportPage />} />
@@ -56,6 +58,7 @@ export default function App() {
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
       <Route path="/datacapture.php" element={<Navigate to="/datacapture" replace />} />
+      <Route path="/datacapturesummary.php" element={<Navigate to="/datacapturesummary" replace />} />
       <Route path="/transaction.php" element={<Navigate to="/transaction" replace />} />
       <Route path="/transcation" element={<Navigate to="/transaction" replace />} />
       <Route path="/customer_report.php" element={<Navigate to="/customer-report" replace />} />
