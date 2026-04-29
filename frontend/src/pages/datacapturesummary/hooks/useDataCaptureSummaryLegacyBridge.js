@@ -22,7 +22,6 @@ export function useDataCaptureSummaryLegacyBridge() {
         if (cancelled) return;
         const nextCompanyId = meJson?.data?.company_id ?? null;
         setCompanyId(nextCompanyId);
-        window.__DCS_REACT_BOOTSTRAP__ = true;
         setLegacyReady(true);
 
         const dcSection = document.getElementById("sidebar-datacapture-section");
@@ -56,7 +55,6 @@ export function useDataCaptureSummaryLegacyBridge() {
     setup();
     return () => {
       cancelled = true;
-      window.__DCS_REACT_BOOTSTRAP__ = false;
     };
   }, []);
 

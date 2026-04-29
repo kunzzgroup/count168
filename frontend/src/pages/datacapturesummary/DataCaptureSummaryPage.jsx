@@ -60,6 +60,8 @@ export default function DataCaptureSummaryPage() {
     alert_amount: "",
     remark: "",
   });
+  const [addCurrencyInput, setAddCurrencyInput] = useState("");
+  const [selectedCurrencyIds, setSelectedCurrencyIds] = useState([]);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page");
@@ -158,6 +160,8 @@ export default function DataCaptureSummaryPage() {
 
   const closeAddModal = useCallback(() => {
     setAddModalVisible(false);
+    setAddCurrencyInput("");
+    setSelectedCurrencyIds([]);
   }, []);
 
   const openAddModal = useCallback(() => {
@@ -187,8 +191,23 @@ export default function DataCaptureSummaryPage() {
         });
         const json = await response.json();
         if (!json?.success) throw new Error(json?.message || json?.error || "Failed to add account");
+        const newAccountId = json?.data?.id ?? null;
+        if (newAccountId && selectedCurrencyIds.length > 0) {
+          await Promise.all(
+            selectedCurrencyIds.map((currencyId) =>
+              fetch(buildApiUrl("api/accounts/account_currency_api.php?action=add_currency"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ account_id: newAccountId, currency_id: currencyId }),
+                credentials: "include",
+              }),
+            ),
+          );
+        }
         showNotification("Success", "Account added successfully!", "success");
         setAddModalVisible(false);
+        setAddCurrencyInput("");
+        setSelectedCurrencyIds([]);
         setAddForm({
           account_id: "",
           name: "",
@@ -204,12 +223,42 @@ export default function DataCaptureSummaryPage() {
         showNotification("Error", error?.message || "Failed to add account", "error");
       }
     },
-    [addForm, companyId, showNotification],
+    [addForm, companyId, selectedCurrencyIds, showNotification],
   );
 
-  const addCurrencyFromInput = useCallback(() => {
-    showNotification("Info", "Currency create flow is being migrated.", "info");
-  }, []);
+  const addCurrencyFromInput = useCallback(async () => {
+    const code = addCurrencyInput.trim().toUpperCase();
+    if (!code) {
+      showNotification("Info", "Please enter a currency code first.", "info");
+      return;
+    }
+    if (!companyId) {
+      showNotification("Error", "Missing company context.", "error");
+      return;
+    }
+    try {
+      const response = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, company_id: companyId }),
+        credentials: "include",
+      });
+      const json = await response.json();
+      if (!json?.success || !json?.data) {
+        throw new Error(json?.message || json?.error || "Failed to create currency");
+      }
+      const created = { id: json.data.id, code: json.data.code };
+      setCurrencyOptions((prev) => {
+        if (prev.some((item) => Number(item.id) === Number(created.id))) return prev;
+        return [...prev, created];
+      });
+      setSelectedCurrencyIds((prev) => (prev.includes(created.id) ? prev : [...prev, created.id]));
+      setAddCurrencyInput("");
+      showNotification("Success", `Currency ${created.code} created.`, "success");
+    } catch (error) {
+      showNotification("Error", error?.message || "Failed to create currency", "error");
+    }
+  }, [addCurrencyInput, companyId, showNotification]);
 
   const hideLoadingState = useCallback(() => {
     setLoadingVisible(false);
@@ -559,12 +608,40 @@ export default function DataCaptureSummaryPage() {
                   <div className="account-other-currency">
                     <label>Other Currency:</label>
                     <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                      <input type="text" id="addCurrencyInput" placeholder="Enter new currency code (e.g., EUR, JPY, GBP)" style={{ flex: 1, padding: 8, border: "1px solid #ddd", borderRadius: 4 }} />
+                      <input
+                        type="text"
+                        id="addCurrencyInput"
+                        placeholder="Enter new currency code (e.g., EUR, JPY, GBP)"
+                        style={{ flex: 1, padding: 8, border: "1px solid #ddd", borderRadius: 4 }}
+                        value={addCurrencyInput}
+                        onChange={(e) => setAddCurrencyInput(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addCurrencyFromInput();
+                          }
+                        }}
+                      />
                       <button type="button" className="account-btn-add-currency" onClick={addCurrencyFromInput}>
                         Create Currency
                       </button>
                     </div>
-                    <div className="account-currency-list" id="addCurrencyList" />
+                    <div className="account-currency-list" id="addCurrencyList">
+                      {currencyOptions.map((currency) => (
+                        <label key={currency.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginRight: 10 }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedCurrencyIds.includes(currency.id)}
+                            onChange={(e) => {
+                              setSelectedCurrencyIds((prev) =>
+                                e.target.checked ? [...new Set([...prev, currency.id])] : prev.filter((id) => id !== currency.id),
+                              );
+                            }}
+                          />
+                          {currency.code}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div className="account-other-currency" style={{ marginTop: 20 }}>
                     <label>Company:</label>
