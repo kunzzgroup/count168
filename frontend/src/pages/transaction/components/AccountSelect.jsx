@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export function AccountSelect({
-  buttonId,
-  dropdownId,
   placeholder,
   options,
   value,
@@ -16,6 +14,7 @@ export function AccountSelect({
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const searchRef = useRef(null);
   const optionsContainerRef = useRef(null);
+  const containerRef = useRef(null);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toUpperCase();
@@ -31,15 +30,13 @@ export function AccountSelect({
   useEffect(() => {
     if (!open) return undefined;
     const onDoc = (e) => {
-      const btn = document.getElementById(buttonId);
-      const dd = document.getElementById(dropdownId);
-      if (!btn || !dd) return;
-      if (btn.contains(e.target) || dd.contains(e.target)) return;
-      setOpen(false);
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [open, buttonId, dropdownId]);
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -71,11 +68,10 @@ export function AccountSelect({
   const displayText = value?.display_text ? value.display_text : placeholder;
 
   return (
-    <div className="custom-select-wrapper">
+    <div className="custom-select-wrapper" ref={containerRef}>
       <button
         type="button"
         className={`custom-select-button${open ? " open" : ""}`}
-        id={buttonId}
         data-placeholder={placeholder}
         data-value={value?.id ?? ""}
         data-account-id={value?.id ?? ""}
@@ -89,7 +85,7 @@ export function AccountSelect({
       >
         {displayText}
       </button>
-      <div className={`custom-select-dropdown${open ? " show" : ""}`} id={dropdownId}>
+      <div className={`custom-select-dropdown${open ? " show" : ""}`}>
         <div className="custom-select-search">
           <input
             ref={searchRef}
