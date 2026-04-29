@@ -50,6 +50,10 @@ export function useTransactionSearch({
   const lastSearchCommitMsRef = useRef(0);
   const runSearchRef = useRef(null);
   const autoSearchTimerRef = useRef(null);
+  const prevServerFilterRef = useRef({
+    showPaymentOnly: false,
+    showCaptureOnly: false,
+  });
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
 
@@ -267,8 +271,29 @@ export function useTransactionSearch({
   ]);
 
   // NOTE:
-  // showName / showCaptureOnly / showPaymentOnly / showZeroBalance are now list-local filters.
-  // Do NOT auto-trigger API search on checkbox changes; only re-compute tablePresentation locally.
+  // Most checkbox changes are list-local for speed.
+  // But when server-side-narrowed filters are turned OFF, refresh once to restore full dataset.
+  useEffect(() => {
+    const prev = prevServerFilterRef.current;
+    const paymentTurnedOff = prev.showPaymentOnly && !searchState.showPaymentOnly;
+    const captureTurnedOff = prev.showCaptureOnly && !searchState.showCaptureOnly;
+    prevServerFilterRef.current = {
+      showPaymentOnly: searchState.showPaymentOnly,
+      showCaptureOnly: searchState.showCaptureOnly,
+    };
+
+    if (!paymentTurnedOff && !captureTurnedOff) return;
+    if (!filterSnapshot?.companyId) return;
+    if (!effectiveDateFrom || !effectiveDateTo) return;
+    scheduleAutoSearch({ silent: false, delayMs: 80 });
+  }, [
+    searchState.showPaymentOnly,
+    searchState.showCaptureOnly,
+    filterSnapshot?.companyId,
+    effectiveDateFrom,
+    effectiveDateTo,
+    scheduleAutoSearch,
+  ]);
 
   const saveTxListToSession = useCallback(
     (data) => {
