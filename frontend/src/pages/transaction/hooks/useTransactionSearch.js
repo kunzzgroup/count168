@@ -50,6 +50,7 @@ export function useTransactionSearch({
   const initialSearchDoneRef = useRef(false);
   const lastSearchCommitMsRef = useRef(0);
   const runSearchRef = useRef(null);
+  const autoSearchTimerRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
 
@@ -96,6 +97,17 @@ export function useTransactionSearch({
     // Trigger search after state update
     categoryChangedByUserRef.current = true;
   }, []);
+
+  const scheduleAutoSearch = useCallback(
+    ({ silent = false, isInitialLoad = false, delayMs = 260 } = {}) => {
+      if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
+      autoSearchTimerRef.current = setTimeout(() => {
+        autoSearchTimerRef.current = null;
+        void runSearchRef.current?.({ silent, isInitialLoad });
+      }, delayMs);
+    },
+    [],
+  );
 
   const selectQuickRange = useCallback((key) => {
     setQuickOpen(false);
@@ -261,17 +273,6 @@ export function useTransactionSearch({
   }, []);
 
   const skipFilterSearchEffectRef = useRef(true);
-  const autoSearchTimerRef = useRef(null);
-  const scheduleAutoSearch = useCallback(
-    ({ silent = false, isInitialLoad = false, delayMs = 260 } = {}) => {
-      if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
-      autoSearchTimerRef.current = setTimeout(() => {
-        autoSearchTimerRef.current = null;
-        void runSearchRef.current?.({ silent, isInitialLoad });
-      }, delayMs);
-    },
-    [],
-  );
   useEffect(() => {
     if (skipFilterSearchEffectRef.current) {
       skipFilterSearchEffectRef.current = false;
