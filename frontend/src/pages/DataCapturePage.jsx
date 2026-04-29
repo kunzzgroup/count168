@@ -3,6 +3,9 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { buildApiUrl } from "../utils/apiUrl.js";
 import { useDataCaptureLegacyBridge } from "./datacapture/hooks/useDataCaptureLegacyBridge.js";
+import { useDataCaptureSubmit } from "./datacapture/hooks/useDataCaptureSubmit.js";
+import { useDataCaptureRestore } from "./datacapture/hooks/useDataCaptureRestore.js";
+import { useDataCaptureTableEngine } from "./datacapture/hooks/useDataCaptureTableEngine.js";
 
 export default function DataCapturePage() {
   const navigate = useNavigate();
@@ -18,12 +21,18 @@ export default function DataCapturePage() {
   const [processOptions, setProcessOptions] = useState([]);
   const [descriptionText, setDescriptionText] = useState("");
   const [selectedDescriptionsState, setSelectedDescriptionsState] = useState([]);
+  const [availableDescriptions, setAvailableDescriptions] = useState([]);
+  const [descriptionSearch, setDescriptionSearch] = useState("");
+  const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
+  const [newDescriptionName, setNewDescriptionName] = useState("");
   const [removeWord, setRemoveWord] = useState("");
   const [replaceWordFrom, setReplaceWordFrom] = useState("");
   const [replaceWordTo, setReplaceWordTo] = useState("");
   const [remark, setRemark] = useState("");
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
+  const { submit } = useDataCaptureSubmit({ selectedDescriptions: selectedDescriptionsState });
+  const tableEngine = useDataCaptureTableEngine();
 
   const companyCode = useMemo(() => {
     const cur = filterSnapshot?.snapCompanies?.find((c) => Number(c.id) === Number(companyId));
@@ -155,6 +164,16 @@ export default function DataCapturePage() {
   }, [navigate]);
 
   useDataCaptureLegacyBridge({ loading, forbidden, companyId, companyCode });
+  useDataCaptureRestore({
+    ready: !loading && !forbidden && companyId != null,
+    processOptions,
+    setSelectedDescriptions: setSelectedDescriptionsState,
+    setSelectedDate,
+    setRemoveWord,
+    setReplaceWordFrom,
+    setReplaceWordTo,
+    setRemark,
+  });
 
   useEffect(() => {
     const today = new Date();
@@ -197,6 +216,100 @@ export default function DataCapturePage() {
   }, [loading, forbidden, selectedDate, companyId]);
 
   useEffect(() => {
+    const tableBody = document.getElementById("tableBody");
+    const headerRow = document.querySelector("#tableHeader tr");
+    if (!tableBody || !headerRow) return;
+    if (tableBody.children.length > 0) return;
+    const rows = 26;
+    const cols = 20;
+    while (headerRow.children.length < cols + 1) {
+      const th = document.createElement("th");
+      th.textContent = String(headerRow.children.length);
+      headerRow.appendChild(th);
+    }
+    for (let r = 0; r < rows; r += 1) {
+      const tr = document.createElement("tr");
+      const rowHeader = document.createElement("td");
+      rowHeader.className = "row-header";
+      rowHeader.textContent = String(r + 1);
+      tr.appendChild(rowHeader);
+      for (let c = 0; c < cols; c += 1) {
+        const td = document.createElement("td");
+        td.contentEditable = "true";
+        td.dataset.col = String(c);
+        tr.appendChild(td);
+      }
+      tableBody.appendChild(tr);
+    }
+  }, []);
+
+  useEffect(() => {
+    const button = document.getElementById("capture_process");
+    const dropdown = document.getElementById("capture_process_dropdown");
+    const searchInput = dropdown?.querySelector(".custom-select-search input");
+    const options = dropdown?.querySelector(".custom-select-options");
+    if (!button || !dropdown || !searchInput || !options) return undefined;
+
+    const setOpen = (open) => {
+      dropdown.style.display = open ? "block" : "none";
+      if (open) searchInput.focus();
+      else searchInput.value = "";
+    };
+    const onButtonClick = () => setOpen(dropdown.style.display !== "block");
+    const onDocClick = (event) => {
+      if (!dropdown.contains(event.target) && !button.contains(event.target)) setOpen(false);
+    };
+    const onSearch = () => {
+      const key = searchInput.value.toLowerCase().trim();
+      options.querySelectorAll(".custom-select-option").forEach((opt) => {
+        const show = String(opt.textContent || "").toLowerCase().includes(key);
+        opt.style.display = show ? "" : "none";
+      });
+    };
+    const onOptionClick = (event) => {
+      const option = event.target.closest(".custom-select-option");
+      if (!option) return;
+      button.textContent = option.textContent || "";
+      button.setAttribute("data-value", option.getAttribute("data-value") || "");
+      button.setAttribute("data-process-code", option.getAttribute("data-process-code") || "");
+      const d = option.getAttribute("data-description-name");
+      if (d) button.setAttribute("data-description-name", d);
+      else button.removeAttribute("data-description-name");
+      button.dispatchEvent(new Event("change", { bubbles: true }));
+      setOpen(false);
+    };
+
+    button.addEventListener("click", onButtonClick);
+    document.addEventListener("click", onDocClick);
+    searchInput.addEventListener("input", onSearch);
+    options.addEventListener("click", onOptionClick);
+    return () => {
+      button.removeEventListener("click", onButtonClick);
+      document.removeEventListener("click", onDocClick);
+      searchInput.removeEventListener("input", onSearch);
+      options.removeEventListener("click", onOptionClick);
+    };
+  }, [processOptions]);
+
+  useEffect(() => {
+    setDescriptionText(selectedDescriptionsState.join(", "));
+  }, [selectedDescriptionsState]);
+
+  const notify = useCallback((message, type = "success") => {
+    const container = document.getElementById("processNotificationContainer");
+    if (!container) return;
+    const node = document.createElement("div");
+    node.className = `process-notification process-notification-${type}`;
+    node.textContent = message;
+    container.appendChild(node);
+    setTimeout(() => node.classList.add("show"), 10);
+    setTimeout(() => {
+      node.classList.remove("show");
+      setTimeout(() => node.remove(), 300);
+    }, 1500);
+  }, []);
+
+  useEffect(() => {
     if (loading || forbidden) return undefined;
     const processButton = document.getElementById("capture_process");
     if (!processButton) return undefined;
@@ -209,10 +322,8 @@ export default function DataCapturePage() {
       setReplaceWordFrom("");
       setReplaceWordTo("");
       setRemark("");
-      setDescriptionText("");
       setSelectedDescriptionsState([]);
       if (descriptionInput) descriptionInput.value = "";
-      window.selectedDescriptions = [];
     };
 
     const onProcessChange = async () => {
@@ -248,9 +359,7 @@ export default function DataCapturePage() {
         setRemark(pd.remarks || "");
         const nextDescriptions = pd.description_names ? [pd.description_names] : [];
         setSelectedDescriptionsState(nextDescriptions);
-        setDescriptionText(nextDescriptions.join(", "));
         if (descriptionInput) descriptionInput.value = pd.description_names || "";
-        window.selectedDescriptions = nextDescriptions;
       } catch {
         // keep previous values on transient request failure
       }
@@ -259,29 +368,6 @@ export default function DataCapturePage() {
     processButton.addEventListener("change", onProcessChange);
     return () => processButton.removeEventListener("change", onProcessChange);
   }, [loading, forbidden, companyId]);
-
-  useEffect(() => {
-    window.__setDataCaptureLinkedFields = (payload = {}) => {
-      if (Object.prototype.hasOwnProperty.call(payload, "removeWord")) setRemoveWord(payload.removeWord || "");
-      if (Object.prototype.hasOwnProperty.call(payload, "replaceWordFrom")) setReplaceWordFrom(payload.replaceWordFrom || "");
-      if (Object.prototype.hasOwnProperty.call(payload, "replaceWordTo")) setReplaceWordTo(payload.replaceWordTo || "");
-      if (Object.prototype.hasOwnProperty.call(payload, "remark")) setRemark(payload.remark || "");
-    };
-    return () => {
-      delete window.__setDataCaptureLinkedFields;
-    };
-  }, []);
-
-  useEffect(() => {
-    window.__setDataCaptureDescriptions = (descriptions = []) => {
-      const next = Array.isArray(descriptions) ? descriptions : [];
-      setSelectedDescriptionsState(next);
-      setDescriptionText(next.join(", "));
-    };
-    return () => {
-      delete window.__setDataCaptureDescriptions;
-    };
-  }, []);
 
   useEffect(() => {
     if (loading || forbidden || !companyCode) return;
@@ -326,7 +412,7 @@ export default function DataCapturePage() {
 
   useEffect(() => {
     if (!selectedPermission) return;
-    window.switchDataCapturePermission?.(selectedPermission);
+    // category kept in React; no legacy permission switch call.
   }, [selectedPermission]);
 
   useEffect(() => {
@@ -366,7 +452,6 @@ export default function DataCapturePage() {
 
         if (!result.success || !Array.isArray(result.data)) {
           setProcessOptions([]);
-          window.__syncDataCaptureProcessMap?.([]);
           return;
         }
 
@@ -386,7 +471,6 @@ export default function DataCapturePage() {
         });
 
         setProcessOptions(nextOptions);
-        window.__syncDataCaptureProcessMap?.(nextOptions);
 
         const processBtn = document.getElementById("capture_process");
         if (processBtn) {
@@ -398,7 +482,6 @@ export default function DataCapturePage() {
       } catch {
         if (!cancelled) {
           setProcessOptions([]);
-          window.__syncDataCaptureProcessMap?.([]);
         }
       }
     })();
@@ -406,6 +489,62 @@ export default function DataCapturePage() {
       cancelled = true;
     };
   }, [loading, forbidden, selectedDate, companyId]);
+
+  const loadDescriptions = useCallback(async () => {
+    const url = buildApiUrl("api/processes/addprocess_api.php");
+    const finalUrl = companyId ? `${url}?company_id=${companyId}` : url;
+    const response = await fetch(finalUrl, { credentials: "include" });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || "Failed to load descriptions");
+    setAvailableDescriptions(Array.isArray(result.descriptions) ? result.descriptions : []);
+  }, [companyId]);
+
+  const openDescriptionModal = useCallback(async () => {
+    try {
+      await loadDescriptions();
+      setDescriptionSearch("");
+      setDescriptionModalOpen(true);
+    } catch (error) {
+      notify(error.message || "Failed to load descriptions", "danger");
+    }
+  }, [loadDescriptions, notify]);
+
+  const closeDescriptionModal = useCallback(() => {
+    setDescriptionModalOpen(false);
+    setDescriptionSearch("");
+    setNewDescriptionName("");
+  }, []);
+
+  const confirmDescriptions = useCallback(() => {
+    if (!selectedDescriptionsState.length) {
+      notify("Please select at least one description", "danger");
+      return;
+    }
+    closeDescriptionModal();
+  }, [closeDescriptionModal, notify, selectedDescriptionsState]);
+
+  const resetFormValues = useCallback(() => {
+    setRemoveWord("");
+    setReplaceWordFrom("");
+    setReplaceWordTo("");
+    setRemark("");
+    setSelectedDescriptionsState([]);
+    const currencySelect = document.getElementById("capture_currency");
+    if (currencySelect) currencySelect.value = "";
+    const processBtn = document.getElementById("capture_process");
+    if (processBtn) {
+      processBtn.textContent = processBtn.getAttribute("data-placeholder") || "Select Process";
+      processBtn.removeAttribute("data-value");
+      processBtn.removeAttribute("data-process-code");
+      processBtn.removeAttribute("data-description-name");
+    }
+    const tableBody = document.getElementById("tableBody");
+    if (tableBody) {
+      tableBody.querySelectorAll("td[data-col]").forEach((cell) => {
+        cell.textContent = "";
+      });
+    }
+  }, []);
 
   if (forbidden) {
     return <Navigate to="/process-list" replace />;
@@ -538,7 +677,7 @@ export default function DataCapturePage() {
                     value={descriptionText}
                     placeholder="Click + to select descriptions"
                   />
-                  <button type="button" className="add-icon" onClick={() => window.expandDescription?.()}>
+                  <button type="button" className="add-icon" onClick={openDescriptionModal}>
                     +
                   </button>
                 </div>
@@ -641,7 +780,7 @@ export default function DataCapturePage() {
               <option value="CITIBET_MAJOR">3.CITIBET</option>
               <option value="4.RETURN">4.RETURN</option>
             </select>
-            <button type="button" className="btn btn-cancel" onClick={() => window.resetForm?.()}>
+            <button type="button" className="btn btn-cancel" onClick={resetFormValues}>
               Reset
             </button>
           </div>
@@ -667,17 +806,17 @@ export default function DataCapturePage() {
         </div>
 
         <div className="form-actions">
-          <button id="dataCaptureSubmitBtn" type="button" className="btn btn-save" onClick={() => window.submitDataCaptureForm?.()}>
+          <button id="dataCaptureSubmitBtn" type="button" className="btn btn-save" onClick={submit}>
             Submit
           </button>
         </div>
       </div>
 
-      <div id="descriptionSelectionModal" className="modal" style={{ display: "none" }}>
+      <div id="descriptionSelectionModal" className={`modal ${descriptionModalOpen ? "show" : ""}`} style={{ display: descriptionModalOpen ? "block" : "none" }}>
         <div className="modal-content description-selection-modal">
           <div className="modal-header">
             <h2>Select or Add Description</h2>
-            <span className="close" onClick={() => window.closeDescriptionSelectionModal?.()} role="presentation">
+            <span className="close" onClick={closeDescriptionModal} role="presentation">
               &times;
             </span>
           </div>
@@ -685,15 +824,68 @@ export default function DataCapturePage() {
             <div className="description-selection-container">
               <div className="selected-descriptions-section">
                 <h3>Selected Descriptions</h3>
-                <div className="selected-descriptions-list" id="selectedDescriptionsInModal" />
+                <div className="selected-descriptions-list" id="selectedDescriptionsInModal">
+                  {selectedDescriptionsState.length === 0 ? (
+                    <div className="no-descriptions">No descriptions selected</div>
+                  ) : (
+                    selectedDescriptionsState.map((desc) => (
+                      <div key={desc} className="selected-description-modal-item">
+                        <span>{desc}</span>
+                        <button
+                          type="button"
+                          className="remove-description-modal"
+                          onClick={() => setSelectedDescriptionsState((prev) => prev.filter((d) => d !== desc))}
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
               <div className="available-descriptions-section">
                 <div className="add-description-bar">
                   <h3>Add New Description</h3>
-                  <form id="addDescriptionForm" className="add-description-form">
+                  <form
+                    id="addDescriptionForm"
+                    className="add-description-form"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const name = newDescriptionName.trim();
+                      if (!name) return;
+                      const formData = new FormData();
+                      formData.append("action", "add_description");
+                      formData.append("description_name", name);
+                      try {
+                        const response = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
+                          method: "POST",
+                          credentials: "include",
+                          body: formData,
+                        });
+                        const result = await response.json();
+                        if (!result.success) {
+                          notify(result.error || "Failed to add description", "danger");
+                          return;
+                        }
+                        setNewDescriptionName("");
+                        await loadDescriptions();
+                        notify("Description added successfully", "success");
+                      } catch {
+                        notify("Failed to add description", "danger");
+                      }
+                    }}
+                  >
                     <div className="add-description-input-group">
-                      <input type="text" id="new_description_name" name="description_name" placeholder="Enter new description name..." required />
+                      <input
+                        type="text"
+                        id="new_description_name"
+                        name="description_name"
+                        placeholder="Enter new description name..."
+                        required
+                        value={newDescriptionName}
+                        onChange={(e) => setNewDescriptionName(e.target.value)}
+                      />
                       <button type="submit" className="btn btn-save">
                         Add
                       </button>
@@ -703,17 +895,75 @@ export default function DataCapturePage() {
 
                 <h3>Available Descriptions</h3>
                 <div className="description-search">
-                  <input type="text" id="descriptionSearch" placeholder="Search descriptions..." onKeyUp={() => window.filterDescriptions?.()} />
+                  <input
+                    type="text"
+                    id="descriptionSearch"
+                    placeholder="Search descriptions..."
+                    value={descriptionSearch}
+                    onChange={(e) => setDescriptionSearch(e.target.value)}
+                  />
                 </div>
-                <div className="description-list" id="existingDescriptions" />
+                <div className="description-list" id="existingDescriptions">
+                  {availableDescriptions
+                    .filter((d) => String(d.name || "").toLowerCase().includes(descriptionSearch.toLowerCase()))
+                    .filter((d) => !selectedDescriptionsState.includes(d.name))
+                    .map((d) => (
+                      <div key={d.id} className="description-item">
+                        <div className="description-item-left">
+                          <input
+                            type="checkbox"
+                            name="available_descriptions"
+                            checked={selectedDescriptionsState.includes(d.name)}
+                            onChange={(e) => {
+                              if (!e.target.checked) return;
+                              setSelectedDescriptionsState((prev) => (prev.includes(d.name) ? prev : [...prev, d.name]));
+                            }}
+                          />
+                          <label>{d.name}</label>
+                        </div>
+                        <button
+                          type="button"
+                          className="description-delete-btn"
+                          title="Delete description"
+                          aria-label="Delete description"
+                          onClick={async () => {
+                            const ok = window.confirm(`Are you sure you want to delete description ${d.name}? This action cannot be undone.`);
+                            if (!ok) return;
+                            const fd = new FormData();
+                            fd.append("action", "delete_description");
+                            fd.append("description_id", d.id);
+                            try {
+                              const response = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
+                                method: "POST",
+                                credentials: "include",
+                                body: fd,
+                              });
+                              const result = await response.json();
+                              if (!result.success) {
+                                notify(result.error || "Failed to delete description", "danger");
+                                return;
+                              }
+                              setSelectedDescriptionsState((prev) => prev.filter((name) => name !== d.name));
+                              await loadDescriptions();
+                              notify("Description deleted successfully", "success");
+                            } catch {
+                              notify("Failed to delete description", "danger");
+                            }
+                          }}
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                </div>
               </div>
             </div>
 
             <div className="modal-footer">
-              <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={() => window.confirmDescriptions?.()}>
+              <button type="button" className="btn btn-save" id="confirmDescriptionsBtn" onClick={confirmDescriptions}>
                 Confirm
               </button>
-              <button type="button" className="btn btn-cancel" onClick={() => window.closeDescriptionSelectionModal?.()}>
+              <button type="button" className="btn btn-cancel" onClick={closeDescriptionModal}>
                 Cancel
               </button>
             </div>
@@ -724,49 +974,49 @@ export default function DataCapturePage() {
       <div id="processNotificationContainer" className="process-notification-container" />
 
       <div id="contextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" onClick={() => window.copySelectedCells?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.copySelectedCells()} role="presentation">
           <span>📋 Copy</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.pasteToSelectedCells?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.pasteToSelectedCells()} role="presentation">
           <span>📄 Paste</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.clearSelectedCells?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.clearSelectedCells()} role="presentation">
           <span>🗑️ Clear</span>
         </div>
-        <div className="context-menu-item" onClick={(e) => window.showDeleteDialog?.(e)} role="presentation">
+        <div className="context-menu-item" onClick={(e) => tableEngine.showDeleteDialog(e)} role="presentation">
           <span>🗑️ Delete</span>
         </div>
-        <div className="context-menu-item" onClick={(e) => window.selectAllCells?.(e)} role="presentation">
+        <div className="context-menu-item" onClick={(e) => tableEngine.selectAllCells(e)} role="presentation">
           <span>☑️ Select All</span>
         </div>
       </div>
 
       <div id="columnContextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" onClick={() => window.insertColumnLeft?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.insertColumnLeft()} role="presentation">
           <span>➕ Insert 1 column left</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.insertColumnRight?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.insertColumnRight()} role="presentation">
           <span>➕ Insert 1 column right</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.deleteColumn?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.deleteColumn()} role="presentation">
           <span>🗑️ Delete column</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.clearColumn?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.clearColumn()} role="presentation">
           <span>❌ Clear column</span>
         </div>
       </div>
 
       <div id="rowContextMenu" className="context-menu" style={{ display: "none" }}>
-        <div className="context-menu-item" onClick={() => window.insertRowAbove?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.insertRowAbove()} role="presentation">
           <span>➕ Insert 1 row above</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.insertRowBelow?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.insertRowBelow()} role="presentation">
           <span>➕ Insert 1 row below</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.deleteRow?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.deleteRow()} role="presentation">
           <span>🗑️ Delete row</span>
         </div>
-        <div className="context-menu-item" onClick={() => window.clearRow?.()} role="presentation">
+        <div className="context-menu-item" onClick={() => tableEngine.clearRow()} role="presentation">
           <span>❌ Clear row</span>
         </div>
       </div>
@@ -775,7 +1025,7 @@ export default function DataCapturePage() {
         <div className="delete-dialog-content">
           <div className="delete-dialog-header">
             <span>Delete</span>
-            <span className="delete-dialog-close" onClick={() => window.closeDeleteDialog?.()} role="presentation">
+            <span className="delete-dialog-close" onClick={(e) => tableEngine.closeDeleteDialog(e)} role="presentation">
               &times;
             </span>
           </div>
@@ -801,10 +1051,10 @@ export default function DataCapturePage() {
             </div>
           </div>
           <div className="delete-dialog-footer">
-            <button type="button" className="btn btn-save" onClick={(e) => window.confirmDelete?.(e)} role="presentation">
+            <button type="button" className="btn btn-save" onClick={(e) => tableEngine.confirmDelete(e)} role="presentation">
               OK
             </button>
-            <button type="button" className="btn btn-cancel" onClick={(e) => window.closeDeleteDialog?.(e)} role="presentation">
+            <button type="button" className="btn btn-cancel" onClick={(e) => tableEngine.closeDeleteDialog(e)} role="presentation">
               Cancel
             </button>
           </div>

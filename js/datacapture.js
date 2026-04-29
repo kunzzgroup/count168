@@ -24334,18 +24334,18 @@ async function restoreFromLocalStorage() {
             dateInput.value = processData.date;
         }
 
-        // Reload processes for the selected date
-        await loadProcessesByDate();
+            // Reload processes for the selected date
+            await loadProcessesByDate();
 
-        // Submitted Processes：按当前恢复的 capture_date 筛选
-        await loadSubmittedProcesses();
+            // Submitted Processes：按当前恢复的 capture_date 筛选
+            await loadSubmittedProcesses();
 
-        // Wait a bit for process dropdown to populate, then restore process selection
-        await new Promise(resolve => setTimeout(resolve, 500));
+            // Wait a bit for process dropdown to populate, then restore process selection
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Restore process selection with improved matching logic
-        const processInput = document.getElementById('capture_process');
-        if (processInput && processData.process) {
+            // Restore process selection with improved matching logic
+            const processInput = document.getElementById('capture_process');
+            if (processInput && processData.process) {
             let processDisplayText = null;
 
             // Try multiple matching strategies
@@ -24399,50 +24399,50 @@ async function restoreFromLocalStorage() {
                     processCode: data.process_id
                 })));
             }
-        }
-
-        // Wait for process data to load
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Restore currency (may have been set by loadProcessData, but ensure it's correct)
-        const currencySelect = document.getElementById('capture_currency');
-        if (currencySelect && processData.currency) {
-            const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === processData.currency);
-            if (currencyOption) {
-                currencySelect.value = processData.currency;
             }
-        }
 
-        // Restore descriptions
-        if (processData.descriptions && Array.isArray(processData.descriptions)) {
-            setSelectedDescriptions(processData.descriptions);
-            const descriptionInput = document.getElementById('capture_description');
-            if (descriptionInput) {
-                descriptionInput.value = processData.descriptions.join(', ');
+            // Wait for process data to load
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Restore currency (may have been set by loadProcessData, but ensure it's correct)
+            const currencySelect = document.getElementById('capture_currency');
+            if (currencySelect && processData.currency) {
+                const currencyOption = Array.from(currencySelect.options).find(opt => opt.value === processData.currency);
+                if (currencyOption) {
+                    currencySelect.value = processData.currency;
+                }
             }
-        }
 
-        // Restore remove word
-        const removeWordInput = document.getElementById('capture_remove_word');
-        if (removeWordInput && processData.removeWord) {
-            removeWordInput.value = processData.removeWord;
-        }
+            // Restore descriptions
+            if (processData.descriptions && Array.isArray(processData.descriptions)) {
+                setSelectedDescriptions(processData.descriptions);
+                const descriptionInput = document.getElementById('capture_description');
+                if (descriptionInput) {
+                    descriptionInput.value = processData.descriptions.join(', ');
+                }
+            }
 
-        // Restore replace words
-        const replaceFromInput = document.getElementById('capture_replace_word_from');
-        const replaceToInput = document.getElementById('capture_replace_word_to');
-        if (replaceFromInput && processData.replaceWordFrom) {
-            replaceFromInput.value = processData.replaceWordFrom;
-        }
-        if (replaceToInput && processData.replaceWordTo) {
-            replaceToInput.value = processData.replaceWordTo;
-        }
+            // Restore remove word
+            const removeWordInput = document.getElementById('capture_remove_word');
+            if (removeWordInput && processData.removeWord) {
+                removeWordInput.value = processData.removeWord;
+            }
 
-        // Restore remark
-        const remarkInput = document.getElementById('capture_remark');
-        if (remarkInput && processData.remark) {
-            remarkInput.value = processData.remark;
-        }
+            // Restore replace words
+            const replaceFromInput = document.getElementById('capture_replace_word_from');
+            const replaceToInput = document.getElementById('capture_replace_word_to');
+            if (replaceFromInput && processData.replaceWordFrom) {
+                replaceFromInput.value = processData.replaceWordFrom;
+            }
+            if (replaceToInput && processData.replaceWordTo) {
+                replaceToInput.value = processData.replaceWordTo;
+            }
+
+            // Restore remark
+            const remarkInput = document.getElementById('capture_remark');
+            if (remarkInput && processData.remark) {
+                remarkInput.value = processData.remark;
+            }
         window.__setDataCaptureLinkedFields?.({
             removeWord: processData.removeWord || '',
             replaceWordFrom: processData.replaceWordFrom || '',
