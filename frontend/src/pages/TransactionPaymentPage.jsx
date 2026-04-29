@@ -20,12 +20,16 @@ import {
   formatDmy,
   formatPaymentHistoryMoney,
   formatRateAmount,
+  getHistoryRemark,
   parseBalanceValue,
   parseRateExpression,
   toUpperDisplay,
 } from "./transaction/transactionFormat.js";
+import { installTransactionExcelCopy } from "./transaction/transactionExcelCopy.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
+  TX_DATA_CHANGED_EVENT,
+  TX_LIST_INVALIDATE_LS_KEY,
   applyPaymentWinLossFilters,
   applyZeroBalanceFilter,
   buildTxListSessionKey,
@@ -38,6 +42,9 @@ import {
   readTransactionCurrencyFilterState,
   sortByRole,
 } from "./transaction/transactionPaymentLogic.js";
+
+/** 与 transaction.php / TRANSACTION_PAGE.showDescriptionColumn 一致（PHP 默认为 true）。 */
+const TRANSACTION_SHOW_DESCRIPTION_COLUMN = true;
 
 function AccountSelect({
   buttonId,
@@ -185,7 +192,7 @@ export default function TransactionPaymentPage() {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [tablesVisible, setTablesVisible] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [history, setHistory] = useState({ open: false, title: "Payment History", rows: [] });
+  const [history, setHistory] = useState({ open: false, title: "", rows: [], loading: false });
   const [contraInbox, setContraInbox] = useState({ open: false, loading: false, items: [] });
   const [toast, setToast] = useState([]);
 
@@ -211,6 +218,8 @@ export default function TransactionPaymentPage() {
   const lastCompletedSearchTsRef = useRef(0);
   const draggedCurrencyRef = useRef(null);
   const initialSearchDoneRef = useRef(false);
+  const lastSearchCommitMsRef = useRef(0);
+  const prevTxTypeRef = useRef(txType);
 
   const [rateDate, setRateDate] = useState(null);
   const [rateToAccount, setRateToAccount] = useState(null); // UI: Select To Account (id=rate_account_from)
@@ -601,6 +610,7 @@ export default function TransactionPaymentPage() {
         const wrap = JSON.stringify({ v: 2, savedAt: ts, data });
         if (wrap.length > 1800000) return;
         sessionStorage.setItem(key, wrap);
+        lastSearchCommitMsRef.current = ts;
       } catch {
         /* quota */
       }
@@ -779,8 +789,48 @@ export default function TransactionPaymentPage() {
     if (currencyRowsOrdered.length === 0) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
     if (initialSearchDoneRef.current) return;
+
+    let hadReplay = false;
+    try {
+      const key = buildTxListSessionKey({
+        companyId: filterSnapshot?.companyId,
+        dateFrom: effectiveDateFromEarly,
+        dateTo: effectiveDateToEarly,
+        selectedCategories,
+        showInactive: searchState.showPaymentOnly,
+        showCaptureOnly: searchState.showCaptureOnly,
+        hideZeroBalance: !searchState.showZeroBalance,
+        showAllCurrencies,
+        selectedCurrencies,
+      });
+      if (key) {
+        const raw = sessionStorage.getItem(key);
+        if (raw) {
+          const o = JSON.parse(raw);
+          if (o?.data && (o.v === 1 || o.v === 2)) {
+            const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
+            const savedAt = o.v === 2 && typeof o.savedAt === "number" ? o.savedAt : 0;
+            if (invalidateTs <= savedAt) {
+              setRawSearchData(o.data);
+              setTablesVisible(true);
+              lastSearchCommitMsRef.current = savedAt || Date.now();
+              hadReplay = true;
+            } else {
+              try {
+                sessionStorage.removeItem(key);
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
     initialSearchDoneRef.current = true;
-    void runSearchRef.current?.({ isInitialLoad: true });
+    void runSearchRef.current?.({ isInitialLoad: true, silent: hadReplay });
   }, [
     loading,
     forbidden,
@@ -788,6 +838,12 @@ export default function TransactionPaymentPage() {
     currencyRowsOrdered.length,
     showAllCurrencies,
     selectedCurrencies,
+    effectiveDateFromEarly,
+    effectiveDateToEarly,
+    selectedCategories,
+    searchState.showPaymentOnly,
+    searchState.showCaptureOnly,
+    searchState.showZeroBalance,
   ]);
 
   const skipFilterSearchEffectRef = useRef(true);
@@ -800,6 +856,100 @@ export default function TransactionPaymentPage() {
     if (!effectiveDateFromEarly || !effectiveDateToEarly) return;
     void runSearchRef.current?.({ silent: false });
   }, [searchState.showCaptureOnly, searchState.showPaymentOnly, searchState.showZeroBalance]);
+
+  useEffect(() => {
+    return installTransactionExcelCopy();
+  }, []);
+
+  useEffect(() => {
+    let retryTimer = null;
+    const queueRetry = () => {
+      if (retryTimer) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        refreshFromInvalidate();
+      }, 650);
+    };
+
+    const refreshFromInvalidate = () => {
+      const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
+      if (!invalidateTs || invalidateTs <= lastSearchCommitMsRef.current) return;
+      if (!effectiveDateFromEarly || !effectiveDateToEarly) {
+        queueRetry();
+        return;
+      }
+      if (!showAllCurrencies && selectedCurrencies.length === 0) {
+        queueRetry();
+        return;
+      }
+      setHistory((h) => (h.open ? { ...h, open: false } : h));
+      try {
+        const key = buildTxListSessionKey({
+          companyId: filterSnapshot?.companyId,
+          dateFrom: effectiveDateFromEarly,
+          dateTo: effectiveDateToEarly,
+          selectedCategories,
+          showInactive: searchState.showPaymentOnly,
+          showCaptureOnly: searchState.showCaptureOnly,
+          hideZeroBalance: !searchState.showZeroBalance,
+          showAllCurrencies,
+          selectedCurrencies,
+        });
+        if (key) sessionStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+      void runSearchRef.current?.({ silent: true });
+    };
+
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      refreshFromInvalidate();
+    };
+    const onStorage = (e) => {
+      if (!e || e.key !== TX_LIST_INVALIDATE_LS_KEY) return;
+      refreshFromInvalidate();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(TX_DATA_CHANGED_EVENT, refreshFromInvalidate);
+    const poll = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      refreshFromInvalidate();
+    }, 5000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(TX_DATA_CHANGED_EVENT, refreshFromInvalidate);
+      clearInterval(poll);
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [
+    filterSnapshot?.companyId,
+    effectiveDateFromEarly,
+    effectiveDateToEarly,
+    selectedCategories,
+    searchState.showPaymentOnly,
+    searchState.showCaptureOnly,
+    searchState.showZeroBalance,
+    showAllCurrencies,
+    selectedCurrencies,
+  ]);
+
+  useEffect(() => {
+    const prev = prevTxTypeRef.current;
+    if (prev === txType) return;
+    const wasRate = prev === "RATE";
+    const isRate = txType === "RATE";
+    prevTxTypeRef.current = txType;
+    if (isRate && !wasRate) setRateDate((d) => d || txDate || todayDmy);
+    else if (!isRate && wasRate) setTxDate((d) => d || rateDate || todayDmy);
+  }, [txType, txDate, rateDate, todayDmy]);
+
+  useEffect(() => {
+    const needsFrom = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
+    if (!needsFrom) setTxFromAccount(null);
+  }, [txType]);
 
   useEffect(() => {
     if (loading || forbidden || !filterSnapshot?.companyId) return;
@@ -826,6 +976,7 @@ export default function TransactionPaymentPage() {
   const effectiveDateFrom = dateFrom || todayDmy;
   const effectiveDateTo = dateTo || todayDmy;
   const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
+  const histMoney = (v) => (v === "-" ? "-" : formatPaymentHistoryMoney(v));
 
   const selectQuickRange = (key) => {
     const now = new Date();
@@ -901,7 +1052,9 @@ export default function TransactionPaymentPage() {
   };
 
   const effectiveType = txType === "PROFIT" ? winLoseSide : txType;
-  const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "CLEAR"].includes(effectiveType);
+  /** 与 legacy handleTypeToggle：needsFrom 使用 transaction_type 原始值（含 PROFIT），勿用 WIN/LOSE。 */
+  const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
+  const showStandardFromAndReverse = txType !== "RATE" && needsFromTo;
   const isAdjustment = txType === "ADJUSTMENT";
 
   const onReverseAccounts = () => {
@@ -1076,7 +1229,13 @@ export default function TransactionPaymentPage() {
 
         const res = await submitTransaction({ companyId, payload, clientRequestId });
         if (res?.success) {
-          pushToast(res?.message || "RATE transaction submitted successfully", "success");
+          const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
+          if (approvalStatus === "PENDING") {
+            pushToast("Submitted. Waiting for Manager+ approval to take effect.", "info");
+          } else {
+            pushToast(res?.message || "RATE transaction submitted successfully", "success");
+          }
+          await refreshContraInboxBadge();
           setTxConfirm(false);
           setRateCurrencyFromAmount("");
           setRateExchangeRateRaw("");
@@ -1130,7 +1289,13 @@ export default function TransactionPaymentPage() {
 
       const res = await submitTransaction({ companyId, payload, clientRequestId });
       if (res?.success) {
-        pushToast(res?.message || "Transaction submitted successfully", "success");
+        const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
+        if (approvalStatus === "PENDING") {
+          pushToast("Submitted. Waiting for Manager+ approval to take effect.", "info");
+        } else {
+          pushToast(res?.message || "Transaction submitted successfully", "success");
+        }
+        await refreshContraInboxBadge();
         setTxAmount("");
         setTxConfirm(false);
         await onSearch();
@@ -1173,24 +1338,65 @@ export default function TransactionPaymentPage() {
     }
   };
 
+  const refreshContraInboxBadge = async () => {
+    if (!canApproveContra || !fs?.companyId) return;
+    try {
+      const refreshed = await loadContraInbox({ companyId: fs.companyId });
+      const items = Array.isArray(refreshed?.data) ? refreshed.data : [];
+      setContraInbox((s) => ({ ...s, items }));
+    } catch {
+      /* ignore */
+    }
+  };
+
   const openHistory = async (row) => {
-    const aid = row?.account_db_id;
-    if (!aid) return;
-    const title = `Payment History - ${row.account_id || ""}${row.account_name ? ` (${toUpperDisplay(row.account_name)})` : ""}`;
-    setHistory({ open: true, title, rows: [] });
+    let aid = parseInt(String(row?.account_db_id ?? ""), 10);
+    if (Number.isNaN(aid)) aid = 0;
+    const virtualCompanyCode = String(row?.account_id || "")
+      .trim()
+      .toUpperCase();
+    const isVirtualCompanyRow = (!aid || aid <= 0) && virtualCompanyCode !== "";
+
+    if ((!aid || aid <= 0) && !isVirtualCompanyRow) {
+      pushToast("Invalid account for history", "error");
+      return;
+    }
+    if (!effectiveDateFrom || !effectiveDateTo) {
+      pushToast("Please search first to set date range", "error");
+      return;
+    }
+
+    let currencyParam = row.currency ? String(row.currency).trim() : "";
+    if (!currencyParam && selectedCurrencies.length > 0 && !showAllCurrencies) {
+      currencyParam = selectedCurrencies.join(",");
+    }
+
+    setHistory({ open: true, title: "Payment History", rows: [], loading: true });
     try {
       const data = await getHistory({
         companyId: fs.companyId,
-        accountId: aid,
+        accountId: isVirtualCompanyRow ? aid || 0 : aid,
         dateFrom: effectiveDateFrom,
         dateTo: effectiveDateTo,
-        currency: row.currency || "",
+        currency: currencyParam || undefined,
+        virtualCompanyCode: isVirtualCompanyRow ? virtualCompanyCode : undefined,
       });
-      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data?.rows) ? data.rows : [];
-      setHistory({ open: true, title, rows });
-    } catch {
-      setHistory({ open: true, title, rows: [] });
+      if (!data?.success) {
+        pushToast(data?.error || data?.message || "Failed to load history", "error");
+        setHistory({ open: false, title: "", rows: [], loading: false });
+        return;
+      }
+      const payload = data.data;
+      const hist = Array.isArray(payload?.history) ? payload.history : [];
+      const acc = payload?.account;
+      const titleCode = acc?.account_id ?? row.account_id ?? "";
+      const titleName = acc?.name ?? row.account_name ?? "";
+      const title = `Payment History - ${titleCode}${titleName ? ` (${toUpperDisplay(titleName)})` : ""}`;
+      setHistory({ open: true, title, rows: hist, loading: false });
+    } catch (e) {
+      console.error(e);
       pushToast("Failed to load history", "error");
+      setHistory({ open: false, title: "", rows: [], loading: false });
     }
   };
 
@@ -1765,18 +1971,22 @@ export default function TransactionPaymentPage() {
                     onChange={setTxToAccount}
                     selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
                   />
-                  <AccountSelect
-                    buttonId="action_account_id"
-                    dropdownId="action_account_id_dropdown"
-                    placeholder="--Select From Account--"
-                    options={accountOptions}
-                    value={txFromAccount}
-                    onChange={setTxFromAccount}
-                    selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                  />
-                  <button type="button" id="account_reverse_btn" className="transaction-account-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={onReverseAccounts}>
-                    Reverse
-                  </button>
+                  {showStandardFromAndReverse ? (
+                    <>
+                      <AccountSelect
+                        buttonId="action_account_id"
+                        dropdownId="action_account_id_dropdown"
+                        placeholder="--Select From Account--"
+                        options={accountOptions}
+                        value={txFromAccount}
+                        onChange={setTxFromAccount}
+                        selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
+                      />
+                      <button type="button" id="account_reverse_btn" className="transaction-account-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={onReverseAccounts}>
+                        Reverse
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </div>
 
@@ -1975,7 +2185,7 @@ export default function TransactionPaymentPage() {
                 <label className="transaction-label">Description</label>
                 <input type="text" id="action_description" className="transaction-input text-uppercase" />
               </div>
-              <div className="transaction-form-group" id="remark_form_group">
+              <div className="transaction-form-group" id="remark_form_group" style={{ display: txType === "RATE" ? "none" : undefined }}>
                 <label className="transaction-label">Remark</label>
                 <input type="text" id="action_sms" className="transaction-input text-uppercase" value={txRemark} onChange={(e) => setTxRemark(e.target.value.toUpperCase())} />
               </div>
@@ -2348,7 +2558,7 @@ export default function TransactionPaymentPage() {
         ))}
       </div>
 
-      <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "block" : "none" }}>
+      <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "flex" : "none" }}>
         <div className="transaction-modal-content">
           <div className="transaction-modal-header">
             <h3 id="modal_title">{history.title}</h3>
@@ -2361,7 +2571,24 @@ export default function TransactionPaymentPage() {
               ×
             </button>
           </div>
-          <div className="transaction-modal-body">
+          <div className="transaction-modal-body" style={{ position: "relative" }}>
+            {history.loading ? (
+              <div
+                className="transaction-tables-loading"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(255,255,255,0.75)",
+                  zIndex: 2,
+                }}
+                aria-live="polite"
+              >
+                Loading history…
+              </div>
+            ) : null}
             <div className="transaction-history-table-frame">
               <table className="transaction-table">
                 <thead>
@@ -2373,26 +2600,53 @@ export default function TransactionPaymentPage() {
                     <th className="transaction-history-col-winloss">Win/Loss</th>
                     <th className="transaction-history-col-crdr">Cr/Dr</th>
                     <th className="transaction-history-col-balance">Balance</th>
-                    <th className="transaction-history-col-description">Description</th>
+                    {TRANSACTION_SHOW_DESCRIPTION_COLUMN ? (
+                      <th className="transaction-history-col-description">Description</th>
+                    ) : null}
                     <th className="transaction-history-col-remark">Remark</th>
                     <th className="transaction-history-col-created">Created by</th>
                   </tr>
                 </thead>
                 <tbody id="modal_tbody">
-                  {history.rows.map((r, idx) => (
-                    <tr key={r.id || `${idx}-${r.date || ""}`} className="transaction-table-row">
-                      <td>{r.date || "-"}</td>
-                      <td>{toUpperDisplay(r.product_id || r.id_product || r.product || "-")}</td>
-                      <td>{toUpperDisplay(r.currency || "-")}</td>
-                      <td>{toUpperDisplay(r.rate || "-")}</td>
-                      <td>{formatPaymentHistoryMoney(r.win_loss)}</td>
-                      <td>{formatPaymentHistoryMoney(r.cr_dr)}</td>
-                      <td>{formatPaymentHistoryMoney(r.balance)}</td>
-                      <td>{toUpperDisplay(r.description || "-")}</td>
-                      <td>{toUpperDisplay(r.remark || r.sms || "-")}</td>
-                      <td>{toUpperDisplay(r.created_by || r.created || "-")}</td>
-                    </tr>
-                  ))}
+                  {history.rows.map((r, idx) => {
+                    const isBf = r.row_type === "bf";
+                    const idProductDisplay = r.is_bank_process_transaction ? r.card_owner || "-" : r.product || "-";
+                    const createdRaw = r.created_by;
+                    const createdByDisplay =
+                      createdRaw === null ||
+                      createdRaw === undefined ||
+                      String(createdRaw).trim() === "" ||
+                      String(createdRaw).toLowerCase() === "null"
+                        ? "-"
+                        : String(createdRaw);
+                    return (
+                      <tr
+                        key={r.id ?? `${idx}-${r.date || ""}-${r.balance || ""}`}
+                        className={isBf ? "transaction-bf-row" : "transaction-table-row"}
+                        style={
+                          isBf
+                            ? {
+                                fontWeight: "bold",
+                                backgroundColor: "#f0f0f0",
+                              }
+                            : undefined
+                        }
+                      >
+                        <td className="transaction-history-col-date">{r.date || "-"}</td>
+                        <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
+                        <td className="transaction-history-col-currency">{r.currency || "-"}</td>
+                        <td className="transaction-history-col-rate">{r.rate || "-"}</td>
+                        <td className="transaction-history-col-winloss">{histMoney(r.win_loss)}</td>
+                        <td className="transaction-history-col-crdr">{histMoney(r.cr_dr)}</td>
+                        <td className="transaction-history-col-balance">{histMoney(r.balance)}</td>
+                        {TRANSACTION_SHOW_DESCRIPTION_COLUMN ? (
+                          <td className="transaction-history-col-description text-uppercase">{toUpperDisplay(r.description)}</td>
+                        ) : null}
+                        <td className="transaction-history-col-remark text-uppercase">{getHistoryRemark(r)}</td>
+                        <td className="transaction-history-col-created">{createdByDisplay}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

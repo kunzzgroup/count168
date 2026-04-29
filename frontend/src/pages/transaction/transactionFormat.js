@@ -12,6 +12,14 @@ export function toUpperDisplay(value) {
   return str ? str.toUpperCase() : "-";
 }
 
+/** Payment History Remark：优先 remark，否则 sms（与 js/transaction.js getHistoryRemark 一致）。 */
+export function getHistoryRemark(row) {
+  if (row?.remark != null && String(row.remark).trim() !== "") {
+    return toUpperDisplay(row.remark);
+  }
+  return toUpperDisplay(row?.sms || "-");
+}
+
 // Keep legacy behavior: show '-' stays '-', otherwise always 2 decimals with thousand separators.
 export function formatMoney2(value) {
   const n = cleanNumberLike(value);

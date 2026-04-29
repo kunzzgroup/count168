@@ -93,15 +93,27 @@ export async function submitTransaction({ companyId, payload, clientRequestId })
   return safeJson(res);
 }
 
-export async function getHistory({ companyId, accountId, dateFrom, dateTo, currency } = {}) {
+export async function getHistory({
+  companyId,
+  accountId,
+  dateFrom,
+  dateTo,
+  currency,
+  virtualCompanyCode,
+} = {}) {
   const params = new URLSearchParams();
   if (companyId != null) params.set("company_id", String(companyId));
-  if (accountId != null) params.set("account_id", String(accountId));
+  if (accountId != null && accountId !== "") params.set("account_id", String(accountId));
   if (dateFrom) params.set("date_from", String(dateFrom));
   if (dateTo) params.set("date_to", String(dateTo));
   if (currency) params.set("currency", String(currency));
+  if (virtualCompanyCode) params.set("virtual_company_code", String(virtualCompanyCode));
 
-  const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params.toString()}`), { credentials: "include", cache: "no-cache" });
+  const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`), {
+    credentials: "include",
+    cache: "no-cache",
+    headers: { "Cache-Control": "no-cache" },
+  });
   return safeJson(res);
 }
 
