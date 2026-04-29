@@ -96,6 +96,21 @@ export function useTransactionDateRange({
         },
       });
     }
+
+    return () => {
+      try {
+        fpTxDateRef.current?.destroy?.();
+      } catch {
+        /* ignore */
+      }
+      fpTxDateRef.current = null;
+      try {
+        fpRateDateRef.current?.destroy?.();
+      } catch {
+        /* ignore */
+      }
+      fpRateDateRef.current = null;
+    };
   }, [loading, forbidden, filterSnapshot, setTxDate, setRateDate, todayDmy, fpTxDateRef, fpRateDateRef]);
 
   // Sync flatpickr instances with state changes

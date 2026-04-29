@@ -19,6 +19,23 @@ import { getRoleClass } from "./transactionPaymentLogic.js";
 import { assetUrl } from "../../utils/apiUrl.js";
 import "flatpickr/dist/flatpickr.min.css";
 
+/** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
+const ROUTE_BODY_CLASSES_TO_CLEAR = [
+  "bg",
+  "account-page",
+  "announcement-page",
+  "datacapture-page",
+  "process-page",
+  "process-page--show-all",
+  "process-page--bank",
+  "process-page--bank-show-all",
+  "maintenance-page",
+  "report-page",
+  "user-page",
+  "user-page--show-all",
+  "member-winloss-page",
+];
+
 export default function TransactionPaymentPage() {
   const navigate = useNavigate();
   const todayDmy = useMemo(() => formatDmy(new Date()), []);
@@ -110,7 +127,7 @@ export default function TransactionPaymentPage() {
   });
 
   useLayoutEffect(() => {
-    document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page");
+    document.body.classList.remove(...ROUTE_BODY_CLASSES_TO_CLEAR);
     document.body.classList.add("dashboard-page", "transaction-page");
     return () => {
       document.body.classList.remove("transaction-page", "page-ready");
