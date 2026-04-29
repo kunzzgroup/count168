@@ -14,7 +14,6 @@ import {
   normalizeRateRowsByCrDr,
   readTransactionCurrencyFilterState,
   sortByRole,
-  dedupeRowsByAccountAndCurrency,
   sanitizeSearchApiData,
 } from "../transactionPaymentLogic.js";
 import { searchTransactions as searchTransactionsApi, saveUserCurrencyOrder } from "../transactionApi.js";
@@ -490,8 +489,9 @@ export function useTransactionSearch({
         baseRight: [],
       };
     }
-    const rawLeft = dedupeRowsByAccountAndCurrency(rawSearchData.left_table || []);
-    const rawRight = dedupeRowsByAccountAndCurrency(rawSearchData.right_table || []);
+    // rawSearchData is already sanitized on commit/replay; avoid duplicate dedupe pass.
+    const rawLeft = Array.isArray(rawSearchData.left_table) ? rawSearchData.left_table : [];
+    const rawRight = Array.isArray(rawSearchData.right_table) ? rawSearchData.right_table : [];
     const norm = normalizeRateRowsByCrDr(rawLeft, rawRight, txType === "RATE");
     return {
       hasData: true,

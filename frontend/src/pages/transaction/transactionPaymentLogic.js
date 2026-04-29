@@ -57,13 +57,40 @@ export function sortByRole(data) {
 
 /** 与 search_api.php 去重键一致：account_db_id + currency（防止异常重复行）。 */
 export function dedupeRowsByAccountAndCurrency(rows) {
-  const seen = new Set();
   const out = [];
+  const indexByKey = new Map();
+  const toAbs = (v) => Math.abs(parseBalanceValue(v) ?? 0);
+  const toBoolFlag = (v) => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    return parseInt(String(v || "0"), 10) !== 0;
+  };
+  const scoreRow = (row) => {
+    if (!row || typeof row !== "object") return 0;
+    // Prefer rows that actually carry transaction signals / non-zero metrics.
+    const score =
+      toAbs(row.win_loss) * 100 +
+      toAbs(row.cr_dr) * 80 +
+      toAbs(row.balance) * 20 +
+      toAbs(row.bf) * 10 +
+      (toBoolFlag(row.has_win_loss_transactions) ? 5000 : 0) +
+      (toBoolFlag(row.has_crdr_transactions) ? 5000 : 0) +
+      (toBoolFlag(row.has_win_loss_history) ? 2000 : 0);
+    return score;
+  };
+
   for (const row of rows || []) {
     const k = `${row?.account_db_id ?? ""}_${String(row?.currency || "").toUpperCase().trim()}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(row);
+    if (!indexByKey.has(k)) {
+      indexByKey.set(k, out.length);
+      out.push(row);
+      continue;
+    }
+    const idx = indexByKey.get(k);
+    const prev = out[idx];
+    if (scoreRow(row) >= scoreRow(prev)) {
+      out[idx] = row;
+    }
   }
   return out;
 }
