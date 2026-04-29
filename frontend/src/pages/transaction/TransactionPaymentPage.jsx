@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import AccountSelect from "./AccountSelect.jsx";
+import TransactionAddSection from "./components/TransactionAddSection.jsx";
+import TransactionHeader from "./components/TransactionHeader.jsx";
+import TransactionHistoryModal from "./components/TransactionHistoryModal.jsx";
+import TransactionSearchSection from "./components/TransactionSearchSection.jsx";
+import TransactionTablesSection from "./components/TransactionTablesSection.jsx";
 import {
   approveContra,
   getAccounts,
@@ -14,18 +20,18 @@ import {
   saveUserCurrencyOrder,
   searchTransactions as searchTransactionsApi,
   submitTransaction,
-} from "./transaction/transactionApi.js";
+} from "./transactionApi.js";
 import {
   buildClientRequestId,
   formatDmy,
   formatPaymentHistoryMoney,
   formatRateAmount,
-  getHistoryRemark,
   parseBalanceValue,
   parseRateExpression,
   toUpperDisplay,
-} from "./transaction/transactionFormat.js";
-import { installTransactionExcelCopy } from "./transaction/transactionExcelCopy.js";
+} from "./transactionFormat.js";
+import { buildRatePayload, toNumberLike } from "./transactionSubmitHelpers.js";
+import { installTransactionExcelCopy } from "./transactionExcelCopy.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
   TX_DATA_CHANGED_EVENT,
@@ -41,215 +47,16 @@ import {
   orderCurrencyRows,
   readTransactionCurrencyFilterState,
   sortByRole,
-} from "./transaction/transactionPaymentLogic.js";
+} from "./transactionPaymentLogic.js";
+import {
+  companyButtonStyle,
+  injectStylesheet,
+  loadTxScriptOnce,
+  parseDmyToDate,
+} from "./transactionPaymentPageUtils.js";
 
 /** 与 transaction.php / TRANSACTION_PAGE.showDescriptionColumn 一致（PHP 默认为 true）。 */
 const TRANSACTION_SHOW_DESCRIPTION_COLUMN = true;
-
-function AccountSelect({
-  buttonId,
-  dropdownId,
-  placeholder,
-  options,
-  value,
-  onChange,
-  disabled,
-  profitType,
-  selectedCategories,
-}) {
-  const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [highlightIdx, setHighlightIdx] = useState(-1);
-  const searchRef = useRef(null);
-  const optionsContainerRef = useRef(null);
-
-  const filtered = useMemo(() => {
-    const q = filter.trim().toUpperCase();
-    let rows = Array.isArray(options) ? options : [];
-    if (Array.isArray(selectedCategories) && selectedCategories.length > 0) {
-      const set = new Set(selectedCategories.map((c) => String(c).toUpperCase()));
-      rows = rows.filter((r) => set.has(String(r.role || "").toUpperCase()));
-    }
-    if (!q) return rows;
-    return rows.filter((r) => String(r.display_text || "").toUpperCase().includes(q));
-  }, [options, filter, selectedCategories]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDoc = (e) => {
-      const btn = document.getElementById(buttonId);
-      const dd = document.getElementById(dropdownId);
-      if (!btn || !dd) return;
-      if (btn.contains(e.target) || dd.contains(e.target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open, buttonId, dropdownId]);
-
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => searchRef.current?.focus(), 0);
-      setHighlightIdx(-1);
-    } else {
-      setFilter("");
-      setHighlightIdx(-1);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    setHighlightIdx(-1);
-  }, [filter]);
-
-  useEffect(() => {
-    setHighlightIdx((hi) => {
-      if (hi < 0) return hi;
-      return hi >= filtered.length ? -1 : hi;
-    });
-  }, [filtered.length]);
-
-  useEffect(() => {
-    if (!open || highlightIdx < 0 || !optionsContainerRef.current) return;
-    const node = optionsContainerRef.current.querySelector(`[data-opt-idx="${highlightIdx}"]`);
-    node?.scrollIntoView({ block: "nearest" });
-  }, [highlightIdx, open, filtered]);
-
-  const displayText = value?.display_text ? value.display_text : placeholder;
-
-  return (
-    <div className="custom-select-wrapper">
-      <button
-        type="button"
-        className={`custom-select-button${open ? " open" : ""}`}
-        id={buttonId}
-        data-placeholder={placeholder}
-        data-value={value?.id ?? ""}
-        data-account-id={value?.id ?? ""}
-        data-account-code={value?.account_id ?? ""}
-        data-currency={value?.currency != null && String(value.currency).trim() !== "" ? String(value.currency).trim().toUpperCase() : ""}
-        disabled={disabled}
-        onClick={() => {
-          if (disabled) return;
-          setOpen((v) => !v);
-        }}
-      >
-        {displayText}
-      </button>
-      <div className={`custom-select-dropdown${open ? " show" : ""}`} id={dropdownId}>
-        <div className="custom-select-search">
-          <input
-            ref={searchRef}
-            type="text"
-            placeholder="Search account..."
-            autoComplete="off"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setOpen(false);
-                return;
-              }
-              if (e.key === "Backspace" && !filter) {
-                e.preventDefault();
-                onChange?.(null);
-                return;
-              }
-              const len = filtered.length;
-              if (len === 0) return;
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setHighlightIdx((hi) => (hi < 0 ? 0 : (hi + 1) % len));
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setHighlightIdx((hi) => (hi <= 0 ? len - 1 : hi - 1));
-              } else if (e.key === "Enter") {
-                e.preventDefault();
-                const pick = highlightIdx >= 0 ? filtered[highlightIdx] : filtered[0];
-                if (pick) {
-                  onChange(pick);
-                  setOpen(false);
-                }
-              }
-            }}
-          />
-        </div>
-        <div className="custom-select-options" ref={optionsContainerRef}>
-          {filtered.length === 0 ? (
-            <div className="custom-select-no-results">No results</div>
-          ) : (
-            filtered.map((opt, idx) => (
-              <div
-                key={opt.id}
-                data-opt-idx={idx}
-                className={`custom-select-option${String(value?.id) === String(opt.id) ? " selected" : ""}${
-                  highlightIdx === idx && highlightIdx >= 0 ? " keyboard-focus" : ""
-                }`}
-                onMouseEnter={() => setHighlightIdx(idx)}
-                onClick={() => {
-                  onChange(opt);
-                  setOpen(false);
-                }}
-              >
-                {opt.display_text}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function injectStylesheet(href) {
-  return new Promise((resolve) => {
-    const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-    if (existing) {
-      resolve();
-      return;
-    }
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.onload = () => resolve();
-    link.onerror = () => resolve();
-    document.head.appendChild(link);
-  });
-}
-
-/** dd/mm/yyyy → Date (local), same idea as legacy Month maintenance pages */
-function parseDmyToDate(value) {
-  const s = String(value || "").trim();
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const dt = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-  return Number.isNaN(dt.getTime()) ? null : dt;
-}
-
-function loadTxScriptOnce(src, marker) {
-  const key = marker || src;
-  return new Promise((resolve, reject) => {
-    const bySrc = document.querySelector(`script[src="${src}"]`);
-    if (bySrc) {
-      bySrc.addEventListener("load", () => resolve(), { once: true });
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.dataset.txScript = key;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.body.appendChild(s);
-  });
-}
-
-function companyButtonStyle(comp, snapGroup) {
-  const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
-  if (snapGroup) {
-    return cGid === snapGroup ? {} : { display: "none" };
-  }
-  return cGid ? { display: "none" } : {};
-}
 
 export default function TransactionPaymentPage() {
   const navigate = useNavigate();
@@ -1363,8 +1170,8 @@ export default function TransactionPaymentPage() {
         pushToast("Please select both currencies", "error");
         return;
       }
-      const fromAmt = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
-      const toAmt = Number(String(rateCurrencyToAmount || "").replace(/,/g, "").trim());
+      const fromAmt = toNumberLike(rateCurrencyFromAmount);
+      const toAmt = toNumberLike(rateCurrencyToAmount);
       if (!Number.isFinite(fromAmt) || fromAmt <= 0 || !Number.isFinite(toAmt) || toAmt <= 0) {
         pushToast("Please enter valid currency amounts", "error");
         return;
@@ -1379,12 +1186,7 @@ export default function TransactionPaymentPage() {
         return;
       }
 
-      const transferToId = rateTransferToAccount?.id ? String(rateTransferToAccount.id) : "";
-      const transferFromId = rateTransferFromAccount?.id ? String(rateTransferFromAccount.id) : "";
       const middleId = rateMiddlemanAccount?.id ? String(rateMiddlemanAccount.id) : "";
-
-      let middleAmtNum = Number(String(rateMiddlemanAmount || "").replace(/,/g, "").trim());
-      if (!Number.isFinite(middleAmtNum)) middleAmtNum = 0;
 
       if ((middleId || rateMiddlemanRate) && !middleId) {
         pushToast("Please select Middle-Man account", "error");
@@ -1395,82 +1197,28 @@ export default function TransactionPaymentPage() {
         return;
       }
 
-      const fromCode = rateFromAccount?.account_id || "";
-      const toCode = rateToAccount?.account_id || "";
-      const fromDesc = `Transaction to ${toCode} (Rate: ${rateExchangeRateRaw})`;
-      const toDesc = `Transaction from ${fromCode} (Rate: ${rateExchangeRateRaw})`;
-
-      const transferFromCode = rateTransferFromAccount?.account_id || "";
-      const transferToCode = rateTransferToAccount?.account_id || "";
-      const transferFromDesc = `Transaction to ${transferToCode} (Rate: ${rateExchangeRateRaw})`;
-      const transferToDesc = `Transaction from ${transferFromCode} (Rate: ${rateExchangeRateRaw})`;
-
-      const middleDesc =
-        middleId && middleAmtNum > 0
-          ? `Rate charge (x${rateMiddlemanRate}) from ${rateCurrencyFrom} ${formatRateAmount(fromAmt)}`
-          : "";
-
       setSubmitting(true);
       try {
         const clientRequestId = buildClientRequestId();
-        const payload = {
-          transaction_type: "RATE",
-          account_id: toId,
-          from_account_id: fromId,
-          amount: formatRateAmount(fromAmt),
-          transaction_date: rateDate,
-          description: "",
-          sms: txRemark,
-          currency: rateCurrencyFrom,
-
-          rate_from_account_id: fromId,
-          rate_from_currency: rateCurrencyFrom,
-          rate_from_amount: formatRateAmount(fromAmt),
-          rate_from_description: fromDesc,
-
-          rate_to_account_id: toId,
-          rate_to_currency: rateCurrencyTo,
-          rate_to_amount: formatRateAmount(toAmt),
-          rate_to_description: toDesc,
-
-          rate_currency_from: rateCurrencyFrom,
-          rate_currency_from_amount: formatRateAmount(fromAmt),
-          rate_currency_to: rateCurrencyTo,
-          rate_currency_to_amount: formatRateAmount(toAmt),
-          rate_exchange_rate: String(parsedRate.value),
-
-          rate_middleman_rate: rateMiddlemanRate,
-          rate_middleman_amount: rateMiddlemanAmount ? formatRateAmount(middleAmtNum) : "",
-          rate_middleman_account: middleId,
-
-          // backward compatibility (legacy keeps appending these)
-          rate_transfer_amount: "",
-          rate_account_from_amount: "",
-          rate_account_to_amount: "",
-        };
-
-        if (transferToId && transferFromId) {
-          const originalTransferFromAmount = fromAmt * parsedRate.value;
-          payload.rate_transfer_from_account_id = transferToId;
-          payload.rate_transfer_from_currency = rateCurrencyTo;
-          payload.rate_transfer_from_amount = formatRateAmount(originalTransferFromAmount);
-          payload.rate_transfer_from_description = transferFromDesc;
-
-          payload.rate_transfer_to_account_id = transferFromId;
-          payload.rate_transfer_to_currency = rateCurrencyTo;
-          payload.rate_transfer_to_amount = formatRateAmount(toAmt);
-          payload.rate_transfer_to_description = transferToDesc;
-
-          payload.rate_transfer_from_account = transferToId;
-          payload.rate_transfer_to_account = transferFromId;
-
-          if (middleId && middleAmtNum > 0) {
-            payload.rate_middleman_account_id = middleId;
-            payload.rate_middleman_currency = rateCurrencyTo;
-            payload.rate_middleman_amount = formatRateAmount(middleAmtNum);
-            payload.rate_middleman_description = middleDesc;
-          }
-        }
+        const { payload } = buildRatePayload({
+          toId,
+          fromId,
+          fromAmt,
+          toAmt,
+          rateDate,
+          txRemark,
+          rateCurrencyFrom,
+          rateCurrencyTo,
+          parsedRateValue: parsedRate.value,
+          rateMiddlemanRate,
+          rateMiddlemanAmount,
+          rateMiddlemanAccount,
+          rateExchangeRateRaw,
+          rateFromAccount,
+          rateToAccount,
+          rateTransferToAccount,
+          rateTransferFromAccount,
+        });
 
         const res = await submitTransaction({ companyId, payload, clientRequestId });
         if (res?.success) {
@@ -1834,962 +1582,114 @@ export default function TransactionPaymentPage() {
   return (
     <>
       <div className="transaction-container">
-        <div className="transaction-header-bar">
-          <div className="transaction-header-left">
-            <h1 className="transaction-title">Transaction List</h1>
-            {canApproveContra && (
-              <div className="contra-inbox-wrap" id="contraInboxWrap">
-                <button type="button" className="contra-inbox-btn contra-inbox-main" id="contraInboxBtn" onClick={toggleContraInbox}>
-                  <svg className="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
-                  </svg>
-                  Contra Inbox
-                  <span className="contra-inbox-badge" id="contraInboxCount">
-                    {contraInbox.items.length}
-                  </span>
-                </button>
-                <div className="contra-inbox-popover" id="contraInboxPopover" style={{ display: contraInbox.open ? "block" : "none" }}>
-                  <div className="contra-inbox-popover-header">
-                    <div className="contra-inbox-popover-title">
-                      Contra Inbox
-                      <span className="contra-inbox-badge" id="contraInboxCount2">
-                        {contraInbox.items.length}
-                      </span>
-                    </div>
-                    <button type="button" className="contra-inbox-btn" id="contraInboxRefreshBtn" onClick={refreshContraInbox}>
-                      Refresh
-                    </button>
-                  </div>
-                  <div className="contra-inbox-popover-body">
-                    {contraInbox.loading && <div style={{ padding: 12 }}>Loading...</div>}
-                    <table className="contra-inbox-table">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>From</th>
-                          <th>To</th>
-                          <th>Currency</th>
-                          <th>Amount</th>
-                          <th>Submitted By</th>
-                          <th>Description</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody id="contraInboxTbody">
-                        {contraInbox.items.map((it) => (
-                          <tr key={it.id || `${it.transaction_id}-${it.transaction_date}`}>
-                            <td>{it.transaction_date || it.date || "-"}</td>
-                            <td>
-                              {it.from_account_code || "-"}
-                              {it.from_account_name ? ` - ${it.from_account_name}` : ""}
-                            </td>
-                            <td>
-                              {it.to_account_code || "-"}
-                              {it.to_account_name ? ` - ${it.to_account_name}` : ""}
-                            </td>
-                            <td>{toUpperDisplay(it.currency || "-")}</td>
-                            <td>{formatPaymentHistoryMoney(it.amount)}</td>
-                            <td>{toUpperDisplay(it.submitted_by || it.created_by || "-")}</td>
-                            <td>{toUpperDisplay(it.description || "-")}</td>
-                            <td>
-                              <button
-                                type="button"
-                                className="contra-inbox-btn contra-inbox-approve"
-                                onClick={async () => {
-                                  const tid = it.transaction_id || it.id;
-                                  if (!tid) return;
-                                  const res = await approveContra({ transactionId: tid, companyId: fs.companyId });
-                                  if (res?.success) {
-                                    pushToast("Approved", "success");
-                                    await refreshContraInbox();
-                                    await runSearch({ silent: false });
-                                  } else {
-                                    pushToast(res?.message || "Approve failed", "error");
-                                  }
-                                }}
-                              >
-                                Approve
-                              </button>
-                              <button
-                                type="button"
-                                className="contra-inbox-btn contra-inbox-reject"
-                                onClick={async () => {
-                                  if (!confirm("确定要拒绝这条 Contra 交易吗？拒绝后数据将被永久删除。")) return;
-                                  const tid = it.transaction_id || it.id;
-                                  if (!tid) return;
-                                  const res = await rejectContra({ transactionId: tid, companyId: fs.companyId });
-                                  if (res?.success) {
-                                    pushToast("Rejected", "success");
-                                    await refreshContraInbox();
-                                  } else {
-                                    pushToast(res?.message || "Reject failed", "error");
-                                  }
-                                }}
-                              >
-                                Reject
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <TransactionHeader
+          canApproveContra={canApproveContra}
+          contraInbox={contraInbox}
+          toggleContraInbox={toggleContraInbox}
+          refreshContraInbox={refreshContraInbox}
+          approveContra={approveContra}
+          rejectContra={rejectContra}
+          fsCompanyId={fs.companyId}
+          pushToast={pushToast}
+          refreshContraInboxAfterAction={refreshContraInbox}
+          runSearch={runSearch}
+        />
 
         <div className="transaction-separator-line" />
 
         <div className="transaction-main-content">
-          <div className="transaction-search-section">
-            <div className="transaction-form-group">
-              <label className="transaction-label">Category</label>
-              <div id="filter_category" className="transaction-category-multiselect">
-                <div className="category-dropdown">
-                  <button type="button" className="category-dropdown-button" id="category_dropdown_button" onClick={toggleCategory}>
-                    <div id="category_selected_tags" className="category-selected-tags">
-                      {selectedCategories.length === 0 ? (
-                        <span className="category-placeholder">--Select All--</span>
-                      ) : (
-                        selectedCategories.map((c) => (
-                          <div key={c} className="category-tag" data-category-value={c}>
-                            <span>{c}</span>
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              className="category-tag-remove"
-                              data-category-value={c}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                removeCategoryTag(c);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  removeCategoryTag(c);
-                                }
-                              }}
-                            >
-                              ×
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <i className="fas fa-chevron-down" />
-                  </button>
-                  <div className="category-dropdown-menu" id="category_dropdown_menu" style={{ display: categoryOpen ? "block" : "none" }}>
-                    <div className="category-option">
-                      <label className="category-checkbox-label">
-                        <input
-                          ref={categoryAllCheckboxRef}
-                          type="checkbox"
-                          value=""
-                          className="category-checkbox"
-                          id="category_all"
-                          checked={
-                            selectedCategories.length === 0 ||
-                            (categories.length > 0 && selectedCategories.length === categories.length)
-                          }
-                          onChange={(e) => onCategoryAllChange(e.target.checked)}
-                        />
-                        <span>--Select All--</span>
-                      </label>
-                    </div>
-                    <div id="category_options_container">
-                      {categories.map((c) => {
-                        return (
-                          <div className="category-option" key={c}>
-                            <label className="category-checkbox-label">
-                              <input
-                                type="checkbox"
-                                className="category-checkbox"
-                                value={c}
-                                checked={selectedCategories.length === 0 ? false : selectedCategories.includes(c)}
-                                onChange={() => toggleCategoryValue(c)}
-                              />
-                              <span>{c}</span>
-                            </label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <TransactionSearchSection
+            selectedCategories={selectedCategories}
+            categoryOpen={categoryOpen}
+            toggleCategory={toggleCategory}
+            removeCategoryTag={removeCategoryTag}
+            categoryAllCheckboxRef={categoryAllCheckboxRef}
+            categories={categories}
+            onCategoryAllChange={onCategoryAllChange}
+            toggleCategoryValue={toggleCategoryValue}
+            effectiveDateRangeText={effectiveDateRangeText}
+            quickOpen={quickOpen}
+            toggleQuick={toggleQuick}
+            selectQuickRange={selectQuickRange}
+            searchState={searchState}
+            setSearchState={setSearchState}
+            fs={fs}
+            onGroupButtonClick={onGroupButtonClick}
+            onCompanyButtonClick={onCompanyButtonClick}
+            currencyRowsOrdered={currencyRowsOrdered}
+            showAllCurrencies={showAllCurrencies}
+            selectedCurrencies={selectedCurrencies}
+            toggleAllCurrenciesBtn={toggleAllCurrenciesBtn}
+            onCurrencyDragStart={onCurrencyDragStart}
+            onCurrencyDropOn={onCurrencyDropOn}
+            toggleCurrencyBtn={toggleCurrencyBtn}
+          />
 
-            <div className="transaction-date-quick-row">
-              <label className="transaction-label transaction-capture-date-label">Capture Date</label>
-              <div className="transaction-date-range-group">
-                <div className="date-range-picker" id="date-range-picker">
-                  <i className="fas fa-calendar-alt" />
-                  <span id="date-range-display">{effectiveDateRangeText}</span>
-                </div>
-                <input type="hidden" id="date_from" readOnly />
-                <input type="hidden" id="date_to" readOnly />
-              </div>
-              <div className="quick-select-dropdown quick-select-dropdown-toggle">
-                <button
-                  type="button"
-                  className="dropdown-toggle"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleQuick();
-                  }}
-                >
-                  <i className="fas fa-calendar-alt" />
-                  <span id="quick-select-text">Period</span>
-                  <i className="fas fa-chevron-down" />
-                </button>
-                <div className={`dropdown-menu${quickOpen ? " show" : ""}`} id="quick-select-dropdown">
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("today")}>
-                    Today
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("yesterday")}>
-                    Yesterday
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisWeek")}>
-                    This Week
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastWeek")}>
-                    Last Week
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisMonth")}>
-                    This Month
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastMonth")}>
-                    Last Month
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("thisYear")}>
-                    This Year
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={() => selectQuickRange("lastYear")}>
-                    Last Year
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="transaction-checkboxes">
-              <label className="transaction-checkbox-label">
-                <input
-                  type="checkbox"
-                  id="show_name"
-                  className="transaction-checkbox"
-                  checked={searchState.showName}
-                  onChange={(e) => setSearchState((s) => ({ ...s, showName: e.target.checked }))}
-                />
-                Show Name
-              </label>
-              <label className="transaction-checkbox-label">
-                <input
-                  type="checkbox"
-                  id="show_capture_only"
-                  className="transaction-checkbox"
-                  checked={searchState.showCaptureOnly}
-                  onChange={(e) => setSearchState((s) => ({ ...s, showCaptureOnly: e.target.checked }))}
-                />
-                Show Win/Loss Only
-              </label>
-              <label className="transaction-checkbox-label">
-                <input
-                  type="checkbox"
-                  id="show_inactive"
-                  className="transaction-checkbox"
-                  checked={searchState.showPaymentOnly}
-                  onChange={(e) => setSearchState((s) => ({ ...s, showPaymentOnly: e.target.checked }))}
-                />
-                Show Payment Only
-              </label>
-              <label className="transaction-checkbox-label">
-                <input
-                  type="checkbox"
-                  id="show_zero_balance"
-                  className="transaction-checkbox"
-                  checked={searchState.showZeroBalance}
-                  onChange={(e) => setSearchState((s) => ({ ...s, showZeroBalance: e.target.checked }))}
-                />
-                Show 0 balance
-              </label>
-            </div>
-
-            <div className="transaction-bottom-filters">
-              {fs.snapGroupIds.length > 0 && (
-                <div id="group-buttons-wrapper" className="transaction-company-filter shared-group-wrapper">
-                  <span className="transaction-company-label">GroupID:</span>
-                  <div id="group-buttons-container" className="transaction-company-buttons">
-                    {fs.snapGroupIds.map((gid) => (
-                      <button
-                        key={gid}
-                        type="button"
-                        className={`transaction-company-btn shared-group-btn ${fs.selectedGroup === gid ? "active" : ""}`}
-                        data-group-id={gid}
-                        onClick={() => onGroupButtonClick(gid)}
-                      >
-                        {gid}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {fs.snapCompanies.length > 0 && (
-                <div id="company-buttons-wrapper" className="transaction-company-filter shared-company-wrapper">
-                  <span className="transaction-company-label">Company:</span>
-                  <div id="company-buttons-container" className="transaction-company-buttons">
-                    {fs.snapCompanies.map((comp) => (
-                      <button
-                        key={comp.id}
-                        type="button"
-                        style={companyButtonStyle(comp, fs.selectedGroup)}
-                        className={`transaction-company-btn shared-company-btn ${Number(comp.id) === Number(fs.companyId) ? "active" : ""}`}
-                        data-company-id={comp.id}
-                        data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
-                        data-company-code={comp.company_id}
-                        onClick={() => {
-                          if (companyButtonStyle(comp, fs.selectedGroup).display === "none") return;
-                          onCompanyButtonClick(comp);
-                        }}
-                      >
-                        {comp.company_id}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div
-                id="currency-buttons-wrapper"
-                className="transaction-company-filter"
-                style={{ display: currencyRowsOrdered.length > 0 ? "flex" : "none" }}
-              >
-                <span className="transaction-company-label">Currency:</span>
-                <div id="currency-buttons-container" className="transaction-company-buttons">
-                  <button
-                    type="button"
-                    className={`transaction-company-btn${showAllCurrencies ? " active" : ""}`}
-                    data-currency-code="ALL"
-                    onClick={toggleAllCurrenciesBtn}
-                  >
-                    All
-                  </button>
-                  {currencyRowsOrdered.map((c) => {
-                    const code = c.code;
-                    return (
-                      <button
-                        key={code}
-                        type="button"
-                        className={`transaction-company-btn${!showAllCurrencies && selectedCurrencies.includes(code) ? " active" : ""}`}
-                        data-currency-code={code}
-                        draggable
-                        onDragStart={() => onCurrencyDragStart(code)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => onCurrencyDropOn(code)}
-                        onClick={() => toggleCurrencyBtn(code)}
-                      >
-                        {code}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="transaction-add-section">
-            <div className="transaction-form-group">
-              <label className="transaction-label">Type</label>
-              <select
-                id="transaction_type"
-                className="transaction-select"
-                value={txType}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setTxType(v);
-                }}
-              >
-                <option value="CONTRA">CONTRA</option>
-                <option value="PAYMENT">PAYMENT</option>
-                <option value="RECEIVE">RECEIVE</option>
-                <option value="CLAIM">CLAIM</option>
-                <option value="PROFIT">PROFIT</option>
-                <option value="RATE">RATE</option>
-                <option value="ADJUSTMENT">ADJUSTMENT</option>
-                <option value="CLEAR">CLEAR</option>
-              </select>
-            </div>
-
-            <div id="standard-transaction-fields" style={{ display: txType === "RATE" ? "none" : "block" }}>
-              <div className="transaction-form-group">
-                <label className="transaction-label">Date</label>
-                <input
-                  type="text"
-                  id="transaction_date"
-                  className="transaction-input"
-                  value={txDate || todayDmy}
-                  onChange={(e) => setTxDate(e.target.value)}
-                  placeholder="dd/mm/yyyy"
-                  readOnly
-                  style={{ cursor: "pointer" }}
-                />
-              </div>
-
-              <div className="transaction-form-group transaction-inline-row">
-                <label className="transaction-label">Account</label>
-                <div className="transaction-account-inputs">
-                  <AccountSelect
-                    buttonId="action_account_from"
-                    dropdownId="action_account_from_dropdown"
-                    placeholder="--Select To Account--"
-                    options={accountOptions}
-                    value={txToAccount}
-                    onChange={setTxToAccount}
-                    selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                  />
-                  {showStandardFromAndReverse ? (
-                    <>
-                      <AccountSelect
-                        buttonId="action_account_id"
-                        dropdownId="action_account_id_dropdown"
-                        placeholder="--Select From Account--"
-                        options={accountOptions}
-                        value={txFromAccount}
-                        onChange={setTxFromAccount}
-                        selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                      />
-                      <button type="button" id="account_reverse_btn" className="transaction-account-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={onReverseAccounts}>
-                        Reverse
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="transaction-form-group transaction-inline-row">
-                <label className="transaction-label">Currency</label>
-                <select id="transaction_currency" className="transaction-select" value={txCurrency} onChange={(e) => setTxCurrency(e.target.value)}>
-                  <option value="">--Select Currency--</option>
-                  {currencyOptions.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="transaction-form-group">
-                <label className="transaction-label">Amount</label>
-                <input type="number" step="0.01" id="action_amount" className="transaction-input" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} />
-              </div>
-            </div>
-
-            <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
-              <div className="rate-section">
-                <label className="transaction-label">Date</label>
-                <input type="text" id="rate_transaction_date" className="transaction-input" value={rateDate || todayDmy} placeholder="dd/mm/yyyy" readOnly style={{ cursor: "pointer" }} />
-              </div>
-
-              <div className="rate-section">
-                <label className="transaction-label">Account</label>
-                <div className="rate-row rate-row-two-cols">
-                  <div className="custom-select-wrapper">
-                    <AccountSelect
-                      buttonId="rate_account_from"
-                      dropdownId="rate_account_from_dropdown"
-                      placeholder="--Select To Account--"
-                      options={accountOptions}
-                      value={rateToAccount}
-                      onChange={setRateToAccount}
-                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                    />
-                  </div>
-                  <div className="custom-select-wrapper">
-                    <AccountSelect
-                      buttonId="rate_account_to"
-                      dropdownId="rate_account_to_dropdown"
-                      placeholder="--Select From Account--"
-                      options={accountOptions}
-                      value={rateFromAccount}
-                      onChange={setRateFromAccount}
-                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    id="rate_account_reverse_btn"
-                    className="transaction-account-reverse-btn rate-reverse-btn"
-                    title="Reverse accounts"
-                    aria-label="Reverse accounts"
-                    onClick={() => {
-                      setRateToAccount(rateFromAccount);
-                      setRateFromAccount(rateToAccount);
-                    }}
-                  >
-                    Reverse
-                  </button>
-                </div>
-              </div>
-
-              <div className="rate-section">
-                <label className="transaction-label">Currency</label>
-                <div className="rate-row rate-row-five-cols">
-                  <select id="rate_currency_from" className="transaction-select" value={rateCurrencyFrom} onChange={(e) => setRateCurrencyFrom(e.target.value)}>
-                    <option value="">Currency</option>
-                    {currencyOptions.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    step="0.01"
-                    id="rate_currency_from_amount"
-                    className="transaction-input"
-                    placeholder="Amount"
-                    value={rateCurrencyFromAmount}
-                    onChange={(e) => setRateCurrencyFromAmount(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    id="rate_exchange_rate"
-                    className="transaction-input"
-                    placeholder="Rate"
-                    value={rateExchangeRateRaw}
-                    onChange={(e) => setRateExchangeRateRaw(e.target.value)}
-                  />
-                  <select id="rate_currency_to" className="transaction-select" value={rateCurrencyTo} onChange={(e) => setRateCurrencyTo(e.target.value)}>
-                    <option value="">Currency</option>
-                    {currencyOptions.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <input type="number" step="0.01" id="rate_currency_to_amount" className="transaction-input" placeholder="Amount" readOnly value={rateCurrencyToAmount} />
-                </div>
-              </div>
-
-              <div className="rate-section">
-                <label className="transaction-label">Account</label>
-                <div className="rate-row rate-row-two-cols">
-                  <div className="custom-select-wrapper">
-                    <AccountSelect
-                      buttonId="rate_transfer_from_account"
-                      dropdownId="rate_transfer_from_account_dropdown"
-                      placeholder="--Select To Account--"
-                      options={accountOptions}
-                      value={rateTransferToAccount}
-                      onChange={setRateTransferToAccount}
-                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                    />
-                  </div>
-                  <div className="custom-select-wrapper">
-                    <AccountSelect
-                      buttonId="rate_transfer_to_account"
-                      dropdownId="rate_transfer_to_account_dropdown"
-                      placeholder="--Select From Account--"
-                      options={accountOptions}
-                      value={rateTransferFromAccount}
-                      onChange={setRateTransferFromAccount}
-                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    id="rate_transfer_reverse_btn"
-                    className="transaction-account-reverse-btn rate-reverse-btn"
-                    title="Reverse accounts"
-                    aria-label="Reverse accounts"
-                    onClick={() => {
-                      setRateTransferToAccount(rateTransferFromAccount);
-                      setRateTransferFromAccount(rateTransferToAccount);
-                    }}
-                  >
-                    Reverse
-                  </button>
-                </div>
-              </div>
-
-              <div className="rate-section">
-                <label className="transaction-label">Middle-Man</label>
-                <div className="rate-row rate-row-three-cols">
-                  <div className="custom-select-wrapper">
-                    <AccountSelect
-                      buttonId="rate_middleman_account"
-                      dropdownId="rate_middleman_account_dropdown"
-                      placeholder="--Select Account--"
-                      options={accountOptions}
-                      value={rateMiddlemanAccount}
-                      onChange={setRateMiddlemanAccount}
-                      selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories}
-                    />
-                  </div>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    id="rate_middleman_rate"
-                    className="transaction-input"
-                    placeholder="Rate multiplier"
-                    value={rateMiddlemanRate}
-                    onChange={(e) => setRateMiddlemanRate(e.target.value)}
-                  />
-                  <input type="number" step="0.01" id="rate_middleman_amount" className="transaction-input" placeholder="Amount" readOnly value={rateMiddlemanAmount} />
-                </div>
-              </div>
-            </div>
-
-            <div className="transaction-two-col">
-              {txType === "PROFIT" && (
-                <div className="transaction-form-group">
-                  <label className="transaction-label">Win/Lose</label>
-                  <div className="transaction-win-lose-row">
-                    <label className="transaction-radio-label">
-                      <input type="radio" name="win_lose_side" value="WIN" checked={winLoseSide === "WIN"} onChange={() => setWinLoseSide("WIN")} />
-                      WIN
-                    </label>
-                    <label className="transaction-radio-label">
-                      <input type="radio" name="win_lose_side" value="LOSE" checked={winLoseSide === "LOSE"} onChange={() => setWinLoseSide("LOSE")} />
-                      LOSE
-                    </label>
-                  </div>
-                </div>
-              )}
-              <div className="transaction-form-group" style={{ display: "none" }}>
-                <label className="transaction-label">Description</label>
-                <input type="text" id="action_description" className="transaction-input text-uppercase" />
-              </div>
-              <div className="transaction-form-group" id="remark_form_group" style={{ display: txType === "RATE" ? "none" : undefined }}>
-                <label className="transaction-label">Remark</label>
-                <input type="text" id="action_sms" className="transaction-input text-uppercase" value={txRemark} onChange={(e) => setTxRemark(e.target.value.toUpperCase())} />
-              </div>
-            </div>
-
-            <div className="transaction-confirm-actions">
-              <label className="transaction-checkbox-label transaction-confirm-label">
-                <input type="checkbox" id="confirm_submit" className="transaction-checkbox" checked={txConfirm} onChange={(e) => setTxConfirm(e.target.checked)} />
-                Confirm Submit
-              </label>
-              <div className="transaction-action-btns">
-                <button type="button" id="submit_btn" className="transaction-submit-btn" disabled={!txConfirm || submitting} onClick={onSubmitTx}>
-                  {submitting ? "Submitting..." : "Submit"}
-                </button>
-                  <button type="button" id="action_search_btn" className="transaction-search-btn" onClick={onSearch} disabled={searchLoading}>
-                  Search
-                </button>
-              </div>
-            </div>
-          </div>
+          <TransactionAddSection
+            txType={txType}
+            setTxType={setTxType}
+            txDate={txDate}
+            todayDmy={todayDmy}
+            setTxDate={setTxDate}
+            accountOptions={accountOptions}
+            txToAccount={txToAccount}
+            setTxToAccount={setTxToAccount}
+            selectedCategories={selectedCategories}
+            showStandardFromAndReverse={showStandardFromAndReverse}
+            txFromAccount={txFromAccount}
+            setTxFromAccount={setTxFromAccount}
+            onReverseAccounts={onReverseAccounts}
+            txCurrency={txCurrency}
+            setTxCurrency={setTxCurrency}
+            currencyOptions={currencyOptions}
+            txAmount={txAmount}
+            setTxAmount={setTxAmount}
+            rateDate={rateDate}
+            rateToAccount={rateToAccount}
+            setRateToAccount={setRateToAccount}
+            rateFromAccount={rateFromAccount}
+            setRateFromAccount={setRateFromAccount}
+            rateCurrencyFrom={rateCurrencyFrom}
+            setRateCurrencyFrom={setRateCurrencyFrom}
+            rateCurrencyFromAmount={rateCurrencyFromAmount}
+            setRateCurrencyFromAmount={setRateCurrencyFromAmount}
+            rateExchangeRateRaw={rateExchangeRateRaw}
+            setRateExchangeRateRaw={setRateExchangeRateRaw}
+            rateCurrencyTo={rateCurrencyTo}
+            setRateCurrencyTo={setRateCurrencyTo}
+            rateCurrencyToAmount={rateCurrencyToAmount}
+            rateTransferToAccount={rateTransferToAccount}
+            setRateTransferToAccount={setRateTransferToAccount}
+            rateTransferFromAccount={rateTransferFromAccount}
+            setRateTransferFromAccount={setRateTransferFromAccount}
+            rateMiddlemanAccount={rateMiddlemanAccount}
+            setRateMiddlemanAccount={setRateMiddlemanAccount}
+            rateMiddlemanRate={rateMiddlemanRate}
+            setRateMiddlemanRate={setRateMiddlemanRate}
+            rateMiddlemanAmount={rateMiddlemanAmount}
+            winLoseSide={winLoseSide}
+            setWinLoseSide={setWinLoseSide}
+            txRemark={txRemark}
+            setTxRemark={setTxRemark}
+            txConfirm={txConfirm}
+            setTxConfirm={setTxConfirm}
+            submitting={submitting}
+            onSubmitTx={onSubmitTx}
+            onSearch={onSearch}
+            searchLoading={searchLoading}
+          />
         </div>
 
-        <div className="transaction-tables-section" style={{ display: tablesVisible ? "block" : "none" }}>
-          <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: searchLoading ? "flex" : "none" }} aria-live="polite">
-            Loading data
-          </div>
-          <div
-            id="default-tables-container"
-            style={{
-              display: tp.mode === "default" ? "flex" : "none",
-              flexDirection: "column",
-              width: "100%",
-            }}
-          >
-            {tp.singleCurrencyTitle ? (
-              <h3
-                id="default-currency-title"
-                style={{ margin: "10px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937", display: "block" }}
-              >
-                {tp.singleCurrencyTitle}
-              </h3>
-            ) : null}
-            <div style={{ display: "flex", gap: 20, width: "100%" }}>
-              <div className="transaction-table-wrapper" style={{ flex: "1 1 0", minWidth: 0 }}>
-                <table className="transaction-table" id="table_left">
-                  <thead>
-                    <tr className="transaction-table-header">
-                      <th>Account</th>
-                      <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                        Name
-                      </th>
-                      <th>B/F</th>
-                      <th>Win/Loss</th>
-                      <th>Cr/Dr</th>
-                      <th>Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tbody_left">
-                    {(tp.defaultLeft || []).map((row) => {
-                      const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
-                      const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
-                      return (
-                        <tr
-                          key={`${row.account_db_id}-${row.currency || ""}`}
-                          className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
-                        >
-                          <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                            {row.account_id}
-                          </td>
-                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                            {toUpperDisplay(row.account_name)}
-                          </td>
-                          <td>{formatPaymentHistoryMoney(row.bf)}</td>
-                          <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
-                          <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                          <td
-                            className="transaction-balance-cell"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => handleBalanceCellClick(row, true)}
-                          >
-                            {formatPaymentHistoryMoney(row.balance)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="transaction-table-footer">
-                      <td>Total</td>
-                      <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
-                      <td id="left_total_bf">{formatPaymentHistoryMoney(tp.totalsLeft?.bf ?? "0")}</td>
-                      <td id="left_total_winloss">{formatPaymentHistoryMoney(tp.totalsLeft?.win_loss ?? "0")}</td>
-                      <td id="left_total_crdr">{formatPaymentHistoryMoney(tp.totalsLeft?.cr_dr ?? "0")}</td>
-                      <td id="left_total_balance">{formatPaymentHistoryMoney(tp.totalsLeft?.balance ?? "0")}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <div className="transaction-table-wrapper" style={{ flex: "1 1 0", minWidth: 0 }}>
-                <table className="transaction-table" id="table_right">
-                  <thead>
-                    <tr className="transaction-table-header">
-                      <th>Account</th>
-                      <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                        Name
-                      </th>
-                      <th>B/F</th>
-                      <th>Win/Loss</th>
-                      <th>Cr/Dr</th>
-                      <th>Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tbody_right">
-                    {(tp.defaultRight || []).map((row) => {
-                      const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
-                      const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
-                      return (
-                        <tr
-                          key={`${row.account_db_id}-${row.currency || ""}`}
-                          className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
-                        >
-                          <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                            {row.account_id}
-                          </td>
-                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                            {toUpperDisplay(row.account_name)}
-                          </td>
-                          <td>{formatPaymentHistoryMoney(row.bf)}</td>
-                          <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
-                          <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                          <td
-                            className="transaction-balance-cell"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => handleBalanceCellClick(row, false)}
-                          >
-                            {formatPaymentHistoryMoney(row.balance)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="transaction-table-footer">
-                      <td>Total</td>
-                      <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
-                      <td id="right_total_bf">{formatPaymentHistoryMoney(tp.totalsRight?.bf ?? "0")}</td>
-                      <td id="right_total_winloss">{formatPaymentHistoryMoney(tp.totalsRight?.win_loss ?? "0")}</td>
-                      <td id="right_total_crdr">{formatPaymentHistoryMoney(tp.totalsRight?.cr_dr ?? "0")}</td>
-                      <td id="right_total_balance">{formatPaymentHistoryMoney(tp.totalsRight?.balance ?? "0")}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          </div>
-          <div id="currency-grouped-tables-container" style={{ display: tp.mode === "grouped" ? "block" : "none", width: "100%" }}>
-            {(tp.grouped || []).map((g) => (
-              <div key={g.currency} style={{ marginBottom: 24 }}>
-                <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>
-                  Currency: {g.currency}
-                </h3>
-                <div style={{ display: "flex", gap: 20, width: "100%" }}>
-                  <div className="transaction-table-wrapper" style={{ flex: "1 1 0", minWidth: 0 }}>
-                    <table className="transaction-table">
-                      <thead>
-                        <tr className="transaction-table-header">
-                          <th>Account</th>
-                          <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                            Name
-                          </th>
-                          <th>B/F</th>
-                          <th>Win/Loss</th>
-                          <th>Cr/Dr</th>
-                          <th>Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(g.left || []).map((row) => {
-                          const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
-                          const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
-                          return (
-                            <tr
-                              key={`L-${row.account_db_id}-${row.currency || ""}`}
-                              className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
-                            >
-                              <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                                {row.account_id}
-                              </td>
-                              <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                                {toUpperDisplay(row.account_name)}
-                              </td>
-                              <td>{formatPaymentHistoryMoney(row.bf)}</td>
-                              <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
-                              <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                              <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, true)}>
-                                {formatPaymentHistoryMoney(row.balance)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="transaction-table-footer">
-                          <td>Total</td>
-                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
-                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.bf ?? "0")}</td>
-                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.win_loss ?? "0")}</td>
-                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.cr_dr ?? "0")}</td>
-                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.balance ?? "0")}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                  <div className="transaction-table-wrapper" style={{ flex: "1 1 0", minWidth: 0 }}>
-                    <table className="transaction-table">
-                      <thead>
-                        <tr className="transaction-table-header">
-                          <th>Account</th>
-                          <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                            Name
-                          </th>
-                          <th>B/F</th>
-                          <th>Win/Loss</th>
-                          <th>Cr/Dr</th>
-                          <th>Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(g.right || []).map((row) => {
-                          const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
-                          const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
-                          return (
-                            <tr
-                              key={`R-${row.account_db_id}-${row.currency || ""}`}
-                              className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
-                            >
-                              <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                                {row.account_id}
-                              </td>
-                              <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                                {toUpperDisplay(row.account_name)}
-                              </td>
-                              <td>{formatPaymentHistoryMoney(row.bf)}</td>
-                              <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
-                              <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
-                              <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, false)}>
-                                {formatPaymentHistoryMoney(row.balance)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="transaction-table-footer">
-                          <td>Total</td>
-                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
-                          <td>{formatPaymentHistoryMoney(g.totalsRight?.bf ?? "0")}</td>
-                          <td>{formatPaymentHistoryMoney(g.totalsRight?.win_loss ?? "0")}</td>
-                          <td>{formatPaymentHistoryMoney(g.totalsRight?.cr_dr ?? "0")}</td>
-                          <td>{formatPaymentHistoryMoney(g.totalsRight?.balance ?? "0")}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-                <div style={{ margin: "12px auto", maxWidth: 400 }}>
-                  <table className="transaction-summary-table" style={{ margin: "0 auto", maxWidth: 400 }}>
-                    <thead>
-                      <tr className="transaction-table-header">
-                        <th colSpan={2}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="transaction-table-row">
-                        <td className="transaction-summary-label">B/F</td>
-                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.bf ?? "0")}</td>
-                      </tr>
-                      <tr className="transaction-table-row">
-                        <td className="transaction-summary-label">Win/Loss</td>
-                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.win_loss ?? "0")}</td>
-                      </tr>
-                      <tr className="transaction-table-row">
-                        <td className="transaction-summary-label">Cr/Dr</td>
-                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.cr_dr ?? "0")}</td>
-                      </tr>
-                      <tr className="transaction-table-row">
-                        <td className="transaction-summary-label">Balance</td>
-                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.balance ?? "0")}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="transaction-summary-section" style={{ display: tablesVisible && tp.mode !== "grouped" ? "block" : "none" }}>
-          <table className="transaction-summary-table">
-            <thead>
-              <tr className="transaction-table-header">
-                <th colSpan={2}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="transaction-table-row">
-                <td className="transaction-summary-label">B/F</td>
-                <td id="sum_total_bf">{formatPaymentHistoryMoney(tp.totalsSummary?.bf ?? "0")}</td>
-              </tr>
-              <tr className="transaction-table-row">
-                <td className="transaction-summary-label">Win/Loss</td>
-                <td id="sum_total_winloss">{formatPaymentHistoryMoney(tp.totalsSummary?.win_loss ?? "0")}</td>
-              </tr>
-              <tr className="transaction-table-row">
-                <td className="transaction-summary-label">Cr/Dr</td>
-                <td id="sum_total_crdr">{formatPaymentHistoryMoney(tp.totalsSummary?.cr_dr ?? "0")}</td>
-              </tr>
-              <tr className="transaction-table-row">
-                <td className="transaction-summary-label">Balance</td>
-                <td id="sum_total_balance">{formatPaymentHistoryMoney(tp.totalsSummary?.balance ?? "0")}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <TransactionTablesSection
+          tablesVisible={tablesVisible}
+          searchLoading={searchLoading}
+          tp={tp}
+          searchState={searchState}
+          getRoleClass={getRoleClass}
+          fallbackRoleClass={fallbackRoleClass}
+          openHistory={openHistory}
+          handleBalanceCellClick={handleBalanceCellClick}
+        />
       </div>
 
       <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
@@ -2838,101 +1738,12 @@ export default function TransactionPaymentPage() {
         ))}
       </div>
 
-      <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "flex" : "none" }}>
-        <div className="transaction-modal-content">
-          <div className="transaction-modal-header">
-            <h3 id="modal_title">{history.title}</h3>
-            <button
-              type="button"
-              id="modal_close"
-              className="transaction-modal-close"
-              onClick={() => setHistory((h) => ({ ...h, open: false }))}
-            >
-              ×
-            </button>
-          </div>
-          <div className="transaction-modal-body" style={{ position: "relative" }}>
-            {history.loading ? (
-              <div
-                className="transaction-tables-loading"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(255,255,255,0.75)",
-                  zIndex: 2,
-                }}
-                aria-live="polite"
-              >
-                Loading history…
-              </div>
-            ) : null}
-            <div className="transaction-history-table-frame">
-              <table className="transaction-table">
-                <thead>
-                  <tr className="transaction-table-header">
-                    <th className="transaction-history-col-date">Date</th>
-                    <th className="transaction-history-col-product">Id Product</th>
-                    <th className="transaction-history-col-currency">Currency</th>
-                    <th className="transaction-history-col-rate">Rate</th>
-                    <th className="transaction-history-col-winloss">Win/Loss</th>
-                    <th className="transaction-history-col-crdr">Cr/Dr</th>
-                    <th className="transaction-history-col-balance">Balance</th>
-                    {TRANSACTION_SHOW_DESCRIPTION_COLUMN ? (
-                      <th className="transaction-history-col-description">Description</th>
-                    ) : null}
-                    <th className="transaction-history-col-remark">Remark</th>
-                    <th className="transaction-history-col-created">Created by</th>
-                  </tr>
-                </thead>
-                <tbody id="modal_tbody">
-                  {history.rows.map((r, idx) => {
-                    const isBf = r.row_type === "bf";
-                    const idProductDisplay = r.is_bank_process_transaction ? r.card_owner || "-" : r.product || "-";
-                    const createdRaw = r.created_by;
-                    const createdByDisplay =
-                      createdRaw === null ||
-                      createdRaw === undefined ||
-                      String(createdRaw).trim() === "" ||
-                      String(createdRaw).toLowerCase() === "null"
-                        ? "-"
-                        : String(createdRaw);
-                    return (
-                      <tr
-                        key={r.id ?? `${idx}-${r.date || ""}-${r.balance || ""}`}
-                        className={isBf ? "transaction-bf-row" : "transaction-table-row"}
-                        style={
-                          isBf
-                            ? {
-                                fontWeight: "bold",
-                                backgroundColor: "#f0f0f0",
-                              }
-                            : undefined
-                        }
-                      >
-                        <td className="transaction-history-col-date">{r.date || "-"}</td>
-                        <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
-                        <td className="transaction-history-col-currency">{r.currency || "-"}</td>
-                        <td className="transaction-history-col-rate">{r.rate || "-"}</td>
-                        <td className="transaction-history-col-winloss">{histMoney(r.win_loss)}</td>
-                        <td className="transaction-history-col-crdr">{histMoney(r.cr_dr)}</td>
-                        <td className="transaction-history-col-balance">{histMoney(r.balance)}</td>
-                        {TRANSACTION_SHOW_DESCRIPTION_COLUMN ? (
-                          <td className="transaction-history-col-description text-uppercase">{toUpperDisplay(r.description)}</td>
-                        ) : null}
-                        <td className="transaction-history-col-remark text-uppercase">{getHistoryRemark(r)}</td>
-                        <td className="transaction-history-col-created">{createdByDisplay}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+      <TransactionHistoryModal
+        history={history}
+        setHistory={setHistory}
+        histMoney={histMoney}
+        showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
+      />
     </>
   );
 }
