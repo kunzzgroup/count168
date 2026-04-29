@@ -42,6 +42,13 @@ export default function DataCapturePage() {
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [companyId, setCompanyId] = useState(null);
+  const [permissionOptions, setPermissionOptions] = useState([]);
+  const [selectedPermission, setSelectedPermission] = useState("");
+  const [dateOptions, setDateOptions] = useState([]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [submittedProcesses, setSubmittedProcesses] = useState([]);
+  const [currencyOptions, setCurrencyOptions] = useState([]);
+  const [processOptions, setProcessOptions] = useState([]);
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
 
@@ -56,6 +63,33 @@ export default function DataCapturePage() {
       return cGid === snapGroup ? {} : { display: "none" };
     }
     return cGid ? { display: "none" } : {};
+  }, []);
+
+  const formatSubmittedDateTime = useCallback((process) => {
+    if (process?.created_at) {
+      const createdObj = new Date(process.created_at);
+      const day = String(createdObj.getDate()).padStart(2, "0");
+      const month = String(createdObj.getMonth() + 1).padStart(2, "0");
+      const year = createdObj.getFullYear();
+      const hh = String(createdObj.getHours()).padStart(2, "0");
+      const mm = String(createdObj.getMinutes()).padStart(2, "0");
+      const ss = String(createdObj.getSeconds()).padStart(2, "0");
+      return `${day}/${month}/${year} ${hh}:${mm}:${ss}`;
+    }
+    const logicalDate = process?.capture_date || process?.date_submitted || "";
+    const parts = logicalDate.split("-");
+    let dateText = "";
+    if (parts.length === 3) {
+      dateText = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const now = new Date();
+    if (!dateText) {
+      dateText = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+    }
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    return `${dateText} ${hh}:${mm}:${ss}`;
   }, []);
 
   useLayoutEffect(() => {
@@ -166,6 +200,9 @@ export default function DataCapturePage() {
     const runVanilla = async () => {
       window.DATACAPTURE_COMPANY_ID = companyId;
       window.DATACAPTURE_COMPANY_CODE = companyCode;
+      window.__DC_REACT_PERMISSION_FILTER__ = true;
+      window.__DC_REACT_DATE_SUBMITTED__ = true;
+      window.__DC_REACT_FORM_DATA__ = true;
 
       window._sharedCompanyFilterInitialized = false;
       try {
@@ -195,10 +232,177 @@ export default function DataCapturePage() {
     return () => {
       cancelled = true;
       window._sharedCompanyFilterInitialized = false;
+      window.__DC_REACT_PERMISSION_FILTER__ = false;
+      window.__DC_REACT_DATE_SUBMITTED__ = false;
+      window.__DC_REACT_FORM_DATA__ = false;
       const form = document.getElementById("dataCaptureForm");
       if (form) form.removeAttribute("data-dc-spa-init");
     };
   }, [loading, forbidden, companyId, companyCode]);
+
+  useEffect(() => {
+    const today = new Date();
+    const weekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const opts = [];
+    for (let i = 6; i >= -6; i -= 1) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const value = `${y}-${m}-${day}`;
+      opts.push({ value, label: `${value} (${weekdayNames[d.getDay()]})` });
+    }
+    setDateOptions(opts);
+    const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    setSelectedDate(todayValue);
+  }, []);
+
+  useEffect(() => {
+    if (loading || forbidden || !selectedDate) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const url = buildApiUrl(
+          `api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${encodeURIComponent(selectedDate)}`
+        );
+        const finalUrl = companyId ? `${url}${url.includes("?") ? "&" : "?"}company_id=${companyId}` : url;
+        const response = await fetch(finalUrl, { credentials: "include" });
+        const result = await response.json();
+        if (cancelled) return;
+        setSubmittedProcesses(result.success ? result.data || [] : []);
+      } catch {
+        if (!cancelled) setSubmittedProcesses([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, selectedDate, companyId]);
+
+  useEffect(() => {
+    if (loading || forbidden || !companyCode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            action: "get_company_permissions",
+            company_id: companyCode,
+          }),
+        });
+        const result = await response.json();
+        const raw = result.success && result.data && result.data.permissions ? result.data.permissions : ["Games", "Bank", "Loan", "Rate", "Money"];
+        const filtered = raw.filter((p) => p !== "Bank");
+        if (cancelled) return;
+        setPermissionOptions(filtered);
+
+        let nextSelected = "";
+        try {
+          const saved = localStorage.getItem(`selectedPermission_${companyCode}`);
+          if (saved && filtered.includes(saved)) nextSelected = saved;
+        } catch {
+          // ignore localStorage access errors
+        }
+        if (!nextSelected && filtered.length > 0) nextSelected = filtered[0];
+        setSelectedPermission(nextSelected);
+      } catch {
+        if (!cancelled) {
+          setPermissionOptions([]);
+          setSelectedPermission("");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, companyCode]);
+
+  useEffect(() => {
+    if (!selectedPermission) return;
+    window.switchDataCapturePermission?.(selectedPermission);
+  }, [selectedPermission]);
+
+  useEffect(() => {
+    if (loading || forbidden) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const baseUrl = buildApiUrl("api/processes/addprocess_api.php");
+        const finalUrl = companyId ? `${baseUrl}?company_id=${companyId}` : baseUrl;
+        const response = await fetch(finalUrl, { credentials: "include" });
+        const result = await response.json();
+        if (cancelled) return;
+        if (result.success) {
+          setCurrencyOptions(Array.isArray(result.currencies) ? result.currencies : []);
+        } else {
+          setCurrencyOptions([]);
+        }
+      } catch {
+        if (!cancelled) setCurrencyOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, companyId]);
+
+  useEffect(() => {
+    if (loading || forbidden || !selectedDate) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${encodeURIComponent(selectedDate)}`);
+        const finalUrl = companyId ? `${url}${url.includes("?") ? "&" : "?"}company_id=${companyId}` : url;
+        const response = await fetch(finalUrl, { credentials: "include" });
+        const result = await response.json();
+        if (cancelled) return;
+
+        if (!result.success || !Array.isArray(result.data)) {
+          setProcessOptions([]);
+          window.__syncDataCaptureProcessMap?.([]);
+          return;
+        }
+
+        const nextOptions = result.data.map((process) => {
+          const displayText =
+            process.process_display != null && String(process.process_display).trim() !== ""
+              ? String(process.process_display).trim()
+              : process.description_name
+                ? `${process.process_id} (${process.description_name})`
+                : process.process_id;
+          return {
+            displayText,
+            id: process.id,
+            processCode: process.process_id,
+            descriptionName: process.description_name || null,
+          };
+        });
+
+        setProcessOptions(nextOptions);
+        window.__syncDataCaptureProcessMap?.(nextOptions);
+
+        const processBtn = document.getElementById("capture_process");
+        if (processBtn) {
+          processBtn.textContent = processBtn.getAttribute("data-placeholder") || "Select Process";
+          processBtn.removeAttribute("data-value");
+          processBtn.removeAttribute("data-process-code");
+          processBtn.removeAttribute("data-description-name");
+        }
+      } catch {
+        if (!cancelled) {
+          setProcessOptions([]);
+          window.__syncDataCaptureProcessMap?.([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, selectedDate, companyId]);
 
   if (forbidden) {
     return <Navigate to="/process-list" replace />;
@@ -218,10 +422,21 @@ export default function DataCapturePage() {
           <div
             id="data-capture-permission-filter"
             className="data-capture-company-filter data-capture-permission-filter-header"
-            style={{ display: "none" }}
+            style={{ display: permissionOptions.length > 1 ? "flex" : "none" }}
           >
             <span className="data-capture-company-label">Category:</span>
-            <div id="data-capture-permission-buttons" className="data-capture-company-buttons" />
+            <div id="data-capture-permission-buttons" className="data-capture-company-buttons">
+              {permissionOptions.map((permission) => (
+                <button
+                  key={permission}
+                  type="button"
+                  className={`data-capture-company-btn ${selectedPermission === permission ? "active" : ""}`}
+                  onClick={() => setSelectedPermission(permission)}
+                >
+                  {permission}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -271,8 +486,13 @@ export default function DataCapturePage() {
 
               <div className="form-group">
                 <label htmlFor="capture_date">Date</label>
-                <select id="capture_date" name="capture_date" required defaultValue="">
+                <select id="capture_date" name="capture_date" required value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}>
                   <option value="">Select Date</option>
+                  {dateOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -286,7 +506,19 @@ export default function DataCapturePage() {
                     <div className="custom-select-search">
                       <input type="text" placeholder="Search process..." autoComplete="off" />
                     </div>
-                    <div className="custom-select-options" />
+                    <div className="custom-select-options">
+                      {processOptions.map((option) => (
+                        <div
+                          key={`${option.id}-${option.displayText}`}
+                          className="custom-select-option"
+                          data-value={option.id}
+                          data-process-code={option.processCode}
+                          data-description-name={option.descriptionName || ""}
+                        >
+                          {option.displayText}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -312,6 +544,11 @@ export default function DataCapturePage() {
                 <label htmlFor="capture_currency">Currency</label>
                 <select id="capture_currency" name="currency" defaultValue="">
                   <option value="">Select Currency</option>
+                  {currencyOptions.map((currency) => (
+                    <option key={currency.id} value={currency.id}>
+                      {currency.code}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -344,7 +581,26 @@ export default function DataCapturePage() {
           <div className="submitted-container">
             <h2 className="submitted-title">Submitted Processes</h2>
             <div className="submitted-list" id="submittedProcessesList">
-              <div className="no-data">No processes submitted for this date</div>
+              {submittedProcesses.length === 0 ? (
+                <div className="no-data">No processes submitted for this date</div>
+              ) : (
+                submittedProcesses.map((process, idx) => (
+                  <div className="submitted-item" key={`${process.id || process.process_id || "p"}-${idx}`}>
+                    <div className="submitted-details">
+                      <div className="detail-row">
+                        <strong>
+                          {process.process_code}
+                          {process.description_name ? ` (${process.description_name})` : ""}
+                        </strong>
+                        <div className="submitted-meta">
+                          <span className="submitted-by">{process.submitted_by}</span>
+                          <span className="submitted-date">{formatSubmittedDateTime(process)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

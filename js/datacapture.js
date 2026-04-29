@@ -1006,6 +1006,9 @@ function getLocalDateString(date = null) {
 
 // Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
 async function loadSubmittedProcesses() {
+    if (window.__DC_REACT_DATE_SUBMITTED__) {
+        return;
+    }
     try {
         const dateInput = document.getElementById('capture_date');
         const selectedDate = (dateInput && dateInput.value) ? dateInput.value : getLocalDateString();
@@ -2697,6 +2700,9 @@ function clearProcessData() {
 
 // Generate date options (today ± 6 days, newest first)
 function generateDateOptions() {
+    if (window.__DC_REACT_DATE_SUBMITTED__) {
+        return;
+    }
     const dateSelect = document.getElementById('capture_date');
     const today = new Date();
     const options = [];
@@ -2738,6 +2744,9 @@ function generateDateOptions() {
 
 // Load form data on page load
 async function loadFormData() {
+    if (window.__DC_REACT_FORM_DATA__) {
+        return;
+    }
     try {
         // Generate date options first
         generateDateOptions();
@@ -2775,6 +2784,9 @@ async function loadFormData() {
 
 // Load processes based on selected date
 async function loadProcessesByDate() {
+    if (window.__DC_REACT_FORM_DATA__) {
+        return;
+    }
     try {
         const dateInput = document.getElementById('capture_date');
         const selectedDate = dateInput.value || getLocalDateString();
@@ -24536,8 +24548,12 @@ async function restoreFromLocalStorage() {
     }
 }
 
-// Initialize page
-document.addEventListener('DOMContentLoaded', async function () {
+let __dataCapturePageInitPromise = null;
+
+// Initialize page (supports both classic PHP load and React SPA manual boot)
+async function initializeDataCapturePage() {
+    if (__dataCapturePageInitPromise) return __dataCapturePageInitPromise;
+    __dataCapturePageInitPromise = (async () => {
     // 加载权限按钮
     await loadPermissionButtons();
     // Mark page as ready after a brief delay to ensure CSS is loaded
@@ -24654,7 +24670,12 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Restore data from localStorage
         await restoreFromLocalStorage();
     }
-});
+    })().catch((error) => {
+        __dataCapturePageInitPromise = null;
+        throw error;
+    });
+    return __dataCapturePageInitPromise;
+}
 
 // 切换 data capture 的 company
 // 当前选择的权限
@@ -24662,6 +24683,9 @@ let selectedPermission = null;
 
 // 加载权限按钮
 async function loadPermissionButtons() {
+    if (window.__DC_REACT_PERMISSION_FILTER__) {
+        return;
+    }
     const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
     const currentCompanyCode = (typeof window.DATACAPTURE_COMPANY_CODE !== 'undefined' ? window.DATACAPTURE_COMPANY_CODE : '');
 
@@ -24862,4 +24886,32 @@ function addUppercaseConversion(inputId) {
         }, 0);
     });
 }
+
+function syncProcessDataMapFromReact(options) {
+    processDataMap.clear();
+    if (!Array.isArray(options)) return;
+    options.forEach((item) => {
+        if (!item || !item.displayText) return;
+        processDataMap.set(item.displayText, {
+            id: item.id,
+            process_id: item.process_id || item.processCode || '',
+            description_name: item.description_name || item.descriptionName || null
+        });
+    });
+}
 window.switchDataCaptureCompany = switchDataCaptureCompany;
+window.switchDataCapturePermission = switchPermission;
+window.__syncDataCaptureProcessMap = syncProcessDataMapFromReact;
+window.__initDataCapturePage = initializeDataCapturePage;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeDataCapturePage().catch((error) => {
+            console.error('Failed to initialize data capture page:', error);
+        });
+    }, { once: true });
+} else {
+    initializeDataCapturePage().catch((error) => {
+        console.error('Failed to initialize data capture page:', error);
+    });
+}
