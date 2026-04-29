@@ -522,6 +522,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                     </div>
                 </div>
             <?php endif; ?>
+        <?php endif; ?>
     </div>
 
     <div class="informationmenu-footer">
