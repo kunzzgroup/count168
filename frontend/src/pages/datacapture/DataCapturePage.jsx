@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
@@ -19,6 +19,9 @@ export default function DataCapturePage() {
   const [submittedProcesses, setSubmittedProcesses] = useState([]);
   const [currencyOptions, setCurrencyOptions] = useState([]);
   const [processOptions, setProcessOptions] = useState([]);
+  const [selectedProcessId, setSelectedProcessId] = useState("");
+  const [processSearch, setProcessSearch] = useState("");
+  const [processDropdownOpen, setProcessDropdownOpen] = useState(false);
   const [descriptionText, setDescriptionText] = useState("");
   const [selectedDescriptionsState, setSelectedDescriptionsState] = useState([]);
   const [availableDescriptions, setAvailableDescriptions] = useState([]);
@@ -31,8 +34,19 @@ export default function DataCapturePage() {
   const [remark, setRemark] = useState("");
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
-  const { submit } = useDataCaptureSubmit({ selectedDescriptions: selectedDescriptionsState });
+  const { submit } = useDataCaptureSubmit({ selectedDescriptions: selectedDescriptionsState, navigate });
   const tableEngine = useDataCaptureTableEngine();
+  const processDropdownRef = useRef(null);
+
+  const selectedProcess = useMemo(
+    () => processOptions.find((option) => String(option.id) === String(selectedProcessId)) || null,
+    [processOptions, selectedProcessId]
+  );
+  const filteredProcessOptions = useMemo(() => {
+    const keyword = processSearch.trim().toLowerCase();
+    if (!keyword) return processOptions;
+    return processOptions.filter((option) => String(option.displayText || "").toLowerCase().includes(keyword));
+  }, [processOptions, processSearch]);
 
   const companyCode = useMemo(() => {
     const cur = filterSnapshot?.snapCompanies?.find((c) => Number(c.id) === Number(companyId));
@@ -97,7 +111,7 @@ export default function DataCapturePage() {
         }
         const u = meJson.data;
         if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
+          navigate("/member", { replace: true });
           return;
         }
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
@@ -163,7 +177,41 @@ export default function DataCapturePage() {
     };
   }, [navigate]);
 
-  useDataCaptureLegacyBridge({ loading, forbidden, companyId, companyCode });
+  const handleCompanyChange = useCallback(
+    async (nextCompanyId) => {
+      const normalized = Number(nextCompanyId);
+      if (!Number.isFinite(normalized)) return;
+
+      try {
+        const sync = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${normalized}`), {
+          credentials: "include",
+        });
+        const sj = await sync.json();
+        if (!sync.ok || !sj.success) return;
+        notifyCompanySessionUpdated();
+
+        setCompanyId(normalized);
+        setFilterSnapshot((prev) => {
+          if (!prev) return prev;
+          const current = prev.snapCompanies.find((c) => Number(c.id) === normalized);
+          const nextGroup = current?.group_id ? String(current.group_id).toUpperCase().trim() : null;
+          if (nextGroup) sessionStorage.setItem("dashboard_group_filter", nextGroup);
+          return {
+            ...prev,
+            companyId: normalized,
+            selectedGroup: nextGroup,
+          };
+        });
+
+        navigate(`/datacapture?company_id=${normalized}`, { replace: true });
+      } catch {
+        // ignore transient company switch failure
+      }
+    },
+    [navigate]
+  );
+
+  useDataCaptureLegacyBridge({ loading, forbidden, companyId, companyCode, onCompanyChange: handleCompanyChange });
   useDataCaptureRestore({
     ready: !loading && !forbidden && companyId != null,
     processOptions,
@@ -173,6 +221,9 @@ export default function DataCapturePage() {
     setReplaceWordFrom,
     setReplaceWordTo,
     setRemark,
+    onRestoreProcess: (process) => {
+      setSelectedProcessId(String(process.id || ""));
+    },
   });
 
   useEffect(() => {
@@ -244,52 +295,10 @@ export default function DataCapturePage() {
   }, []);
 
   useEffect(() => {
-    const button = document.getElementById("capture_process");
-    const dropdown = document.getElementById("capture_process_dropdown");
-    const searchInput = dropdown?.querySelector(".custom-select-search input");
-    const options = dropdown?.querySelector(".custom-select-options");
-    if (!button || !dropdown || !searchInput || !options) return undefined;
-
-    const setOpen = (open) => {
-      dropdown.style.display = open ? "block" : "none";
-      if (open) searchInput.focus();
-      else searchInput.value = "";
-    };
-    const onButtonClick = () => setOpen(dropdown.style.display !== "block");
-    const onDocClick = (event) => {
-      if (!dropdown.contains(event.target) && !button.contains(event.target)) setOpen(false);
-    };
-    const onSearch = () => {
-      const key = searchInput.value.toLowerCase().trim();
-      options.querySelectorAll(".custom-select-option").forEach((opt) => {
-        const show = String(opt.textContent || "").toLowerCase().includes(key);
-        opt.style.display = show ? "" : "none";
-      });
-    };
-    const onOptionClick = (event) => {
-      const option = event.target.closest(".custom-select-option");
-      if (!option) return;
-      button.textContent = option.textContent || "";
-      button.setAttribute("data-value", option.getAttribute("data-value") || "");
-      button.setAttribute("data-process-code", option.getAttribute("data-process-code") || "");
-      const d = option.getAttribute("data-description-name");
-      if (d) button.setAttribute("data-description-name", d);
-      else button.removeAttribute("data-description-name");
-      button.dispatchEvent(new Event("change", { bubbles: true }));
-      setOpen(false);
-    };
-
-    button.addEventListener("click", onButtonClick);
-    document.addEventListener("click", onDocClick);
-    searchInput.addEventListener("input", onSearch);
-    options.addEventListener("click", onOptionClick);
-    return () => {
-      button.removeEventListener("click", onButtonClick);
-      document.removeEventListener("click", onDocClick);
-      searchInput.removeEventListener("input", onSearch);
-      options.removeEventListener("click", onOptionClick);
-    };
-  }, [processOptions]);
+    if (!processDropdownOpen) return;
+    const searchInput = processDropdownRef.current?.querySelector(".custom-select-search input");
+    searchInput?.focus();
+  }, [processDropdownOpen]);
 
   useEffect(() => {
     setDescriptionText(selectedDescriptionsState.join(", "));
@@ -311,29 +320,23 @@ export default function DataCapturePage() {
 
   useEffect(() => {
     if (loading || forbidden) return undefined;
-    const processButton = document.getElementById("capture_process");
-    if (!processButton) return undefined;
-
     const clearLinkedFields = () => {
       const currencySelect = document.getElementById("capture_currency");
-      const descriptionInput = document.getElementById("capture_description");
       if (currencySelect) currencySelect.value = "";
       setRemoveWord("");
       setReplaceWordFrom("");
       setReplaceWordTo("");
       setRemark("");
       setSelectedDescriptionsState([]);
-      if (descriptionInput) descriptionInput.value = "";
     };
 
-    const onProcessChange = async () => {
-      const processId = processButton.getAttribute("data-value") || "";
-      if (!processId) {
+    const loadLinkedFields = async () => {
+      if (!selectedProcessId) {
         clearLinkedFields();
         return;
       }
       try {
-        const url = buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${encodeURIComponent(processId)}`);
+        const url = buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${encodeURIComponent(selectedProcessId)}`);
         const finalUrl = companyId ? `${url}${url.includes("?") ? "&" : "?"}company_id=${companyId}` : url;
         const response = await fetch(finalUrl, { credentials: "include" });
         const result = await response.json();
@@ -352,22 +355,20 @@ export default function DataCapturePage() {
           }
         }
 
-        const descriptionInput = document.getElementById("capture_description");
         setRemoveWord(pd.remove_word || "");
         setReplaceWordFrom(pd.replace_word_from || "");
         setReplaceWordTo(pd.replace_word_to || "");
         setRemark(pd.remarks || "");
         const nextDescriptions = pd.description_names ? [pd.description_names] : [];
         setSelectedDescriptionsState(nextDescriptions);
-        if (descriptionInput) descriptionInput.value = pd.description_names || "";
       } catch {
         // keep previous values on transient request failure
       }
     };
 
-    processButton.addEventListener("change", onProcessChange);
-    return () => processButton.removeEventListener("change", onProcessChange);
-  }, [loading, forbidden, companyId]);
+    loadLinkedFields();
+    return undefined;
+  }, [loading, forbidden, companyId, selectedProcessId]);
 
   useEffect(() => {
     if (loading || forbidden || !companyCode) return;
@@ -471,17 +472,15 @@ export default function DataCapturePage() {
         });
 
         setProcessOptions(nextOptions);
-
-        const processBtn = document.getElementById("capture_process");
-        if (processBtn) {
-          processBtn.textContent = processBtn.getAttribute("data-placeholder") || "Select Process";
-          processBtn.removeAttribute("data-value");
-          processBtn.removeAttribute("data-process-code");
-          processBtn.removeAttribute("data-description-name");
-        }
+        setSelectedProcessId("");
+        setProcessSearch("");
+        setProcessDropdownOpen(false);
       } catch {
         if (!cancelled) {
           setProcessOptions([]);
+          setSelectedProcessId("");
+          setProcessSearch("");
+          setProcessDropdownOpen(false);
         }
       }
     })();
@@ -531,13 +530,9 @@ export default function DataCapturePage() {
     setSelectedDescriptionsState([]);
     const currencySelect = document.getElementById("capture_currency");
     if (currencySelect) currencySelect.value = "";
-    const processBtn = document.getElementById("capture_process");
-    if (processBtn) {
-      processBtn.textContent = processBtn.getAttribute("data-placeholder") || "Select Process";
-      processBtn.removeAttribute("data-value");
-      processBtn.removeAttribute("data-process-code");
-      processBtn.removeAttribute("data-description-name");
-    }
+    setSelectedProcessId("");
+    setProcessSearch("");
+    setProcessDropdownOpen(false);
     const tableBody = document.getElementById("tableBody");
     if (tableBody) {
       tableBody.querySelectorAll("td[data-col]").forEach((cell) => {
@@ -640,22 +635,53 @@ export default function DataCapturePage() {
 
               <div className="form-group">
                 <label htmlFor="capture_process">Process</label>
-                <div className="custom-select-wrapper">
-                  <button type="button" className="custom-select-button" id="capture_process" data-placeholder="Select Process" name="process">
-                    Select Process
+                <div
+                  className="custom-select-wrapper"
+                  ref={processDropdownRef}
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                      setProcessDropdownOpen(false);
+                      setProcessSearch("");
+                    }
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="custom-select-button"
+                    id="capture_process"
+                    data-placeholder="Select Process"
+                    name="process"
+                    data-value={selectedProcess ? selectedProcess.id : ""}
+                    data-process-code={selectedProcess?.processCode || ""}
+                    data-description-name={selectedProcess?.descriptionName || ""}
+                    onClick={() => setProcessDropdownOpen((prev) => !prev)}
+                  >
+                    {selectedProcess?.displayText || "Select Process"}
                   </button>
-                  <div className="custom-select-dropdown" id="capture_process_dropdown">
+                  <div className="custom-select-dropdown" id="capture_process_dropdown" style={{ display: processDropdownOpen ? "block" : "none" }}>
                     <div className="custom-select-search">
-                      <input type="text" placeholder="Search process..." autoComplete="off" />
+                      <input
+                        type="text"
+                        placeholder="Search process..."
+                        autoComplete="off"
+                        value={processSearch}
+                        onChange={(e) => setProcessSearch(e.target.value)}
+                      />
                     </div>
                     <div className="custom-select-options">
-                      {processOptions.map((option) => (
+                      {filteredProcessOptions.map((option) => (
                         <div
                           key={`${option.id}-${option.displayText}`}
                           className="custom-select-option"
                           data-value={option.id}
                           data-process-code={option.processCode}
                           data-description-name={option.descriptionName || ""}
+                          onClick={() => {
+                            setSelectedProcessId(String(option.id || ""));
+                            setProcessDropdownOpen(false);
+                            setProcessSearch("");
+                          }}
+                          role="presentation"
                         >
                           {option.displayText}
                         </div>

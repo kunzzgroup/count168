@@ -71,6 +71,7 @@ export function useDataCaptureRestore({
   setReplaceWordFrom,
   setReplaceWordTo,
   setRemark,
+  onRestoreProcess,
 }) {
   useEffect(() => {
     if (!ready) return;
@@ -94,23 +95,11 @@ export function useDataCaptureRestore({
       setSelectedDescriptions(descriptions);
 
       if (processData?.process) {
-        const processButton = document.getElementById("capture_process");
-        if (processButton) {
-          const found =
-            processOptions.find((p) => String(p.id) === String(processData.process)) ||
-            processOptions.find((p) => String(p.processCode || "").trim() === String(processData.processCode || "").trim());
-
-          if (found) {
-            processButton.textContent = found.displayText;
-            processButton.setAttribute("data-value", found.id);
-            processButton.setAttribute("data-process-code", found.processCode || "");
-            if (found.descriptionName) {
-              processButton.setAttribute("data-description-name", found.descriptionName);
-            } else {
-              processButton.removeAttribute("data-description-name");
-            }
-            processButton.dispatchEvent(new Event("change", { bubbles: true }));
-          }
+        const found =
+          processOptions.find((p) => String(p.id) === String(processData.process)) ||
+          processOptions.find((p) => String(p.processCode || "").trim() === String(processData.processCode || "").trim());
+        if (found && typeof onRestoreProcess === "function") {
+          onRestoreProcess(found);
         }
       }
     } catch {
@@ -118,5 +107,5 @@ export function useDataCaptureRestore({
     }
 
     restoreTableFromLocalStorage();
-  }, [processOptions, ready, setRemark, setRemoveWord, setReplaceWordFrom, setReplaceWordTo, setSelectedDate, setSelectedDescriptions]);
+  }, [onRestoreProcess, processOptions, ready, setRemark, setRemoveWord, setReplaceWordFrom, setReplaceWordTo, setSelectedDate, setSelectedDescriptions]);
 }

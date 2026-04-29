@@ -113,7 +113,7 @@ function convertTableFormatOnSubmit(dataCaptureType) {
   });
 }
 
-export function useDataCaptureSubmit({ selectedDescriptions }) {
+export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
   const notify = useCallback((message, type = "success") => {
     const container = document.getElementById("processNotificationContainer");
     if (!container) return;
@@ -195,14 +195,18 @@ export function useDataCaptureSubmit({ selectedDescriptions }) {
 
       notify("Data captured successfully! Redirecting to summary...", "success");
       setTimeout(() => {
-        window.location.href = "datacapturesummary.php?success=1";
+        if (typeof navigate === "function") {
+          navigate("/datacapturesummary?success=1");
+        } else {
+          window.location.href = "datacapturesummary.php?success=1";
+        }
       }, 1500);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Error submitting data:", error);
       notify("Failed to capture data", "danger");
     }
-  }, [notify, selectedDescriptions]);
+  }, [navigate, notify, selectedDescriptions]);
 
   return { submit };
 }

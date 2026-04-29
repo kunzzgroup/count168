@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { assetUrl } from "../../../utils/apiUrl.js";
 import { injectStylesheet, loadScriptOnce } from "../utils/assetLoader.js";
 
-export function useDataCaptureLegacyBridge({ loading, forbidden, companyId, companyCode }) {
+export function useDataCaptureLegacyBridge({ loading, forbidden, companyId, companyCode, onCompanyChange }) {
   useEffect(() => {
     const hrefs = [assetUrl("css/datacapture.css"), assetUrl("css/global-13inch.css")];
     Promise.all(hrefs.map((href) => injectStylesheet(href)));
@@ -20,6 +20,10 @@ export function useDataCaptureLegacyBridge({ loading, forbidden, companyId, comp
         await loadScriptOnce(assetUrl("js/shared_company_filter.js"));
         if (cancelled) return;
         window.onSharedCompanyFilterChanged = (id) => {
+          if (typeof onCompanyChange === "function") {
+            onCompanyChange(id);
+            return;
+          }
           const nextUrl = new URL(window.location.href);
           nextUrl.searchParams.set("company_id", String(id));
           window.location.assign(nextUrl.toString());
@@ -38,5 +42,5 @@ export function useDataCaptureLegacyBridge({ loading, forbidden, companyId, comp
       window._sharedCompanyFilterInitialized = false;
       delete window.onSharedCompanyFilterChanged;
     };
-  }, [loading, forbidden, companyId, companyCode]);
+  }, [loading, forbidden, companyId, companyCode, onCompanyChange]);
 }
