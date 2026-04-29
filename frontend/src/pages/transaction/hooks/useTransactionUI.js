@@ -1,7 +1,9 @@
 import { useState, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { getHistory, loadContraInbox, approveContra, rejectContra } from "../transactionApi.js";
 
 export function useTransactionUI() {
+  const queryClient = useQueryClient();
   const [toast, setToast] = useState([]);
   const [history, setHistory] = useState({ open: false, title: "", rows: [], loading: false });
   const [contraInbox, setContraInbox] = useState({ open: false, loading: false, items: [] });
@@ -30,12 +32,21 @@ export function useTransactionUI() {
       const title = paymentHistoryTitle(row, null);
       setHistory({ open: true, title, rows: [], loading: true });
       try {
-        const res = await getHistory({
-          companyId,
-          accountId: row.account_db_id,
-          dateFrom,
-          dateTo,
-          currency: row.currency,
+        const accountDbId = row.account_db_id ? String(row.account_db_id) : "";
+        const currency = String(row.currency || "").toUpperCase().trim();
+        const res = await queryClient.fetchQuery({
+          queryKey: ["tx-history", Number(companyId), accountDbId, String(dateFrom || ""), String(dateTo || ""), currency],
+          queryFn: ({ signal }) =>
+            getHistory({
+              companyId,
+              accountId: accountDbId,
+              dateFrom,
+              dateTo,
+              currency,
+              signal,
+            }),
+          staleTime: 30_000,
+          gcTime: 5 * 60_000,
         });
         if (res?.success) {
           const rows = Array.isArray(res.data) ? res.data : [];
@@ -50,7 +61,7 @@ export function useTransactionUI() {
         setHistory((s) => ({ ...s, loading: false }));
       }
     },
-    [pushToast, paymentHistoryTitle],
+    [pushToast, paymentHistoryTitle, queryClient],
   );
 
   const refreshContraInboxBadge = useCallback(

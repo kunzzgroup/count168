@@ -100,6 +100,7 @@ export async function getHistory({
   dateTo,
   currency,
   virtualCompanyCode,
+  signal,
 } = {}) {
   const params = new URLSearchParams();
   if (companyId != null) params.set("company_id", String(companyId));
@@ -113,6 +114,7 @@ export async function getHistory({
     credentials: "include",
     cache: "no-cache",
     headers: { "Cache-Control": "no-cache" },
+    signal,
   });
   const body = await safeJson(res);
   /** PHP returns { data: { account, date_range, history: Row[] } }; normalize to rows + meta for React. */
