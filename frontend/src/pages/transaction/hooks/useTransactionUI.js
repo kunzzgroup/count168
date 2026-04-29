@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   getHistory,
   loadContraInbox,
@@ -40,7 +41,7 @@ export function useTransactionUI() {
         const accountDbId = row.account_db_id ? String(row.account_db_id) : "";
         const currency = String(row.currency || "").toUpperCase().trim();
         const res = await queryClient.fetchQuery({
-          queryKey: ["tx-history", Number(companyId), accountDbId, String(dateFrom || ""), String(dateTo || ""), currency],
+          queryKey: transactionQueryKeys.history({ companyId, accountDbId, dateFrom, dateTo, currency }),
           queryFn: ({ signal }) =>
             getHistory({
               companyId,
@@ -75,7 +76,7 @@ export function useTransactionUI() {
       setContraInbox((s) => ({ ...s, loading: true }));
       try {
         const res = await queryClient.fetchQuery({
-          queryKey: ["tx-contra-inbox", Number(companyId)],
+          queryKey: transactionQueryKeys.contraInbox(companyId),
           queryFn: ({ signal }) => loadContraInbox({ companyId, signal }),
           staleTime: 10_000,
           gcTime: 5 * 60_000,
@@ -97,16 +98,16 @@ export function useTransactionUI() {
   const approveContraMutation = useMutation({
     mutationFn: ({ id, companyId }) => approveContraApi({ transactionId: id, companyId }),
     onSuccess: (_res, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["tx-search"] });
-      queryClient.invalidateQueries({ queryKey: ["tx-contra-inbox", Number(vars.companyId)] });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInbox(vars.companyId) });
     },
   });
 
   const rejectContraMutation = useMutation({
     mutationFn: ({ id, companyId }) => rejectContraApi({ transactionId: id, companyId }),
     onSuccess: (_res, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["tx-search"] });
-      queryClient.invalidateQueries({ queryKey: ["tx-contra-inbox", Number(vars.companyId)] });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInbox(vars.companyId) });
     },
   });
 

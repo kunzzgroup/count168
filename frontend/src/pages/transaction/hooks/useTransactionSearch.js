@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDmy } from "../transactionFormat.js";
+import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
   TX_LIST_INVALIDATE_LS_KEY,
@@ -345,7 +346,7 @@ export function useTransactionSearch({
     }
 
     const runToken = ++latestRunTokenRef.current;
-    await queryClient.cancelQueries({ queryKey: ["tx-search"] });
+    await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
 
     if (!silent) setSearchLoading(true);
     setTablesVisible(true);
@@ -363,19 +364,7 @@ export function useTransactionSearch({
 
     const fetchSearch = (params) =>
       queryClient.fetchQuery({
-        queryKey: [
-          "tx-search",
-          {
-            companyId: params.companyId,
-            dateFrom: params.dateFrom,
-            dateTo: params.dateTo,
-            showInactive: !!params.showInactive,
-            showCaptureOnly: !!params.showCaptureOnly,
-            hideZeroBalance: !!params.hideZeroBalance,
-            categories: Array.isArray(params.categories) ? [...params.categories].sort() : [],
-            currencyCodes: Array.isArray(params.currencyCodes) ? [...params.currencyCodes].sort() : [],
-          },
-        ],
+        queryKey: transactionQueryKeys.search(params),
         queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
         staleTime: 15_000,
         gcTime: 2 * 60_000,
@@ -486,7 +475,7 @@ export function useTransactionSearch({
 
   useEffect(() => {
     return () => {
-      queryClient.cancelQueries({ queryKey: ["tx-search"] });
+      queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
     };
   }, [queryClient]);
 
@@ -604,7 +593,7 @@ export function useTransactionSearch({
     lastCompletedSearchKeyRef.current = "";
     try {
       latestRunTokenRef.current += 1;
-      queryClient.cancelQueries({ queryKey: ["tx-search"] });
+      queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
     } catch {
       /* ignore */
     }

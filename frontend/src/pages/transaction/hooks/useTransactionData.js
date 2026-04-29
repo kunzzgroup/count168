@@ -9,6 +9,7 @@ import {
   getCompanyCurrencies,
   getUserCurrencyOrder,
 } from "../transactionApi.js";
+import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import { orderCurrencyRows, readTransactionCurrencyFilterState } from "../transactionPaymentLogic.js";
 
 export function useTransactionData({
@@ -113,7 +114,7 @@ export function useTransactionData({
     (async () => {
       try {
         const c = await queryClient.fetchQuery({
-          queryKey: ["tx-categories"],
+          queryKey: transactionQueryKeys.categories(),
           queryFn: () => getCategories(),
           staleTime: 5 * 60_000,
           gcTime: 30 * 60_000,
@@ -128,19 +129,19 @@ export function useTransactionData({
         const cid = filterSnapshot.companyId;
         const [acc, cur, ord] = await Promise.all([
           queryClient.fetchQuery({
-            queryKey: ["tx-accounts", Number(cid)],
+            queryKey: transactionQueryKeys.accounts(cid),
             queryFn: ({ signal }) => getAccounts({ companyId: cid, signal }),
             staleTime: 60_000,
             gcTime: 10 * 60_000,
           }),
           queryClient.fetchQuery({
-            queryKey: ["tx-company-currencies", Number(cid)],
+            queryKey: transactionQueryKeys.companyCurrencies(cid),
             queryFn: ({ signal }) => getCompanyCurrencies({ companyId: cid, signal }),
             staleTime: 60_000,
             gcTime: 10 * 60_000,
           }),
           queryClient.fetchQuery({
-            queryKey: ["tx-user-currency-order"],
+            queryKey: transactionQueryKeys.userCurrencyOrder(),
             queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
             staleTime: 60_000,
             gcTime: 10 * 60_000,

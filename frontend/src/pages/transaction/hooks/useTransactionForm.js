@@ -4,6 +4,7 @@ import { parseRateExpression, buildClientRequestId } from "../transactionFormat.
 import { formatRateAmount } from "../transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
 import { submitTransaction } from "../transactionApi.js";
+import { transactionQueryKeys } from "../transactionQueryKeys.js";
 
 export function useTransactionForm({
   todayDmy,
@@ -43,8 +44,8 @@ export function useTransactionForm({
   const submitMutation = useMutation({
     mutationFn: ({ companyId, payload, clientRequestId }) => submitTransaction({ companyId, payload, clientRequestId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tx-search"] });
-      queryClient.invalidateQueries({ queryKey: ["tx-contra-inbox"] });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInboxRoot() });
     },
   });
 
