@@ -104,9 +104,11 @@ async function switchCompany(companyId, companyCode) {
     const permissions = await fetchCompanyPermissions(companyCode || '');
     if (isBankOnlyCategoryCompany(permissions)) {
         if (typeof window.redirectAfterCompanySwitch === 'function') {
-            window.redirectAfterCompanySwitch(companyId);
+            window.redirectAfterCompanySwitch(companyId, { preferDashboard: false });
         } else {
-            window.location.href = 'dashboard.php';
+            const url = new URL(window.location.href);
+            url.searchParams.set('company_id', companyId);
+            window.location.href = url.toString();
         }
         return;
     }
@@ -811,14 +813,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         let rawMode = localStorage.getItem('selectedPermission_' + modeCode);
         if (rawMode === 'Gambling') rawMode = 'Games';
         if (rawMode === 'Bank') {
-            if (window.history.length > 1) {
-                window.history.back();
+            if (typeof window.redirectAfterCompanySwitch === 'function') {
+                window.redirectAfterCompanySwitch(currentCompanyId, { preferDashboard: false });
             } else {
-                if (typeof window.redirectAfterCompanySwitch === 'function') {
-                    window.redirectAfterCompanySwitch(currentCompanyId);
-                } else {
-                    window.location.href = 'dashboard.php';
-                }
+                const url = new URL(window.location.href);
+                if (currentCompanyId) url.searchParams.set('company_id', currentCompanyId);
+                window.location.href = url.toString();
             }
             return;
         }
