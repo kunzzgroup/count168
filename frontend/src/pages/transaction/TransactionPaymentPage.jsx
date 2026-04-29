@@ -14,10 +14,10 @@ import { useTransactionSync } from "./hooks/useTransactionSync.js";
 import { useTransactionDateRange } from "./hooks/useTransactionDateRange.js";
 import { useTransactionInitialization } from "./hooks/useTransactionInitialization.js";
 import { installTransactionExcelCopy } from "./transactionExcelCopy.js";
-import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./transactionPaymentPageUtils.js";
+import { TRANSACTION_SHOW_DESCRIPTION_COLUMN, injectStylesheet } from "./transactionPaymentPageUtils.js";
 import { getRoleClass } from "./transactionPaymentLogic.js";
+import { assetUrl } from "../../utils/apiUrl.js";
 import "flatpickr/dist/flatpickr.min.css";
-import "./css/transaction.css";
 
 export default function TransactionPaymentPage() {
   const navigate = useNavigate();
@@ -119,6 +119,10 @@ export default function TransactionPaymentPage() {
 
   useEffect(() => {
     return installTransactionExcelCopy();
+  }, []);
+
+  useEffect(() => {
+    void injectStylesheet(assetUrl("css/transaction.css"));
   }, []);
 
   if (forbidden) {
