@@ -102,8 +102,10 @@ function AccountSelect({
         className={`custom-select-button${open ? " open" : ""}`}
         id={buttonId}
         data-placeholder={placeholder}
+        data-value={value?.id ?? ""}
         data-account-id={value?.id ?? ""}
         data-account-code={value?.account_id ?? ""}
+        data-currency={value?.currency != null && String(value.currency).trim() !== "" ? String(value.currency).trim().toUpperCase() : ""}
         disabled={disabled}
         onClick={() => {
           if (disabled) return;
@@ -165,6 +167,33 @@ function injectStylesheet(href) {
   });
 }
 
+/** dd/mm/yyyy → Date (local), same idea as legacy Month maintenance pages */
+function parseDmyToDate(value) {
+  const s = String(value || "").trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const dt = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function loadTxScriptOnce(src, marker) {
+  const key = marker || src;
+  return new Promise((resolve, reject) => {
+    const bySrc = document.querySelector(`script[src="${src}"]`);
+    if (bySrc) {
+      bySrc.addEventListener("load", () => resolve(), { once: true });
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = false;
+    s.dataset.txScript = key;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.body.appendChild(s);
+  });
+}
+
 function companyButtonStyle(comp, snapGroup) {
   const cGid = comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : "";
   if (snapGroup) {
@@ -220,6 +249,9 @@ export default function TransactionPaymentPage() {
   const initialSearchDoneRef = useRef(false);
   const lastSearchCommitMsRef = useRef(0);
   const prevTxTypeRef = useRef(txType);
+  const fpTxDateRef = useRef(null);
+  const fpRateDateRef = useRef(null);
+  const txDateRangePickerReadyRef = useRef(false);
 
   const [rateDate, setRateDate] = useState(null);
   const [rateToAccount, setRateToAccount] = useState(null); // UI: Select To Account (id=rate_account_from)
@@ -780,6 +812,115 @@ export default function TransactionPaymentPage() {
 
   const onSearch = () => runSearch({ silent: false });
 
+  /** Hidden #date_from/#date_to must stay in sync for MaintenanceDateRangePicker (writes DOM directly). */
+  useEffect(() => {
+    const df = document.getElementById("date_from");
+    const dt = document.getElementById("date_to");
+    if (!df || !dt) return;
+    const f = dateFrom || todayDmy;
+    const t = dateTo || todayDmy;
+    if (df.value !== f) df.value = f;
+    if (dt.value !== t) dt.value = t;
+  }, [dateFrom, dateTo, todayDmy]);
+
+  /** Legacy initDatePickers: shared Capture Date range + Flatpickr on transaction / rate dates */
+  useEffect(() => {
+    if (loading || forbidden || !filterSnapshot) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await loadTxScriptOnce(assetUrl("js/date-range-picker.js"), "tx-dr");
+        await injectStylesheet("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css");
+        await loadTxScriptOnce("https://cdn.jsdelivr.net/npm/flatpickr", "tx-fp");
+      } catch (e) {
+        console.error(e);
+        return;
+      }
+      if (cancelled) return;
+
+      const df = document.getElementById("date_from");
+      const dto = document.getElementById("date_to");
+      const ef = dateFrom || todayDmy;
+      const et = dateTo || todayDmy;
+      if (df) df.value = ef;
+      if (dto) dto.value = et;
+
+      if (window.MaintenanceDateRangePicker?.init && !txDateRangePickerReadyRef.current) {
+        window.MaintenanceDateRangePicker.init({
+          onChange: () => {
+            const from = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
+            const to = window.MaintenanceDateRangePicker.getDateTo?.() || "";
+            setDateFrom(from);
+            setDateTo(to);
+            queueMicrotask(() => runSearchRef.current?.({ silent: false }));
+          },
+        });
+        txDateRangePickerReadyRef.current = true;
+      }
+
+      const txInput = document.getElementById("transaction_date");
+      const rateInput = document.getElementById("rate_transaction_date");
+      if (window.flatpickr && txInput && !fpTxDateRef.current) {
+        fpTxDateRef.current = window.flatpickr(txInput, {
+          dateFormat: "d/m/Y",
+          allowInput: false,
+          defaultDate: parseDmyToDate(txDate || todayDmy) || new Date(),
+          onChange: (_d, dateStr) => {
+            if (dateStr) setTxDate(dateStr);
+          },
+        });
+      }
+      if (window.flatpickr && rateInput && !fpRateDateRef.current) {
+        fpRateDateRef.current = window.flatpickr(rateInput, {
+          dateFormat: "d/m/Y",
+          allowInput: false,
+          defaultDate: parseDmyToDate(rateDate || todayDmy) || new Date(),
+          onChange: (_d, dateStr) => {
+            if (dateStr) setRateDate(dateStr);
+          },
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, filterSnapshot]);
+
+  useEffect(() => {
+    const fp = fpTxDateRef.current;
+    if (!fp?.setDate) return;
+    const d = parseDmyToDate(txDate || todayDmy);
+    if (d) fp.setDate(d, false);
+  }, [txDate, todayDmy]);
+
+  useEffect(() => {
+    const fp = fpRateDateRef.current;
+    if (!fp?.setDate) return;
+    const d = parseDmyToDate(rateDate || todayDmy);
+    if (d) fp.setDate(d, false);
+  }, [rateDate, todayDmy]);
+
+  useEffect(() => {
+    if (!quickOpen) return;
+    const close = (e) => {
+      if (e.target.closest?.(".quick-select-dropdown-toggle")) return;
+      setQuickOpen(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [quickOpen]);
+
+  useEffect(() => {
+    if (!canApproveContra || !contraInbox.open) return;
+    const onDoc = (e) => {
+      const wrap = document.getElementById("contraInboxWrap");
+      if (!wrap || wrap.contains(e.target)) return;
+      setContraInbox((s) => ({ ...s, open: false }));
+    };
+    document.addEventListener("click", onDoc);
+    return () => document.removeEventListener("click", onDoc);
+  }, [canApproveContra, contraInbox.open]);
+
   useEffect(() => {
     initialSearchDoneRef.current = false;
   }, [filterSnapshot?.companyId]);
@@ -979,6 +1120,12 @@ export default function TransactionPaymentPage() {
   const histMoney = (v) => (v === "-" ? "-" : formatPaymentHistoryMoney(v));
 
   const selectQuickRange = (key) => {
+    setQuickOpen(false);
+    if (typeof window.selectQuickRange === "function") {
+      window.selectQuickRange(key);
+      return;
+    }
+
     const now = new Date();
     const start = new Date(now);
     const end = new Date(now);
@@ -1035,7 +1182,6 @@ export default function TransactionPaymentPage() {
 
     setDateFrom(formatDmy(start));
     setDateTo(formatDmy(end));
-    setQuickOpen(false);
   };
 
   const toggleCategory = () => setCategoryOpen((v) => !v);
@@ -1240,6 +1386,13 @@ export default function TransactionPaymentPage() {
           setRateCurrencyFromAmount("");
           setRateExchangeRateRaw("");
           setRateCurrencyToAmount("");
+          setRateMiddlemanRate("");
+          setRateMiddlemanAmount("");
+          setRateToAccount(null);
+          setRateFromAccount(null);
+          setRateTransferToAccount(null);
+          setRateTransferFromAccount(null);
+          setRateMiddlemanAccount(null);
           await onSearch();
           return;
         }
@@ -1439,8 +1592,14 @@ export default function TransactionPaymentPage() {
       const numericBalance = parseBalanceValue(balance);
       if (numericBalance !== null) {
         const absBal = Math.abs(numericBalance);
-        setRateCurrencyFromAmount(formatRateAmount(absBal));
-        setRateCurrencyToAmount(formatRateAmount(treatAsPositiveRow ? absBal : -absBal));
+        const absFmt = formatRateAmount(absBal);
+        const negFmt = formatRateAmount(-absBal);
+        // Legacy: left → rate_currency_to_amount only; right → rate_currency_from_amount (negative) only.
+        if (treatAsPositiveRow) {
+          setRateCurrencyToAmount(absFmt);
+        } else {
+          setRateCurrencyFromAmount(negFmt);
+        }
       }
       if (syncCurrency) setRateCurrencyFrom(syncCurrency);
       pushToast("Synced fields from balance cell", "success");
@@ -1750,8 +1909,8 @@ export default function TransactionPaymentPage() {
                   <i className="fas fa-calendar-alt" />
                   <span id="date-range-display">{effectiveDateRangeText}</span>
                 </div>
-                <input type="hidden" id="date_from" value={effectiveDateFrom} readOnly />
-                <input type="hidden" id="date_to" value={effectiveDateTo} readOnly />
+                <input type="hidden" id="date_from" readOnly />
+                <input type="hidden" id="date_to" readOnly />
               </div>
               <div className="quick-select-dropdown quick-select-dropdown-toggle">
                 <button
@@ -1766,7 +1925,7 @@ export default function TransactionPaymentPage() {
                   <span id="quick-select-text">Period</span>
                   <i className="fas fa-chevron-down" />
                 </button>
-                <div className="dropdown-menu" id="quick-select-dropdown" style={{ display: quickOpen ? "block" : "none" }}>
+                <div className={`dropdown-menu${quickOpen ? " show" : ""}`} id="quick-select-dropdown">
                   <button type="button" className="dropdown-item" onClick={() => selectQuickRange("today")}>
                     Today
                   </button>
@@ -2008,7 +2167,7 @@ export default function TransactionPaymentPage() {
               </div>
             </div>
 
-            <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "block" : "none" }}>
+            <div id="rate-transaction-fields" className="rate-fields" style={{ display: txType === "RATE" ? "flex" : "none" }}>
               <div className="rate-section">
                 <label className="transaction-label">Date</label>
                 <input type="text" id="rate_transaction_date" className="transaction-input" value={rateDate || todayDmy} placeholder="dd/mm/yyyy" readOnly style={{ cursor: "pointer" }} />
