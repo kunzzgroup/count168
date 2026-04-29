@@ -492,7 +492,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         </div>
                         <div class="submenu" id="maintenance-submenu">
                             <div class="submenu-content">
-                                <?php if ($companyHasGambling): ?>
+                                <?php if ($companyHasGambling && $hasMaintenance): ?>
                                     <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
                                         <span>Data Capture</span>
                                     </a>

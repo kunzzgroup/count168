@@ -21,6 +21,22 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['company_id'])) {
 $current_company_id = $_SESSION['company_id'];
 $current_user_role = $_SESSION['role'] ?? '';
 
+function canCreateUserByRole($role): bool {
+    $hierarchy = [
+        'owner' => 0,
+        'partnership' => 1,
+        'admin' => 2,
+        'manager' => 3,
+        'supervisor' => 4,
+        'accountant' => 5,
+        'audit' => 6,
+        'customer service' => 7,
+    ];
+    $normalized = strtolower(trim((string)$role));
+    $level = $hierarchy[$normalized] ?? 999;
+    return $level < 5;
+}
+
 // 获取当前登录用户（你需要根据你的登录系统调整这个逻辑）
 function getCurrentUser() {
     // 这里你需要根据你的登录系统来获取当前用户
@@ -151,6 +167,10 @@ try {
     
     switch ($action) {
         case 'create':
+            if (!canCreateUserByRole($current_user_role)) {
+                sendResponse(false, 'You do not have permission to create new accounts');
+            }
+
             // Validate input
             $required = ['login_id', 'name', 'password', 'email', 'role', 'status'];
             foreach ($required as $field) {

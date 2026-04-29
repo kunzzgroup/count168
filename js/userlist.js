@@ -92,8 +92,8 @@ function updateReadOnlyToggleVisibility(role) {
 function getAvailableRolesForCreation() {
     const currentLevel = roleHierarchy[currentUserRole] ?? 999;
 
-    // accountant, audit, customer service 不能开账号
-    if (currentLevel >= 4) {
+    // accountant, audit, customer service 不能开账号（supervisor 可以）
+    if (currentLevel >= 5) {
         return [];
     }
 
