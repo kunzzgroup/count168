@@ -55,6 +55,19 @@ export function sortByRole(data) {
   });
 }
 
+/** 与 search_api.php 去重键一致：account_db_id + currency（防止异常重复行）。 */
+export function dedupeRowsByAccountAndCurrency(rows) {
+  const seen = new Set();
+  const out = [];
+  for (const row of rows || []) {
+    const k = `${row?.account_db_id ?? ""}_${String(row?.currency || "").toUpperCase().trim()}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(row);
+  }
+  return out;
+}
+
 function absDecimalGt(value, eps = 1e-5) {
   const n = parseBalanceValue(value);
   if (n === null) return false;
@@ -235,8 +248,8 @@ export function readTransactionCurrencyFilterState(companyId) {
 /** Row count after the same client filters as the main grid (for search-complete toasts). */
 export function countDisplayedRows(rawSearchData, searchState, txType) {
   if (!rawSearchData) return 0;
-  const rawLeft = [...(rawSearchData.left_table || [])];
-  const rawRight = [...(rawSearchData.right_table || [])];
+  const rawLeft = dedupeRowsByAccountAndCurrency(rawSearchData.left_table || []);
+  const rawRight = dedupeRowsByAccountAndCurrency(rawSearchData.right_table || []);
   const pf = applyPaymentWinLossFilters(rawLeft, rawRight, {
     showPaymentOnly: searchState.showPaymentOnly,
     showCaptureOnly: searchState.showCaptureOnly,

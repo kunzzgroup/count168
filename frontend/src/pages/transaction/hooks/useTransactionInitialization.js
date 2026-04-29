@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { readTransactionCurrencyFilterState } from "../transactionPaymentLogic.js";
 
 export function useTransactionInitialization({
@@ -12,7 +12,7 @@ export function useTransactionInitialization({
 }) {
   const currencyInitCompanyRef = useRef(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (loading || forbidden || !filterSnapshot || currencyRowsOrdered.length === 0) return;
 
     const cid = filterSnapshot.companyId;
@@ -42,7 +42,15 @@ export function useTransactionInitialization({
 
     // 3. Handle Currency selection
     if (!resetSelection) {
-      // Just ensure form has defaults if none
+      if (!search.showAllCurrencies && search.selectedCurrencies.length === 0 && rows.length > 0) {
+        const pick =
+          (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
+          rows[0];
+        if (pick?.code) {
+          search.setSelectedCurrencies([pick.code]);
+          search.persistCurrencyFilter(cid, false, [pick.code]);
+        }
+      }
       const pickDefault =
         (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
         rows[0];

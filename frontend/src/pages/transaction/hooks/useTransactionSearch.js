@@ -12,6 +12,7 @@ import {
   normalizeRateRowsByCrDr,
   readTransactionCurrencyFilterState,
   sortByRole,
+  dedupeRowsByAccountAndCurrency,
 } from "../transactionPaymentLogic.js";
 import { searchTransactions as searchTransactionsApi, saveUserCurrencyOrder } from "../transactionApi.js";
 
@@ -476,8 +477,8 @@ export function useTransactionSearch({
         singleCurrencyTitle: null,
       };
     }
-    const rawLeft = [...(rawSearchData.left_table || [])];
-    const rawRight = [...(rawSearchData.right_table || [])];
+    const rawLeft = dedupeRowsByAccountAndCurrency(rawSearchData.left_table || []);
+    const rawRight = dedupeRowsByAccountAndCurrency(rawSearchData.right_table || []);
     const pf = applyPaymentWinLossFilters(rawLeft, rawRight, {
       showPaymentOnly: searchState.showPaymentOnly,
       showCaptureOnly: searchState.showCaptureOnly,

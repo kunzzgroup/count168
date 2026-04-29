@@ -56,7 +56,18 @@ export default function TransactionPaymentPage() {
   });
   formSearchRef.current = search.runSearch;
 
-  // 5. Date Range & External Libs
+  // 5. Defaults (useLayoutEffect: must run before passive effects that call runSearch)
+  useTransactionInitialization({
+    loading,
+    forbidden,
+    filterSnapshot,
+    currencyRowsOrdered,
+    todayDmy,
+    search,
+    form,
+  });
+
+  // 6. Date Range & External Libs
   useTransactionDateRange({
     loading,
     forbidden,
@@ -75,7 +86,7 @@ export default function TransactionPaymentPage() {
     fpRateDateRef: form.fpRateDateRef,
   });
 
-  // 6. Sync & Lifecycle
+  // 7. Sync & Lifecycle
   const canApproveContra = useMemo(() => {
     const role = filterSnapshot?.viewerRole;
     return ["manager", "admin", "owner"].includes(role);
@@ -96,17 +107,6 @@ export default function TransactionPaymentPage() {
     forbidden,
     canApproveContra,
     setContraInbox: ui.setContraInbox,
-  });
-
-  // 7. Initialization Logic (Defaults)
-  useTransactionInitialization({
-    loading,
-    forbidden,
-    filterSnapshot,
-    currencyRowsOrdered,
-    todayDmy,
-    search,
-    form,
   });
 
   useLayoutEffect(() => {
