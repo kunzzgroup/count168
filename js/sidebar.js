@@ -84,6 +84,33 @@
         submenu.style.top = titleRect.top + 'px';
     }
 
+    function hasVisibleSubmenuItems(wrapper) {
+        if (!wrapper) return false;
+        var items = wrapper.querySelectorAll('.submenu .submenu-item');
+        if (!items || items.length === 0) return false;
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (item.offsetParent !== null) return true;
+        }
+        return false;
+    }
+
+    function updateMenuWrapperSubmenuState(wrapper) {
+        if (!wrapper) return;
+        if (hasVisibleSubmenuItems(wrapper)) {
+            wrapper.classList.remove('no-submenu');
+        } else {
+            wrapper.classList.add('no-submenu');
+            var submenu = wrapper.querySelector('.submenu');
+            if (submenu) {
+                submenu.style.opacity = '0';
+                submenu.style.visibility = 'hidden';
+                submenu.style.transform = 'translateX(-10px)';
+                submenu.style.pointerEvents = 'none';
+            }
+        }
+    }
+
     function toggleAvatarOptions() {
         var options = document.getElementById('avatarOptions');
         if (!options) return;
@@ -358,6 +385,10 @@
                 reportSection.style.display = hasGambling ? '' : 'none';
             }
         }
+
+        document.querySelectorAll('.menu-item-wrapper').forEach(function (wrapper) {
+            updateMenuWrapperSubmenuState(wrapper);
+        });
     }
 
     function ensureCompanyAccessModal() {
@@ -685,11 +716,13 @@
         document.querySelectorAll('.menu-item-wrapper').forEach(function (wrapper) {
             var submenu = wrapper.querySelector('.submenu');
             if (!submenu) return;
+            updateMenuWrapperSubmenuState(wrapper);
             var hideTimeout = null;
             function clearHideTimeout() {
                 if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
             }
             function showSubmenu() {
+                if (wrapper.classList.contains('no-submenu')) return;
                 clearHideTimeout();
                 positionSubmenu(wrapper);
                 submenu.style.opacity = '1';
