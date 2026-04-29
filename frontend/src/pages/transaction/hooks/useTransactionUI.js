@@ -1,6 +1,11 @@
 import { useState, useCallback, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { getHistory, loadContraInbox, approveContra, rejectContra } from "../transactionApi.js";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getHistory,
+  loadContraInbox,
+  approveContra as approveContraApi,
+  rejectContra as rejectContraApi,
+} from "../transactionApi.js";
 
 export function useTransactionUI() {
   const queryClient = useQueryClient();
@@ -66,54 +71,84 @@ export function useTransactionUI() {
 
   const refreshContraInboxBadge = useCallback(
     async (companyId) => {
-      if (!companyId) return;
+      if (!companyId) return null;
+      setContraInbox((s) => ({ ...s, loading: true }));
       try {
-        const res = await loadContraInbox({ companyId });
+        const res = await queryClient.fetchQuery({
+          queryKey: ["tx-contra-inbox", Number(companyId)],
+          queryFn: ({ signal }) => loadContraInbox({ companyId, signal }),
+          staleTime: 10_000,
+          gcTime: 5 * 60_000,
+        });
         if (res?.success) {
-          setContraInbox((s) => ({ ...s, items: Array.isArray(res.data) ? res.data : [] }));
+          setContraInbox((s) => ({ ...s, loading: false, items: Array.isArray(res.data) ? res.data : [] }));
+        } else {
+          setContraInbox((s) => ({ ...s, loading: false }));
         }
+        return res;
       } catch {
-        /* ignore */
+        setContraInbox((s) => ({ ...s, loading: false }));
+        return null;
       }
     },
-    [setContraInbox],
+    [queryClient],
   );
+
+  const approveContraMutation = useMutation({
+    mutationFn: ({ id, companyId }) => approveContraApi({ transactionId: id, companyId }),
+    onSuccess: (_res, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["tx-search"] });
+      queryClient.invalidateQueries({ queryKey: ["tx-contra-inbox", Number(vars.companyId)] });
+    },
+  });
+
+  const rejectContraMutation = useMutation({
+    mutationFn: ({ id, companyId }) => rejectContraApi({ transactionId: id, companyId }),
+    onSuccess: (_res, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["tx-search"] });
+      queryClient.invalidateQueries({ queryKey: ["tx-contra-inbox", Number(vars.companyId)] });
+    },
+  });
 
   const onApproveContra = useCallback(
     async (id, companyId, onSearch) => {
-      if (!id || !companyId) return;
+      if (!id || !companyId) return null;
       try {
-        const res = await approveContra({ transactionId: id, companyId });
+        const res = await approveContraMutation.mutateAsync({ id, companyId });
         if (res?.success) {
           pushToast("Contra approved", "success");
-          refreshContraInboxBadge(companyId);
-          if (onSearch) onSearch();
+          await refreshContraInboxBadge(companyId);
+          if (onSearch) await onSearch({ silent: false });
         } else {
           pushToast(res?.message || "Failed to approve contra", "error");
         }
+        return res;
       } catch (e) {
         pushToast(e.message, "error");
+        return null;
       }
     },
-    [pushToast, refreshContraInboxBadge],
+    [approveContraMutation, pushToast, refreshContraInboxBadge],
   );
 
   const onRejectContra = useCallback(
     async (id, companyId) => {
-      if (!id || !companyId) return;
+      if (!id || !companyId) return null;
       try {
-        const res = await rejectContra({ transactionId: id, companyId });
+        const res = await rejectContraMutation.mutateAsync({ id, companyId });
         if (res?.success) {
           pushToast("Contra rejected", "success");
-          refreshContraInboxBadge(companyId);
+          await refreshContraInboxBadge(companyId);
         } else {
           pushToast(res?.message || "Failed to reject contra", "error");
         }
+        return res;
       } catch (e) {
         pushToast(e.message, "error");
+        return null;
       }
     },
-    [pushToast, refreshContraInboxBadge],
+    [rejectContraMutation, pushToast, refreshContraInboxBadge],
   );
 
   return {

@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT, buildTxListSessionKey } from "../transactionPaymentLogic.js";
-import { loadContraInbox } from "../transactionApi.js";
 
 export function useTransactionSync({
   filterSnapshot,
@@ -16,7 +15,7 @@ export function useTransactionSync({
   loading,
   forbidden,
   canApproveContra,
-  setContraInbox,
+  refreshContraInboxBadge,
 }) {
   useEffect(() => {
     let retryTimer = null;
@@ -101,18 +100,11 @@ export function useTransactionSync({
 
     const pollContra = async () => {
       if (document.visibilityState !== "visible") return;
-      try {
-        const res = await loadContraInbox({ companyId: filterSnapshot.companyId });
-        if (res?.success) {
-          setContraInbox((s) => ({ ...s, items: Array.isArray(res.data) ? res.data : [] }));
-        }
-      } catch {
-        /* ignore */
-      }
+      await refreshContraInboxBadge?.(filterSnapshot.companyId);
     };
 
     const interval = setInterval(pollContra, 20000);
     pollContra(); // initial
     return () => clearInterval(interval);
-  }, [loading, forbidden, canApproveContra, filterSnapshot?.companyId, setContraInbox]);
+  }, [loading, forbidden, canApproveContra, filterSnapshot?.companyId, refreshContraInboxBadge]);
 }

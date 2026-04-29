@@ -8,9 +8,6 @@ export default function TransactionHeader({
   approveContra,
   rejectContra,
   fsCompanyId,
-  pushToast,
-  refreshContraInboxAfterAction,
-  runSearch,
 }) {
   return (
     <div className="transaction-header-bar">
@@ -77,14 +74,7 @@ export default function TransactionHeader({
                             onClick={async () => {
                               const tid = it.transaction_id || it.id;
                               if (!tid) return;
-                              const res = await approveContra({ transactionId: tid, companyId: fsCompanyId });
-                              if (res?.success) {
-                                pushToast("Approved", "success");
-                                await refreshContraInboxAfterAction();
-                                await runSearch({ silent: false });
-                              } else {
-                                pushToast(res?.message || "Approve failed", "error");
-                              }
+                              await approveContra({ transactionId: tid, companyId: fsCompanyId });
                             }}
                           >
                             Approve
@@ -96,13 +86,7 @@ export default function TransactionHeader({
                               if (!confirm("确定要拒绝这条 Contra 交易吗？拒绝后数据将被永久删除。")) return;
                               const tid = it.transaction_id || it.id;
                               if (!tid) return;
-                              const res = await rejectContra({ transactionId: tid, companyId: fsCompanyId });
-                              if (res?.success) {
-                                pushToast("Rejected", "success");
-                                await refreshContraInboxAfterAction();
-                              } else {
-                                pushToast(res?.message || "Reject failed", "error");
-                              }
+                              await rejectContra({ transactionId: tid, companyId: fsCompanyId });
                             }}
                           >
                             Reject

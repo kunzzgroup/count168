@@ -123,7 +123,7 @@ export default function TransactionPaymentPage() {
     loading,
     forbidden,
     canApproveContra,
-    setContraInbox: ui.setContraInbox,
+    refreshContraInboxBadge: ui.refreshContraInboxBadge,
   });
 
   useLayoutEffect(() => {
@@ -166,9 +166,6 @@ export default function TransactionPaymentPage() {
         approveContra={(opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch)}
         rejectContra={(opts) => ui.onRejectContra(opts.transactionId, opts.companyId)}
         fsCompanyId={filterSnapshot?.companyId}
-        pushToast={ui.pushToast}
-        refreshContraInboxAfterAction={() => ui.refreshContraInboxBadge(filterSnapshot?.companyId)}
-        runSearch={search.runSearch}
       />
 
       <main className="transaction-main">

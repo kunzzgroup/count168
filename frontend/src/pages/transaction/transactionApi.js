@@ -135,10 +135,14 @@ export async function getHistory({
   return body;
 }
 
-export async function loadContraInbox({ companyId } = {}) {
+export async function loadContraInbox({ companyId, signal } = {}) {
   const params = new URLSearchParams();
   if (companyId != null) params.set("company_id", String(companyId));
-  const res = await fetch(buildApiUrl(`api/transactions/contra_inbox_api.php?${params.toString()}`), { credentials: "include", cache: "no-cache" });
+  const res = await fetch(buildApiUrl(`api/transactions/contra_inbox_api.php?${params.toString()}`), {
+    credentials: "include",
+    cache: "no-cache",
+    signal,
+  });
   return safeJson(res);
 }
 
