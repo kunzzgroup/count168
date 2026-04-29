@@ -8,11 +8,36 @@ import {
   getCategories,
   getCompanyCurrencies,
   getHistory,
+  getUserCurrencyOrder,
   loadContraInbox,
+  rejectContra,
+  saveUserCurrencyOrder,
   searchTransactions as searchTransactionsApi,
   submitTransaction,
 } from "./transaction/transactionApi.js";
-import { buildClientRequestId, formatDmy, formatMoney2, formatRateAmount, parseRateExpression, toUpperDisplay } from "./transaction/transactionFormat.js";
+import {
+  buildClientRequestId,
+  formatDmy,
+  formatPaymentHistoryMoney,
+  formatRateAmount,
+  parseBalanceValue,
+  parseRateExpression,
+  toUpperDisplay,
+} from "./transaction/transactionFormat.js";
+import {
+  TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
+  applyPaymentWinLossFilters,
+  applyZeroBalanceFilter,
+  buildTxListSessionKey,
+  calculateTotals,
+  countDisplayedRows,
+  getRoleClass,
+  mergeTotals,
+  normalizeRateRowsByCrDr,
+  orderCurrencyRows,
+  readTransactionCurrencyFilterState,
+  sortByRole,
+} from "./transaction/transactionPaymentLogic.js";
 
 function AccountSelect({
   buttonId,
@@ -160,7 +185,6 @@ export default function TransactionPaymentPage() {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [tablesVisible, setTablesVisible] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchData, setSearchData] = useState(null);
   const [history, setHistory] = useState({ open: false, title: "Payment History", rows: [] });
   const [contraInbox, setContraInbox] = useState({ open: false, loading: false, items: [] });
   const [toast, setToast] = useState([]);
@@ -177,6 +201,16 @@ export default function TransactionPaymentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [accountOptions, setAccountOptions] = useState([]);
   const [currencyOptions, setCurrencyOptions] = useState([]);
+  const [currencyRowsOrdered, setCurrencyRowsOrdered] = useState([]);
+  const [selectedCurrencies, setSelectedCurrencies] = useState([]);
+  const [showAllCurrencies, setShowAllCurrencies] = useState(false);
+  const [rawSearchData, setRawSearchData] = useState(null);
+
+  const searchAbortRef = useRef(null);
+  const lastCompletedSearchKeyRef = useRef("");
+  const lastCompletedSearchTsRef = useRef(0);
+  const draggedCurrencyRef = useRef(null);
+  const initialSearchDoneRef = useRef(false);
 
   const [rateDate, setRateDate] = useState(null);
   const [rateToAccount, setRateToAccount] = useState(null); // UI: Select To Account (id=rate_account_from)
@@ -288,8 +322,87 @@ export default function TransactionPaymentPage() {
     };
   }, [navigate]);
 
+  const persistCurrencyFilter = useCallback((companyId, showAll, sel) => {
+    if (!companyId) return;
+    try {
+      localStorage.setItem(
+        TRANSACTION_CURRENCY_FILTER_KEY_PREFIX + companyId,
+        JSON.stringify({ showAll: !!showAll, currencies: [...(sel || [])] }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const currencyInitCompanyRef = useRef(null);
+
+  const applyCurrencyData = useCallback(
+    (companyId, orderedRows, _orderPayload, { resetSelection }) => {
+      const rows = Array.isArray(orderedRows) ? orderedRows : [];
+      setCurrencyRowsOrdered(rows);
+      const codes = rows.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
+      setCurrencyOptions([...new Set(codes)]);
+
+      let preferredDefault = null;
+      try {
+        preferredDefault =
+          String(localStorage.getItem(`transaction_default_currency_${companyId || 0}`) || "")
+            .trim()
+            .toUpperCase() || null;
+      } catch {
+        preferredDefault = null;
+      }
+
+      if (!resetSelection) {
+        const pickDefault =
+          (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
+          rows[0];
+        if (pickDefault?.code) {
+          setTxCurrency((v) => v || pickDefault.code);
+          setRateCurrencyFrom((v) => v || pickDefault.code);
+          if (codes.includes("MYR")) setRateCurrencyTo((v) => v || "MYR");
+        }
+        return;
+      }
+
+      const saved = readTransactionCurrencyFilterState(companyId);
+      let nextShowAll = false;
+      let nextSel = [];
+
+      if (saved?.showAll) {
+        nextShowAll = true;
+        nextSel = [];
+      } else if (saved?.currencies?.length) {
+        const valid = saved.currencies.filter((code) => rows.some((c) => String(c.code) === String(code)));
+        if (valid.length > 0) nextSel = valid;
+      }
+
+      if (!nextShowAll && nextSel.length === 0 && rows.length > 0) {
+        const pick =
+          (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
+          rows[0];
+        if (pick?.code) nextSel = [pick.code];
+      }
+
+      setShowAllCurrencies(nextShowAll);
+      setSelectedCurrencies(nextSel);
+      persistCurrencyFilter(companyId, nextShowAll, nextSel);
+
+      const pickDefault =
+        (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
+        rows[0];
+      if (pickDefault?.code) {
+        setTxCurrency(pickDefault.code);
+        setRateCurrencyFrom(pickDefault.code);
+        if (codes.includes("MYR")) setRateCurrencyTo("MYR");
+      }
+    },
+    [persistCurrencyFilter],
+  );
+
   useEffect(() => {
     if (loading || forbidden || !filterSnapshot) return;
+    let cancelled = false;
     (async () => {
       await injectStylesheet("https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap");
       await injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
@@ -305,28 +418,37 @@ export default function TransactionPaymentPage() {
       try {
         const c = await getCategories();
         const roles = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : [];
-        setCategories(roles.map((r) => String(r).toUpperCase()));
+        if (!cancelled) setCategories(roles.map((r) => String(r).toUpperCase()));
       } catch {
-        setCategories([]);
+        if (!cancelled) setCategories([]);
       }
 
       try {
-        const [acc, cur] = await Promise.all([
-          getAccounts({ companyId: filterSnapshot.companyId }),
-          getCompanyCurrencies({ companyId: filterSnapshot.companyId }),
+        const cid = filterSnapshot.companyId;
+        const [acc, cur, ord] = await Promise.all([
+          getAccounts({ companyId: cid }),
+          getCompanyCurrencies({ companyId: cid }),
+          getUserCurrencyOrder(),
         ]);
+        if (cancelled) return;
         setAccountOptions(Array.isArray(acc?.data) ? acc.data : []);
-        const currencies = Array.isArray(cur?.data) ? cur.data : [];
-        const codes = currencies
-          .map((x) => String(x.code || x.currency || x).toUpperCase().trim())
-          .filter(Boolean);
-        setCurrencyOptions([...new Set(codes)]);
+        const rawCur = Array.isArray(cur?.data) ? cur.data : [];
+        const ordered = orderCurrencyRows(rawCur, ord);
+        const resetSelection = currencyInitCompanyRef.current !== cid;
+        currencyInitCompanyRef.current = cid;
+        applyCurrencyData(cid, ordered, ord, { resetSelection });
       } catch {
-        setAccountOptions([]);
-        setCurrencyOptions([]);
+        if (!cancelled) {
+          setAccountOptions([]);
+          setCurrencyOptions([]);
+          setCurrencyRowsOrdered([]);
+        }
       }
     })();
-  }, [loading, forbidden, filterSnapshot, todayDmy]);
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, filterSnapshot, todayDmy, applyCurrencyData]);
 
   useEffect(() => {
     if (txType !== "RATE") return;
@@ -366,6 +488,332 @@ export default function TransactionPaymentPage() {
     const r = filterSnapshot?.viewerRole || "";
     return ["manager", "admin", "owner"].includes(r);
   }, [filterSnapshot]);
+
+  const tablePresentation = useMemo(() => {
+    if (!rawSearchData) {
+      return {
+        mode: "none",
+        defaultLeft: [],
+        defaultRight: [],
+        totalsLeft: calculateTotals([]),
+        totalsRight: calculateTotals([]),
+        totalsSummary: mergeTotals(calculateTotals([]), calculateTotals([])),
+        grouped: [],
+        singleCurrencyTitle: null,
+      };
+    }
+    const rawLeft = [...(rawSearchData.left_table || [])];
+    const rawRight = [...(rawSearchData.right_table || [])];
+    const pf = applyPaymentWinLossFilters(rawLeft, rawRight, {
+      showPaymentOnly: searchState.showPaymentOnly,
+      showCaptureOnly: searchState.showCaptureOnly,
+    });
+    const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
+    const norm = normalizeRateRowsByCrDr(z.left, z.right, txType === "RATE");
+    let sortedLeft = sortByRole(norm.leftRows);
+    let sortedRight = sortByRole(norm.rightRows);
+    const totalsLeft = calculateTotals(sortedLeft);
+    const totalsRight = calculateTotals(sortedRight);
+    const totalsSummary = mergeTotals(totalsLeft, totalsRight);
+
+    const multi = showAllCurrencies || selectedCurrencies.length > 1;
+    const codesOrdered = currencyRowsOrdered.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
+
+    if (!multi) {
+      const title =
+        selectedCurrencies.length === 1 ? `Currency: ${selectedCurrencies[0]}` : null;
+      return {
+        mode: "default",
+        defaultLeft: sortedLeft,
+        defaultRight: sortedRight,
+        totalsLeft,
+        totalsRight,
+        totalsSummary,
+        grouped: [],
+        singleCurrencyTitle: title,
+      };
+    }
+
+    const groupedMap = {};
+    const pushRow = (row, side) => {
+      const cur = row.currency || "UNKNOWN";
+      if (!groupedMap[cur]) groupedMap[cur] = { left: [], right: [] };
+      groupedMap[cur][side].push(row);
+    };
+    sortedLeft.forEach((row) => pushRow(row, "left"));
+    sortedRight.forEach((row) => pushRow(row, "right"));
+
+    let orderedCurrs = [];
+    codesOrdered.forEach((code) => {
+      if (groupedMap[code]) orderedCurrs.push(code);
+    });
+    Object.keys(groupedMap).forEach((code) => {
+      if (!orderedCurrs.includes(code)) orderedCurrs.push(code);
+    });
+
+    const activeCodes = rawSearchData.active_currency_codes;
+    if (searchState.showZeroBalance && Array.isArray(activeCodes) && activeCodes.length > 0) {
+      const activeSet = new Set(activeCodes.map((c) => String(c || "").toUpperCase()));
+      orderedCurrs = orderedCurrs.filter((code) => activeSet.has(String(code || "").toUpperCase()));
+    }
+
+    const grouped = orderedCurrs.map((currency) => {
+      const { left: gl, right: gr } = groupedMap[currency];
+      const l = sortByRole(gl);
+      const r = sortByRole(gr);
+      const tL = calculateTotals(l);
+      const tR = calculateTotals(r);
+      const tS = mergeTotals(tL, tR);
+      return { currency, left: l, right: r, totalsLeft: tL, totalsRight: tR, totalsSummary: tS };
+    });
+
+    return {
+      mode: "grouped",
+      defaultLeft: [],
+      defaultRight: [],
+      totalsLeft,
+      totalsRight,
+      totalsSummary,
+      grouped,
+      singleCurrencyTitle: null,
+    };
+  }, [rawSearchData, searchState, txType, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
+
+  const effectiveDateFromEarly = dateFrom || todayDmy;
+  const effectiveDateToEarly = dateTo || todayDmy;
+
+  const saveTxListToSession = useCallback(
+    (data) => {
+      try {
+        const key = buildTxListSessionKey({
+          companyId: filterSnapshot?.companyId,
+          dateFrom: effectiveDateFromEarly,
+          dateTo: effectiveDateToEarly,
+          selectedCategories,
+          showInactive: searchState.showPaymentOnly,
+          showCaptureOnly: searchState.showCaptureOnly,
+          hideZeroBalance: !searchState.showZeroBalance,
+          showAllCurrencies,
+          selectedCurrencies,
+        });
+        if (!key || !data) return;
+        const ts = Date.now();
+        const wrap = JSON.stringify({ v: 2, savedAt: ts, data });
+        if (wrap.length > 1800000) return;
+        sessionStorage.setItem(key, wrap);
+      } catch {
+        /* quota */
+      }
+    },
+    [
+      filterSnapshot?.companyId,
+      effectiveDateFromEarly,
+      effectiveDateToEarly,
+      selectedCategories,
+      searchState.showPaymentOnly,
+      searchState.showCaptureOnly,
+      searchState.showZeroBalance,
+      showAllCurrencies,
+      selectedCurrencies,
+    ],
+  );
+
+  const runSearch = async ({ silent = false, isInitialLoad = false } = {}) => {
+    const cid = filterSnapshot?.companyId;
+    if (!cid) return;
+    if (!effectiveDateFromEarly || !effectiveDateToEarly) {
+      pushToast("Please select date range", "error");
+      return;
+    }
+    if (!showAllCurrencies && selectedCurrencies.length === 0) {
+      setTablesVisible(false);
+      pushToast("Please select at least one Currency or select All", "info");
+      return;
+    }
+
+    const categoryParam =
+      selectedCategories.length > 0 && !selectedCategories.includes("")
+        ? [...selectedCategories].sort().join(",")
+        : "";
+    const singleSelectedCurrency =
+      !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
+
+    const requestKey = JSON.stringify({
+      dateFrom: effectiveDateFromEarly,
+      dateTo: effectiveDateToEarly,
+      categoryParam,
+      showInactive: searchState.showPaymentOnly ? "1" : "0",
+      showCaptureOnly: searchState.showCaptureOnly ? "1" : "0",
+      hideZero: searchState.showZeroBalance ? "0" : "1",
+      companyId: cid || "",
+      showAllCurrencies: !!showAllCurrencies,
+      currencies: [...selectedCurrencies].sort().join(","),
+    });
+
+    if (!silent && !isInitialLoad && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
+      return;
+    }
+
+    if (searchAbortRef.current) {
+      try {
+        searchAbortRef.current.abort();
+      } catch {
+        /* ignore */
+      }
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    const { signal } = controller;
+
+    if (!silent) setSearchLoading(true);
+    setTablesVisible(true);
+
+    const paramsBase = {
+      companyId: cid,
+      dateFrom: effectiveDateFromEarly,
+      dateTo: effectiveDateToEarly,
+      showInactive: searchState.showPaymentOnly,
+      showCaptureOnly: searchState.showCaptureOnly,
+      hideZeroBalance: !searchState.showZeroBalance,
+      categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+      currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
+      signal,
+    };
+
+    const commitQuiet = (data) => {
+      setRawSearchData(data);
+      saveTxListToSession(data);
+      lastCompletedSearchKeyRef.current = requestKey;
+      lastCompletedSearchTsRef.current = Date.now();
+      const totalAccounts = (data.left_table?.length || 0) + (data.right_table?.length || 0);
+      const displayed = countDisplayedRows(data, searchState, txType);
+      if (!silent) {
+        if (totalAccounts === 0) {
+          pushToast(
+            "Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted",
+            "info",
+          );
+        } else if (displayed === 0 && totalAccounts > 0) {
+          pushToast(
+            `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
+            "info",
+          );
+        } else {
+          pushToast(`Search completed, found ${displayed} record(s)`, "success");
+        }
+      }
+    };
+
+    try {
+      const result = await searchTransactionsApi(paramsBase);
+      if (!result?.success || !result?.data) {
+        if (!silent) {
+          setRawSearchData(null);
+          pushToast(result?.message || result?.error || "Search failed", "error");
+        }
+        return;
+      }
+
+      let currentData = result.data;
+      const leftRows = Array.isArray(currentData.left_table) ? currentData.left_table : [];
+      const rightRows = Array.isArray(currentData.right_table) ? currentData.right_table : [];
+      const totalAccounts = leftRows.length + rightRows.length;
+
+      if (singleSelectedCurrency && totalAccounts === 0) {
+        const fallback = await searchTransactionsApi({
+          ...paramsBase,
+          currencyCodes: undefined,
+        });
+        if (fallback?.success && fallback?.data) {
+          const fbLeft = (fallback.data.left_table || []).filter(
+            (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
+          );
+          const fbRight = (fallback.data.right_table || []).filter(
+            (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
+          );
+          currentData = {
+            ...fallback.data,
+            left_table: fbLeft,
+            right_table: fbRight,
+            totals: {
+              left: calculateTotals(fbLeft),
+              right: calculateTotals(fbRight),
+              summary: mergeTotals(calculateTotals(fbLeft), calculateTotals(fbRight)),
+            },
+          };
+        }
+      } else if (searchState.showCaptureOnly && totalAccounts === 0) {
+        const fallback = await searchTransactionsApi({
+          ...paramsBase,
+          showCaptureOnly: false,
+        });
+        if (fallback?.success && fallback?.data?.totals) {
+          currentData = {
+            ...currentData,
+            totals: fallback.data.totals,
+          };
+        }
+      }
+
+      commitQuiet(currentData);
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      console.error(e);
+      if (!silent) pushToast(`Search failed: ${e.message}`, "error");
+    } finally {
+      if (!silent) setSearchLoading(false);
+    }
+  };
+
+  const runSearchRef = useRef(runSearch);
+  runSearchRef.current = runSearch;
+
+  const onSearch = () => runSearch({ silent: false });
+
+  useEffect(() => {
+    initialSearchDoneRef.current = false;
+  }, [filterSnapshot?.companyId]);
+
+  useEffect(() => {
+    if (loading || forbidden || !filterSnapshot?.companyId) return;
+    if (currencyRowsOrdered.length === 0) return;
+    if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+    if (initialSearchDoneRef.current) return;
+    initialSearchDoneRef.current = true;
+    void runSearchRef.current?.({ isInitialLoad: true });
+  }, [
+    loading,
+    forbidden,
+    filterSnapshot?.companyId,
+    currencyRowsOrdered.length,
+    showAllCurrencies,
+    selectedCurrencies,
+  ]);
+
+  const skipFilterSearchEffectRef = useRef(true);
+  useEffect(() => {
+    if (skipFilterSearchEffectRef.current) {
+      skipFilterSearchEffectRef.current = false;
+      return;
+    }
+    if (loading || forbidden || !filterSnapshot?.companyId) return;
+    if (!effectiveDateFromEarly || !effectiveDateToEarly) return;
+    void runSearchRef.current?.({ silent: false });
+  }, [searchState.showCaptureOnly, searchState.showPaymentOnly, searchState.showZeroBalance]);
+
+  useEffect(() => {
+    if (loading || forbidden || !filterSnapshot?.companyId) return;
+    if (!canApproveContra) return;
+    let cancelled = false;
+    loadContraInbox({ companyId: filterSnapshot.companyId }).then((r) => {
+      if (cancelled) return;
+      const items = Array.isArray(r?.data) ? r.data : [];
+      setContraInbox((s) => ({ ...s, items }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, forbidden, filterSnapshot?.companyId, canApproveContra]);
 
   if (forbidden) {
     return <Navigate to="/dashboard" replace />;
@@ -450,35 +898,6 @@ export default function TransactionPaymentPage() {
       else set.add(v);
       return [...set];
     });
-  };
-
-
-  const onSearch = async () => {
-    if (!fs?.companyId) return;
-    setSearchLoading(true);
-    setTablesVisible(true);
-    try {
-      const result = await searchTransactionsApi({
-        companyId: fs.companyId,
-        dateFrom: effectiveDateFrom,
-        dateTo: effectiveDateTo,
-        showInactive: searchState.showPaymentOnly,
-        showCaptureOnly: searchState.showCaptureOnly,
-        hideZeroBalance: !searchState.showZeroBalance,
-        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-      });
-      if (result?.success && result?.data) {
-        setSearchData(result.data);
-      } else {
-        setSearchData({ left_table: [], right_table: [], totals: null });
-        pushToast(result?.message || "Search failed", "error");
-      }
-    } catch (e) {
-      console.error(e);
-      pushToast("Network error. Please try again.", "error");
-    } finally {
-      setSearchLoading(false);
-    }
   };
 
   const effectiveType = txType === "PROFIT" ? winLoseSide : txType;
@@ -775,6 +1194,179 @@ export default function TransactionPaymentPage() {
     }
   };
 
+  const findAccountOption = (accountDbId, accountCode) => {
+    const list = accountOptions || [];
+    return (
+      list.find((a) => String(a.id) === String(accountDbId)) ||
+      list.find((a) => String(a.account_id) === String(accountCode)) ||
+      null
+    );
+  };
+
+  const handleBalanceCellClick = (row, isLeftTable) => {
+    const accountCode = row?.account_id || "";
+    const balance = row?.balance;
+    const rowCurrency = row?.currency ? String(row.currency).trim().toUpperCase() : "";
+    const parsedBalanceForSide = parseBalanceValue(balance);
+
+    const isRateView = txType === "RATE";
+    const isProfitType = txType === "PROFIT";
+    const treatAsPositiveRow = isRateView
+      ? isLeftTable
+      : isProfitType
+        ? parsedBalanceForSide === null
+          ? isLeftTable
+          : (parsedBalanceForSide ?? 0) >= 0
+        : isLeftTable;
+
+    const opt = findAccountOption(row?.account_db_id, accountCode);
+    const syncCurrency = rowCurrency || (opt?.currency ? String(opt.currency).trim().toUpperCase() : "");
+
+    if (isRateView) {
+      if (treatAsPositiveRow) {
+        if (opt) setRateToAccount(opt);
+        if (opt) setRateTransferFromAccount(opt);
+      } else {
+        if (opt) setRateFromAccount(opt);
+        if (opt) setRateTransferToAccount(opt);
+      }
+      const numericBalance = parseBalanceValue(balance);
+      if (numericBalance !== null) {
+        const absBal = Math.abs(numericBalance);
+        setRateCurrencyFromAmount(formatRateAmount(absBal));
+        setRateCurrencyToAmount(formatRateAmount(treatAsPositiveRow ? absBal : -absBal));
+      }
+      if (syncCurrency) setRateCurrencyFrom(syncCurrency);
+      pushToast("Synced fields from balance cell", "success");
+      return;
+    }
+
+    if (treatAsPositiveRow) {
+      if (opt) setTxToAccount(opt);
+    } else if (opt) {
+      setTxFromAccount(opt);
+    }
+    const numericBalance = parseBalanceValue(balance);
+    if (numericBalance !== null) {
+      setTxAmount(formatRateAmount(Math.abs(numericBalance)));
+    }
+    if (syncCurrency) setTxCurrency(syncCurrency);
+    pushToast(`Synced ${treatAsPositiveRow ? "To" : "From"} Account: ${accountCode}`, "success");
+  };
+
+  const switchCompanySession = async (companyIdStr /* , _companyCode */) => {
+    const raw = companyIdStr != null ? String(companyIdStr).trim() : "";
+    if (!raw || raw === "null") {
+      setRawSearchData(null);
+      setTablesVisible(false);
+      setSelectedCurrencies([]);
+      setShowAllCurrencies(false);
+      setCurrencyRowsOrdered([]);
+      setFilterSnapshot((prev) => (prev ? { ...prev, companyId: null } : prev));
+      currencyInitCompanyRef.current = null;
+      initialSearchDoneRef.current = false;
+      return;
+    }
+    try {
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${raw}`), {
+        credentials: "include",
+      });
+      const j = await res.json();
+      if (!res.ok || !j.success) {
+        pushToast(j.message || "Unable to switch company", "error");
+        return;
+      }
+      notifyCompanySessionUpdated();
+    } catch (e) {
+      console.error(e);
+      pushToast("Unable to switch company", "error");
+      return;
+    }
+    setFilterSnapshot((prev) => (prev ? { ...prev, companyId: Number(raw) } : prev));
+    currencyInitCompanyRef.current = null;
+    initialSearchDoneRef.current = false;
+    navigate(`/transaction?company_id=${encodeURIComponent(raw)}`, { replace: true });
+  };
+
+  const onGroupButtonClick = (gid) => {
+    if (fs.selectedGroup === gid) {
+      sessionStorage.removeItem("dashboard_group_filter");
+      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: null } : prev));
+      void switchCompanySession(null);
+      return;
+    }
+    sessionStorage.setItem("dashboard_group_filter", gid);
+    const inGroup = fs.snapCompanies.filter(
+      (c) => c.group_id != null && String(c.group_id).toUpperCase().trim() === String(gid).toUpperCase(),
+    );
+    const first = inGroup[0];
+    setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: gid } : prev));
+    if (first) void switchCompanySession(String(first.id));
+  };
+
+  const onCompanyButtonClick = (comp) => {
+    void switchCompanySession(String(comp.id));
+  };
+
+  const toggleAllCurrenciesBtn = () => {
+    const next = !showAllCurrencies;
+    setShowAllCurrencies(next);
+    if (next) {
+      setSelectedCurrencies([]);
+      persistCurrencyFilter(fs.companyId, true, []);
+    } else {
+      persistCurrencyFilter(fs.companyId, false, selectedCurrencies);
+    }
+    queueMicrotask(() => runSearchRef.current?.({ silent: false }));
+  };
+
+  const toggleCurrencyBtn = (code) => {
+    let na = showAllCurrencies;
+    if (na) na = false;
+    setShowAllCurrencies(na);
+    setSelectedCurrencies((prev) => {
+      const i = prev.indexOf(code);
+      const next = [...prev];
+      if (i >= 0) next.splice(i, 1);
+      else next.push(code);
+      persistCurrencyFilter(fs.companyId, na, next);
+      return next;
+    });
+    queueMicrotask(() => runSearchRef.current?.({ silent: false }));
+  };
+
+  const onCurrencyDragStart = (code) => {
+    draggedCurrencyRef.current = code;
+  };
+
+  const onCurrencyDropOn = (targetCode) => {
+    const drag = draggedCurrencyRef.current;
+    draggedCurrencyRef.current = null;
+    if (!drag || drag === "ALL" || targetCode === "ALL" || drag === targetCode) return;
+    setCurrencyRowsOrdered((prev) => {
+      const codes = prev.map((x) => x.code);
+      const fromIdx = codes.indexOf(drag);
+      const toIdx = codes.indexOf(targetCode);
+      if (fromIdx < 0 || toIdx < 0) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      const order = next.map((x) => x.code);
+      try {
+        localStorage.setItem(`transaction_currency_order_${fs.companyId || 0}`, JSON.stringify(order));
+        localStorage.setItem("transaction_currency_order_global", JSON.stringify(order));
+        localStorage.setItem(`transaction_default_currency_${fs.companyId || 0}`, String(order[0] || "").toUpperCase());
+      } catch {
+        /* ignore */
+      }
+      void saveUserCurrencyOrder(order);
+      return next;
+    });
+  };
+
+  const tp = tablePresentation;
+  const fallbackRoleClass = selectedCategories.length === 1 ? getRoleClass(selectedCategories[0]) : "";
+
   return (
     <>
       <div className="transaction-container">
@@ -821,31 +1413,56 @@ export default function TransactionPaymentPage() {
                       </thead>
                       <tbody id="contraInboxTbody">
                         {contraInbox.items.map((it) => (
-                          <tr key={it.id || `${it.transaction_id}-${it.date}`}>
-                            <td>{it.date || "-"}</td>
-                            <td>{toUpperDisplay(it.from_account_id || it.from || "-")}</td>
-                            <td>{toUpperDisplay(it.to_account_id || it.to || "-")}</td>
+                          <tr key={it.id || `${it.transaction_id}-${it.transaction_date}`}>
+                            <td>{it.transaction_date || it.date || "-"}</td>
+                            <td>
+                              {it.from_account_code || "-"}
+                              {it.from_account_name ? ` - ${it.from_account_name}` : ""}
+                            </td>
+                            <td>
+                              {it.to_account_code || "-"}
+                              {it.to_account_name ? ` - ${it.to_account_name}` : ""}
+                            </td>
                             <td>{toUpperDisplay(it.currency || "-")}</td>
-                            <td>{formatMoney2(it.amount)}</td>
+                            <td>{formatPaymentHistoryMoney(it.amount)}</td>
                             <td>{toUpperDisplay(it.submitted_by || it.created_by || "-")}</td>
                             <td>{toUpperDisplay(it.description || "-")}</td>
                             <td>
                               <button
                                 type="button"
-                                className="contra-inbox-btn"
+                                className="contra-inbox-btn contra-inbox-approve"
                                 onClick={async () => {
                                   const tid = it.transaction_id || it.id;
                                   if (!tid) return;
-                                  const res = await approveContra({ transactionId: tid });
+                                  const res = await approveContra({ transactionId: tid, companyId: fs.companyId });
                                   if (res?.success) {
                                     pushToast("Approved", "success");
                                     await refreshContraInbox();
+                                    await runSearch({ silent: false });
                                   } else {
                                     pushToast(res?.message || "Approve failed", "error");
                                   }
                                 }}
                               >
                                 Approve
+                              </button>
+                              <button
+                                type="button"
+                                className="contra-inbox-btn contra-inbox-reject"
+                                onClick={async () => {
+                                  if (!confirm("确定要拒绝这条 Contra 交易吗？拒绝后数据将被永久删除。")) return;
+                                  const tid = it.transaction_id || it.id;
+                                  if (!tid) return;
+                                  const res = await rejectContra({ transactionId: tid, companyId: fs.companyId });
+                                  if (res?.success) {
+                                    pushToast("Rejected", "success");
+                                    await refreshContraInbox();
+                                  } else {
+                                    pushToast(res?.message || "Reject failed", "error");
+                                  }
+                                }}
+                              >
+                                Reject
                               </button>
                             </td>
                           </tr>
@@ -1026,6 +1643,7 @@ export default function TransactionPaymentPage() {
                         type="button"
                         className={`transaction-company-btn shared-group-btn ${fs.selectedGroup === gid ? "active" : ""}`}
                         data-group-id={gid}
+                        onClick={() => onGroupButtonClick(gid)}
                       >
                         {gid}
                       </button>
@@ -1047,6 +1665,10 @@ export default function TransactionPaymentPage() {
                         data-company-id={comp.id}
                         data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
                         data-company-code={comp.company_id}
+                        onClick={() => {
+                          if (companyButtonStyle(comp, fs.selectedGroup).display === "none") return;
+                          onCompanyButtonClick(comp);
+                        }}
                       >
                         {comp.company_id}
                       </button>
@@ -1055,9 +1677,40 @@ export default function TransactionPaymentPage() {
                 </div>
               )}
 
-              <div id="currency-buttons-wrapper" className="transaction-company-filter">
+              <div
+                id="currency-buttons-wrapper"
+                className="transaction-company-filter"
+                style={{ display: currencyRowsOrdered.length > 0 ? "flex" : "none" }}
+              >
                 <span className="transaction-company-label">Currency:</span>
-                <div id="currency-buttons-container" className="transaction-company-buttons" />
+                <div id="currency-buttons-container" className="transaction-company-buttons">
+                  <button
+                    type="button"
+                    className={`transaction-company-btn${showAllCurrencies ? " active" : ""}`}
+                    data-currency-code="ALL"
+                    onClick={toggleAllCurrenciesBtn}
+                  >
+                    All
+                  </button>
+                  {currencyRowsOrdered.map((c) => {
+                    const code = c.code;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        className={`transaction-company-btn${!showAllCurrencies && selectedCurrencies.includes(code) ? " active" : ""}`}
+                        data-currency-code={code}
+                        draggable
+                        onDragStart={() => onCurrencyDragStart(code)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => onCurrencyDropOn(code)}
+                        onClick={() => toggleCurrencyBtn(code)}
+                      >
+                        {code}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -1346,20 +1999,32 @@ export default function TransactionPaymentPage() {
         </div>
 
         <div className="transaction-tables-section" style={{ display: tablesVisible ? "block" : "none" }}>
-          <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: "none" }} aria-live="polite">
-            Loading...
+          <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: searchLoading ? "flex" : "none" }} aria-live="polite">
+            Loading data
           </div>
-          <div id="default-tables-container" style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-            <h3 id="default-currency-title" style={{ margin: "10px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937", display: "none" }}>
-              Currency:{" "}
-            </h3>
+          <div
+            id="default-tables-container"
+            style={{
+              display: tp.mode === "default" ? "flex" : "none",
+              flexDirection: "column",
+              width: "100%",
+            }}
+          >
+            {tp.singleCurrencyTitle ? (
+              <h3
+                id="default-currency-title"
+                style={{ margin: "10px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937", display: "block" }}
+              >
+                {tp.singleCurrencyTitle}
+              </h3>
+            ) : null}
             <div style={{ display: "flex", gap: 20, width: "100%" }}>
               <div className="transaction-table-wrapper" style={{ flex: "1 1 0", minWidth: 0 }}>
                 <table className="transaction-table" id="table_left">
                   <thead>
                     <tr className="transaction-table-header">
                       <th>Account</th>
-                      <th className="transaction-name-column" style={{ display: "none" }}>
+                      <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
                         Name
                       </th>
                       <th>B/F</th>
@@ -1369,31 +2034,42 @@ export default function TransactionPaymentPage() {
                     </tr>
                   </thead>
                   <tbody id="tbody_left">
-                    {(searchData?.left_table || []).map((row) => (
-                      <tr key={`${row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
-                        <td className="transaction-account-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                          {row.account_id}
-                        </td>
-                        <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                          {toUpperDisplay(row.account_name)}
-                        </td>
-                        <td>{formatMoney2(row.bf)}</td>
-                        <td>{formatMoney2(row.win_loss)}</td>
-                        <td>{formatMoney2(row.cr_dr)}</td>
-                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                          {formatMoney2(row.balance)}
-                        </td>
-                      </tr>
-                    ))}
+                    {(tp.defaultLeft || []).map((row) => {
+                      const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
+                      const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
+                      return (
+                        <tr
+                          key={`${row.account_db_id}-${row.currency || ""}`}
+                          className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
+                        >
+                          <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                            {row.account_id}
+                          </td>
+                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                            {toUpperDisplay(row.account_name)}
+                          </td>
+                          <td>{formatPaymentHistoryMoney(row.bf)}</td>
+                          <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
+                          <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
+                          <td
+                            className="transaction-balance-cell"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => handleBalanceCellClick(row, true)}
+                          >
+                            {formatPaymentHistoryMoney(row.balance)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="transaction-table-footer">
                       <td>Total</td>
                       <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
-                      <td id="left_total_bf">{formatMoney2(searchData?.totals?.left?.bf ?? "0.00")}</td>
-                      <td id="left_total_winloss">{formatMoney2(searchData?.totals?.left?.win_loss ?? "0.00")}</td>
-                      <td id="left_total_crdr">{formatMoney2(searchData?.totals?.left?.cr_dr ?? "0.00")}</td>
-                      <td id="left_total_balance">{formatMoney2(searchData?.totals?.left?.balance ?? "0.00")}</td>
+                      <td id="left_total_bf">{formatPaymentHistoryMoney(tp.totalsLeft?.bf ?? "0")}</td>
+                      <td id="left_total_winloss">{formatPaymentHistoryMoney(tp.totalsLeft?.win_loss ?? "0")}</td>
+                      <td id="left_total_crdr">{formatPaymentHistoryMoney(tp.totalsLeft?.cr_dr ?? "0")}</td>
+                      <td id="left_total_balance">{formatPaymentHistoryMoney(tp.totalsLeft?.balance ?? "0")}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1403,7 +2079,7 @@ export default function TransactionPaymentPage() {
                   <thead>
                     <tr className="transaction-table-header">
                       <th>Account</th>
-                      <th className="transaction-name-column" style={{ display: "none" }}>
+                      <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
                         Name
                       </th>
                       <th>B/F</th>
@@ -1413,41 +2089,191 @@ export default function TransactionPaymentPage() {
                     </tr>
                   </thead>
                   <tbody id="tbody_right">
-                    {(searchData?.right_table || []).map((row) => (
-                      <tr key={`${row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
-                        <td className="transaction-account-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                          {row.account_id}
-                        </td>
-                        <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
-                          {toUpperDisplay(row.account_name)}
-                        </td>
-                        <td>{formatMoney2(row.bf)}</td>
-                        <td>{formatMoney2(row.win_loss)}</td>
-                        <td>{formatMoney2(row.cr_dr)}</td>
-                        <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
-                          {formatMoney2(row.balance)}
-                        </td>
-                      </tr>
-                    ))}
+                    {(tp.defaultRight || []).map((row) => {
+                      const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
+                      const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
+                      return (
+                        <tr
+                          key={`${row.account_db_id}-${row.currency || ""}`}
+                          className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
+                        >
+                          <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                            {row.account_id}
+                          </td>
+                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                            {toUpperDisplay(row.account_name)}
+                          </td>
+                          <td>{formatPaymentHistoryMoney(row.bf)}</td>
+                          <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
+                          <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
+                          <td
+                            className="transaction-balance-cell"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => handleBalanceCellClick(row, false)}
+                          >
+                            {formatPaymentHistoryMoney(row.balance)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="transaction-table-footer">
                       <td>Total</td>
                       <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
-                      <td id="right_total_bf">{formatMoney2(searchData?.totals?.right?.bf ?? "0.00")}</td>
-                      <td id="right_total_winloss">{formatMoney2(searchData?.totals?.right?.win_loss ?? "0.00")}</td>
-                      <td id="right_total_crdr">{formatMoney2(searchData?.totals?.right?.cr_dr ?? "0.00")}</td>
-                      <td id="right_total_balance">{formatMoney2(searchData?.totals?.right?.balance ?? "0.00")}</td>
+                      <td id="right_total_bf">{formatPaymentHistoryMoney(tp.totalsRight?.bf ?? "0")}</td>
+                      <td id="right_total_winloss">{formatPaymentHistoryMoney(tp.totalsRight?.win_loss ?? "0")}</td>
+                      <td id="right_total_crdr">{formatPaymentHistoryMoney(tp.totalsRight?.cr_dr ?? "0")}</td>
+                      <td id="right_total_balance">{formatPaymentHistoryMoney(tp.totalsRight?.balance ?? "0")}</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
             </div>
           </div>
-          <div id="currency-grouped-tables-container" style={{ display: "none" }} />
+          <div id="currency-grouped-tables-container" style={{ display: tp.mode === "grouped" ? "block" : "none", width: "100%" }}>
+            {(tp.grouped || []).map((g) => (
+              <div key={g.currency} style={{ marginBottom: 24 }}>
+                <h3 style={{ margin: "20px 0 10px 0", fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: "bold", color: "#1f2937" }}>
+                  Currency: {g.currency}
+                </h3>
+                <div style={{ display: "flex", gap: 20, width: "100%" }}>
+                  <div className="transaction-table-wrapper" style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <table className="transaction-table">
+                      <thead>
+                        <tr className="transaction-table-header">
+                          <th>Account</th>
+                          <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                            Name
+                          </th>
+                          <th>B/F</th>
+                          <th>Win/Loss</th>
+                          <th>Cr/Dr</th>
+                          <th>Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(g.left || []).map((row) => {
+                          const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
+                          const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
+                          return (
+                            <tr
+                              key={`L-${row.account_db_id}-${row.currency || ""}`}
+                              className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
+                            >
+                              <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                                {row.account_id}
+                              </td>
+                              <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                                {toUpperDisplay(row.account_name)}
+                              </td>
+                              <td>{formatPaymentHistoryMoney(row.bf)}</td>
+                              <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
+                              <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
+                              <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, true)}>
+                                {formatPaymentHistoryMoney(row.balance)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="transaction-table-footer">
+                          <td>Total</td>
+                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
+                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.bf ?? "0")}</td>
+                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.win_loss ?? "0")}</td>
+                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.cr_dr ?? "0")}</td>
+                          <td>{formatPaymentHistoryMoney(g.totalsLeft?.balance ?? "0")}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  <div className="transaction-table-wrapper" style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <table className="transaction-table">
+                      <thead>
+                        <tr className="transaction-table-header">
+                          <th>Account</th>
+                          <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                            Name
+                          </th>
+                          <th>B/F</th>
+                          <th>Win/Loss</th>
+                          <th>Cr/Dr</th>
+                          <th>Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(g.right || []).map((row) => {
+                          const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
+                          const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
+                          return (
+                            <tr
+                              key={`R-${row.account_db_id}-${row.currency || ""}`}
+                              className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}
+                            >
+                              <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>
+                                {row.account_id}
+                              </td>
+                              <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>
+                                {toUpperDisplay(row.account_name)}
+                              </td>
+                              <td>{formatPaymentHistoryMoney(row.bf)}</td>
+                              <td>{formatPaymentHistoryMoney(row.win_loss)}</td>
+                              <td>{formatPaymentHistoryMoney(row.cr_dr)}</td>
+                              <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, false)}>
+                                {formatPaymentHistoryMoney(row.balance)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="transaction-table-footer">
+                          <td>Total</td>
+                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
+                          <td>{formatPaymentHistoryMoney(g.totalsRight?.bf ?? "0")}</td>
+                          <td>{formatPaymentHistoryMoney(g.totalsRight?.win_loss ?? "0")}</td>
+                          <td>{formatPaymentHistoryMoney(g.totalsRight?.cr_dr ?? "0")}</td>
+                          <td>{formatPaymentHistoryMoney(g.totalsRight?.balance ?? "0")}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+                <div style={{ margin: "12px auto", maxWidth: 400 }}>
+                  <table className="transaction-summary-table" style={{ margin: "0 auto", maxWidth: 400 }}>
+                    <thead>
+                      <tr className="transaction-table-header">
+                        <th colSpan={2}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="transaction-table-row">
+                        <td className="transaction-summary-label">B/F</td>
+                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.bf ?? "0")}</td>
+                      </tr>
+                      <tr className="transaction-table-row">
+                        <td className="transaction-summary-label">Win/Loss</td>
+                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.win_loss ?? "0")}</td>
+                      </tr>
+                      <tr className="transaction-table-row">
+                        <td className="transaction-summary-label">Cr/Dr</td>
+                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.cr_dr ?? "0")}</td>
+                      </tr>
+                      <tr className="transaction-table-row">
+                        <td className="transaction-summary-label">Balance</td>
+                        <td>{formatPaymentHistoryMoney(g.totalsSummary?.balance ?? "0")}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="transaction-summary-section" style={{ display: tablesVisible ? "block" : "none" }}>
+        <div className="transaction-summary-section" style={{ display: tablesVisible && tp.mode !== "grouped" ? "block" : "none" }}>
           <table className="transaction-summary-table">
             <thead>
               <tr className="transaction-table-header">
@@ -1457,19 +2283,19 @@ export default function TransactionPaymentPage() {
             <tbody>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">B/F</td>
-                <td id="sum_total_bf">{formatMoney2(searchData?.totals?.summary?.bf ?? "0.00")}</td>
+                <td id="sum_total_bf">{formatPaymentHistoryMoney(tp.totalsSummary?.bf ?? "0")}</td>
               </tr>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">Win/Loss</td>
-                <td id="sum_total_winloss">{formatMoney2(searchData?.totals?.summary?.win_loss ?? "0.00")}</td>
+                <td id="sum_total_winloss">{formatPaymentHistoryMoney(tp.totalsSummary?.win_loss ?? "0")}</td>
               </tr>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">Cr/Dr</td>
-                <td id="sum_total_crdr">{formatMoney2(searchData?.totals?.summary?.cr_dr ?? "0.00")}</td>
+                <td id="sum_total_crdr">{formatPaymentHistoryMoney(tp.totalsSummary?.cr_dr ?? "0")}</td>
               </tr>
               <tr className="transaction-table-row">
                 <td className="transaction-summary-label">Balance</td>
-                <td id="sum_total_balance">{formatMoney2(searchData?.totals?.summary?.balance ?? "0.00")}</td>
+                <td id="sum_total_balance">{formatPaymentHistoryMoney(tp.totalsSummary?.balance ?? "0")}</td>
               </tr>
             </tbody>
           </table>
@@ -1559,9 +2385,9 @@ export default function TransactionPaymentPage() {
                       <td>{toUpperDisplay(r.product_id || r.id_product || r.product || "-")}</td>
                       <td>{toUpperDisplay(r.currency || "-")}</td>
                       <td>{toUpperDisplay(r.rate || "-")}</td>
-                      <td>{formatMoney2(r.win_loss)}</td>
-                      <td>{formatMoney2(r.cr_dr)}</td>
-                      <td>{formatMoney2(r.balance)}</td>
+                      <td>{formatPaymentHistoryMoney(r.win_loss)}</td>
+                      <td>{formatPaymentHistoryMoney(r.cr_dr)}</td>
+                      <td>{formatPaymentHistoryMoney(r.balance)}</td>
                       <td>{toUpperDisplay(r.description || "-")}</td>
                       <td>{toUpperDisplay(r.remark || r.sms || "-")}</td>
                       <td>{toUpperDisplay(r.created_by || r.created || "-")}</td>

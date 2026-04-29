@@ -35,13 +35,13 @@ export async function getUserCurrencyOrder() {
   return safeJson(res);
 }
 
-export async function saveUserCurrencyOrder({ companyId, currencies }) {
-  const fd = new FormData();
-  if (companyId != null) fd.append("company_id", String(companyId));
-  fd.append("currencies", JSON.stringify(currencies || []));
+/** Same contract as legacy JS: POST JSON `{ order: string[] }` (see api/transactions/user_currency_order_api.php). */
+export async function saveUserCurrencyOrder(order) {
+  const codes = Array.isArray(order) ? order.map((c) => String(c || "").trim()).filter(Boolean) : [];
   const res = await fetch(buildApiUrl("api/transactions/user_currency_order_api.php"), {
     method: "POST",
-    body: fd,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order: codes }),
     credentials: "include",
   });
   return safeJson(res);
@@ -56,6 +56,7 @@ export async function searchTransactions({
   hideZeroBalance,
   currencyCodes,
   categories,
+  signal,
 } = {}) {
   const params = new URLSearchParams();
   if (companyId != null) params.set("company_id", String(companyId));
@@ -70,6 +71,8 @@ export async function searchTransactions({
   const res = await fetch(buildApiUrl(`api/transactions/search_api.php?${params.toString()}`), {
     credentials: "include",
     cache: "no-cache",
+    headers: { "Cache-Control": "no-cache" },
+    signal,
   });
   return safeJson(res);
 }
@@ -109,16 +112,18 @@ export async function loadContraInbox({ companyId } = {}) {
   return safeJson(res);
 }
 
-export async function approveContra({ transactionId }) {
+export async function approveContra({ transactionId, companyId }) {
   const fd = new FormData();
   fd.append("transaction_id", String(transactionId));
+  if (companyId != null) fd.append("company_id", String(companyId));
   const res = await fetch(buildApiUrl("api/transactions/contra_approve_api.php"), { method: "POST", body: fd, credentials: "include" });
   return safeJson(res);
 }
 
-export async function rejectContra({ transactionId }) {
+export async function rejectContra({ transactionId, companyId }) {
   const fd = new FormData();
   fd.append("transaction_id", String(transactionId));
+  if (companyId != null) fd.append("company_id", String(companyId));
   const res = await fetch(buildApiUrl("api/transactions/contra_reject_api.php"), { method: "POST", body: fd, credentials: "include" });
   return safeJson(res);
 }

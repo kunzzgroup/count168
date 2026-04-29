@@ -22,6 +22,18 @@ export function formatMoney2(value) {
   return parts.join(".");
 }
 
+/**
+ * Main grid + totals: align with legacy MoneyDecimal-style display (avoid trunc quirks on pre-rounded API strings).
+ */
+export function formatPaymentHistoryMoney(value) {
+  if (value === "-" || value === null || value === undefined) return "-";
+  const cleaned = String(value).replace(/,/g, "").trim();
+  if (cleaned === "" || cleaned === "-") return "0.00";
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return "0.00";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function parseBalanceValue(value) {
   const n = cleanNumberLike(value);
   return n === null ? null : n;
