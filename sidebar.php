@@ -473,8 +473,13 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
-            <?php $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions)); ?>
-            <?php if ($hasMaintenance): ?>
+            <?php
+            $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions));
+            $isSupervisorRole = (strtolower((string)$role) === 'supervisor');
+            // Supervisor 在 Games 公司下，即使未勾选 maintenance，也保留 Maintenance（仅显示 Games 相关项）
+            $showMaintenanceSection = $hasMaintenance || ($isSupervisorRole && $companyHasGambling);
+            ?>
+            <?php if ($showMaintenanceSection): ?>
                 <div class="informationmenu-section">
                     <div class="menu-item-wrapper">
                         <div class="informationmenu-section-title" data-section="maintenance">
@@ -497,23 +502,26 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                         <span>Transaction</span>
                                     </a>
                                 <?php endif; ?>
-                                <a href="payment_maintenance.php" class="submenu-item">
-                                    <span>Payment</span>
-                                </a>
+                                <?php if ($hasMaintenance): ?>
+                                    <a href="payment_maintenance.php" class="submenu-item">
+                                        <span>Payment</span>
+                                    </a>
+                                <?php endif; ?>
                                 <?php if ($companyHasGambling): ?>
                                     <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
                                         <span>Formula</span>
                                     </a>
                                 <?php endif; ?>
-                                <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link"<?php echo $companyHasBank ? '' : ' style="display:none;"'; ?>>
-                                    <span>Process</span>
-                                </a>
+                                <?php if ($hasMaintenance): ?>
+                                    <a href="bankprocess_maintenance.php" class="submenu-item" id="maintenance-process-link"<?php echo $companyHasBank ? '' : ' style="display:none;"'; ?>>
+                                        <span>Process</span>
+                                    </a>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
                 </div>
             <?php endif; ?>
-        <?php endif; ?>
     </div>
 
     <div class="informationmenu-footer">
