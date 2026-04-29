@@ -1,4 +1,4 @@
-import AccountSelect from "./AccountSelect.jsx";
+import AccountSelect from "../AccountSelect.jsx";
 
 export default function TransactionAddSection({
   txType,
@@ -78,10 +78,10 @@ export default function TransactionAddSection({
         <div className="transaction-form-group transaction-inline-row">
           <label className="transaction-label">Account</label>
           <div className="transaction-account-inputs">
-            <AccountSelect placeholder="--Select To Account--" options={accountOptions} value={txToAccount} onChange={setTxToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+            <AccountSelect buttonId="action_account_from" dropdownId="action_account_from_dropdown" placeholder="--Select To Account--" options={accountOptions} value={txToAccount} onChange={setTxToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             {showStandardFromAndReverse ? (
               <>
-                <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={txFromAccount} onChange={setTxFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+                <AccountSelect buttonId="action_account_id" dropdownId="action_account_id_dropdown" placeholder="--Select From Account--" options={accountOptions} value={txFromAccount} onChange={setTxFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
                 <button type="button" id="account_reverse_btn" className="transaction-account-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={onReverseAccounts}>
                   Reverse
                 </button>
@@ -116,10 +116,10 @@ export default function TransactionAddSection({
           <label className="transaction-label">Account</label>
           <div className="rate-row rate-row-two-cols">
             <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select To Account--" options={accountOptions} value={rateToAccount} onChange={setRateToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+              <AccountSelect buttonId="rate_account_from" dropdownId="rate_account_from_dropdown" placeholder="--Select To Account--" options={accountOptions} value={rateToAccount} onChange={setRateToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
             <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={rateFromAccount} onChange={setRateFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+              <AccountSelect buttonId="rate_account_to" dropdownId="rate_account_to_dropdown" placeholder="--Select From Account--" options={accountOptions} value={rateFromAccount} onChange={setRateFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
             <button type="button" id="rate_account_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateToAccount(rateFromAccount); setRateFromAccount(rateToAccount); }}>
               Reverse
@@ -148,10 +148,10 @@ export default function TransactionAddSection({
           <label className="transaction-label">Account</label>
           <div className="rate-row rate-row-two-cols">
             <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select To Account--" options={accountOptions} value={rateTransferToAccount} onChange={setRateTransferToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+              <AccountSelect buttonId="rate_transfer_from_account" dropdownId="rate_transfer_from_account_dropdown" placeholder="--Select To Account--" options={accountOptions} value={rateTransferToAccount} onChange={setRateTransferToAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
             <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select From Account--" options={accountOptions} value={rateTransferFromAccount} onChange={setRateTransferFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+              <AccountSelect buttonId="rate_transfer_to_account" dropdownId="rate_transfer_to_account_dropdown" placeholder="--Select From Account--" options={accountOptions} value={rateTransferFromAccount} onChange={setRateTransferFromAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
             <button type="button" id="rate_transfer_reverse_btn" className="transaction-account-reverse-btn rate-reverse-btn" title="Reverse accounts" aria-label="Reverse accounts" onClick={() => { setRateTransferToAccount(rateTransferFromAccount); setRateTransferFromAccount(rateTransferToAccount); }}>
               Reverse
@@ -163,7 +163,7 @@ export default function TransactionAddSection({
           <label className="transaction-label">Middle-Man</label>
           <div className="rate-row rate-row-three-cols">
             <div className="custom-select-wrapper">
-              <AccountSelect placeholder="--Select Account--" options={accountOptions} value={rateMiddlemanAccount} onChange={setRateMiddlemanAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
+              <AccountSelect buttonId="rate_middleman_account" dropdownId="rate_middleman_account_dropdown" placeholder="--Select Account--" options={accountOptions} value={rateMiddlemanAccount} onChange={setRateMiddlemanAccount} selectedCategories={selectedCategories.length === 0 ? [] : selectedCategories} />
             </div>
             <input type="number" step="0.0001" id="rate_middleman_rate" className="transaction-input" placeholder="Rate multiplier" value={rateMiddlemanRate} onChange={(e) => setRateMiddlemanRate(e.target.value)} />
             <input type="number" step="0.01" id="rate_middleman_amount" className="transaction-input" placeholder="Amount" readOnly value={rateMiddlemanAmount} />

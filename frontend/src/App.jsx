@@ -10,7 +10,7 @@ import BankProcessListPage from "./pages/bankprocesslist/BankProcessListPage.jsx
 import UserListPage from "./pages/userlist/UserListPage.jsx";
 import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 import DataCapturePage from "./pages/DataCapturePage.jsx";
-import TransactionPaymentPage from "./pages/transaction/TransactionPaymentPage.jsx";
+import TransactionPaymentPage from "./pages/TransactionPaymentPage.jsx";
 import CustomerReportPage from "./pages/report/CustomerReportPage.jsx";
 import DomainReportPage from "./pages/report/DomainReportPage.jsx";
 import CaptureMaintenancePage from "./pages/maintenance/capture/CaptureMaintenancePage.jsx";

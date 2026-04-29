@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export function AccountSelect({
+export default function AccountSelect({
   buttonId,
   dropdownId,
   placeholder,

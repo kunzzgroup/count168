@@ -42,10 +42,6 @@ export function formatPaymentHistoryMoney(value) {
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export function formatHistoryMoney(v) {
-  return v === "-" ? "-" : formatPaymentHistoryMoney(v);
-}
-
 export function parseBalanceValue(value) {
   const n = cleanNumberLike(value);
   return n === null ? null : n;
