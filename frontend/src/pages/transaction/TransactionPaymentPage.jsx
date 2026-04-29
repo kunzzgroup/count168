@@ -134,6 +134,11 @@ export default function TransactionPaymentPage() {
     };
   }, []);
 
+  /** Runs after previous route's `useEffect` cleanup (User/Account used to re-add `bg`). `body.bg::before` blocks clicks site-wide. */
+  useEffect(() => {
+    document.body.classList.remove("bg");
+  }, []);
+
   useEffect(() => {
     return installTransactionExcelCopy();
   }, []);

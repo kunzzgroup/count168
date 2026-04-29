@@ -161,8 +161,8 @@ export default function UserListPage() {
 
     requestAnimationFrame(settle);
     return () => {
-      document.body.classList.remove("user-page", "user-page--show-all");
-      document.body.classList.add("bg");
+      document.body.classList.remove("user-page", "user-page--show-all", "bg");
+      document.body.classList.add("dashboard-page");
       if (ownLink && ownLink.parentNode) ownLink.parentNode.removeChild(ownLink);
       setCssReady(false);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);

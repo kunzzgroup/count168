@@ -98,8 +98,8 @@ export default function AccountListPage() {
     });
 
     return () => {
-      document.body.classList.remove("account-page");
-      document.body.classList.add("bg");
+      document.body.classList.remove("account-page", "bg");
+      document.body.classList.add("dashboard-page");
       links.forEach(l => l.parentNode?.removeChild(l));
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };

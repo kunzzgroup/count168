@@ -53,8 +53,8 @@ export default function AnnouncementPage() {
     addCss(assetUrl(`css/accountCSS.css?v=${assetVersion}`));
     addCss(assetUrl(`css/announcement.css?v=${assetVersion}`));
     return () => {
-      document.body.classList.remove("announcement-page");
-      document.body.classList.add("bg");
+      document.body.classList.remove("announcement-page", "bg");
+      document.body.classList.add("dashboard-page");
       links.forEach((l) => l.parentNode?.removeChild(l));
     };
   }, [assetVersion]);
