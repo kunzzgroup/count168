@@ -302,6 +302,7 @@ export default function TransactionPaymentPage() {
   const fpTxDateRef = useRef(null);
   const fpRateDateRef = useRef(null);
   const txDateRangePickerReadyRef = useRef(false);
+  const categoryChangedByUserRef = useRef(false);
 
   const [rateDate, setRateDate] = useState(null);
   const [rateToAccount, setRateToAccount] = useState(null); // UI: Select To Account (id=rate_account_from)
@@ -961,6 +962,34 @@ export default function TransactionPaymentPage() {
   }, [quickOpen]);
 
   useEffect(() => {
+    if (!categoryOpen) return;
+    const close = (e) => {
+      if (e.target.closest?.(".category-dropdown")) return;
+      setCategoryOpen(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [categoryOpen]);
+
+  useEffect(() => {
+    if (!categoryChangedByUserRef.current) return;
+    categoryChangedByUserRef.current = false;
+    if (loading || forbidden || !filterSnapshot?.companyId) return;
+    if (!effectiveDateFromEarly || !effectiveDateToEarly) return;
+    if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+    void runSearchRef.current?.({ silent: false });
+  }, [
+    selectedCategories,
+    loading,
+    forbidden,
+    filterSnapshot?.companyId,
+    effectiveDateFromEarly,
+    effectiveDateToEarly,
+    showAllCurrencies,
+    selectedCurrencies,
+  ]);
+
+  useEffect(() => {
     if (!canApproveContra || !contraInbox.open) return;
     const onDoc = (e) => {
       const wrap = document.getElementById("contraInboxWrap");
@@ -1250,9 +1279,15 @@ export default function TransactionPaymentPage() {
 
   const toggleCategory = () => setCategoryOpen((v) => !v);
   const toggleQuick = () => setQuickOpen((v) => !v);
+  const onCategoryAllChange = (checked) => {
+    if (!checked) return;
+    categoryChangedByUserRef.current = true;
+    setSelectedCategories([]);
+  };
 
   const toggleCategoryValue = (value) => {
     const v = String(value || "").toUpperCase().trim();
+    categoryChangedByUserRef.current = true;
     setSelectedCategories((prev) => {
       const set = new Set(prev.map((x) => String(x).toUpperCase()));
       if (set.has(v)) set.delete(v);
@@ -1960,9 +1995,7 @@ export default function TransactionPaymentPage() {
                             selectedCategories.length === 0 ||
                             (categories.length > 0 && selectedCategories.length === categories.length)
                           }
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedCategories([]);
-                          }}
+                          onChange={(e) => onCategoryAllChange(e.target.checked)}
                         />
                         <span>--Select All--</span>
                       </label>
