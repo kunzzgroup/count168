@@ -160,10 +160,8 @@ export function useTransactionSearch({
 
     setDateFrom(formatDmy(start));
     setDateTo(formatDmy(end));
-    queueMicrotask(() => {
-      runSearchRef.current?.({ silent: false });
-    });
-  }, [formatDmy, setDateFrom, setDateTo]);
+    scheduleAutoSearch({ silent: false, delayMs: 120 });
+  }, [setDateFrom, setDateTo, scheduleAutoSearch]);
 
   const toggleAllCurrenciesBtn = useCallback(() => {
     const next = !showAllCurrencies;
@@ -245,7 +243,7 @@ export function useTransactionSearch({
     if (!filterSnapshot?.companyId) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-    void runSearchRef.current?.({ silent: false });
+    scheduleAutoSearch({ silent: false });
   }, [
     selectedCategories,
     filterSnapshot?.companyId,
@@ -254,6 +252,7 @@ export function useTransactionSearch({
     effectiveDateRangeText,
     showAllCurrencies,
     selectedCurrencies,
+    scheduleAutoSearch,
   ]);
 
   useEffect(() => {
@@ -262,6 +261,17 @@ export function useTransactionSearch({
   }, []);
 
   const skipFilterSearchEffectRef = useRef(true);
+  const autoSearchTimerRef = useRef(null);
+  const scheduleAutoSearch = useCallback(
+    ({ silent = false, isInitialLoad = false, delayMs = 260 } = {}) => {
+      if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
+      autoSearchTimerRef.current = setTimeout(() => {
+        autoSearchTimerRef.current = null;
+        void runSearchRef.current?.({ silent, isInitialLoad });
+      }, delayMs);
+    },
+    [],
+  );
   useEffect(() => {
     if (skipFilterSearchEffectRef.current) {
       skipFilterSearchEffectRef.current = false;
@@ -269,8 +279,16 @@ export function useTransactionSearch({
     }
     if (!filterSnapshot?.companyId) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
-    void runSearchRef.current?.({ silent: false });
-  }, [searchState.showCaptureOnly, searchState.showPaymentOnly, searchState.showZeroBalance, filterSnapshot?.companyId, effectiveDateFrom, effectiveDateTo]);
+    scheduleAutoSearch({ silent: false });
+  }, [
+    searchState.showCaptureOnly,
+    searchState.showPaymentOnly,
+    searchState.showZeroBalance,
+    filterSnapshot?.companyId,
+    effectiveDateFrom,
+    effectiveDateTo,
+    scheduleAutoSearch,
+  ]);
 
   const saveTxListToSession = useCallback(
     (data) => {
@@ -475,9 +493,31 @@ export function useTransactionSearch({
 
   useEffect(() => {
     return () => {
+      if (autoSearchTimerRef.current) {
+        clearTimeout(autoSearchTimerRef.current);
+        autoSearchTimerRef.current = null;
+      }
       queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
     };
   }, [queryClient]);
+
+  const baseRowsPresentation = useMemo(() => {
+    if (!rawSearchData) {
+      return {
+        hasData: false,
+        baseLeft: [],
+        baseRight: [],
+      };
+    }
+    const rawLeft = dedupeRowsByAccountAndCurrency(rawSearchData.left_table || []);
+    const rawRight = dedupeRowsByAccountAndCurrency(rawSearchData.right_table || []);
+    const norm = normalizeRateRowsByCrDr(rawLeft, rawRight, txType === "RATE");
+    return {
+      hasData: true,
+      baseLeft: sortByRole(norm.leftRows),
+      baseRight: sortByRole(norm.rightRows),
+    };
+  }, [rawSearchData, txType]);
 
   const tablePresentation = useMemo(() => {
     if (!rawSearchData) {
@@ -492,16 +532,13 @@ export function useTransactionSearch({
         singleCurrencyTitle: null,
       };
     }
-    const rawLeft = dedupeRowsByAccountAndCurrency(rawSearchData.left_table || []);
-    const rawRight = dedupeRowsByAccountAndCurrency(rawSearchData.right_table || []);
-    const pf = applyPaymentWinLossFilters(rawLeft, rawRight, {
+    const pf = applyPaymentWinLossFilters(baseRowsPresentation.baseLeft, baseRowsPresentation.baseRight, {
       showPaymentOnly: searchState.showPaymentOnly,
       showCaptureOnly: searchState.showCaptureOnly,
     });
     const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
-    const norm = normalizeRateRowsByCrDr(z.left, z.right, txType === "RATE");
-    let sortedLeft = sortByRole(norm.leftRows);
-    let sortedRight = sortByRole(norm.rightRows);
+    const sortedLeft = z.left;
+    const sortedRight = z.right;
     const totalsLeft = calculateTotals(sortedLeft);
     const totalsRight = calculateTotals(sortedRight);
     const totalsSummary = mergeTotals(totalsLeft, totalsRight);
@@ -582,7 +619,7 @@ export function useTransactionSearch({
       grouped,
       singleCurrencyTitle: null,
     };
-  }, [rawSearchData, searchState, txType, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
+  }, [rawSearchData, baseRowsPresentation, searchState, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
 
   /** 切换公司：立刻清空结果并中止旧请求，避免短暂叠显上一间公司的数据（如多条 CAPITAL / XE）。 */
   useEffect(() => {
