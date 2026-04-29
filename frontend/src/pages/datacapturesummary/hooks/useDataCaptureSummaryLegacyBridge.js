@@ -5,6 +5,7 @@ import { injectStylesheet } from "../../datacapture/utils/assetLoader.js";
 
 export function useDataCaptureSummaryLegacyBridge() {
   const [legacyReady, setLegacyReady] = useState(false);
+  const [companyId, setCompanyId] = useState(null);
 
   useEffect(() => {
     const hrefs = [assetUrl("css/datacapturesummary.css"), assetUrl("css/global-13inch.css")];
@@ -19,7 +20,8 @@ export function useDataCaptureSummaryLegacyBridge() {
         const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
         const meJson = await meRes.json();
         if (cancelled) return;
-        window.DATACAPTURESUMMARY_COMPANY_ID = meJson?.data?.company_id ?? null;
+        const nextCompanyId = meJson?.data?.company_id ?? null;
+        setCompanyId(nextCompanyId);
         window.__DCS_REACT_BOOTSTRAP__ = true;
         setLegacyReady(true);
 
@@ -58,5 +60,5 @@ export function useDataCaptureSummaryLegacyBridge() {
     };
   }, []);
 
-  return { legacyReady };
+  return { legacyReady, companyId };
 }

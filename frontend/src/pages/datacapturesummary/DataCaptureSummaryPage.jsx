@@ -67,7 +67,7 @@ function computeProcessedAmount(formula, sourcePercent) {
 }
 
 export default function DataCaptureSummaryPage() {
-  const { legacyReady } = useDataCaptureSummaryLegacyBridge();
+  const { legacyReady, companyId } = useDataCaptureSummaryLegacyBridge();
   const deleteCallbackRef = useRef(null);
   const [notification, setNotification] = useState({
     visible: false,
@@ -96,6 +96,7 @@ export default function DataCaptureSummaryPage() {
   const [currencyOptions, setCurrencyOptions] = useState([]);
   const [processMeta, setProcessMeta] = useState({ captureDate: "", processId: null, currencyId: null, remark: "" });
   const [processCurrencyCode, setProcessCurrencyCode] = useState("");
+  const [addModalVisible, setAddModalVisible] = useState(false);
 
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page");
@@ -118,39 +119,32 @@ export default function DataCaptureSummaryPage() {
       message: message || "",
       type,
     });
-    window.setTimeout(() => {
+    setTimeout(() => {
       setNotification((prev) => ({ ...prev, visible: false }));
     }, 5000);
   }, []);
 
   const goBackToDataCapture = useCallback(() => {
-    if (typeof window.saveRateValuesForRefresh === "function") window.saveRateValuesForRefresh();
-    if (typeof window.saveFormulaSourceForRefresh === "function") window.saveFormulaSourceForRefresh();
-    window.isNavigatingAwayByBackOrSubmit = true;
     window.location.href = "/datacapture?restore=1";
   }, []);
 
   const refreshPage = useCallback(() => {
-    if (typeof window.saveRateValuesForRefresh === "function") window.saveRateValuesForRefresh();
-    if (typeof window.saveFormulaSourceForRefresh === "function") window.saveFormulaSourceForRefresh();
     window.location.reload();
   }, []);
 
   const closeConfirmDeleteModal = useCallback(() => {
     setConfirmDeleteState((prev) => ({ ...prev, visible: false }));
-    window.__summaryDeleteCallback = null;
     deleteCallbackRef.current = null;
   }, []);
 
   const confirmDelete = useCallback(() => {
-    const callback = deleteCallbackRef.current || window.__summaryDeleteCallback;
+    const callback = deleteCallbackRef.current;
     if (typeof callback === "function") callback();
     closeConfirmDeleteModal();
   }, [closeConfirmDeleteModal]);
 
   const showConfirmDelete = useCallback((message, callback) => {
     deleteCallbackRef.current = callback;
-    window.__summaryDeleteCallback = callback;
     setConfirmDeleteState({
       visible: true,
       message: message || "This action cannot be undone.",
@@ -245,8 +239,11 @@ export default function DataCaptureSummaryPage() {
   }, [processMeta.captureDate, processMeta.currencyId, processMeta.processId, processMeta.remark, showNotification, summaryRows]);
 
   const closeAddModal = useCallback(() => {
-    const modal = document.getElementById("addModal");
-    if (modal) modal.style.display = "none";
+    setAddModalVisible(false);
+  }, []);
+
+  const openAddModal = useCallback(() => {
+    setAddModalVisible(true);
   }, []);
 
   const addCurrencyFromInput = useCallback(() => {
@@ -278,28 +275,6 @@ export default function DataCaptureSummaryPage() {
     setProcessInfoVisible(true);
   }, []);
 
-  const updateProcessCurrencyFromTable = useCallback(() => {
-    const processData = window.capturedProcessData;
-    const processCurrency = processData && (processData.currencyName || processData.currency);
-    if (processCurrency && String(processCurrency).trim() !== "") {
-      setProcessInfo((prev) => ({ ...prev, currency: String(processCurrency).trim() }));
-      return;
-    }
-    const summaryTableBody = document.getElementById("summaryTableBody");
-    if (!summaryTableBody) return;
-    const rows = summaryTableBody.querySelectorAll("tr");
-    for (let i = 0; i < rows.length; i += 1) {
-      const cells = rows[i].querySelectorAll("td");
-      if (cells[3]) {
-        const value = (cells[3].textContent || "").trim();
-        if (value) {
-          setProcessInfo((prev) => ({ ...prev, currency: value }));
-          return;
-        }
-      }
-    }
-  }, []);
-
   const summaryTotal = useMemo(() => {
     return summaryRows
       .filter((row) => !row.skipChecked)
@@ -322,9 +297,9 @@ export default function DataCaptureSummaryPage() {
     const success = url.searchParams.get("success") === "1";
     const error = url.searchParams.get("error") === "1";
     if (success) {
-      window.showNotification?.("Success", "Data captured and summary generated successfully!", "success");
+      showNotification("Success", "Data captured and summary generated successfully!", "success");
     } else if (error) {
-      window.showNotification?.("Error", "Failed to generate summary. Please try again.", "error");
+      showNotification("Error", "Failed to generate summary. Please try again.", "error");
     }
     if (success || error) {
       url.searchParams.delete("success");
@@ -333,8 +308,8 @@ export default function DataCaptureSummaryPage() {
     }
 
     try {
-      const optionsUrl = window.DATACAPTURESUMMARY_COMPANY_ID
-        ? buildApiUrl(`api/datacapture_summary/summary_api.php?company_id=${encodeURIComponent(window.DATACAPTURESUMMARY_COMPANY_ID)}`)
+      const optionsUrl = companyId
+        ? buildApiUrl(`api/datacapture_summary/summary_api.php?company_id=${encodeURIComponent(companyId)}`)
         : buildApiUrl("api/datacapture_summary/summary_api.php");
       const tableDataRaw = localStorage.getItem("capturedTableData");
       const processDataRaw = localStorage.getItem("capturedProcessData");
@@ -371,7 +346,7 @@ export default function DataCaptureSummaryPage() {
       console.warn("load summary react error:", e);
       showEmptyState();
     }
-  }, [displayProcessInfo, hideLoadingState, legacyReady, showEmptyState]);
+  }, [companyId, displayProcessInfo, hideLoadingState, legacyReady, showEmptyState, showNotification]);
 
   useEffect(() => {
     if (!processCurrencyCode || !currencyOptions.length) return;
@@ -501,9 +476,7 @@ export default function DataCaptureSummaryPage() {
                       <button
                         className="add-account-btn"
                         type="button"
-                        onClick={(e) => {
-                          window.handleAddAccount?.(e.currentTarget, value);
-                        }}
+                        onClick={openAddModal}
                       >
                         +
                       </button>
@@ -683,7 +656,7 @@ export default function DataCaptureSummaryPage() {
         </div>
       </div>
 
-      <div id="addModal" className="account-modal" style={{ display: "none" }}>
+      <div id="addModal" className="account-modal" style={{ display: addModalVisible ? "block" : "none" }}>
         <div className="account-modal-content">
           <div className="account-modal-header">
             <h2>Add Account</h2>
