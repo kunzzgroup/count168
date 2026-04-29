@@ -191,7 +191,6 @@ export function useTransactionData({
     async (comp) => {
       const cid = comp.id;
       if (!cid) return;
-      setLoading(true);
       try {
         const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${cid}`), {
           credentials: "include",
@@ -199,18 +198,37 @@ export function useTransactionData({
         const sj = await res.json();
         if (res.ok && sj.success) {
           notifyCompanySessionUpdated();
+          const numericCid = Number(cid);
+
+          // Warm up next-company data before switching state to reduce list refresh latency.
+          void Promise.all([
+            queryClient.prefetchQuery({
+              queryKey: transactionQueryKeys.accounts(numericCid),
+              queryFn: ({ signal }) => getAccounts({ companyId: numericCid, signal }),
+              staleTime: 60_000,
+            }),
+            queryClient.prefetchQuery({
+              queryKey: transactionQueryKeys.companyCurrencies(numericCid),
+              queryFn: ({ signal }) => getCompanyCurrencies({ companyId: numericCid, signal }),
+              staleTime: 60_000,
+            }),
+            queryClient.prefetchQuery({
+              queryKey: transactionQueryKeys.userCurrencyOrder(),
+              queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
+              staleTime: 60_000,
+            }),
+          ]);
+
           const url = new URL(window.location.href);
           url.searchParams.set("company_id", String(cid));
           window.history.replaceState(null, "", url.toString());
-          setFilterSnapshot((prev) => (prev ? { ...prev, companyId: Number(cid) } : prev));
+          setFilterSnapshot((prev) => (prev ? { ...prev, companyId: numericCid } : prev));
         }
       } catch (e) {
         console.error(e);
-      } finally {
-        setLoading(false);
       }
     },
-    [setLoading],
+    [queryClient],
   );
 
   return {

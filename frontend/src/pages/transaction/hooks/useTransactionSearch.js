@@ -626,8 +626,8 @@ export function useTransactionSearch({
   useEffect(() => {
     const cid = filterSnapshot?.companyId;
     if (cid == null) return;
-    setRawSearchData(null);
-    setTablesVisible(false);
+    // Keep table area mounted during company switch; only refresh list content.
+    setTablesVisible(true);
     lastCompletedSearchKeyRef.current = "";
     try {
       latestRunTokenRef.current += 1;
