@@ -380,7 +380,7 @@ export default function CompanySettingsModal({
 
                   return (
                     <div key={role}
-                      className={`company-share-role-card${isProfit ? " company-share-role-card--profit-pool" : ""}${rows.length === 0 ? " company-share-role-card--empty" : ""}`}
+                      className={`company-share-role-card${isExpanded ? " expanded" : ""}${isProfit ? " company-share-role-card--profit-pool" : ""}${rows.length === 0 ? " company-share-role-card--empty" : ""}`}
                       data-share-card={role}>
                       <div
                         className="company-share-role-header"
