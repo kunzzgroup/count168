@@ -155,7 +155,7 @@ if (!empty($session_company_id)) {
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Created At</th>
+                        <th>Transaction Date</th>
                         <th>Account(To)</th>
                         <th>Account(From)</th>
                         <th class="maintenance-header-amount">Amount</th>

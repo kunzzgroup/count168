@@ -536,6 +536,24 @@ let ownerCompanies = [];
                 .replace(/'/g, '&#39;');
         }
 
+        function formatDateOnly(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '-';
+            const ymdMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (ymdMatch) return `${ymdMatch[3]}/${ymdMatch[2]}/${ymdMatch[1]}`;
+            const dmyMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (dmyMatch) return raw;
+            const ts = Date.parse(raw);
+            if (Number.isFinite(ts)) {
+                const d = new Date(ts);
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                return `${day}/${month}/${year}`;
+            }
+            return raw;
+        }
+
         // Fill list function
         function fillTable(data) {
             const tbody = document.getElementById('dataTableBody');
@@ -557,7 +575,8 @@ let ownerCompanies = [];
                 const tr = document.createElement('tr');
                 tr.className = 'maintenance-row';
                 
-                const dtsCreatedDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
+                const transactionDateDisplay = escapeHtml(formatDateOnly(row.transaction_date));
+                const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const productDisplay = row.product ? escapeHtml(row.product) : '-';
                 const processDisplay = row.process ? escapeHtml(row.process) : '-';
                 const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
@@ -579,7 +598,7 @@ let ownerCompanies = [];
                 
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${row.no || index + 1}</td>
-                    <td class="maintenance-table-cell">${dtsCreatedDisplay}</td>
+                    <td class="maintenance-table-cell" title="System Time: ${systemTimeDisplay}">${transactionDateDisplay}</td>
                     <td class="maintenance-table-cell">${productDisplay}</td>
                     <td class="maintenance-table-cell">${processDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>

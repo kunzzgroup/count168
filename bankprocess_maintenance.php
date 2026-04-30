@@ -157,7 +157,7 @@ $error = isset($_GET['error']) ? true : false;
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Dts Created</th>
+                        <th>Transaction Date</th>
                         <th>Account</th>
                         <th>From</th>
                         <th class="maintenance-header-amount">Amount</th>

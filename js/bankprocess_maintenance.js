@@ -349,7 +349,8 @@
                 const tr = document.createElement('tr');
                 const isDeleted = !!row.is_deleted;
                 tr.className = 'maintenance-row' + (isDeleted ? ' maintenance-row-deleted' : '');
-                const dateDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
+                const transactionDateDisplay = row.date ? escapeHtml(row.date) : '-';
+                const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = escapeHtml(toUpperDisplay(row.from_account));
                 const currencyAmountDisplay = formatCurrencyAmountCell(row.currency, row.amount);
@@ -365,7 +366,7 @@
                 tr.setAttribute('data-is-deleted', isDeleted ? '1' : '0');
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
-                    <td class="maintenance-table-cell">${dateDisplay}</td>
+                    <td class="maintenance-table-cell" title="System Time: ${systemTimeDisplay}">${transactionDateDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-currency-amount">${currencyAmountDisplay}</td>

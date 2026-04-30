@@ -174,7 +174,7 @@ if (!empty($session_company_id)) {
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Dts Created</th>
+                        <th>Transaction Date</th>
                         <th>Product</th>
                         <th>Process</th>
                         <th>Currency</th>

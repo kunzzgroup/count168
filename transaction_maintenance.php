@@ -170,7 +170,7 @@ if (!empty($session_company_id)) {
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Created At</th>
+                        <th>Transaction Date</th>
                         <th>Process</th>
                         <th>Id_Product</th>
                         <th>Account</th>
