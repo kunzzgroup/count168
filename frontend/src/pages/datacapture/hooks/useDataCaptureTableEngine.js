@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { applyTableDataToDom, captureTableDataFromDom } from "../utils/captureTableDataDom.js";
 
 function getEditableCells() {
   return Array.from(document.querySelectorAll("#tableBody td[contenteditable='true']"));
@@ -105,58 +106,88 @@ function getCellCoordinates(cell) {
   return { rowIndex, colIndex };
 }
 
-function shiftSelectedCellsLeft(selectedCells) {
-  const byRow = new Map();
-  selectedCells.forEach((cell) => {
-    const coords = getCellCoordinates(cell);
-    if (!coords) return;
-    if (!byRow.has(coords.rowIndex)) byRow.set(coords.rowIndex, []);
-    byRow.get(coords.rowIndex).push(coords.colIndex);
+function normalizeModel(tableData) {
+  if (!tableData || !Array.isArray(tableData.rows)) return { headers: [], rows: [], rowCount: 0, colCount: 0 };
+  const rows = tableData.rows.map((row) => (Array.isArray(row) ? row.map((cell) => ({ ...cell })) : []));
+  const colCount = rows.reduce((max, row) => Math.max(max, row.filter((cell) => cell?.type === "data").length), 0);
+  rows.forEach((row, rowIndex) => {
+    const header = row.find((cell) => cell?.type === "header");
+    if (header) header.value = String(rowIndex + 1);
+    const dataCells = row.filter((cell) => cell?.type === "data");
+    for (let c = 0; c < colCount; c += 1) {
+      if (!dataCells[c]) {
+        row.push({ type: "data", value: "", col: c });
+      } else {
+        dataCells[c].col = c;
+      }
+    }
   });
+  return {
+    headers: Array.from({ length: colCount + 1 }, (_, idx) => (idx === 0 ? "#" : String(idx))),
+    rows,
+    rowCount: rows.length,
+    colCount: colCount + 1,
+  };
+}
+
+function getSelectedCoordinates() {
+  return getSelectedEditableCells().map((cell) => getCellCoordinates(cell)).filter(Boolean);
+}
+
+function getModelDataCell(row, colIndex) {
+  const dataCells = (Array.isArray(row) ? row : []).filter((cell) => cell?.type === "data");
+  return dataCells[colIndex] || null;
+}
+
+function shiftSelectedCellsLeft(tableData, coordinates) {
+  const next = normalizeModel(tableData);
+  const byRow = new Map();
+  coordinates.forEach(({ rowIndex, colIndex }) => {
+    if (!byRow.has(rowIndex)) byRow.set(rowIndex, []);
+    byRow.get(rowIndex).push(colIndex);
+  });
+  const maxCols = Math.max(0, next.colCount - 1);
   byRow.forEach((cols, rowIndex) => {
-    const row = document.querySelectorAll("#tableBody tr")[rowIndex];
+    const row = next.rows[rowIndex];
     if (!row) return;
-    const maxCols = row.querySelectorAll("td[data-col]").length;
     cols
       .slice()
       .sort((a, b) => b - a)
       .forEach((colIndex) => {
         for (let c = colIndex; c < maxCols - 1; c += 1) {
-          const current = row.querySelector(`td[data-col="${c}"]`);
-          const next = row.querySelector(`td[data-col="${c + 1}"]`);
-          if (!current || !next) continue;
-          current.textContent = next.textContent || "";
+          const current = getModelDataCell(row, c);
+          const right = getModelDataCell(row, c + 1);
+          if (current) current.value = String(right?.value || "");
         }
-        const last = row.querySelector(`td[data-col="${maxCols - 1}"]`);
-        if (last) last.textContent = "";
+        const last = getModelDataCell(row, maxCols - 1);
+        if (last) last.value = "";
       });
   });
+  return next;
 }
 
-function shiftSelectedCellsUp(selectedCells) {
+function shiftSelectedCellsUp(tableData, coordinates) {
+  const next = normalizeModel(tableData);
   const byCol = new Map();
-  selectedCells.forEach((cell) => {
-    const coords = getCellCoordinates(cell);
-    if (!coords) return;
-    if (!byCol.has(coords.colIndex)) byCol.set(coords.colIndex, []);
-    byCol.get(coords.colIndex).push(coords.rowIndex);
+  coordinates.forEach(({ rowIndex, colIndex }) => {
+    if (!byCol.has(colIndex)) byCol.set(colIndex, []);
+    byCol.get(colIndex).push(rowIndex);
   });
-  const rows = Array.from(document.querySelectorAll("#tableBody tr"));
   byCol.forEach((rowIndexes, colIndex) => {
     rowIndexes
       .slice()
       .sort((a, b) => b - a)
       .forEach((rowIndex) => {
-        for (let r = rowIndex; r < rows.length - 1; r += 1) {
-          const current = rows[r]?.querySelector(`td[data-col="${colIndex}"]`);
-          const next = rows[r + 1]?.querySelector(`td[data-col="${colIndex}"]`);
-          if (!current || !next) continue;
-          current.textContent = next.textContent || "";
+        for (let r = rowIndex; r < next.rows.length - 1; r += 1) {
+          const current = getModelDataCell(next.rows[r], colIndex);
+          const below = getModelDataCell(next.rows[r + 1], colIndex);
+          if (current) current.value = String(below?.value || "");
         }
-        const last = rows[rows.length - 1]?.querySelector(`td[data-col="${colIndex}"]`);
-        if (last) last.textContent = "";
+        const last = getModelDataCell(next.rows[next.rows.length - 1], colIndex);
+        if (last) last.value = "";
       });
   });
+  return next;
 }
 
 async function copyCellsToClipboard(cells) {
@@ -235,10 +266,15 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
         emitTableMutated();
       },
       clearSelectedCells: () => {
-        const selected = getSelectedEditableCells();
-        selected.forEach((cell) => {
-          cell.textContent = "";
+        const coords = getSelectedCoordinates();
+        if (!coords.length) return;
+        const tableData = normalizeModel(captureTableDataFromDom());
+        coords.forEach(({ rowIndex, colIndex }) => {
+          const row = tableData.rows[rowIndex];
+          const cell = getModelDataCell(row, colIndex);
+          if (cell) cell.value = "";
         });
+        applyTableDataToDom(tableData);
         emitTableMutated();
       },
       showDeleteDialog: () => {
@@ -265,117 +301,110 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
       insertColumnLeft: () => {
         const colIndex = findActiveColumnIndex();
         if (colIndex == null) return;
-        const headerRow = document.querySelector("#tableHeader tr");
-        if (headerRow) {
-          const th = document.createElement("th");
-          headerRow.insertBefore(th, headerRow.children[colIndex + 1] || null);
-        }
-        const rows = Array.from(document.querySelectorAll("#tableBody tr"));
-        rows.forEach((row) => {
-          row.insertBefore(createEditableCell(colIndex), row.children[colIndex + 1] || null);
+        const tableData = normalizeModel(captureTableDataFromDom());
+        tableData.rows.forEach((row) => {
+          const dataCells = row.filter((cell) => cell?.type === "data");
+          dataCells.splice(colIndex, 0, { type: "data", value: "", col: colIndex });
+          dataCells.forEach((cell, idx) => {
+            cell.col = idx;
+          });
+          const headerCell = row.find((cell) => cell?.type === "header");
+          row.length = 0;
+          if (headerCell) row.push(headerCell);
+          row.push(...dataCells);
         });
-        normalizeDataCols();
+        applyTableDataToDom(tableData);
         emitTableMutated();
       },
       insertColumnRight: () => {
         const colIndex = findActiveColumnIndex();
         if (colIndex == null) return;
         const insertAt = colIndex + 1;
-        const headerRow = document.querySelector("#tableHeader tr");
-        if (headerRow) {
-          const th = document.createElement("th");
-          headerRow.insertBefore(th, headerRow.children[insertAt + 1] || null);
-        }
-        const rows = Array.from(document.querySelectorAll("#tableBody tr"));
-        rows.forEach((row) => {
-          row.insertBefore(createEditableCell(insertAt), row.children[insertAt + 1] || null);
+        const tableData = normalizeModel(captureTableDataFromDom());
+        tableData.rows.forEach((row) => {
+          const dataCells = row.filter((cell) => cell?.type === "data");
+          dataCells.splice(insertAt, 0, { type: "data", value: "", col: insertAt });
+          dataCells.forEach((cell, idx) => {
+            cell.col = idx;
+          });
+          const headerCell = row.find((cell) => cell?.type === "header");
+          row.length = 0;
+          if (headerCell) row.push(headerCell);
+          row.push(...dataCells);
         });
-        normalizeDataCols();
+        applyTableDataToDom(tableData);
         emitTableMutated();
       },
       deleteColumn: () => {
         const colIndex = findActiveColumnIndex();
         if (colIndex == null) return;
-        const totalCols = getDataColCount();
+        const tableData = normalizeModel(captureTableDataFromDom());
+        const totalCols = Math.max(0, tableData.colCount - 1);
         if (totalCols <= 1) return;
-        const headerRow = document.querySelector("#tableHeader tr");
-        if (headerRow?.children[colIndex + 1]) {
-          headerRow.children[colIndex + 1].remove();
-        }
-        const rows = Array.from(document.querySelectorAll("#tableBody tr"));
-        rows.forEach((row) => {
-          const cell = row.querySelector(`td[data-col="${colIndex}"]`);
-          if (cell) cell.remove();
+        tableData.rows.forEach((row) => {
+          const dataCells = row.filter((cell) => cell?.type === "data");
+          dataCells.splice(colIndex, 1);
+          dataCells.forEach((cell, idx) => {
+            cell.col = idx;
+          });
+          const headerCell = row.find((cell) => cell?.type === "header");
+          row.length = 0;
+          if (headerCell) row.push(headerCell);
+          row.push(...dataCells);
         });
-        normalizeDataCols();
+        applyTableDataToDom(tableData);
         emitTableMutated();
       },
       clearColumn: () => {
         const colIndex = findActiveColumnIndex();
         if (colIndex == null) return;
-        const rows = Array.from(document.querySelectorAll("#tableBody tr"));
-        rows.forEach((row) => {
-          const cell = row.querySelector(`td[data-col="${colIndex}"]`);
-          if (cell) cell.textContent = "";
+        const tableData = normalizeModel(captureTableDataFromDom());
+        tableData.rows.forEach((row) => {
+          const cell = getModelDataCell(row, colIndex);
+          if (cell) cell.value = "";
         });
+        applyTableDataToDom(tableData);
         emitTableMutated();
       },
       insertRowAbove: () => {
         const rowIndex = findActiveRowIndex();
         if (rowIndex == null) return;
-        const body = document.getElementById("tableBody");
-        const target = body?.children[rowIndex];
-        if (!body || !target) return;
-        const newRow = document.createElement("tr");
-        const rowHeader = document.createElement("td");
-        rowHeader.className = "row-header";
-        rowHeader.textContent = "0";
-        newRow.appendChild(rowHeader);
-        const colCount = getDataColCount();
-        for (let c = 0; c < colCount; c += 1) {
-          newRow.appendChild(createEditableCell(c));
-        }
-        body.insertBefore(newRow, target);
-        refreshHeaderLabels();
+        const tableData = normalizeModel(captureTableDataFromDom());
+        const dataCols = Math.max(0, tableData.colCount - 1);
+        const newRow = [{ type: "header", value: "0" }, ...Array.from({ length: dataCols }, (_, c) => ({ type: "data", value: "", col: c }))];
+        tableData.rows.splice(rowIndex, 0, newRow);
+        applyTableDataToDom(normalizeModel(tableData));
         emitTableMutated();
       },
       insertRowBelow: () => {
         const rowIndex = findActiveRowIndex();
         if (rowIndex == null) return;
-        const body = document.getElementById("tableBody");
-        const target = body?.children[rowIndex];
-        if (!body || !target) return;
-        const newRow = document.createElement("tr");
-        const rowHeader = document.createElement("td");
-        rowHeader.className = "row-header";
-        rowHeader.textContent = "0";
-        newRow.appendChild(rowHeader);
-        const colCount = getDataColCount();
-        for (let c = 0; c < colCount; c += 1) {
-          newRow.appendChild(createEditableCell(c));
-        }
-        body.insertBefore(newRow, target.nextSibling);
-        refreshHeaderLabels();
+        const tableData = normalizeModel(captureTableDataFromDom());
+        const dataCols = Math.max(0, tableData.colCount - 1);
+        const newRow = [{ type: "header", value: "0" }, ...Array.from({ length: dataCols }, (_, c) => ({ type: "data", value: "", col: c }))];
+        tableData.rows.splice(rowIndex + 1, 0, newRow);
+        applyTableDataToDom(normalizeModel(tableData));
         emitTableMutated();
       },
       deleteRow: () => {
         const rowIndex = findActiveRowIndex();
         if (rowIndex == null) return;
-        const body = document.getElementById("tableBody");
-        if (!body || body.children.length <= 1) return;
-        const row = body.children[rowIndex];
-        if (row) row.remove();
-        refreshHeaderLabels();
+        const tableData = normalizeModel(captureTableDataFromDom());
+        if (tableData.rows.length <= 1) return;
+        tableData.rows.splice(rowIndex, 1);
+        applyTableDataToDom(normalizeModel(tableData));
         emitTableMutated();
       },
       clearRow: () => {
         const rowIndex = findActiveRowIndex();
         if (rowIndex == null) return;
-        const row = document.querySelectorAll("#tableBody tr")[rowIndex];
+        const tableData = normalizeModel(captureTableDataFromDom());
+        const row = tableData.rows[rowIndex];
         if (!row) return;
-        Array.from(row.querySelectorAll("td[data-col]")).forEach((cell) => {
-          cell.textContent = "";
+        row.forEach((cell) => {
+          if (cell?.type === "data") cell.value = "";
         });
+        applyTableDataToDom(tableData);
         emitTableMutated();
       },
       closeDeleteDialog: () => {
@@ -383,43 +412,51 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
         if (dialog) dialog.style.display = "none";
       },
       confirmDelete: () => {
-        const selected = getSelectedEditableCells();
-        if (!selected.length) return;
+        const coords = getSelectedCoordinates();
+        if (!coords.length) return;
+        const tableData = normalizeModel(captureTableDataFromDom());
         const option = document.querySelector("input[name='deleteOption']:checked")?.value || "shiftLeft";
         if (option === "shiftLeft") {
-          shiftSelectedCellsLeft(selected);
+          applyTableDataToDom(shiftSelectedCellsLeft(tableData, coords));
           emitTableMutated();
         } else if (option === "shiftUp") {
-          shiftSelectedCellsUp(selected);
+          applyTableDataToDom(shiftSelectedCellsUp(tableData, coords));
           emitTableMutated();
         } else if (option === "entireRow") {
-          const body = document.getElementById("tableBody");
-          if (!body) return;
-          const uniqueRows = [...new Set(selected.map((cell) => cell.parentElement))];
-          if (body.children.length - uniqueRows.length < 1) {
+          const rowSet = [...new Set(coords.map((c) => c.rowIndex))];
+          if (tableData.rows.length - rowSet.length < 1) {
             notify("Cannot delete the last row", "danger");
             return;
           }
-          uniqueRows.forEach((row) => row?.remove());
-          refreshHeaderLabels();
+          rowSet
+            .slice()
+            .sort((a, b) => b - a)
+            .forEach((rowIndex) => {
+              tableData.rows.splice(rowIndex, 1);
+            });
+          applyTableDataToDom(normalizeModel(tableData));
           emitTableMutated();
         } else if (option === "entireColumn") {
-          const totalCols = getDataColCount();
-          const cols = [...new Set(selected.map((cell) => Number(cell.dataset.col)).filter((c) => !Number.isNaN(c)))].sort((a, b) => b - a);
+          const totalCols = Math.max(0, tableData.colCount - 1);
+          const cols = [...new Set(coords.map((c) => c.colIndex))].sort((a, b) => b - a);
           if (totalCols - cols.length < 1) {
             notify("Cannot delete the last column", "danger");
             return;
           }
           cols.forEach((colIndex) => {
-            const headerRow = document.querySelector("#tableHeader tr");
-            if (headerRow?.children[colIndex + 1]) headerRow.children[colIndex + 1].remove();
-            const rows = Array.from(document.querySelectorAll("#tableBody tr"));
-            rows.forEach((row) => {
-              const cell = row.querySelector(`td[data-col="${colIndex}"]`);
-              if (cell) cell.remove();
+            tableData.rows.forEach((row) => {
+              const dataCells = row.filter((cell) => cell?.type === "data");
+              dataCells.splice(colIndex, 1);
+              dataCells.forEach((cell, idx) => {
+                cell.col = idx;
+              });
+              const headerCell = row.find((cell) => cell?.type === "header");
+              row.length = 0;
+              if (headerCell) row.push(headerCell);
+              row.push(...dataCells);
             });
           });
-          normalizeDataCols();
+          applyTableDataToDom(normalizeModel(tableData));
           emitTableMutated();
         }
         clearSelectionClasses();
@@ -510,9 +547,6 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
       window.clearTimeout(timeoutId);
       timeoutId = window.setTimeout(() => emitTableMutated(), 80);
     };
-    const mo = new MutationObserver(onTableInput);
-    mo.observe(tableBody, { childList: true, subtree: true, characterData: true });
-
     tableBody.addEventListener("mousedown", onBodyMouseDown);
     tableBody.addEventListener("contextmenu", onBodyContextMenu);
     tableBody.addEventListener("input", onTableInput);
@@ -520,11 +554,9 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
     tableHeader.addEventListener("mousedown", onHeaderMouseDown);
     tableHeader.addEventListener("contextmenu", onHeaderContextMenu);
     document.addEventListener("click", onDocumentClick);
-    onTableInput();
 
     return () => {
       window.clearTimeout(timeoutId);
-      mo.disconnect();
       tableBody.removeEventListener("mousedown", onBodyMouseDown);
       tableBody.removeEventListener("contextmenu", onBodyContextMenu);
       tableBody.removeEventListener("input", onTableInput);

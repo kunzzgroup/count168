@@ -53,6 +53,14 @@ function ensureTableShape(rows, cols) {
   return true;
 }
 
+function isSameTableSnapshot(a, b) {
+  try {
+    return JSON.stringify(a || {}) === JSON.stringify(b || {});
+  } catch {
+    return false;
+  }
+}
+
 function fillTableFromMatrix(matrix) {
   const normalized = compactMatrix(matrix);
   if (!Array.isArray(normalized) || normalized.length === 0) return false;
@@ -122,7 +130,8 @@ export default function DataCapturePage() {
     tableDataSnapshot,
   });
   const syncTableSnapshot = useCallback(() => {
-    setTableDataSnapshot(captureTableDataFromDom());
+    const next = captureTableDataFromDom();
+    setTableDataSnapshot((prev) => (isSameTableSnapshot(prev, next) ? prev : next));
   }, []);
   const tableEngine = useDataCaptureTableEngine({
     ready: isPageReady,
