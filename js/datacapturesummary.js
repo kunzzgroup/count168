@@ -147,6 +147,7 @@ function bootstrapDataCaptureSummaryPage(options = {}) {
 
 window.__bootstrapDataCaptureSummaryPage = bootstrapDataCaptureSummaryPage;
 window.loadAndRenderCapturedTable = loadAndRenderCapturedTable;
+window.submitSummaryData = submitSummaryData;
 window.showNotification = showNotification;
 window.hideLoadingState = hideLoadingState;
 window.showEmptyState = showEmptyState;
@@ -19846,6 +19847,14 @@ function extractOperatorsSequence(expression) {
 // Submit summary data
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
+function navigateAfterSummarySubmit() {
+    if (typeof window.__DCS_NAVIGATE_DATACAPTURE_SUBMITTED === 'function') {
+        window.__DCS_NAVIGATE_DATACAPTURE_SUBMITTED();
+    } else {
+        window.location.href = 'datacapture.php?submitted=1';
+    }
+}
+
 async function submitSummaryData() {
     // Prevent duplicate submissions
     if (isSubmitting) {
@@ -20465,7 +20474,7 @@ async function submitSummaryData() {
                     try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
                     localStorage.removeItem('capturedTableData');
                     localStorage.removeItem('capturedProcessData');
-                    window.location.href = 'datacapture.php?submitted=1';
+                    navigateAfterSummarySubmit();
                 }, 600);
                 return;
             }
@@ -20652,7 +20661,7 @@ async function submitSummaryData() {
                 localStorage.removeItem('capturedProcessData');
 
                 // Redirect to data capture page
-                window.location.href = 'datacapture.php?submitted=1';
+                navigateAfterSummarySubmit();
             }, 2000);
         }
 
@@ -20820,3 +20829,7 @@ document.addEventListener('keydown', function (event) {
         }
     }
 });
+
+window.deleteSelectedRows = deleteSelectedRows;
+window.__summaryToggleAllRate = toggleAllRate;
+window.__summarySubmitRateValues = submitRateValues;
