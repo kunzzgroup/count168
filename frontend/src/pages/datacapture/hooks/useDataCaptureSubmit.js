@@ -1,69 +1,60 @@
 import { useCallback } from "react";
 import { captureTableDataFromDom, citibetCaptureTableHasData } from "../utils/captureTableDataDom.js";
 
-function convertTableFormatOnSubmit(dataCaptureType) {
-  if (dataCaptureType === "WBET" || dataCaptureType === "WBET_API") return;
-  const tableBody = document.getElementById("tableBody");
-  if (!tableBody) return;
+function convertTableFormatOnSubmit(tableData, dataCaptureType) {
+  if (dataCaptureType === "WBET" || dataCaptureType === "WBET_API") return tableData;
+  if (!tableData || !Array.isArray(tableData.rows) || tableData.rows.length === 0) return tableData;
 
-  const rows = Array.from(tableBody.children);
-  if (!rows.length) return;
-
+  const rows = tableData.rows.map((row) => (Array.isArray(row) ? row.map((cell) => ({ ...cell })) : []));
   const targetIndex = rows.findIndex((row) => {
-    const first = (row.children[1]?.textContent || "").toUpperCase().trim();
-    const second = (row.children[2]?.textContent || "").toUpperCase().trim();
+    const dataCells = row.filter((cell) => cell?.type === "data");
+    const first = String(dataCells[0]?.value || "").toUpperCase().trim();
+    const second = String(dataCells[1]?.value || "").toUpperCase().trim();
     return (first.includes("SUB TOTAL") || first === "SUB TOTAL") && (second.includes("GRAND TOTAL") || second === "GRAND TOTAL");
   });
-  if (targetIndex < 0) return;
+  if (targetIndex < 0) return { ...tableData, rows };
 
   const targetRow = rows[targetIndex];
+  const targetDataCells = targetRow.filter((cell) => cell?.type === "data");
   const subValues = ["SUB TOTAL"];
   const grandValues = ["GRAND TOTAL"];
-
-  if (targetRow.children.length > 3) {
-    const thirdText = String(targetRow.children[3]?.textContent || "").trim();
-    if (thirdText) grandValues.push(thirdText.toUpperCase());
-  }
+  const thirdText = String(targetDataCells[2]?.value || "").trim();
+  if (thirdText) grandValues.push(thirdText.toUpperCase());
 
   for (let r = targetIndex + 1; r < rows.length; r += 1) {
-    const dataCells = Array.from(rows[r].children)
-      .slice(1)
-      .filter((cell) => cell.contentEditable === "true" && String(cell.textContent || "").trim() !== "");
-    if (dataCells.length !== 2) break;
-
-    const left = String(dataCells[0].textContent || "").trim();
-    const right = String(dataCells[1].textContent || "").trim();
-    if (!left || !right) break;
+    const values = rows[r]
+      .filter((cell) => cell?.type === "data")
+      .map((cell) => String(cell.value || "").trim())
+      .filter((v) => v !== "");
+    if (values.length !== 2) break;
+    const left = values[0];
+    const right = values[1];
     if (left.toUpperCase().includes("TOTAL") || right.toUpperCase().includes("TOTAL")) break;
-
     subValues.push(left.toUpperCase());
     grandValues.push(right.toUpperCase());
   }
 
-  const editableCells = Array.from(targetRow.querySelectorAll("td[contenteditable='true']"));
-  editableCells.forEach((cell, idx) => {
-    cell.textContent = idx < subValues.length ? subValues[idx] : "";
+  targetDataCells.forEach((cell, idx) => {
+    cell.value = idx < subValues.length ? subValues[idx] : "";
   });
 
-  const grandRow = document.createElement("tr");
-  const rowHeader = document.createElement("td");
-  rowHeader.className = "row-header";
-  rowHeader.textContent = "";
-  grandRow.appendChild(rowHeader);
+  const colCount = targetDataCells.length;
+  const grandRow = [
+    { type: "header", value: "" },
+    ...Array.from({ length: colCount }, (_, idx) => ({
+      type: "data",
+      value: idx < grandValues.length ? grandValues[idx] : "",
+      col: idx,
+    })),
+  ];
+  rows.splice(targetIndex + 1, 0, grandRow);
 
-  const colCount = editableCells.length;
-  for (let c = 0; c < colCount; c += 1) {
-    const td = document.createElement("td");
-    td.contentEditable = "true";
-    td.dataset.col = String(c);
-    td.textContent = c < grandValues.length ? grandValues[c] : "";
-    grandRow.appendChild(td);
-  }
-
-  tableBody.insertBefore(grandRow, targetRow.nextSibling);
-  Array.from(tableBody.querySelectorAll(".row-header")).forEach((header, idx) => {
-    header.textContent = String(idx + 1);
+  rows.forEach((row, idx) => {
+    const rowHeader = row.find((cell) => cell?.type === "header");
+    if (rowHeader) rowHeader.value = String(idx + 1);
   });
+
+  return { ...tableData, rows, rowCount: rows.length };
 }
 
 export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
@@ -99,6 +90,7 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
       replaceWordFrom,
       replaceWordTo,
       remark,
+      tableDataSnapshot,
     }) => {
       const selectedDataCaptureType = String(dataCaptureType || "").trim();
       const processId = String(selectedProcessId || "").trim();
@@ -108,62 +100,59 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
       const selectedCurrency = Array.isArray(currencyOptions)
         ? currencyOptions.find((currency) => String(currency.id) === normalizedCurrencyId)
         : null;
+      const selectedDescriptionsList = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
+      const sourceTableData = tableDataSnapshot || captureTableDataFromDom();
 
-    const selectedDescriptionsList = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
-
-    if (!processId) {
-      notify("Please select a process", "danger");
-      return;
-    }
-    if (!selectedDescriptionsList.length) {
-      notify("Please select at least one description", "danger");
-      return;
-    }
-      if (!normalizedCurrencyId) {
-      notify("Please select a currency", "danger");
-      return;
-    }
-
-    if (selectedDataCaptureType === "CITIBET" || selectedDataCaptureType === "CITIBET_MAJOR") {
-      const tableData = captureTableDataFromDom();
-      if (!citibetCaptureTableHasData(tableData)) {
-        notify("Please enter data in the table", "danger");
+      if (!processId) {
+        notify("Please select a process", "danger");
         return;
       }
-    }
+      if (!selectedDescriptionsList.length) {
+        notify("Please select at least one description", "danger");
+        return;
+      }
+      if (!normalizedCurrencyId) {
+        notify("Please select a currency", "danger");
+        return;
+      }
+      if (selectedDataCaptureType === "CITIBET" || selectedDataCaptureType === "CITIBET_MAJOR") {
+        if (!citibetCaptureTableHasData(sourceTableData)) {
+          notify("Please enter data in the table", "danger");
+          return;
+        }
+      }
 
-    convertTableFormatOnSubmit(selectedDataCaptureType);
+      const tableData = convertTableFormatOnSubmit(sourceTableData, selectedDataCaptureType);
 
-    const processData = {
+      const processData = {
         date: selectedDate || "",
-      process: processId,
-      processName: processDisplayText,
-      processCode,
-      dataCaptureType: selectedDataCaptureType,
-      descriptions: selectedDescriptionsList,
+        process: processId,
+        processName: processDisplayText,
+        processCode,
+        dataCaptureType: selectedDataCaptureType,
+        descriptions: selectedDescriptionsList,
         currency: normalizedCurrencyId,
         currencyName: selectedCurrency?.code || "",
         removeWord: removeWord || "",
         replaceWordFrom: replaceWordFrom || "",
         replaceWordTo: replaceWordTo || "",
         remark: remark || "",
-    };
+      };
 
-    try {
-      const tableData = captureTableDataFromDom();
-      localStorage.setItem("capturedTableData", JSON.stringify(tableData));
-      localStorage.setItem("capturedProcessData", JSON.stringify(processData));
-      localStorage.setItem("capturedDataCaptureType", selectedDataCaptureType);
+      try {
+        localStorage.setItem("capturedTableData", JSON.stringify(tableData));
+        localStorage.setItem("capturedProcessData", JSON.stringify(processData));
+        localStorage.setItem("capturedDataCaptureType", selectedDataCaptureType);
 
-      notify("Data captured successfully! Redirecting to summary...", "success");
-      setTimeout(() => {
-        navigate("/datacapturesummary?success=1");
-      }, 1500);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Error submitting data:", error);
-      notify("Failed to capture data", "danger");
-    }
+        notify("Data captured successfully! Redirecting to summary...", "success");
+        setTimeout(() => {
+          navigate("/datacapturesummary?success=1");
+        }, 1500);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error submitting data:", error);
+        notify("Failed to capture data", "danger");
+      }
     },
     [navigate, notify, selectedDescriptions]
   );

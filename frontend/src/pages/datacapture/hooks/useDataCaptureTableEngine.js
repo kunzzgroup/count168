@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 function getEditableCells() {
   return Array.from(document.querySelectorAll("#tableBody td[contenteditable='true']"));
@@ -216,7 +216,11 @@ async function pasteFromClipboardToCells(targetCells) {
   });
 }
 
-export function useDataCaptureTableEngine({ ready } = {}) {
+export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
+  const emitTableMutated = useCallback(() => {
+    if (typeof onTableMutated === "function") onTableMutated();
+  }, [onTableMutated]);
+
   const engine = useMemo(
     () => ({
       copySelectedCells: async () => {
@@ -228,12 +232,14 @@ export function useDataCaptureTableEngine({ ready } = {}) {
         const selected = getSelectedEditableCells();
         if (!selected.length) return;
         await pasteFromClipboardToCells(selected);
+        emitTableMutated();
       },
       clearSelectedCells: () => {
         const selected = getSelectedEditableCells();
         selected.forEach((cell) => {
           cell.textContent = "";
         });
+        emitTableMutated();
       },
       showDeleteDialog: () => {
         const selected = getSelectedEditableCells();
@@ -269,6 +275,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
           row.insertBefore(createEditableCell(colIndex), row.children[colIndex + 1] || null);
         });
         normalizeDataCols();
+        emitTableMutated();
       },
       insertColumnRight: () => {
         const colIndex = findActiveColumnIndex();
@@ -284,6 +291,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
           row.insertBefore(createEditableCell(insertAt), row.children[insertAt + 1] || null);
         });
         normalizeDataCols();
+        emitTableMutated();
       },
       deleteColumn: () => {
         const colIndex = findActiveColumnIndex();
@@ -300,6 +308,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
           if (cell) cell.remove();
         });
         normalizeDataCols();
+        emitTableMutated();
       },
       clearColumn: () => {
         const colIndex = findActiveColumnIndex();
@@ -309,6 +318,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
           const cell = row.querySelector(`td[data-col="${colIndex}"]`);
           if (cell) cell.textContent = "";
         });
+        emitTableMutated();
       },
       insertRowAbove: () => {
         const rowIndex = findActiveRowIndex();
@@ -327,6 +337,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
         }
         body.insertBefore(newRow, target);
         refreshHeaderLabels();
+        emitTableMutated();
       },
       insertRowBelow: () => {
         const rowIndex = findActiveRowIndex();
@@ -345,6 +356,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
         }
         body.insertBefore(newRow, target.nextSibling);
         refreshHeaderLabels();
+        emitTableMutated();
       },
       deleteRow: () => {
         const rowIndex = findActiveRowIndex();
@@ -354,6 +366,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
         const row = body.children[rowIndex];
         if (row) row.remove();
         refreshHeaderLabels();
+        emitTableMutated();
       },
       clearRow: () => {
         const rowIndex = findActiveRowIndex();
@@ -363,6 +376,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
         Array.from(row.querySelectorAll("td[data-col]")).forEach((cell) => {
           cell.textContent = "";
         });
+        emitTableMutated();
       },
       closeDeleteDialog: () => {
         const dialog = document.getElementById("deleteDialog");
@@ -374,8 +388,10 @@ export function useDataCaptureTableEngine({ ready } = {}) {
         const option = document.querySelector("input[name='deleteOption']:checked")?.value || "shiftLeft";
         if (option === "shiftLeft") {
           shiftSelectedCellsLeft(selected);
+          emitTableMutated();
         } else if (option === "shiftUp") {
           shiftSelectedCellsUp(selected);
+          emitTableMutated();
         } else if (option === "entireRow") {
           const body = document.getElementById("tableBody");
           if (!body) return;
@@ -386,6 +402,7 @@ export function useDataCaptureTableEngine({ ready } = {}) {
           }
           uniqueRows.forEach((row) => row?.remove());
           refreshHeaderLabels();
+          emitTableMutated();
         } else if (option === "entireColumn") {
           const totalCols = getDataColCount();
           const cols = [...new Set(selected.map((cell) => Number(cell.dataset.col)).filter((c) => !Number.isNaN(c)))].sort((a, b) => b - a);
@@ -403,13 +420,14 @@ export function useDataCaptureTableEngine({ ready } = {}) {
             });
           });
           normalizeDataCols();
+          emitTableMutated();
         }
         clearSelectionClasses();
         const dialog = document.getElementById("deleteDialog");
         if (dialog) dialog.style.display = "none";
       },
     }),
-    []
+    [emitTableMutated]
   );
 
   useEffect(() => {
@@ -487,20 +505,35 @@ export function useDataCaptureTableEngine({ ready } = {}) {
       if (!insideMenu) hideAllContextMenus();
     };
 
+    let timeoutId = null;
+    const onTableInput = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => emitTableMutated(), 80);
+    };
+    const mo = new MutationObserver(onTableInput);
+    mo.observe(tableBody, { childList: true, subtree: true, characterData: true });
+
     tableBody.addEventListener("mousedown", onBodyMouseDown);
     tableBody.addEventListener("contextmenu", onBodyContextMenu);
+    tableBody.addEventListener("input", onTableInput);
+    tableBody.addEventListener("paste", onTableInput, true);
     tableHeader.addEventListener("mousedown", onHeaderMouseDown);
     tableHeader.addEventListener("contextmenu", onHeaderContextMenu);
     document.addEventListener("click", onDocumentClick);
+    onTableInput();
 
     return () => {
+      window.clearTimeout(timeoutId);
+      mo.disconnect();
       tableBody.removeEventListener("mousedown", onBodyMouseDown);
       tableBody.removeEventListener("contextmenu", onBodyContextMenu);
+      tableBody.removeEventListener("input", onTableInput);
+      tableBody.removeEventListener("paste", onTableInput, true);
       tableHeader.removeEventListener("mousedown", onHeaderMouseDown);
       tableHeader.removeEventListener("contextmenu", onHeaderContextMenu);
       document.removeEventListener("click", onDocumentClick);
     };
-  }, [ready]);
+  }, [ready, emitTableMutated]);
 
   useEffect(() => {
     const onKeyDown = (event) => {

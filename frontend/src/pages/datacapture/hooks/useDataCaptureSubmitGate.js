@@ -1,16 +1,15 @@
 import { useMemo } from "react";
-import { captureTableDataFromDom, citibetCaptureTableHasData } from "../utils/captureTableDataDom.js";
+import { citibetCaptureTableHasData } from "../utils/captureTableDataDom.js";
 
 /**
- * Mirrors legacy validateForm / updateSubmitButtonState for the React SPA shell while datacapture.js
- * still owns paste/table internals.
+ * Submit gate computed from React state snapshot.
  */
 export function useDataCaptureSubmitGate({
   selectedProcessId,
   selectedDescriptions,
   currencyId,
   dataCaptureType,
-  tableRevision,
+  tableDataSnapshot,
 }) {
   return useMemo(() => {
     const descriptions = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
@@ -20,8 +19,7 @@ export function useDataCaptureSubmitGate({
 
     let tableOk = true;
     if (dataCaptureType === "CITIBET" || dataCaptureType === "CITIBET_MAJOR") {
-      const tableData = captureTableDataFromDom();
-      tableOk = citibetCaptureTableHasData(tableData);
+      tableOk = citibetCaptureTableHasData(tableDataSnapshot);
     }
 
     const canSubmit = processOk && descriptionsOk && currencyOk && tableOk;
@@ -33,5 +31,5 @@ export function useDataCaptureSubmitGate({
     else if (!tableOk) disabledTitle = "Please enter data in the table";
 
     return { canSubmit, disabledTitle };
-  }, [selectedProcessId, selectedDescriptions, currencyId, dataCaptureType, tableRevision]);
+  }, [selectedProcessId, selectedDescriptions, currencyId, dataCaptureType, tableDataSnapshot]);
 }
