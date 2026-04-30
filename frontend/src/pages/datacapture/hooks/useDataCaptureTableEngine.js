@@ -216,7 +216,7 @@ async function pasteFromClipboardToCells(targetCells) {
   });
 }
 
-export function useDataCaptureTableEngine() {
+export function useDataCaptureTableEngine({ ready } = {}) {
   const engine = useMemo(
     () => ({
       copySelectedCells: async () => {
@@ -500,7 +500,7 @@ export function useDataCaptureTableEngine() {
       tableHeader.removeEventListener("contextmenu", onHeaderContextMenu);
       document.removeEventListener("click", onDocumentClick);
     };
-  }, []);
+  }, [ready]);
 
   useEffect(() => {
     const onKeyDown = (event) => {

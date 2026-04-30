@@ -34,8 +34,9 @@ export default function DataCapturePage() {
   const [remark, setRemark] = useState("");
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
+  const isPageReady = !loading && !forbidden && companyId != null;
   const { submit } = useDataCaptureSubmit({ selectedDescriptions: selectedDescriptionsState, navigate });
-  const tableEngine = useDataCaptureTableEngine();
+  const tableEngine = useDataCaptureTableEngine({ ready: isPageReady });
   const processDropdownRef = useRef(null);
 
   const selectedProcess = useMemo(
@@ -177,6 +178,14 @@ export default function DataCapturePage() {
     };
   }, [navigate]);
 
+  const handleGroupChange = useCallback((gid) => {
+    setFilterSnapshot((prev) => {
+      if (!prev) return prev;
+      sessionStorage.setItem("dashboard_group_filter", gid);
+      return { ...prev, selectedGroup: gid };
+    });
+  }, []);
+
   const handleCompanyChange = useCallback(
     async (nextCompanyId) => {
       const normalized = Number(nextCompanyId);
@@ -267,6 +276,7 @@ export default function DataCapturePage() {
   }, [loading, forbidden, selectedDate, companyId]);
 
   useEffect(() => {
+    if (loading || forbidden || companyId == null) return;
     const tableBody = document.getElementById("tableBody");
     const headerRow = document.querySelector("#tableHeader tr");
     if (!tableBody || !headerRow) return;
@@ -292,7 +302,7 @@ export default function DataCapturePage() {
       }
       tableBody.appendChild(tr);
     }
-  }, []);
+  }, [loading, forbidden, companyId]);
 
   useEffect(() => {
     if (!processDropdownOpen) return;
@@ -592,6 +602,7 @@ export default function DataCapturePage() {
                         type="button"
                         className={`data-capture-company-btn shared-group-btn ${fs.selectedGroup === gid ? "active" : ""}`}
                         data-group-id={gid}
+                        onClick={() => handleGroupChange(gid)}
                       >
                         {gid}
                       </button>
@@ -613,6 +624,7 @@ export default function DataCapturePage() {
                         data-company-id={comp.id}
                         data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
                         data-company-code={comp.company_id}
+                        onClick={() => handleCompanyChange(comp.id)}
                       >
                         {comp.company_id}
                       </button>
