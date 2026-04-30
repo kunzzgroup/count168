@@ -372,6 +372,136 @@
     overflow: visible;
 }
 
+.sidebar-lang-switch-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.sidebar-lang-switch {
+    --sidebar-lang-thumb-x: 0%;
+    --sidebar-lang-glow-x: 0%;
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    width: clamp(88px, 6.1vw, 112px);
+    height: clamp(26px, 1.9vw, 34px);
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(242, 248, 255, 0.86)),
+        linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(59, 130, 246, 0.1));
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    box-shadow:
+        0 10px 22px rgba(2, 6, 23, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    padding: 3px;
+    isolation: isolate;
+}
+
+.sidebar-lang-switch::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 4px;
+    height: 44%;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+    pointer-events: none;
+    z-index: 1;
+}
+
+.sidebar-lang-switch::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: calc(50% - 6px);
+    height: calc(100% - 10px);
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 1;
+    filter: blur(8px);
+    opacity: 0.76;
+    transform: translateX(var(--sidebar-lang-glow-x));
+    background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.5), rgba(56, 189, 248, 0));
+    transition: transform 0.45s ease, opacity 0.3s ease;
+    animation: sidebar-lang-glow-breathe 1.8s ease-in-out infinite;
+}
+
+.sidebar-lang-option {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: #0f172a;
+    font-size: clamp(9px, 0.62vw, 11px);
+    font-weight: 700;
+    letter-spacing: 0.15px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.18s ease, text-shadow 0.2s ease;
+}
+
+.sidebar-lang-option:hover {
+    transform: translateY(-0.5px);
+}
+
+.sidebar-lang-option.active {
+    color: #ffffff;
+    text-shadow: 0 1px 8px rgba(147, 197, 253, 0.75);
+}
+
+.sidebar-lang-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    height: calc(100% - 6px);
+    border-radius: 999px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0)) 0 0 / 100% 55% no-repeat,
+        linear-gradient(135deg, #1d4ed8, #38bdf8);
+    box-shadow:
+        0 5px 14px rgba(30, 64, 175, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    transform: translateX(var(--sidebar-lang-thumb-x));
+    transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+    will-change: transform;
+    overflow: hidden;
+}
+
+.sidebar-lang-thumb::before {
+    content: "";
+    position: absolute;
+    top: -40%;
+    left: -30%;
+    width: 42%;
+    height: 180%;
+    transform: rotate(20deg);
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.6) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    animation: sidebar-lang-shimmer 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.sidebar-lang-switch.is-en {
+    --sidebar-lang-thumb-x: 0%;
+    --sidebar-lang-glow-x: 0%;
+}
+
+.sidebar-lang-switch.is-zh {
+    --sidebar-lang-thumb-x: 100%;
+    --sidebar-lang-glow-x: 100%;
+}
+
 .informationmenu-logo {
     width: 40px;
     height: 40px;
@@ -727,8 +857,8 @@
 
 /* Chinese mode: compact sidebar so full menu can fit without scrolling on common laptop heights */
 body.dashboard-page.lang-zh .informationmenu-header {
-    padding-top: 4px;
-    padding-bottom: 4px;
+    padding-top: 3px;
+    padding-bottom: 2px;
 }
 
 body.dashboard-page.lang-zh .header-logo {
@@ -736,18 +866,18 @@ body.dashboard-page.lang-zh .header-logo {
 }
 
 body.dashboard-page.lang-zh .user-info-container {
-    min-height: 42px;
+    min-height: 40px;
     margin-bottom: 0;
 }
 
 body.dashboard-page.lang-zh .content-separator {
     margin-top: 0;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 body.dashboard-page.lang-zh .informationmenu-section-title {
-    padding: clamp(6px, 0.62vw, 12px) clamp(10px, 0.88vw, 17px);
-    font-size: clamp(10px, 0.73vw, 14px);
+    padding: clamp(5px, 0.52vw, 10px) clamp(10px, 0.88vw, 17px);
+    font-size: clamp(9px, 0.68vw, 13px);
 }
 
 body.dashboard-page.lang-zh .section-icon {
@@ -757,18 +887,31 @@ body.dashboard-page.lang-zh .section-icon {
 }
 
 body.dashboard-page.lang-zh .informationmenu-footer {
-    padding: 10px 12px 12px;
+    padding: 6px 10px 9px;
+}
+
+body.dashboard-page.lang-zh .informationmenu-content {
+    overflow-y: clip;
+}
+
+body.dashboard-page.lang-zh .company-expiration-countdown {
+    margin-bottom: 4px;
+    padding: 3px 7px;
+}
+
+body.dashboard-page.lang-zh .logout-btn {
+    padding: 4px 10px;
 }
 
 @media (max-height: 760px) {
     body.dashboard-page.lang-zh .informationmenu-section-title {
-        padding-top: 5px;
-        padding-bottom: 5px;
+        padding-top: 4px;
+        padding-bottom: 4px;
     }
 
     body.dashboard-page.lang-zh .informationmenu-footer {
-        padding-top: 8px;
-        padding-bottom: 10px;
+        padding-top: 5px;
+        padding-bottom: 7px;
     }
 }
 
@@ -955,6 +1098,43 @@ body.dashboard-page.lang-zh .informationmenu-footer {
     60%  { transform: rotate(-6deg); }
     75%  { transform: rotate(3deg); }
     100% { transform: rotate(0deg); }
+}
+
+@keyframes sidebar-lang-shimmer {
+    0% {
+        transform: translateX(-110%) rotate(20deg);
+        opacity: 0;
+    }
+    16% {
+        opacity: 0.95;
+    }
+    44% {
+        transform: translateX(250%) rotate(20deg);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(250%) rotate(20deg);
+        opacity: 0;
+    }
+}
+
+@keyframes sidebar-lang-glow-breathe {
+    0%,
+    100% {
+        opacity: 0.56;
+        filter: blur(7px);
+    }
+    50% {
+        opacity: 0.92;
+        filter: blur(10px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-lang-switch::after,
+    .sidebar-lang-thumb::before {
+        animation: none;
+    }
 }
 
 /* 通知面板遮罩层 */

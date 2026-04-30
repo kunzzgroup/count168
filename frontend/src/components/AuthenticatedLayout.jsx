@@ -55,6 +55,8 @@ export default function AuthenticatedLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const sidebarLangThumbRef = useRef(null);
+  const prevSidebarLangRef = useRef(lang);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
 
   useEffect(() => {
@@ -82,6 +84,42 @@ export default function AuthenticatedLayout() {
     return () => {
       document.body.classList.remove("lang-zh", "lang-en");
     };
+  }, [lang]);
+
+  useEffect(() => {
+    const thumb = sidebarLangThumbRef.current;
+    const prevLang = prevSidebarLangRef.current;
+    if (!thumb || prevLang === lang) return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      prevSidebarLangRef.current = lang;
+      return;
+    }
+
+    const fromX = prevLang === "zh" ? "100%" : "0%";
+    const toX = lang === "zh" ? "100%" : "0%";
+    const overshootX = lang === "zh" ? "112%" : "-12%";
+    const reboundX1 = lang === "zh" ? "97%" : "3%";
+    const reboundX2 = lang === "zh" ? "101.2%" : "-1.2%";
+
+    thumb.animate(
+      [
+        { transform: `translateX(${fromX}) scaleX(1) scaleY(1)` },
+        { transform: `translateX(${overshootX}) scaleX(1.1) scaleY(0.9)`, offset: 0.46 },
+        { transform: `translateX(${reboundX1}) scaleX(0.95) scaleY(1.05)`, offset: 0.68 },
+        { transform: `translateX(${reboundX2}) scaleX(1.03) scaleY(0.97)`, offset: 0.86 },
+        { transform: `translateX(${toX}) scaleX(0.99) scaleY(1.01)`, offset: 0.94 },
+        { transform: `translateX(${toX}) scaleX(1) scaleY(1)` },
+      ],
+      {
+        duration: 980,
+        easing: "cubic-bezier(0.34, 1.72, 0.64, 1)",
+        fill: "none",
+      }
+    );
+
+    prevSidebarLangRef.current = lang;
   }, [lang]);
 
   useEffect(() => {
@@ -280,50 +318,31 @@ export default function AuthenticatedLayout() {
             <div className="user-info">
               <div className="user-name">{me?.name || me?.login_id || "-"}</div>
               <div className="user-role">{roleLabel || i18n.user}</div>
-              <div style={{ marginTop: 6 }}>
-                <div
-                  role="group"
-                  aria-label={i18n.switchLanguage}
-                  style={{
-                    display: "inline-flex",
-                    border: "1px solid rgba(0, 79, 249, 0.25)",
-                    borderRadius: 999,
-                    overflow: "hidden",
-                    background: "#fff",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => applyLanguage("en")}
-                    style={{
-                      border: "none",
-                      padding: "2px 9px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      color: lang === "en" ? "#fff" : "#1f2937",
-                      background: lang === "en" ? "#2563eb" : "transparent",
-                    }}
-                  >
-                    EN
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyLanguage("zh")}
-                    style={{
-                      border: "none",
-                      padding: "2px 9px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      color: lang === "zh" ? "#fff" : "#1f2937",
-                      background: lang === "zh" ? "#2563eb" : "transparent",
-                    }}
-                  >
-                    中
-                  </button>
-                </div>
-              </div>
+            </div>
+          </div>
+          <div className="sidebar-lang-switch-wrap">
+            <div
+              className={`sidebar-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
+              role="group"
+              aria-label={i18n.switchLanguage}
+            >
+              <span ref={sidebarLangThumbRef} className="sidebar-lang-thumb" />
+              <button
+                type="button"
+                className={`sidebar-lang-option${lang === "en" ? " active" : ""}`}
+                onClick={() => applyLanguage("en")}
+                aria-pressed={lang === "en"}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                className={`sidebar-lang-option${lang === "zh" ? " active" : ""}`}
+                onClick={() => applyLanguage("zh")}
+                aria-pressed={lang === "zh"}
+              >
+                中
+              </button>
             </div>
           </div>
         </div>
