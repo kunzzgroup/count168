@@ -1,13 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
+const LOGIN_I18N = {
+  en: {
+    admin: "Admin",
+    member: "Member",
+    companyPlaceholder: "Company / Group ID",
+    accountPlaceholder: "Account Id",
+    usernamePlaceholder: "Username",
+    passwordPlaceholder: "Password",
+    rememberMe: "Remember me",
+    forgotPassword: "Forget Password?",
+    login: "Login",
+    loggingIn: "Logging in...",
+    notice: "Notice",
+    loginFailed: "Login failed",
+    loginError: "An error occurred during login",
+    confirm: "Confirm",
+    maintenanceLabel: "System Maintenance:",
+  },
+  zh: {
+    admin: "管理员",
+    member: "会员",
+    companyPlaceholder: "公司 / 集团 ID",
+    accountPlaceholder: "账号 ID",
+    usernamePlaceholder: "用户名",
+    passwordPlaceholder: "密码",
+    rememberMe: "记住我",
+    forgotPassword: "忘记密码？",
+    login: "登录",
+    loggingIn: "登录中...",
+    notice: "提示",
+    loginFailed: "登录失败",
+    loginError: "登录时发生错误",
+    confirm: "确认",
+    maintenanceLabel: "系统维护中:",
+  },
+};
+
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text ?? "";
   return div.innerHTML;
 }
 
-function AlertModal({ open, title, message, onClose }) {
+function AlertModal({ open, title, message, confirmText, onClose }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
@@ -42,7 +79,7 @@ function AlertModal({ open, title, message, onClose }) {
         </p>
         <div className="sc-login-modal-actions">
           <button type="button" className="sc-login-btn sc-login-btn-primary" onClick={onClose}>
-            Confirm
+            {confirmText}
           </button>
         </div>
       </div>
@@ -63,12 +100,18 @@ export default function LoginPage() {
   const [maintenanceList, setMaintenanceList] = useState([]);
   const [modal, setModal] = useState({ open: false, title: "Notice", message: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [lang, setLang] = useState(() => localStorage.getItem("login_lang") || "en");
 
   const verifyTimeoutRef = useRef(null);
+  const i18n = useMemo(() => LOGIN_I18N[lang] || LOGIN_I18N.en, [lang]);
 
   useEffect(() => {
     setRole(roleFromUrl);
   }, [roleFromUrl]);
+
+  useEffect(() => {
+    localStorage.setItem("login_lang", lang);
+  }, [lang]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,9 +148,12 @@ export default function LoginPage() {
     };
   }, [navigate]);
 
-  const showNotice = useCallback((message, title = "Notice") => {
-    setModal({ open: true, title, message: message || "Unknown error" });
-  }, []);
+  const showNotice = useCallback(
+    (message, title) => {
+      setModal({ open: true, title: title || i18n.notice, message: message || "Unknown error" });
+    },
+    [i18n.notice]
+  );
 
   useEffect(() => {
     // Ensure login page always restores the base background layout.
@@ -175,8 +221,8 @@ export default function LoginPage() {
   }, [companyId]);
 
   const userPlaceholder = useMemo(
-    () => (role === "member" ? "Account Id" : "Username"),
-    [role]
+    () => (role === "member" ? i18n.accountPlaceholder : i18n.usernamePlaceholder),
+    [role, i18n.accountPlaceholder, i18n.usernamePlaceholder]
   );
 
   const onSubmit = async (e) => {
@@ -232,9 +278,9 @@ export default function LoginPage() {
         }
         return;
       }
-      showNotice(data.message || "Login failed");
+      showNotice(data.message || i18n.loginFailed);
     } catch {
-      showNotice("An error occurred during login");
+      showNotice(i18n.loginError);
     } finally {
       setSubmitting(false);
     }
@@ -245,13 +291,26 @@ export default function LoginPage() {
   return (
     <>
       <div className="sc-login-shell">
+        <div className="sc-login-lang-switch-wrap">
+          <button
+            type="button"
+            className={`sc-login-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
+            onClick={() => setLang((prev) => (prev === "en" ? "zh" : "en"))}
+            aria-label="Switch language"
+          >
+            <span className="sc-login-lang-option">EN</span>
+            <span className="sc-login-lang-option">中</span>
+            <span className="sc-login-lang-thumb" />
+          </button>
+        </div>
+
         {maintenanceVisible && (
           <div className="sc-login-maintenance-wrapper">
             <div className="sc-login-maintenance-track">
               {[...maintenanceList, ...maintenanceList].map((item, index) => (
                 <div className="sc-login-maintenance-item" key={`${item.id}-${index}`}>
                   <span className="sc-login-maintenance-dot" />
-                  <span className="sc-login-maintenance-label">系统维护中:</span>
+                  <span className="sc-login-maintenance-label">{i18n.maintenanceLabel}</span>
                   <span dangerouslySetInnerHTML={{ __html: escapeHtml(item.content) }} />
                 </div>
               ))}
@@ -266,14 +325,14 @@ export default function LoginPage() {
               className={`sc-login-role-tab${role === "admin" ? " active" : ""}`}
               onClick={() => setRole("admin")}
             >
-              Admin
+              {i18n.admin}
             </button>
             <button
               type="button"
               className={`sc-login-role-tab${role === "member" ? " active" : ""}`}
               onClick={() => setRole("member")}
             >
-              Member
+              {i18n.member}
             </button>
           </div>
 
@@ -284,7 +343,7 @@ export default function LoginPage() {
                 <input
                   type="text"
                   className="sc-login-input"
-                  placeholder="Company / Group ID"
+                  placeholder={i18n.companyPlaceholder}
                   required
                   value={companyId}
                   onChange={(e) => setCompanyId(e.target.value.toUpperCase())}
@@ -308,7 +367,7 @@ export default function LoginPage() {
                 <input
                   type="password"
                   className="sc-login-input"
-                  placeholder="Password"
+                  placeholder={i18n.passwordPlaceholder}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -322,17 +381,17 @@ export default function LoginPage() {
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span>Remember me</span>
+                  <span>{i18n.rememberMe}</span>
                 </label>
                 {role === "admin" && (
                   <a href="/reset-password" className="sc-login-forgot-link">
-                    Forget Password?
+                    {i18n.forgotPassword}
                   </a>
                 )}
               </div>
 
               <button type="submit" className="sc-login-btn sc-login-submit-btn" disabled={submitting}>
-                <span>{submitting ? "Logging in..." : "Login"}</span>
+                <span>{submitting ? i18n.loggingIn : i18n.login}</span>
               </button>
             </form>
           </div>
@@ -345,6 +404,7 @@ export default function LoginPage() {
         open={modal.open}
         title={modal.title}
         message={modal.message}
+        confirmText={i18n.confirm}
         onClose={() => setModal((m) => ({ ...m, open: false }))}
       />
     </>
