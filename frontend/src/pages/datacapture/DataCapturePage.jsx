@@ -52,37 +52,106 @@ function ensureTableShape(rows, cols) {
   return true;
 }
 
-function parseClipboardMatrix(clipboardData) {
-  if (!clipboardData) return [];
-  const html = clipboardData.getData("text/html");
-  if (html && html.trim()) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const table = doc.querySelector("table");
-    if (table) {
-      const rows = Array.from(table.querySelectorAll("tr"))
-        .map((tr) =>
-          Array.from(tr.querySelectorAll("th,td"))
-            .map((cell) => String(cell.textContent || "").replace(/\u00A0/g, " ").trim())
-            .filter((v, idx, arr) => idx < arr.length || v !== "")
-        )
-        .filter((row) => row.some((v) => String(v || "").trim() !== ""));
-      if (rows.length > 0) return rows;
-    }
-  }
-
-  const plain = clipboardData.getData("text/plain");
-  if (!plain || !plain.trim()) return [];
-  return plain
+function normalizeMatrixFromText(text) {
+  if (!text || !String(text).trim()) return [];
+  const rows = String(text)
     .replace(/\r\n/g, "\n")
     .split("\n")
     .map((line) => line.split("\t").map((v) => String(v || "").trim()))
     .filter((row) => row.some((v) => v !== ""));
+  return compactMatrix(rows);
+}
+
+function compactMatrix(matrix) {
+  if (!Array.isArray(matrix) || matrix.length === 0) return [];
+  const normalizedRows = matrix
+    .filter((row) => Array.isArray(row))
+    .map((row) => row.map((cell) => String(cell || "").replace(/\u00A0/g, " ").trim()));
+  if (normalizedRows.length === 0) return [];
+  const maxCols = normalizedRows.reduce((max, row) => Math.max(max, row.length), 0);
+  if (maxCols <= 0) return [];
+
+  const padded = normalizedRows.map((row) => {
+    const next = row.slice();
+    while (next.length < maxCols) next.push("");
+    return next;
+  });
+
+  const nonEmptyCols = [];
+  for (let c = 0; c < maxCols; c += 1) {
+    const hasValue = padded.some((row) => String(row[c] || "").trim() !== "");
+    if (hasValue) nonEmptyCols.push(c);
+  }
+  if (nonEmptyCols.length === 0) return [];
+  const firstCol = nonEmptyCols[0];
+  const lastCol = nonEmptyCols[nonEmptyCols.length - 1];
+
+  return padded
+    .map((row) => row.slice(firstCol, lastCol + 1))
+    .filter((row) => row.some((cell) => String(cell || "").trim() !== ""));
+}
+
+function parseTableMatrixFromHtml(html) {
+  if (!html || !String(html).trim()) return [];
+  const doc = new DOMParser().parseFromString(String(html), "text/html");
+  const table = doc.querySelector("table");
+  if (!table) return [];
+  const carry = [];
+  const rows = [];
+
+  Array.from(table.querySelectorAll("tr")).forEach((tr) => {
+    const row = [];
+    let col = 0;
+
+    const consumeCarry = () => {
+      while (carry[col] && carry[col].rowsLeft > 0) {
+        row[col] = carry[col].value;
+        carry[col].rowsLeft -= 1;
+        if (carry[col].rowsLeft <= 0) carry[col] = null;
+        col += 1;
+      }
+    };
+
+    Array.from(tr.querySelectorAll("th,td")).forEach((cell) => {
+      consumeCarry();
+      const value = String(cell.textContent || "").replace(/\u00A0/g, " ").trim();
+      const colspan = Math.max(1, Number(cell.getAttribute("colspan") || 1));
+      const rowspan = Math.max(1, Number(cell.getAttribute("rowspan") || 1));
+      for (let i = 0; i < colspan; i += 1) {
+        row[col + i] = value;
+        if (rowspan > 1) {
+          carry[col + i] = { value, rowsLeft: rowspan - 1 };
+        }
+      }
+      col += colspan;
+    });
+
+    consumeCarry();
+    rows.push(row);
+  });
+
+  return compactMatrix(rows);
+}
+
+function parseClipboardMatrix(clipboardData) {
+  if (!clipboardData) return [];
+  const htmlRows = parseTableMatrixFromHtml(clipboardData.getData("text/html"));
+  if (htmlRows.length > 0) return htmlRows;
+  return normalizeMatrixFromText(clipboardData.getData("text/plain"));
+}
+
+function parseMatrixFromPasteArea(node) {
+  if (!node) return [];
+  const htmlRows = parseTableMatrixFromHtml(node.innerHTML || "");
+  if (htmlRows.length > 0) return htmlRows;
+  return normalizeMatrixFromText(node.innerText || node.textContent || "");
 }
 
 function fillTableFromMatrix(matrix) {
-  if (!Array.isArray(matrix) || matrix.length === 0) return false;
-  const rowCount = matrix.length;
-  const colCount = matrix.reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
+  const normalized = compactMatrix(matrix);
+  if (!Array.isArray(normalized) || normalized.length === 0) return false;
+  const rowCount = normalized.length;
+  const colCount = normalized.reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
   if (colCount <= 0) return false;
   if (!ensureTableShape(rowCount, colCount)) return false;
   const tableBody = document.getElementById("tableBody");
@@ -94,7 +163,7 @@ function fillTableFromMatrix(matrix) {
     cell.style.display = "";
   });
 
-  matrix.forEach((row, rowIdx) => {
+  normalized.forEach((row, rowIdx) => {
     const tr = tableBody.children[rowIdx];
     if (!tr) return;
     row.forEach((value, colIdx) => {
@@ -332,7 +401,7 @@ export default function DataCapturePage() {
     [navigate]
   );
 
-  useDataCaptureLegacyBridge({ companyId, companyCode });
+  useDataCaptureLegacyBridge();
   useDataCaptureRestore({
     ready: !loading && !forbidden && companyId != null,
     processOptions,
@@ -468,11 +537,6 @@ export default function DataCapturePage() {
 
   useEffect(() => {
     setDescriptionText(selectedDescriptionsState.join(", "));
-  }, [selectedDescriptionsState]);
-
-  /** legacy datacapture.js 内仍会读取 window.selectedDescriptions（校验/重置等） */
-  useEffect(() => {
-    window.selectedDescriptions = Array.isArray(selectedDescriptionsState) ? [...selectedDescriptionsState] : [];
   }, [selectedDescriptionsState]);
 
   const notify = useCallback((message, type = "success") => {
@@ -706,6 +770,12 @@ export default function DataCapturePage() {
     if (pasteArea) pasteArea.textContent = "";
     const previewWrap = document.getElementById("tablePreviewFormat");
     if (previewWrap) previewWrap.innerHTML = "";
+    try {
+      localStorage.removeItem("capturedFormatPreviewHtml");
+      localStorage.removeItem("captured655PreviewHtml");
+    } catch {
+      // ignore localStorage errors
+    }
     const tableBody = document.getElementById("tableBody");
     if (tableBody) {
       tableBody.querySelectorAll("td[data-col]").forEach((cell) => {
@@ -733,8 +803,30 @@ export default function DataCapturePage() {
       setFormatGridReady(true);
       const pasteArea = formatPasteAreaRef.current;
       if (pasteArea) pasteArea.textContent = "";
+      try {
+        const html = `<table border="1" cellspacing="0" cellpadding="2"><tbody>${matrix
+          .map((row) => `<tr>${row.map((cell) => `<td>${String(cell || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>`).join("")}</tr>`)
+          .join("")}</tbody></table>`;
+        localStorage.setItem("capturedFormatPreviewHtml", html);
+      } catch {
+        // ignore localStorage errors
+      }
       return;
     }
+  }, [dataCaptureType]);
+
+  const handleFormatPasteAreaInput = useCallback(() => {
+    if (dataCaptureType !== "2.Format") return;
+    const matrix = parseMatrixFromPasteArea(formatPasteAreaRef.current);
+    if (!fillTableFromMatrix(matrix)) return;
+    setFormatGridReady(true);
+    const pasteArea = formatPasteAreaRef.current;
+    if (pasteArea) pasteArea.textContent = "";
+  }, [dataCaptureType]);
+
+  useEffect(() => {
+    if (dataCaptureType === "2.Format") return;
+    setFormatGridReady(false);
   }, [dataCaptureType]);
 
   useEffect(() => {
@@ -747,6 +839,26 @@ export default function DataCapturePage() {
       : false;
     if (hasData && !formatGridReady) setFormatGridReady(true);
   }, [dataCaptureType, tableRevision, formatGridReady]);
+
+  useEffect(() => {
+    if (dataCaptureType !== "2.Format" || formatGridReady) return;
+    const tableData = captureTableDataFromDom();
+    const hasData = Array.isArray(tableData?.rows)
+      ? tableData.rows.some((row) =>
+          Array.isArray(row) ? row.some((cell) => cell?.type === "data" && String(cell.value || "").trim() !== "") : false
+        )
+      : false;
+    if (hasData) return;
+    let stored = "";
+    try {
+      stored = localStorage.getItem("capturedFormatPreviewHtml") || localStorage.getItem("captured655PreviewHtml") || "";
+    } catch {
+      stored = "";
+    }
+    const matrix = parseTableMatrixFromHtml(stored);
+    if (!fillTableFromMatrix(matrix)) return;
+    setFormatGridReady(true);
+  }, [dataCaptureType, formatGridReady]);
 
   useEffect(() => {
     if (!shouldShowFormatPasteArea) return;
@@ -1047,6 +1159,7 @@ export default function DataCapturePage() {
             style={{ display: shouldShowFormatPasteArea ? "block" : "none" }}
             contentEditable
             onPaste={handleFormatPasteAreaPaste}
+            onInput={handleFormatPasteAreaInput}
             data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
             suppressContentEditableWarning
           />
@@ -1060,7 +1173,20 @@ export default function DataCapturePage() {
             disabled={!submitGate.canSubmit}
             title={submitGate.canSubmit ? undefined : submitGate.disabledTitle}
             style={submitGate.canSubmit ? undefined : { opacity: 0.6, cursor: "not-allowed" }}
-            onClick={submit}
+            onClick={() =>
+              submit({
+                selectedProcessId,
+                selectedProcess,
+                currencyId,
+                currencyOptions,
+                dataCaptureType,
+                selectedDate,
+                removeWord,
+                replaceWordFrom,
+                replaceWordTo,
+                remark,
+              })
+            }
           >
             Submit
           </button>

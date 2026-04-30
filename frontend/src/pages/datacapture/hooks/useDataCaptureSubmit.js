@@ -1,11 +1,6 @@
 import { useCallback } from "react";
 import { captureTableDataFromDom, citibetCaptureTableHasData } from "../utils/captureTableDataDom.js";
 
-function getProcessId(buttonElement) {
-  if (!buttonElement) return "";
-  return buttonElement.getAttribute("data-value") || "";
-}
-
 function convertTableFormatOnSubmit(dataCaptureType) {
   if (dataCaptureType === "WBET" || dataCaptureType === "WBET_API") return;
   const tableBody = document.getElementById("tableBody");
@@ -92,15 +87,31 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
     }, 1500);
   }, []);
 
-  const submit = useCallback(() => {
-    const processInput = document.getElementById("capture_process");
-    const currencySelect = document.getElementById("capture_currency");
-    const typeSelect = document.getElementById("dataCaptureTypeSelector");
-    const selectedDataCaptureType = typeSelect ? String(typeSelect.value || "").trim() : "";
-    const selectedDescriptionsList = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
-    const processId = getProcessId(processInput);
+  const submit = useCallback(
+    ({
+      selectedProcessId,
+      selectedProcess,
+      currencyId,
+      currencyOptions,
+      dataCaptureType,
+      selectedDate,
+      removeWord,
+      replaceWordFrom,
+      replaceWordTo,
+      remark,
+    }) => {
+      const selectedDataCaptureType = String(dataCaptureType || "").trim();
+      const processId = String(selectedProcessId || "").trim();
+      const processCode = String(selectedProcess?.processCode || "").trim();
+      const processDisplayText = String(selectedProcess?.displayText || "").trim();
+      const normalizedCurrencyId = String(currencyId || "").trim();
+      const selectedCurrency = Array.isArray(currencyOptions)
+        ? currencyOptions.find((currency) => String(currency.id) === normalizedCurrencyId)
+        : null;
 
-    if (!processId || !processInput?.getAttribute("data-value")) {
+    const selectedDescriptionsList = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
+
+    if (!processId) {
       notify("Please select a process", "danger");
       return;
     }
@@ -108,7 +119,7 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
       notify("Please select at least one description", "danger");
       return;
     }
-    if (!currencySelect?.value) {
+      if (!normalizedCurrencyId) {
       notify("Please select a currency", "danger");
       return;
     }
@@ -123,25 +134,19 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
 
     convertTableFormatOnSubmit(selectedDataCaptureType);
 
-    const form = document.getElementById("dataCaptureForm");
-    if (!form) return;
-    const formData = new FormData(form);
-    const processCode = processInput ? String(processInput.getAttribute("data-process-code") || "").trim() : "";
-    const processDisplayText = processInput ? String(processInput.textContent || "").trim() : "";
-
     const processData = {
-      date: formData.get("capture_date"),
+        date: selectedDate || "",
       process: processId,
       processName: processDisplayText,
       processCode,
       dataCaptureType: selectedDataCaptureType,
       descriptions: selectedDescriptionsList,
-      currency: formData.get("currency"),
-      currencyName: currencySelect?.options?.[currencySelect.selectedIndex]?.text || "",
-      removeWord: formData.get("remove_word") || "",
-      replaceWordFrom: formData.get("replace_word_from") || "",
-      replaceWordTo: formData.get("replace_word_to") || "",
-      remark: formData.get("remark") || "",
+        currency: normalizedCurrencyId,
+        currencyName: selectedCurrency?.code || "",
+        removeWord: removeWord || "",
+        replaceWordFrom: replaceWordFrom || "",
+        replaceWordTo: replaceWordTo || "",
+        remark: remark || "",
     };
 
     try {
@@ -152,18 +157,16 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
 
       notify("Data captured successfully! Redirecting to summary...", "success");
       setTimeout(() => {
-        if (typeof navigate === "function") {
-          navigate("/datacapturesummary?success=1");
-        } else {
-          window.location.href = "datacapturesummary.php?success=1";
-        }
+        navigate("/datacapturesummary?success=1");
       }, 1500);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Error submitting data:", error);
       notify("Failed to capture data", "danger");
     }
-  }, [navigate, notify, selectedDescriptions]);
+    },
+    [navigate, notify, selectedDescriptions]
+  );
 
   return { submit };
 }
