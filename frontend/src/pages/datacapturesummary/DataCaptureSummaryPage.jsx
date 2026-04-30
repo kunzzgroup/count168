@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useSummaryTableColumns } from "./hooks/useSummaryTableColumns.jsx";
 import { useDataCaptureSummarySubmit } from "./hooks/useDataCaptureSummarySubmit.js";
 import { useDataCaptureSummaryBootstrap } from "./hooks/useDataCaptureSummaryBootstrap.js";
+import { extractSummaryRowsFromCapturedTable } from "./utils/summaryTableTransform.js";
 import {
   computeProcessedAmounts,
   formatAmountDisplay,
@@ -12,8 +12,7 @@ import {
   parseDisplayAmountToNumber,
   parseLooseNumericInput,
 } from "./utils/summaryNumberUtils.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
-import { loadScriptOnce } from "../datacapture/utils/assetLoader.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
 
 import "./styles/datacapturesummary.css";
 import "./styles/global-13inch.css";
@@ -52,12 +51,6 @@ export default function DataCaptureSummaryPage() {
   const [roleOptions, setRoleOptions] = useState([]);
   const [processMeta, setProcessMeta] = useState({ captureDate: "", processId: null, currencyId: null, remark: "" });
   const [processCurrencyCode, setProcessCurrencyCode] = useState("");
-  /** 由 js/datacapturesummary.js 直接操作 #summaryTableBody，与原版 PHP Summary 一致（模板自动填 Account / Formula / Processed Amount） */
-  const [legacyVanillaSummary, setLegacyVanillaSummary] = useState(false);
-  const [legacyTotalDisplay, setLegacyTotalDisplay] = useState("0.00");
-  const [legacyTotalColor, setLegacyTotalColor] = useState("#A91215");
-  const [legacyCanSubmit, setLegacyCanSubmit] = useState(false);
-  const [legacySubmitTitle, setLegacySubmitTitle] = useState("");
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [addForm, setAddForm] = useState({
     account_id: "",
@@ -315,17 +308,6 @@ export default function DataCaptureSummaryPage() {
     setProcessInfoVisible(true);
   }, []);
 
-  const showNotificationRef = useRef(showNotification);
-  const showEmptyStateRef = useRef(showEmptyState);
-  const hideLoadingStateRef = useRef(hideLoadingState);
-  const displayProcessInfoRef = useRef(displayProcessInfo);
-  const navigateRef = useRef(navigate);
-  showNotificationRef.current = showNotification;
-  showEmptyStateRef.current = showEmptyState;
-  hideLoadingStateRef.current = hideLoadingState;
-  displayProcessInfoRef.current = displayProcessInfo;
-  navigateRef.current = navigate;
-
   useDataCaptureSummaryBootstrap({
     companyId,
     locationSearch: location.search,
@@ -333,73 +315,14 @@ export default function DataCaptureSummaryPage() {
     showEmptyState,
     hideLoadingState,
     displayProcessInfo,
+    extractSummaryRowsFromCapturedTable,
+    setSummaryRows,
     setProcessCurrencyCode,
     setProcessMeta,
     setAccountOptions,
     setCurrencyOptions,
     setRoleOptions,
   });
-
-  useEffect(() => {
-    window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
-  }, [companyId]);
-
-  useEffect(() => {
-    const tableDataRaw = localStorage.getItem("capturedTableData");
-    const processDataRaw = localStorage.getItem("capturedProcessData");
-    if (!tableDataRaw || !processDataRaw) return undefined;
-
-    let cancelled = false;
-    window.__DCS_REACT_BOOTSTRAP__ = true;
-
-    window.__DCS_SHOW_NOTIFICATION = (title, message, type) => showNotificationRef.current(title, message, type);
-    window.__DCS_HIDE_NOTIFICATION = hideNotification;
-    window.__DCS_HIDE_LOADING_STATE = () => hideLoadingStateRef.current();
-    window.__DCS_SHOW_EMPTY_STATE = () => showEmptyStateRef.current();
-    window.__DCS_DISPLAY_PROCESS_INFO = (pd) => displayProcessInfoRef.current(pd);
-    window.__DCS_GO_BACK = () => navigateRef.current("/datacapture?restore=1");
-    window.__DCS_REFRESH_PAGE = () => navigateRef.current(0);
-    window.__DCS_SHOW_CONFIRM_DELETE = showConfirmDelete;
-    window.__DCS_UPDATE_TOTAL_AND_SUBMIT = (payload) => {
-      if (!payload || typeof payload !== "object") return;
-      if (payload.totalText != null) setLegacyTotalDisplay(String(payload.totalText));
-      if (payload.totalColor != null) setLegacyTotalColor(String(payload.totalColor));
-      if ("canSubmit" in payload) setLegacyCanSubmit(!!payload.canSubmit);
-      if (payload.submitTitle != null) setLegacySubmitTitle(String(payload.submitTitle));
-    };
-    window.__DCS_NAVIGATE_DATACAPTURE_SUBMITTED = () => {
-      window.isNavigatingAwayByBackOrSubmit = true;
-      navigateRef.current("/datacapture?submitted=1");
-    };
-
-    (async () => {
-      try {
-        await loadScriptOnce(assetUrl("js/datacapturesummary.js"));
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(err);
-        showNotificationRef.current("Error", "Failed to load summary engine.", "error");
-        showEmptyStateRef.current();
-        return;
-      }
-      if (cancelled) return;
-      try {
-        flushSync(() => setLegacyVanillaSummary(true));
-        await window.loadAndRenderCapturedTable?.();
-      } catch (err2) {
-        // eslint-disable-next-line no-console
-        console.error(err2);
-        showEmptyStateRef.current();
-        return;
-      }
-      if (!cancelled) hideLoadingStateRef.current();
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once: refs keep callbacks fresh
-  }, []);
 
   const summaryTotal = useMemo(
     () => summaryRows.filter((row) => !row.skipChecked).reduce((acc, row) => acc + parseDisplayAmountToNumber(row.processedAmount), 0),
@@ -417,7 +340,6 @@ export default function DataCaptureSummaryPage() {
   }, [summaryRows, summaryTotal]);
 
   useEffect(() => {
-    if (legacyVanillaSummary) return;
     if (!processCurrencyCode || !currencyOptions.length) return;
     const selectedCurrency = currencyOptions.find((c) => String(c.code || "").trim().toUpperCase() === processCurrencyCode.toUpperCase());
     if (!selectedCurrency) return;
@@ -425,7 +347,7 @@ export default function DataCaptureSummaryPage() {
     setSummaryRows((prev) =>
       prev.map((row) => (row.currencyId ? row : { ...row, currencyId: selectedCurrency.id, currency: selectedCurrency.code })),
     );
-  }, [currencyOptions, legacyVanillaSummary, processCurrencyCode]);
+  }, [currencyOptions, processCurrencyCode]);
 
   const summaryColumns = useSummaryTableColumns({
     accountOptions,
@@ -462,22 +384,10 @@ export default function DataCaptureSummaryPage() {
                 Rate
               </label>
               <input type="text" id="rateInput" className="batch-input" placeholder="e.g. *3 or /3" value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
-              <button
-                className="btn-update-all"
-                id="rateSelectAllBtn"
-                onClick={(e) =>
-                  legacyVanillaSummary ? window.__summaryToggleAllRate?.(e.currentTarget) : toggleAllRate()
-                }
-                type="button"
-              >
+              <button className="btn-update-all" id="rateSelectAllBtn" onClick={toggleAllRate} type="button">
                 Select All
               </button>
-              <button
-                className="btn-update-all"
-                id="topSubmitBtn"
-                onClick={legacyVanillaSummary ? () => window.__summarySubmitRateValues?.() : submitRateValues}
-                type="button"
-              >
+              <button className="btn-update-all" id="topSubmitBtn" onClick={submitRateValues} type="button">
                 Submit
               </button>
             </div>
@@ -485,9 +395,9 @@ export default function DataCaptureSummaryPage() {
             <button
               className="summary-btn summary-btn-delete"
               id="summaryDeleteSelectedBtn"
-              onClick={legacyVanillaSummary ? () => window.deleteSelectedRows?.() : deleteSelectedRows}
+              onClick={deleteSelectedRows}
               title="Delete selected rows"
-              disabled={!legacyVanillaSummary}
+              disabled
               type="button"
             >
               Delete
@@ -534,29 +444,25 @@ export default function DataCaptureSummaryPage() {
                     </tr>
                   ))}
                 </thead>
-                <tbody id="summaryTableBody" suppressHydrationWarning>
-                  {!legacyVanillaSummary
-                    ? summaryTable.getRowModel().rows.map((tableRow) => {
-                        const rowData = tableRow.original;
-                        const rowIndex = rowData.originalRowIndex ?? tableRow.index;
-                        return (
-                          <tr key={tableRow.id} data-row-index={String(rowIndex)} data-product-type="main">
-                            {tableRow.getVisibleCells().map((cell) => (
-                              <td key={cell.id} className={cell.column.columnDef.meta?.className || undefined}>
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </td>
-                            ))}
-                          </tr>
-                        );
-                      })
-                    : null}
+                <tbody id="summaryTableBody">
+                  {summaryTable.getRowModel().rows.map((tableRow) => {
+                    const rowData = tableRow.original;
+                    const rowIndex = rowData.originalRowIndex ?? tableRow.index;
+                    return (
+                      <tr key={tableRow.id} data-row-index={String(rowIndex)} data-product-type="main">
+                        {tableRow.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className={cell.column.columnDef.meta?.className || undefined}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr id="summaryTotalRow">
                     <td colSpan="8" className="summary-total-label" />
-                    <td id="summaryTotalAmount" style={{ color: legacyVanillaSummary ? legacyTotalColor : submitState.canSubmit ? "#0D60FF" : "#A91215" }}>
-                      {legacyVanillaSummary ? legacyTotalDisplay : formatAmountDisplay(summaryTotal)}
-                    </td>
+                    <td id="summaryTotalAmount" style={{ color: submitState.canSubmit ? "#0D60FF" : "#A91215" }}>{formatAmountDisplay(summaryTotal)}</td>
                     <td />
                     <td />
                   </tr>
@@ -570,9 +476,9 @@ export default function DataCaptureSummaryPage() {
               type="button"
               className="btn btn-submit"
               id="summarySubmitBtn"
-              onClick={legacyVanillaSummary ? () => window.submitSummaryData?.() : submitSummaryData}
-              disabled={legacyVanillaSummary ? !legacyCanSubmit : !submitState.canSubmit || isSubmitting}
-              title={legacyVanillaSummary ? legacySubmitTitle : submitState.title}
+              onClick={submitSummaryData}
+              disabled={!submitState.canSubmit || isSubmitting}
+              title={submitState.title}
             >
               Submit
             </button>
