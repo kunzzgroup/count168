@@ -110,6 +110,25 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
+    const styleId = "sc-login-page-style";
+    let link = document.getElementById(styleId);
+    let created = false;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = styleId;
+      link.rel = "stylesheet";
+      link.href = "/css/login-shadcn.css";
+      document.head.appendChild(link);
+      created = true;
+    }
+    return () => {
+      if (created && link?.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     // Ensure login page always restores the base background layout.
     document.body.classList.remove(
       "transaction-page",
@@ -244,7 +263,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <link rel="stylesheet" href="/css/login-shadcn.css" />
       <div className="sc-login-shell">
         {maintenanceVisible && (
           <div className="sc-login-maintenance-wrapper">
