@@ -350,54 +350,13 @@ export default function LoginPage() {
                   className={`sc-login-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
                   role="group"
                   aria-label="Switch language"
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "stretch",
-                    width: 156,
-                    height: 40,
-                    borderRadius: 999,
-                    border: "1px solid rgba(0, 79, 249, 0.22)",
-                    background: "rgba(255, 255, 255, 0.92)",
-                    padding: 4,
-                    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)",
-                  }}
                 >
-                  <span
-                    className="sc-login-lang-thumb"
-                    style={{
-                      position: "absolute",
-                      top: 4,
-                      left: 4,
-                      width: "calc(50% - 4px)",
-                      height: "calc(100% - 8px)",
-                      borderRadius: 999,
-                      background: "linear-gradient(135deg, #004ff9, #56ccf2)",
-                      boxShadow: "0 4px 10px rgba(0, 79, 249, 0.26)",
-                      transform: lang === "zh" ? "translateX(100%)" : "translateX(0)",
-                      transition: "transform 0.22s ease",
-                    }}
-                  />
+                  <span className="sc-login-lang-thumb" />
                   <button
                     type="button"
                     className={`sc-login-lang-option${lang === "en" ? " active" : ""}`}
                     onClick={() => setLang("en")}
                     aria-pressed={lang === "en"}
-                    style={{
-                      position: "relative",
-                      zIndex: 2,
-                      flex: 1,
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      borderRadius: 999,
-                      color: lang === "en" ? "#ffffff" : "#1e293b",
-                    }}
                   >
                     EN
                   </button>
@@ -406,21 +365,6 @@ export default function LoginPage() {
                     className={`sc-login-lang-option${lang === "zh" ? " active" : ""}`}
                     onClick={() => setLang("zh")}
                     aria-pressed={lang === "zh"}
-                    style={{
-                      position: "relative",
-                      zIndex: 2,
-                      flex: 1,
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      borderRadius: 999,
-                      color: lang === "zh" ? "#ffffff" : "#1e293b",
-                    }}
                   >
                     中
                   </button>
