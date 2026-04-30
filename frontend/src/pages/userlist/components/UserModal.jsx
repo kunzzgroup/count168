@@ -91,7 +91,7 @@ export default function UserModal({
 
   return (
     <div id="userModal" className="modal" style={{ display: "block" }}>
-      <div className={`modal-content${isEditMode ? " edit-mode" : ""}`}>
+      <div className={`modal-content user-modal-content${isEditMode ? " edit-mode" : ""}`}>
         <div className="modal-header-bar">
           <h2 id="modalTitle">{isEditMode ? (editingRow?.is_owner_shadow ? "Edit Owner" : "Edit User") : "Add User"}</h2>
           <button type="button" className="btn-back" onClick={onClose}>
