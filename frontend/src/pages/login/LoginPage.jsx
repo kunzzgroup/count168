@@ -1,42 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-
-const LOGIN_I18N = {
-  en: {
-    admin: "Admin",
-    member: "Member",
-    companyPlaceholder: "Company / Group ID",
-    accountPlaceholder: "Account Id",
-    usernamePlaceholder: "Username",
-    passwordPlaceholder: "Password",
-    rememberMe: "Remember me",
-    forgotPassword: "Forget Password?",
-    login: "Login",
-    loggingIn: "Logging in...",
-    notice: "Notice",
-    loginFailed: "Login failed",
-    loginError: "An error occurred during login",
-    confirm: "Confirm",
-    maintenanceLabel: "System Maintenance:",
-  },
-  zh: {
-    admin: "管理员",
-    member: "会员",
-    companyPlaceholder: "公司 / 集团 ID",
-    accountPlaceholder: "账号 ID",
-    usernamePlaceholder: "用户名",
-    passwordPlaceholder: "密码",
-    rememberMe: "记住我",
-    forgotPassword: "忘记密码？",
-    login: "登录",
-    loggingIn: "登录中...",
-    notice: "提示",
-    loginFailed: "登录失败",
-    loginError: "登录时发生错误",
-    confirm: "确认",
-    maintenanceLabel: "系统维护中:",
-  },
-};
+import { LOGIN_I18N } from "../../i18n/login.i18n.js";
 
 function escapeHtml(text) {
   const div = document.createElement("div");
