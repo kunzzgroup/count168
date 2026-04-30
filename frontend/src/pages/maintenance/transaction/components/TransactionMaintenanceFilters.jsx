@@ -17,6 +17,22 @@ export default function TransactionMaintenanceFilters({
   const normalize = (value) => String(value || "").toUpperCase().trim();
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => normalize(c.group_id)))].sort();
+  const dedupedCompanies = (() => {
+    const byCode = new Map();
+    for (const comp of snapCompanies) {
+      const key = normalize(comp.company_id);
+      const existing = byCode.get(key);
+      if (!existing) {
+        byCode.set(key, comp);
+        continue;
+      }
+      // Keep currently selected company row if duplicates share the same company code.
+      const existingIsCurrent = Number(existing.id) === Number(companyId);
+      const currentIsCurrent = Number(comp.id) === Number(companyId);
+      if (!existingIsCurrent && currentIsCurrent) byCode.set(key, comp);
+    }
+    return Array.from(byCode.values());
+  })();
 
   return (
     <div className="maintenance-search-section">
@@ -90,7 +106,7 @@ export default function TransactionMaintenanceFilters({
             <div className="transaction-company-filter shared-company-wrapper">
               <span className="maintenance-company-label">Company:</span>
               <div className="maintenance-company-buttons">
-                {snapCompanies.map((comp) => {
+                {dedupedCompanies.map((comp) => {
                   const cGid = comp.group_id != null ? normalize(comp.group_id) : "";
                   const isC168 = normalize(comp.company_id) === "C168";
                   let visible = true;
