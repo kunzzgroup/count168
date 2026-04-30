@@ -28,7 +28,7 @@ body.bg::before {
 }
 
 .sc-login-shell {
-  width: min(500px, 96vw);
+  width: min(470px, 96vw);
   max-width: none;
   margin: 0 auto;
   position: relative;
