@@ -272,22 +272,49 @@ export default function AuthenticatedLayout() {
             <div className="user-info">
               <div className="user-name">{me?.name || me?.login_id || "-"}</div>
               <div className="user-role">{roleLabel || i18n.user}</div>
-              <div className="lg-mini-wrap">
-                <button
-                  type="button"
-                  className={`lg-mini-track ${lang === "zh" ? "zh" : ""}`}
-                  onClick={() => applyLanguage(lang === "zh" ? "en" : "zh")}
+              <div style={{ marginTop: 6 }}>
+                <div
+                  role="group"
                   aria-label={i18n.switchLanguage}
-                  aria-pressed={lang === "zh"}
+                  style={{
+                    display: "inline-flex",
+                    border: "1px solid rgba(0, 79, 249, 0.25)",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                    background: "#fff",
+                  }}
                 >
-                  <span className="lg-mini-nebula" />
-                  <span className="lg-mini-stars" />
-                  <span className="lg-mini-knob" />
-                  <span className="lg-mini-labels" aria-hidden="true">
-                    <span className="lg-mini-label">EN</span>
-                    <span className="lg-mini-label">中</span>
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => applyLanguage("en")}
+                    style={{
+                      border: "none",
+                      padding: "2px 9px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: lang === "en" ? "#fff" : "#1f2937",
+                      background: lang === "en" ? "#2563eb" : "transparent",
+                    }}
+                  >
+                    EN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyLanguage("zh")}
+                    style={{
+                      border: "none",
+                      padding: "2px 9px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: lang === "zh" ? "#fff" : "#1f2937",
+                      background: lang === "zh" ? "#2563eb" : "transparent",
+                    }}
+                  >
+                    中
+                  </button>
+                </div>
               </div>
             </div>
           </div>
