@@ -77,6 +77,24 @@ body.bg::before {
   z-index: 1;
 }
 
+.sc-login-lang-switch::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: calc(50% - 8px);
+  height: calc(100% - 12px);
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 1;
+  filter: blur(10px);
+  opacity: 0.8;
+  transform: translateX(var(--sc-lang-glow-x, 0));
+  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.45), rgba(56, 189, 248, 0));
+  transition: transform 0.8s cubic-bezier(0.16, 0.92, 0.24, 1.12), opacity 0.3s ease;
+  animation: sc-login-lang-glow-breathe 1.9s ease-in-out infinite;
+}
+
 .sc-login-lang-switch:hover {
   transform: translateY(-1px);
   box-shadow:
@@ -110,6 +128,7 @@ body.bg::before {
 .sc-login-lang-option.active {
   color: #ffffff;
   text-shadow: 0 1px 4px rgba(30, 64, 175, 0.28);
+  animation: sc-login-lang-text-breathe 1.8s ease-in-out infinite;
 }
 
 .sc-login-lang-thumb {
@@ -129,6 +148,26 @@ body.bg::before {
   transform: translateX(var(--sc-lang-thumb-x, 0));
   transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
   will-change: transform;
+  overflow: hidden;
+}
+
+.sc-login-lang-thumb::before {
+  content: "";
+  position: absolute;
+  top: -38%;
+  left: -30%;
+  width: 42%;
+  height: 176%;
+  pointer-events: none;
+  transform: rotate(20deg);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.62) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mix-blend-mode: screen;
+  animation: sc-login-lang-shimmer 2.1s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
 }
 
 .sc-login-lang-switch:active .sc-login-lang-thumb {
@@ -139,16 +178,21 @@ body.bg::before {
 
 .sc-login-lang-switch.is-en {
   --sc-lang-thumb-x: 0;
+  --sc-lang-glow-x: 0;
 }
 
 .sc-login-lang-switch.is-zh {
   --sc-lang-thumb-x: 100%;
+  --sc-lang-glow-x: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sc-login-lang-switch,
   .sc-login-lang-option,
-  .sc-login-lang-thumb {
+  .sc-login-lang-thumb,
+  .sc-login-lang-thumb::before,
+  .sc-login-lang-switch::after,
+  .sc-login-lang-option.active {
     transition: none;
     animation: none;
   }
@@ -485,5 +529,45 @@ body.bg::before {
   }
   100% {
     transform: translateX(-50%);
+  }
+}
+
+@keyframes sc-login-lang-shimmer {
+  0% {
+    transform: translateX(-115%) rotate(20deg);
+    opacity: 0;
+  }
+  16% {
+    opacity: 0.95;
+  }
+  42% {
+    transform: translateX(260%) rotate(20deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(260%) rotate(20deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sc-login-lang-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.62;
+    filter: blur(9px);
+  }
+  50% {
+    opacity: 0.98;
+    filter: blur(12px);
+  }
+}
+
+@keyframes sc-login-lang-text-breathe {
+  0%,
+  100% {
+    text-shadow: 0 1px 4px rgba(30, 64, 175, 0.28);
+  }
+  50% {
+    text-shadow: 0 1px 10px rgba(147, 197, 253, 0.85);
   }
 }
