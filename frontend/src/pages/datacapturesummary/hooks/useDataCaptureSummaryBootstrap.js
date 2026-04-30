@@ -9,6 +9,8 @@ export function useDataCaptureSummaryBootstrap({
   showEmptyState,
   hideLoadingState,
   displayProcessInfo,
+  extractSummaryRowsFromCapturedTable,
+  setSummaryRows,
   setProcessCurrencyCode,
   setProcessMeta,
   setAccountOptions,
@@ -53,9 +55,11 @@ export function useDataCaptureSummaryBootstrap({
         showEmptyState();
         return;
       }
-      JSON.parse(tableDataRaw);
+      const tableData = JSON.parse(tableDataRaw);
       const processData = JSON.parse(processDataRaw);
       displayProcessInfo(processData);
+      const initialRows = extractSummaryRowsFromCapturedTable(tableData);
+      setSummaryRows(initialRows);
       const processId = Number(processData.process ?? processData.processId ?? processData.process_id ?? 0) || null;
       const processCurrencyText = String(processData.currencyName || processData.currency || "").trim();
       setProcessCurrencyCode(processCurrencyText);
@@ -65,7 +69,7 @@ export function useDataCaptureSummaryBootstrap({
         currencyId: null,
         remark: processData.remark || "",
       });
-      /** 表格行与公式由 datacapturesummary.js（原版 DOM）填充；此处不 hideLoading，交由页面加载脚本后处理 */
+      hideLoadingState();
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn("load summary react error:", e);
@@ -73,9 +77,12 @@ export function useDataCaptureSummaryBootstrap({
     }
   }, [
     displayProcessInfo,
+    extractSummaryRowsFromCapturedTable,
+    hideLoadingState,
     locationSearch,
     setProcessCurrencyCode,
     setProcessMeta,
+    setSummaryRows,
     showEmptyState,
     showNotification,
   ]);
