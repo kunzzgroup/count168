@@ -1,83 +1,10 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { applyTableDataToDom, captureTableDataFromDom } from "../utils/captureTableDataDom.js";
-
-function getEditableCells() {
-  return Array.from(document.querySelectorAll("#tableBody td[contenteditable='true']"));
-}
-
-function getSelectedEditableCells() {
-  const selected = Array.from(document.querySelectorAll("#tableBody td[contenteditable='true'].multi-selected"));
-  if (selected.length > 0) return selected;
-  const active = Array.from(document.querySelectorAll("#tableBody td[contenteditable='true'].selected"));
-  return active;
-}
-
-function clearSelectionClasses() {
-  getEditableCells().forEach((cell) => {
-    cell.classList.remove("multi-selected");
-    cell.classList.remove("selected");
-  });
-}
-
-function clearHeaderSelectionClasses() {
-  document.querySelectorAll("#tableHeader th").forEach((th) => {
-    th.classList.remove("column-selected", "column-active");
-  });
-  document.querySelectorAll("#tableBody .row-header").forEach((td) => {
-    td.classList.remove("row-selected", "row-active");
-  });
-}
 
 function hideAllContextMenus() {
   ["contextMenu", "columnContextMenu", "rowContextMenu"].forEach((id) => {
     const menu = document.getElementById(id);
     if (menu) menu.style.display = "none";
-  });
-}
-
-function getDataColCount() {
-  const firstRow = document.querySelector("#tableBody tr");
-  if (!firstRow) return 0;
-  return Array.from(firstRow.querySelectorAll("td[data-col]")).length;
-}
-
-function findActiveColumnIndex() {
-  const headerCells = Array.from(document.querySelectorAll("#tableHeader tr th"));
-  const activeHeader = headerCells.find((th) => th.classList.contains("column-selected") || th.classList.contains("column-active"));
-  if (!activeHeader) return null;
-  return Math.max(0, headerCells.indexOf(activeHeader) - 1);
-}
-
-function findActiveRowIndex() {
-  const rows = Array.from(document.querySelectorAll("#tableBody tr"));
-  const idx = rows.findIndex((row) => {
-    const header = row.querySelector(".row-header");
-    return header && (header.classList.contains("row-selected") || header.classList.contains("row-active"));
-  });
-  return idx >= 0 ? idx : null;
-}
-
-function refreshHeaderLabels() {
-  const rowHeaders = Array.from(document.querySelectorAll("#tableBody .row-header"));
-  rowHeaders.forEach((header, idx) => {
-    header.textContent = String(idx + 1);
-  });
-}
-
-function createEditableCell(col) {
-  const cell = document.createElement("td");
-  cell.contentEditable = "true";
-  cell.dataset.col = String(col);
-  return cell;
-}
-
-function normalizeDataCols() {
-  const rows = Array.from(document.querySelectorAll("#tableBody tr"));
-  rows.forEach((row) => {
-    const cells = Array.from(row.querySelectorAll("td[data-col]"));
-    cells.forEach((cell, idx) => {
-      cell.dataset.col = String(idx);
-    });
   });
 }
 
@@ -130,8 +57,17 @@ function normalizeModel(tableData) {
   };
 }
 
-function getSelectedCoordinates() {
-  return getSelectedEditableCells().map((cell) => getCellCoordinates(cell)).filter(Boolean);
+function getCoordKey({ rowIndex, colIndex }) {
+  return `${rowIndex}:${colIndex}`;
+}
+
+function dedupeCoordinates(coords) {
+  const map = new Map();
+  coords.forEach((coord) => {
+    if (!coord) return;
+    map.set(getCoordKey(coord), coord);
+  });
+  return Array.from(map.values());
 }
 
 function getModelDataCell(row, colIndex) {
@@ -190,17 +126,15 @@ function shiftSelectedCellsUp(tableData, coordinates) {
   return next;
 }
 
-async function copyCellsToClipboard(cells) {
-  if (!cells.length) return;
+async function copyCellsToClipboard(tableData, coordinates) {
+  if (!coordinates.length) return;
   const grouped = new Map();
-  for (const cell of cells) {
-    const row = cell.parentElement;
-    if (!row) continue;
-    const rowIndex = row.rowIndex;
-    const col = Number(cell.dataset.col);
-    if (Number.isNaN(col)) continue;
+  const model = normalizeModel(tableData);
+  for (const { rowIndex, colIndex } of coordinates) {
+    const cell = getModelDataCell(model.rows[rowIndex], colIndex);
+    if (!cell) continue;
     if (!grouped.has(rowIndex)) grouped.set(rowIndex, []);
-    grouped.get(rowIndex).push({ col, text: cell.textContent || "" });
+    grouped.get(rowIndex).push({ col: colIndex, text: String(cell.value || "") });
   }
 
   const sortedRows = Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]);
@@ -221,33 +155,37 @@ async function copyCellsToClipboard(cells) {
   }
 }
 
-async function pasteFromClipboardToCells(targetCells) {
-  if (!targetCells.length) return;
+async function pasteFromClipboardToModel(tableData, coordinates) {
+  if (!coordinates.length) return null;
   let text = "";
   try {
     text = await navigator.clipboard.readText();
   } catch {
-    return;
+    return null;
   }
-  if (!text) return;
+  if (!text) return null;
   const rows = text.split(/\r?\n/).map((r) => r.split("\t"));
-  const first = targetCells[0];
-  const startRow = first.parentElement?.rowIndex;
-  const startCol = Number(first.dataset.col);
-  if (startRow == null || Number.isNaN(startCol)) return;
+  const sorted = coordinates.slice().sort((a, b) => (a.rowIndex - b.rowIndex) || (a.colIndex - b.colIndex));
+  const startRow = sorted[0]?.rowIndex;
+  const startCol = sorted[0]?.colIndex;
+  if (startRow == null || startCol == null) return null;
+  const next = normalizeModel(tableData);
 
-  rows.forEach((rowVals, rIdx) => {
-    rowVals.forEach((value, cIdx) => {
-      const rowEl = document.querySelector(`#tableBody tr:nth-child(${startRow + rIdx})`);
-      if (!rowEl) return;
-      const cell = rowEl.querySelector(`td[data-col="${startCol + cIdx}"]`);
-      if (!cell || cell.contentEditable !== "true") return;
-      cell.textContent = value;
+  rows.forEach((rowVals, rOffset) => {
+    rowVals.forEach((value, cOffset) => {
+      const row = next.rows[startRow + rOffset];
+      const cell = getModelDataCell(row, startCol + cOffset);
+      if (!cell) return;
+      cell.value = String(value || "");
     });
   });
+  return next;
 }
 
 export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
+  const [selectedCells, setSelectedCells] = useState([]);
+  const [activeColumnIndex, setActiveColumnIndex] = useState(null);
+  const [activeRowIndex, setActiveRowIndex] = useState(null);
   const emitTableMutated = useCallback(() => {
     if (typeof onTableMutated === "function") onTableMutated();
   }, [onTableMutated]);
@@ -255,21 +193,20 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
   const engine = useMemo(
     () => ({
       copySelectedCells: async () => {
-        const selected = getSelectedEditableCells();
-        if (!selected.length) return;
-        await copyCellsToClipboard(selected);
+        if (!selectedCells.length) return;
+        await copyCellsToClipboard(captureTableDataFromDom(), selectedCells);
       },
       pasteToSelectedCells: async () => {
-        const selected = getSelectedEditableCells();
-        if (!selected.length) return;
-        await pasteFromClipboardToCells(selected);
+        if (!selectedCells.length) return;
+        const next = await pasteFromClipboardToModel(captureTableDataFromDom(), selectedCells);
+        if (!next) return;
+        applyTableDataToDom(next);
         emitTableMutated();
       },
       clearSelectedCells: () => {
-        const coords = getSelectedCoordinates();
-        if (!coords.length) return;
+        if (!selectedCells.length) return;
         const tableData = normalizeModel(captureTableDataFromDom());
-        coords.forEach(({ rowIndex, colIndex }) => {
+        selectedCells.forEach(({ rowIndex, colIndex }) => {
           const row = tableData.rows[rowIndex];
           const cell = getModelDataCell(row, colIndex);
           if (cell) cell.value = "";
@@ -278,8 +215,7 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
         emitTableMutated();
       },
       showDeleteDialog: () => {
-        const selected = getSelectedEditableCells();
-        if (!selected.length) {
+        if (!selectedCells.length) {
           hideAllContextMenus();
           return;
         }
@@ -291,15 +227,18 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
         dialog.style.display = "block";
       },
       selectAllCells: () => {
-        clearSelectionClasses();
-        const cells = getEditableCells();
-        cells.forEach((cell, idx) => {
-          cell.classList.add("multi-selected");
-          if (idx === 0) cell.classList.add("selected");
+        const tableData = normalizeModel(captureTableDataFromDom());
+        const coords = [];
+        tableData.rows.forEach((row, rowIndex) => {
+          const cells = row.filter((cell) => cell?.type === "data");
+          cells.forEach((_, colIndex) => coords.push({ rowIndex, colIndex }));
         });
+        setSelectedCells(coords);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
       },
       insertColumnLeft: () => {
-        const colIndex = findActiveColumnIndex();
+        const colIndex = activeColumnIndex;
         if (colIndex == null) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         tableData.rows.forEach((row) => {
@@ -314,10 +253,13 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
           row.push(...dataCells);
         });
         applyTableDataToDom(tableData);
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
         emitTableMutated();
       },
       insertColumnRight: () => {
-        const colIndex = findActiveColumnIndex();
+        const colIndex = activeColumnIndex;
         if (colIndex == null) return;
         const insertAt = colIndex + 1;
         const tableData = normalizeModel(captureTableDataFromDom());
@@ -333,10 +275,13 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
           row.push(...dataCells);
         });
         applyTableDataToDom(tableData);
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
         emitTableMutated();
       },
       deleteColumn: () => {
-        const colIndex = findActiveColumnIndex();
+        const colIndex = activeColumnIndex;
         if (colIndex == null) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         const totalCols = Math.max(0, tableData.colCount - 1);
@@ -353,10 +298,13 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
           row.push(...dataCells);
         });
         applyTableDataToDom(tableData);
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
         emitTableMutated();
       },
       clearColumn: () => {
-        const colIndex = findActiveColumnIndex();
+        const colIndex = activeColumnIndex;
         if (colIndex == null) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         tableData.rows.forEach((row) => {
@@ -367,36 +315,45 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
         emitTableMutated();
       },
       insertRowAbove: () => {
-        const rowIndex = findActiveRowIndex();
+        const rowIndex = activeRowIndex;
         if (rowIndex == null) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         const dataCols = Math.max(0, tableData.colCount - 1);
         const newRow = [{ type: "header", value: "0" }, ...Array.from({ length: dataCols }, (_, c) => ({ type: "data", value: "", col: c }))];
         tableData.rows.splice(rowIndex, 0, newRow);
         applyTableDataToDom(normalizeModel(tableData));
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
         emitTableMutated();
       },
       insertRowBelow: () => {
-        const rowIndex = findActiveRowIndex();
+        const rowIndex = activeRowIndex;
         if (rowIndex == null) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         const dataCols = Math.max(0, tableData.colCount - 1);
         const newRow = [{ type: "header", value: "0" }, ...Array.from({ length: dataCols }, (_, c) => ({ type: "data", value: "", col: c }))];
         tableData.rows.splice(rowIndex + 1, 0, newRow);
         applyTableDataToDom(normalizeModel(tableData));
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
         emitTableMutated();
       },
       deleteRow: () => {
-        const rowIndex = findActiveRowIndex();
+        const rowIndex = activeRowIndex;
         if (rowIndex == null) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         if (tableData.rows.length <= 1) return;
         tableData.rows.splice(rowIndex, 1);
         applyTableDataToDom(normalizeModel(tableData));
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
         emitTableMutated();
       },
       clearRow: () => {
-        const rowIndex = findActiveRowIndex();
+        const rowIndex = activeRowIndex;
         if (rowIndex == null) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         const row = tableData.rows[rowIndex];
@@ -412,18 +369,17 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
         if (dialog) dialog.style.display = "none";
       },
       confirmDelete: () => {
-        const coords = getSelectedCoordinates();
-        if (!coords.length) return;
+        if (!selectedCells.length) return;
         const tableData = normalizeModel(captureTableDataFromDom());
         const option = document.querySelector("input[name='deleteOption']:checked")?.value || "shiftLeft";
         if (option === "shiftLeft") {
-          applyTableDataToDom(shiftSelectedCellsLeft(tableData, coords));
+          applyTableDataToDom(shiftSelectedCellsLeft(tableData, selectedCells));
           emitTableMutated();
         } else if (option === "shiftUp") {
-          applyTableDataToDom(shiftSelectedCellsUp(tableData, coords));
+          applyTableDataToDom(shiftSelectedCellsUp(tableData, selectedCells));
           emitTableMutated();
         } else if (option === "entireRow") {
-          const rowSet = [...new Set(coords.map((c) => c.rowIndex))];
+          const rowSet = [...new Set(selectedCells.map((c) => c.rowIndex))];
           if (tableData.rows.length - rowSet.length < 1) {
             notify("Cannot delete the last row", "danger");
             return;
@@ -438,7 +394,7 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
           emitTableMutated();
         } else if (option === "entireColumn") {
           const totalCols = Math.max(0, tableData.colCount - 1);
-          const cols = [...new Set(coords.map((c) => c.colIndex))].sort((a, b) => b - a);
+          const cols = [...new Set(selectedCells.map((c) => c.colIndex))].sort((a, b) => b - a);
           if (totalCols - cols.length < 1) {
             notify("Cannot delete the last column", "danger");
             return;
@@ -459,12 +415,14 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
           applyTableDataToDom(normalizeModel(tableData));
           emitTableMutated();
         }
-        clearSelectionClasses();
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(null);
         const dialog = document.getElementById("deleteDialog");
         if (dialog) dialog.style.display = "none";
       },
     }),
-    [emitTableMutated]
+    [activeColumnIndex, activeRowIndex, emitTableMutated, selectedCells]
   );
 
   useEffect(() => {
@@ -486,23 +444,32 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
     const onBodyMouseDown = (event) => {
       const cell = event.target.closest("#tableBody td[contenteditable='true']");
       if (!cell) return;
-      clearHeaderSelectionClasses();
+      const coords = getCellCoordinates(cell);
+      if (!coords) return;
+      setActiveColumnIndex(null);
+      setActiveRowIndex(null);
       if (event.ctrlKey || event.metaKey) {
-        cell.classList.toggle("multi-selected");
-        cell.classList.add("selected");
+        setSelectedCells((prev) => {
+          const key = getCoordKey(coords);
+          const exists = prev.some((c) => getCoordKey(c) === key);
+          if (exists) return prev.filter((c) => getCoordKey(c) !== key);
+          return dedupeCoordinates([...prev, coords]);
+        });
         return;
       }
-      clearSelectionClasses();
-      cell.classList.add("selected", "multi-selected");
+      setSelectedCells([coords]);
     };
 
     const onBodyContextMenu = (event) => {
       const rowHeader = event.target.closest("#tableBody .row-header");
       if (rowHeader) {
         event.preventDefault();
-        clearSelectionClasses();
-        clearHeaderSelectionClasses();
-        rowHeader.classList.add("row-active", "row-selected");
+        const row = rowHeader.parentElement;
+        const rowIndex = row ? Array.from(row.parentElement?.children || []).indexOf(row) : -1;
+        if (rowIndex < 0) return;
+        setSelectedCells([]);
+        setActiveColumnIndex(null);
+        setActiveRowIndex(rowIndex);
         showMenuAt(rowContextMenu, event.clientX, event.clientY);
         return;
       }
@@ -510,11 +477,15 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
       const cell = event.target.closest("#tableBody td[contenteditable='true']");
       if (!cell) return;
       event.preventDefault();
-      clearHeaderSelectionClasses();
-      if (!cell.classList.contains("multi-selected")) {
-        clearSelectionClasses();
-        cell.classList.add("selected", "multi-selected");
-      }
+      const coords = getCellCoordinates(cell);
+      if (!coords) return;
+      setActiveColumnIndex(null);
+      setActiveRowIndex(null);
+      setSelectedCells((prev) => {
+        const key = getCoordKey(coords);
+        const exists = prev.some((c) => getCoordKey(c) === key);
+        return exists ? prev : dedupeCoordinates([...prev, coords]);
+      });
       showMenuAt(contextMenu, event.clientX, event.clientY);
     };
 
@@ -522,18 +493,18 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
       const header = event.target.closest("#tableHeader th");
       if (!header) return;
       if (header.cellIndex === 0) return;
-      clearSelectionClasses();
-      clearHeaderSelectionClasses();
-      header.classList.add("column-active", "column-selected");
+      setSelectedCells([]);
+      setActiveRowIndex(null);
+      setActiveColumnIndex(header.cellIndex - 1);
     };
 
     const onHeaderContextMenu = (event) => {
       const header = event.target.closest("#tableHeader th");
       if (!header || header.cellIndex === 0) return;
       event.preventDefault();
-      clearSelectionClasses();
-      clearHeaderSelectionClasses();
-      header.classList.add("column-active", "column-selected");
+      setSelectedCells([]);
+      setActiveRowIndex(null);
+      setActiveColumnIndex(header.cellIndex - 1);
       showMenuAt(columnContextMenu, event.clientX, event.clientY);
     };
 
@@ -566,6 +537,37 @@ export function useDataCaptureTableEngine({ ready, onTableMutated } = {}) {
       document.removeEventListener("click", onDocumentClick);
     };
   }, [ready, emitTableMutated]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const tableBody = document.getElementById("tableBody");
+    const tableHeader = document.getElementById("tableHeader");
+    if (!tableBody || !tableHeader) return;
+    const keys = new Set(selectedCells.map(getCoordKey));
+
+    Array.from(tableBody.querySelectorAll("td[data-col]")).forEach((cell) => {
+      const coords = getCellCoordinates(cell);
+      const selected = coords ? keys.has(getCoordKey(coords)) : false;
+      cell.classList.toggle("multi-selected", selected);
+      cell.classList.toggle("selected", false);
+    });
+    const first = selectedCells[0];
+    if (first) {
+      const firstCell = tableBody.querySelector(`tr:nth-child(${first.rowIndex + 1}) td[data-col="${first.colIndex}"]`);
+      if (firstCell) firstCell.classList.add("selected");
+    }
+
+    Array.from(tableHeader.querySelectorAll("th")).forEach((th, index) => {
+      const active = activeColumnIndex != null && index === activeColumnIndex + 1;
+      th.classList.toggle("column-selected", active);
+      th.classList.toggle("column-active", active);
+    });
+    Array.from(tableBody.querySelectorAll(".row-header")).forEach((td, index) => {
+      const active = activeRowIndex != null && index === activeRowIndex;
+      td.classList.toggle("row-selected", active);
+      td.classList.toggle("row-active", active);
+    });
+  }, [activeColumnIndex, activeRowIndex, ready, selectedCells]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
