@@ -52,6 +52,7 @@ export default function DataCapturePage() {
   const tableEngine = useDataCaptureTableEngine({ ready: isPageReady });
   const toUpperInput = useCallback((next) => String(next || "").toUpperCase(), []);
   const processDropdownRef = useRef(null);
+  const formatPasteAreaRef = useRef(null);
 
   const selectedProcess = useMemo(
     () => processOptions.find((option) => String(option.id) === String(selectedProcessId)) || null,
@@ -136,6 +137,14 @@ export default function DataCapturePage() {
   useEffect(() => {
     window.__dcSetCaptureType?.(dataCaptureType);
   }, [dataCaptureType]);
+
+  /** In React mode, trigger 2.Format preview restore explicitly instead of relying on legacy init side effects. */
+  useEffect(() => {
+    if (dataCaptureType !== "2.Format" || formatGridReady) return;
+    window.setTimeout(() => {
+      window.__dcRestoreFormatPreviewFromStorage?.();
+    }, 0);
+  }, [dataCaptureType, formatGridReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -666,6 +675,7 @@ export default function DataCapturePage() {
     setSelectedProcessId("");
     setProcessSearch("");
     setProcessDropdownOpen(false);
+    window.__dcResetFormatState?.();
     const tableBody = document.getElementById("tableBody");
     if (tableBody) {
       tableBody.querySelectorAll("td[data-col]").forEach((cell) => {
@@ -696,6 +706,13 @@ export default function DataCapturePage() {
       window.__dcTryParseFormatPasteAreaFromDom?.();
     }, 0);
   }, [dataCaptureType]);
+
+  useEffect(() => {
+    if (!shouldShowFormatPasteArea) return;
+    const node = formatPasteAreaRef.current;
+    if (!node) return;
+    window.setTimeout(() => node.focus(), 80);
+  }, [shouldShowFormatPasteArea]);
 
   return (
     <div className="container">
@@ -984,6 +1001,7 @@ export default function DataCapturePage() {
           </div>
           <div
             id="pasteAreaFormat"
+            ref={formatPasteAreaRef}
             className="paste-area-format"
             style={{ display: shouldShowFormatPasteArea ? "block" : "none" }}
             contentEditable

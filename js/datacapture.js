@@ -22229,6 +22229,19 @@ function notifyReactFormatGridReady() {
     }
 }
 
+function restoreFormatPreviewFromStorage() {
+    if (currentDataCaptureType !== '2.Format') return false;
+    let previewHtml = '';
+    try {
+        previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
+    } catch (_) { }
+    if (!previewHtml) return false;
+    renderFormatPreview(previewHtml);
+    isFormatGridReady = true;
+    toggleTableDisplayForFormat();
+    return true;
+}
+
 // Clear 2.Format mode styles from table cells
 function clearFormatStyles() {
     console.log('Format: Clearing styles from table cells');
@@ -22310,9 +22323,11 @@ function toggleTableDisplayForFormat() {
     if (currentDataCaptureType === '2.Format') {
         // 首先检查是否有保存的预览数据（即使 isFormatGridReady 为 false，也可能有数据）
         let previewHtml = '';
-        try {
-            previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
-        } catch (_) { }
+        if (!reactControlsVisibility) {
+            try {
+                previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
+            } catch (_) { }
+        }
 
         // 如果有预览数据（无论是 isFormatGridReady 为 true 还是 localStorage 中有数据），都显示预览
         if (previewHtml && !isFormatGridReady) {
@@ -22730,6 +22745,26 @@ function resetForm() {
 
     // Update submit button state after reset
     updateSubmitButtonState();
+}
+
+function resetFormatStateForReact() {
+    clearFormatStyles();
+    const pasteAreaFormat = document.getElementById('pasteAreaFormat');
+    if (pasteAreaFormat) {
+        pasteAreaFormat.innerHTML = '';
+    }
+    const tablePreviewFormat = document.getElementById('tablePreviewFormat');
+    if (tablePreviewFormat) {
+        tablePreviewFormat.innerHTML = '';
+        tablePreviewFormat.style.display = 'none';
+    }
+    renderFormatPreview('');
+    try {
+        localStorage.removeItem('capturedFormatPreviewHtml');
+        localStorage.removeItem('captured655PreviewHtml');
+    } catch (_) { }
+    isFormatGridReady = false;
+    toggleTableDisplayForFormat();
 }
 
 // Validate form before submission
@@ -24639,22 +24674,25 @@ async function initializeDataCapturePage() {
                 else excelTableContainer.classList.remove('citibet-mode');
             }
             // 切到2.Format时：检查是否有保存的预览数据，如果有则恢复显示
+            // React 接管可见性/恢复触发时，不在 legacy 这里重复恢复。
             if (currentDataCaptureType === '2.Format') {
-                let previewHtml = '';
-                try {
-                    previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
-                } catch (_) { }
+                if (!window.__DC_REACT_FORMAT_VISIBILITY__) {
+                    let previewHtml = '';
+                    try {
+                        previewHtml = localStorage.getItem('capturedFormatPreviewHtml') || localStorage.getItem('captured655PreviewHtml') || '';
+                    } catch (_) { }
 
-                if (previewHtml) {
-                    // 如果有保存的预览数据，恢复显示
-                    renderFormatPreview(previewHtml);
-                    isFormatGridReady = true;
-                } else {
-                    // 如果没有保存的数据，显示粘贴区
-                    // 但是不要重置 isFormatGridReady，因为用户可能刚刚粘贴了数据
-                    // 如果 isFormatGridReady 已经是 true（刚刚粘贴），保持它
-                    if (!isFormatGridReady) {
-                        isFormatGridReady = false;
+                    if (previewHtml) {
+                        // 如果有保存的预览数据，恢复显示
+                        renderFormatPreview(previewHtml);
+                        isFormatGridReady = true;
+                    } else {
+                        // 如果没有保存的数据，显示粘贴区
+                        // 但是不要重置 isFormatGridReady，因为用户可能刚刚粘贴了数据
+                        // 如果 isFormatGridReady 已经是 true（刚刚粘贴），保持它
+                        if (!isFormatGridReady) {
+                            isFormatGridReady = false;
+                        }
                     }
                 }
             } else {
@@ -24667,8 +24705,12 @@ async function initializeDataCapturePage() {
                 }
             }
 
-            // 切换表格和输入区域的显示
-            toggleTableDisplayForFormat();
+            // 切换表格和输入区域的显示（React 接管可见性时仅同步状态，不做 DOM 显隐）
+            if (window.__DC_REACT_FORMAT_VISIBILITY__) {
+                notifyReactFormatGridReady();
+            } else {
+                toggleTableDisplayForFormat();
+            }
 
             // 切换类型时，重新刷新 Submit 按钮的可用状态
             updateSubmitButtonState();
@@ -24678,11 +24720,18 @@ async function initializeDataCapturePage() {
             if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
             else excelTableContainer.classList.remove('citibet-mode');
         }
-        // 初始化显示状态
-        toggleTableDisplayForFormat();
+        // 初始化显示状态（React 接管可见性时仅同步状态，不做 DOM 显隐）
+        if (window.__DC_REACT_FORMAT_VISIBILITY__) {
+            notifyReactFormatGridReady();
+        } else {
+            toggleTableDisplayForFormat();
+        }
 
         // 初始化2.Format模式的粘贴区域监听（仅影响2.Format）
-        initFormatPasteArea();
+        // React SPA 模式下由 DataCapturePage 自己接管 paste 入口，不再走 legacy 初始化。
+        if (!window.__DC_REACT_FORMAT_PASTE__) {
+            initFormatPasteArea();
+        }
 
         if (window.__DC_REACT_CAPTURE_TYPE__) {
             window.__dcSetCaptureType = function (nextType) {
@@ -24976,6 +25025,8 @@ window.switchDataCapturePermission = switchPermission;
 window.__syncDataCaptureProcessMap = syncProcessDataMapFromReact;
 window.__dcHandleFormatPasteFromClipboard = handleFormatPasteFromClipboard;
 window.__dcTryParseFormatPasteAreaFromDom = tryParseFormatPasteAreaFromDom;
+window.__dcResetFormatState = resetFormatStateForReact;
+window.__dcRestoreFormatPreviewFromStorage = restoreFormatPreviewFromStorage;
 window.__initDataCapturePage = initializeDataCapturePage;
 window.updateSubmitButtonState = updateSubmitButtonState;
 window.__resetDataCapturePageInitPromise = function () {
