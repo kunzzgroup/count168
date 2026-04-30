@@ -521,6 +521,16 @@ h1 {
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
 
+/* Keep right-side columns from pushing layout */
+.maintenance-table th:nth-child(8),
+.maintenance-table td:nth-child(8),
+.maintenance-table th:nth-child(9),
+.maintenance-table td:nth-child(9) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .maintenance-cell-currency {
     text-align: center;
 }
