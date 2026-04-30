@@ -23,6 +23,7 @@ import OwnerSecondaryPasswordPage from "./pages/login/OwnerSecondaryPasswordPage
 import UserSecondaryPasswordPage from "./pages/login/UserSecondaryPasswordPage.jsx";
 import MemberPage from "./pages/login/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
+import UserAccessPage from "./pages/useraccess/UserAccessPage.jsx";
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/formula-maintenance" element={<FormulaMaintenancePage />} />
         <Route path="/bankprocess-maintenance" element={<BankprocessMaintenancePage />} />
         <Route path="/payment-maintenance" element={<PaymentMaintenancePage />} />
+        <Route path="/useraccess" element={<UserAccessPage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -92,6 +94,7 @@ export default function App() {
       <Route path="/ownership.php" element={<Navigate to="/ownership" replace />} />
       <Route path="/owner_secondary_password.php" element={<Navigate to="/owner-secondary-password" replace />} />
       <Route path="/api/users/user_secondary_password.php" element={<Navigate to="/user-secondary-password" replace />} />
+      <Route path="/useraccess.php" element={<Navigate to="/useraccess" replace />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
