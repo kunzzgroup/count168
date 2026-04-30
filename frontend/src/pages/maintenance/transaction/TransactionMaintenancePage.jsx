@@ -191,8 +191,7 @@ export default function TransactionMaintenancePage() {
         const compJson = await compRes.json();
         const rows = Array.isArray(compJson?.data) ? compJson.data : [];
         
-        // Filter out C168 like legacy JS
-        const filtered = rows.filter(c => String(c.company_id || '').trim().toUpperCase() !== 'C168');
+        const filtered = rows;
         setCompanies(filtered);
 
         // Set Initial Company

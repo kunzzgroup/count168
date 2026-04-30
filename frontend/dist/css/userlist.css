@@ -552,7 +552,8 @@ label.user-modal-col-title.acc-proc-label {
     min-height: 0;
     overflow-y: auto;
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    /* Keep items readable inside 1/3-width modal columns */
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
     gap: 8px;
     align-content: start;
     padding: 10px 0;
