@@ -385,8 +385,8 @@
     position: relative;
     display: flex;
     align-items: stretch;
-    width: clamp(88px, 6.1vw, 112px);
-    height: clamp(26px, 1.9vw, 34px);
+    width: 108px;
+    height: 32px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.62);
     background:
@@ -439,7 +439,7 @@
     border: none;
     background: transparent;
     color: #0f172a;
-    font-size: clamp(9px, 0.62vw, 11px);
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.15px;
     border-radius: 999px;
@@ -901,6 +901,29 @@ body.dashboard-page.lang-zh .company-expiration-countdown {
 
 body.dashboard-page.lang-zh .logout-btn {
     padding: 4px 10px;
+}
+
+/* Keep sidebar language switch size stable across pages/viewports */
+.informationmenu-header .sidebar-lang-switch-wrap {
+    margin-top: 6px;
+    min-height: 32px;
+}
+
+.informationmenu-header .sidebar-lang-switch,
+.informationmenu-header .sidebar-lang-option,
+.informationmenu-header .sidebar-lang-thumb {
+    box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+    .sidebar-lang-switch {
+        width: 108px;
+        height: 32px;
+    }
+
+    .sidebar-lang-option {
+        font-size: 11px;
+    }
 }
 
 @media (max-height: 760px) {
