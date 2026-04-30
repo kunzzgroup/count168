@@ -1,13 +1,110 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
 import { useDataCaptureLegacyBridge } from "./hooks/useDataCaptureLegacyBridge.js";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
 import { useDataCaptureSubmitGate } from "./hooks/useDataCaptureSubmitGate.js";
 import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
 import { useDataCaptureTableEngine } from "./hooks/useDataCaptureTableEngine.js";
-import { loadScriptOnce } from "./utils/assetLoader.js";
+import { captureTableDataFromDom } from "./utils/captureTableDataDom.js";
+
+function ensureTableShape(rows, cols) {
+  const tableBody = document.getElementById("tableBody");
+  const headerRow = document.querySelector("#tableHeader tr");
+  if (!tableBody || !headerRow) return false;
+  const safeRows = Math.max(1, Number(rows || 0));
+  const safeCols = Math.max(1, Number(cols || 0));
+
+  while (headerRow.children.length < safeCols + 1) {
+    const th = document.createElement("th");
+    th.textContent = String(headerRow.children.length);
+    headerRow.appendChild(th);
+  }
+
+  while (tableBody.children.length < safeRows) {
+    const tr = document.createElement("tr");
+    const rowHeader = document.createElement("td");
+    rowHeader.className = "row-header";
+    tr.appendChild(rowHeader);
+    for (let c = 0; c < safeCols; c += 1) {
+      const td = document.createElement("td");
+      td.contentEditable = "true";
+      td.dataset.col = String(c);
+      tr.appendChild(td);
+    }
+    tableBody.appendChild(tr);
+  }
+
+  Array.from(tableBody.children).forEach((tr, rowIdx) => {
+    const rowHeader = tr.querySelector(".row-header");
+    if (rowHeader) rowHeader.textContent = String(rowIdx + 1);
+    while (tr.querySelectorAll("td[data-col]").length < safeCols) {
+      const td = document.createElement("td");
+      td.contentEditable = "true";
+      td.dataset.col = String(tr.querySelectorAll("td[data-col]").length);
+      tr.appendChild(td);
+    }
+    Array.from(tr.querySelectorAll("td[data-col]")).forEach((cell, colIdx) => {
+      cell.dataset.col = String(colIdx);
+    });
+  });
+  return true;
+}
+
+function parseClipboardMatrix(clipboardData) {
+  if (!clipboardData) return [];
+  const html = clipboardData.getData("text/html");
+  if (html && html.trim()) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const table = doc.querySelector("table");
+    if (table) {
+      const rows = Array.from(table.querySelectorAll("tr"))
+        .map((tr) =>
+          Array.from(tr.querySelectorAll("th,td"))
+            .map((cell) => String(cell.textContent || "").replace(/\u00A0/g, " ").trim())
+            .filter((v, idx, arr) => idx < arr.length || v !== "")
+        )
+        .filter((row) => row.some((v) => String(v || "").trim() !== ""));
+      if (rows.length > 0) return rows;
+    }
+  }
+
+  const plain = clipboardData.getData("text/plain");
+  if (!plain || !plain.trim()) return [];
+  return plain
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.split("\t").map((v) => String(v || "").trim()))
+    .filter((row) => row.some((v) => v !== ""));
+}
+
+function fillTableFromMatrix(matrix) {
+  if (!Array.isArray(matrix) || matrix.length === 0) return false;
+  const rowCount = matrix.length;
+  const colCount = matrix.reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
+  if (colCount <= 0) return false;
+  if (!ensureTableShape(rowCount, colCount)) return false;
+  const tableBody = document.getElementById("tableBody");
+  if (!tableBody) return false;
+
+  Array.from(tableBody.querySelectorAll("td[data-col]")).forEach((cell) => {
+    cell.textContent = "";
+    cell.removeAttribute("colspan");
+    cell.style.display = "";
+  });
+
+  matrix.forEach((row, rowIdx) => {
+    const tr = tableBody.children[rowIdx];
+    if (!tr) return;
+    row.forEach((value, colIdx) => {
+      const cell = tr.querySelector(`td[data-col="${colIdx}"]`);
+      if (!cell || cell.contentEditable !== "true") return;
+      cell.textContent = String(value || "").toUpperCase();
+    });
+  });
+  return true;
+}
 
 export default function DataCapturePage() {
   const navigate = useNavigate();
@@ -111,40 +208,6 @@ export default function DataCapturePage() {
       document.body.classList.remove("datacapture-page", "page-ready");
     };
   }, []);
-
-  /** Legacy datacapture.js 仍会调用 updateSubmitButtonState；SPA 下 Submit 由 React 独占控制 */
-  useLayoutEffect(() => {
-    window.__DC_REACT_SUBMIT_BUTTON__ = true;
-    window.__DC_REACT_UPPERCASE__ = true;
-    window.__DC_REACT_CAPTURE_TYPE__ = true;
-    window.__DC_REACT_FORMAT_PASTE__ = true;
-    window.__DC_REACT_FORMAT_VISIBILITY__ = true;
-    window.__DC_REACT_SET_FORMAT_GRID_READY__ = (ready) => {
-      setFormatGridReady(!!ready);
-    };
-    return () => {
-      delete window.__DC_REACT_SUBMIT_BUTTON__;
-      delete window.__DC_REACT_UPPERCASE__;
-      delete window.__DC_REACT_CAPTURE_TYPE__;
-      delete window.__DC_REACT_FORMAT_PASTE__;
-      delete window.__DC_REACT_FORMAT_VISIBILITY__;
-      delete window.__DC_REACT_SET_FORMAT_GRID_READY__;
-      delete window.__dcSetCaptureType;
-    };
-  }, []);
-
-  /** Let legacy parser/format engine follow React-controlled capture type. */
-  useEffect(() => {
-    window.__dcSetCaptureType?.(dataCaptureType);
-  }, [dataCaptureType]);
-
-  /** In React mode, trigger 2.Format preview restore explicitly instead of relying on legacy init side effects. */
-  useEffect(() => {
-    if (dataCaptureType !== "2.Format" || formatGridReady) return;
-    window.setTimeout(() => {
-      window.__dcRestoreFormatPreviewFromStorage?.();
-    }, 0);
-  }, [dataCaptureType, formatGridReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -277,6 +340,7 @@ export default function DataCapturePage() {
     setSelectedDate,
     setCurrencyId,
     setDataCaptureType,
+    setFormatGridReady,
     setRemoveWord,
     setReplaceWordFrom,
     setReplaceWordTo,
@@ -353,43 +417,6 @@ export default function DataCapturePage() {
       }
       tableBody.appendChild(tr);
     }
-  }, [loading, forbidden, companyId]);
-
-  /** 载入旧版 datacapture.js：TEXT / 2.Format / CITIBET / RETURN 等模式的粘贴解析与表格行为均在该脚本中 */
-  useEffect(() => {
-    if (loading || forbidden || companyId == null) return;
-    const tableBody = document.getElementById("tableBody");
-    if (!tableBody || tableBody.children.length === 0) return;
-
-    let cancelled = false;
-
-    window.__DC_REACT_PERMISSION_FILTER__ = true;
-    window.__DC_REACT_DATE_SUBMITTED__ = true;
-    window.__DC_REACT_FORM_DATA__ = true;
-    window.__DC_REACT_PROCESS_DROPDOWN__ = true;
-    window.__DC_REACT_BOOT__ = true;
-
-    (async () => {
-      try {
-        await loadScriptOnce(assetUrl("js/datacapture.js"));
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error(e);
-        return;
-      }
-      if (cancelled) return;
-      try {
-        await window.__initDataCapturePage?.();
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(err);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      window.__resetDataCapturePageInitPromise?.();
-    };
   }, [loading, forbidden, companyId]);
 
   /** CITIBET 等模式下表格变动需触发 React 侧 Submit 校验（legacy updateSubmitButtonState 已在 SPA 下短路） */
@@ -675,7 +702,10 @@ export default function DataCapturePage() {
     setSelectedProcessId("");
     setProcessSearch("");
     setProcessDropdownOpen(false);
-    window.__dcResetFormatState?.();
+    const pasteArea = document.getElementById("pasteAreaFormat");
+    if (pasteArea) pasteArea.textContent = "";
+    const previewWrap = document.getElementById("tablePreviewFormat");
+    if (previewWrap) previewWrap.innerHTML = "";
     const tableBody = document.getElementById("tableBody");
     if (tableBody) {
       tableBody.querySelectorAll("td[data-col]").forEach((cell) => {
@@ -696,16 +726,27 @@ export default function DataCapturePage() {
   const shouldShowFormatPasteArea = dataCaptureType === "2.Format" && !formatGridReady;
   const handleFormatPasteAreaPaste = useCallback((e) => {
     if (dataCaptureType !== "2.Format") return;
-    const handled = window.__dcHandleFormatPasteFromClipboard?.(e.clipboardData || window.clipboardData, "");
-    if (handled) {
+    const matrix = parseClipboardMatrix(e.clipboardData || window.clipboardData);
+    if (fillTableFromMatrix(matrix)) {
       e.preventDefault();
       e.stopPropagation();
+      setFormatGridReady(true);
+      const pasteArea = formatPasteAreaRef.current;
+      if (pasteArea) pasteArea.textContent = "";
       return;
     }
-    window.setTimeout(() => {
-      window.__dcTryParseFormatPasteAreaFromDom?.();
-    }, 0);
   }, [dataCaptureType]);
+
+  useEffect(() => {
+    if (dataCaptureType !== "2.Format") return;
+    const tableData = captureTableDataFromDom();
+    const hasData = Array.isArray(tableData?.rows)
+      ? tableData.rows.some((row) =>
+          Array.isArray(row) ? row.some((cell) => cell?.type === "data" && String(cell.value || "").trim() !== "") : false
+        )
+      : false;
+    if (hasData && !formatGridReady) setFormatGridReady(true);
+  }, [dataCaptureType, tableRevision, formatGridReady]);
 
   useEffect(() => {
     if (!shouldShowFormatPasteArea) return;
@@ -1006,12 +1047,6 @@ export default function DataCapturePage() {
             style={{ display: shouldShowFormatPasteArea ? "block" : "none" }}
             contentEditable
             onPaste={handleFormatPasteAreaPaste}
-            onInput={() => {
-              if (dataCaptureType !== "2.Format") return;
-              window.setTimeout(() => {
-                window.__dcTryParseFormatPasteAreaFromDom?.();
-              }, 0);
-            }}
             data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
             suppressContentEditableWarning
           />

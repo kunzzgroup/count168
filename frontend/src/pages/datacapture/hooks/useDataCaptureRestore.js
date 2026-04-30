@@ -69,6 +69,7 @@ export function useDataCaptureRestore({
   setSelectedDate,
   setCurrencyId,
   setDataCaptureType,
+  setFormatGridReady,
   setRemoveWord,
   setReplaceWordFrom,
   setReplaceWordTo,
@@ -120,18 +121,20 @@ export function useDataCaptureRestore({
     }
 
     restoreTableFromLocalStorage();
-
-    // React 受控的 capture type 更新不会触发原生 change；让 legacy datacapture.js 同步 currentDataCaptureType / 2.Format 视图
-    window.setTimeout(() => {
-      const sel = document.getElementById("dataCaptureTypeSelector");
-      if (sel) sel.dispatchEvent(new Event("change", { bubbles: true }));
-    }, 250);
+    if (typeof setFormatGridReady === "function") {
+      const body = document.getElementById("tableBody");
+      const hasData = body
+        ? Array.from(body.querySelectorAll("td[data-col]")).some((cell) => String(cell.textContent || "").trim() !== "")
+        : false;
+      setFormatGridReady(hasData);
+    }
   }, [
     onRestoreProcess,
     processOptions,
     ready,
     setCurrencyId,
     setDataCaptureType,
+    setFormatGridReady,
     setRemark,
     setRemoveWord,
     setReplaceWordFrom,
