@@ -140,7 +140,6 @@ function formatAndMergeResults(array $results, array $deletedResults, ?string $p
             'capture_id' => $row['capture_id'],
             'process' => $row['process_id'] ?? ($process_name ?: '-'),
             'process_id' => $row['process_id'] ?? null,
-            'transaction_date' => $row['capture_date'] ?? null,
             'dts_created' => $row['dts_created'] ?? '',
             'product' => $row['product_name'] ?? '-',
             'currency' => $row['currency_code'] ?? '-',
@@ -158,7 +157,6 @@ function formatAndMergeResults(array $results, array $deletedResults, ?string $p
             'capture_id' => $row['capture_id'],
             'process' => $row['process_id'] ?? ($process_name ?: '-'),
             'process_id' => $row['process_id'] ?? null,
-            'transaction_date' => $row['capture_date'] ?? null,
             'dts_created' => $row['dts_created'] ?? '',
             'product' => $row['product_name'] ?? '-',
             'currency' => $row['currency_code'] ?? '-',
@@ -171,13 +169,9 @@ function formatAndMergeResults(array $results, array $deletedResults, ?string $p
         ];
     }
     usort($formattedResults, function ($a, $b) {
-        $dateA = (string)($a['transaction_date'] ?? '');
-        $dateB = (string)($b['transaction_date'] ?? '');
-        $dateCompare = strcmp($dateB, $dateA);
+        $dateCompare = strcmp($b['dts_created'] ?? '', $a['dts_created'] ?? '');
         if ($dateCompare !== 0) return $dateCompare;
-        $createdCompare = strcmp((string)($b['dts_created'] ?? ''), (string)($a['dts_created'] ?? ''));
-        if ($createdCompare !== 0) return $createdCompare;
-        return strcmp((string)($b['capture_id'] ?? 0), (string)($a['capture_id'] ?? 0));
+        return strcmp($b['capture_id'] ?? 0, $a['capture_id'] ?? 0);
     });
     foreach ($formattedResults as $index => &$result) {
         $result['no'] = $index + 1;

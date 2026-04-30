@@ -207,7 +207,7 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
         $sql .= " AND {$schema['currencyFilterField']} IN ($placeholders)";
         $params = array_merge($params, array_map('strtoupper', $currency_filters));
     }
-    $sql .= " AND t.transaction_type <> 'RATE' ORDER BY t.transaction_date DESC, t.created_at DESC, t.id DESC";
+    $sql .= " AND t.transaction_type <> 'RATE' ORDER BY t.created_at DESC, t.id DESC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -401,27 +401,13 @@ function remapPaymentMaintenanceAccountCode(?string $code, string $ownerCode, st
     return $v;
 }
 
-function paymentMaintenanceParseTimestamp(string $raw, bool $hasTime): int {
-    if ($hasTime) {
-        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}:\d{2})$/', $raw, $m)) {
-            $ts = strtotime($m[3] . '-' . $m[2] . '-' . $m[1] . ' ' . $m[4]);
-            return $ts === false ? 0 : $ts;
-        }
-        return 0;
-    }
-    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $raw, $m)) {
-        $ts = strtotime($m[3] . '-' . $m[2] . '-' . $m[1] . ' 00:00:00');
+function paymentMaintenanceSortTimestamp(array $item): int {
+    $created = trim((string)($item['dts_created'] ?? ''));
+    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}:\d{2})$/', $created, $m)) {
+        $ts = strtotime($m[3] . '-' . $m[2] . '-' . $m[1] . ' ' . $m[4]);
         return $ts === false ? 0 : $ts;
     }
     return 0;
-}
-
-function paymentMaintenanceSortTimestamp(array $item): int {
-    return paymentMaintenanceParseTimestamp(trim((string)($item['dts_created'] ?? '')), true);
-}
-
-function paymentMaintenanceTransactionDateSortTimestamp(array $item): int {
-    return paymentMaintenanceParseTimestamp(trim((string)($item['date'] ?? '')), false);
 }
 
 function resolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
@@ -697,7 +683,7 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
                 WHERE h.company_id = ? AND ac.company_id = ? AND h.transaction_type = 'RATE'
                 AND e.entry_type IN ('RATE_FIRST_TO', 'RATE_TRANSFER_TO') AND h.transaction_date BETWEEN ? AND ?
                 $rateCurrencyFilter
-                ORDER BY h.transaction_date DESC, h.created_at DESC, e.id DESC";
+                ORDER BY h.created_at DESC, e.id DESC";
     $rateStmt = $pdo->prepare($rateSql);
     $rateStmt->execute($rateParams);
     $rateRows = $rateStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -830,7 +816,7 @@ function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to
         $params = array_merge($params, array_map('strtoupper', $currency_filters));
     }
     // 包含所有被删除的交易类型（包括 RATE），以便在 Maintenance - Payment 中用红色删除线展示历史记录
-    $sql .= " ORDER BY td.transaction_date DESC, td.created_at DESC, td.transaction_id DESC";
+    $sql .= " ORDER BY td.created_at DESC, td.transaction_id DESC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -914,15 +900,8 @@ try {
     }
 
     usort($data, function ($a, $b) {
-        $dateCmp = paymentMaintenanceTransactionDateSortTimestamp($b) <=> paymentMaintenanceTransactionDateSortTimestamp($a);
-        if ($dateCmp !== 0) {
-            return $dateCmp;
-        }
-        $createdCmp = paymentMaintenanceSortTimestamp($b) <=> paymentMaintenanceSortTimestamp($a);
-        if ($createdCmp !== 0) {
-            return $createdCmp;
-        }
-        return ((int)($b['transaction_id'] ?? 0) <=> (int)($a['transaction_id'] ?? 0));
+        $cmp = paymentMaintenanceSortTimestamp($b) <=> paymentMaintenanceSortTimestamp($a);
+        return $cmp !== 0 ? $cmp : ((int)($b['transaction_id'] ?? 0) <=> (int)($a['transaction_id'] ?? 0));
     });
 
     jsonResponse(true, '查询成功', $data);

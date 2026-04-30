@@ -171,21 +171,10 @@ if (!empty($session_company_id)) {
         <!-- Data List Container -->
         <div class="maintenance-list-container" id="tableContainer" style="display: none;">
             <table class="maintenance-table">
-                <colgroup>
-                    <col style="width: 3%;">
-                    <col style="width: 18%;">
-                    <col style="width: 15%;">
-                    <col style="width: 14%;">
-                    <col style="width: 8%;">
-                    <col style="width: 18%;">
-                    <col style="width: 10%;">
-                    <col style="width: 11%;">
-                    <col style="width: 3%;">
-                </colgroup>
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Transaction Date</th>
+                        <th>Dts Created</th>
                         <th>Product</th>
                         <th>Process</th>
                         <th>Currency</th>

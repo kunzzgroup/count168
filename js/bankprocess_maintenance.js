@@ -71,14 +71,6 @@
             }
         }
 
-        function buildTransactionDateTimeDisplay(row) {
-            const datePart = String(row?.date || '').trim();
-            if (!datePart) return '-';
-            const createdRaw = String(row?.dts_created || '').trim();
-            const timeMatch = createdRaw.match(/\b(\d{2}:\d{2}:\d{2})\b/);
-            return timeMatch ? `${datePart} ${timeMatch[1]}` : datePart;
-        }
-
         /** One column: "MYR 1,200.00" */
         function formatCurrencyAmountCell(currency, amount) {
             const cur = currency ? String(currency).trim() : '';
@@ -357,8 +349,7 @@
                 const tr = document.createElement('tr');
                 const isDeleted = !!row.is_deleted;
                 tr.className = 'maintenance-row' + (isDeleted ? ' maintenance-row-deleted' : '');
-                const transactionDateDisplay = escapeHtml(buildTransactionDateTimeDisplay(row));
-                const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
+                const dateDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = escapeHtml(toUpperDisplay(row.from_account));
                 const currencyAmountDisplay = formatCurrencyAmountCell(row.currency, row.amount);
@@ -374,7 +365,7 @@
                 tr.setAttribute('data-is-deleted', isDeleted ? '1' : '0');
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
-                    <td class="maintenance-table-cell" title="System Time: ${systemTimeDisplay}">${transactionDateDisplay}</td>
+                    <td class="maintenance-table-cell">${dateDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-currency-amount">${currencyAmountDisplay}</td>

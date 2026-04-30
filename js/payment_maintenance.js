@@ -195,7 +195,7 @@
             const tbody = document.getElementById('dataTableBody');
             const emptyState = document.getElementById('emptyState');
             const tableContainer = document.getElementById('tableContainer');
-            tbody.innerHTML = '<tr class="maintenance-row-empty"><td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+            tbody.innerHTML = '<tr class="maintenance-row-empty"><td class="maintenance-table-cell" colspan="11" style="text-align: center; padding: 20px;">Loading...</td></tr>';
             emptyState.style.display = 'none';
             tableContainer.style.display = 'block';
         }
@@ -394,44 +394,21 @@
             });
         }
 
-        function parseMaintenanceDateTime(dateText, fallbackTime = '00:00:00') {
-            const raw = String(dateText || '').trim();
-            const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?$/);
-            if (!match) return 0;
-            const time = match[4] || fallbackTime;
-            const iso = `${match[3]}-${match[2]}-${match[1]}T${time}`;
-            const ts = Date.parse(iso);
-            return Number.isFinite(ts) ? ts : 0;
-        }
-
         function parseMaintenanceSortTime(row) {
             const created = String(row?.dts_created || '').trim();
-            return parseMaintenanceDateTime(created);
-        }
-
-        function parseMaintenanceTransactionDate(row) {
-            return parseMaintenanceDateTime(row?.date, '00:00:00');
-        }
-
-        function buildTransactionDateTimeDisplay(row) {
-            const datePart = String(row?.date || '').trim();
-            if (!datePart) return '-';
-            const createdRaw = String(row?.dts_created || '').trim();
-            const timeMatch = createdRaw.match(/\b(\d{2}:\d{2}:\d{2})\b/);
-            if (timeMatch) {
-                return `${datePart} ${timeMatch[1]}`;
-            }
-            return datePart;
+            const createdMatch = created.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}:\d{2})$/);
+            if (!createdMatch) return 0;
+            const iso = `${createdMatch[3]}-${createdMatch[2]}-${createdMatch[1]}T${createdMatch[4]}`;
+            const ts = Date.parse(iso);
+            return Number.isFinite(ts) ? ts : 0;
         }
 
         // Fill list function
         function fillTable(data) {
             data = mergeProfitRows(data);
             data.sort((a, b) => {
-                const transactionDateCmp = parseMaintenanceTransactionDate(b) - parseMaintenanceTransactionDate(a);
-                if (transactionDateCmp !== 0) return transactionDateCmp;
-                const createdCmp = parseMaintenanceSortTime(b) - parseMaintenanceSortTime(a);
-                if (createdCmp !== 0) return createdCmp;
+                const cmp = parseMaintenanceSortTime(b) - parseMaintenanceSortTime(a);
+                if (cmp !== 0) return cmp;
                 return Number(b?.transaction_id || 0) - Number(a?.transaction_id || 0);
             });
             const tbody = document.getElementById('dataTableBody');
@@ -441,7 +418,7 @@
                 const emptyRow = document.createElement('tr');
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
-                    <td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 16px;">
+                    <td class="maintenance-table-cell" colspan="11" style="text-align: center; padding: 16px;">
                         No data
                     </td>
                 `;
@@ -453,8 +430,7 @@
                 const tr = document.createElement('tr');
                 tr.className = 'maintenance-row';
                 
-                const transactionDateDisplay = escapeHtml(buildTransactionDateTimeDisplay(row));
-                const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
+                const dateDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';
                 const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
@@ -480,7 +456,7 @@
                 const amountDisplay = formatNumber(row.amount);
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
-                    <td class="maintenance-table-cell" title="System Time: ${systemTimeDisplay}">${transactionDateDisplay}</td>
+                    <td class="maintenance-table-cell">${dateDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-amount">${currencyDisplay} ${amountDisplay}</td>

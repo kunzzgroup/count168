@@ -613,32 +613,6 @@
             .replace(/'/g, '&#39;');
     }
 
-    function formatDateOnly(value) {
-        const raw = String(value || '').trim();
-        if (!raw) return '-';
-        const ymdMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (ymdMatch) return `${ymdMatch[3]}/${ymdMatch[2]}/${ymdMatch[1]}`;
-        const dmyMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (dmyMatch) return raw;
-        const ts = Date.parse(raw);
-        if (Number.isFinite(ts)) {
-            const d = new Date(ts);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
-        return raw;
-    }
-
-    function buildTransactionDateTimeDisplay(row) {
-        const datePart = formatDateOnly(row?.transaction_date);
-        if (!datePart || datePart === '-') return '-';
-        const createdRaw = String(row?.dts_created || '').trim();
-        const timeMatch = createdRaw.match(/\b(\d{2}:\d{2}:\d{2})\b/);
-        return timeMatch ? `${datePart} ${timeMatch[1]}` : datePart;
-    }
-
     function fillTable(data) {
         const tbody = document.getElementById('dataTableBody');
         tbody.innerHTML = '';
@@ -659,8 +633,7 @@
             const tr = document.createElement('tr');
             tr.className = 'maintenance-row';
 
-            const transactionDateDisplay = escapeHtml(buildTransactionDateTimeDisplay(row));
-            const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
+            const dtsCreatedDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
             const processDisplay = row.process ? escapeHtml(row.process) : '-';
             const idProductDisplay = (row.id_product !== null && row.id_product !== undefined && row.id_product !== '') ? escapeHtml(row.id_product) : '-';
             const accountDisplay = row.account ? escapeHtml(row.account) : '-';
@@ -683,7 +656,7 @@
 
             tr.innerHTML = `
                     <td class="maintenance-table-cell">${row.no || index + 1}</td>
-                    <td class="maintenance-table-cell" title="System Time: ${systemTimeDisplay}">${transactionDateDisplay}</td>
+                    <td class="maintenance-table-cell">${dtsCreatedDisplay}</td>
                     <td class="maintenance-table-cell">${processDisplay}</td>
                     <td class="maintenance-table-cell">${idProductDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>

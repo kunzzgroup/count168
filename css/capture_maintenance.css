@@ -465,40 +465,48 @@ h1 {
 
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
+    width: 2%;
     text-align: center;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    white-space: nowrap;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
+    width: 12%;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
+    width: 12%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
+    width: 5%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
+    width: 12%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
+    width: 10%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
+    width: 20%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
+    width: 72%;
 }
 
 .maintenance-table-cell {
@@ -510,16 +518,6 @@ h1 {
     text-overflow: ellipsis;
     white-space: nowrap;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-}
-
-/* Keep right-side columns from pushing layout */
-.maintenance-table th:nth-child(8),
-.maintenance-table td:nth-child(8),
-.maintenance-table th:nth-child(9),
-.maintenance-table td:nth-child(9) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .maintenance-cell-currency {
@@ -849,16 +847,41 @@ h1 {
 }
 
 @media (max-width: 1400px) {
+
+
+
+    .maintenance-table th:nth-child(1), .maintenance-table td:nth-child(1){
+        width: 2%;
+    }
+
+    .maintenance-table th:nth-child(3), .maintenance-table td:nth-child(3){
+        width: clamp(8%, 0.52vw, 10%);
+    }
+
+    .maintenance-table th:nth-child(4), .maintenance-table td:nth-child(4){
+        width: 10%;
+    }
+
+
+    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
+        width: clamp(60%, 40vw, 70%);
+    }
+
     .maintenance-table-cell{
         white-space: normal;
     }
 }
 
 @media (max-width: 2000px) {
-    .maintenance-table th:nth-child(2),
-    .maintenance-table td:nth-child(2) {
-        white-space: nowrap;
+    
+    .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
+        width: 14%;
     }
+    
+    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
+        width: 84%
+    }
+
 }
 
 
