@@ -196,7 +196,7 @@ export default function LoginPage() {
         if (rememberMe) fd.append("remember_me", "1");
       }
 
-      const res = await fetch("/login_process.php", { method: "POST", body: fd, credentials: "include" });
+      const res = await fetch("/api/session/login_api.php", { method: "POST", body: fd, credentials: "include" });
       const data = await res.json();
       if (data.status === "success" && data.redirect) {
         const userType = String(data.user_type || "").toLowerCase();

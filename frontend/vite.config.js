@@ -10,7 +10,6 @@ export default defineConfig(({ mode }) => {
     base: mode === "production" ? "/frontend/dist/" : "/",
     server: {
       proxy: {
-        "/login_process.php": { target: phpTarget, changeOrigin: true },
         "/dashboard.php": { target: phpTarget, changeOrigin: true },
         "/member.php": { target: phpTarget, changeOrigin: true },
         "/owner_secondary_password.php": { target: phpTarget, changeOrigin: true },

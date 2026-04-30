@@ -26,13 +26,7 @@ header('Content-Type: application/json');
 // 开启输出缓冲，防止意外输出（必须在 header 之后）
 ob_start();
 
-// 检查数据库连接，如果失败返回 JSON 错误
-if (!file_exists('config.php')) {
-    echo json_encode(['status' => 'error', 'message' => 'Configuration file does not exist']);
-    exit;
-}
-
-require_once 'config.php';
+require_once __DIR__ . '/../../config.php';
 
 // 检查 $pdo 是否已定义
 if (!isset($pdo) || !$pdo) {
