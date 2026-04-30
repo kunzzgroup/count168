@@ -364,6 +364,23 @@ h1 {
     overflow: hidden;
 }
 
+/* Lock Add/Edit User modal as true full-page layout (avoid cross-page .modal-content overrides). */
+#userModal.modal {
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+#userModal .user-modal-content {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
 /* Modal content: fills the full modal area */
 .modal-content {
     background: linear-gradient(180deg, #eef4ff 0%, #f7faff 100%);
