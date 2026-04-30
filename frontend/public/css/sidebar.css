@@ -725,6 +725,53 @@
     background: rgba(255, 255, 255, 0.5);
 }
 
+/* Chinese mode: compact sidebar so full menu can fit without scrolling on common laptop heights */
+body.dashboard-page.lang-zh .informationmenu-header {
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+body.dashboard-page.lang-zh .header-logo {
+    height: clamp(28px, 1.9vw, 36px);
+}
+
+body.dashboard-page.lang-zh .user-info-container {
+    min-height: 42px;
+    margin-bottom: 0;
+}
+
+body.dashboard-page.lang-zh .content-separator {
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+body.dashboard-page.lang-zh .informationmenu-section-title {
+    padding: clamp(6px, 0.62vw, 12px) clamp(10px, 0.88vw, 17px);
+    font-size: clamp(10px, 0.73vw, 14px);
+}
+
+body.dashboard-page.lang-zh .section-icon {
+    width: clamp(14px, 0.94vw, 18px);
+    height: clamp(14px, 0.94vw, 18px);
+    margin-right: clamp(7px, 0.52vw, 10px);
+}
+
+body.dashboard-page.lang-zh .informationmenu-footer {
+    padding: 10px 12px 12px;
+}
+
+@media (max-height: 760px) {
+    body.dashboard-page.lang-zh .informationmenu-section-title {
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+
+    body.dashboard-page.lang-zh .informationmenu-footer {
+        padding-top: 8px;
+        padding-bottom: 10px;
+    }
+}
+
 /* 添加一些微妙的动画 */
 @keyframes float {
     0%, 100% { transform: translateY(0px); }
