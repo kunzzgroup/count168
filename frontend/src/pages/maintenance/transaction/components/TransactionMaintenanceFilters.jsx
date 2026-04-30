@@ -16,13 +16,7 @@ export default function TransactionMaintenanceFilters({
 }) {
   const normalize = (value) => String(value || "").toUpperCase().trim();
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
-  const hasC168Company = snapCompanies.some((c) => normalize(c.company_id) === "C168");
-  const snapGroupIds = [
-    ...new Set([
-      ...snapCompanies.filter((c) => c.group_id).map((c) => normalize(c.group_id)),
-      ...(hasC168Company ? ["C168"] : []),
-    ]),
-  ].sort();
+  const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => normalize(c.group_id)))].sort();
 
   return (
     <div className="maintenance-search-section">
@@ -100,7 +94,7 @@ export default function TransactionMaintenanceFilters({
                   const cGid = comp.group_id != null ? normalize(comp.group_id) : "";
                   const isC168 = normalize(comp.company_id) === "C168";
                   let visible = true;
-                  if (selectedGroup) visible = cGid === selectedGroup || (selectedGroup === "C168" && isC168);
+                  if (selectedGroup) visible = cGid === selectedGroup || isC168;
                   else visible = !cGid || isC168;
 
                   return (
