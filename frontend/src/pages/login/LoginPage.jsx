@@ -111,13 +111,25 @@ export default function LoginPage() {
 
   useEffect(() => {
     const styleId = "sc-login-page-style";
+    const hrefCandidates = [
+      "/frontend/dist/css/login-shadcn.css",
+      "/css/login-shadcn.css",
+      "/frontend/public/css/login-shadcn.css",
+    ];
     let link = document.getElementById(styleId);
     let created = false;
     if (!link) {
       link = document.createElement("link");
       link.id = styleId;
       link.rel = "stylesheet";
-      link.href = "/css/login-shadcn.css";
+      link.href = hrefCandidates[0];
+      let idx = 0;
+      link.onerror = () => {
+        idx += 1;
+        if (idx < hrefCandidates.length) {
+          link.href = hrefCandidates[idx];
+        }
+      };
       document.head.appendChild(link);
       created = true;
     }
