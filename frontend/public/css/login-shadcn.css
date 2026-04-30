@@ -67,11 +67,19 @@ body.bg::before {
 
 .sc-login-lang-option {
   z-index: 1;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.2px;
   color: #1e293b;
+}
+
+.sc-login-lang-option i {
+  font-size: 11px;
+  opacity: 0.95;
 }
 
 .sc-login-lang-thumb {

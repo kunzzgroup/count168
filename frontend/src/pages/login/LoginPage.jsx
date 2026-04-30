@@ -262,8 +262,14 @@ export default function LoginPage() {
             onClick={() => setLang((prev) => (prev === "en" ? "zh" : "en"))}
             aria-label="Switch language"
           >
-            <span className="sc-login-lang-option">EN</span>
-            <span className="sc-login-lang-option">中</span>
+            <span className="sc-login-lang-option">
+              <i className="fas fa-globe-americas" aria-hidden="true" />
+              EN
+            </span>
+            <span className="sc-login-lang-option">
+              <i className="fas fa-globe-asia" aria-hidden="true" />
+              中
+            </span>
             <span className="sc-login-lang-thumb" />
           </button>
         </div>
