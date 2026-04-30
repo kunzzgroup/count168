@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading = false }) {
+export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading = false, i18n = {} }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (e) => {
@@ -31,7 +31,7 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Confirm logout"
+        aria-label={i18n.confirmLogoutTitle || "Confirm logout"}
         style={{
           width: "100%",
           maxWidth: 420,
@@ -41,9 +41,9 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
           padding: 20,
         }}
       >
-        <h3 style={{ margin: 0, fontSize: 20, color: "#1a1a1a" }}>Confirm Logout</h3>
+        <h3 style={{ margin: 0, fontSize: 20, color: "#1a1a1a" }}>{i18n.confirmLogoutTitle || "Confirm Logout"}</h3>
         <p style={{ marginTop: 12, marginBottom: 20, color: "#4b5563" }}>
-          Are you sure you want to logout?
+          {i18n.confirmLogoutMessage || "Are you sure you want to logout?"}
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button
@@ -59,7 +59,7 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >
-            Cancel
+            {i18n.cancel || "Cancel"}
           </button>
           <button
             type="button"
@@ -74,7 +74,7 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >
-            {loading ? "Logging out..." : "Logout"}
+            {loading ? i18n.loggingOut || "Logging out..." : i18n.logout || "Logout"}
           </button>
         </div>
       </div>
