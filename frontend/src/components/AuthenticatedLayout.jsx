@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../utils/apiUrl.js";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
+import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -53,6 +54,8 @@ export default function AuthenticatedLayout() {
   const avatarContainerRef = useRef(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -61,6 +64,16 @@ export default function AuthenticatedLayout() {
       document.body.classList.remove("dashboard-page");
       document.body.classList.add("bg");
     };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") {
+        setLang(e.newValue === "zh" ? "zh" : "en");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   useEffect(() => {
@@ -191,6 +204,12 @@ export default function AuthenticatedLayout() {
   };
   const path = location.pathname;
   const isProcessPage = path === "/process-list" || path === "/bank-process-list";
+  const applyLanguage = (nextLang) => {
+    const normalized = nextLang === "zh" ? "zh" : "en";
+    setLang(normalized);
+    localStorage.setItem("login_lang", normalized);
+    window.dispatchEvent(new CustomEvent("eazycount:language-updated", { detail: { lang: normalized } }));
+  };
   const openHoverSubmenu = (section, el) => {
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -214,7 +233,7 @@ export default function AuthenticatedLayout() {
         <div className="informationmenu-header">
           <div className="header-logo-section">
             <img src="/images/count_whitelogo.png" alt="EAZYCOUNT" className="header-logo" />
-            <div className="notification-bell" title="Notifications" onClick={toggleNotifications}>
+            <div className="notification-bell" title={i18n.notifications} onClick={toggleNotifications}>
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
                 </svg>
@@ -227,10 +246,10 @@ export default function AuthenticatedLayout() {
               </div>
               
               <div className={`avatar-options ${showAvatarOptions ? "show" : ""}`} id="avatarOptions">
-                  <div className="options-title">Choose Avatar</div>
+                  <div className="options-title">{i18n.chooseAvatar}</div>
                   <div className="gender-selection">
-                      <button type="button" className={`gender-btn ${selectedGender === 'male' ? 'active' : ''}`} onClick={() => setSelectedGender('male')}>Male</button>
-                      <button type="button" className={`gender-btn ${selectedGender === 'female' ? 'active' : ''}`} onClick={() => setSelectedGender('female')}>Female</button>
+                      <button type="button" className={`gender-btn ${selectedGender === 'male' ? 'active' : ''}`} onClick={() => setSelectedGender('male')}>{i18n.male}</button>
+                      <button type="button" className={`gender-btn ${selectedGender === 'female' ? 'active' : ''}`} onClick={() => setSelectedGender('female')}>{i18n.female}</button>
                   </div>
                   
                   <div className={`avatar-list ${selectedGender === 'male' ? 'show' : ''}`}>
@@ -252,7 +271,51 @@ export default function AuthenticatedLayout() {
             
             <div className="user-info">
               <div className="user-name">{me?.name || me?.login_id || "-"}</div>
-              <div className="user-role">{roleLabel || "User"}</div>
+              <div className="user-role">{roleLabel || i18n.user}</div>
+              <div style={{ marginTop: 6 }}>
+                <div
+                  role="group"
+                  aria-label={i18n.switchLanguage}
+                  style={{
+                    display: "inline-flex",
+                    border: "1px solid rgba(0, 79, 249, 0.25)",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                    background: "#fff",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => applyLanguage("en")}
+                    style={{
+                      border: "none",
+                      padding: "2px 9px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: lang === "en" ? "#fff" : "#1f2937",
+                      background: lang === "en" ? "#2563eb" : "transparent",
+                    }}
+                  >
+                    EN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyLanguage("zh")}
+                    style={{
+                      border: "none",
+                      padding: "2px 9px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: lang === "zh" ? "#fff" : "#1f2937",
+                      background: lang === "zh" ? "#2563eb" : "transparent",
+                    }}
+                  >
+                    中
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -265,7 +328,7 @@ export default function AuthenticatedLayout() {
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                 </svg>
-                Home
+                {i18n.sidebarHome}
               </div>
             </div>
           )}
@@ -275,7 +338,7 @@ export default function AuthenticatedLayout() {
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                 </svg>
-                Domain
+                {i18n.sidebarDomain}
               </div>
             </div>
           )}
@@ -285,7 +348,7 @@ export default function AuthenticatedLayout() {
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                 </svg>
-                Announcement
+                {i18n.sidebarAnnouncement}
               </div>
             </div>
           )}
@@ -295,13 +358,66 @@ export default function AuthenticatedLayout() {
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                 </svg>
-                Admin
+                {i18n.sidebarAdmin}
               </div>
             </div>
           )}
-          {canAccess("account") && <><div className="informationmenu-section"><div className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`} onClick={() => navigate("/account-list")} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>Account</div></div><div className="informationmenu-section"><div className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`} onClick={() => navigate("/ownership")} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>Ownership</div></div></>}
-          {canAccess("process") && <div className="informationmenu-section"><div className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`} onClick={() => navigate(processSpaPath)} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>Process</div></div>}
-          {canAccess("datacapture") && me?.company_has_gambling && <div className="informationmenu-section"><div className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`} onClick={() => navigate("/datacapture")} role="presentation"><svg className="section-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" /></svg>Data Capture</div></div>}
+          {canAccess("account") && (
+            <>
+              <div className="informationmenu-section">
+                <div
+                  className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
+                  onClick={() => navigate("/account-list")}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  {i18n.sidebarAccount}
+                </div>
+              </div>
+              <div className="informationmenu-section">
+                <div
+                  className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
+                  onClick={() => navigate("/ownership")}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                  </svg>
+                  {i18n.sidebarOwnership}
+                </div>
+              </div>
+            </>
+          )}
+          {canAccess("process") && (
+            <div className="informationmenu-section">
+              <div
+                className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
+                onClick={() => navigate(processSpaPath)}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
+                {i18n.sidebarProcess}
+              </div>
+            </div>
+          )}
+          {canAccess("datacapture") && me?.company_has_gambling && (
+            <div className="informationmenu-section">
+              <div
+                className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
+                onClick={() => navigate("/datacapture")}
+                role="presentation"
+              >
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+                </svg>
+                {i18n.sidebarDataCapture}
+              </div>
+            </div>
+          )}
           {canAccess("payment") && (
             <div className="informationmenu-section">
               <div
@@ -312,7 +428,7 @@ export default function AuthenticatedLayout() {
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
                 </svg>
-                Transaction Payment
+                {i18n.sidebarTransactionPayment}
               </div>
             </div>
           )}
@@ -329,7 +445,7 @@ export default function AuthenticatedLayout() {
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                   </svg>
-                  Report
+                  {i18n.sidebarReport}
                   <span className="section-arrow">▶</span>
                 </div>
                 <div
@@ -361,7 +477,7 @@ export default function AuthenticatedLayout() {
                         navigate("/customer-report");
                       }}
                     >
-                      <span>Customer Report</span>
+                      <span>{i18n.sidebarCustomerReport}</span>
                     </a>
                     <a
                       href={webHref("/domain-report")}
@@ -371,7 +487,7 @@ export default function AuthenticatedLayout() {
                         navigate("/domain-report");
                       }}
                     >
-                      <span>Domain Report</span>
+                      <span>{i18n.sidebarDomainReport}</span>
                     </a>
                   </div>
                 </div>
@@ -391,7 +507,7 @@ export default function AuthenticatedLayout() {
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
                   </svg>
-                  Maintenance
+                  {i18n.sidebarMaintenance}
                   <span className="section-arrow">▶</span>
                 </div>
                 <div
@@ -424,7 +540,7 @@ export default function AuthenticatedLayout() {
                           navigate("/capture-maintenance");
                         }}
                       >
-                        <span>Data Capture</span>
+                        <span>{i18n.sidebarDataCapture}</span>
                       </a>
                     )}
                     {me?.company_has_gambling && (
@@ -436,7 +552,7 @@ export default function AuthenticatedLayout() {
                           navigate("/transaction-maintenance");
                         }}
                       >
-                        <span>Transaction</span>
+                        <span>{i18n.sidebarTransaction}</span>
                       </a>
                     )}
                     <a
@@ -447,7 +563,7 @@ export default function AuthenticatedLayout() {
                         navigate("/payment-maintenance");
                       }}
                     >
-                      <span>Payment</span>
+                      <span>{i18n.sidebarPayment}</span>
                     </a>
                     {me?.company_has_gambling && (
                       <a
@@ -458,7 +574,7 @@ export default function AuthenticatedLayout() {
                           navigate("/formula-maintenance");
                         }}
                       >
-                        <span>Formula</span>
+                        <span>{i18n.sidebarFormula}</span>
                       </a>
                     )}
                     {me?.company_has_bank && (
@@ -470,7 +586,7 @@ export default function AuthenticatedLayout() {
                           navigate("/bankprocess-maintenance");
                         }}
                       >
-                        <span>Process</span>
+                        <span>{i18n.sidebarProcess}</span>
                       </a>
                     )}
                   </div>
@@ -487,12 +603,12 @@ export default function AuthenticatedLayout() {
               <polyline points="12 6 12 12 16 14" />
             </svg>
             <div className="expiration-content">
-              <span className="expiration-label">Exp:</span>
+              <span className="expiration-label">{i18n.exp}</span>
               <span className={`expiration-countdown-text ${me?.expiration_status || "normal"}`}>{me?.expiration_hint || "-"}</span>
             </div>
           </div>
           <button type="button" className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)}>
-            Logout
+            {i18n.logout}
           </button>
         </div>
       </div>
@@ -500,8 +616,8 @@ export default function AuthenticatedLayout() {
       <div className={`notification-overlay ${showNotifications ? "show" : ""}`} id="notificationOverlay" onClick={toggleNotifications}></div>
       <div className={`notification-panel ${showNotifications ? "show" : ""}`} id="notificationPanel">
         <div className="notification-header">
-            <h2>Announcements</h2>
-            <button className="notification-close" onClick={toggleNotifications} title="Close">
+            <h2>{i18n.announcements}</h2>
+            <button className="notification-close" onClick={toggleNotifications} title={i18n.close}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -510,7 +626,7 @@ export default function AuthenticatedLayout() {
         </div>
         <div className="notification-content" id="notificationContent">
           {announcementsLoading ? (
-            <div className="notification-empty"><p>Loading announcements...</p></div>
+            <div className="notification-empty"><p>{i18n.loadingAnnouncements}</p></div>
           ) : announcements.length > 0 ? (
             announcements.map((announcement, index) => (
               <div key={index} className={`notification-item ${readAnnouncements.has(index) ? '' : 'unread'}`} onClick={() => markAnnouncementRead(index)}>
@@ -524,7 +640,7 @@ export default function AuthenticatedLayout() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
               </svg>
-              <p>No announcements</p>
+              <p>{i18n.noAnnouncements}</p>
             </div>
           )}
         </div>
@@ -535,6 +651,7 @@ export default function AuthenticatedLayout() {
         loading={logoutLoading}
         onCancel={() => setShowLogoutConfirm(false)}
         onConfirm={performLogout}
+        i18n={i18n}
       />
 
       <Outlet />

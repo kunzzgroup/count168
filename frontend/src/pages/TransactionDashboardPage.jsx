@@ -12,6 +12,7 @@ import {
 import { buildApiUrl } from "../utils/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../utils/companySessionEvents.js";
 import { mergeGroupData } from "../utils/dashboardMerge.js";
+import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 
 const DASHBOARD_API = "api/transactions/dashboard_api.php";
 
@@ -113,13 +114,6 @@ function quickRangeToDates(range) {
   return { startDate: formatYmd(startDate), endDate: formatYmd(endDate) };
 }
 
-function monthLabel(year, month) {
-  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
 function buildCalendarCells(year, month) {
   const firstDay = new Date(year, month - 1, 1);
   const offset = firstDay.getDay();
@@ -192,6 +186,7 @@ export default function TransactionDashboardPage() {
   const [pendingStart, setPendingStart] = useState(null);
   const [hoverDate, setHoverDate] = useState(null);
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
+  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -203,6 +198,7 @@ export default function TransactionDashboardPage() {
   const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
   const barRef = useRef(null);
   const calendarGridWheelRef = useRef(null);
+  const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
 
   useEffect(() => {
     document.body.classList.remove("bg");
@@ -210,6 +206,24 @@ export default function TransactionDashboardPage() {
     return () => {
       document.body.classList.remove("dashboard-page");
       document.body.classList.add("bg");
+    };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "login_lang") {
+        setLang(e.newValue === "zh" ? "zh" : "en");
+      }
+    };
+    const onLangUpdated = (e) => {
+      const nextLang = e?.detail?.lang;
+      setLang(nextLang === "zh" ? "zh" : "en");
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eazycount:language-updated", onLangUpdated);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eazycount:language-updated", onLangUpdated);
     };
   }, []);
 
@@ -315,7 +329,7 @@ export default function TransactionDashboardPage() {
     });
     const j = await res.json();
     if (!res.ok || !j.success) {
-      setLoadError(j.message || j.error || "Could not switch company");
+      setLoadError(j.message || j.error || i18n.couldNotSwitchCompany);
       return false;
     }
     setCompanyId(parseInt(id, 10));
@@ -372,7 +386,7 @@ export default function TransactionDashboardPage() {
     const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
     const json = await res.json();
     if (!res.ok || !json.success || !json.data) {
-      throw new Error(json.message || json.error || "Dashboard API error");
+      throw new Error(json.message || json.error || i18n.dashboardApiError);
     }
     return json.data;
   };
@@ -398,12 +412,12 @@ export default function TransactionDashboardPage() {
         setDashboardData(data);
       }
     } catch (e) {
-      setLoadError(e.message || "Failed to load dashboard");
+      setLoadError(e.message || i18n.failedToLoadDashboard);
       setDashboardData(null);
     } finally {
       setLoading(false);
     }
-  }, [companyId, currencyCode, dateFrom, dateTo, groupAllMode, selectedGroup, companies]);
+  }, [companyId, currencyCode, dateFrom, dateTo, groupAllMode, selectedGroup, companies, i18n]);
 
   useEffect(() => {
     loadDashboard();
@@ -506,17 +520,17 @@ export default function TransactionDashboardPage() {
 
   const periodLabel = useMemo(() => {
     const options = {
-      today: "Today",
-      yesterday: "Yesterday",
-      thisWeek: "This Week",
-      lastWeek: "Last Week",
-      thisMonth: "This Month",
-      lastMonth: "Last Month",
-      thisYear: "This Year",
-      lastYear: "Last Year",
+      today: i18n.today,
+      yesterday: i18n.yesterday,
+      thisWeek: i18n.thisWeek,
+      lastWeek: i18n.lastWeek,
+      thisMonth: i18n.thisMonth,
+      lastMonth: i18n.lastMonth,
+      thisYear: i18n.thisYear,
+      lastYear: i18n.lastYear,
     };
     return options;
-  }, []);
+  }, [i18n]);
 
   const yearOptions = useMemo(() => {
     const nowY = new Date().getFullYear();
@@ -581,7 +595,7 @@ export default function TransactionDashboardPage() {
   return (
     <>
       <div className="dashboard-container">
-        <h1 className="dashboard-title">Transaction Dashboard</h1>
+        <h1 className="dashboard-title">{i18n.transactionDashboard}</h1>
 
         {loadError && (
           <div className="dashboard-card" style={{ marginBottom: 12, color: "#b91c1c" }}>
@@ -651,8 +665,8 @@ export default function TransactionDashboardPage() {
                       <button
                         type="button"
                         className="btn btn-secondary dropdown-toggle"
-                        aria-label="Quick period"
-                        title="Quick period"
+                        aria-label={i18n.quickPeriod}
+                        title={i18n.quickPeriod}
                         style={{
                           minHeight: 24,
                           padding: "1px 6px",
@@ -791,7 +805,10 @@ export default function TransactionDashboardPage() {
                               letterSpacing: "0.2px",
                             }}
                           >
-                            {monthLabel(calendarYear, calendarMonth)}
+                            {new Date(calendarYear, calendarMonth - 1, 1).toLocaleDateString(i18n.locale, {
+                              month: "long",
+                              year: "numeric",
+                            })}
                           </div>
 
                           <div ref={calendarGridWheelRef}>
@@ -799,9 +816,9 @@ export default function TransactionDashboardPage() {
                               className="calendar-weekdays"
                               style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 0, marginBottom: 4 }}
                             >
-                              {["S", "M", "T", "W", "T", "F", "S"].map((w) => (
+                              {i18n.weekdays.map((w, index) => (
                                 <div
-                                  key={w}
+                                  key={`${w}-${index}`}
                                   className="calendar-weekday"
                                   style={{ fontSize: 12, fontWeight: 700, color: "#64748b", padding: "3px 0" }}
                                 >
@@ -868,7 +885,7 @@ export default function TransactionDashboardPage() {
 
                 {groupIds.length > 0 && (
                   <div className="transaction-company-filter" style={{ display: "flex", marginTop: 12 }}>
-                    <span className="transaction-company-label">GroupID:</span>
+                    <span className="transaction-company-label">{i18n.groupId}</span>
                     <div className="transaction-company-buttons">
                       {groupIds.map((gid) => (
                         <button
@@ -886,7 +903,7 @@ export default function TransactionDashboardPage() {
 
                 {filteredCompanies.length > 0 && (
                   <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
-                    <span className="transaction-company-label">Company:</span>
+                    <span className="transaction-company-label">{i18n.company}</span>
                     <div className="transaction-company-buttons">
                       {selectedGroup && filteredCompanies.length > 1 && (
                         <button
@@ -901,7 +918,7 @@ export default function TransactionDashboardPage() {
                             }
                           }}
                         >
-                          All
+                          {i18n.all}
                         </button>
                       )}
                       {filteredCompanies.map((c) => (
@@ -925,7 +942,7 @@ export default function TransactionDashboardPage() {
 
                 {currencies.length > 0 && (
                   <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
-                    <span className="transaction-company-label">Currency:</span>
+                    <span className="transaction-company-label">{i18n.currency}</span>
                     <div className="transaction-company-buttons">
                       {currencies.map((code) => (
                         <button
@@ -952,7 +969,7 @@ export default function TransactionDashboardPage() {
                 <i className="fas fa-hand-holding-usd" />
               </div>
               <div className="kpi-text">
-                <div className="kpi-label">Earnings</div>
+                <div className="kpi-label">{i18n.earnings}</div>
                 <div className="kpi-value" id="earnings-value">
                   {loading ? "…" : formatCurrency(kpi.earnings)}
                 </div>
@@ -966,7 +983,7 @@ export default function TransactionDashboardPage() {
                 <i className="fas fa-wallet" />
               </div>
               <div className="kpi-text">
-                <div className="kpi-label">Profit</div>
+                <div className="kpi-label">{i18n.profit}</div>
                 <div className="kpi-value">{loading ? "…" : formatCurrency(kpi.profit)}</div>
               </div>
             </div>
@@ -975,7 +992,7 @@ export default function TransactionDashboardPage() {
                 <i className="fas fa-arrow-down" />
               </div>
               <div className="kpi-text">
-                <div className="kpi-label">Expenses</div>
+                <div className="kpi-label">{i18n.expenses}</div>
                 <div className="kpi-value">{loading ? "…" : formatCurrency(kpi.expenses)}</div>
               </div>
             </div>
@@ -984,7 +1001,7 @@ export default function TransactionDashboardPage() {
                 <i className="fas fa-chart-line" />
               </div>
               <div className="kpi-text">
-                <div className="kpi-label">NET PROFIT</div>
+                <div className="kpi-label">{i18n.netProfit}</div>
                 <div className="kpi-value">{loading ? "…" : formatCurrency(kpi.netProfit)}</div>
               </div>
             </div>
@@ -996,17 +1013,17 @@ export default function TransactionDashboardPage() {
               style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}
             >
               <div>
-                <div className="dashboard-chart-title">Trend Chart</div>
+                <div className="dashboard-chart-title">{i18n.trendChart}</div>
                 <div className="dashboard-date-info" id="chart-date-range">
                   {dashboardData?.date_range
-                    ? `${formatDisplayDate(dashboardData.date_range.from)} to ${formatDisplayDate(
+                    ? `${formatDisplayDate(dashboardData.date_range.from)} ${i18n.to} ${formatDisplayDate(
                         dashboardData.date_range.to
                       )}`
-                    : `${formatDisplayDate(dateFrom)} to ${formatDisplayDate(dateTo)}`}
+                    : `${formatDisplayDate(dateFrom)} ${i18n.to} ${formatDisplayDate(dateTo)}`}
                 </div>
               </div>
               <div className="dashboard-chart-buttons" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {["Profit", "Expenses", "Net Profit", "Earnings"].map((label, i) => {
+                {[i18n.profit, i18n.expenses, i18n.netProfitChart, i18n.earnings].map((label, i) => {
                   const colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b"];
                   return (
                     <button
@@ -1060,16 +1077,16 @@ export default function TransactionDashboardPage() {
                     }}
                   />
                   {chartVisible[0] && (
-                    <Area type="monotone" dataKey="profit" name="Profit" stroke="#3b82f6" fill="url(#gProfit)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="profit" name={i18n.profit} stroke="#3b82f6" fill="url(#gProfit)" strokeWidth={2} />
                   )}
                   {chartVisible[1] && (
-                    <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" fill="url(#gExp)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="expenses" name={i18n.expenses} stroke="#ef4444" fill="url(#gExp)" strokeWidth={2} />
                   )}
                   {chartVisible[2] && (
-                    <Area type="monotone" dataKey="netProfit" name="Net Profit" stroke="#10b981" fill="url(#gNet)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="netProfit" name={i18n.netProfitChart} stroke="#10b981" fill="url(#gNet)" strokeWidth={2} />
                   )}
                   {chartVisible[3] && (
-                    <Area type="monotone" dataKey="earnings" name="Earnings" stroke="#f59e0b" fill="url(#gEarn)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="earnings" name={i18n.earnings} stroke="#f59e0b" fill="url(#gEarn)" strokeWidth={2} />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
