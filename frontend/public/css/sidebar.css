@@ -543,7 +543,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 0;
+    padding: 8px 0 0;
 }
 
 .informationmenu-section {
@@ -902,7 +902,7 @@
 
 .content-separator {
     height: clamp(1px, 0.1vw, 2px);
-    margin: clamp(0px, 0.52vw, 10px) 20px clamp(6px, 0.52vw, 10px) 20px;
+    margin: clamp(0px, 0.52vw, 10px) 20px 10px 20px;
     background: linear-gradient(
         to right, 
         transparent 0%, 
@@ -910,6 +910,11 @@
         transparent 100%
     );
     position: relative;
+}
+
+/* Keep first menu item's top spacing consistent even when current page is Home */
+.informationmenu-content > .informationmenu-section:first-of-type {
+    margin-top: 2px;
 }
 
 .content-separator::before {
