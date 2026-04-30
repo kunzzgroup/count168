@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LOGIN_I18N } from "../../i18n/login.i18n.js";
+import { LOGIN_I18N } from "../../translateFile/loginTranslate.js";
 
 function escapeHtml(text) {
   const div = document.createElement("div");
