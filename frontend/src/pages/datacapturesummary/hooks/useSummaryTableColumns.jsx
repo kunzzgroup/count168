@@ -17,9 +17,9 @@ export function useSummaryTableColumns({
         cell: ({ row }) => {
           const value = row.original.idProduct;
           return (
-            <td className="id-product" data-main-product={value} data-sub-product="" title={value || undefined}>
+            <div className="id-product" data-main-product={value} data-sub-product="" title={value || undefined}>
               {value}
-            </td>
+            </div>
           );
         },
       },
@@ -27,122 +27,112 @@ export function useSummaryTableColumns({
         id: "account",
         header: "Account",
         cell: ({ row }) => (
-          <td>
-            <select
-              value={row.original.accountId ?? ""}
-              onChange={(e) => {
-                const selected = accountOptions.find((a) => String(a.id) === e.target.value);
-                setSummaryRows((prev) =>
-                  prev.map((item) =>
-                    item.id === row.original.id
-                      ? {
-                          ...item,
-                          accountId: selected?.id ?? null,
-                          account: selected ? `${selected.account_id}${selected.name ? ` (${selected.name})` : ""}` : "",
-                        }
-                      : item,
-                  ),
-                );
-              }}
-            >
-              <option value="">Select Account</option>
-              {accountOptions.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.account_id}
-                  {acc.name ? ` (${acc.name})` : ""}
-                </option>
-              ))}
-            </select>
-          </td>
+          <select
+            value={row.original.accountId ?? ""}
+            onChange={(e) => {
+              const selected = accountOptions.find((a) => String(a.id) === e.target.value);
+              setSummaryRows((prev) =>
+                prev.map((item) =>
+                  item.id === row.original.id
+                    ? {
+                        ...item,
+                        accountId: selected?.id ?? null,
+                        account: selected ? `${selected.account_id}${selected.name ? ` (${selected.name})` : ""}` : "",
+                      }
+                    : item,
+                ),
+              );
+            }}
+          >
+            <option value="">Select Account</option>
+            {accountOptions.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.account_id}
+                {acc.name ? ` (${acc.name})` : ""}
+              </option>
+            ))}
+          </select>
         ),
       },
       {
         id: "addAccount",
         header: "",
         cell: () => (
-          <td>
-            <button className="add-account-btn" type="button" onClick={openAddModal}>
-              +
-            </button>
-          </td>
+          <button className="add-account-btn" type="button" onClick={openAddModal}>
+            +
+          </button>
         ),
       },
       {
         id: "currency",
         header: "Currency",
         cell: ({ row }) => (
-          <td>
-            <select
-              value={row.original.currencyId ?? ""}
-              onChange={(e) => {
-                const selected = currencyOptions.find((c) => String(c.id) === e.target.value);
-                setSummaryRows((prev) =>
-                  prev.map((item) =>
-                    item.id === row.original.id
-                      ? {
-                          ...item,
-                          currencyId: selected?.id ?? null,
-                          currency: selected?.code ?? "",
-                        }
-                      : item,
-                  ),
-                );
-              }}
-            >
-              <option value="">Currency</option>
-              {currencyOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code}
-                </option>
-              ))}
-            </select>
-          </td>
+          <select
+            value={row.original.currencyId ?? ""}
+            onChange={(e) => {
+              const selected = currencyOptions.find((c) => String(c.id) === e.target.value);
+              setSummaryRows((prev) =>
+                prev.map((item) =>
+                  item.id === row.original.id
+                    ? {
+                        ...item,
+                        currencyId: selected?.id ?? null,
+                        currency: selected?.code ?? "",
+                      }
+                    : item,
+                ),
+              );
+            }}
+          >
+            <option value="">Currency</option>
+            {currencyOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code}
+              </option>
+            ))}
+          </select>
         ),
       },
       {
         id: "formula",
         header: "Formula",
         cell: ({ row }) => (
-          <td>
-            <input
-              value={row.original.formula}
-              onChange={(e) => {
-                const formula = e.target.value;
-                setSummaryRows((prev) =>
-                  prev.map((item) =>
-                    item.id === row.original.id ? { ...item, formula, ...computeProcessedAmounts(formula, item.source || "1", item.rateValue) } : item,
-                  ),
-                );
-              }}
-            />
-          </td>
+          <input
+            value={row.original.formula}
+            onChange={(e) => {
+              const formula = e.target.value;
+              setSummaryRows((prev) =>
+                prev.map((item) =>
+                  item.id === row.original.id ? { ...item, formula, ...computeProcessedAmounts(formula, item.source || "1", item.rateValue) } : item,
+                ),
+              );
+            }}
+          />
         ),
       },
       {
         id: "source",
         header: "Source",
         cell: ({ row }) => (
-          <td>
-            <input
-              value={row.original.source}
-              placeholder="1"
-              onChange={(e) => {
-                const source = e.target.value;
-                setSummaryRows((prev) =>
-                  prev.map((item) =>
-                    item.id === row.original.id ? { ...item, source, ...computeProcessedAmounts(item.formula, source || "1", item.rateValue) } : item,
-                  ),
-                );
-              }}
-            />
-          </td>
+          <input
+            value={row.original.source}
+            placeholder="1"
+            onChange={(e) => {
+              const source = e.target.value;
+              setSummaryRows((prev) =>
+                prev.map((item) =>
+                  item.id === row.original.id ? { ...item, source, ...computeProcessedAmounts(item.formula, source || "1", item.rateValue) } : item,
+                ),
+              );
+            }}
+          />
         ),
       },
       {
         id: "rate",
         header: "Rate",
         cell: ({ row }) => (
-          <td style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center" }}>
             <input
               type="checkbox"
               className="rate-checkbox"
@@ -151,14 +141,14 @@ export function useSummaryTableColumns({
               }}
               checked={row.original.rateChecked}
             />
-          </td>
+          </div>
         ),
       },
       {
         id: "rateValue",
         header: "Rate Value",
         cell: ({ row }) => (
-          <td className="editable-cell" style={{ textAlign: "center", cursor: "text" }}>
+          <div className="editable-cell" style={{ textAlign: "center", cursor: "text" }}>
             <input
               value={row.original.rateValue}
               placeholder="*3 or /3"
@@ -171,19 +161,19 @@ export function useSummaryTableColumns({
                 );
               }}
             />
-          </td>
+          </div>
         ),
       },
       {
         id: "processedAmount",
         header: "Processed Amount",
-        cell: ({ row }) => <td>{formatAmountDisplay(row.original.processedAmount)}</td>,
+        cell: ({ row }) => <span>{formatAmountDisplay(row.original.processedAmount)}</span>,
       },
       {
         id: "skip",
         header: "Skip",
         cell: ({ row }) => (
-          <td style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center" }}>
             <input
               type="checkbox"
               className="summary-select-checkbox"
@@ -192,14 +182,14 @@ export function useSummaryTableColumns({
               }}
               checked={row.original.skipChecked}
             />
-          </td>
+          </div>
         ),
       },
       {
         id: "delete",
         header: "Delete",
         cell: ({ row }) => (
-          <td style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center" }}>
             <input
               type="checkbox"
               className="summary-row-checkbox"
@@ -209,7 +199,7 @@ export function useSummaryTableColumns({
               }}
               checked={row.original.deleteChecked}
             />
-          </td>
+          </div>
         ),
       },
     ],

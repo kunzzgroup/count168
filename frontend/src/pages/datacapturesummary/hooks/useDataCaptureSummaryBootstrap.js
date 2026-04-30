@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/apiUrl.js";
 
 export function useDataCaptureSummaryBootstrap({
-  legacyReady,
   companyId,
   locationSearch,
   showNotification,
@@ -20,7 +19,7 @@ export function useDataCaptureSummaryBootstrap({
 }) {
   const optionsQuery = useQuery({
     queryKey: ["dcs-summary-options", companyId ?? null],
-    enabled: legacyReady,
+    enabled: true,
     queryFn: async () => {
       const optionsUrl = companyId
         ? buildApiUrl(`api/datacapture_summary/summary_api.php?company_id=${encodeURIComponent(companyId)}`)
@@ -35,7 +34,6 @@ export function useDataCaptureSummaryBootstrap({
   });
 
   useEffect(() => {
-    if (!legacyReady) return;
     const url = new URL(window.location.href);
     const success = url.searchParams.get("success") === "1";
     const error = url.searchParams.get("error") === "1";
@@ -81,7 +79,6 @@ export function useDataCaptureSummaryBootstrap({
     displayProcessInfo,
     extractSummaryRowsFromCapturedTable,
     hideLoadingState,
-    legacyReady,
     locationSearch,
     setProcessCurrencyCode,
     setProcessMeta,
