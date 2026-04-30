@@ -354,14 +354,13 @@ h1 {
 .modal {
     display: none;
     position: fixed;
-    z-index: 999;
-    /* Position after sidebar width */
-    left: clamp(160px, 12.98vw, 235px);
+    z-index: 2000;
+    /* Full-page modal overlay (including sidebar area) */
+    left: 0;
     top: 0;
-    width: calc(100% - clamp(160px, 12.98vw, 235px));
-    height: 100%;
-    background: #f0f4fa;
-    /* match page background */
+    width: 100vw;
+    height: 100vh;
+    background: rgba(240, 244, 250, 0.98);
     overflow: hidden;
 }
 
@@ -431,7 +430,7 @@ h1 {
     min-height: 0;
     overflow: hidden;
     background: transparent;
-    padding: clamp(12px, 1.25vw, 20px);
+    padding: clamp(8px, 0.83vw, 14px);
 }
 
 /* Three columns side-by-side: User info + Permissions | Account | Process (flex is more resilient than grid here with legacy flex rules on .user-info-panel) */
@@ -448,6 +447,16 @@ h1 {
     overflow: hidden;
 }
 
+/* Give more usable horizontal space to the form column */
+.user-modal-col--info {
+    flex: 1.2 1 0 !important;
+}
+
+.user-modal-col--account,
+.user-modal-col--process {
+    flex: 1 1 0 !important;
+}
+
 .user-modal-card > .user-modal-col {
     flex: 1 1 0;
     min-width: 0;
@@ -459,7 +468,7 @@ h1 {
     min-height: 0;
     min-width: 0;
     overflow: hidden;
-    padding: clamp(16px, 1.15vw, 24px);
+    padding: clamp(12px, 0.94vw, 18px);
     border-right: 1px solid #e2e8f0;
     background: #ffffff;
 }
@@ -610,9 +619,17 @@ label.user-modal-col-title.acc-proc-label {
     justify-content: center;
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
-    padding: clamp(14px, 1vw, 18px) clamp(24px, 2vw, 40px);
+    padding: clamp(10px, 0.83vw, 14px) clamp(16px, 1.35vw, 28px);
     background: #ffffff;
     border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 1024px) {
+    .modal {
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+    }
 }
 
 .modal-content .user-modal-footer .btn-save,
