@@ -346,16 +346,29 @@ export default function LoginPage() {
               </button>
 
               <div className="sc-login-lang-switch-wrap">
-                <button
-                  type="button"
+                <div
                   className={`sc-login-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
-                  onClick={() => setLang((prev) => (prev === "en" ? "zh" : "en"))}
+                  role="group"
                   aria-label="Switch language"
                 >
-                  <span className="sc-login-lang-option">EN</span>
-                  <span className="sc-login-lang-option">中</span>
                   <span className="sc-login-lang-thumb" />
-                </button>
+                  <button
+                    type="button"
+                    className={`sc-login-lang-option${lang === "en" ? " active" : ""}`}
+                    onClick={() => setLang("en")}
+                    aria-pressed={lang === "en"}
+                  >
+                    EN
+                  </button>
+                  <button
+                    type="button"
+                    className={`sc-login-lang-option${lang === "zh" ? " active" : ""}`}
+                    onClick={() => setLang("zh")}
+                    aria-pressed={lang === "zh"}
+                  >
+                    中
+                  </button>
+                </div>
               </div>
             </form>
           </div>
