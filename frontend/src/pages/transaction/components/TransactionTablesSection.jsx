@@ -174,7 +174,7 @@ export default function TransactionTablesSection({
           ))}
         </div>
       </div>
-      <div className="transaction-summary-section" style={{ display: tablesVisible && tp.mode !== "grouped" ? "block" : "none" }}>
+      <div className="transaction-summary-section" style={{ display: tablesVisible && tp.mode !== "grouped" ? "flex" : "none" }}>
         <table className="transaction-summary-table">
           <thead><tr className="transaction-table-header"><th colSpan={2}>Total</th></tr></thead>
           <tbody>
