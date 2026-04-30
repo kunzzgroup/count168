@@ -3455,7 +3455,7 @@
         }
 
         // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-        let url = `/api/transactions/history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`;
+        let url = `/api/transactions/history_api.php?account_id=${aid}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
         if (isVirtualCompanyRow) {
             url += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
         }
