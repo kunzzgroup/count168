@@ -13,14 +13,22 @@
   "dependencies": {
     "@tanstack/react-query": "^5.100.6",
     "@tanstack/react-table": "^8.21.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "flatpickr": "^4.6.13",
+    "lucide-react": "^1.14.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
-    "recharts": "^2.15.0"
+    "recharts": "^2.15.0",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.12",
+    "tailwindcss": "^4.2.4",
     "vite": "^5.4.11"
   }
 }

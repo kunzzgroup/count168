@@ -263,9 +263,9 @@ export default function DomainFormModal({
         return <span style={{ color: "#94a3b8", fontSize: 12 }}>No ungrouped companies available</span>;
       }
       return (
-        <div className="assign-grid">
+        <div className="grid grid-cols-2 gap-1">
           {candidates.map((c) => (
-            <div key={c.company_id} className="company-assign-item" onClick={() => toggleCompanyGroup(c.company_id)}>
+            <div key={c.company_id} className="flex cursor-pointer items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-1.5 transition-colors hover:bg-sky-50" onClick={() => toggleCompanyGroup(c.company_id)}>
               <input
                 type="checkbox"
                 checked={c.group_id === selectedGroupId}
@@ -288,21 +288,21 @@ export default function DomainFormModal({
     }
 
     return sorted.map((c) => (
-      <div key={c.company_id} className="company-item">
-        <div className="company-item-left"><span>{c.company_id}</span></div>
-        <div className="company-item-right">
-          <span className="exp-date-display" style={{ marginRight: 8 }}>
+      <div key={c.company_id} className="mb-2 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3.5 py-2.5">
+        <div className="flex min-w-0 items-center gap-1"><span className="text-sm font-bold text-slate-700">{c.company_id}</span></div>
+        <div className="flex items-center gap-1.5">
+          <span className="mr-2 whitespace-nowrap text-xs text-slate-500">
             {c.expiration_date ? formatDate(c.expiration_date) : "Not set"}
           </span>
           <button
-            type="button" className="company-reset-btn"
+            type="button" className="h-7 cursor-pointer rounded-[3px] border-0 px-2.5 text-[10px] text-white transition-colors hover:brightness-95"
             onClick={() => openCompanySettings(c.company_id)}
             title="Set expiration date"
             style={{ background: "linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%)" }}
           >
             Set
           </button>
-          <button type="button" className="company-remove-btn" onClick={() => removeCompany(c.company_id)}>
+          <button type="button" className="h-7 cursor-pointer rounded-[3px] border-0 bg-red-500 px-2.5 text-[10px] text-white transition-colors hover:bg-red-600" onClick={() => removeCompany(c.company_id)}>
             Remove
           </button>
         </div>
@@ -317,65 +317,65 @@ export default function DomainFormModal({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      <div className="modal" style={{ display: "block" }}>
-        <div className="modal-container-wide">
-          <div className="modal-header-wide">
-            <h2>{isEditMode ? "EDIT DOMAIN" : "ADD DOMAIN"}</h2>
-            <button className="modal-close-btn" onClick={onClose}>&times;</button>
+      <div className="fixed inset-0 z-[10001] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}>
+        <div className="relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
+          <div className="flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
+            <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? "EDIT DOMAIN" : "ADD DOMAIN"}</h2>
+            <button className="flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent text-[26px] text-black transition-colors hover:bg-gray-200" onClick={onClose}>&times;</button>
           </div>
           <form onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
-            <div className="modal-body-wide">
-              <div className="section-titles-row">
-                <div className="section-title">DOMAIN INFORMATION</div>
-                <div className="section-title">COMPANY INFORMATION</div>
+            <div className="px-9 py-6">
+              <div className="mb-2.5 grid grid-cols-2 gap-12">
+                <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">DOMAIN INFORMATION</div>
+                <div className="text-[15px] font-bold tracking-[0.5px] text-gray-900">COMPANY INFORMATION</div>
               </div>
-              <div className="section-divider" />
-              <div className="two-columns">
+              <div className="mb-5 h-[2.5px] w-full bg-blue-900" />
+              <div className="grid grid-cols-2 gap-12">
                 {/* Left: Domain info */}
-                <div className="column-left">
-                  <div className="form-group">
+                <div>
+                  <div className="mb-3.5">
                     <label htmlFor="df_owner_code">Owner Code *</label>
                     <input
-                      type="text" id="df_owner_code" required
+                      type="text" id="df_owner_code" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       value={ownerCode}
                       disabled={isEditMode}
                       onChange={(e) => setOwnerCode(forceUppercaseValue(e.target.value))}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className="mb-3.5">
                     <label htmlFor="df_name">Name *</label>
                     <input
-                      type="text" id="df_name" required
+                      type="text" id="df_name" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       value={name}
                       onChange={(e) => setName(forceUppercaseValue(e.target.value))}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className="mb-3.5">
                     <label htmlFor="df_email">Email *</label>
                     <input
-                      type="email" id="df_email" required
+                      type="email" id="df_email" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       pattern=".*@gmail\.com$"
                       value={email}
                       onChange={(e) => setEmail(forceLowercaseValue(e.target.value))}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className="mb-3.5">
                     <label htmlFor="df_password">Password {!isEditMode && "*"}</label>
                     <input
-                      type="password" id="df_password"
+                      type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       required={!isEditMode}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
                   </div>
                   {showSecondaryPwd && (
-                    <div className="form-group">
+                    <div className="mb-3.5">
                       <label htmlFor="df_secondary_pwd">
                         Secondary Password {!isEditMode && "*"}
                       </label>
                       <input
-                        type="password" id="df_secondary_pwd"
+                        type="password" id="df_secondary_pwd" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                         maxLength={6}
                         pattern="[0-9]{6}"
                         placeholder={isEditMode ? "Leave empty to keep current password" : "6 digits only"}
@@ -383,48 +383,48 @@ export default function DomainFormModal({
                         value={secondaryPassword}
                         onChange={(e) => setSecondaryPassword(forceNumericValue(e.target.value))}
                       />
-                      <small className="form-hint">Must be exactly 6 digits (0-9)</small>
+                      <small className="mt-1 block text-xs text-slate-500">Must be exactly 6 digits (0-9)</small>
                     </div>
                   )}
                 </div>
 
                 {/* Right: Company info */}
-                <div className="column-right">
-                  <div className="inputs-row">
+                <div className="flex flex-col">
+                  <div className="flex gap-3.5">
                     {/* Group input */}
-                    <div className="form-group" style={{ flex: 1 }}>
+                    <div className="mb-3.5 flex-1">
                       <label htmlFor="df_group_input">Group ID</label>
-                      <div className="input-with-btn">
+                      <div className="flex">
                         <input
                           type="text" id="df_group_input"
-                          placeholder="GROUP ID" style={{ textTransform: "uppercase" }}
+                          placeholder="GROUP ID" className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={groupInput}
                           onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
                           onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
                         />
-                        <button type="button" className="btn-inline-add" onClick={addGroup}>Add</button>
+                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addGroup}>Add</button>
                       </div>
                     </div>
                     {/* Company input */}
-                    <div className="form-group" style={{ flex: 1 }}>
+                    <div className="mb-3.5 flex-1">
                       <label htmlFor="df_company_input">Company ID</label>
-                      <div className="input-with-btn">
+                      <div className="flex">
                         <input
                           type="text" id="df_company_input"
-                          placeholder="COMPANY ID" style={{ textTransform: "uppercase" }}
+                          placeholder="COMPANY ID" className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={companyInput}
                           onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
                           onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
                         />
-                        <button type="button" className="btn-inline-add" onClick={addCompany}>Add</button>
+                        <button type="button" className="rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)]" onClick={addCompany}>Add</button>
                       </div>
                     </div>
                   </div>
 
                   {/* Group pills */}
-                  <div className="form-group" id="groupPillsSection">
+                  <div className="mb-3.5" id="groupPillsSection">
                     <label>Group :</label>
-                    <div className="group-pills">
+                    <div className="flex min-h-[34px] flex-wrap items-center gap-2 py-1">
                       {tempGroups.length === 0
                         ? <span style={{ color: "#94a3b8", fontSize: 12 }}>No groups created</span>
                         : tempGroups.map((gid) => {
@@ -432,11 +432,15 @@ export default function DomainFormModal({
                           return (
                             <span
                               key={gid}
-                              className={`group-pill${selectedGroupId === gid ? " active" : ""}`}
+                              className={`inline-flex h-8 min-w-14 cursor-pointer select-none items-center justify-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-all ${
+                                selectedGroupId === gid
+                                  ? "border-transparent bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] text-white shadow-[0_2px_6px_rgba(0,123,255,0.3)]"
+                                  : "border-slate-300 bg-slate-100 text-slate-800 hover:border-indigo-300 hover:bg-slate-200"
+                              }`}
                               onClick={() => selectGroup(gid)}
                             >
                               {gid} ({count})
-                              <span className="remove-x" onClick={(e) => { e.stopPropagation(); removeGroup(gid); }}>&times;</span>
+                              <span className={`ml-0.5 inline-flex items-center text-[15px] font-bold leading-none ${selectedGroupId === gid ? "text-white/70 hover:text-red-300" : "text-red-600 hover:text-red-800"}`} onClick={(e) => { e.stopPropagation(); removeGroup(gid); }}>&times;</span>
                             </span>
                           );
                         })
@@ -445,21 +449,24 @@ export default function DomainFormModal({
                   </div>
 
                   {/* Selected Companies */}
-                  <div className="form-group" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                    <div className="selected-companies-header">
+                  <div className="mb-3.5 flex flex-1 flex-col">
+                    <div className="mb-2 flex items-center justify-between">
                       <label>Selected Companies :</label>
                       {selectedGroupId && (
                         <button
                           type="button"
-                          className={`badge-multi${isMultipleChoiceMode ? " active" : ""}`}
-                          style={{ border: "none", cursor: "pointer" }}
+                          className={`cursor-pointer rounded-[10px] border-0 px-3 py-1.5 text-[11px] font-semibold text-white transition-all ${
+                            isMultipleChoiceMode
+                              ? "bg-[linear-gradient(180deg,#fbbf24_0%,#f59e0b_100%)] shadow-[0_0_0_2px_rgba(245,158,11,0.4)]"
+                              : "bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)]"
+                          }`}
                           onClick={toggleMultipleChoice}
                         >
                           {isMultipleChoiceMode ? "Done ✓" : "Multiple Choice"}
                         </button>
                       )}
                     </div>
-                    <div className="companies-list-box">
+                    <div className="min-h-[120px] max-h-[300px] flex-1 overflow-y-auto rounded-lg border border-gray-300 bg-[#fafafa] p-2.5">
                       {tempCompanies.length === 0
                         ? <span style={{ color: "#94a3b8", fontSize: 12 }}>No companies added yet</span>
                         : renderCompanyList()
@@ -469,9 +476,9 @@ export default function DomainFormModal({
                 </div>
               </div>
             </div>
-            <div className="modal-footer-wide">
-              <button type="submit" className="btn-wide btn-wide-confirm">Confirm</button>
-              <button type="button" className="btn-wide btn-wide-cancel" onClick={onClose}>Cancel</button>
+            <div className="flex justify-center gap-4 border-t-[2.5px] border-blue-900 bg-white px-9 py-[18px]">
+              <button type="submit" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#60a5fa_0%,#3b82f6_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(59,130,246,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#3b82f6_0%,#60a5fa_100%)] hover:shadow-[0_4px_12px_rgba(59,130,246,0.4)]">Confirm</button>
+              <button type="button" className="min-w-[130px] cursor-pointer rounded-[22px] border-0 bg-[linear-gradient(180deg,#9ca3af_0%,#6b7280_100%)] px-9 py-3 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(107,114,128,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#6b7280_0%,#9ca3af_100%)] hover:shadow-[0_4px_12px_rgba(107,114,128,0.4)]" onClick={onClose}>Cancel</button>
             </div>
           </form>
         </div>

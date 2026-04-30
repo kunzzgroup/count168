@@ -54,36 +54,35 @@ export default function DomainFeeModal({ onClose, onFeeSaved }) {
   }
 
   return (
-    <div className="modal" style={{ display: "block", zIndex: 10004 }}
+    <div className="fixed inset-0 z-[10004] bg-black/50 backdrop-blur-[4px]" style={{ display: "block" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-content" style={{ maxWidth: 440 }}>
-        <span className="close" onClick={onClose}>&times;</span>
-        <h2>Price</h2>
-        <div className="modal-body" style={{ display: "block", padding: "clamp(10px,1.04vw,20px) clamp(20px,1.67vw,32px)" }}>
-          <p style={{ color: "#64748b", fontSize: "clamp(10px,0.78vw,14px)", margin: "0 0 10px 0" }}>
+      <div className="relative mx-auto mt-[2%] w-[clamp(400px,36.46vw,700px)] max-w-[440px] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
+        <button type="button" className="absolute right-5 top-[clamp(10px,1.04vw,20px)] z-[10001] flex h-[clamp(26px,1.88vw,36px)] w-[clamp(26px,1.88vw,36px)] items-center justify-center rounded-full text-[clamp(20px,1.46vw,28px)] font-normal leading-none text-slate-500 transition-all hover:scale-110 hover:bg-slate-100 hover:text-slate-700" onClick={onClose}>&times;</button>
+        <h2 className="m-0 w-full border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)] text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">Price</h2>
+        <div className="block px-[clamp(20px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)]">
+          <p className="mb-2.5 mt-0 text-[clamp(10px,0.78vw,14px)] text-slate-500">
             Set default amounts for the domain list (saved for C168 admin use).
           </p>
-          <div className="domain-fee-summary-display" aria-live="polite"
+          <div className="mb-3 rounded-[clamp(4px,0.42vw,8px)] border border-slate-200 bg-slate-100 px-[clamp(10px,0.83vw,14px)] py-[clamp(8px,0.63vw,12px)] text-[clamp(11px,0.83vw,15px)] leading-[1.45] text-slate-800" aria-live="polite"
             dangerouslySetInnerHTML={{ __html: summary }} />
-          <p className="domain-fee-edit-hint">Edit fields below support up to 2 decimal places.</p>
-          <div className="form-group">
+          <p className="mb-3 mt-0 text-[clamp(9px,0.73vw,13px)] text-slate-500">Edit fields below support up to 2 decimal places.</p>
+          <div className="mb-[clamp(6px,0.625vw,12px)]">
             <label htmlFor="domainFeePrice">
-              Price <span className="domain-fee-decimals-hint">(edit)</span>
+              Price <span className="text-[0.92em] font-normal text-slate-400">(edit)</span>
             </label>
             <input
               type="number"
               id="domainFeePrice"
-              className="form-group input"
+              className="w-full box-border rounded-[clamp(4px,0.42vw,8px)] border border-gray-300 bg-white px-[clamp(6px,0.63vw,12px)] py-[clamp(5px,0.42vw,8px)] text-[clamp(10px,0.83vw,16px)] transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
               step="0.01"
               placeholder="0.00"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              style={{ width: "100%", padding: "clamp(5px,0.42vw,8px) clamp(6px,0.63vw,12px)", border: "1px solid #d1d5db", borderRadius: "clamp(4px,0.42vw,8px)", fontSize: "clamp(10px,0.83vw,16px)", boxSizing: "border-box" }}
             />
           </div>
-          <div className="form-actions" style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button type="button" className="btn btn-save" onClick={handleSave}>Save</button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>Cancel</button>
+          <div className="mt-5 flex flex-wrap gap-2.5 border-t border-slate-200 pt-4">
+            <button type="button" className="cursor-pointer rounded-md border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-5 py-[clamp(6px,0.42vw,8px)] font-['Amaranth'] text-[clamp(10px,0.83vw,16px)] text-white shadow-[0_2px_4px_rgba(0,123,255,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] hover:shadow-[0_4px_8px_rgba(1,59,153,0.4)]" onClick={handleSave}>Save</button>
+            <button type="button" className="cursor-pointer rounded-md border-0 bg-[linear-gradient(180deg,#bcbcbc_0%,#585858_100%)] px-5 py-[clamp(6px,0.42vw,8px)] font-['Amaranth'] text-[clamp(10px,0.83vw,16px)] text-white shadow-[0_2px_4px_rgba(88,88,88,0.3)] transition-all hover:-translate-y-px hover:bg-[linear-gradient(180deg,#585858_0%,#bcbcbc_100%)] hover:shadow-[0_4px_8px_rgba(84,84,84,0.4)]" onClick={onClose}>Cancel</button>
           </div>
         </div>
       </div>
