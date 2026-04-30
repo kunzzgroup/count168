@@ -375,8 +375,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <img src="/images/telegram.png" alt="Telegram" className="sc-login-telegram-icon" />
-
       <AlertModal
         open={modal.open}
         title={modal.title}
