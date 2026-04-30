@@ -49,6 +49,7 @@ export default function DataCapturePage() {
     tableRevision,
   });
   const tableEngine = useDataCaptureTableEngine({ ready: isPageReady });
+  const toUpperInput = useCallback((next) => String(next || "").toUpperCase(), []);
   const processDropdownRef = useRef(null);
 
   const selectedProcess = useMemo(
@@ -112,8 +113,10 @@ export default function DataCapturePage() {
   /** Legacy datacapture.js 仍会调用 updateSubmitButtonState；SPA 下 Submit 由 React 独占控制 */
   useLayoutEffect(() => {
     window.__DC_REACT_SUBMIT_BUTTON__ = true;
+    window.__DC_REACT_UPPERCASE__ = true;
     return () => {
       delete window.__DC_REACT_SUBMIT_BUTTON__;
+      delete window.__DC_REACT_UPPERCASE__;
     };
   }, []);
 
@@ -843,7 +846,7 @@ export default function DataCapturePage() {
                   name="remove_word"
                   placeholder="Enter words to remove"
                   value={removeWord}
-                  onChange={(e) => setRemoveWord(e.target.value)}
+                  onChange={(e) => setRemoveWord(toUpperInput(e.target.value))}
                 />
                 <small className="field-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                   (Use semicolon to separate multiple words, e.g. abc;cde;efg)
@@ -859,7 +862,7 @@ export default function DataCapturePage() {
                     name="replace_word_from"
                     placeholder="Old word"
                     value={replaceWordFrom}
-                    onChange={(e) => setReplaceWordFrom(e.target.value)}
+                    onChange={(e) => setReplaceWordFrom(toUpperInput(e.target.value))}
                   />
                   <span className="replace-arrow">→</span>
                   <input
@@ -868,14 +871,21 @@ export default function DataCapturePage() {
                     name="replace_word_to"
                     placeholder="New word"
                     value={replaceWordTo}
-                    onChange={(e) => setReplaceWordTo(e.target.value)}
+                    onChange={(e) => setReplaceWordTo(toUpperInput(e.target.value))}
                   />
                 </div>
               </div>
 
               <div className="form-group">
                 <label htmlFor="capture_remark">Remark</label>
-                <input type="text" id="capture_remark" name="remark" placeholder="Enter remark" value={remark} onChange={(e) => setRemark(e.target.value)} />
+                <input
+                  type="text"
+                  id="capture_remark"
+                  name="remark"
+                  placeholder="Enter remark"
+                  value={remark}
+                  onChange={(e) => setRemark(toUpperInput(e.target.value))}
+                />
               </div>
             </form>
           </div>
@@ -1037,7 +1047,7 @@ export default function DataCapturePage() {
                         placeholder="Enter new description name..."
                         required
                         value={newDescriptionName}
-                        onChange={(e) => setNewDescriptionName(e.target.value)}
+                        onChange={(e) => setNewDescriptionName(toUpperInput(e.target.value))}
                       />
                       <button type="submit" className="btn btn-save">
                         Add
@@ -1053,7 +1063,7 @@ export default function DataCapturePage() {
                     id="descriptionSearch"
                     placeholder="Search descriptions..."
                     value={descriptionSearch}
-                    onChange={(e) => setDescriptionSearch(e.target.value)}
+                    onChange={(e) => setDescriptionSearch(toUpperInput(e.target.value))}
                   />
                 </div>
                 <div className="description-list" id="existingDescriptions">

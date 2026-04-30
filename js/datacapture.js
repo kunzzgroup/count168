@@ -24690,13 +24690,15 @@ async function initializeDataCapturePage() {
     // Add event listeners for form validation
     setupFormValidationListeners();
 
-    // Enforce uppercase on relevant text inputs
-    addUppercaseConversion('capture_remove_word');
-    addUppercaseConversion('capture_replace_word_from');
-    addUppercaseConversion('capture_replace_word_to');
-    addUppercaseConversion('capture_remark');
-    addUppercaseConversion('new_description_name');
-    addUppercaseConversion('descriptionSearch');
+    // Enforce uppercase on relevant text inputs (React SPA handles this in controlled inputs)
+    if (!window.__DC_REACT_UPPERCASE__) {
+        addUppercaseConversion('capture_remove_word');
+        addUppercaseConversion('capture_replace_word_from');
+        addUppercaseConversion('capture_replace_word_to');
+        addUppercaseConversion('capture_remark');
+        addUppercaseConversion('new_description_name');
+        addUppercaseConversion('descriptionSearch');
+    }
 
     // Check for URL parameters and show notifications
     if (urlParams.get('success') === '1') {
@@ -24832,6 +24834,9 @@ async function switchDataCaptureCompany(companyId) {
 
 // Setup form validation listeners
 function setupFormValidationListeners() {
+    if (window.__DC_REACT_FORM_DATA__ && window.__DC_REACT_DATE_SUBMITTED__ && window.__DC_REACT_SUBMIT_BUTTON__) {
+        return;
+    }
     // Listen for date changes
     const dateInput = document.getElementById('capture_date');
     if (dateInput) {
