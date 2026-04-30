@@ -19,29 +19,29 @@ function AlertModal({ open, title, message, onClose }) {
 
   return (
     <div
-      className={`modal-overlay${open ? " is-open" : ""}`}
+      className={`sc-login-modal-overlay${open ? " is-open" : ""}`}
       aria-hidden={open ? "false" : "true"}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="modal-box"
+        className="sc-login-modal-box"
         role="dialog"
         aria-labelledby="modalTitle"
         aria-describedby="modalMessage"
       >
-        <div className="modal-icon-wrap">
-          <i className="fas fa-exclamation-triangle modal-icon" aria-hidden="true" />
+        <div className="sc-login-modal-icon-wrap">
+          <i className="fas fa-exclamation-triangle sc-login-modal-icon" aria-hidden="true" />
         </div>
-        <h3 id="modalTitle" className="modal-title">
+        <h3 id="modalTitle" className="sc-login-modal-title">
           {title}
         </h3>
-        <p id="modalMessage" className="modal-message">
+        <p id="modalMessage" className="sc-login-modal-message">
           {message}
         </p>
-        <div className="modal-actions">
-          <button type="button" className="modal-btn modal-btn-primary" onClick={onClose}>
+        <div className="sc-login-modal-actions">
+          <button type="button" className="sc-login-btn sc-login-btn-primary" onClick={onClose}>
             Confirm
           </button>
         </div>
@@ -244,14 +244,15 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="login-container">
+      <link rel="stylesheet" href="/css/login-shadcn.css" />
+      <div className="sc-login-shell">
         {maintenanceVisible && (
-          <div className="maintenance-marquee-wrapper">
-            <div className="maintenance-marquee-track">
+          <div className="sc-login-maintenance-wrapper">
+            <div className="sc-login-maintenance-track">
               {[...maintenanceList, ...maintenanceList].map((item, index) => (
-                <div className="maintenance-marquee-item" key={`${item.id}-${index}`}>
-                  <span className="maintenance-marquee-dot" />
-                  <span className="maintenance-marquee-label">系统维护中:</span>
+                <div className="sc-login-maintenance-item" key={`${item.id}-${index}`}>
+                  <span className="sc-login-maintenance-dot" />
+                  <span className="sc-login-maintenance-label">系统维护中:</span>
                   <span dangerouslySetInnerHTML={{ __html: escapeHtml(item.content) }} />
                 </div>
               ))}
@@ -259,30 +260,31 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="role-tabs">
-          <button
-            type="button"
-            className={`role-tab${role === "admin" ? " active" : ""}`}
-            onClick={() => setRole("admin")}
-          >
-            Admin
-          </button>
-          <button
-            type="button"
-            className={`role-tab${role === "member" ? " active" : ""}`}
-            onClick={() => setRole("member")}
-          >
-            Member
-          </button>
-        </div>
+        <div className="sc-login-card">
+          <div className="sc-login-role-tabs">
+            <button
+              type="button"
+              className={`sc-login-role-tab${role === "admin" ? " active" : ""}`}
+              onClick={() => setRole("admin")}
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              className={`sc-login-role-tab${role === "member" ? " active" : ""}`}
+              onClick={() => setRole("member")}
+            >
+              Member
+            </button>
+          </div>
 
-        <div className="login-card">
-          <div className="form-content">
-            <form className="login-form" onSubmit={onSubmit}>
-              <div className="input-group">
-                <i className="fas fa-building input-icon" />
+          <div className="sc-login-card-content">
+            <form className="sc-login-form" onSubmit={onSubmit}>
+              <div className="sc-login-input-row">
+                <i className="fas fa-building sc-login-input-icon" />
                 <input
                   type="text"
+                  className="sc-login-input"
                   placeholder="Company / Group ID"
                   required
                   value={companyId}
@@ -290,10 +292,11 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="input-group">
-                <i className="fas fa-user input-icon" />
+              <div className="sc-login-input-row">
+                <i className="fas fa-user sc-login-input-icon" />
                 <input
                   type="text"
+                  className="sc-login-input"
                   placeholder={userPlaceholder}
                   required
                   value={userField}
@@ -301,10 +304,11 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="input-group">
-                <i className="fas fa-lock input-icon" />
+              <div className="sc-login-input-row">
+                <i className="fas fa-lock sc-login-input-icon" />
                 <input
                   type="password"
+                  className="sc-login-input"
                   placeholder="Password"
                   required
                   value={password}
@@ -312,24 +316,23 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="form-options">
-                <label className="remember-switch">
+              <div className="sc-login-options">
+                <label className="sc-login-remember">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span className="slider" />
-                  <span className="remember-text">Remember me</span>
+                  <span>Remember me</span>
                 </label>
                 {role === "admin" && (
-                  <a href="/reset-password" className="forgot-link">
+                  <a href="/reset-password" className="sc-login-forgot-link">
                     Forget Password?
                   </a>
                 )}
               </div>
 
-              <button type="submit" className="login-btn" disabled={submitting}>
+              <button type="submit" className="sc-login-btn sc-login-submit-btn" disabled={submitting}>
                 <span>{submitting ? "Logging in..." : "Login"}</span>
               </button>
             </form>
@@ -337,7 +340,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <img src="/images/telegram.png" alt="Telegram" className="telegram-icon" />
+      <img src="/images/telegram.png" alt="Telegram" className="sc-login-telegram-icon" />
 
       <AlertModal
         open={modal.open}
