@@ -310,6 +310,24 @@ export default function DataCapturePage() {
     searchInput?.focus();
   }, [processDropdownOpen]);
 
+  /** Close Process dropdown on outside click. Do not use wrapper onBlur — clicking a non-focusable option yields relatedTarget null and closes before click fires. */
+  useEffect(() => {
+    if (!processDropdownOpen) return;
+    const onDocPointerDown = (e) => {
+      const el = processDropdownRef.current;
+      if (el && !el.contains(e.target)) {
+        setProcessDropdownOpen(false);
+        setProcessSearch("");
+      }
+    };
+    document.addEventListener("mousedown", onDocPointerDown);
+    document.addEventListener("touchstart", onDocPointerDown, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onDocPointerDown);
+      document.removeEventListener("touchstart", onDocPointerDown);
+    };
+  }, [processDropdownOpen]);
+
   useEffect(() => {
     setDescriptionText(selectedDescriptionsState.join(", "));
   }, [selectedDescriptionsState]);
@@ -647,16 +665,7 @@ export default function DataCapturePage() {
 
               <div className="form-group">
                 <label htmlFor="capture_process">Process</label>
-                <div
-                  className="custom-select-wrapper"
-                  ref={processDropdownRef}
-                  onBlur={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget)) {
-                      setProcessDropdownOpen(false);
-                      setProcessSearch("");
-                    }
-                  }}
-                >
+                <div className="custom-select-wrapper" ref={processDropdownRef}>
                   <button
                     type="button"
                     className="custom-select-button"
@@ -688,12 +697,15 @@ export default function DataCapturePage() {
                           data-value={option.id}
                           data-process-code={option.processCode}
                           data-description-name={option.descriptionName || ""}
-                          onClick={() => {
+                          onPointerDown={(e) => {
+                            if (e.pointerType === "mouse" && e.button !== 0) return;
+                            e.preventDefault();
                             setSelectedProcessId(String(option.id || ""));
                             setProcessDropdownOpen(false);
                             setProcessSearch("");
                           }}
-                          role="presentation"
+                          role="option"
+                          tabIndex={-1}
                         >
                           {option.displayText}
                         </div>
