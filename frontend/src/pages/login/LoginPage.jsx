@@ -106,7 +106,7 @@ export default function LoginPage() {
         { transform: `translateX(${toX}) scaleX(1) scaleY(1)` },
       ],
       {
-        duration: 1120,
+        duration: 980,
         easing: "cubic-bezier(0.34, 1.72, 0.64, 1)",
         fill: "none",
       }
