@@ -229,7 +229,7 @@ export default function AuthenticatedLayout() {
   return (
     <>
       <div className="informationmenu-overlay" style={{ display: "none" }} aria-hidden="true" />
-      <div className="informationmenu">
+      <div className={`informationmenu ${lang === "zh" ? "is-zh" : ""}`}>
         <div className="informationmenu-header">
           <div className="header-logo-section">
             <img src="/images/count_whitelogo.png" alt="EAZYCOUNT" className="header-logo" />
@@ -272,7 +272,7 @@ export default function AuthenticatedLayout() {
             <div className="user-info">
               <div className="user-name">{me?.name || me?.login_id || "-"}</div>
               <div className="user-role">{roleLabel || i18n.user}</div>
-              <div style={{ marginTop: 6 }}>
+              <div style={{ marginTop: lang === "zh" ? 2 : 6 }}>
                 <div
                   role="group"
                   aria-label={i18n.switchLanguage}
@@ -289,7 +289,7 @@ export default function AuthenticatedLayout() {
                     onClick={() => applyLanguage("en")}
                     style={{
                       border: "none",
-                      padding: "2px 9px",
+                      padding: lang === "zh" ? "1px 8px" : "2px 9px",
                       fontSize: 11,
                       fontWeight: 700,
                       cursor: "pointer",
@@ -304,7 +304,7 @@ export default function AuthenticatedLayout() {
                     onClick={() => applyLanguage("zh")}
                     style={{
                       border: "none",
-                      padding: "2px 9px",
+                      padding: lang === "zh" ? "1px 8px" : "2px 9px",
                       fontSize: 11,
                       fontWeight: 700,
                       cursor: "pointer",
