@@ -22760,6 +22760,10 @@ function validateForm() {
 
 // Update submit button state based on validation
 function updateSubmitButtonState() {
+    // React SPA：Submit 可用状态由 React 计算（见 DataCapturePage + useDataCaptureSubmitGate）
+    if (typeof window !== 'undefined' && window.__DC_REACT_SUBMIT_BUTTON__) {
+        return;
+    }
     // 只控制主页面的 Submit 按钮，避免误操作弹窗里的 .btn-save
     const submitBtn = document.getElementById('dataCaptureSubmitBtn');
     if (!submitBtn) return;

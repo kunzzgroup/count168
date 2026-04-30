@@ -4,6 +4,7 @@ import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { useDataCaptureLegacyBridge } from "./hooks/useDataCaptureLegacyBridge.js";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
+import { useDataCaptureSubmitGate } from "./hooks/useDataCaptureSubmitGate.js";
 import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
 import { useDataCaptureTableEngine } from "./hooks/useDataCaptureTableEngine.js";
 import { loadScriptOnce } from "./utils/assetLoader.js";
@@ -33,10 +34,20 @@ export default function DataCapturePage() {
   const [replaceWordFrom, setReplaceWordFrom] = useState("");
   const [replaceWordTo, setReplaceWordTo] = useState("");
   const [remark, setRemark] = useState("");
+  const [currencyId, setCurrencyId] = useState("");
+  const [dataCaptureType, setDataCaptureType] = useState("1.Text");
+  const [tableRevision, setTableRevision] = useState(0);
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
   const isPageReady = !loading && !forbidden && companyId != null;
   const { submit } = useDataCaptureSubmit({ selectedDescriptions: selectedDescriptionsState, navigate });
+  const submitGate = useDataCaptureSubmitGate({
+    selectedProcessId,
+    selectedDescriptions: selectedDescriptionsState,
+    currencyId,
+    dataCaptureType,
+    tableRevision,
+  });
   const tableEngine = useDataCaptureTableEngine({ ready: isPageReady });
   const processDropdownRef = useRef(null);
 
@@ -95,6 +106,14 @@ export default function DataCapturePage() {
     document.body.classList.add("dashboard-page", "datacapture-page");
     return () => {
       document.body.classList.remove("datacapture-page", "page-ready");
+    };
+  }, []);
+
+  /** Legacy datacapture.js 仍会调用 updateSubmitButtonState；SPA 下 Submit 由 React 独占控制 */
+  useLayoutEffect(() => {
+    window.__DC_REACT_SUBMIT_BUTTON__ = true;
+    return () => {
+      delete window.__DC_REACT_SUBMIT_BUTTON__;
     };
   }, []);
 
@@ -221,12 +240,14 @@ export default function DataCapturePage() {
     [navigate]
   );
 
-  useDataCaptureLegacyBridge({ loading, forbidden, companyId, companyCode, onCompanyChange: handleCompanyChange });
+  useDataCaptureLegacyBridge({ companyId, companyCode });
   useDataCaptureRestore({
     ready: !loading && !forbidden && companyId != null,
     processOptions,
     setSelectedDescriptions: setSelectedDescriptionsState,
     setSelectedDate,
+    setCurrencyId,
+    setDataCaptureType,
     setRemoveWord,
     setReplaceWordFrom,
     setReplaceWordTo,
@@ -330,7 +351,6 @@ export default function DataCapturePage() {
       if (cancelled) return;
       try {
         await window.__initDataCapturePage?.();
-        window.updateSubmitButtonState?.();
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error(err);
@@ -342,6 +362,29 @@ export default function DataCapturePage() {
       window.__resetDataCapturePageInitPromise?.();
     };
   }, [loading, forbidden, companyId]);
+
+  /** CITIBET 等模式下表格变动需触发 React 侧 Submit 校验（legacy updateSubmitButtonState 已在 SPA 下短路） */
+  useEffect(() => {
+    if (!isPageReady) return undefined;
+    const body = document.getElementById("tableBody");
+    if (!body) return undefined;
+    let timeoutId = null;
+    const bump = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => setTableRevision((r) => r + 1), 80);
+    };
+    body.addEventListener("input", bump);
+    body.addEventListener("paste", bump, true);
+    const mo = new MutationObserver(bump);
+    mo.observe(body, { childList: true, subtree: true, characterData: true });
+    bump();
+    return () => {
+      window.clearTimeout(timeoutId);
+      body.removeEventListener("input", bump);
+      body.removeEventListener("paste", bump, true);
+      mo.disconnect();
+    };
+  }, [isPageReady]);
 
   useEffect(() => {
     if (!processDropdownOpen) return;
@@ -371,15 +414,10 @@ export default function DataCapturePage() {
     setDescriptionText(selectedDescriptionsState.join(", "));
   }, [selectedDescriptionsState]);
 
-  /** legacy datacapture.js 的 updateSubmitButtonState 只认 window.selectedDescriptions，须与 React 状态同步 */
+  /** legacy datacapture.js 内仍会读取 window.selectedDescriptions（校验/重置等） */
   useEffect(() => {
     window.selectedDescriptions = Array.isArray(selectedDescriptionsState) ? [...selectedDescriptionsState] : [];
-    window.updateSubmitButtonState?.();
   }, [selectedDescriptionsState]);
-
-  useLayoutEffect(() => {
-    window.updateSubmitButtonState?.();
-  }, [selectedProcessId]);
 
   const notify = useCallback((message, type = "success") => {
     const container = document.getElementById("processNotificationContainer");
@@ -398,8 +436,7 @@ export default function DataCapturePage() {
   useEffect(() => {
     if (loading || forbidden) return undefined;
     const clearLinkedFields = () => {
-      const currencySelect = document.getElementById("capture_currency");
-      if (currencySelect) currencySelect.value = "";
+      setCurrencyId("");
       setRemoveWord("");
       setReplaceWordFrom("");
       setReplaceWordTo("");
@@ -420,17 +457,16 @@ export default function DataCapturePage() {
         if (!result.success || !result.data) return;
         const pd = result.data;
 
-        const currencySelect = document.getElementById("capture_currency");
-        if (currencySelect) {
-          const desired = pd.currency_id != null ? String(pd.currency_id) : "";
-          if (desired && Array.from(currencySelect.options).some((opt) => opt.value === desired)) {
-            currencySelect.value = desired;
-          } else if (pd.currency_code) {
-            const code = String(pd.currency_code).toUpperCase();
-            const matched = Array.from(currencySelect.options).find((opt) => String(opt.textContent || "").toUpperCase() === code);
-            if (matched) currencySelect.value = matched.value;
-          }
+        let nextCurrency = "";
+        const desired = pd.currency_id != null ? String(pd.currency_id) : "";
+        if (desired && currencyOptions.some((c) => String(c.id) === desired)) {
+          nextCurrency = desired;
+        } else if (pd.currency_code) {
+          const code = String(pd.currency_code).toUpperCase();
+          const matched = currencyOptions.find((c) => String(c.code || "").toUpperCase() === code);
+          if (matched) nextCurrency = String(matched.id);
         }
+        setCurrencyId(nextCurrency);
 
         setRemoveWord(pd.remove_word || "");
         setReplaceWordFrom(pd.replace_word_from || "");
@@ -445,7 +481,7 @@ export default function DataCapturePage() {
 
     loadLinkedFields();
     return undefined;
-  }, [loading, forbidden, companyId, selectedProcessId]);
+  }, [loading, forbidden, companyId, selectedProcessId, currencyOptions]);
 
   useEffect(() => {
     if (loading || forbidden || !companyCode) return;
@@ -605,8 +641,7 @@ export default function DataCapturePage() {
     setReplaceWordTo("");
     setRemark("");
     setSelectedDescriptionsState([]);
-    const currencySelect = document.getElementById("capture_currency");
-    if (currencySelect) currencySelect.value = "";
+    setCurrencyId("");
     setSelectedProcessId("");
     setProcessSearch("");
     setProcessDropdownOpen(false);
@@ -784,7 +819,13 @@ export default function DataCapturePage() {
 
               <div className="form-group">
                 <label htmlFor="capture_currency">Currency</label>
-                <select id="capture_currency" name="currency" defaultValue="">
+                <select
+                  id="capture_currency"
+                  name="currency"
+                  required
+                  value={currencyId}
+                  onChange={(e) => setCurrencyId(e.target.value)}
+                >
                   <option value="">Select Currency</option>
                   {currencyOptions.map((currency) => (
                     <option key={currency.id} value={currency.id}>
@@ -870,10 +911,15 @@ export default function DataCapturePage() {
       </div>
 
       <div className="bottom-section">
-        <div className="excel-table-container">
+        <div className={`excel-table-container${dataCaptureType === "CITIBET_MAJOR" ? " citibet-mode" : ""}`}>
           <div className="excel-table-header">
             <span>Data Capture Table</span>
-            <select id="dataCaptureTypeSelector" className="data-capture-type-selector" defaultValue="1.Text">
+            <select
+              id="dataCaptureTypeSelector"
+              className="data-capture-type-selector"
+              value={dataCaptureType}
+              onChange={(e) => setDataCaptureType(e.target.value)}
+            >
               <option value="1.Text">1.TEXT</option>
               <option value="2.Format">2.FORMAT</option>
               <option value="CITIBET_MAJOR">3.CITIBET</option>
@@ -905,7 +951,15 @@ export default function DataCapturePage() {
         </div>
 
         <div className="form-actions">
-          <button id="dataCaptureSubmitBtn" type="button" className="btn btn-save" onClick={submit}>
+          <button
+            id="dataCaptureSubmitBtn"
+            type="button"
+            className="btn btn-save"
+            disabled={!submitGate.canSubmit}
+            title={submitGate.canSubmit ? undefined : submitGate.disabledTitle}
+            style={submitGate.canSubmit ? undefined : { opacity: 0.6, cursor: "not-allowed" }}
+            onClick={submit}
+          >
             Submit
           </button>
         </div>

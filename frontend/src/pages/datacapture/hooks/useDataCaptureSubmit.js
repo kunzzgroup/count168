@@ -1,51 +1,9 @@
 import { useCallback } from "react";
+import { captureTableDataFromDom, citibetCaptureTableHasData } from "../utils/captureTableDataDom.js";
 
 function getProcessId(buttonElement) {
   if (!buttonElement) return "";
   return buttonElement.getAttribute("data-value") || "";
-}
-
-function convertBracketedToNegative(value) {
-  if (typeof value !== "string") return value;
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const bracketMatch = trimmed.match(/^\(([^)]+)\)$/);
-  if (!bracketMatch) return trimmed;
-  return `-${bracketMatch[1].trim()}`;
-}
-
-function captureTableData() {
-  const table = document.getElementById("dataTable");
-  if (!table) return { headers: [], rows: [], rowCount: 0, colCount: 0 };
-
-  const headerRow = table.querySelector("thead tr");
-  const headers = headerRow ? Array.from(headerRow.querySelectorAll("th")).map((th) => th.textContent || "") : [];
-  const rows = Array.from(table.querySelectorAll("tbody tr")).map((row) => {
-    const cells = Array.from(row.querySelectorAll("td"));
-    const mapped = [];
-    cells.forEach((cell, index) => {
-      if (index === 0) {
-        mapped.push({ type: "header", value: cell.textContent || "" });
-        return;
-      }
-      if (cell.style.display === "none") return;
-      const colspan = Number(cell.getAttribute("colspan") || "1");
-      mapped.push({
-        type: "data",
-        value: convertBracketedToNegative(String(cell.textContent || "").toUpperCase()),
-        col: index - 1,
-        ...(colspan > 1 ? { colspan } : {}),
-      });
-    });
-    return mapped;
-  });
-  const maxDataCols = rows.reduce((max, row) => Math.max(max, row.filter((c) => c.type === "data").length), 0);
-  return {
-    headers,
-    rows,
-    rowCount: rows.length,
-    colCount: Math.max(maxDataCols + 1, headers.length),
-  };
 }
 
 function convertTableFormatOnSubmit(dataCaptureType) {
@@ -156,9 +114,8 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
     }
 
     if (selectedDataCaptureType === "CITIBET" || selectedDataCaptureType === "CITIBET_MAJOR") {
-      const tableData = captureTableData();
-      const hasData = tableData.rows.some((row) => row.some((cell) => cell.type === "data" && String(cell.value || "").trim() !== ""));
-      if (!hasData) {
+      const tableData = captureTableDataFromDom();
+      if (!citibetCaptureTableHasData(tableData)) {
         notify("Please enter data in the table", "danger");
         return;
       }
@@ -188,7 +145,7 @@ export function useDataCaptureSubmit({ selectedDescriptions, navigate }) {
     };
 
     try {
-      const tableData = captureTableData();
+      const tableData = captureTableDataFromDom();
       localStorage.setItem("capturedTableData", JSON.stringify(tableData));
       localStorage.setItem("capturedProcessData", JSON.stringify(processData));
       localStorage.setItem("capturedDataCaptureType", selectedDataCaptureType);

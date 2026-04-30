@@ -67,6 +67,8 @@ export function useDataCaptureRestore({
   processOptions,
   setSelectedDescriptions,
   setSelectedDate,
+  setCurrencyId,
+  setDataCaptureType,
   setRemoveWord,
   setReplaceWordFrom,
   setReplaceWordTo,
@@ -85,6 +87,17 @@ export function useDataCaptureRestore({
 
       if (processData?.date) {
         setSelectedDate(processData.date);
+      }
+      if (processData?.currency != null && String(processData.currency).trim() !== "" && typeof setCurrencyId === "function") {
+        setCurrencyId(String(processData.currency));
+      }
+      try {
+        const capType = localStorage.getItem("capturedDataCaptureType");
+        if (capType && typeof setDataCaptureType === "function") {
+          setDataCaptureType(capType);
+        }
+      } catch {
+        // ignore
       }
       setRemoveWord(processData?.removeWord || "");
       setReplaceWordFrom(processData?.replaceWordFrom || "");
@@ -107,5 +120,23 @@ export function useDataCaptureRestore({
     }
 
     restoreTableFromLocalStorage();
-  }, [onRestoreProcess, processOptions, ready, setRemark, setRemoveWord, setReplaceWordFrom, setReplaceWordTo, setSelectedDate, setSelectedDescriptions]);
+
+    // React 受控的 capture type 更新不会触发原生 change；让 legacy datacapture.js 同步 currentDataCaptureType / 2.Format 视图
+    window.setTimeout(() => {
+      const sel = document.getElementById("dataCaptureTypeSelector");
+      if (sel) sel.dispatchEvent(new Event("change", { bubbles: true }));
+    }, 250);
+  }, [
+    onRestoreProcess,
+    processOptions,
+    ready,
+    setCurrencyId,
+    setDataCaptureType,
+    setRemark,
+    setRemoveWord,
+    setReplaceWordFrom,
+    setReplaceWordTo,
+    setSelectedDate,
+    setSelectedDescriptions,
+  ]);
 }
