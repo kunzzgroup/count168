@@ -29,7 +29,7 @@ body.bg::before {
 
 .sc-login-shell {
   width: 100%;
-  max-width: min(430px, 94vw);
+  max-width: min(520px, 96vw);
   margin: 0 auto;
   position: relative;
   z-index: 2;
