@@ -5,7 +5,7 @@
   --sc-login-text: #333333;
   --sc-login-muted: #666666;
   --sc-login-danger: #dc3545;
-  --sc-login-radius-xl: 28px;
+  --sc-login-radius-xl: 36px;
   --sc-login-radius-pill: 999px;
 }
 
@@ -28,7 +28,7 @@ body.bg::before {
 }
 
 .sc-login-shell {
-  width: min(430px, 96vw);
+  width: min(560px, 96vw);
   max-width: none;
   margin: 0 auto;
   position: relative;
