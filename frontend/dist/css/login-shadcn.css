@@ -69,6 +69,10 @@ body.bg::before {
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
     inset 0 -1px 0 rgba(118, 162, 243, 0.22);
   transition: box-shadow 0.35s ease, border-color 0.35s ease;
+  cursor: pointer;
+  user-select: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .sc-login-lang-switch:hover {
@@ -104,25 +108,29 @@ body.bg::before {
   animation: sc-login-stars-twinkle 3.2s ease-in-out infinite alternate;
 }
 
-.sc-login-lang-option {
-  position: relative;
+.sc-login-lang-labels {
+  position: absolute;
+  inset: 0;
+  display: flex;
   z-index: 4;
+  pointer-events: none;
+}
+
+.sc-login-lang-label {
+  position: relative;
   flex: 1;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.2px;
   color: var(--lg-label-idle);
-  border-radius: 999px;
   transition: color 0.28s ease, text-shadow 0.28s ease;
 }
 
-.sc-login-lang-option.active {
+.sc-login-lang-switch:not(.is-zh) .sc-login-lang-label:first-child,
+.sc-login-lang-switch.is-zh .sc-login-lang-label:last-child {
   color: var(--lg-label-active);
   text-shadow: 0 0 10px rgba(214, 239, 255, 0.82), 0 1px 0 rgba(0, 0, 0, 0.24);
 }
