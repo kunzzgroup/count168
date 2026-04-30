@@ -62,11 +62,13 @@ h1 {
 .form-column {
     flex: 1;
     max-width: 50%;
+    min-width: 0;
 }
 
 .submitted-column {
     flex: 1;
     max-width: 50%;
+    min-width: 0;
 }
 
 .form-container {
@@ -77,6 +79,7 @@ h1 {
     height: clamp(208px, 24.23vw, 350px);
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .submitted-container {
@@ -115,6 +118,11 @@ h1 {
     gap: clamp(0px, 0.625vw, 12px);
 }
 
+.process-form .form-group > .custom-select-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+
 .replace-word-group {
     display: flex;
     align-items: flex-start;
@@ -136,6 +144,7 @@ h1 {
 
 .replace-word-fields input {
     flex: 1;
+    min-width: 0;
     padding: clamp(4px, 0.3vw, 8px) clamp(6px, 0.63vw, 12px);
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -173,6 +182,7 @@ h1 {
 .custom-select-wrapper {
     position: relative;
     width: 100%;
+    min-width: 0;
 }
 
 .custom-select-button {
@@ -278,6 +288,8 @@ h1 {
 .process-form .form-group input,
 .process-form .form-group select {
     flex: 1;
+    min-width: 0;
+    max-width: 100%;
     padding: clamp(4px, 0.3vw, 8px) clamp(6px, 0.63vw, 12px);
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -458,6 +470,7 @@ h1 {
 .input-with-icon {
     position: relative;
     flex: 1;
+    min-width: 0;
 }
 
 .add-icon {
