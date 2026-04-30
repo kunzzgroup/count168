@@ -71,6 +71,7 @@ body.bg::before {
   transition: box-shadow 0.35s ease, border-color 0.35s ease;
   cursor: pointer;
   user-select: none;
+  box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
 }
@@ -111,17 +112,18 @@ body.bg::before {
 .sc-login-lang-labels {
   position: absolute;
   inset: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
   z-index: 4;
   pointer-events: none;
 }
 
 .sc-login-lang-label {
   position: relative;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  text-align: center;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.2px;
