@@ -416,6 +416,45 @@
     padding: 0;
 }
 
+/* 中文模式：压缩侧边栏高度，避免出现滚动条 */
+.informationmenu.is-zh .informationmenu-header {
+    padding: 6px 10px 4px;
+}
+
+.informationmenu.is-zh .header-logo-section {
+    margin-bottom: 3px;
+}
+
+.informationmenu.is-zh .user-info-container {
+    padding-top: 2px;
+    padding-bottom: 2px;
+    min-height: 42px;
+    margin-bottom: 0;
+}
+
+.informationmenu.is-zh .user-info {
+    gap: 0;
+    margin-left: 8px;
+}
+
+.informationmenu.is-zh .informationmenu-section-title {
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.informationmenu.is-zh .content-separator {
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+.informationmenu.is-zh .informationmenu-footer {
+    padding: 12px 12px 14px;
+}
+
+.informationmenu.is-zh .company-expiration-countdown {
+    margin-bottom: 6px;
+}
+
 .informationmenu-section {
     margin: 0;
 }
