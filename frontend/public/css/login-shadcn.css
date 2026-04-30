@@ -29,7 +29,7 @@ body.bg::before {
 
 .sc-login-shell {
   width: 100%;
-  max-width: min(380px, 92vw);
+  max-width: min(430px, 94vw);
   margin: 0 auto;
   position: relative;
   z-index: 2;
@@ -47,13 +47,13 @@ body.bg::before {
 .sc-login-role-tabs {
   display: flex;
   background: linear-gradient(135deg, var(--sc-login-bg-start), var(--sc-login-bg-end));
-  border-radius: var(--sc-login-radius-xl) var(--sc-login-radius-xl) 0 0;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .sc-login-role-tab {
   flex: 1;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: none;
   background: transparent;
   color: #ffffff;
@@ -70,7 +70,7 @@ body.bg::before {
 }
 
 .sc-login-card-content {
-  padding: 24px 22px;
+  padding: 28px 24px;
 }
 
 .sc-login-form {
