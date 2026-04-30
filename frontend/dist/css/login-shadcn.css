@@ -296,21 +296,6 @@ body.bg::before {
   margin-right: 8px;
 }
 
-.sc-login-telegram-icon {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 60px;
-  height: 60px;
-  z-index: 1000;
-  cursor: pointer;
-  transition: transform 0.3s ease;
-}
-
-.sc-login-telegram-icon:hover {
-  transform: scale(1.1);
-}
-
 /* Temporarily hide Telegram floating shortcut on login page. */
 .sc-login-telegram-icon {
   display: none !important;
@@ -413,12 +398,6 @@ body.bg::before {
     padding: 20px 18px;
   }
 
-  .sc-login-telegram-icon {
-    width: 50px;
-    height: 50px;
-    bottom: 15px;
-    right: 15px;
-  }
 }
 
 @keyframes sc-login-fade-in {
