@@ -38,6 +38,8 @@ RewriteRule ^processlist\.php$ /process-list [R=302,L,NC]
 RewriteRule ^games_process_list\.php$ /games-process-list [R=302,L,NC]
 RewriteRule ^bank_process_list\.php$ /bank-process-list [R=302,L,NC]
 RewriteRule ^userlist\.php$ /userlist [R=302,L,NC]
+RewriteRule ^ownership\.php$ /ownership [R=302,L,NC]
+RewriteRule ^transaction\.php$ /transaction [R=302,L,NC]
 RewriteRule ^customer_report\.php$ /customer-report [R=302,L,NC]
 RewriteRule ^domain_report\.php$ /domain-report [R=302,L,NC]
 RewriteRule ^capture_maintenance\.php$ /capture-maintenance [R=302,L,NC]
@@ -53,11 +55,11 @@ RewriteRule ^formula_maintenance$ /formula-maintenance [R=302,L,NC]
 RewriteRule ^bankprocess_maintenance$ /bankprocess-maintenance [R=302,L,NC]
 RewriteRule ^payment_maintenance$ /payment-maintenance [R=302,L,NC]
 RewriteRule ^owner_secondary_password\.php$ /owner-secondary-password [R=302,L,NC]
+RewriteRule ^reset-password\.php$ /reset-password [R=302,L,NC]
 RewriteRule ^api/users/user_secondary_password\.php$ /user-secondary-password [R=302,L,NC]
 RewriteRule ^member\.php$ /member [R=302,L,NC]
 
 # Clean URLs for pages still rendered by PHP
-RewriteRule ^reset-password$ /reset-password.php [L,NC,QSA]
 RewriteRule ^datacapture$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transaction$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transcation$ /transaction [R=302,L,NC]
@@ -69,5 +71,5 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 # SPA routes handled by React app build
-RewriteRule ^(login|member|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership|owner-secondary-password|user-secondary-password|datacapture|transaction|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance|payment-maintenance)$ /frontend/dist/index.html [L,NC]
+RewriteRule ^(login|member|reset-password|dashboard|domain|announcement|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|ownership|owner-secondary-password|user-secondary-password|datacapture|transaction|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance|payment-maintenance)$ /frontend/dist/index.html [L,NC]
 
