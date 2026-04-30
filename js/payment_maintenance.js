@@ -413,6 +413,17 @@
             return parseMaintenanceDateTime(row?.date, '00:00:00');
         }
 
+        function buildTransactionDateTimeDisplay(row) {
+            const datePart = String(row?.date || '').trim();
+            if (!datePart) return '-';
+            const createdRaw = String(row?.dts_created || '').trim();
+            const timeMatch = createdRaw.match(/\b(\d{2}:\d{2}:\d{2})\b/);
+            if (timeMatch) {
+                return `${datePart} ${timeMatch[1]}`;
+            }
+            return datePart;
+        }
+
         // Fill list function
         function fillTable(data) {
             data = mergeProfitRows(data);
@@ -442,7 +453,7 @@
                 const tr = document.createElement('tr');
                 tr.className = 'maintenance-row';
                 
-                const transactionDateDisplay = row.date ? escapeHtml(row.date) : '-';
+                const transactionDateDisplay = escapeHtml(buildTransactionDateTimeDisplay(row));
                 const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';

@@ -554,6 +554,14 @@ let ownerCompanies = [];
             return raw;
         }
 
+        function buildTransactionDateTimeDisplay(row) {
+            const datePart = formatDateOnly(row?.transaction_date);
+            if (!datePart || datePart === '-') return '-';
+            const createdRaw = String(row?.dts_created || '').trim();
+            const timeMatch = createdRaw.match(/\b(\d{2}:\d{2}:\d{2})\b/);
+            return timeMatch ? `${datePart} ${timeMatch[1]}` : datePart;
+        }
+
         // Fill list function
         function fillTable(data) {
             const tbody = document.getElementById('dataTableBody');
@@ -575,7 +583,7 @@ let ownerCompanies = [];
                 const tr = document.createElement('tr');
                 tr.className = 'maintenance-row';
                 
-                const transactionDateDisplay = escapeHtml(formatDateOnly(row.transaction_date));
+                const transactionDateDisplay = escapeHtml(buildTransactionDateTimeDisplay(row));
                 const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const productDisplay = row.product ? escapeHtml(row.product) : '-';
                 const processDisplay = row.process ? escapeHtml(row.process) : '-';

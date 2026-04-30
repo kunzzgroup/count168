@@ -71,6 +71,14 @@
             }
         }
 
+        function buildTransactionDateTimeDisplay(row) {
+            const datePart = String(row?.date || '').trim();
+            if (!datePart) return '-';
+            const createdRaw = String(row?.dts_created || '').trim();
+            const timeMatch = createdRaw.match(/\b(\d{2}:\d{2}:\d{2})\b/);
+            return timeMatch ? `${datePart} ${timeMatch[1]}` : datePart;
+        }
+
         /** One column: "MYR 1,200.00" */
         function formatCurrencyAmountCell(currency, amount) {
             const cur = currency ? String(currency).trim() : '';
@@ -349,7 +357,7 @@
                 const tr = document.createElement('tr');
                 const isDeleted = !!row.is_deleted;
                 tr.className = 'maintenance-row' + (isDeleted ? ' maintenance-row-deleted' : '');
-                const transactionDateDisplay = row.date ? escapeHtml(row.date) : '-';
+                const transactionDateDisplay = escapeHtml(buildTransactionDateTimeDisplay(row));
                 const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = escapeHtml(toUpperDisplay(row.from_account));

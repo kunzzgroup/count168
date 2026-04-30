@@ -631,6 +631,14 @@
         return raw;
     }
 
+    function buildTransactionDateTimeDisplay(row) {
+        const datePart = formatDateOnly(row?.transaction_date);
+        if (!datePart || datePart === '-') return '-';
+        const createdRaw = String(row?.dts_created || '').trim();
+        const timeMatch = createdRaw.match(/\b(\d{2}:\d{2}:\d{2})\b/);
+        return timeMatch ? `${datePart} ${timeMatch[1]}` : datePart;
+    }
+
     function fillTable(data) {
         const tbody = document.getElementById('dataTableBody');
         tbody.innerHTML = '';
@@ -651,7 +659,7 @@
             const tr = document.createElement('tr');
             tr.className = 'maintenance-row';
 
-            const transactionDateDisplay = escapeHtml(formatDateOnly(row.transaction_date));
+            const transactionDateDisplay = escapeHtml(buildTransactionDateTimeDisplay(row));
             const systemTimeDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
             const processDisplay = row.process ? escapeHtml(row.process) : '-';
             const idProductDisplay = (row.id_product !== null && row.id_product !== undefined && row.id_product !== '') ? escapeHtml(row.id_product) : '-';
