@@ -2344,6 +2344,10 @@ function getProcessId(buttonElement) {
 
 // ==================== 初始化 Process 自定义下拉选单 ====================
 function initProcessInput() {
+    // React SPA 使用自己的 Process 下拉与状态；避免重复绑定导致无法选择或重复请求
+    if (window.__DC_REACT_PROCESS_DROPDOWN__) {
+        return;
+    }
     const processButton = document.getElementById('capture_process');
     const processDropdown = document.getElementById('capture_process_dropdown');
     const searchInput = processDropdown?.querySelector('.custom-select-search input');
@@ -24936,15 +24940,21 @@ window.switchDataCaptureCompany = switchDataCaptureCompany;
 window.switchDataCapturePermission = switchPermission;
 window.__syncDataCaptureProcessMap = syncProcessDataMapFromReact;
 window.__initDataCapturePage = initializeDataCapturePage;
+window.__resetDataCapturePageInitPromise = function () {
+    __dataCapturePageInitPromise = null;
+};
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+// React SPA：在加载本脚本前设置 window.__DC_REACT_BOOT__，由页面在表格挂载后调用 __initDataCapturePage()，避免脚本执行时 #tableBody 尚未渲染
+if (!window.__DC_REACT_BOOT__) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeDataCapturePage().catch((error) => {
+                console.error('Failed to initialize data capture page:', error);
+            });
+        }, { once: true });
+    } else {
         initializeDataCapturePage().catch((error) => {
             console.error('Failed to initialize data capture page:', error);
         });
-    }, { once: true });
-} else {
-    initializeDataCapturePage().catch((error) => {
-        console.error('Failed to initialize data capture page:', error);
-    });
+    }
 }

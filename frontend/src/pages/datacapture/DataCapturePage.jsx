@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import { useDataCaptureLegacyBridge } from "./hooks/useDataCaptureLegacyBridge.js";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
 import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
 import { useDataCaptureTableEngine } from "./hooks/useDataCaptureTableEngine.js";
+import { loadScriptOnce } from "./utils/assetLoader.js";
 
 export default function DataCapturePage() {
   const navigate = useNavigate();
@@ -302,6 +303,43 @@ export default function DataCapturePage() {
       }
       tableBody.appendChild(tr);
     }
+  }, [loading, forbidden, companyId]);
+
+  /** 载入旧版 datacapture.js：TEXT / 2.Format / CITIBET / RETURN 等模式的粘贴解析与表格行为均在该脚本中 */
+  useEffect(() => {
+    if (loading || forbidden || companyId == null) return;
+    const tableBody = document.getElementById("tableBody");
+    if (!tableBody || tableBody.children.length === 0) return;
+
+    let cancelled = false;
+
+    window.__DC_REACT_PERMISSION_FILTER__ = true;
+    window.__DC_REACT_DATE_SUBMITTED__ = true;
+    window.__DC_REACT_FORM_DATA__ = true;
+    window.__DC_REACT_PROCESS_DROPDOWN__ = true;
+    window.__DC_REACT_BOOT__ = true;
+
+    (async () => {
+      try {
+        await loadScriptOnce(assetUrl("js/datacapture.js"));
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+        return;
+      }
+      if (cancelled) return;
+      try {
+        await window.__initDataCapturePage?.();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      window.__resetDataCapturePageInitPromise?.();
+    };
   }, [loading, forbidden, companyId]);
 
   useEffect(() => {
