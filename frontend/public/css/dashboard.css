@@ -1,9 +1,27 @@
+:root {
+    --scd-background: #e9f1ff;
+    --scd-foreground: #334155;
+    --scd-card: #ffffff;
+    --scd-card-foreground: #111827;
+    --scd-muted-foreground: #6b7280;
+    --scd-border: #e5e7eb;
+    --scd-input-border: #d1d5db;
+    --scd-primary: #3b82f6;
+    --scd-primary-strong: #2563eb;
+    --scd-primary-gradient: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    --scd-info-gradient: linear-gradient(135deg, #56ccf2, #004ff9);
+    --scd-danger: #ef4444;
+    --scd-success: #22c55e;
+    --scd-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --scd-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 body.dashboard-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
     height: 100vh;
-    background-color: #e9f1ff;
+    background-color: var(--scd-background);
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
         radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
@@ -11,7 +29,7 @@ body.dashboard-page {
         radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
         linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
     background-blend-mode: screen, screen, multiply, screen, normal;
-    color: #334155;
+    color: var(--scd-foreground);
     overflow: hidden;
 }
 
@@ -37,7 +55,7 @@ body.dashboard-page {
 }
 
 .dashboard-alert-modal-box {
-    background: #fff;
+    background: var(--scd-card);
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
     max-width: 480px;
@@ -105,7 +123,7 @@ body.dashboard-page {
 }
 
 .dashboard-alert-modal-btn-primary {
-    background: linear-gradient(135deg, #56ccf2, #004ff9);
+    background: var(--scd-info-gradient);
     color: #fff;
 }
 
@@ -148,7 +166,7 @@ body.dashboard-page {
 
 .transaction-company-label {
     font-weight: bold;
-    color: #374151;
+    color: var(--scd-foreground);
     font-size: clamp(9px, 0.82vw, 15px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
@@ -167,12 +185,12 @@ body.dashboard-page {
 .transaction-company-btn {
     padding: clamp(6px, 0.5vw, 10px) clamp(12px, 1vw, 16px);
     background: #f1f5f9;
-    border: 1px solid #d0d7de;
+    border: 1px solid var(--scd-input-border);
     border-radius: 999px;
     cursor: pointer;
     font-size: clamp(9px, 0.82vw, 15px);
     transition: all 0.2s ease;
-    color: #1f2937;
+    color: var(--scd-card-foreground);
     font-weight: 600;
     min-width: 62px;
     height: 30px;
@@ -187,7 +205,7 @@ body.dashboard-page {
 }
 
 .transaction-company-btn.active {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    background: var(--scd-primary-gradient);
     color: #fff;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
@@ -216,10 +234,10 @@ body.dashboard-page {
 }
 
 .dashboard-card {
-    background-color: white;
-    border: 1px solid #e5e7eb;
+    background-color: var(--scd-card);
+    border: 1px solid var(--scd-border);
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--scd-shadow-md);
     padding: clamp(8px, 1vw, 16px);
 }
 
@@ -266,10 +284,10 @@ body.dashboard-page {
 
 /* === KPI 卡片 - 基础上下布局 === */
 .dashboard-kpi-card {
-    background-color: white;
-    border: 1px solid #e5e7eb;
+    background-color: var(--scd-card);
+    border: 1px solid var(--scd-border);
     border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--scd-shadow-sm);
     padding: 24px;
     display: flex;
     flex-direction: column;
@@ -293,7 +311,7 @@ body.dashboard-page {
 
 .dashboard-kpi-card .kpi-label {
     font-size: clamp(10px, 0.72vw, 13px);
-    color: #6b7280;
+    color: var(--scd-muted-foreground);
     font-weight: 600;
     letter-spacing: 0.04em;
     font-family: 'Amaranth', sans-serif;
@@ -307,7 +325,7 @@ body.dashboard-page {
 .dashboard-kpi-card .kpi-value {
     font-size: clamp(18px, 1.4vw, 26px);
     font-weight: 700;
-    color: #111827;
+    color: var(--scd-card-foreground);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
 }
@@ -332,17 +350,17 @@ body.dashboard-page {
 
 /* Blue (Profit & Earnings 默认) */
 .dashboard-kpi-card--blue .kpi-icon {
-    color: #3b82f6;
+    color: var(--scd-primary);
 }
 
 /* Red (Expenses 支出) */
 .dashboard-kpi-card--red .kpi-icon {
-    color: #ef4444;
+    color: var(--scd-danger);
 }
 
 /* Green (Net Profit 净利) */
 .dashboard-kpi-card--green .kpi-icon {
-    color: #22c55e;
+    color: var(--scd-success);
 }
 
 /* Earnings 卡片 — grid 第 3 列，自动与 NET PROFIT 同宽 */
@@ -359,10 +377,10 @@ body.dashboard-page {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: white;
-    border: 1px solid #e5e7eb;
+    background-color: var(--scd-card);
+    border: 1px solid var(--scd-border);
     border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--scd-shadow-md);
     padding: clamp(8px, 0.8vw, 14px);
 }
 
@@ -378,7 +396,7 @@ body.dashboard-page {
 .dashboard-chart-title {
     font-size: clamp(16px, 1.25vw, 24px);
     font-weight: 600;
-    color: #111827;
+    color: var(--scd-card-foreground);
     font-family: 'Amaranth', sans-serif;
 }
 
@@ -418,13 +436,13 @@ body.dashboard-page {
 /* 图表自定义图例开关按钮 (类图二设计) */
 .chart-toggle-btn {
     padding: clamp(6px, 0.6vw, 8px) clamp(16px, 1.5vw, 24px);
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--scd-card);
+    border: 1px solid var(--scd-border);
     border-radius: 999px;
     cursor: pointer;
     font-size: clamp(12px, 1vw, 15px);
     font-weight: 600;
-    color: #6b7280;
+    color: var(--scd-muted-foreground);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -679,8 +697,8 @@ body.dashboard-page {
     display: flex;
     align-items: center;
     gap: clamp(4px, 0.42vw, 8px);
-    background: white;
-    border: 1px solid #d1d5db;
+    background: var(--scd-card);
+    border: 1px solid var(--scd-input-border);
     border-radius: clamp(4px, 0.42vw, 8px);
     padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
     cursor: pointer;
@@ -691,18 +709,18 @@ body.dashboard-page {
 }
 
 .date-range-picker:hover {
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .date-range-picker i {
-    color: #3b82f6;
+    color: var(--scd-primary);
     font-size: clamp(9px, 0.82vw, 15px);
     margin: 0 clamp(2px, 0.32vw, 6px);
 }
 
 .date-range-picker span {
-    color: #374151;
+    color: var(--scd-foreground);
     font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 500;
 }
@@ -712,8 +730,8 @@ body.dashboard-page {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: white;
-    border: 1px solid #d1d5db;
+    background: var(--scd-card);
+    border: 1px solid var(--scd-input-border);
     border-radius: clamp(4px, 0.42vw, 8px);
     padding: clamp(2px, 0.31vw, 6px) clamp(0px, 0.21vw, 4px);
     gap: 0px;
@@ -723,7 +741,7 @@ body.dashboard-page {
 }
 
 .enhanced-date-picker:focus-within {
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -747,7 +765,7 @@ body.dashboard-page {
     background: transparent;
     border: 1px solid transparent;
     font-size: clamp(9px, 0.82vw, 15px);
-    color: #374151;
+    color: var(--scd-foreground);
     font-family: 'Amaranth', sans-serif;
 }
 
@@ -757,9 +775,9 @@ body.dashboard-page {
 }
 
 .date-part.active {
-    background-color: #3b82f6;
+    background-color: var(--scd-primary);
     color: white;
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
 }
 
 .date-separator {
@@ -776,8 +794,8 @@ body.dashboard-page {
     top: 120%;
     left: 0;
     right: 0;
-    background: white;
-    border: 1px solid #d1d5db;
+    background: var(--scd-card);
+    border: 1px solid var(--scd-input-border);
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
     z-index: 1000;
@@ -866,7 +884,7 @@ body.dashboard-page {
     border-radius: clamp(4px, 0.31vw, 6px);
     transition: all 0.2s;
     font-size: clamp(9px, 0.82vw, 15px);
-    color: #374151;
+    color: var(--scd-foreground);
     background: transparent;
     border: 1px solid transparent;
     font-family: 'Amaranth', sans-serif;
@@ -878,15 +896,15 @@ body.dashboard-page {
 }
 
 .date-option.selected {
-    background-color: #3b82f6;
+    background-color: var(--scd-primary);
     color: white;
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
 }
 
 .date-option.today.selected {
-    background-color: #3b82f6;
+    background-color: var(--scd-primary);
     color: white;
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
 }
 
 .day-header {
@@ -931,8 +949,8 @@ body.dashboard-page {
     position: absolute;
     top: 100%;
     left: 0;
-    background: white;
-    border: 2px solid #3b82f6;
+    background: var(--scd-card);
+    border: 2px solid var(--scd-primary);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
     z-index: 1000;
@@ -950,7 +968,7 @@ body.dashboard-page {
     padding: clamp(6px, 0.52vw, 10px) clamp(10px, 1.04vw, 20px);
     border: none;
     background: transparent;
-    color: #374151;
+    color: var(--scd-foreground);
     cursor: pointer;
     font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 600;
@@ -997,12 +1015,12 @@ body.dashboard-page {
 }
 
 .btn-secondary {
-    background-color: #3b82f6;
-    color: white;
+    background-color: var(--scd-primary);
+    color: var(--scd-card);
 }
 
 .btn-secondary:hover {
-    background-color: #2563eb;
+    background-color: var(--scd-primary-strong);
 }
 
 .form-label {
@@ -1027,8 +1045,8 @@ body.dashboard-page {
 /* 日历弹窗样式 */
 .calendar-popup {
     position: fixed;
-    background: white;
-    border: 1px solid #d1d5db;
+    background: var(--scd-card);
+    border: 1px solid var(--scd-input-border);
     border-radius: 8px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
     z-index: 99999;
@@ -1060,7 +1078,7 @@ body.dashboard-page {
 
 .calendar-nav-btn:hover {
     background-color: #f3f4f6;
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
 }
 
 .calendar-nav-btn i {
@@ -1075,25 +1093,25 @@ body.dashboard-page {
 }
 
 .calendar-month-year select {
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--scd-input-border);
     border-radius: 4px;
     padding: clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
     font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 600;
     color: #000000ff;
-    background: white;
+    background: var(--scd-card);
     cursor: pointer;
     transition: all 0.2s;
     font-family: 'Amaranth', sans-serif;
 }
 
 .calendar-month-year select:hover {
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
 }
 
 .calendar-month-year select:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
@@ -1142,12 +1160,12 @@ body.dashboard-page {
 }
 
 .calendar-day.today {
-    border-color: #3b82f6;
+    border-color: var(--scd-primary);
     font-weight: 600;
 }
 
 .calendar-day.selected {
-    background-color: #3b82f6;
+    background-color: var(--scd-primary);
     color: white;
     font-weight: 600;
 }
@@ -1159,13 +1177,13 @@ body.dashboard-page {
 }
 
 .calendar-day.start-date {
-    background-color: #3b82f6;
+    background-color: var(--scd-primary);
     color: white;
     border-radius: 6px 0 0 6px;
 }
 
 .calendar-day.end-date {
-    background-color: #3b82f6;
+    background-color: var(--scd-primary);
     color: white;
     border-radius: 0 6px 6px 0;
 }
@@ -1209,10 +1227,10 @@ body.dashboard-page {
     font-weight: bold;
     color: #6b7280;
     padding: clamp(4px, 0.4vw, 6px) clamp(6px, 0.63vw, 12px);
-    background: rgba(255, 255, 255, 1);
+    background: var(--scd-card);
     border-radius: 6px;
     margin-bottom: clamp(4px, 0.5vw, 8px);
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--scd-border);
     font-family: 'Amaranth', sans-serif;
 }
 
