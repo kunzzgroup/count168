@@ -275,7 +275,7 @@ export default function TransactionPaymentPage() {
         />
       </main>
 
-      {/* Same markup as transaction.php — required by js/date-range-picker.js (calendar popup). */}
+      {/* Same popup markup as legacy page, now driven by React-side picker module. */}
       <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
         <div className="calendar-header">
           <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>

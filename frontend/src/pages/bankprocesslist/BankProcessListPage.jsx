@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AccountAddModalSameAsList from "../../components/AccountAddModalSameAsList.jsx";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
+import { ensureMaintenanceDateRangePicker } from "../../utils/maintenanceDateRangePicker.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 
 // Helper imports
@@ -142,9 +143,8 @@ export default function BankProcessListPage() {
   useEffect(() => {
     if (loading || !cssReady || bankDatePickerInitRef.current) return;
     bankDatePickerInitRef.current = true;
-    const script = document.createElement("script");
-    script.src = assetUrl("js/date-range-picker.js");
-    script.onload = () => {
+    ensureMaintenanceDateRangePicker();
+    {
       if (!window.MaintenanceDateRangePicker) return;
       const u = new URL(window.location.href);
       const dfIso = u.searchParams.get("date_from") || "";
@@ -172,9 +172,8 @@ export default function BankProcessListPage() {
           setDateFrom(""); setDateTo("");
         });
       }
-    };
-    document.body.appendChild(script);
-    return () => { if (script.parentNode) script.parentNode.removeChild(script); };
+    }
+    return () => {};
   }, [loading, cssReady]);
 
   useEffect(() => {

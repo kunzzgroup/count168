@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { assetUrl } from "../../../utils/apiUrl.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatDmy, parseYmd } from "../../../utils/dateUtils.js";
 
 function ymdToDmy(ymd) {
@@ -47,19 +47,11 @@ export default function ReportDatePicker({ dateFrom, dateTo, onRangeChange, labe
       });
     };
 
-    if (window?.MaintenanceDateRangePicker?.init) {
-      initPicker();
-      return () => { disposed = true; };
-    }
-
-    const script = document.createElement("script");
-    script.src = assetUrl("js/date-range-picker.js");
-    script.onload = () => initPicker();
-    document.body.appendChild(script);
+    ensureMaintenanceDateRangePicker();
+    initPicker();
 
     return () => {
       disposed = true;
-      if (script.parentNode) script.parentNode.removeChild(script);
     };
   }, [onRangeChange]);
 

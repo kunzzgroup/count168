@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { 
   fetchCompanyPermissions, 
@@ -42,7 +43,6 @@ export default function PaymentMaintenancePage() {
   }, [today]);
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
-  const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
   const [cssReady, setCssReady] = useState(false);
 
   // -- Data State --
@@ -151,21 +151,7 @@ export default function PaymentMaintenancePage() {
       if (!cancelled) setCssReady(true);
     });
 
-    const setupDatePicker = async () => {
-      await new Promise((resolve, reject) => {
-        const src = assetUrl("js/date-range-picker.js");
-        const existing = document.querySelector(`script[src="${src}"]`);
-        if (existing) return resolve();
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = false;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Failed to load date-range-picker.js"));
-        document.body.appendChild(script);
-      });
-      setDatePickerScriptReady(true);
-    };
-    setupDatePicker().catch(() => null);
+    ensureMaintenanceDateRangePicker();
 
     return () => {
       cancelled = true;
@@ -189,7 +175,7 @@ export default function PaymentMaintenancePage() {
   }, []);
 
   useEffect(() => {
-    if (!datePickerScriptReady || bootLoading || !me) return;
+    if (bootLoading || !me) return;
     if (!document.getElementById("date-range-picker")) return;
     if (!window?.MaintenanceDateRangePicker?.init) return;
 
@@ -205,7 +191,7 @@ export default function PaymentMaintenancePage() {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [datePickerScriptReady, bootLoading, me]);
+  }, [bootLoading, me]);
 
   // Handle sidebar company switch
   useEffect(() => {

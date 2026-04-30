@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import flatpickr from "flatpickr";
 import { assetUrl } from "../../../utils/apiUrl.js";
-import { injectStylesheet, loadTxScriptOnce, parseDmyToDate } from "../transactionPaymentPageUtils.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
+import { injectStylesheet, parseDmyToDate } from "../transactionPaymentPageUtils.js";
 
 export function useTransactionDateRange({
   loading,
@@ -42,11 +43,7 @@ export function useTransactionDateRange({
     (async () => {
       await injectStylesheet(assetUrl("css/date-range-picker.css"));
       if (cancelled) return;
-      try {
-        await loadTxScriptOnce(assetUrl("js/date-range-picker.js"), "date-range-picker.js");
-      } catch {
-        return;
-      }
+      ensureMaintenanceDateRangePicker();
       if (cancelled || txDateRangePickerReadyRef.current) return;
       if (!window.MaintenanceDateRangePicker?.init) return;
       if (!document.getElementById("calendar-popup")) return;

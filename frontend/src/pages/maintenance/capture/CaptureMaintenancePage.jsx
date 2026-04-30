@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatYmd } from "../../../utils/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { 
@@ -41,7 +42,6 @@ export default function CaptureMaintenancePage() {
   }, [today]);
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
-  const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -122,22 +122,7 @@ export default function CaptureMaintenancePage() {
 
     links.forEach(ensureStylesheetLast);
 
-    const setupDatePicker = async () => {
-      await new Promise((resolve, reject) => {
-        const src = assetUrl("js/date-range-picker.js");
-        const existing = document.querySelector(`script[src="${src}"]`);
-        if (existing) return resolve();
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = false;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Failed to load date-range-picker.js"));
-        document.body.appendChild(script);
-      });
-      setDatePickerScriptReady(true);
-    };
-
-    setupDatePicker().catch(() => null);
+    ensureMaintenanceDateRangePicker();
 
     return () => {
       originalStyles.forEach((item) => {
@@ -160,7 +145,7 @@ export default function CaptureMaintenancePage() {
   }, []);
 
   useEffect(() => {
-    if (!datePickerScriptReady || bootLoading || !me) return;
+    if (bootLoading || !me) return;
     if (!document.getElementById("date-range-picker")) return;
     if (!window?.MaintenanceDateRangePicker?.init) return;
 
@@ -176,7 +161,7 @@ export default function CaptureMaintenancePage() {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [datePickerScriptReady, bootLoading, me]);
+  }, [bootLoading, me]);
 
   // -- Boot Logic --
   useEffect(() => {

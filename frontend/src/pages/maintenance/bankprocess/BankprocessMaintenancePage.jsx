@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
@@ -13,21 +14,6 @@ import {
   searchBankprocessData,
   updateSessionCompany,
 } from "./bankprocessMaintenanceLogic.js";
-
-function loadScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    const safe = src.replace(/"/g, "");
-    const existing = document.querySelector(`script[data-bpm-script="${safe}"]`);
-    if (existing) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.dataset.bpmScript = safe;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.body.appendChild(s);
-  });
-}
 
 function injectStylesheet(href) {
   return new Promise((resolve) => {
@@ -127,7 +113,7 @@ export default function BankprocessMaintenancePage() {
         assetUrl("css/date-range-picker.css"),
       ];
       await Promise.all(links.map((href) => injectStylesheet(href).catch(() => null)));
-      await loadScriptOnce(assetUrl("js/date-range-picker.js"));
+      ensureMaintenanceDateRangePicker();
       setDatePickerScriptReady(true);
     };
 
