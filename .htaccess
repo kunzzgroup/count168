@@ -27,6 +27,9 @@ php_value memory_limit 256M
 
 RewriteEngine On
 
+# Root -> SPA login
+RewriteRule ^$ /login [R=302,L,NC]
+
 # Legacy PHP URLs -> clean URLs
 RewriteRule ^index\.php$ /login [R=302,L,NC]
 RewriteRule ^dashboard\.php$ /dashboard [R=302,L,NC]
@@ -55,6 +58,7 @@ RewriteRule ^formula_maintenance$ /formula-maintenance [R=302,L,NC]
 RewriteRule ^bankprocess_maintenance$ /bankprocess-maintenance [R=302,L,NC]
 RewriteRule ^payment_maintenance$ /payment-maintenance [R=302,L,NC]
 RewriteRule ^owner_secondary_password\.php$ /owner-secondary-password [R=302,L,NC]
+RewriteRule ^user_secondary_password\.php$ /user-secondary-password [R=302,L,NC]
 RewriteRule ^reset-password\.php$ /reset-password [R=302,L,NC]
 RewriteRule ^api/users/user_secondary_password\.php$ /user-secondary-password [R=302,L,NC]
 RewriteRule ^member\.php$ /member [R=302,L,NC]

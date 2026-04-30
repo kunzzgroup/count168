@@ -3,7 +3,6 @@
  * Current session user (SPA bootstrap). Read-only; releases session lock quickly.
  */
 session_start();
-session_write_close();
 header('Content-Type: application/json; charset=utf-8');
 
 $pdo = null;
@@ -15,7 +14,48 @@ try {
     error_log('current_user_api config load failed: ' . $e->getMessage());
 }
 
+if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && $pdo instanceof PDO) {
+    try {
+        $rememberToken = (string) $_COOKIE['remember_token'];
+        $stmt = $pdo->prepare("SELECT * FROM user WHERE remember_token = ? AND remember_token_expires > NOW() AND status = 'active'");
+        $stmt->execute([$rememberToken]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            $_SESSION['user_id'] = (int) $user['id'];
+            $_SESSION['login_id'] = (string) ($user['login_id'] ?? '');
+            $_SESSION['name'] = (string) ($user['name'] ?? '');
+            $_SESSION['role'] = (string) ($user['role'] ?? '');
+            $_SESSION['user_type'] = 'user';
+
+            $companyStmt = $pdo->prepare("
+                SELECT c.id, c.company_id
+                FROM company c
+                INNER JOIN user_company_map ucm ON c.id = ucm.company_id
+                WHERE ucm.user_id = ?
+                ORDER BY c.company_id ASC
+                LIMIT 1
+            ");
+            $companyStmt->execute([(int) $user['id']]);
+            $company = $companyStmt->fetch(PDO::FETCH_ASSOC);
+
+            $companyId = $company['id'] ?? ($user['company_id'] ?? null);
+            $_SESSION['company_id'] = $companyId ? (int) $companyId : null;
+            $_SESSION['company_code'] = isset($company['company_id']) ? (string) $company['company_id'] : (string) ($_SESSION['company_code'] ?? '');
+            $_SESSION['last_activity'] = time();
+
+            $updateStmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
+            $updateStmt->execute([(int) $user['id']]);
+        } else {
+            setcookie('remember_token', '', time() - 3600, "/", "", false, true);
+        }
+    } catch (Throwable $e) {
+        error_log('current_user_api remember token failed: ' . $e->getMessage());
+    }
+}
+
 if (!isset($_SESSION['user_id'])) {
+    session_write_close();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Not logged in', 'data' => null], JSON_UNESCAPED_UNICODE);
     exit;
@@ -28,6 +68,7 @@ if ($userType === '') {
 
 $needsOwnerSecondary = ($userType === 'owner')
     && (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true);
+$needsUserSecondary = false;
 
 $companyId = isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : null;
 $expirationHint = 'No expiration date';
@@ -54,6 +95,14 @@ if ($companyId && $pdo instanceof PDO) {
             $isCurrentCompanyC168 = ((int) $stmtC168->fetchColumn()) > 0;
         }
         $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($_SESSION['role'] ?? '')));
+
+        if ($userType === 'user' && $isCurrentCompanyC168) {
+            $stmtUserSecondary = $pdo->prepare("SELECT secondary_password FROM user WHERE id = ?");
+            $stmtUserSecondary->execute([$_SESSION['user_id']]);
+            $secondaryPassword = $stmtUserSecondary->fetchColumn();
+            $needsUserSecondary = !empty($secondaryPassword)
+                && (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true);
+        }
 
         $stmtCompanyPerm = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
         $stmtCompanyPerm->execute([$companyId]);
@@ -106,6 +155,8 @@ if ($companyId && $pdo instanceof PDO) {
     }
 }
 
+session_write_close();
+
 echo json_encode([
     'success' => true,
     'message' => '',
@@ -122,6 +173,7 @@ echo json_encode([
         'company_has_bank' => $companyHasBank,
         'company_id' => $companyId ?: null,
         'needs_owner_secondary' => $needsOwnerSecondary,
+        'needs_user_secondary' => $needsUserSecondary,
         'expiration_hint' => $expirationHint,
         'expiration_status' => $expirationStatus,
     ],

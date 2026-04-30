@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -51,6 +51,7 @@ function AlertModal({ open, title, message, onClose }) {
 }
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roleFromUrl = searchParams.get("role") === "member" ? "member" : "admin";
 
@@ -68,6 +69,41 @@ export default function LoginPage() {
   useEffect(() => {
     setRole(roleFromUrl);
   }, [roleFromUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/session/current_user_api.php", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (cancelled || !res.ok || !json?.success || !json?.data) return;
+
+        const user = json.data;
+        const userType = String(user.user_type || "").toLowerCase();
+        if (userType === "member") {
+          navigate("/member", { replace: true });
+          return;
+        }
+        if (user.needs_owner_secondary) {
+          navigate("/owner-secondary-password", { replace: true });
+          return;
+        }
+        if (user.needs_user_secondary) {
+          navigate("/user-secondary-password", { replace: true });
+          return;
+        }
+        navigate("/dashboard", { replace: true });
+      } catch {
+        // stay on login page when not authenticated
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const showNotice = useCallback((message, title = "Notice") => {
     setModal({ open: true, title, message: message || "Unknown error" });
