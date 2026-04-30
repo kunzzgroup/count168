@@ -38,7 +38,7 @@ body.bg::before {
 
 .sc-login-card {
   background: var(--sc-login-surface);
-  border-radius: 0 0 var(--sc-login-radius-xl) var(--sc-login-radius-xl);
+  border-radius: var(--sc-login-radius-xl);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   backdrop-filter: blur(10px);
@@ -47,7 +47,7 @@ body.bg::before {
 .sc-login-role-tabs {
   display: flex;
   background: linear-gradient(135deg, var(--sc-login-bg-start), var(--sc-login-bg-end));
-  border-radius: 0;
+  border-radius: var(--sc-login-radius-xl) var(--sc-login-radius-xl) 0 0;
   overflow: hidden;
 }
 
