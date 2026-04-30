@@ -38,7 +38,7 @@ body.bg::before {
 
 .sc-login-lang-switch-wrap {
   display: flex;
-  justify-content: center;
+  justify-items: center;
   margin-top: 12px;
 }
 
