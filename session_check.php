@@ -105,12 +105,12 @@ if (isset($_SESSION['user_id'])) {
             if (!headers_sent()) {
                 header('Content-Type: application/json');
             }
-            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => 'index.php']);
+            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => '/login']);
             exit();
         }
         
         // 重定向到登录页
-        header("Location: index.php");
+        header("Location: /login");
         exit();
     }
     
@@ -123,11 +123,11 @@ if (isset($_SESSION['user_id'])) {
                 if (!headers_sent()) {
                     header('Content-Type: application/json');
                 }
-                echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'owner_secondary_password.php']);
+                echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => '/owner-secondary-password']);
                 exit();
             }
             
-            header("Location: owner_secondary_password.php");
+            header("Location: /owner-secondary-password");
             exit();
         }
     }
@@ -169,11 +169,11 @@ if (isset($_SESSION['user_id'])) {
                             if (!headers_sent()) {
                                 header('Content-Type: application/json');
                             }
-                            echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'user_secondary_password.php']);
+                            echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => '/user-secondary-password']);
                             exit();
                         }
                         
-                        header("Location: user_secondary_password.php");
+                        header("Location: /user-secondary-password");
                         exit();
                     }
                 }
@@ -209,10 +209,10 @@ if (isset($_SESSION['user_id'])) {
                         if (!headers_sent()) {
                             header('Content-Type: application/json');
                         }
-                        echo json_encode(['status' => 'error', 'message' => 'Account is inactive.', 'redirect' => 'index.php']);
+                        echo json_encode(['status' => 'error', 'message' => 'Account is inactive.', 'redirect' => '/login']);
                         exit();
                     }
-                    header("Location: index.php");
+                    header("Location: /login");
                     exit();
                 }
             }
@@ -263,12 +263,12 @@ if (isset($_SESSION['user_id'])) {
         if (!headers_sent()) {
             header('Content-Type: application/json');
         }
-        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => 'index.php']);
+        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => '/login']);
         exit();
     }
     
     // 重定向到登录页
-    header("Location: index.php");
+    header("Location: /login");
     exit();
 }
 

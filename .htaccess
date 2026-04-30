@@ -63,6 +63,7 @@ RewriteRule ^user_secondary_password\.php$ /user-secondary-password [R=302,L,NC]
 RewriteRule ^reset-password\.php$ /reset-password [R=302,L,NC]
 RewriteRule ^api/users/user_secondary_password\.php$ /user-secondary-password [R=302,L,NC]
 RewriteRule ^member\.php$ /member [R=302,L,NC]
+RewriteRule ^domainapi\.php$ /api/domain/domain_api.php [L,NC,QSA]
 
 # Clean URLs for pages still rendered by PHP
 RewriteRule ^datacapture$ /frontend/dist/index.html [L,NC,QSA]
