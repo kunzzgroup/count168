@@ -77,6 +77,14 @@ export default function AuthenticatedLayout() {
   }, []);
 
   useEffect(() => {
+    document.body.classList.toggle("lang-zh", lang === "zh");
+    document.body.classList.toggle("lang-en", lang !== "zh");
+    return () => {
+      document.body.classList.remove("lang-zh", "lang-en");
+    };
+  }, [lang]);
+
+  useEffect(() => {
     (async () => {
       try {
         const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
