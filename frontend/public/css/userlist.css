@@ -367,7 +367,7 @@ h1 {
 
 /* Modal content: fills the full modal area */
 .modal-content {
-    background: #f0f4fa;
+    background: linear-gradient(180deg, #eef4ff 0%, #f7faff 100%);
     width: 100%;
     height: 100%;
     display: flex;
@@ -388,9 +388,10 @@ h1 {
 
 .modal-header-bar h2 {
     margin: 0;
-    font-size: clamp(16px, 1.25vw, 24px);
+    font-size: clamp(22px, 1.45vw, 30px);
     font-weight: 700;
     color: #1e293b;
+    letter-spacing: 0.2px;
 }
 
 /* Back button — 原版：白底、淺灰邊 */
@@ -429,7 +430,7 @@ h1 {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    background: #f0f4fa;
+    background: transparent;
     padding: clamp(12px, 1.25vw, 20px);
 }
 
@@ -441,8 +442,9 @@ h1 {
     flex-direction: row;
     align-items: stretch;
     background: #ffffff;
-    border-radius: clamp(12px, 1.2vw, 20px);
-    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+    border-radius: clamp(14px, 1.2vw, 20px);
+    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.1);
+    border: 1px solid rgba(148, 163, 184, 0.25);
     overflow: hidden;
 }
 
@@ -457,7 +459,7 @@ h1 {
     min-height: 0;
     min-width: 0;
     overflow: hidden;
-    padding: clamp(14px, 1.04vw, 22px);
+    padding: clamp(16px, 1.15vw, 24px);
     border-right: 1px solid #e2e8f0;
     background: #ffffff;
 }
@@ -473,7 +475,7 @@ label.user-modal-col-title.acc-proc-label {
     padding: 0 clamp(14px, 1.04vw, 22px) clamp(8px, 0.52vw, 10px);
     color: #0f172a;
     border-bottom: 2px solid #1a237e;
-    font-size: clamp(14px, 1vw, 18px);
+    font-size: clamp(16px, 1.05vw, 20px);
     font-weight: 700;
     flex-shrink: 0;
 }
@@ -554,7 +556,7 @@ label.user-modal-col-title.acc-proc-label {
     display: grid !important;
     /* Keep items readable inside 1/3-width modal columns */
     grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
-    gap: 8px;
+    gap: 10px;
     align-content: start;
     padding: 10px 0;
 }
@@ -567,7 +569,13 @@ label.user-modal-col-title.acc-proc-label {
 .account-item-compact {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    min-height: 34px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 6px 8px;
+    background: #f8fbff;
+    transition: all 0.2s ease;
 }
 
 .account-item-compact--process {
@@ -575,7 +583,7 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .account-label {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -591,7 +599,7 @@ label.user-modal-col-title.acc-proc-label {
 .account-label-desc {
     display: block;
     font-weight: 400;
-    font-size: 11px;
+    font-size: 12px;
     color: #64748b;
 }
 
@@ -610,7 +618,9 @@ label.user-modal-col-title.acc-proc-label {
 .modal-content .user-modal-footer .btn-save,
 .modal-content .user-modal-footer .btn-cancel {
     border-radius: 8px;
-    min-width: clamp(100px, 7.5vw, 130px);
+    min-width: clamp(108px, 7.8vw, 140px);
+    min-height: 36px;
+    font-size: clamp(12px, 0.84vw, 15px);
 }
 
 /* ── Form fields ── */
@@ -623,16 +633,16 @@ label.user-modal-col-title.acc-proc-label {
     margin-bottom: clamp(2px, 0.21vw, 4px);
     font-weight: 600;
     color: #0f172a;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: clamp(12px, 0.8vw, 15px);
 }
 
 .form-group input,
 .form-group select {
     width: 100%;
-    padding: clamp(4px, 0.31vw, 6px) clamp(8px, 0.63vw, 12px);
+    padding: clamp(7px, 0.45vw, 10px) clamp(10px, 0.73vw, 14px);
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: clamp(12px, 0.8vw, 15px);
     box-sizing: border-box;
     transition: all 0.2s;
     background: white;
@@ -666,15 +676,15 @@ label.user-modal-col-title.acc-proc-label {
     margin-bottom: clamp(2px, 0.21vw, 4px);
     font-weight: 600;
     color: #374151;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: clamp(12px, 0.8vw, 15px);
 }
 
 .password-field-wrapper input {
     width: 100%;
-    padding: clamp(4px, 0.31vw, 6px) clamp(8px, 0.63vw, 12px);
+    padding: clamp(7px, 0.45vw, 10px) clamp(10px, 0.73vw, 14px);
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: clamp(12px, 0.8vw, 15px);
     box-sizing: border-box;
     transition: all 0.2s;
     background: white;
@@ -852,15 +862,15 @@ label.user-modal-col-title.acc-proc-label {
     display: flex;
     align-items: center;
     cursor: pointer;
-    font-size: clamp(10px, 0.73vw, 13px);
+    font-size: clamp(12px, 0.8vw, 14px);
     font-weight: 600;
     gap: 0;
 }
 
 .permission-checkbox {
     margin-right: clamp(5px, 0.42vw, 8px);
-    width: clamp(12px, 0.73vw, 14px);
-    height: clamp(12px, 0.73vw, 14px);
+    width: clamp(14px, 0.8vw, 16px);
+    height: clamp(14px, 0.8vw, 16px);
     accent-color: #6366f1;
     flex-shrink: 0;
 }
@@ -874,8 +884,8 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .permission-icon {
-    width: clamp(13px, 0.83vw, 16px);
-    height: clamp(13px, 0.83vw, 16px);
+    width: clamp(14px, 0.9vw, 17px);
+    height: clamp(14px, 0.9vw, 17px);
     color: #6b7280;
     flex-shrink: 0;
 }
