@@ -5,7 +5,7 @@
   --sc-login-text: #333333;
   --sc-login-muted: #666666;
   --sc-login-danger: #dc3545;
-  --sc-login-radius-xl: 20px;
+  --sc-login-radius-xl: 28px;
   --sc-login-radius-pill: 999px;
 }
 
@@ -38,7 +38,7 @@ body.bg::before {
 
 .sc-login-card {
   background: var(--sc-login-surface);
-  border-radius: var(--sc-login-radius-xl);
+  border-radius: var(--sc-login-radius-xl) !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   backdrop-filter: blur(10px);
@@ -47,7 +47,7 @@ body.bg::before {
 .sc-login-role-tabs {
   display: flex;
   background: linear-gradient(135deg, var(--sc-login-bg-start), var(--sc-login-bg-end));
-  border-radius: var(--sc-login-radius-xl) var(--sc-login-radius-xl) 0 0;
+  border-radius: var(--sc-login-radius-xl) var(--sc-login-radius-xl) 0 0 !important;
   overflow: hidden;
 }
 
