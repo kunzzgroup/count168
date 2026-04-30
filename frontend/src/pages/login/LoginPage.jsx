@@ -255,25 +255,6 @@ export default function LoginPage() {
   return (
     <>
       <div className="sc-login-shell">
-        <div className="sc-login-lang-switch-wrap">
-          <button
-            type="button"
-            className={`sc-login-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
-            onClick={() => setLang((prev) => (prev === "en" ? "zh" : "en"))}
-            aria-label="Switch language"
-          >
-            <span className="sc-login-lang-option">
-              <i className="fas fa-globe-americas" aria-hidden="true" />
-              EN
-            </span>
-            <span className="sc-login-lang-option">
-              <i className="fas fa-globe-asia" aria-hidden="true" />
-              中
-            </span>
-            <span className="sc-login-lang-thumb" />
-          </button>
-        </div>
-
         {maintenanceVisible && (
           <div className="sc-login-maintenance-wrapper">
             <div className="sc-login-maintenance-track">
@@ -363,6 +344,19 @@ export default function LoginPage() {
               <button type="submit" className="sc-login-btn sc-login-submit-btn" disabled={submitting}>
                 <span>{submitting ? i18n.loggingIn : i18n.login}</span>
               </button>
+
+              <div className="sc-login-lang-switch-wrap">
+                <button
+                  type="button"
+                  className={`sc-login-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
+                  onClick={() => setLang((prev) => (prev === "en" ? "zh" : "en"))}
+                  aria-label="Switch language"
+                >
+                  <span className="sc-login-lang-option">EN</span>
+                  <span className="sc-login-lang-option">中</span>
+                  <span className="sc-login-lang-thumb" />
+                </button>
+              </div>
             </form>
           </div>
         </div>

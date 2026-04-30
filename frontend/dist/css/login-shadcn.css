@@ -38,9 +38,8 @@ body.bg::before {
 
 .sc-login-lang-switch-wrap {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 10px;
-  padding-right: 2px;
+  justify-content: center;
+  margin-top: 10px;
 }
 
 .sc-login-lang-switch {
@@ -70,16 +69,10 @@ body.bg::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.2px;
   color: #1e293b;
-}
-
-.sc-login-lang-option i {
-  font-size: 11px;
-  opacity: 0.95;
 }
 
 .sc-login-lang-thumb {
