@@ -145,11 +145,6 @@ body.bg::before {
   --sc-lang-thumb-x: 100%;
 }
 
-.sc-login-lang-switch.is-en .sc-login-lang-thumb,
-.sc-login-lang-switch.is-zh .sc-login-lang-thumb {
-  animation: sc-login-lang-thumb-pop 0.28s ease;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sc-login-lang-switch,
   .sc-login-lang-option,
@@ -490,17 +485,5 @@ body.bg::before {
   }
   100% {
     transform: translateX(-50%);
-  }
-}
-
-@keyframes sc-login-lang-thumb-pop {
-  0% {
-    transform: translateX(var(--thumb-x, 0)) scale(1);
-  }
-  55% {
-    transform: translateX(var(--thumb-x, 0)) scale(1.04);
-  }
-  100% {
-    transform: translateX(var(--thumb-x, 0)) scale(1);
   }
 }

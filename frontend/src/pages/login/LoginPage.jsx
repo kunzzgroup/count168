@@ -67,6 +67,8 @@ export default function LoginPage() {
   const [lang, setLang] = useState(() => localStorage.getItem("login_lang") || "en");
 
   const verifyTimeoutRef = useRef(null);
+  const langThumbRef = useRef(null);
+  const prevLangRef = useRef(lang);
   const i18n = useMemo(() => LOGIN_I18N[lang] || LOGIN_I18N.en, [lang]);
 
   useEffect(() => {
@@ -75,6 +77,37 @@ export default function LoginPage() {
 
   useEffect(() => {
     localStorage.setItem("login_lang", lang);
+  }, [lang]);
+
+  useEffect(() => {
+    const thumb = langThumbRef.current;
+    const prevLang = prevLangRef.current;
+    if (!thumb || prevLang === lang) return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      prevLangRef.current = lang;
+      return;
+    }
+
+    const fromX = prevLang === "zh" ? "100%" : "0%";
+    const toX = lang === "zh" ? "100%" : "0%";
+    const overshootX = lang === "zh" ? "109%" : "-9%";
+
+    thumb.animate(
+      [
+        { transform: `translateX(${fromX}) scale(1)` },
+        { transform: `translateX(${overshootX}) scale(1.035)`, offset: 0.62 },
+        { transform: `translateX(${toX}) scale(1)` },
+      ],
+      {
+        duration: 520,
+        easing: "cubic-bezier(0.18, 0.9, 0.26, 1.15)",
+        fill: "none",
+      }
+    );
+
+    prevLangRef.current = lang;
   }, [lang]);
 
   useEffect(() => {
@@ -351,7 +384,7 @@ export default function LoginPage() {
                   role="group"
                   aria-label="Switch language"
                 >
-                  <span className="sc-login-lang-thumb" />
+                  <span ref={langThumbRef} className="sc-login-lang-thumb" />
                   <button
                     type="button"
                     className={`sc-login-lang-option${lang === "en" ? " active" : ""}`}
