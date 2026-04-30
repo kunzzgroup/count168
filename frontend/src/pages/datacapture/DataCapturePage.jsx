@@ -682,13 +682,6 @@ export default function DataCapturePage() {
     }
   }, []);
 
-  if (forbidden) {
-    return <Navigate to="/process-list" replace />;
-  }
-  if (loading || companyId == null || !filterSnapshot) {
-    return null;
-  }
-
   const fs = filterSnapshot;
   const shouldShowTable = dataCaptureType !== "2.Format" || formatGridReady;
   const shouldShowFormatPasteArea = dataCaptureType === "2.Format" && !formatGridReady;
@@ -764,6 +757,13 @@ export default function DataCapturePage() {
     if (!node) return;
     window.setTimeout(() => node.focus(), 80);
   }, [shouldShowFormatPasteArea]);
+
+  if (forbidden) {
+    return <Navigate to="/process-list" replace />;
+  }
+  if (loading || companyId == null || !filterSnapshot) {
+    return null;
+  }
 
   return (
     <div className="container">
