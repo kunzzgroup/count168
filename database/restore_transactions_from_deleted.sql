@@ -12,13 +12,17 @@
 -- ==========================================================
 -- 0) Parameters (edit these first)
 -- ==========================================================
-SET @company_id = 1;
-SET @deleted_from = '2026-01-01 00:00:00';
-SET @deleted_to   = '2026-12-31 23:59:59';
+SET @company_id = 139;
+SET @deleted_from = '2026-04-01 00:00:00';
+SET @deleted_to   = '2026-04-30 23:59:59';
 
--- If you only want specific deleted transaction_id(s), uncomment and edit:
--- CREATE TEMPORARY TABLE tmp_target_ids (old_transaction_id INT PRIMARY KEY);
--- INSERT INTO tmp_target_ids (old_transaction_id) VALUES (12345), (12346);
+-- Company 139 safe-mode: restore only the 13 confirmed deleted ids.
+-- You can comment this block out if you later want to restore by date range only.
+CREATE TEMPORARY TABLE tmp_target_ids (old_transaction_id INT PRIMARY KEY);
+INSERT INTO tmp_target_ids (old_transaction_id) VALUES
+  (7769), (7770), (7768), (7757), (7756),
+  (6084), (6883), (6082), (6881),
+  (5667), (5666), (4378), (4293);
 
 -- ==========================================================
 -- 1) Build candidate set to restore
@@ -46,11 +50,11 @@ FROM transactions_deleted td
 WHERE td.company_id = @company_id
   AND td.deleted_at BETWEEN @deleted_from AND @deleted_to;
 
--- Optional filter by manual ID list:
--- DELETE rc
--- FROM tmp_restore_candidates rc
--- LEFT JOIN tmp_target_ids t ON t.old_transaction_id = rc.old_transaction_id
--- WHERE t.old_transaction_id IS NULL;
+-- Filter by manual ID list (enabled by default for company 139 safe-mode).
+DELETE rc
+FROM tmp_restore_candidates rc
+LEFT JOIN tmp_target_ids t ON t.old_transaction_id = rc.old_transaction_id
+WHERE t.old_transaction_id IS NULL;
 
 -- Deduplicate: if same old_transaction_id appears multiple times, keep latest deleted_log_id.
 DROP TEMPORARY TABLE IF EXISTS tmp_restore_candidates_latest;
