@@ -102,8 +102,10 @@ export default function MemberPage() {
   const [companyId, setCompanyId] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [showQuickSelect, setShowQuickSelect] = useState(false);
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const avatarContainerRef = useRef(null);
+  const quickSelectRef = useRef(null);
   const dateRangeInputRef = useRef(null);
   const flatpickrRef = useRef(null);
 
@@ -203,6 +205,9 @@ export default function MemberPage() {
     const onClickOutside = (e) => {
       if (avatarContainerRef.current && !avatarContainerRef.current.contains(e.target)) {
         setShowAvatarOptions(false);
+      }
+      if (quickSelectRef.current && !quickSelectRef.current.contains(e.target)) {
+        setShowQuickSelect(false);
       }
     };
     document.addEventListener("click", onClickOutside);
@@ -388,6 +393,7 @@ export default function MemberPage() {
     setDateFrom(dmy(start));
     setDateTo(dmy(end));
     if (flatpickrRef.current) flatpickrRef.current.setDate([start, end], true);
+    setShowQuickSelect(false);
   };
 
   const toggleNotifications = async () => {
@@ -547,13 +553,17 @@ export default function MemberPage() {
                   <input ref={dateRangeInputRef} type="text" id="capture_date_range" className="transaction-input transaction-date-range-input" defaultValue={`${dateFrom} - ${dateTo}`} placeholder="Select date range" readOnly style={{ cursor: "pointer" }} />
                 </div>
                 <div className="transaction-quick-select-wrap">
-                  <div className="dropdown transaction-quick-select-dropdown">
-                    <button type="button" className="btn btn-secondary dropdown-toggle transaction-quick-select-btn">
+                  <div className="dropdown transaction-quick-select-dropdown" ref={quickSelectRef}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary dropdown-toggle transaction-quick-select-btn"
+                      onClick={() => setShowQuickSelect((prev) => !prev)}
+                    >
                       <i className="fas fa-calendar-alt" />
                       <span id="quick-select-text">Period</span>
                       <i className="fas fa-chevron-down" />
                     </button>
-                    <div className="dropdown-menu" id="quick-select-dropdown">
+                    <div className={`dropdown-menu${showQuickSelect ? " show" : ""}`} id="quick-select-dropdown">
                       <button type="button" className="dropdown-item" onClick={() => applyQuickRange("today")}>Today</button>
                       <button type="button" className="dropdown-item" onClick={() => applyQuickRange("yesterday")}>Yesterday</button>
                       <button type="button" className="dropdown-item" onClick={() => applyQuickRange("thisWeek")}>This Week</button>
