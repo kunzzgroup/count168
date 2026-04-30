@@ -330,6 +330,7 @@ export default function DataCapturePage() {
       if (cancelled) return;
       try {
         await window.__initDataCapturePage?.();
+        window.updateSubmitButtonState?.();
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error(err);
@@ -369,6 +370,16 @@ export default function DataCapturePage() {
   useEffect(() => {
     setDescriptionText(selectedDescriptionsState.join(", "));
   }, [selectedDescriptionsState]);
+
+  /** legacy datacapture.js 的 updateSubmitButtonState 只认 window.selectedDescriptions，须与 React 状态同步 */
+  useEffect(() => {
+    window.selectedDescriptions = Array.isArray(selectedDescriptionsState) ? [...selectedDescriptionsState] : [];
+    window.updateSubmitButtonState?.();
+  }, [selectedDescriptionsState]);
+
+  useLayoutEffect(() => {
+    window.updateSubmitButtonState?.();
+  }, [selectedProcessId]);
 
   const notify = useCallback((message, type = "success") => {
     const container = document.getElementById("processNotificationContainer");

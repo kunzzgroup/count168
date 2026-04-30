@@ -24940,6 +24940,7 @@ window.switchDataCaptureCompany = switchDataCaptureCompany;
 window.switchDataCapturePermission = switchPermission;
 window.__syncDataCaptureProcessMap = syncProcessDataMapFromReact;
 window.__initDataCapturePage = initializeDataCapturePage;
+window.updateSubmitButtonState = updateSubmitButtonState;
 window.__resetDataCapturePageInitPromise = function () {
     __dataCapturePageInitPromise = null;
 };
