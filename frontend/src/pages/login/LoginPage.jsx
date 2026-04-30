@@ -92,21 +92,22 @@ export default function LoginPage() {
 
     const fromX = prevLang === "zh" ? "100%" : "0%";
     const toX = lang === "zh" ? "100%" : "0%";
-    const overshootX = lang === "zh" ? "118%" : "-18%";
-    const reboundX1 = lang === "zh" ? "95%" : "5%";
-    const reboundX2 = lang === "zh" ? "102.5%" : "-2.5%";
+    const overshootX = lang === "zh" ? "120%" : "-20%";
+    const reboundX1 = lang === "zh" ? "94%" : "6%";
+    const reboundX2 = lang === "zh" ? "103.5%" : "-3.5%";
 
     thumb.animate(
       [
-        { transform: `translateX(${fromX}) scale(1)` },
-        { transform: `translateX(${overshootX}) scale(1.075)`, offset: 0.48 },
-        { transform: `translateX(${reboundX1}) scale(0.98)`, offset: 0.67 },
-        { transform: `translateX(${reboundX2}) scale(1.015)`, offset: 0.84 },
-        { transform: `translateX(${toX}) scale(1)` },
+        { transform: `translateX(${fromX}) scaleX(1) scaleY(1)` },
+        { transform: `translateX(${overshootX}) scaleX(1.17) scaleY(0.84)`, offset: 0.43 },
+        { transform: `translateX(${reboundX1}) scaleX(0.9) scaleY(1.1)`, offset: 0.62 },
+        { transform: `translateX(${reboundX2}) scaleX(1.07) scaleY(0.93)`, offset: 0.8 },
+        { transform: `translateX(${toX}) scaleX(0.97) scaleY(1.03)`, offset: 0.92 },
+        { transform: `translateX(${toX}) scaleX(1) scaleY(1)` },
       ],
       {
-        duration: 1000,
-        easing: "cubic-bezier(0.12, 0.9, 0.2, 1.15)",
+        duration: 1350,
+        easing: "cubic-bezier(0.1, 0.86, 0.18, 1.18)",
         fill: "none",
       }
     );
