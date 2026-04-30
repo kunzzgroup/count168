@@ -311,6 +311,11 @@ body.bg::before {
   transform: scale(1.1);
 }
 
+/* Temporarily hide Telegram floating shortcut on login page. */
+.sc-login-telegram-icon {
+  display: none !important;
+}
+
 .sc-login-modal-overlay {
   position: fixed;
   inset: 0;
