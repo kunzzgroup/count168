@@ -36,6 +36,7 @@ export default function DataCapturePage() {
   const [remark, setRemark] = useState("");
   const [currencyId, setCurrencyId] = useState("");
   const [dataCaptureType, setDataCaptureType] = useState("1.Text");
+  const [formatGridReady, setFormatGridReady] = useState(false);
   const [tableRevision, setTableRevision] = useState(0);
   /** Frozen after first load so React re-renders do not clobber vanilla `display` on company pills */
   const [filterSnapshot, setFilterSnapshot] = useState(null);
@@ -114,11 +115,27 @@ export default function DataCapturePage() {
   useLayoutEffect(() => {
     window.__DC_REACT_SUBMIT_BUTTON__ = true;
     window.__DC_REACT_UPPERCASE__ = true;
+    window.__DC_REACT_CAPTURE_TYPE__ = true;
+    window.__DC_REACT_FORMAT_PASTE__ = true;
+    window.__DC_REACT_FORMAT_VISIBILITY__ = true;
+    window.__DC_REACT_SET_FORMAT_GRID_READY__ = (ready) => {
+      setFormatGridReady(!!ready);
+    };
     return () => {
       delete window.__DC_REACT_SUBMIT_BUTTON__;
       delete window.__DC_REACT_UPPERCASE__;
+      delete window.__DC_REACT_CAPTURE_TYPE__;
+      delete window.__DC_REACT_FORMAT_PASTE__;
+      delete window.__DC_REACT_FORMAT_VISIBILITY__;
+      delete window.__DC_REACT_SET_FORMAT_GRID_READY__;
+      delete window.__dcSetCaptureType;
     };
   }, []);
+
+  /** Let legacy parser/format engine follow React-controlled capture type. */
+  useEffect(() => {
+    window.__dcSetCaptureType?.(dataCaptureType);
+  }, [dataCaptureType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -645,6 +662,7 @@ export default function DataCapturePage() {
     setRemark("");
     setSelectedDescriptionsState([]);
     setCurrencyId("");
+    setFormatGridReady(false);
     setSelectedProcessId("");
     setProcessSearch("");
     setProcessDropdownOpen(false);
@@ -664,6 +682,20 @@ export default function DataCapturePage() {
   }
 
   const fs = filterSnapshot;
+  const shouldShowTable = dataCaptureType !== "2.Format" || formatGridReady;
+  const shouldShowFormatPasteArea = dataCaptureType === "2.Format" && !formatGridReady;
+  const handleFormatPasteAreaPaste = useCallback((e) => {
+    if (dataCaptureType !== "2.Format") return;
+    const handled = window.__dcHandleFormatPasteFromClipboard?.(e.clipboardData || window.clipboardData, "");
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    window.setTimeout(() => {
+      window.__dcTryParseFormatPasteAreaFromDom?.();
+    }, 0);
+  }, [dataCaptureType]);
 
   return (
     <div className="container">
@@ -939,7 +971,7 @@ export default function DataCapturePage() {
               Reset
             </button>
           </div>
-          <table className="excel-table" id="dataTable">
+          <table className="excel-table" id="dataTable" style={{ display: shouldShowTable ? "table" : "none" }}>
             <thead id="tableHeader">
               <tr>
                 <th />
@@ -953,8 +985,15 @@ export default function DataCapturePage() {
           <div
             id="pasteAreaFormat"
             className="paste-area-format"
-            style={{ display: "none" }}
+            style={{ display: shouldShowFormatPasteArea ? "block" : "none" }}
             contentEditable
+            onPaste={handleFormatPasteAreaPaste}
+            onInput={() => {
+              if (dataCaptureType !== "2.Format") return;
+              window.setTimeout(() => {
+                window.__dcTryParseFormatPasteAreaFromDom?.();
+              }, 0);
+            }}
             data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
             suppressContentEditableWarning
           />

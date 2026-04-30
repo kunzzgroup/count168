@@ -22223,6 +22223,12 @@ document.getElementById('addDescriptionForm').addEventListener('submit', async f
 // 2.Format：是否已经成功解析并填充到网格表
 let isFormatGridReady = false;
 
+function notifyReactFormatGridReady() {
+    if (typeof window !== 'undefined' && typeof window.__DC_REACT_SET_FORMAT_GRID_READY__ === 'function') {
+        window.__DC_REACT_SET_FORMAT_GRID_READY__(!!isFormatGridReady, currentDataCaptureType || '1.Text');
+    }
+}
+
 // Clear 2.Format mode styles from table cells
 function clearFormatStyles() {
     console.log('Format: Clearing styles from table cells');
@@ -22297,6 +22303,7 @@ function toggleTableDisplayForFormat() {
     const dataTable = document.getElementById('dataTable');
     const tablePreviewFormat = document.getElementById('tablePreviewFormat');
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
+    const reactControlsVisibility = !!window.__DC_REACT_FORMAT_VISIBILITY__;
 
     console.log('Format: toggleTableDisplayForFormat called, isFormatGridReady:', isFormatGridReady, 'currentDataCaptureType:', currentDataCaptureType);
 
@@ -22316,48 +22323,55 @@ function toggleTableDisplayForFormat() {
         // 如果有预览数据（无论是 isFormatGridReady 为 true 还是 localStorage 中有数据），都显示预览
         if (isFormatGridReady || previewHtml) {
             console.log('Format: Showing Excel table, hiding paste area and iframe preview');
-            // 显示Excel表格（像其他选项一样）
-            if (dataTable) {
-                dataTable.style.display = 'table';
-                console.log('Format: dataTable displayed');
-            }
-            // 隐藏粘贴区
-            if (pasteAreaFormat) {
-                pasteAreaFormat.style.display = 'none';
-                console.log('Format: pasteAreaFormat hidden');
-            }
-            // 隐藏iframe预览
-            if (tablePreviewFormat) {
-                tablePreviewFormat.style.display = 'none';
-                console.log('Format: tablePreviewFormat hidden');
+            if (!reactControlsVisibility) {
+                // 显示Excel表格（像其他选项一样）
+                if (dataTable) {
+                    dataTable.style.display = 'table';
+                    console.log('Format: dataTable displayed');
+                }
+                // 隐藏粘贴区
+                if (pasteAreaFormat) {
+                    pasteAreaFormat.style.display = 'none';
+                    console.log('Format: pasteAreaFormat hidden');
+                }
+                // 隐藏iframe预览
+                if (tablePreviewFormat) {
+                    tablePreviewFormat.style.display = 'none';
+                    console.log('Format: tablePreviewFormat hidden');
+                }
             }
         } else {
-            // 如果没有保存的数据，显示粘贴区
-            if (dataTable) dataTable.style.display = 'none';
-            if (pasteAreaFormat) {
-                pasteAreaFormat.style.display = 'block';
-                pasteAreaFormat.innerHTML = '';
-                setTimeout(() => {
-                    pasteAreaFormat.focus();
-                }, 100);
-            }
-            if (tablePreviewFormat) {
-                tablePreviewFormat.style.display = 'none';
-                tablePreviewFormat.innerHTML = '';
+            if (!reactControlsVisibility) {
+                // 如果没有保存的数据，显示粘贴区
+                if (dataTable) dataTable.style.display = 'none';
+                if (pasteAreaFormat) {
+                    pasteAreaFormat.style.display = 'block';
+                    pasteAreaFormat.innerHTML = '';
+                    setTimeout(() => {
+                        pasteAreaFormat.focus();
+                    }, 100);
+                }
+                if (tablePreviewFormat) {
+                    tablePreviewFormat.style.display = 'none';
+                    tablePreviewFormat.innerHTML = '';
+                }
             }
         }
     } else {
-        // 显示表格，隐藏空白粘贴区域
-        if (dataTable) {
-            dataTable.style.display = 'table';
-        }
-        if (pasteAreaFormat) {
-            pasteAreaFormat.style.display = 'none';
-        }
-        if (tablePreviewFormat) {
-            tablePreviewFormat.style.display = 'none';
+        if (!reactControlsVisibility) {
+            // 显示表格，隐藏空白粘贴区域
+            if (dataTable) {
+                dataTable.style.display = 'table';
+            }
+            if (pasteAreaFormat) {
+                pasteAreaFormat.style.display = 'none';
+            }
+            if (tablePreviewFormat) {
+                tablePreviewFormat.style.display = 'none';
+            }
         }
     }
+    notifyReactFormatGridReady();
 }
 
 function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
@@ -22412,8 +22426,34 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
     return false;
 }
 
+function tryParseFormatPasteAreaFromDom() {
+    if (currentDataCaptureType !== '2.Format') return false;
+    const area = document.getElementById('pasteAreaFormat');
+    if (!area) return false;
+    try {
+        const pastedHTML = area.innerHTML || '';
+        if (!pastedHTML || !/<table\b/i.test(pastedHTML)) return false;
+        const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(pastedHTML);
+        const sanitized = sanitizePastedHTML(pastedHTML);
+        if (!previewFragment) return false;
+        renderFormatPreview(previewFragment);
+        parseAndFillHTMLTableForFormat(sanitized || previewFragment);
+        isFormatGridReady = true;
+        area.innerHTML = '';
+        setTimeout(() => {
+            toggleTableDisplayForFormat();
+        }, 0);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 // 为2.Format模式的粘贴区域添加paste事件监听（支持直接粘贴整张表格）
 function initFormatPasteArea() {
+    if (window.__DC_REACT_FORMAT_PASTE__) {
+        return;
+    }
     const pasteAreaFormat = document.getElementById('pasteAreaFormat');
     if (!pasteAreaFormat) {
         console.log('Format: pasteAreaFormat element not found');
@@ -22520,29 +22560,7 @@ function initFormatPasteArea() {
         // 4) 读不到HTML/TSV时：让浏览器先默认粘贴进容器（很多情况下会自动生成<table>）
         // 然后我们再从DOM里抓出<table>并清洗成表格显示/填表，避免变成一行一行的纯文字
         setTimeout(() => {
-            try {
-                const pastedHTML = area.innerHTML || '';
-                if (pastedHTML && /<table\b/i.test(pastedHTML)) {
-                    const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(pastedHTML);
-                    const sanitized = sanitizePastedHTML(pastedHTML);
-                    if (previewFragment) {
-                        console.log('Format: Rendering preview from pasted HTML (setTimeout)');
-                        renderFormatPreview(previewFragment);
-
-                        parseAndFillHTMLTableForFormat(sanitized || previewFragment);
-                        // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
-                        isFormatGridReady = true;
-                        console.log('Format: Preview rendered (setTimeout), isFormatGridReady set to true');
-                        area.innerHTML = '';
-                        // 确保预览立即显示
-                        setTimeout(() => {
-                            toggleTableDisplayForFormat();
-                        }, 0);
-                        return;
-                    }
-                }
-                // 没有table就保留默认粘贴结果（可能就是纯文本）
-            } catch (_) { }
+            tryParseFormatPasteAreaFromDom();
         }, 0);
     });
 }
@@ -24612,18 +24630,7 @@ async function initializeDataCapturePage() {
 
     if (typeSelect) {
         currentDataCaptureType = typeSelect.value || '1.Text';
-        // CITIBET 模式：为表格容器添加 class，用于完整显示数据（避免字母被裁剪）
-        if (excelTableContainer) {
-            if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
-            else excelTableContainer.classList.remove('citibet-mode');
-        }
-        // 初始化显示状态
-        toggleTableDisplayForFormat();
-
-        // 初始化2.Format模式的粘贴区域监听（仅影响2.Format）
-        initFormatPasteArea();
-
-        typeSelect.addEventListener('change', () => {
+        const syncTypeChange = () => {
             const previousType = currentDataCaptureType;
             currentDataCaptureType = typeSelect.value || '1.Text';
             // CITIBET 模式：为表格容器添加/移除 class，用于完整显示数据（避免字母被裁剪）
@@ -24665,7 +24672,26 @@ async function initializeDataCapturePage() {
 
             // 切换类型时，重新刷新 Submit 按钮的可用状态
             updateSubmitButtonState();
-        });
+        };
+        // CITIBET 模式：为表格容器添加 class，用于完整显示数据（避免字母被裁剪）
+        if (excelTableContainer) {
+            if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
+            else excelTableContainer.classList.remove('citibet-mode');
+        }
+        // 初始化显示状态
+        toggleTableDisplayForFormat();
+
+        // 初始化2.Format模式的粘贴区域监听（仅影响2.Format）
+        initFormatPasteArea();
+
+        if (window.__DC_REACT_CAPTURE_TYPE__) {
+            window.__dcSetCaptureType = function (nextType) {
+                typeSelect.value = nextType || '1.Text';
+                syncTypeChange();
+            };
+        } else {
+            typeSelect.addEventListener('change', syncTypeChange);
+        }
     }
 
     // 初始化 Process 输入框事件
@@ -24948,6 +24974,8 @@ function syncProcessDataMapFromReact(options) {
 window.switchDataCaptureCompany = switchDataCaptureCompany;
 window.switchDataCapturePermission = switchPermission;
 window.__syncDataCaptureProcessMap = syncProcessDataMapFromReact;
+window.__dcHandleFormatPasteFromClipboard = handleFormatPasteFromClipboard;
+window.__dcTryParseFormatPasteAreaFromDom = tryParseFormatPasteAreaFromDom;
 window.__initDataCapturePage = initializeDataCapturePage;
 window.updateSubmitButtonState = updateSubmitButtonState;
 window.__resetDataCapturePageInitPromise = function () {
