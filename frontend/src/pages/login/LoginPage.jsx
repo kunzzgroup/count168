@@ -92,19 +92,21 @@ export default function LoginPage() {
 
     const fromX = prevLang === "zh" ? "100%" : "0%";
     const toX = lang === "zh" ? "100%" : "0%";
-    const overshootX = lang === "zh" ? "116%" : "-16%";
-    const reboundX = lang === "zh" ? "96%" : "4%";
+    const overshootX = lang === "zh" ? "118%" : "-18%";
+    const reboundX1 = lang === "zh" ? "95%" : "5%";
+    const reboundX2 = lang === "zh" ? "102.5%" : "-2.5%";
 
     thumb.animate(
       [
         { transform: `translateX(${fromX}) scale(1)` },
-        { transform: `translateX(${overshootX}) scale(1.06)`, offset: 0.56 },
-        { transform: `translateX(${reboundX}) scale(0.985)`, offset: 0.76 },
+        { transform: `translateX(${overshootX}) scale(1.075)`, offset: 0.48 },
+        { transform: `translateX(${reboundX1}) scale(0.98)`, offset: 0.67 },
+        { transform: `translateX(${reboundX2}) scale(1.015)`, offset: 0.84 },
         { transform: `translateX(${toX}) scale(1)` },
       ],
       {
-        duration: 820,
-        easing: "cubic-bezier(0.16, 0.92, 0.24, 1.12)",
+        duration: 1000,
+        easing: "cubic-bezier(0.12, 0.9, 0.2, 1.15)",
         fill: "none",
       }
     );
