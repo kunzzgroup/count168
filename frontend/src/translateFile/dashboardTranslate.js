@@ -70,7 +70,7 @@ export const DASHBOARD_I18N = {
     lastMonth: "上月",
     thisYear: "今年",
     lastYear: "去年",
-    groupId: "组别ID:",
+    groupId: "集团:",
     company: "公司:",
     all: "全部",
     currency: "币种:",
