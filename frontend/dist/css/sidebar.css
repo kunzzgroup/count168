@@ -855,53 +855,6 @@
     background: rgba(255, 255, 255, 0.5);
 }
 
-/* Chinese mode: compact sidebar so full menu can fit without scrolling on common laptop heights */
-body.dashboard-page.lang-zh .informationmenu-header {
-    padding-top: 3px;
-    padding-bottom: 2px;
-}
-
-body.dashboard-page.lang-zh .header-logo {
-    height: clamp(28px, 1.9vw, 36px);
-}
-
-body.dashboard-page.lang-zh .user-info-container {
-    min-height: 40px;
-    margin-bottom: 0;
-}
-
-body.dashboard-page.lang-zh .content-separator {
-    margin-top: 0;
-    margin-bottom: 2px;
-}
-
-body.dashboard-page.lang-zh .informationmenu-section-title {
-    padding: clamp(5px, 0.52vw, 10px) clamp(10px, 0.88vw, 17px);
-    font-size: clamp(9px, 0.68vw, 13px);
-}
-
-body.dashboard-page.lang-zh .section-icon {
-    width: clamp(14px, 0.94vw, 18px);
-    height: clamp(14px, 0.94vw, 18px);
-    margin-right: clamp(7px, 0.52vw, 10px);
-}
-
-body.dashboard-page.lang-zh .informationmenu-footer {
-    padding: 6px 10px 9px;
-}
-
-body.dashboard-page.lang-zh .informationmenu-content {
-    overflow-y: clip;
-}
-
-body.dashboard-page.lang-zh .company-expiration-countdown {
-    margin-bottom: 4px;
-    padding: 3px 7px;
-}
-
-body.dashboard-page.lang-zh .logout-btn {
-    padding: 4px 10px;
-}
 
 /* Keep sidebar language switch size stable across pages/viewports */
 .informationmenu-header .sidebar-lang-switch-wrap {
@@ -923,18 +876,6 @@ body.dashboard-page.lang-zh .logout-btn {
 
     .sidebar-lang-option {
         font-size: 11px;
-    }
-}
-
-@media (max-height: 760px) {
-    body.dashboard-page.lang-zh .informationmenu-section-title {
-        padding-top: 4px;
-        padding-bottom: 4px;
-    }
-
-    body.dashboard-page.lang-zh .informationmenu-footer {
-        padding-top: 5px;
-        padding-bottom: 7px;
     }
 }
 
