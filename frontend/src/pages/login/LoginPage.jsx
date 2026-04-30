@@ -351,6 +351,8 @@ export default function LoginPage() {
                   role="group"
                   aria-label="Switch language"
                 >
+                  <span className="sc-login-lang-nebula" />
+                  <span className="sc-login-lang-stars" />
                   <span className="sc-login-lang-thumb" />
                   <button
                     type="button"
