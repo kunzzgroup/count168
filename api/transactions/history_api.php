@@ -1563,8 +1563,17 @@ try {
                         || stripos($descPay, 'Profit By ') === 0
                     ) {
                         $cr_dr = '0';
+                    } elseif (
+                        stripos($smsPay, '[DOMAIN_LIST_FEE|') === 0
+                        || $smsPay === '[DOMAIN_LIST_FEE]'
+                        || stripos($descPay, 'Domain list fee FROM ') === 0
+                        || stripos($descPay, 'Pay Domain Fee') === 0
+                        || stripos($descPay, 'Pay Domain Fee To ') === 0
+                    ) {
+                        // 与 search_api calculateCrDrByCurrency / txn_crdr_from bulk：List Fee、Pay Domain Fee 付款方记 -amount
+                        $cr_dr = historyNeg($t['amount']);
                     } else {
-                        // FROM 侧（含 Domain List Fee 付款方）：与 CONTRA 一致为正，与 calculateBFByCurrency 第 3 段 PAYMENT +amount 对齐
+                        // FROM 侧其余 PAYMENT：与 CONTRA 一致为正
                         $cr_dr = $t['amount'] ?? '0';
                     }
                 }
@@ -2567,6 +2576,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -2587,6 +2597,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr

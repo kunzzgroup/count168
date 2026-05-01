@@ -2509,6 +2509,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -2529,6 +2530,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
