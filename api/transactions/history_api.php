@@ -171,6 +171,43 @@ function historyDataCaptureOrderTimestamp(array $capture): int
 }
 
 /**
+ * 非 RATE 交易 / rollup / RATE 头：同日排序用时间戳。
+ * 勿把业务日 Y-m-d 与 DB 返回的完整 datetime created_at 直接拼接，
+ * 否则「2026-04-27」+「2026-04-27 18:30:00」→ strtotime 失败，
+ * 再退化为仅日期则全体落在午夜，最后一条 submit 可能排到最前。
+ */
+function historyTransactionOrderTimestamp(string $displayDateYmd, $createdAt): int
+{
+    $datePart = trim((string) $displayDateYmd);
+    if ($datePart !== '' && preg_match('/^(\d{4}-\d{2}-\d{2})/', $datePart, $m)) {
+        $datePart = $m[1];
+    } elseif ($datePart === '0000-00-00' || $datePart === '0000-00-00 00:00:00') {
+        return 0;
+    }
+
+    $createdNorm = trim((string) ($createdAt ?? ''));
+    if ($createdNorm !== '') {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}/', $createdNorm)) {
+            $ts = strtotime($createdNorm);
+            if ($ts !== false) {
+                return $ts;
+            }
+        }
+        if ($datePart !== '' && preg_match('/^\d{1,2}:\d{2}/', $createdNorm)) {
+            $ts = strtotime($datePart . ' ' . $createdNorm);
+            if ($ts !== false) {
+                return $ts;
+            }
+        }
+    }
+    if ($datePart === '') {
+        return 0;
+    }
+    $ts = strtotime($datePart);
+    return $ts !== false ? $ts : 0;
+}
+
+/**
  * 将 entry_type 映射为友好的 Product 显示名称
  */
 function mapEntryTypeToProduct($entryType)
@@ -1262,7 +1299,7 @@ try {
 
     $sql .= historyContraApprovedWhere($pdo, 't');
 
-    $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC";
+    $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC, t.id ASC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($transactionParams);
@@ -1819,10 +1856,7 @@ try {
                 }
             }
         }
-        $transactionTimestamp = strtotime($displayDateYmd . ' ' . ($t['created_at'] ?? '00:00:00'));
-        if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($displayDateYmd);
-        }
+        $transactionTimestamp = historyTransactionOrderTimestamp((string) $displayDateYmd, $t['created_at'] ?? null);
 
         // 确定交易的 currency：
         // 1. 如果 transactions 表有 currency_id 字段，优先使用 transaction_currency_code
@@ -1954,10 +1988,7 @@ try {
         $netShow = $rb['net'];
         $srcU = strtoupper(trim((string) $rb['src']));
         $displayDateYmdRb = trim((string) ($ft['transaction_date'] ?? ''));
-        $transactionTimestampRb = strtotime($displayDateYmdRb . ' ' . ($ft['created_at'] ?? '00:00:00'));
-        if ($transactionTimestampRb === false) {
-            $transactionTimestampRb = strtotime($displayDateYmdRb);
-        }
+        $transactionTimestampRb = historyTransactionOrderTimestamp($displayDateYmdRb, $ft['created_at'] ?? null);
         $transactionCurrencyRb = null;
         if ($has_currency_id && !empty($ft['transaction_currency_code'])) {
             $transactionCurrencyRb = $ft['transaction_currency_code'];
@@ -2053,10 +2084,11 @@ try {
     $rateRows = $rateStmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($rateRows as $row) {
-        $transactionTimestamp = strtotime($row['transaction_date'] . ' ' . ($row['created_at'] ?? '00:00:00'));
-        if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($row['transaction_date']);
+        $rateYmd = historySortDateYmdFromRaw($row['transaction_date'] ?? '');
+        if ($rateYmd === '9999-12-31') {
+            $rateYmd = '';
         }
+        $transactionTimestamp = historyTransactionOrderTimestamp($rateYmd, $row['created_at'] ?? null);
 
         $amount = $row['amount'] ?? '0';
         // RATE 第二行/第四行：TO 负数、FROM 正数（与 CONTRA / PAYMENT 默认展示一致）
