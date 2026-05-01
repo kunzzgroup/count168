@@ -3476,9 +3476,9 @@
 
         fetch(url, {
             method: 'GET',
-            cache: 'no-cache',
+            cache: 'no-store',
             headers: {
-                'Cache-Control': 'no-cache'
+                'Cache-Control': 'no-store'
             }
         })
             .then(response => response.json())

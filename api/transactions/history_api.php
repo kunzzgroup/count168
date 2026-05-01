@@ -10,7 +10,12 @@
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+// 禁止缓存 JSON：避免 CDN/浏览器长期返回旧排序逻辑
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+header('X-Count168-History-Sort: calendar');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
@@ -93,6 +98,22 @@ function historyDisplayDecimal($value, int $scale = 6): string
         return '';
     }
     return money_out($value, $scale);
+}
+
+/** Payment History：业务日 Y-m-d，按日历旧→新排序（与 Date 列同一业务含义） */
+function historySortDateYmdFromRaw($raw): string
+{
+    $raw = trim((string) $raw);
+    if ($raw === '' || $raw === '0000-00-00' || $raw === '0000-00-00 00:00:00') {
+        return '9999-12-31';
+    }
+    // 与 date_from 入参一致：含「/」时先替换为「-」再 strtotime
+    $try = strpos($raw, '/') !== false ? str_replace('/', '-', $raw) : $raw;
+    $ts = strtotime($try);
+    if ($ts === false) {
+        return '9999-12-31';
+    }
+    return date('Y-m-d', $ts);
 }
 
 /** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
@@ -1382,6 +1403,7 @@ try {
             'row_type' => 'data_capture',
             'transaction_id' => null,
             'transaction_type' => 'DATA_CAPTURE',
+            'sort_date_ymd' => historySortDateYmdFromRaw($capture['capture_date'] ?? ''),
             'order_ts' => $captureTimestamp ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => $capture['processed_amount'],
@@ -1898,6 +1920,7 @@ try {
             'row_type' => 'transaction',
             'transaction_id' => $t['id'],
             'transaction_type' => $t['transaction_type'],
+            'sort_date_ymd' => historySortDateYmdFromRaw($displayDateYmd ?? ''),
             'order_ts' => $transactionTimestamp ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => $win_loss,
@@ -1948,6 +1971,7 @@ try {
             'row_type' => 'transaction',
             'transaction_id' => (int) ($ft['id'] ?? 0),
             'transaction_type' => 'PAYMENT',
+            'sort_date_ymd' => historySortDateYmdFromRaw($displayDateYmdRb),
             'order_ts' => $transactionTimestampRb ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => '0',
@@ -2090,6 +2114,7 @@ try {
             'row_type' => 'transaction',
             'transaction_id' => $row['header_id'],
             'transaction_type' => 'RATE',
+            'sort_date_ymd' => historySortDateYmdFromRaw($row['transaction_date'] ?? ''),
             'order_ts' => $transactionTimestamp ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => $entryType === 'RATE_MIDDLEMAN' ? $amount : 0,
@@ -2115,11 +2140,17 @@ try {
         ];
     }
 
+    // 先按业务日历日升序（旧在上、新在下），同日再按 order_ts / 加入序
     usort($events, function ($a, $b) {
-        if ($a['order_ts'] === $b['order_ts']) {
-            return $a['order_index'] <=> $b['order_index'];
+        $da = $a['sort_date_ymd'] ?? '9999-12-31';
+        $db = $b['sort_date_ymd'] ?? '9999-12-31';
+        if ($da !== $db) {
+            return $da <=> $db;
         }
-        return $a['order_ts'] <=> $b['order_ts'];
+        if (($a['order_ts'] ?? 0) === ($b['order_ts'] ?? 0)) {
+            return ($a['order_index'] ?? 0) <=> ($b['order_index'] ?? 0);
+        }
+        return ($a['order_ts'] ?? 0) <=> ($b['order_ts'] ?? 0);
     });
 
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
