@@ -67,6 +67,21 @@ function roleHasReadOnlyToggle(role) {
     return r === 'partnership' || r === 'audit'
 }
 
+/** Audit：manager 及以上可操作；Partnership：仅 owner */
+function canInteractWithReadOnlyToggle(editingRole) {
+    if (!editingRole) return false
+    const r = editingRole.toLowerCase()
+    const curLevel = roleHierarchy[currentUserRole] ?? 999
+    const managerLevel = roleHierarchy['manager'] ?? 999
+    if (r === 'audit') {
+        return curLevel <= managerLevel
+    }
+    if (r === 'partnership') {
+        return currentUserRole === 'owner'
+    }
+    return false
+}
+
 function updateReadOnlyToggleVisibility(role) {
     const wrapper = document.getElementById('readOnlyToggleWrapper');
     const readOnlyToggle = document.getElementById('readOnlyToggle');
@@ -74,7 +89,7 @@ function updateReadOnlyToggleVisibility(role) {
     if (!wrapper) return;
     if (role && roleHasReadOnlyToggle(role)) {
         wrapper.style.display = 'block';
-        const canToggle = currentUserRole === 'owner';
+        const canToggle = canInteractWithReadOnlyToggle(role)
         if (readOnlyToggle) {
             readOnlyToggle.disabled = !canToggle;
         }
@@ -2299,9 +2314,9 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     }
     // 编辑模式：所有角色都可以编辑其他用户（但只能编辑 Account 和 Process Permissions）
 
-    // 添加 read_only 字段（Partnership / Audit，仅 owner 可调）
+    // read_only：Audit 由 manager+ 提交；Partnership 仅 owner
     const roleForReadOnly = data.role || (card ? card.getAttribute('data-role') : '');
-    if (currentUserRole === 'owner' && roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly)) {
+    if (roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly) && canInteractWithReadOnlyToggle(roleForReadOnly)) {
         const readOnlyToggle = document.getElementById('readOnlyToggle');
         data.read_only = (readOnlyToggle && readOnlyToggle.checked) ? 1 : 0;
     }
