@@ -548,7 +548,7 @@ try {
             $updateFields[] = "status = ?";
             $updateValues[] = $input['status'];
 
-            // 保存 read_only 字段（只有 partnership 角色才有意义，但所有用户都存储）
+            // 保存 read_only 字段（partnership / audit 由 Admin UI 使用，但所有用户都存储）
             if ($current_user_role === 'owner' && isset($input['read_only'])) {
                 $updateFields[] = "read_only = ?";
                 $updateValues[] = (int)$input['read_only'];

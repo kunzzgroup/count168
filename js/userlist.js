@@ -60,13 +60,19 @@ const allRoles = [
     
 ];
 
-// ── Read Only Toggle 显示/隐藏（只有 Partnership 角色才显示）──
+// ── Read Only Toggle 显示/隐藏（Partnership / Audit）──
+function roleHasReadOnlyToggle(role) {
+    if (!role) return false
+    const r = role.toLowerCase()
+    return r === 'partnership' || r === 'audit'
+}
+
 function updateReadOnlyToggleVisibility(role) {
     const wrapper = document.getElementById('readOnlyToggleWrapper');
     const readOnlyToggle = document.getElementById('readOnlyToggle');
     const readOnlyToggleLabel = document.getElementById('readOnlyToggleLabel');
     if (!wrapper) return;
-    if (role && role.toLowerCase() === 'partnership') {
+    if (role && roleHasReadOnlyToggle(role)) {
         wrapper.style.display = 'block';
         const canToggle = currentUserRole === 'owner';
         if (readOnlyToggle) {
@@ -2293,9 +2299,9 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     }
     // 编辑模式：所有角色都可以编辑其他用户（但只能编辑 Account 和 Process Permissions）
 
-    // 添加 read_only 字段（只针对 partnership 角色）
+    // 添加 read_only 字段（Partnership / Audit，仅 owner 可调）
     const roleForReadOnly = data.role || (card ? card.getAttribute('data-role') : '');
-    if (currentUserRole === 'owner' && roleForReadOnly && roleForReadOnly.toLowerCase() === 'partnership') {
+    if (currentUserRole === 'owner' && roleForReadOnly && roleHasReadOnlyToggle(roleForReadOnly)) {
         const readOnlyToggle = document.getElementById('readOnlyToggle');
         data.read_only = (readOnlyToggle && readOnlyToggle.checked) ? 1 : 0;
     }
