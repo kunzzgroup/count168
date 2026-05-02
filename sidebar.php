@@ -633,6 +633,10 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                     if (el.classList && el.classList.contains('logout-btn')) return true;
                     if (el.closest && el.closest('.logout-btn')) return true;
                     if (el.closest && el.closest('.fc-button')) return true;
+                    // Capture Date 日历浮层挂在 section 外（#calendar-popup），须单独豁免才能选日期查资料
+                    if (el.closest && el.closest('#calendar-popup')) return true;
+                    if (el.closest && el.closest('.calendar-popup')) return true;
+                    if (el.closest && el.closest('.flatpickr-calendar')) return true;
                     // 筛选/查询区：允许改条件浏览（非落库「资料」）
                     if (el.closest && el.closest('.transaction-search-section')) return true;
                     if (el.closest && el.closest('.transaction-bottom-filters')) return true;
