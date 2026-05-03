@@ -331,6 +331,30 @@
                 });
         }
 
+        function onMaintenanceRowCheckboxChange(el) {
+            if (!el || el.disabled) return;
+            const tr = el.closest('tr');
+            if (!tr) return;
+            const key = tr.getAttribute('data-bm-from-key');
+            if (!key) {
+                updateDeleteButtonState();
+                return;
+            }
+            const checked = el.checked;
+            const tbodyEl = document.getElementById('dataTableBody');
+            if (!tbodyEl) {
+                updateDeleteButtonState();
+                return;
+            }
+            tbodyEl.querySelectorAll('tr[data-bm-from-key]').forEach(function (row) {
+                if (row.getAttribute('data-bm-from-key') !== key) return;
+                const cb = row.querySelector('.maintenance-row-checkbox:not([disabled])');
+                if (cb) cb.checked = checked;
+            });
+            updateDeleteButtonState();
+        }
+        window.onMaintenanceRowCheckboxChange = onMaintenanceRowCheckboxChange;
+
         function fillTable(data) {
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
@@ -360,9 +384,14 @@
                 const submitterDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
                 const rowCheckboxHtml = isDeleted
                     ? '<input type="checkbox" class="maintenance-row-checkbox" disabled title="Already deleted">'
-                    : `<input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="updateDeleteButtonState()">`;
+                    : `<input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="onMaintenanceRowCheckboxChange(this)">`;
                 tr.setAttribute('data-transaction-id', row.transaction_id);
                 tr.setAttribute('data-is-deleted', isDeleted ? '1' : '0');
+                const rawFrom = row.from_account != null && row.from_account !== undefined ? String(row.from_account).trim() : '';
+                const linkKey = rawFrom ? rawFrom.toUpperCase() : '';
+                if (linkKey) {
+                    tr.setAttribute('data-bm-from-key', linkKey);
+                }
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
                     <td class="maintenance-table-cell">${dateDisplay}</td>
