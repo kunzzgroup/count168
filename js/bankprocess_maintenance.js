@@ -335,8 +335,9 @@
             if (!el || el.disabled) return;
             const tr = el.closest('tr');
             if (!tr) return;
-            const key = tr.getAttribute('data-bm-from-key');
-            if (!key) {
+            const fromKey = tr.getAttribute('data-bm-from-key');
+            const dtsKey = tr.getAttribute('data-bm-dts-key');
+            if (!fromKey || !dtsKey) {
                 updateDeleteButtonState();
                 return;
             }
@@ -346,8 +347,9 @@
                 updateDeleteButtonState();
                 return;
             }
-            tbodyEl.querySelectorAll('tr[data-bm-from-key]').forEach(function (row) {
-                if (row.getAttribute('data-bm-from-key') !== key) return;
+            tbodyEl.querySelectorAll('tr[data-bm-from-key][data-bm-dts-key]').forEach(function (row) {
+                if (row.getAttribute('data-bm-from-key') !== fromKey) return;
+                if (row.getAttribute('data-bm-dts-key') !== dtsKey) return;
                 const cb = row.querySelector('.maintenance-row-checkbox:not([disabled])');
                 if (cb) cb.checked = checked;
             });
@@ -388,9 +390,11 @@
                 tr.setAttribute('data-transaction-id', row.transaction_id);
                 tr.setAttribute('data-is-deleted', isDeleted ? '1' : '0');
                 const rawFrom = row.from_account != null && row.from_account !== undefined ? String(row.from_account).trim() : '';
-                const linkKey = rawFrom ? rawFrom.toUpperCase() : '';
-                if (linkKey) {
-                    tr.setAttribute('data-bm-from-key', linkKey);
+                const linkFrom = rawFrom ? rawFrom.toUpperCase() : '';
+                const rawDts = row.dts_created != null && row.dts_created !== undefined ? String(row.dts_created).trim() : '';
+                if (linkFrom && rawDts) {
+                    tr.setAttribute('data-bm-from-key', linkFrom);
+                    tr.setAttribute('data-bm-dts-key', rawDts);
                 }
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
