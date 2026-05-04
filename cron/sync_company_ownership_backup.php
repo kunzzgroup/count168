@@ -80,7 +80,7 @@ SELECT
   {$selEntityType},
   co.account_id,
   CASE
-    WHEN {$caseGroupWhen} THEN CONCAT('Group: ', COALESCE({$selPartnerGroupId}, ''))
+    WHEN {$caseGroupWhen} THEN CONCAT(COALESCE({$selPartnerGroupId}, ''))
     ELSE COALESCE({$selPartnerGroupId}, a.account_id, o.owner_code, u.login_id)
   END AS account_name,
   {$selGroupId},
