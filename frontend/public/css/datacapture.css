@@ -23,7 +23,7 @@ body.datacapture-page {
     --dc-border: #e2e8f0;
     --dc-text-muted: #64748b;
     --sidebar-active-bg: #1e40af;
-    --dc-top-rail-max: min(36vh, 400px);
+    --dc-top-rail-max: min(34vh, 360px);
 }
 
 body.datacapture-page {
@@ -49,6 +49,10 @@ body.datacapture-page {
 body.datacapture-page #root {
     min-height: 100vh;
     min-height: 100dvh;
+    height: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    overflow: hidden;
 }
 
 body.datacapture-page .container {

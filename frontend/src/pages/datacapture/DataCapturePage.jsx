@@ -2,13 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import { useDataCaptureLegacyBridge } from "./hooks/useDataCaptureLegacyBridge.js";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
 import { useDataCaptureSubmitGate } from "./hooks/useDataCaptureSubmitGate.js";
 import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
 import { useDataCaptureTableEngine } from "./hooks/useDataCaptureTableEngine.js";
 import { captureTableDataFromDom } from "./utils/captureTableDataDom.js";
 import { compactMatrix, parseClipboardMatrix, parseMatrixFromPasteArea, parseTableMatrixFromHtml } from "./utils/formatMatrixParser.js";
+import "../../../public/css/datacapture.css";
 
 function ensureTableShape(rows, cols) {
   const tableBody = document.getElementById("tableBody");
@@ -192,10 +192,22 @@ export default function DataCapturePage() {
   }, []);
 
   useLayoutEffect(() => {
+    const html = document.documentElement;
+    const prev = {
+      overflow: html.style.overflow,
+      height: html.style.height,
+      overscroll: html.style.overscrollBehavior,
+    };
     document.body.classList.remove("bg", "account-page", "announcement-page");
     document.body.classList.add("dashboard-page", "datacapture-page");
+    html.style.overflow = "hidden";
+    html.style.height = "100%";
+    html.style.overscrollBehavior = "none";
     return () => {
       document.body.classList.remove("datacapture-page", "page-ready");
+      html.style.overflow = prev.overflow;
+      html.style.height = prev.height;
+      html.style.overscrollBehavior = prev.overscroll;
     };
   }, []);
 
@@ -322,7 +334,6 @@ export default function DataCapturePage() {
     [navigate]
   );
 
-  useDataCaptureLegacyBridge();
   useDataCaptureRestore({
     ready: !loading && !forbidden && companyId != null,
     processOptions,
