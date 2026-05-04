@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
@@ -14,6 +14,27 @@ import {
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
 import TransactionMaintenanceTable from "./components/TransactionMaintenanceTable.jsx";
+
+/** Last path segment so we match <link> whether href is relative, absolute, or has query. */
+function stylesheetBasename(href) {
+  try {
+    const noQuery = String(href).split("?")[0];
+    return noQuery.split("/").pop() || "";
+  } catch {
+    return "";
+  }
+}
+
+function findStylesheetLink(href) {
+  const want = stylesheetBasename(href);
+  if (!want) return null;
+  for (const el of document.querySelectorAll('link[rel="stylesheet"]')) {
+    const attr = el.getAttribute("href") || "";
+    const resolved = el.href || "";
+    if (attr.includes(want) || resolved.includes(want)) return el;
+  }
+  return null;
+}
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
@@ -63,8 +84,8 @@ export default function TransactionMaintenancePage() {
     }, 2000);
   }, []);
 
-  // -- Initialization --
-  useEffect(() => {
+  // Body class + overflow before paint so bundled maintenance rules apply on first frame.
+  useLayoutEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "maintenance-page");
 
@@ -93,6 +114,28 @@ export default function TransactionMaintenancePage() {
       el.style.setProperty("max-height", "none", "important");
     });
 
+    return () => {
+      originalStyles.forEach((item) => {
+        const { el } = item;
+        if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
+        else el.style.removeProperty("overflow");
+        if (item.overflowY) el.style.setProperty("overflow-y", item.overflowY, item.overflowYPriority);
+        else el.style.removeProperty("overflow-y");
+        if (item.overflowX) el.style.setProperty("overflow-x", item.overflowX, item.overflowXPriority);
+        else el.style.removeProperty("overflow-x");
+        if (item.height) el.style.setProperty("height", item.height, item.heightPriority);
+        else el.style.removeProperty("height");
+        if (item.minHeight) el.style.setProperty("min-height", item.minHeight, item.minHeightPriority);
+        else el.style.removeProperty("min-height");
+        if (item.maxHeight) el.style.setProperty("max-height", item.maxHeight, item.maxHeightPriority);
+        else el.style.removeProperty("max-height");
+      });
+      document.body.classList.remove("maintenance-page");
+    };
+  }, []);
+
+  // Wait for route CSS (match by filename so assetUrl() matches shell-injected links); defer paint until applied.
+  useEffect(() => {
     let cancelled = false;
 
     const waitForStylesheet = (href) =>
@@ -101,7 +144,15 @@ export default function TransactionMaintenancePage() {
           try { el.dataset.loaded = "1"; } catch { /* ignore */ }
           resolve(el);
         };
-        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+        let existing = findStylesheetLink(href);
+        if (!existing) {
+          for (const el of document.querySelectorAll('link[rel="stylesheet"]')) {
+            if (el.getAttribute("href") === href) {
+              existing = el;
+              break;
+            }
+          }
+        }
         if (existing) {
           document.head.appendChild(existing);
           if (existing.dataset.loaded === "1") return resolve(existing);
@@ -132,7 +183,12 @@ export default function TransactionMaintenancePage() {
     ];
 
     Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (!cancelled) setCssReady(true);
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!cancelled) setCssReady(true);
+        });
+      });
     });
 
     ensureMaintenanceDateRangePicker();
@@ -140,22 +196,6 @@ export default function TransactionMaintenancePage() {
     return () => {
       cancelled = true;
       setCssReady(false);
-      originalStyles.forEach((item) => {
-        const { el } = item;
-        if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
-        else el.style.removeProperty("overflow");
-        if (item.overflowY) el.style.setProperty("overflow-y", item.overflowY, item.overflowYPriority);
-        else el.style.removeProperty("overflow-y");
-        if (item.overflowX) el.style.setProperty("overflow-x", item.overflowX, item.overflowXPriority);
-        else el.style.removeProperty("overflow-x");
-        if (item.height) el.style.setProperty("height", item.height, item.heightPriority);
-        else el.style.removeProperty("height");
-        if (item.minHeight) el.style.setProperty("min-height", item.minHeight, item.minHeightPriority);
-        else el.style.removeProperty("min-height");
-        if (item.maxHeight) el.style.setProperty("max-height", item.maxHeight, item.maxHeightPriority);
-        else el.style.removeProperty("max-height");
-      });
-      document.body.classList.remove("maintenance-page");
     };
   }, []);
 
