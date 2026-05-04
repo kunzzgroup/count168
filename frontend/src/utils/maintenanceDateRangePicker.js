@@ -207,12 +207,30 @@ export function ensureMaintenanceDateRangePicker() {
       d.setDate(d.getDate() - 1);
       startDate = d;
       endDate = d;
+    } else if (range === "thisWeek") {
+      const dayMon0 = (today.getDay() + 6) % 7;
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - dayMon0);
+      endDate = new Date(today);
+    } else if (range === "lastWeek") {
+      const dayMon0 = (today.getDay() + 6) % 7;
+      endDate = new Date(today);
+      endDate.setDate(today.getDate() - dayMon0 - 1);
+      startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - 6);
     } else if (range === "thisMonth") {
       startDate = new Date(today.getFullYear(), today.getMonth(), 1);
       endDate = new Date(today);
     } else if (range === "lastMonth") {
       startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+    } else if (range === "thisYear") {
+      startDate = new Date(today.getFullYear(), 0, 1);
+      endDate = new Date(today);
+    } else if (range === "lastYear") {
+      const y = today.getFullYear() - 1;
+      startDate = new Date(y, 0, 1);
+      endDate = new Date(y, 11, 31);
     } else {
       return;
     }
@@ -224,10 +242,16 @@ export function ensureMaintenanceDateRangePicker() {
     syncToHiddenInputs();
     updateDateRangeDisplay();
     if (typeof config.onChange === "function") config.onChange();
+    const qd = document.getElementById("quick-select-dropdown");
+    if (qd) qd.classList.remove("show");
   }
 
   window.changeMonth = changeMonth;
   window.selectQuickRange = setQuickRange;
+  window.toggleQuickSelectDropdown = function toggleQuickSelectDropdown() {
+    const dropdown = document.getElementById("quick-select-dropdown");
+    if (dropdown) dropdown.classList.toggle("show");
+  };
   window.MaintenanceDateRangePicker = {
     init(options) {
       if (options) {

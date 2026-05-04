@@ -51,12 +51,15 @@ export default function FormulaMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Process</th><th>Account</th><th>Currency</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th><th className="maintenance-select-all-header"></th>
+              <th>No.</th><th>Process</th><th>Account</th><th>Currency</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th>
+              <th className="maintenance-select-all-header">
+                <input type="checkbox" className="maintenance-checkbox" disabled />
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td colSpan="10" style={{ textAlign: "center", padding: "20px" }}>Loading...</td>
+              <td className="maintenance-table-cell" colSpan="10" style={{ textAlign: "center", padding: "20px" }}>Loading...</td>
             </tr>
           </tbody>
         </table>
@@ -88,11 +91,11 @@ export default function FormulaMaintenanceTable({
             <th>Input Method</th>
             <th>Formula</th>
             <th>Description</th>
-            <th className="maintenance-select-all-header" style={{ textAlign: "center" }}>
+            <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
                 ref={selectAllRef}
-                className="data-capture-row-checkbox"
+                className="maintenance-checkbox"
                 checked={data.length > 0 && selectedIds.length === data.length}
                 onChange={onToggleSelectAll}
                 title="Select All"
@@ -101,16 +104,16 @@ export default function FormulaMaintenanceTable({
           </tr>
         </thead>
         <tbody>
-          {data.map((row, index) => {
+          {data.map((row) => {
             const isEditing = editingId === row.id;
             
             return (
-              <tr key={row.id}>
-                <td>{row.no}</td>
-                <td>{toUpperDisplay(row.process)}</td>
+              <tr key={row.id} className={isEditing ? "formula-row-editing" : ""}>
+                <td className="maintenance-table-cell">{row.no}</td>
+                <td className="maintenance-table-cell">{toUpperDisplay(row.process)}</td>
                 
                 {/* Account Cell */}
-                <td>
+                <td className="maintenance-table-cell">
                   {isEditing ? (
                     <select 
                       className="account-select" 
@@ -128,10 +131,10 @@ export default function FormulaMaintenanceTable({
                   )}
                 </td>
 
-                <td>{toUpperDisplay(row.currency)}</td>
+                <td className="maintenance-table-cell maintenance-cell-currency">{toUpperDisplay(row.currency)}</td>
 
                 {/* Source Cell */}
-                <td>
+                <td className="maintenance-table-cell formula-cell-text">
                   {isEditing ? (
                     <input 
                       type="text" 
@@ -145,10 +148,10 @@ export default function FormulaMaintenanceTable({
                   )}
                 </td>
 
-                <td>{toUpperDisplay(row.product)}</td>
+                <td className="maintenance-table-cell">{toUpperDisplay(row.product)}</td>
 
                 {/* Input Method Cell */}
-                <td>
+                <td className="maintenance-table-cell formula-cell-text">
                   {isEditing ? (
                     <select 
                       className="input-method-select"
@@ -166,7 +169,7 @@ export default function FormulaMaintenanceTable({
                 </td>
 
                 {/* Formula Cell */}
-                <td>
+                <td className="maintenance-table-cell formula-cell-text">
                   {isEditing ? (
                     <input 
                       type="text" 
@@ -176,12 +179,12 @@ export default function FormulaMaintenanceTable({
                       style={{ display: "block", width: "100%" }}
                     />
                   ) : (
-                    <span className="formula-display" style={{ wordBreak: "break-word" }} title={row.formula}>{toUpperDisplay(row.formula)}</span>
+                    <span className="formula-display" title={row.formula}>{toUpperDisplay(row.formula)}</span>
                   )}
                 </td>
 
                 {/* Description Cell */}
-                <td>
+                <td className="maintenance-table-cell formula-cell-text">
                   {isEditing ? (
                     <input 
                       type="text" 
@@ -191,21 +194,21 @@ export default function FormulaMaintenanceTable({
                       style={{ display: "block", width: "100%" }}
                     />
                   ) : (
-                    <span className="description-display" style={{ wordBreak: "break-word" }}>{toUpperDisplay(row.description)}</span>
+                    <span className="description-display">{toUpperDisplay(row.description)}</span>
                   )}
                 </td>
 
                 {/* Actions Cell */}
-                <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                <td className="maintenance-table-cell maintenance-cell-checkbox">
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
                     {isEditing ? (
                       <>
-                        <button className="maintenance-edit-btn" onClick={() => handleSave(row.id)} title="Save">
+                        <button type="button" className="maintenance-edit-btn" onClick={() => handleSave(row.id)} title="Save">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12"></polyline>
                           </svg>
                         </button>
-                        <button className="maintenance-cancel-btn" onClick={handleCancel} title="Cancel">
+                        <button type="button" className="maintenance-cancel-btn" onClick={handleCancel} title="Cancel">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -214,12 +217,12 @@ export default function FormulaMaintenanceTable({
                       </>
                     ) : (
                       <>
-                        <button className="maintenance-edit-btn" onClick={() => handleEdit(row)} title="Edit">
+                        <button type="button" className="maintenance-edit-btn" onClick={() => handleEdit(row)} title="Edit">
                           <img src="images/edit.svg" alt="Edit" className="edit-icon" style={{ width: "16px", height: "16px" }} />
                         </button>
                         <input 
                           type="checkbox" 
-                          className="data-capture-row-checkbox"
+                          className="maintenance-row-checkbox"
                           checked={selectedIds.includes(row.id)}
                           onChange={() => onToggleSelect(row.id)}
                         />

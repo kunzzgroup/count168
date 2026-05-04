@@ -17,6 +17,15 @@ body {
     overflow-y: auto;
 }
 
+html,
+body.dashboard-page.maintenance-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
 .container {
     max-width: none;
     margin: 0;
@@ -133,6 +142,9 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-width: 1500px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .maintenance-filters {
@@ -262,6 +274,14 @@ h1 {
     gap: clamp(12px, 1.04vw, 20px);
 }
 
+.maintenance-filter-left {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 0.65vw, 12px);
+    flex: 1;
+    min-width: 0;
+}
+
 .maintenance-filter-row {
     display: flex;
     align-items: center;
@@ -335,42 +355,59 @@ h1 {
     padding-right: 35px;
 }
 
-/* List Styles - 类似 customer_report.php */
+/* List + table：与 capture / payment maintenance 统一 */
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
-    margin-top: 20px;
+    margin-top: 10px;
+    max-width: 1500px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: clamp(8px, 0.9vw, 16px);
+    padding-right: clamp(8px, 0.9vw, 16px);
 }
 
-/* Table Styles */
 .maintenance-table {
     width: 100%;
-    border-collapse: collapse;
-    background-color: white;
-    border-radius: 8px;
-    overflow: hidden;
+    border-collapse: separate;
+    table-layout: fixed;
+    border-spacing: 0 2px;
 }
 
-.maintenance-table th {
-    padding: clamp(4px, 0.6vw, 10px) 12px;
+.maintenance-table th,
+.maintenance-table td {
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.maintenance-table thead tr {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
-    color: white;
+    color: #ffffff;
     font-weight: bold;
     font-size: clamp(10px, 0.89vw, 17px);
-    text-align: left;
-    border: none;
 }
 
-.maintenance-table td {
-    padding: clamp(4px, 0.6vw, 10px) 12px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-    font-size: clamp(9px, 0.82vw, 15px);
-    color: #374151;
-    font-weight: bold;
-    vertical-align: middle;
+.maintenance-table thead th {
+    padding: clamp(6px, 0.65vw, 11px) clamp(10px, 0.9vw, 14px);
+    text-align: center;
 }
 
-.maintenance-table tr:hover {
+.maintenance-table thead th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.maintenance-table thead th:last-child {
+    border-top-right-radius: 8px;
+}
+
+.maintenance-table tbody tr {
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    transition: all 0.2s ease;
+}
+
+.maintenance-table tbody tr:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
 }
 
 .maintenance-table tbody tr:nth-child(even) {
@@ -381,14 +418,146 @@ h1 {
     background: #ffffff;
 }
 
-.maintenance-table tr:last-child td {
+.maintenance-table tbody tr:last-child td {
     border-bottom: none;
 }
 
-/* Currency 列：居中 */
-.currency-cell {
-    justify-content: center;
+/* 列宽：Input Method / Formula / Description 允许换行，避免重叠 */
+.maintenance-table th:nth-child(1),
+.maintenance-table td:nth-child(1) {
+    width: 3%;
     text-align: center;
+}
+
+.maintenance-table th:nth-child(2),
+.maintenance-table td:nth-child(2) {
+    width: 11%;
+    text-align: left;
+}
+
+.maintenance-table th:nth-child(3),
+.maintenance-table td:nth-child(3) {
+    width: 10%;
+    text-align: left;
+}
+
+.maintenance-table th:nth-child(4),
+.maintenance-table td:nth-child(4) {
+    width: 6%;
+}
+
+.maintenance-table th:nth-child(5),
+.maintenance-table td:nth-child(5) {
+    width: 8%;
+    text-align: left;
+}
+
+.maintenance-table th:nth-child(6),
+.maintenance-table td:nth-child(6) {
+    width: 8%;
+    text-align: left;
+}
+
+.maintenance-table th:nth-child(7),
+.maintenance-table td:nth-child(7) {
+    width: 11%;
+    text-align: left;
+}
+
+.maintenance-table th:nth-child(8),
+.maintenance-table td:nth-child(8) {
+    width: 18%;
+    text-align: left;
+}
+
+.maintenance-table th:nth-child(9),
+.maintenance-table td:nth-child(9) {
+    width: 14%;
+    text-align: left;
+}
+
+.maintenance-table th:nth-child(10),
+.maintenance-table td:nth-child(10) {
+    width: 7%;
+}
+
+.maintenance-table-cell {
+    font-size: clamp(9px, 0.82vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    padding: clamp(6px, 0.65vw, 11px) clamp(10px, 0.9vw, 14px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    text-align: center;
+}
+
+.maintenance-table td.maintenance-table-cell.formula-cell-text,
+.maintenance-table td.maintenance-table-cell.formula-cell-text .source-display,
+.maintenance-table td.maintenance-table-cell.formula-cell-text .input-method-display,
+.maintenance-table td.maintenance-table-cell.formula-cell-text .formula-display,
+.maintenance-table td.maintenance-table-cell.formula-cell-text .description-display {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+    vertical-align: top;
+}
+
+.maintenance-table tbody tr.formula-row-editing td.maintenance-table-cell {
+    overflow: visible;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.maintenance-select-all-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+}
+
+.maintenance-cell-currency {
+    text-align: center;
+}
+
+.maintenance-cell-checkbox {
+    text-align: center;
+}
+
+.maintenance-row-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: clamp(10px, 0.73vw, 14px);
+    height: clamp(10px, 0.73vw, 14px);
+    border: 2px solid #000000ff;
+    border-radius: 3px;
+    background-color: white;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    margin: 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.maintenance-row-checkbox:checked {
+    background-color: #1a237e;
+    border-color: #1a237e;
+}
+
+.maintenance-row-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: clamp(10px, 0.83vw, 14px);
+    font-weight: bold;
+    line-height: 1;
 }
 
 /* Empty State Styles */

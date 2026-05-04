@@ -1,5 +1,3 @@
-import { useState, useRef, useEffect } from "react";
-
 export default function PaymentMaintenanceFilters({
   transactionType,
   setTransactionType,
@@ -19,17 +17,6 @@ export default function PaymentMaintenanceFilters({
   setConfirmDelete,
   deleteDisabled
 }) {
-  const [quickSelectOpen, setQuickSelectOpen] = useState(false);
-  const quickSelectRef = useRef(null);
-
-  useEffect(() => {
-    const handle = (e) => {
-      if (quickSelectRef.current && !quickSelectRef.current.contains(e.target)) setQuickSelectOpen(false);
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
-
   const snapCompanies = companies.filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const snapGroupIds = [...new Set(snapCompanies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
 
@@ -64,27 +51,27 @@ export default function PaymentMaintenanceFilters({
           <input type="hidden" id="date_to" defaultValue={dateTo || today} />
         </div>
 
-        <div className="maintenance-form-group quick-select-wrap" ref={quickSelectRef}>
+        <div className="maintenance-form-group quick-select-wrap">
           <label className="maintenance-label"><i className="fas fa-clock" /> Quick Select</label>
           <div className="quick-select-dropdown quick-select-dropdown-toggle">
             <button 
               type="button" 
               className="dropdown-toggle" 
-              onClick={(e) => { e.stopPropagation(); setQuickSelectOpen(!quickSelectOpen); }}
+              onClick={(e) => { e.stopPropagation(); window.toggleQuickSelectDropdown?.(); }}
             >
               <i className="fas fa-calendar-alt" />
               <span id="quick-select-text">Period</span>
               <i className="fas fa-chevron-down" />
             </button>
-            <div className="dropdown-menu" id="quick-select-dropdown" style={{ display: quickSelectOpen ? "block" : undefined }}>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("today"); setQuickSelectOpen(false); }}>Today</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("yesterday"); setQuickSelectOpen(false); }}>Yesterday</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("thisWeek"); setQuickSelectOpen(false); }}>This Week</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("lastWeek"); setQuickSelectOpen(false); }}>Last Week</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("thisMonth"); setQuickSelectOpen(false); }}>This Month</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("lastMonth"); setQuickSelectOpen(false); }}>Last Month</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("thisYear"); setQuickSelectOpen(false); }}>This Year</button>
-              <button type="button" className="dropdown-item" onClick={() => { window.selectQuickRange?.("lastYear"); setQuickSelectOpen(false); }}>Last Year</button>
+            <div className="dropdown-menu" id="quick-select-dropdown">
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("today")}>Today</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("yesterday")}>Yesterday</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisWeek")}>This Week</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastWeek")}>Last Week</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisMonth")}>This Month</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastMonth")}>Last Month</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("thisYear")}>This Year</button>
+              <button type="button" className="dropdown-item" onClick={() => window.selectQuickRange?.("lastYear")}>Last Year</button>
             </div>
           </div>
         </div>
