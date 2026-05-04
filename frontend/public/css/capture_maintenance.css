@@ -167,10 +167,11 @@ h1 {
     flex-wrap: wrap;
 }
 
-/* Quick Select 列与 Process / Date 底对齐（与 PHP 工具栏行一致） */
+/* Quick Select：标签顶左对齐；Period 胶囊缩进在标签下（与 PHP 一致，非整列拉满） */
 .maintenance-filters .quick-select-wrap {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     align-self: flex-end;
 }
 
@@ -341,12 +342,13 @@ h1 {
     flex-wrap: wrap;
 }
 
-/* Period：与 capture_maintenance.php / 图二 PHP 一致 — 默认即为蓝渐变胶囊（非灰底） */
+/* Period：蓝渐变胶囊、内容宽度、略缩进（约在「Quick」的 u 下方起笔） */
 .maintenance-search-section .quick-select-dropdown {
     width: auto;
     min-width: clamp(104px, 8.5vw, 148px);
     flex-shrink: 0;
-    align-self: flex-end;
+    align-self: flex-start;
+    margin-left: clamp(10px, 0.85vw, 16px);
 }
 
 .maintenance-search-section .quick-select-dropdown .dropdown-toggle {
@@ -354,7 +356,8 @@ h1 {
     align-items: center;
     justify-content: center;
     gap: clamp(4px, 0.5vw, 6px);
-    width: 100%;
+    width: auto;
+    min-width: clamp(104px, 8.5vw, 148px);
     min-height: clamp(28px, 2.2vw, 34px);
     padding: clamp(3px, 0.31vw, 6px) clamp(12px, 1vw, 18px);
     font-size: clamp(9px, 0.63vw, 12px);
@@ -364,7 +367,7 @@ h1 {
     border: 1px solid transparent;
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
     cursor: pointer;
     transition: all 0.2s ease;
 }

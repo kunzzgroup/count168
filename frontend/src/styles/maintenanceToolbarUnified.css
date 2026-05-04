@@ -31,6 +31,7 @@ body.maintenance-page .maintenance-actions {
 body.maintenance-page .maintenance-filters .quick-select-wrap {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     align-self: flex-end;
 }
 
@@ -38,16 +39,18 @@ body.maintenance-page .maintenance-search-section .quick-select-dropdown {
     width: auto;
     min-width: clamp(104px, 8.5vw, 148px);
     flex-shrink: 0;
-    align-self: flex-end;
+    align-self: flex-start;
+    margin-left: clamp(10px, 0.85vw, 16px);
 }
 
-/* 与 capture_maintenance.php（图二）一致：Period 默认蓝渐变，非灰底 */
+/* 与 capture_maintenance.php：Period 蓝胶囊、内容宽度、缩进 */
 body.maintenance-page .maintenance-search-section .quick-select-dropdown .dropdown-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: clamp(4px, 0.5vw, 6px);
-    width: 100%;
+    width: auto;
+    min-width: clamp(104px, 8.5vw, 148px);
     min-height: clamp(28px, 2.2vw, 34px);
     padding: clamp(3px, 0.31vw, 6px) clamp(12px, 1vw, 18px);
     font-size: clamp(9px, 0.63vw, 12px);
@@ -57,7 +60,7 @@ body.maintenance-page .maintenance-search-section .quick-select-dropdown .dropdo
     border: 1px solid transparent;
     background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
     color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.35);
     cursor: pointer;
     transition: all 0.2s ease;
 }
