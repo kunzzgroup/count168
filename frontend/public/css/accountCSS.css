@@ -1793,7 +1793,8 @@ body.account-page:not(.account-page--show-all) .account-card {
     line-height: 1.1;
 }
 
-.quick-select-dropdown-toggle .dropdown-toggle {
+/* 维护页 body 带 maintenance-page：Period 由 *_maintenance.css 统一为胶囊，此处不套渐变 */
+body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-toggle {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     font-weight: 500;
@@ -1815,17 +1816,17 @@ body.account-page:not(.account-page--show-all) .account-card {
     line-height: 1.2;
 }
 
-.quick-select-dropdown-toggle .dropdown-toggle:hover {
+body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-toggle:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }
 
-.quick-select-dropdown-toggle .dropdown-toggle i {
+body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-toggle i {
     color: white;
 }
 
-.quick-select-dropdown-toggle .dropdown-menu {
+body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-menu {
     position: absolute;
     top: 100%;
     left: 0;
@@ -1839,7 +1840,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     padding: 4px 0;
 }
 
-.quick-select-dropdown-toggle .dropdown-item {
+body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item {
     display: block;
     width: 100%;
     padding: 8px 16px;
@@ -1853,7 +1854,7 @@ body.account-page:not(.account-page--show-all) .account-card {
     transition: all 0.2s;
 }
 
-.quick-select-dropdown-toggle .dropdown-item:hover {
+body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     background-color: #f0f7ff;
     color: #007AFF;
 }
