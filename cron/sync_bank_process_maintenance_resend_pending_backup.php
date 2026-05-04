@@ -21,22 +21,16 @@ INSERT INTO bank_process_maintenance_resend_pending_backup (
 SELECT
   prp.id,
   prp.company_id,
-  COALESCE(
-    NULLIF(TRIM(co.company_id), ''),
-    CAST(prp.company_id AS CHAR)
-  ) AS company_name,
+  COALESCE(co.company_id, '') AS company_name,
   prp.bank_process_id,
-  COALESCE(
-    NULLIF(TRIM(bp.name), ''),
-    CONCAT('(id ', prp.bank_process_id, ')')
-  ) AS bank_process_name,
+  COALESCE(bp.name, '') AS bank_process_name,
   prp.process_accounting_posted_id,
   prp.period_type,
   prp.transaction_date,
   prp.created_at
 FROM bank_process_maintenance_resend_pending prp
 LEFT JOIN company co ON co.id = prp.company_id
-LEFT JOIN bank_process bp ON bp.id = prp.bank_process_id
+LEFT JOIN bank_process bp ON bp.id = prp.bank_process_id AND bp.company_id = prp.company_id
 SQL;
 
 try {
