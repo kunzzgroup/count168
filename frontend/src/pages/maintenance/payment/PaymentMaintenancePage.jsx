@@ -142,8 +142,8 @@ export default function PaymentMaintenancePage() {
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       assetUrl("css/accountCSS.css"),
-      assetUrl("css/payment_maintenance.css"),
       assetUrl("css/date-range-picker.css"),
+      assetUrl("css/payment_maintenance.css"),
     ];
 
     Promise.all(links.map(waitForStylesheet)).then(() => {

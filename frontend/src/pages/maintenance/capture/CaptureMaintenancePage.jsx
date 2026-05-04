@@ -115,8 +115,8 @@ export default function CaptureMaintenancePage() {
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       assetUrl("css/accountCSS.css"),
       assetUrl("css/transaction.css"),
-      assetUrl("css/capture_maintenance.css"),
       assetUrl("css/date-range-picker.css"),
+      assetUrl("css/capture_maintenance.css"),
     ];
 
     links.forEach(ensureStylesheetLast);

@@ -110,8 +110,8 @@ export default function TransactionMaintenancePage() {
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       assetUrl("css/accountCSS.css"),
       assetUrl("css/transaction.css"),
-      assetUrl("css/transaction_maintenance.css"),
       assetUrl("css/date-range-picker.css"),
+      assetUrl("css/transaction_maintenance.css"),
     ];
 
     links.forEach(ensureStylesheetLast);

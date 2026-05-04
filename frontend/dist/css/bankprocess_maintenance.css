@@ -176,6 +176,7 @@ h1 {
     display: flex;
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
+    flex-shrink: 0;
 }
 
 .maintenance-company-filter {
@@ -213,7 +214,7 @@ h1 {
 .maintenance-filter-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: clamp(12px, 1.04vw, 20px);
     flex-wrap: wrap;
 }
@@ -223,6 +224,57 @@ h1 {
     flex-direction: column;
     align-items: flex-start;
     gap: clamp(4px, 0.52vw, 8px);
+}
+
+/* Period：与胶囊筛选一致 */
+.maintenance-search-section .quick-select-dropdown {
+    width: auto;
+    min-width: clamp(104px, 8.5vw, 148px);
+}
+
+.maintenance-search-section .quick-select-dropdown .dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(4px, 0.5vw, 6px);
+    width: 100%;
+    min-height: clamp(28px, 2.2vw, 34px);
+    padding: clamp(3px, 0.31vw, 6px) clamp(12px, 1vw, 18px);
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: bold;
+    font-family: 'Amaranth', sans-serif;
+    border-radius: 999px;
+    border: 1px solid #d0d7de;
+    background: #f1f5f9;
+    color: #1f2937;
+    box-shadow: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.maintenance-search-section .quick-select-dropdown .dropdown-toggle:hover {
+    background: #e2e8f0;
+    border-color: #a5b4fc;
+    color: #1f2937;
+}
+
+.maintenance-search-section .quick-select-dropdown:has(#quick-select-dropdown.show) .dropdown-toggle,
+.maintenance-search-section .quick-select-dropdown:has(.dropdown-menu.show) .dropdown-toggle {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.maintenance-search-section .quick-select-dropdown:has(#quick-select-dropdown.show) .dropdown-toggle:hover,
+.maintenance-search-section .quick-select-dropdown:has(.dropdown-menu.show) .dropdown-toggle:hover {
+    filter: brightness(1.05);
+}
+
+.maintenance-search-section .quick-select-dropdown .dropdown-menu {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
 
 .maintenance-from-search-row {
@@ -367,11 +419,13 @@ h1 {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
-    width: clamp(80px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
-    border: none;
-    border-radius: 6px;
+    width: auto;
+    min-width: clamp(72px, 5.5vw, 110px);
+    padding: clamp(3px, 0.31vw, 6px) clamp(14px, 1.04vw, 22px);
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: bold;
+    border: 1px solid transparent;
+    border-radius: 999px;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -384,11 +438,13 @@ h1 {
 }
 
 .maintenance-delete-btn:disabled {
-    background: #6c757d;
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1px solid #d0d7de;
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
-    opacity: 0.6;
+    opacity: 1;
 }
 
 .maintenance-confirm-delete-label {

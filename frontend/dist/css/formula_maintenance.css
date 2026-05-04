@@ -272,20 +272,20 @@ h1 {
     display: flex;
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
+    flex-shrink: 0;
 }
 
 .maintenance-filter-left {
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: clamp(8px, 0.65vw, 12px);
-    flex: 1;
-    min-width: 0;
 }
 
 .maintenance-filter-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: clamp(12px, 1.04vw, 20px);
     flex-wrap: wrap;
 }
@@ -670,11 +670,13 @@ h1 {
     background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
     color: white;
     font-family: 'Amaranth';
-    width: clamp(80px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
-    border: none;
-    border-radius: 6px;
+    width: auto;
+    min-width: clamp(72px, 5.5vw, 110px);
+    padding: clamp(3px, 0.31vw, 6px) clamp(14px, 1.04vw, 22px);
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: bold;
+    border: 1px solid transparent;
+    border-radius: 999px;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -687,11 +689,13 @@ h1 {
 }
 
 .maintenance-delete-btn:disabled {
-    background: #6c757d;
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1px solid #d0d7de;
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
-    opacity: 0.6;
+    opacity: 1;
 }
 
 .maintenance-confirm-delete-label {
