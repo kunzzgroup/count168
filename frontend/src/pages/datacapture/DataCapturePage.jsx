@@ -149,19 +149,25 @@ export default function DataCapturePage() {
     const scaler = datacaptureFitScalerRef.current;
     const content = datacaptureFitContentRef.current;
     if (!stage || !scaler || !content) return;
-    content.style.transform = "scale(1)";
-    content.style.width = "100%";
-    void content.offsetWidth;
     const sw = stage.clientWidth;
     const sh = stage.clientHeight;
-    const cw = Math.max(content.scrollWidth, content.offsetWidth, 1);
-    const ch = Math.max(content.scrollHeight, content.offsetHeight, 1);
     if (sw < 4 || sh < 4) return;
+
+    /* Percent width collapses when scaler has no explicit width — pin to stage px before measure */
+    content.style.transform = "scale(1)";
+    content.style.boxSizing = "border-box";
+    content.style.width = `${sw}px`;
+    content.style.maxWidth = `${sw}px`;
+    void content.offsetWidth;
+
+    const cw = Math.max(content.scrollWidth, sw, 1);
+    const ch = Math.max(content.scrollHeight, content.offsetHeight, 1);
     const s = Math.min(sw / cw, sh / ch, 1);
     content.style.transform = `scale(${s})`;
     content.style.transformOrigin = "top left";
     scaler.style.width = `${cw * s}px`;
     scaler.style.height = `${ch * s}px`;
+    scaler.style.maxWidth = `${sw}px`;
   }, []);
 
   const selectedProcess = useMemo(

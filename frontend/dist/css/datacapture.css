@@ -1469,13 +1469,16 @@ body.datacapture-page .datacapture-fit-stage {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    /* stretch: avoid flex children shrinking to min-content width (narrow strip bug) */
+    align-items: stretch;
 }
 
 body.datacapture-page .datacapture-fit-scaler {
     overflow: hidden;
     flex-shrink: 0;
+    width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
 }
 
 body.datacapture-page .datacapture-fit-content {
