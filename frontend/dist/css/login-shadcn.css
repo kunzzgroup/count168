@@ -28,8 +28,11 @@ body.bg::before {
 }
 
 .sc-login-shell {
+  box-sizing: border-box;
+  /* Lock outer width: flex items default min-width:auto can grow from long placeholders / EN copy */
+  flex: 0 0 min(430px, 96vw);
   width: min(430px, 96vw);
-  max-width: none;
+  max-width: min(430px, 96vw);
   margin: 0 auto;
   position: relative;
   z-index: 2;
@@ -232,6 +235,8 @@ button.sc-login-lang-seg.active {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   backdrop-filter: blur(10px);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sc-login-role-tabs {
@@ -243,6 +248,7 @@ button.sc-login-lang-seg.active {
 
 .sc-login-role-tab {
   flex: 1;
+  min-width: 0;
   padding: 14px 16px;
   border: none;
   background: transparent;
@@ -251,6 +257,7 @@ button.sc-login-lang-seg.active {
   font-weight: 600;
   font-size: 18px;
   text-align: center;
+  white-space: nowrap;
   transition: all 0.3s ease;
 }
 
@@ -261,18 +268,21 @@ button.sc-login-lang-seg.active {
 
 .sc-login-card-content {
   padding: 28px 24px;
+  min-width: 0;
 }
 
 .sc-login-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .sc-login-input-row {
   position: relative;
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
 .sc-login-input-icon {
@@ -286,7 +296,9 @@ button.sc-login-lang-seg.active {
 }
 
 .sc-login-input {
+  min-width: 0;
   width: 100%;
+  max-width: 100%;
   padding: 10px 20px 10px 44px;
   border: 2px solid var(--sc-login-bg-end);
   border-radius: var(--sc-login-radius-pill);
@@ -310,20 +322,27 @@ button.sc-login-lang-seg.active {
 }
 
 .sc-login-options {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
 }
 
 .sc-login-remember {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   cursor: pointer;
   user-select: none;
   color: var(--sc-login-muted);
   font-size: clamp(12px, 3vw, 14px);
   font-weight: 500;
+}
+
+.sc-login-remember > span {
+  white-space: nowrap;
 }
 
 .sc-login-remember input[type="checkbox"] {
@@ -333,10 +352,12 @@ button.sc-login-lang-seg.active {
 }
 
 .sc-login-forgot-link {
+  justify-self: end;
   color: var(--sc-login-bg-end);
   text-decoration: none;
   font-size: clamp(12px, 3vw, 14px);
   font-weight: 500;
+  white-space: nowrap;
   transition: color 0.3s ease;
 }
 
