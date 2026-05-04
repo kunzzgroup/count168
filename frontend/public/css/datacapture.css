@@ -96,7 +96,7 @@ body.datacapture-page h1 {
     gap: clamp(18px, 2.2vw, 32px);
     margin-top: 0;
     margin-bottom: clamp(8px, 0.85vw, 14px);
-    align-items: flex-start;
+    align-items: stretch;
     flex-shrink: 0;
     min-width: 0;
 }
@@ -145,20 +145,21 @@ body.datacapture-page h1 {
     border-radius: 10px;
     padding: clamp(14px, 1.25vw, 22px);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     width: 100%;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: visible;
+    overflow: hidden;
 }
 
 .form-container .process-form {
     overflow-x: hidden;
-    overflow-y: visible;
-    flex: 0 0 auto;
+    overflow-y: auto;
+    flex: 1 1 auto;
     min-height: 0;
-    padding-right: 0;
+    padding-right: 4px;
     scrollbar-gutter: stable;
 }
 
@@ -167,9 +168,10 @@ body.datacapture-page h1 {
     border-radius: 10px;
     padding: clamp(14px, 1.25vw, 22px);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     width: 100%;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -403,8 +405,7 @@ body.datacapture-page h1 {
 }
 
 .submitted-list {
-    flex: 0 1 auto;
-    max-height: min(52vh, 520px);
+    flex: 1 1 auto;
     overflow-y: auto;
     min-height: 0;
     border: 1px solid var(--dc-border, #e2e8f0);
@@ -525,6 +526,9 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .btn-save {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: var(--dc-accent, #2563eb);
     color: #fff;
     font-family: inherit;
