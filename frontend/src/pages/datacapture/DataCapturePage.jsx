@@ -9,7 +9,6 @@ import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
 import { useDataCaptureTableEngine } from "./hooks/useDataCaptureTableEngine.js";
 import { captureTableDataFromDom } from "./utils/captureTableDataDom.js";
 import { compactMatrix, parseClipboardMatrix, parseMatrixFromPasteArea, parseTableMatrixFromHtml } from "./utils/formatMatrixParser.js";
-import { dataCaptureRowLabel } from "./utils/dataCaptureRowLabels.js";
 
 function ensureTableShape(rows, cols) {
   const tableBody = document.getElementById("tableBody");
@@ -40,7 +39,7 @@ function ensureTableShape(rows, cols) {
 
   Array.from(tableBody.children).forEach((tr, rowIdx) => {
     const rowHeader = tr.querySelector(".row-header");
-    if (rowHeader) rowHeader.textContent = dataCaptureRowLabel(rowIdx);
+    if (rowHeader) rowHeader.textContent = String(rowIdx + 1);
     while (tr.querySelectorAll("td[data-col]").length < safeCols) {
       const td = document.createElement("td");
       td.contentEditable = "true";
@@ -141,6 +140,35 @@ export default function DataCapturePage() {
   const toUpperInput = useCallback((next) => String(next || "").toUpperCase(), []);
   const processDropdownRef = useRef(null);
   const formatPasteAreaRef = useRef(null);
+  const datacaptureFitStageRef = useRef(null);
+  const datacaptureFitScalerRef = useRef(null);
+  const datacaptureFitContentRef = useRef(null);
+
+  const updateDatacaptureFit = useCallback(() => {
+    const stage = datacaptureFitStageRef.current;
+    const scaler = datacaptureFitScalerRef.current;
+    const content = datacaptureFitContentRef.current;
+    if (!stage || !scaler || !content) return;
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    if (sw < 4 || sh < 4) return;
+
+    /* Percent width collapses when scaler has no explicit width — pin to stage px before measure */
+    content.style.transform = "scale(1)";
+    content.style.boxSizing = "border-box";
+    content.style.width = `${sw}px`;
+    content.style.maxWidth = `${sw}px`;
+    void content.offsetWidth;
+
+    const cw = Math.max(content.scrollWidth, sw, 1);
+    const ch = Math.max(content.scrollHeight, content.offsetHeight, 1);
+    const s = Math.min(sw / cw, sh / ch, 1);
+    content.style.transform = `scale(${s})`;
+    content.style.transformOrigin = "top left";
+    scaler.style.width = `${cw * s}px`;
+    scaler.style.height = `${ch * s}px`;
+    scaler.style.maxWidth = `${sw}px`;
+  }, []);
 
   const selectedProcess = useMemo(
     () => processOptions.find((option) => String(option.id) === String(selectedProcessId)) || null,
@@ -199,6 +227,49 @@ export default function DataCapturePage() {
       document.body.classList.remove("datacapture-page", "page-ready");
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!isPageReady) return;
+    const stage = datacaptureFitStageRef.current;
+    const content = datacaptureFitContentRef.current;
+    if (!stage || !content) return;
+    const schedule = () => {
+      requestAnimationFrame(() => requestAnimationFrame(updateDatacaptureFit));
+    };
+    const ro = new ResizeObserver(schedule);
+    ro.observe(stage);
+    ro.observe(content);
+    schedule();
+    window.addEventListener("resize", schedule);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", schedule);
+    };
+  }, [isPageReady, updateDatacaptureFit]);
+
+  useLayoutEffect(() => {
+    if (!isPageReady) return;
+    requestAnimationFrame(() => requestAnimationFrame(updateDatacaptureFit));
+  }, [
+    isPageReady,
+    updateDatacaptureFit,
+    dataCaptureType,
+    tableDataSnapshot,
+    formatGridReady,
+    submittedProcesses.length,
+    descriptionModalOpen,
+    processDropdownOpen,
+    selectedDate,
+    companyId,
+  ]);
+
+  /** Table/grid paints async; retry fit so stage gets non-zero height and scale applies */
+  useEffect(() => {
+    if (!isPageReady) return undefined;
+    const delays = [0, 50, 120, 280];
+    const ids = delays.map((ms) => window.setTimeout(() => updateDatacaptureFit(), ms));
+    return () => ids.forEach((id) => window.clearTimeout(id));
+  }, [isPageReady, updateDatacaptureFit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -397,7 +468,7 @@ export default function DataCapturePage() {
       const tr = document.createElement("tr");
       const rowHeader = document.createElement("td");
       rowHeader.className = "row-header";
-      rowHeader.textContent = dataCaptureRowLabel(r);
+      rowHeader.textContent = String(r + 1);
       tr.appendChild(rowHeader);
       for (let c = 0; c < cols; c += 1) {
         const td = document.createElement("td");
@@ -768,7 +839,7 @@ export default function DataCapturePage() {
   return (
     <div className="container">
       <div className="datacapture-page-header">
-        <h1 className="dashboard-title">Data Capture</h1>
+        <h1>Data Capture</h1>
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div
@@ -793,7 +864,9 @@ export default function DataCapturePage() {
         </div>
       </div>
 
-      <div className="datacapture-main">
+      <div className="datacapture-fit-stage" ref={datacaptureFitStageRef}>
+        <div className="datacapture-fit-scaler" ref={datacaptureFitScalerRef}>
+          <div className="datacapture-fit-content" ref={datacaptureFitContentRef}>
       <div className="top-section">
         <div className="form-column">
           <div className="form-container">
@@ -1091,6 +1164,8 @@ export default function DataCapturePage() {
           </button>
         </div>
       </div>
+          </div>
+        </div>
       </div>
 
       <div id="descriptionSelectionModal" className={`modal ${descriptionModalOpen ? "show" : ""}`} style={{ display: descriptionModalOpen ? "block" : "none" }}>

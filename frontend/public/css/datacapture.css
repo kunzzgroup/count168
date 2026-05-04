@@ -31,18 +31,13 @@ body.datacapture-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
+    /* Fixed viewport height stops the document from growing and scrolling the html element */
     height: min(100vh, 100dvh);
     max-height: min(100vh, 100dvh);
     min-height: 0;
-    /* Match dashboard / legacy PHP main area: soft blue */
-    background-color: #e9f1ff;
-    background-image:
-        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
-        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
-        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
-        linear-gradient(145deg, #97bffc 0%, #aecffa 40%, #f9fbff 100%);
-    background-blend-mode: screen, screen, multiply, normal;
-    color: #334155;
+    background-color: #dcdcdc;
+    background-image: none;
+    color: #333333;
     overflow: hidden;
     overscroll-behavior: none;
 }
@@ -64,7 +59,16 @@ body.datacapture-page .container {
     box-sizing: border-box;
 }
 
-/* Page title: use .dashboard-title (dashboard.css) — same as Transaction Dashboard */
+body.datacapture-page h1 {
+    color: #212529;
+    text-align: left;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    font-size: 1.25rem;
+    font-family: inherit;
+    font-weight: 700;
+    letter-spacing: normal;
+}
 
 .top-section {
     display: flex;
@@ -1429,14 +1433,14 @@ body.datacapture-page .container {
 
 }
 
-/* ----- Legacy PHP layout: one viewport, scroll only inside list + table ----- */
+/* ----- One-screen layout & legacy datacapture.php look (flat gray, compact cards) ----- */
 body.datacapture-page .container {
     display: flex;
     flex-direction: column;
     height: min(100vh, 100dvh);
     max-height: min(100vh, 100dvh);
     min-height: 0;
-    padding: 6px 24px 8px clamp(160px, 14vw, 270px);
+    padding: 4px 28px 6px clamp(160px, 14vw, 260px);
     overflow: hidden;
     box-sizing: border-box;
 }
@@ -1447,204 +1451,176 @@ body.datacapture-page .datacapture-page-header {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin: 0 0 2px 0;
+    margin: 0 0 4px 0;
     flex-wrap: wrap;
 }
 
-body.datacapture-page .datacapture-page-header .dashboard-title {
+body.datacapture-page .datacapture-page-header h1 {
     margin: 0;
-    flex-shrink: 0;
+    font-size: 1.125rem;
 }
 
-/* Main column: form + table stack, fills under title */
-body.datacapture-page .datacapture-main {
+/* Fills area under title; content is scaled to fit — no page or panel scrollbars */
+body.datacapture-page .datacapture-fit-stage {
     flex: 1 1 0;
     min-height: 0;
     width: 100%;
     max-width: 100%;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+    /* stretch: avoid flex children shrinking to min-content width (narrow strip bug) */
     align-items: stretch;
-    overflow: hidden;
-    gap: 8px;
 }
 
-/* Match legacy PHP: ~60% form/submitted, ~40% table band (grid scrolls inside bottom band) */
-body.datacapture-page .top-section {
-    flex: 3 1 0;
-    min-height: 0;
-    max-height: none;
-    margin-top: 0;
-    margin-bottom: 0;
-    gap: 10px;
-    align-items: stretch;
+body.datacapture-page .datacapture-fit-scaler {
     overflow: hidden;
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+body.datacapture-page .datacapture-fit-content {
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+body.datacapture-page .top-section {
+    flex: 0 0 auto;
+    margin-top: 0;
+    margin-bottom: 6px;
+    gap: 8px;
+    align-items: stretch;
+    overflow: visible;
+    max-height: none;
 }
 
 body.datacapture-page .form-column,
 body.datacapture-page .submitted-column {
     min-height: 0;
-    display: flex;
-    flex-direction: column;
 }
 
 body.datacapture-page .form-container,
 body.datacapture-page .submitted-container {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    border-radius: 8px;
-    padding: 10px 12px;
-    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 8px 10px;
+    box-shadow: none;
+    border: 1px solid #bbbbbb;
     background: #ffffff;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 10px rgba(15, 23, 42, 0.04);
-    overflow: hidden;
+    min-height: 0;
+    max-height: none;
 }
 
 body.datacapture-page .form-container .process-form {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
+    overflow: visible;
+    max-height: none;
 }
 
 body.datacapture-page .submitted-title,
 body.datacapture-page .form-title {
-    font-size: 14px;
-    padding-bottom: 6px;
-    margin-bottom: 8px;
-    font-weight: 700;
-    color: #1e293b;
-}
-
-body.datacapture-page .submitted-title {
-    border-bottom: 2px solid var(--dc-accent, #007bff);
+    font-size: 13px;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 body.datacapture-page .process-form .form-group {
-    margin-bottom: 6px;
-    gap: 8px;
+    margin-bottom: 5px;
+    gap: 6px;
 }
 
 body.datacapture-page .process-form .form-group label {
-    width: clamp(76px, 6vw, 110px);
+    width: clamp(72px, 5.5vw, 100px);
     font-size: 12px;
 }
 
 body.datacapture-page .process-form .form-group input,
 body.datacapture-page .process-form .form-group select {
-    min-height: 30px;
-    padding: 5px 9px;
-    border-radius: 4px;
-    border-color: #d1d5db;
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    border-color: #cccccc;
     font-size: 12px;
 }
 
 body.datacapture-page .custom-select-button {
-    min-height: 30px;
-    border-radius: 4px;
-    border-color: #d1d5db;
+    min-height: 28px;
+    border-radius: 3px;
+    border-color: #cccccc;
     font-size: 12px;
 }
 
 body.datacapture-page .data-capture-company-btn {
-    border-radius: 999px;
-    padding: 3px 11px;
+    border-radius: 3px;
+    padding: 2px 10px;
     font-size: 11px;
 }
 
 body.datacapture-page .submitted-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    border-radius: 6px;
-    padding: 8px;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    scrollbar-gutter: stable;
+    overflow: hidden;
+    border-radius: 3px;
+    padding: 6px;
+    background: #f5f5f5;
+    border-color: #cccccc;
 }
 
 body.datacapture-page .submitted-item {
-    border-radius: 6px;
-    padding: 8px 10px;
-    margin-bottom: 6px;
+    border-radius: 2px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
     box-shadow: none;
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
+    border-color: #cccccc;
 }
 
 body.datacapture-page .bottom-section {
-    flex: 2 1 0;
+    flex: 0 0 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
     margin-top: 0;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
 }
 
-/* Override global .excel-table-container fixed height so the ~40% band controls size */
 body.datacapture-page .excel-table-container {
-    flex: 1 1 0;
-    height: auto;
+    flex: 0 0 auto;
     min-height: 0;
+    height: auto;
     max-height: none;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-    overflow: auto;
-    overscroll-behavior: contain;
-    background: #ffffff;
-}
-
-/* PHP-style compact grid: smaller cells so more columns fit and rows look shorter */
-body.datacapture-page .excel-table-container:not(.citibet-mode) .excel-table th,
-body.datacapture-page .excel-table-container:not(.citibet-mode) .excel-table td {
-    padding: 2px 5px;
-    font-size: 11px;
-    line-height: 1.25;
-    min-width: 24px;
-}
-
-body.datacapture-page .excel-table-container:not(.citibet-mode) .excel-table td.row-header {
-    min-width: 22px;
-    padding: 2px 4px;
-    font-size: 11px;
+    border-radius: 4px;
+    border: 1px solid #bbbbbb;
+    box-shadow: none;
+    overflow: hidden;
 }
 
 body.datacapture-page .excel-table-header {
-    position: sticky;
-    top: 0;
-    z-index: 4;
-    flex-shrink: 0;
+    position: relative;
     padding: 6px 10px;
     gap: 8px 12px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e5e7eb;
+    background: #f0f0f0;
+    border-bottom: 1px solid #bbbbbb;
     font-size: 13px;
-    font-weight: 700;
-    color: #1e293b;
+    font-weight: 600;
+    color: #333333;
 }
 
 body.datacapture-page .data-capture-type-selector {
-    border-radius: 4px;
+    border-radius: 3px;
     font-size: 12px;
 }
 
 body.datacapture-page .text-input-format,
 body.datacapture-page .paste-area-format,
 body.datacapture-page .table-preview-format {
-    min-height: 80px;
+    min-height: 120px;
 }
 
 body.datacapture-page .form-actions {
     flex-shrink: 0;
-    margin-top: 0;
+    margin-top: 4px;
     margin-bottom: 0;
-    padding-top: 2px;
 }
 
 body.datacapture-page .btn-save:hover:not(:disabled) {
@@ -1652,19 +1628,19 @@ body.datacapture-page .btn-save:hover:not(:disabled) {
 }
 
 body.datacapture-page .btn-save {
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 body.datacapture-page .btn-cancel {
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 body.datacapture-page .process-form .shared-group-wrapper {
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 body.datacapture-page .process-form .shared-company-wrapper {
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 @media (max-width: 900px) {
@@ -1693,24 +1669,16 @@ body.datacapture-page .process-form .shared-company-wrapper {
     }
 
     body.datacapture-page .top-section {
-        flex: 1 1 auto;
-        max-height: none;
+        max-height: min(45vh, 420px);
     }
 
     body.datacapture-page .form-container,
     body.datacapture-page .submitted-container {
-        max-height: none;
-    }
-
-    body.datacapture-page .bottom-section {
-        flex: 2 1 0;
-        min-height: 0;
+        max-height: min(45vh, 420px);
     }
 
     body.datacapture-page .excel-table-container {
-        flex: 1 1 0;
-        height: auto;
-        min-height: 140px;
-        max-height: none;
+        flex: 0 1 auto;
+        min-height: 220px;
     }
 }
