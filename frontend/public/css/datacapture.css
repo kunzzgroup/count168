@@ -10,14 +10,14 @@ body .container {
 }
 
 /* ----- Main page styles ----- */
-/* Tokens: slightly softer blue than legacy #007bff; sidebar active uses --sidebar-active-bg */
+/* Tokens: classic PHP/Bootstrap blue; sidebar active uses --sidebar-active-bg */
 body.datacapture-page {
-    --dc-accent: #2563eb;
-    --dc-accent-hover: #1d4ed8;
-    --dc-accent-soft: #eff6ff;
-    --dc-border: #e2e8f0;
-    --dc-text-muted: #64748b;
-    --sidebar-active-bg: #1e40af;
+    --dc-accent: #007bff;
+    --dc-accent-hover: #0069d9;
+    --dc-accent-soft: #e7f1ff;
+    --dc-border: #cccccc;
+    --dc-text-muted: #555555;
+    --sidebar-active-bg: #0056b3;
 }
 
 body.datacapture-page {
@@ -25,15 +25,9 @@ body.datacapture-page {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    background-color: #e9f1ff;
-    background-image:
-        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
-        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
-        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
-        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
-        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
-    background-blend-mode: screen, screen, multiply, screen, normal;
-    color: #334155;
+    background-color: #dcdcdc;
+    background-image: none;
+    color: #333333;
     overflow-x: hidden;
 }
 
@@ -47,14 +41,14 @@ body.datacapture-page .container {
 }
 
 body.datacapture-page h1 {
-    color: #0f172a;
+    color: #212529;
     text-align: left;
-    margin-top: clamp(12px, 1.04vw, 20px);
-    margin-bottom: clamp(16px, 1.35vw, 26px);
-    font-size: clamp(26px, 2.08vw, 40px);
+    margin-top: 8px;
+    margin-bottom: 8px;
+    font-size: 1.25rem;
     font-family: inherit;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: normal;
 }
 
 .top-section {
@@ -1418,4 +1412,203 @@ body.datacapture-page h1 {
         margin-bottom: 4px;
     }
 
+}
+
+/* ----- One-screen layout & legacy datacapture.php look (flat gray, compact cards) ----- */
+body.datacapture-page .container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    min-height: 0;
+    padding: 4px 28px 8px clamp(160px, 14vw, 260px);
+    overflow: hidden;
+}
+
+body.datacapture-page .datacapture-page-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 4px 0;
+    flex-wrap: wrap;
+}
+
+body.datacapture-page .datacapture-page-header h1 {
+    margin: 0;
+    font-size: 1.125rem;
+}
+
+body.datacapture-page .top-section {
+    flex: 0 1 auto;
+    max-height: min(34vh, 320px);
+    min-height: 0;
+    margin-top: 0;
+    margin-bottom: 6px;
+    gap: 10px;
+    align-items: stretch;
+}
+
+body.datacapture-page .form-column,
+body.datacapture-page .submitted-column {
+    min-height: 0;
+}
+
+body.datacapture-page .form-container,
+body.datacapture-page .submitted-container {
+    border-radius: 4px;
+    padding: 8px 10px;
+    box-shadow: none;
+    border: 1px solid #bbbbbb;
+    background: #ffffff;
+    min-height: 0;
+    max-height: min(34vh, 320px);
+}
+
+body.datacapture-page .submitted-title,
+body.datacapture-page .form-title {
+    font-size: 13px;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+}
+
+body.datacapture-page .process-form .form-group {
+    margin-bottom: 5px;
+    gap: 6px;
+}
+
+body.datacapture-page .process-form .form-group label {
+    width: clamp(72px, 5.5vw, 100px);
+    font-size: 12px;
+}
+
+body.datacapture-page .process-form .form-group input,
+body.datacapture-page .process-form .form-group select {
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    border-color: #cccccc;
+    font-size: 12px;
+}
+
+body.datacapture-page .custom-select-button {
+    min-height: 28px;
+    border-radius: 3px;
+    border-color: #cccccc;
+    font-size: 12px;
+}
+
+body.datacapture-page .data-capture-company-btn {
+    border-radius: 3px;
+    padding: 2px 10px;
+    font-size: 11px;
+}
+
+body.datacapture-page .submitted-list {
+    border-radius: 3px;
+    padding: 6px;
+    background: #f5f5f5;
+    border-color: #cccccc;
+}
+
+body.datacapture-page .submitted-item {
+    border-radius: 2px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    box-shadow: none;
+    border-color: #cccccc;
+}
+
+body.datacapture-page .bottom-section {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+    gap: 6px;
+}
+
+body.datacapture-page .excel-table-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    border-radius: 4px;
+    border: 1px solid #bbbbbb;
+    box-shadow: none;
+    overflow: auto;
+}
+
+body.datacapture-page .excel-table-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 6px 10px;
+    gap: 8px 12px;
+    background: #f0f0f0;
+    border-bottom: 1px solid #bbbbbb;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333333;
+}
+
+body.datacapture-page .data-capture-type-selector {
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+body.datacapture-page .text-input-format,
+body.datacapture-page .paste-area-format,
+body.datacapture-page .table-preview-format {
+    min-height: 120px;
+}
+
+body.datacapture-page .form-actions {
+    flex-shrink: 0;
+    margin-top: 4px;
+    margin-bottom: 0;
+}
+
+body.datacapture-page .btn-save:hover:not(:disabled) {
+    transform: none;
+}
+
+body.datacapture-page .btn-save {
+    border-radius: 4px;
+}
+
+body.datacapture-page .btn-cancel {
+    border-radius: 4px;
+}
+
+body.datacapture-page .process-form .shared-group-wrapper {
+    margin-bottom: 4px;
+}
+
+body.datacapture-page .process-form .shared-company-wrapper {
+    margin-bottom: 4px;
+}
+
+@media (max-width: 900px) {
+    body.datacapture-page .container {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+        padding-bottom: 16px;
+    }
+
+    body.datacapture-page .top-section {
+        max-height: min(45vh, 420px);
+    }
+
+    body.datacapture-page .form-container,
+    body.datacapture-page .submitted-container {
+        max-height: min(45vh, 420px);
+    }
+
+    body.datacapture-page .excel-table-container {
+        flex: 0 1 auto;
+        min-height: 220px;
+    }
 }
