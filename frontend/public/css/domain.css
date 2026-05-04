@@ -71,6 +71,18 @@ h1 {
     margin-right: -50vw;
 }
 
+/* Domain List：分隔线在工具栏与列标题之间（与 domain.php / 图二一致） */
+.domain-react-page > .separator-line {
+    margin-top: clamp(6px, 0.65vw, 14px);
+    margin-bottom: clamp(8px, 0.78vw, 16px);
+    margin-left: -50vw;
+    margin-right: -50vw;
+}
+
+.domain-react-page .table-container {
+    margin-top: 0;
+}
+
 .table-container {
     overflow-x: visible;
     overflow-y: auto;

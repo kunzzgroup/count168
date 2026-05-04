@@ -290,6 +290,8 @@ export default function DomainPage() {
           </div>
         </div>
 
+        <div className="separator-line" aria-hidden="true" />
+
         <div className="table-container">
           <div className="table-header">
             <div>No:</div>
@@ -301,7 +303,6 @@ export default function DomainPage() {
             <div>Created By:</div>
             <div>Action:</div>
           </div>
-          <div className="separator-line" aria-hidden="true" />
           <div className="domain-cards" id="domainTableBody">
             {pagedDomains.map((domain, idx) => {
               const globalIdx = (safePage - 1) * ROWS_PER_PAGE + idx + 1;
