@@ -768,7 +768,7 @@ export default function DataCapturePage() {
   return (
     <div className="container">
       <div className="datacapture-page-header">
-        <h1>Data Capture</h1>
+        <h1 className="dashboard-title">Data Capture</h1>
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div

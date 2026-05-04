@@ -64,16 +64,7 @@ body.datacapture-page .container {
     box-sizing: border-box;
 }
 
-body.datacapture-page h1 {
-    color: #002c49;
-    text-align: left;
-    margin-top: 4px;
-    margin-bottom: 6px;
-    font-size: clamp(1.35rem, 1.8vw, 1.85rem);
-    font-family: Amaranth, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
+/* Page title: use .dashboard-title (dashboard.css) — same as Transaction Dashboard */
 
 .top-section {
     display: flex;
@@ -1460,9 +1451,9 @@ body.datacapture-page .datacapture-page-header {
     flex-wrap: wrap;
 }
 
-body.datacapture-page .datacapture-page-header h1 {
+body.datacapture-page .datacapture-page-header .dashboard-title {
     margin: 0;
-    font-size: inherit;
+    flex-shrink: 0;
 }
 
 /* Main column: form + table stack, fills under title */
