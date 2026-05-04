@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
@@ -48,6 +48,7 @@ export default function FormulaMaintenancePage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const toastTimerRef = useRef(null);
   const searchDebounceRef = useRef(null);
+  const formulaMaintenanceCssQuery = useMemo(() => `v=${Date.now()}`, []);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -106,7 +107,7 @@ export default function FormulaMaintenancePage() {
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       assetUrl("css/accountCSS.css"),
       assetUrl("css/transaction.css"),
-      assetUrl("css/formula_maintenance.css"),
+      assetUrl(`css/formula_maintenance.css?${formulaMaintenanceCssQuery}`),
     ];
 
     links.forEach(ensureStylesheetLast);

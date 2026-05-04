@@ -29,7 +29,8 @@ body.dashboard-page.maintenance-page {
 .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    /* 与 payment_maintenance：左侧 sidebar，右侧不加 40px，便于与下方表格同宽对齐 */
+    padding: 1px 0 20px clamp(180px, 14.06vw, 270px);
     width: 100%;
     min-height: 100vh;
     height: auto;
@@ -133,7 +134,8 @@ h1 {
 }
 
 .maintenance-search-section {
-    padding: 10px 20px;
+    /* 左右与表头 th 水平 padding 一致；外框与 .maintenance-list-container 同宽（1600 居中） */
+    padding: 10px clamp(10px, 0.9vw, 14px);
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     background-color: #fff;
@@ -142,8 +144,10 @@ h1 {
     flex-direction: column;
     gap: 10px;
     max-width: 1600px;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
+    box-sizing: border-box;
 }
 
 .maintenance-filters {
@@ -362,15 +366,16 @@ h1 {
     padding-right: 35px;
 }
 
-/* List + table：与 capture / payment maintenance 统一 */
+/* List + table：与 payment_maintenance 同宽（1600 + 居中），无额外左右 padding */
 .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
-    max-width: 1500px;
+    max-width: 1600px;
     margin-left: auto;
     margin-right: auto;
-    padding-left: clamp(8px, 0.9vw, 16px);
-    padding-right: clamp(8px, 0.9vw, 16px);
+    /* padding-left: clamp(8px, 0.9vw, 16px);
+    padding-right: clamp(8px, 0.9vw, 16px); */
+    box-sizing: border-box;
 }
 
 .maintenance-table {
