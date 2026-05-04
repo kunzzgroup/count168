@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
@@ -49,6 +49,7 @@ export default function TransactionMaintenancePage() {
   
   // -- UI State --
   const [toasts, setToasts] = useState([]);
+  const [cssReady, setCssReady] = useState(false);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -92,19 +93,35 @@ export default function TransactionMaintenancePage() {
       el.style.setProperty("max-height", "none", "important");
     });
 
-    const ensureStylesheetLast = (href) => {
-      const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-      if (existing) {
-        document.head.appendChild(existing);
-        return;
-      }
-      const l = document.createElement("link");
-      l.rel = "stylesheet";
-      l.href = href;
-      document.head.appendChild(l);
-    };
+    let cancelled = false;
 
-    // Inject legacy CSS
+    const waitForStylesheet = (href) =>
+      new Promise((resolve) => {
+        const markLoaded = (el) => {
+          try { el.dataset.loaded = "1"; } catch { /* ignore */ }
+          resolve(el);
+        };
+        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+        if (existing) {
+          document.head.appendChild(existing);
+          if (existing.dataset.loaded === "1") return resolve(existing);
+          try {
+            if (existing.sheet != null) return markLoaded(existing);
+          } catch { /* ignore */ }
+          const onLoad = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); markLoaded(existing); };
+          const onError = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); resolve(existing); };
+          existing.addEventListener("load", onLoad, { once: true });
+          existing.addEventListener("error", onError, { once: true });
+          return;
+        }
+        const l = document.createElement("link");
+        l.rel = "stylesheet";
+        l.href = href;
+        l.onload = () => markLoaded(l);
+        l.onerror = () => resolve(l);
+        document.head.appendChild(l);
+      });
+
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
@@ -114,11 +131,15 @@ export default function TransactionMaintenancePage() {
       assetUrl("css/transaction_maintenance.css"),
     ];
 
-    links.forEach(ensureStylesheetLast);
+    Promise.all(links.map(waitForStylesheet)).then(() => {
+      if (!cancelled) setCssReady(true);
+    });
 
     ensureMaintenanceDateRangePicker();
 
     return () => {
+      cancelled = true;
+      setCssReady(false);
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -139,7 +160,7 @@ export default function TransactionMaintenancePage() {
   }, []);
 
   useEffect(() => {
-    if (bootLoading || !me) return;
+    if (bootLoading || !me || !cssReady) return;
     if (!document.getElementById("date-range-picker")) return;
     if (!window?.MaintenanceDateRangePicker?.init) return;
 
@@ -155,7 +176,7 @@ export default function TransactionMaintenancePage() {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [bootLoading, me]);
+  }, [bootLoading, me, cssReady]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -270,9 +291,7 @@ export default function TransactionMaintenancePage() {
       });
       setTransactionData(data);
       setHasSearched(true);
-      if (data.length === 0) {
-        notify("No data found", "info");
-      } else {
+      if (data.length > 0) {
         notify(`Found ${data.length} record(s)`, "success");
       }
     } catch (err) {
@@ -285,10 +304,10 @@ export default function TransactionMaintenancePage() {
 
   // Auto-search when filters change (if has searched before or just loaded)
   useEffect(() => {
-    if (!bootLoading && companyId) {
+    if (!bootLoading && companyId && cssReady) {
       performSearch();
     }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch]);
+  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch, cssReady]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
@@ -339,7 +358,7 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me || !cssReady) return null;
 
   return (
     <div className="container">
