@@ -7,6 +7,8 @@
   --sc-login-danger: #dc3545;
   --sc-login-radius-xl: 28px;
   --sc-login-radius-pill: 999px;
+  /* Canonical login column width (zh layout reference); en/zh must share this — single source */
+  --sc-login-shell-inline: min(430px, 96vw);
 }
 
 body.bg {
@@ -31,12 +33,20 @@ body.bg {
   overflow-x: hidden;
 }
 
-/* #root is the flex item of body.bg — min-width:auto uses descendants’ min-content; zh copy can widen it */
+/*
+ * #root is the flex item of body.bg — min-width:auto follows descendants’ min-content (zh/en differs).
+ * Cap #root to the same inline size as the login shell so the outer column never grows/shrinks on toggle.
+ */
 body.bg #root {
   min-width: 0;
   width: 100%;
-  max-width: 100%;
+  max-width: var(--sc-login-shell-inline);
+  margin-inline: auto;
   box-sizing: border-box;
+}
+
+html:has(body.bg) {
+  scrollbar-gutter: stable;
 }
 
 body.bg::before {
@@ -48,11 +58,10 @@ body.bg::before {
 
 .sc-login-shell {
   box-sizing: border-box;
-  /* Lock outer width: flex items default min-width:auto can grow from long placeholders / EN copy */
-  flex: 0 0 min(430px, 96vw);
-  width: min(430px, 96vw);
-  min-width: min(430px, 96vw);
-  max-width: min(430px, 96vw);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 0 auto;
   margin: 0 auto;
   position: relative;
   z-index: 2;
