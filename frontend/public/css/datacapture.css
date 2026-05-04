@@ -10,8 +10,17 @@ body .container {
 }
 
 /* ----- Main page styles ----- */
+/* Tokens: slightly softer blue than legacy #007bff; sidebar active uses --sidebar-active-bg */
+body.datacapture-page {
+    --dc-accent: #2563eb;
+    --dc-accent-hover: #1d4ed8;
+    --dc-accent-soft: #eff6ff;
+    --dc-border: #e2e8f0;
+    --dc-text-muted: #64748b;
+    --sidebar-active-bg: #1e40af;
+}
 
-body {
+body.datacapture-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -28,7 +37,7 @@ body {
     overflow-x: hidden;
 }
 
-.container {
+body.datacapture-page .container {
     max-width: none;
     margin: 0;
     padding: 1px 40px 40px clamp(180px, 14.06vw, 270px);
@@ -37,22 +46,34 @@ body {
     box-sizing: border-box;
 }
 
-h1 {
-    color: #002C49;
+body.datacapture-page h1 {
+    color: #0f172a;
     text-align: left;
     margin-top: clamp(12px, 1.04vw, 20px);
     margin-bottom: clamp(16px, 1.35vw, 26px);
     font-size: clamp(26px, 2.08vw, 40px);
-    font-family: 'Amaranth';
-    font-weight: 500;
-    letter-spacing: -0.025em;
+    font-family: inherit;
+    font-weight: 600;
+    letter-spacing: -0.02em;
 }
 
 .top-section {
     display: flex;
-    gap: 24px;
+    gap: clamp(16px, 2vw, 28px);
     margin-top: 20px;
     margin-bottom: clamp(10px, 1.04vw, 20px);
+    align-items: stretch;
+}
+
+@media (max-width: 900px) {
+    .top-section {
+        flex-direction: column;
+    }
+
+    .form-column,
+    .submitted-column {
+        max-width: 100%;
+    }
 }
 
 .bottom-section {
@@ -73,33 +94,47 @@ h1 {
 
 .form-container {
     background: white;
-    border-radius: 8px;
-    padding: clamp(10px, 1.04vw, 20px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: clamp(208px, 24.23vw, 350px);
+    border-radius: 10px;
+    padding: clamp(14px, 1.25vw, 22px);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
+    min-height: clamp(240px, 26vw, 380px);
+    max-height: min(72vh, 520px);
     display: flex;
     flex-direction: column;
     min-width: 0;
+    overflow: hidden;
+}
+
+.form-container .process-form {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+    padding-right: 4px;
+    scrollbar-gutter: stable;
 }
 
 .submitted-container {
     background: white;
-    border-radius: 8px;
-    padding: clamp(10px, 1.04vw, 20px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: clamp(208px, 24.23vw, 350px);
+    border-radius: 10px;
+    padding: clamp(14px, 1.25vw, 22px);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
+    min-height: clamp(240px, 26vw, 380px);
+    max-height: min(72vh, 520px);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .form-title,
 .submitted-title {
-    margin: 0 0 clamp(6px, 0.83vw, 16px) 0;
-    color: #333;
+    margin: 0 0 clamp(8px, 0.83vw, 16px) 0;
+    color: #1e293b;
     font-size: clamp(12px, 0.94vw, 18px);
-    font-weight: bold;
-    border-bottom: 2px solid #007bff;
-    padding-bottom: clamp(4px, 0.42vw, 8px);
+    font-weight: 700;
+    border-bottom: 2px solid var(--dc-accent, #2563eb);
+    padding-bottom: clamp(6px, 0.42vw, 10px);
+    flex-shrink: 0;
 }
 
 .process-form {
@@ -109,13 +144,27 @@ h1 {
 }
 
 .process-form .form-group {
-    margin-bottom: clamp(6px, 0.83vw, 16px);
+    margin-bottom: clamp(10px, 0.9vw, 14px);
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    gap: clamp(0px, 0.625vw, 12px);
+    gap: clamp(8px, 0.625vw, 12px);
+}
+
+/* Remove Word row: label + input on first row, hint aligned under the input column */
+.process-form .form-group:has(> .field-help) {
+    display: grid;
+    grid-template-columns: clamp(80px, 6.25vw, 120px) 1fr;
+    column-gap: clamp(8px, 0.625vw, 12px);
+    row-gap: 4px;
+    align-items: center;
+}
+
+.process-form .form-group:has(> .field-help) > .field-help {
+    grid-column: 2;
+    margin: 0;
 }
 
 .process-form .form-group > .custom-select-wrapper {
@@ -125,14 +174,14 @@ h1 {
 
 .replace-word-group {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
 }
 
 .replace-word-group label {
     width: clamp(80px, 6.25vw, 120px);
     flex-shrink: 0;
-    margin-top: clamp(4px, 0.3vw, 8px);
+    margin-top: 0;
 }
 
 .replace-word-fields {
@@ -187,9 +236,10 @@ h1 {
 
 .custom-select-button {
     width: 100%;
-    padding: clamp(4px, 0.3vw, 8px) clamp(6px, 0.63vw, 12px);
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    min-height: 36px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(28px, 2vw, 36px) clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
     background: white;
     cursor: pointer;
     text-align: left;
@@ -270,7 +320,7 @@ h1 {
 }
 
 .custom-select-option.selected {
-    background-color: #e3f2fd;
+    background-color: var(--dc-accent-soft, #eff6ff);
     font-weight: bold;
 }
 
@@ -290,11 +340,12 @@ h1 {
     flex: 1;
     min-width: 0;
     max-width: 100%;
-    padding: clamp(4px, 0.3vw, 8px) clamp(6px, 0.63vw, 12px);
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    min-height: 36px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
     font-size: clamp(10px, 0.74vw, 14px);
-    font-weight: bold;
+    font-weight: 600;
     box-sizing: border-box;
 }
 
@@ -305,10 +356,12 @@ h1 {
 .submitted-list {
     flex: 1;
     overflow-y: auto;
-    border: 1px solid #eee;
-    border-radius: 4px;
-    padding: clamp(8px, 0.625vw, 12px);
-    background-color: #fafafa;
+    min-height: 0;
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 8px;
+    padding: clamp(10px, 0.75vw, 14px);
+    background-color: #f8fafc;
+    scrollbar-gutter: stable;
 }
 
 .no-data {
@@ -321,11 +374,15 @@ h1 {
 
 .submitted-item {
     background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    margin-bottom: 1px;
-    padding: 2px 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.submitted-item:last-child {
+    margin-bottom: 0;
 }
 
 .submitted-header {
@@ -338,7 +395,7 @@ h1 {
 }
 
 .submitted-number {
-    background: #007bff;
+    background: var(--dc-accent, #2563eb);
     color: white;
     padding: clamp(2px, 0.21vw, 4px) clamp(6px, 0.42vw, 8px);
     border-radius: clamp(8px, 0.63vw, 12px);
@@ -397,12 +454,12 @@ h1 {
 }
 
 .field-help {
-    font-size: clamp(8px, 0.625vw, 12px);
-    color: #666;
-    margin-top: 4px;
+    font-size: clamp(9px, 0.65vw, 12px);
+    color: var(--dc-text-muted, #64748b);
+    margin-top: 0;
     display: block;
-    margin-left: 0px;
-    /* Align with input fields (120px label width + 12px gap) */
+    margin-left: 0;
+    line-height: 1.35;
 }
 
 .form-actions {
@@ -413,58 +470,60 @@ h1 {
 }
 
 .btn-save {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
-    color: white;
-    font-family: 'Amaranth';
-    width: clamp(80px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
+    background: var(--dc-accent, #2563eb);
+    color: #fff;
+    font-family: inherit;
+    font-weight: 600;
+    width: clamp(88px, 6.25vw, 128px);
+    padding: 10px 22px;
+    font-size: clamp(11px, 0.83vw, 16px);
     border: none;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-    --sweep-color: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
     cursor: pointer;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.btn-save:hover {
-    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+.btn-save:hover:not(:disabled) {
+    background: var(--dc-accent-hover, #1d4ed8);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
     transform: translateY(-1px);
 }
 
 .btn-save:disabled {
-    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
-    color: #999;
+    background: #cbd5e1;
+    color: #475569;
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 1;
     transform: none;
-    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.2);
+    box-shadow: none;
 }
 
 .btn-save:disabled:hover {
-    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+    background: #cbd5e1;
     transform: none;
-    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.2);
+    box-shadow: none;
 }
 
 .btn-cancel {
-    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
-    color: white;
-    font-family: 'Amaranth';
-    width: clamp(80px, 6.25vw, 120px);
-    padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: clamp(10px, 0.83vw, 16px);
-    border: none;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
-    --sweep-color: rgba(255, 255, 255, 0.2);
+    background: #f1f5f9;
+    color: #334155;
+    font-family: inherit;
+    font-weight: 600;
+    width: clamp(88px, 6.25vw, 128px);
+    padding: 10px 22px;
+    font-size: clamp(11px, 0.83vw, 16px);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 8px;
+    box-shadow: none;
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .btn-cancel:hover {
-    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
-    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
-    transform: translateY(-1px);
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #0f172a;
 }
 
 .input-with-icon {
@@ -478,7 +537,7 @@ h1 {
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    background: #007bff;
+    background: var(--dc-accent, #2563eb);
     color: white;
     border: none;
     width: clamp(18px, 1.25vw, 24px);
@@ -493,7 +552,7 @@ h1 {
 }
 
 .add-icon:hover {
-    background: #0056b3;
+    background: var(--dc-accent-hover, #1d4ed8);
 }
 
 /* Modal Styles */
@@ -787,14 +846,15 @@ h1 {
 
 .excel-table-container {
     margin: 0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 10px;
     overflow: auto;
     background: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
     max-width: 100%;
+    width: 100%;
     height: clamp(230px, 19.19vw, 330px);
-    /* ~10 rows incl. header */
+    scrollbar-gutter: stable;
 }
 
 .text-input-format {
@@ -1002,13 +1062,19 @@ h1 {
 
 .excel-table-header {
     display: flex;
-    gap: 20px;
+    flex-wrap: wrap;
+    gap: 12px 20px;
     align-items: center;
-    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
-    background-color: #ffffffff;
+    padding: 12px clamp(10px, 0.8vw, 16px);
+    background-color: #f8fafc;
+    border-bottom: 1px solid var(--dc-border, #e2e8f0);
     font-size: clamp(12px, 0.94vw, 18px);
-    font-weight: bold;
-    color: #24292f;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.excel-table-header .btn-cancel {
+    margin-left: auto;
 }
 
 .data-capture-type-selector {
@@ -1203,10 +1269,10 @@ h1 {
 }
 
 .data-capture-company-label {
-    font-weight: bold;
-    color: #374151;
+    font-weight: 700;
+    color: #334155;
     font-size: clamp(10px, 0.73vw, 14px);
-    font-family: 'Amaranth', sans-serif;
+    font-family: inherit;
     white-space: nowrap;
 }
 
@@ -1244,10 +1310,10 @@ h1 {
 }
 
 .data-capture-company-btn.active {
-    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    background: var(--dc-accent, #2563eb);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
 }
 
 /* Notification Container Styles - Same as processlist.php */

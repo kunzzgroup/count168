@@ -1070,7 +1070,6 @@ export default function DataCapturePage() {
             className="btn btn-save"
             disabled={!submitGate.canSubmit}
             title={submitGate.canSubmit ? undefined : submitGate.disabledTitle}
-            style={submitGate.canSubmit ? undefined : { opacity: 0.6, cursor: "not-allowed" }}
             onClick={() =>
               submit({
                 selectedProcessId,
