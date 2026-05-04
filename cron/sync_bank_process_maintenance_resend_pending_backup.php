@@ -1,8 +1,9 @@
 <?php
 /**
- * 将 bank_process_accounting_resend_daily_guard 全量同步到 bank_process_accounting_resend_daily_guard_backup。
- * company_name 来自 company.company_id；bank_process_name 来自 bank_process.name（同 company 下 id 匹配）。
- * 仅允许 CLI 执行，供 Hostinger Cron: php /path/to/cron/sync_bank_process_accounting_resend_daily_guard_backup.php
+ * 将 bank_process_maintenance_resend_pending 全量同步到 bank_process_maintenance_resend_pending_backup。
+ * company_name：优先 company.company_id（字符串代码），为空或缺行时回退为 prp.company_id 数字字符串。
+ * bank_process_name：优先 bank_process.name；仅按 bp.id 关联（避免 company_id 不一致时整列空）。
+ * 仅允许 CLI 执行，供 Hostinger Cron: php /path/to/cron/sync_bank_process_maintenance_resend_pending_backup.php
  */
 if (php_sapi_name() !== 'cli') {
     http_response_code(403);
@@ -20,16 +21,22 @@ INSERT INTO bank_process_maintenance_resend_pending_backup (
 SELECT
   prp.id,
   prp.company_id,
-  COALESCE(co.company_id, '') AS company_name,
+  COALESCE(
+    NULLIF(TRIM(co.company_id), ''),
+    CAST(prp.company_id AS CHAR)
+  ) AS company_name,
   prp.bank_process_id,
-  COALESCE(bp.name, '') AS bank_process_name,
+  COALESCE(
+    NULLIF(TRIM(bp.name), ''),
+    CONCAT('(id ', prp.bank_process_id, ')')
+  ) AS bank_process_name,
   prp.process_accounting_posted_id,
   prp.period_type,
   prp.transaction_date,
   prp.created_at
 FROM bank_process_maintenance_resend_pending prp
 LEFT JOIN company co ON co.id = prp.company_id
-LEFT JOIN bank_process bp ON bp.id = prp.bank_process_id AND bp.company_id = prp.company_id
+LEFT JOIN bank_process bp ON bp.id = prp.bank_process_id
 SQL;
 
 try {
