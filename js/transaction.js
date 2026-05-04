@@ -1823,9 +1823,12 @@
     // ==================== 搜索功能 ====================
     // isInitialLoad: 首次进入页面自动搜当天数据时传 true（预留）
     // opts.silent: 为 true 时不盖掉已有表格、不显示全屏 Loading，且不弹出「搜索完成」类提示（用于 session 回放后的后台刷新）
+    // opts.forceRefresh: 为 true 时跳过「同条件 1200ms 内不重复搜 / 同条件 in-flight 不重发」，用于提交成功后必须见库内最新余额
     function searchTransactions(isInitialLoad, opts) {
         opts = opts || {};
         const silent = opts.silent === true;
+        // 提交成功后必须拉最新列表：否则与「同条件 1200ms 内不重复搜」冲突，主表会停在某次旧数据
+        const forceRefresh = opts.forceRefresh === true;
         const dateFrom = document.getElementById('date_from').value;
         const dateTo = document.getElementById('date_to').value;
         const selectedCategories = getSelectedCategories(); // 使用新的多选函数
@@ -1957,10 +1960,10 @@
             currencies: [...selectedCurrencies].sort().join(',')
         });
 
-        if (isSearchInFlight && activeSearchKey === requestKey) {
+        if (!forceRefresh && isSearchInFlight && activeSearchKey === requestKey) {
             return;
         }
-        if (!isInitialLoad && lastCompletedSearchKey === requestKey && (Date.now() - lastCompletedSearchTs) < 1200) {
+        if (!forceRefresh && !isInitialLoad && lastCompletedSearchKey === requestKey && (Date.now() - lastCompletedSearchTs) < 1200) {
             return;
         }
 
@@ -3421,7 +3424,7 @@
                     // 保持用户在 Show 0 balance 上的勾选状态，不再强制勾选
                     console.log('🔄 提交成功后立即刷新 Transaction List（保持当前 Show 0 balance 状态）');
                     if (typeof searchTransactions === 'function') {
-                        searchTransactions();
+                        searchTransactions(false, { forceRefresh: true });
                     }
                 } else {
                     isSubmittingTx = false;
@@ -3476,9 +3479,9 @@
 
         fetch(url, {
             method: 'GET',
-            cache: 'no-cache',
+            cache: 'no-store',
             headers: {
-                'Cache-Control': 'no-cache'
+                'Cache-Control': 'no-store'
             }
         })
             .then(response => response.json())

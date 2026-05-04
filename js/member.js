@@ -765,7 +765,7 @@ function fetchMemberHistory(forcedFilter) {
             company_id: memberConfig.companyId
         });
         const urlFallback = `api/transactions/history_api.php?${paramsFallback.toString()}&_t=${Date.now()}`;
-        fetch(urlFallback, { cache: 'no-cache' })
+        fetch(urlFallback, { cache: 'no-store' })
             .then(res => res.text())
             .then(text => parseJsonResponse(text))
             .then(data => {
@@ -815,7 +815,7 @@ function fetchMemberHistory(forcedFilter) {
     }
     const url = `api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`;
 
-    fetch(url, { cache: 'no-cache' })
+    fetch(url, { cache: 'no-store' })
         .then(res => res.text())
         .then(text => parseJsonResponse(text))
         .then(data => {

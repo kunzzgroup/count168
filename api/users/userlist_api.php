@@ -37,6 +37,33 @@ function canCreateUserByRole($role): bool {
     return $level < 5;
 }
 
+function userlistRoleLevel(string $role): int {
+    $hierarchy = [
+        'owner' => 0,
+        'partnership' => 1,
+        'admin' => 2,
+        'manager' => 3,
+        'supervisor' => 4,
+        'accountant' => 5,
+        'audit' => 6,
+        'customer service' => 7,
+    ];
+    return $hierarchy[strtolower(trim($role))] ?? 999;
+}
+
+/** Audit：manager 及以上可写 read_only；Partnership：仅 owner */
+function canSetUserReadOnly(string $currentRole, string $targetUserRole): bool {
+    $target = strtolower(trim($targetUserRole));
+    $cur = strtolower(trim($currentRole));
+    if ($target === 'audit') {
+        return userlistRoleLevel($cur) <= userlistRoleLevel('manager');
+    }
+    if ($target === 'partnership') {
+        return $cur === 'owner';
+    }
+    return false;
+}
+
 // 获取当前登录用户（你需要根据你的登录系统调整这个逻辑）
 function getCurrentUser() {
     // 这里你需要根据你的登录系统来获取当前用户
@@ -276,7 +303,7 @@ try {
             try {
                 // Insert new user (不再使用 company_id，因为已移除)
                 $readOnly = 1;
-                if ($current_user_role === 'owner' && isset($input['read_only'])) {
+                if (isset($input['read_only']) && canSetUserReadOnly($current_user_role, $input['role'] ?? '')) {
                     $readOnly = (int)$input['read_only'];
                 }
                 $sql = "INSERT INTO user (login_id, name, password, secondary_password, email, role, permissions, read_only, status, created_by, created_at) 
@@ -548,8 +575,8 @@ try {
             $updateFields[] = "status = ?";
             $updateValues[] = $input['status'];
 
-            // 保存 read_only 字段（只有 partnership 角色才有意义，但所有用户都存储）
-            if ($current_user_role === 'owner' && isset($input['read_only'])) {
+            // 保存 read_only（Audit：manager+；Partnership：仅 owner）
+            if (isset($input['read_only']) && canSetUserReadOnly($current_user_role, $input['role'] ?? '')) {
                 $updateFields[] = "read_only = ?";
                 $updateValues[] = (int)$input['read_only'];
             }

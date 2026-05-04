@@ -10,7 +10,12 @@
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+// 禁止缓存 JSON：避免 CDN/浏览器长期返回旧排序逻辑
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+header('X-Count168-History-Sort: calendar');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
@@ -95,6 +100,22 @@ function historyDisplayDecimal($value, int $scale = 6): string
     return money_out($value, $scale);
 }
 
+/** Payment History：业务日 Y-m-d，按日历旧→新排序（与 Date 列同一业务含义） */
+function historySortDateYmdFromRaw($raw): string
+{
+    $raw = trim((string) $raw);
+    if ($raw === '' || $raw === '0000-00-00' || $raw === '0000-00-00 00:00:00') {
+        return '9999-12-31';
+    }
+    // 与 date_from 入参一致：含「/」时先替换为「-」再 strtotime
+    $try = strpos($raw, '/') !== false ? str_replace('/', '-', $raw) : $raw;
+    $ts = strtotime($try);
+    if ($ts === false) {
+        return '9999-12-31';
+    }
+    return date('Y-m-d', $ts);
+}
+
 /** 与 process_post_to_transaction_api 一致：解析 bank_process.day_start（d/m/Y），避免 strtotime 美式歧义 */
 function historyParseBankProcessDayStartToYmd($raw): ?string
 {
@@ -147,6 +168,43 @@ function historyDataCaptureOrderTimestamp(array $capture): int
         return $ts !== false ? $ts : 0;
     }
     return 0;
+}
+
+/**
+ * 非 RATE 交易 / rollup / RATE 头：同日排序用时间戳。
+ * 勿把业务日 Y-m-d 与 DB 返回的完整 datetime created_at 直接拼接，
+ * 否则「2026-04-27」+「2026-04-27 18:30:00」→ strtotime 失败，
+ * 再退化为仅日期则全体落在午夜，最后一条 submit 可能排到最前。
+ */
+function historyTransactionOrderTimestamp(string $displayDateYmd, $createdAt): int
+{
+    $datePart = trim((string) $displayDateYmd);
+    if ($datePart !== '' && preg_match('/^(\d{4}-\d{2}-\d{2})/', $datePart, $m)) {
+        $datePart = $m[1];
+    } elseif ($datePart === '0000-00-00' || $datePart === '0000-00-00 00:00:00') {
+        return 0;
+    }
+
+    $createdNorm = trim((string) ($createdAt ?? ''));
+    if ($createdNorm !== '') {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}/', $createdNorm)) {
+            $ts = strtotime($createdNorm);
+            if ($ts !== false) {
+                return $ts;
+            }
+        }
+        if ($datePart !== '' && preg_match('/^\d{1,2}:\d{2}/', $createdNorm)) {
+            $ts = strtotime($datePart . ' ' . $createdNorm);
+            if ($ts !== false) {
+                return $ts;
+            }
+        }
+    }
+    if ($datePart === '') {
+        return 0;
+    }
+    $ts = strtotime($datePart);
+    return $ts !== false ? $ts : 0;
 }
 
 /**
@@ -1241,7 +1299,7 @@ try {
 
     $sql .= historyContraApprovedWhere($pdo, 't');
 
-    $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC";
+    $sql .= " ORDER BY $effectiveTxnDateExpr ASC, t.created_at ASC, t.id ASC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($transactionParams);
@@ -1382,6 +1440,7 @@ try {
             'row_type' => 'data_capture',
             'transaction_id' => null,
             'transaction_type' => 'DATA_CAPTURE',
+            'sort_date_ymd' => historySortDateYmdFromRaw($capture['capture_date'] ?? ''),
             'order_ts' => $captureTimestamp ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => $capture['processed_amount'],
@@ -1541,8 +1600,17 @@ try {
                         || stripos($descPay, 'Profit By ') === 0
                     ) {
                         $cr_dr = '0';
+                    } elseif (
+                        stripos($smsPay, '[DOMAIN_LIST_FEE|') === 0
+                        || $smsPay === '[DOMAIN_LIST_FEE]'
+                        || stripos($descPay, 'Domain list fee FROM ') === 0
+                        || stripos($descPay, 'Pay Domain Fee') === 0
+                        || stripos($descPay, 'Pay Domain Fee To ') === 0
+                    ) {
+                        // 与 search_api calculateCrDrByCurrency / txn_crdr_from bulk：List Fee、Pay Domain Fee 付款方记 -amount
+                        $cr_dr = historyNeg($t['amount']);
                     } else {
-                        // FROM 侧（含 Domain List Fee 付款方）：与 CONTRA 一致为正，与 calculateBFByCurrency 第 3 段 PAYMENT +amount 对齐
+                        // FROM 侧其余 PAYMENT：与 CONTRA 一致为正
                         $cr_dr = $t['amount'] ?? '0';
                     }
                 }
@@ -1788,10 +1856,7 @@ try {
                 }
             }
         }
-        $transactionTimestamp = strtotime($displayDateYmd . ' ' . ($t['created_at'] ?? '00:00:00'));
-        if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($displayDateYmd);
-        }
+        $transactionTimestamp = historyTransactionOrderTimestamp((string) $displayDateYmd, $t['created_at'] ?? null);
 
         // 确定交易的 currency：
         // 1. 如果 transactions 表有 currency_id 字段，优先使用 transaction_currency_code
@@ -1898,6 +1963,7 @@ try {
             'row_type' => 'transaction',
             'transaction_id' => $t['id'],
             'transaction_type' => $t['transaction_type'],
+            'sort_date_ymd' => historySortDateYmdFromRaw($displayDateYmd ?? ''),
             'order_ts' => $transactionTimestamp ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => $win_loss,
@@ -1922,10 +1988,7 @@ try {
         $netShow = $rb['net'];
         $srcU = strtoupper(trim((string) $rb['src']));
         $displayDateYmdRb = trim((string) ($ft['transaction_date'] ?? ''));
-        $transactionTimestampRb = strtotime($displayDateYmdRb . ' ' . ($ft['created_at'] ?? '00:00:00'));
-        if ($transactionTimestampRb === false) {
-            $transactionTimestampRb = strtotime($displayDateYmdRb);
-        }
+        $transactionTimestampRb = historyTransactionOrderTimestamp($displayDateYmdRb, $ft['created_at'] ?? null);
         $transactionCurrencyRb = null;
         if ($has_currency_id && !empty($ft['transaction_currency_code'])) {
             $transactionCurrencyRb = $ft['transaction_currency_code'];
@@ -1948,6 +2011,7 @@ try {
             'row_type' => 'transaction',
             'transaction_id' => (int) ($ft['id'] ?? 0),
             'transaction_type' => 'PAYMENT',
+            'sort_date_ymd' => historySortDateYmdFromRaw($displayDateYmdRb),
             'order_ts' => $transactionTimestampRb ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => '0',
@@ -2020,10 +2084,11 @@ try {
     $rateRows = $rateStmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($rateRows as $row) {
-        $transactionTimestamp = strtotime($row['transaction_date'] . ' ' . ($row['created_at'] ?? '00:00:00'));
-        if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($row['transaction_date']);
+        $rateYmd = historySortDateYmdFromRaw($row['transaction_date'] ?? '');
+        if ($rateYmd === '9999-12-31') {
+            $rateYmd = '';
         }
+        $transactionTimestamp = historyTransactionOrderTimestamp($rateYmd, $row['created_at'] ?? null);
 
         $amount = $row['amount'] ?? '0';
         // RATE 第二行/第四行：TO 负数、FROM 正数（与 CONTRA / PAYMENT 默认展示一致）
@@ -2090,6 +2155,7 @@ try {
             'row_type' => 'transaction',
             'transaction_id' => $row['header_id'],
             'transaction_type' => 'RATE',
+            'sort_date_ymd' => historySortDateYmdFromRaw($row['transaction_date'] ?? ''),
             'order_ts' => $transactionTimestamp ?: 0,
             'order_index' => $eventIndex++,
             'win_loss' => $entryType === 'RATE_MIDDLEMAN' ? $amount : 0,
@@ -2115,11 +2181,17 @@ try {
         ];
     }
 
+    // 先按业务日历日升序（旧在上、新在下），同日再按 order_ts / 加入序
     usort($events, function ($a, $b) {
-        if ($a['order_ts'] === $b['order_ts']) {
-            return $a['order_index'] <=> $b['order_index'];
+        $da = $a['sort_date_ymd'] ?? '9999-12-31';
+        $db = $b['sort_date_ymd'] ?? '9999-12-31';
+        if ($da !== $db) {
+            return $da <=> $db;
         }
-        return $a['order_ts'] <=> $b['order_ts'];
+        if (($a['order_ts'] ?? 0) === ($b['order_ts'] ?? 0)) {
+            return ($a['order_index'] ?? 0) <=> ($b['order_index'] ?? 0);
+        }
+        return ($a['order_ts'] ?? 0) <=> ($b['order_ts'] ?? 0);
     });
 
     // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
@@ -2536,6 +2608,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -2556,6 +2629,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
