@@ -47,7 +47,7 @@ SELECT
     WHEN go.owner_type = 'group'
       AND go.partner_group_id IS NOT NULL
       AND TRIM(go.partner_group_id) <> ''
-      THEN CONCAT('Group: ', TRIM(go.partner_group_id))
+      THEN CONCAT(TRIM(go.partner_group_id))
     ELSE NULL
   END AS account_name,
   go.owner_type,
