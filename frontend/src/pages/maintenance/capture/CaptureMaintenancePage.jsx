@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatYmd } from "../../../utils/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
@@ -96,6 +97,8 @@ export default function CaptureMaintenancePage() {
       el.style.setProperty("min-height", "100vh", "important");
       el.style.setProperty("max-height", "none", "important");
     });
+
+    removeOtherMaintenanceStylesheets("capture_maintenance.css");
 
     const ensureStylesheetLast = (href) => {
       const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { injectStylesheet } from "../../../utils/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
@@ -87,6 +88,7 @@ export default function BankprocessMaintenancePage() {
     });
 
     const setup = async () => {
+      removeOtherMaintenanceStylesheets("bankprocess_maintenance.css");
       const links = [
         "https://fonts.googleapis.com/css?family=Amaranth",
         "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",

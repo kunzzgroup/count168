@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { 
@@ -14,27 +15,6 @@ import {
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
 import TransactionMaintenanceTable from "./components/TransactionMaintenanceTable.jsx";
-
-/** Last path segment so we match <link> whether href is relative, absolute, or has query. */
-function stylesheetBasename(href) {
-  try {
-    const noQuery = String(href).split("?")[0];
-    return noQuery.split("/").pop() || "";
-  } catch {
-    return "";
-  }
-}
-
-function findStylesheetLink(href) {
-  const want = stylesheetBasename(href);
-  if (!want) return null;
-  for (const el of document.querySelectorAll('link[rel="stylesheet"]')) {
-    const attr = el.getAttribute("href") || "";
-    const resolved = el.href || "";
-    if (attr.includes(want) || resolved.includes(want)) return el;
-  }
-  return null;
-}
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
@@ -84,8 +64,8 @@ export default function TransactionMaintenancePage() {
     }, 2000);
   }, []);
 
-  // Body class + overflow before paint so bundled maintenance rules apply on first frame.
-  useLayoutEffect(() => {
+  // -- Initialization --
+  useEffect(() => {
     document.body.classList.remove("bg", "account-page", "announcement-page", "datacapture-page", "transaction-page");
     document.body.classList.add("dashboard-page", "maintenance-page");
 
@@ -114,7 +94,28 @@ export default function TransactionMaintenancePage() {
       el.style.setProperty("max-height", "none", "important");
     });
 
+    let cancelled = false;
+
+    removeOtherMaintenanceStylesheets("transaction_maintenance.css");
+
+    const links = [
+      "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
+      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
+      assetUrl("css/accountCSS.css"),
+      assetUrl("css/transaction.css"),
+      assetUrl("css/date-range-picker.css"),
+      assetUrl("css/transaction_maintenance.css"),
+    ];
+
+    Promise.all(links.map(waitForStylesheet)).then(() => {
+      if (!cancelled) setCssReady(true);
+    });
+
+    ensureMaintenanceDateRangePicker();
+
     return () => {
+      cancelled = true;
+      setCssReady(false);
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -131,71 +132,6 @@ export default function TransactionMaintenancePage() {
         else el.style.removeProperty("max-height");
       });
       document.body.classList.remove("maintenance-page");
-    };
-  }, []);
-
-  // Wait for route CSS (match by filename so assetUrl() matches shell-injected links); defer paint until applied.
-  useEffect(() => {
-    let cancelled = false;
-
-    const waitForStylesheet = (href) =>
-      new Promise((resolve) => {
-        const markLoaded = (el) => {
-          try { el.dataset.loaded = "1"; } catch { /* ignore */ }
-          resolve(el);
-        };
-        let existing = findStylesheetLink(href);
-        if (!existing) {
-          for (const el of document.querySelectorAll('link[rel="stylesheet"]')) {
-            if (el.getAttribute("href") === href) {
-              existing = el;
-              break;
-            }
-          }
-        }
-        if (existing) {
-          document.head.appendChild(existing);
-          if (existing.dataset.loaded === "1") return resolve(existing);
-          try {
-            if (existing.sheet != null) return markLoaded(existing);
-          } catch { /* ignore */ }
-          const onLoad = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); markLoaded(existing); };
-          const onError = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); resolve(existing); };
-          existing.addEventListener("load", onLoad, { once: true });
-          existing.addEventListener("error", onError, { once: true });
-          return;
-        }
-        const l = document.createElement("link");
-        l.rel = "stylesheet";
-        l.href = href;
-        l.onload = () => markLoaded(l);
-        l.onerror = () => resolve(l);
-        document.head.appendChild(l);
-      });
-
-    const links = [
-      "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
-      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-      assetUrl("css/accountCSS.css"),
-      assetUrl("css/transaction.css"),
-      assetUrl("css/date-range-picker.css"),
-      assetUrl("css/transaction_maintenance.css"),
-    ];
-
-    Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (cancelled) return;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (!cancelled) setCssReady(true);
-        });
-      });
-    });
-
-    ensureMaintenanceDateRangePicker();
-
-    return () => {
-      cancelled = true;
-      setCssReady(false);
     };
   }, []);
 

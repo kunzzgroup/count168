@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { 
@@ -114,29 +115,7 @@ export default function PaymentMaintenancePage() {
 
     let cancelled = false;
 
-    const waitForStylesheet = (href) =>
-      new Promise((resolve) => {
-        const markLoaded = (el) => {
-          try { el.dataset.loaded = "1"; } catch { /* ignore */ }
-          resolve(el);
-        };
-        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-        if (existing) {
-          document.head.appendChild(existing);
-          if (existing.dataset.loaded === "1") return resolve(existing);
-          const onLoad = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); markLoaded(existing); };
-          const onError = () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); resolve(existing); };
-          existing.addEventListener("load", onLoad, { once: true });
-          existing.addEventListener("error", onError, { once: true });
-          return;
-        }
-        const l = document.createElement("link");
-        l.rel = "stylesheet";
-        l.href = href;
-        l.onload = () => markLoaded(l);
-        l.onerror = () => resolve(l);
-        document.head.appendChild(l);
-      });
+    removeOtherMaintenanceStylesheets("payment_maintenance.css");
 
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",

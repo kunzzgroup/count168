@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import { 
   fetchCompanyPermissions, 
@@ -85,6 +86,8 @@ export default function FormulaMaintenancePage() {
       el.style.setProperty("min-height", "100vh", "important");
       el.style.setProperty("max-height", "none", "important");
     });
+
+    removeOtherMaintenanceStylesheets("formula_maintenance.css");
 
     const ensureStylesheetLast = (href) => {
       const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
