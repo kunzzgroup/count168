@@ -1603,6 +1603,16 @@ try {
             }
         }
 
+        // 与 SUM(wl_total) 同行口径：笔数只计「该行对 Win/Loss 的贡献非 0」，避免 0 金额 WIN/LOSE 仍令 has_win_loss_* 为真（Payment History 无实质行但列表仍显示）。
+        $txnWlRowWinLoseAdj = '(CASE 
+                        WHEN t.transaction_type = \'WIN\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN t.amount
+                        WHEN t.transaction_type = \'LOSE\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN -t.amount
+                        WHEN t.transaction_type = \'WIN\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN -t.amount
+                        WHEN t.transaction_type = \'LOSE\' AND ((t.description NOT LIKE \'Process: %\' AND t.description NOT LIKE \'Inactive Compensation %\' AND t.description NOT LIKE \'Compensation %\') OR t.description IS NULL) THEN t.amount
+                        WHEN t.transaction_type = \'ADJUSTMENT\' THEN t.amount
+                        ELSE 0 
+                    END)';
+
         $sql = "SELECT t.account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
                     CASE 
@@ -1624,15 +1634,21 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
-                 SUM(CASE WHEN $wlDateExpr <= ? THEN 1 ELSE 0 END) AS up_to_count
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlRowWinLoseAdj) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr <= ? THEN 
+                    CASE WHEN ABS((CASE 
+                      WHEN $wlDateExpr < ? THEN $txnWlRowWinLoseAdj
+                      WHEN $wlDateExpr BETWEEN ? AND ? THEN $txnWlRowWinLoseAdj
+                      ELSE 0 
+                    END)) > 0.0000001 THEN 1 ELSE 0 END
+                 ELSE 0 END) AS up_to_count
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   $contra_where_t $wlFutureGuard
                 GROUP BY t.account_id, IFNULL(t.currency_id, 0)";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
                 'bf' => trunc2($r['bf_total'] ?? '0'),
@@ -1641,6 +1657,12 @@ try {
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
         }
+
+        $txnWlFromInner = '(CASE
+                        WHEN t.transaction_type = \'WIN\' THEN t.amount
+                        WHEN t.transaction_type = \'LOSE\' THEN -t.amount
+                        ELSE 0
+                    END)';
 
         $sql = "SELECT t.from_account_id AS account_id, IFNULL(t.currency_id, 0) AS currency_id,
                  SUM(CASE WHEN $wlDateExpr < ? THEN (
@@ -1657,8 +1679,14 @@ try {
                         ELSE 0
                     END
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
-                 SUM(CASE WHEN $wlDateExpr <= ? THEN 1 ELSE 0 END) AS up_to_count
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlFromInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr <= ? THEN 
+                    CASE WHEN ABS((CASE 
+                      WHEN $wlDateExpr < ? THEN $txnWlFromInner
+                      WHEN $wlDateExpr BETWEEN ? AND ? THEN $txnWlFromInner
+                      ELSE 0 
+                    END)) > 0.0000001 THEN 1 ELSE 0 END
+                 ELSE 0 END) AS up_to_count
                 FROM transactions t $wlJoinSql
                 WHERE t.company_id = ?
                   AND t.from_account_id IS NOT NULL
@@ -1667,7 +1695,7 @@ try {
                   $contra_where_t $wlFutureGuard
                 GROUP BY t.from_account_id, IFNULL(t.currency_id, 0)";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $company_id]);
+        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $aid = (int) $r['account_id'];
             $cid = (int) $r['currency_id'];
@@ -1679,6 +1707,25 @@ try {
                 'up_to_count' => (int) ($existing['up_to_count'] ?? 0) + (int) ($r['up_to_count'] ?? 0)
             ];
         }
+
+        $crdrToPeriodInner = '(CASE 
+                        WHEN transaction_type IN (\'RECEIVE\', \'CLAIM\') THEN -t.amount
+                        WHEN transaction_type = \'CONTRA\' THEN -t.amount
+                        WHEN transaction_type = \'CLEAR\' THEN -t.amount
+                        WHEN transaction_type = \'PAYMENT\' AND t.sms LIKE \'[DOMAIN_SHARE_COMMISSION|%\' THEN t.amount
+                        WHEN transaction_type = \'PAYMENT\' AND t.sms LIKE \'[DOMAIN_NET_PROFIT|%\' THEN 0
+                        WHEN transaction_type = \'PAYMENT\' AND (t.sms LIKE \'[DOMAIN_LIST_FEE|%\' OR UPPER(TRIM(COALESCE(t.description, \'\'))) LIKE \'DOMAIN LIST FEE FROM %\') THEN t.amount
+                        WHEN transaction_type = \'PAYMENT\' THEN -t.amount
+                        ELSE 0 
+                    END)';
+        $crdrFromPeriodInner = '(CASE 
+                        WHEN transaction_type = \'CONTRA\' THEN t.amount
+                        WHEN transaction_type = \'CLEAR\' THEN t.amount
+                        WHEN transaction_type = \'PAYMENT\' AND t.sms LIKE \'[DOMAIN_NET_PROFIT|%\' THEN 0
+                        WHEN transaction_type = \'PAYMENT\' AND (t.sms LIKE \'[DOMAIN_LIST_FEE|%\' OR UPPER(TRIM(COALESCE(t.description, \'\'))) LIKE \'DOMAIN LIST FEE FROM %\') THEN -t.amount
+                        WHEN transaction_type IN (\'PAYMENT\', \'RECEIVE\', \'CLAIM\') THEN t.amount
+                        ELSE 0 
+                    END)';
 
         $sql = "SELECT t.account_id, t.currency_id,
                  SUM(CASE WHEN t.transaction_date < ? THEN (
@@ -1705,7 +1752,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrToPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -1745,7 +1792,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrFromPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE t.company_id = ? AND t.from_account_id IS NOT NULL
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -1765,6 +1812,12 @@ try {
             ];
         }
 
+        $rateNonMmRowAmt = '(CASE
+                      WHEN e.entry_type IN (\'RATE_FIRST_FROM\',\'RATE_TRANSFER_FROM\') THEN -e.amount
+                      WHEN e.entry_type IN (\'RATE_FIRST_TO\',\'RATE_TRANSFER_TO\') THEN -e.amount
+                      ELSE e.amount
+                    END)';
+
         $sql = "SELECT e.account_id, e.currency_id,
                  SUM(CASE WHEN h.transaction_date < ? THEN (
                     CASE
@@ -1775,8 +1828,8 @@ try {
                     END
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount ELSE 0 END) AS wl_rate_mm,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_rate_mm_count,
-                 SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS(e.amount) > 0.0000001 THEN 1 ELSE 0 END) AS wl_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS(e.amount) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
                     CASE
                       WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
@@ -1784,7 +1837,7 @@ try {
                       ELSE e.amount
                     END
                  ) ELSE 0 END) AS wl_cr_dr_other,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_cr_dr_other_count
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' AND ABS($rateNonMmRowAmt) > 0.0000001 THEN 1 ELSE 0 END) AS wl_cr_dr_other_count
             FROM transaction_entry e
             JOIN transactions h ON e.header_id = h.id
             WHERE h.company_id = ?
