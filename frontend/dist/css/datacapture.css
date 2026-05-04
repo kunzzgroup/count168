@@ -11,6 +11,11 @@ body .container {
 
 /* ----- Main page styles ----- */
 /* Tokens: slightly softer blue than legacy #007bff; sidebar active uses --sidebar-active-bg */
+html:has(body.datacapture-page) {
+    height: 100%;
+    overflow: hidden;
+}
+
 body.datacapture-page {
     --dc-accent: #2563eb;
     --dc-accent-hover: #1d4ed8;
@@ -18,13 +23,17 @@ body.datacapture-page {
     --dc-border: #e2e8f0;
     --dc-text-muted: #64748b;
     --sidebar-active-bg: #1e40af;
+    --dc-top-rail-max: min(36vh, 400px);
 }
 
 body.datacapture-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     background-color: #e9f1ff;
     background-image:
         radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -34,23 +43,45 @@ body.datacapture-page {
         linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
-    overflow-x: hidden;
+    overflow: hidden;
+}
+
+body.datacapture-page #root {
+    min-height: 100vh;
+    min-height: 100dvh;
 }
 
 body.datacapture-page .container {
     max-width: none;
     margin: 0;
-    padding: 1px 40px 40px clamp(180px, 14.06vw, 270px);
+    padding: 1px 40px 12px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Title + optional category row: keep compact so the table gets vertical space */
+body.datacapture-page .dc-page-toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 8px 0 10px;
+    min-width: 0;
 }
 
 body.datacapture-page h1 {
     color: #0f172a;
     text-align: left;
-    margin-top: clamp(12px, 1.04vw, 20px);
-    margin-bottom: clamp(16px, 1.35vw, 26px);
+    margin: 0;
     font-size: clamp(26px, 2.08vw, 40px);
     font-family: inherit;
     font-weight: 600;
@@ -60,14 +91,19 @@ body.datacapture-page h1 {
 .top-section {
     display: flex;
     gap: clamp(16px, 2vw, 28px);
-    margin-top: 20px;
-    margin-bottom: clamp(10px, 1.04vw, 20px);
+    margin-top: 0;
+    margin-bottom: clamp(8px, 0.85vw, 14px);
     align-items: stretch;
+    flex-shrink: 0;
+    max-height: var(--dc-top-rail-max);
+    min-height: 0;
+    overflow: hidden;
 }
 
 @media (max-width: 900px) {
     .top-section {
         flex-direction: column;
+        max-height: min(52vh, 520px);
     }
 
     .form-column,
@@ -77,19 +113,37 @@ body.datacapture-page h1 {
 }
 
 .bottom-section {
-    margin-top: clamp(10px, 1.04vw, 20px);
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 0.65vw, 12px);
+    overflow: hidden;
+}
+
+@media (max-height: 760px) {
+    body.datacapture-page {
+        --dc-top-rail-max: min(30vh, 320px);
+    }
 }
 
 .form-column {
     flex: 1;
     max-width: 50%;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .submitted-column {
     flex: 1;
     max-width: 50%;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .form-container {
@@ -97,8 +151,9 @@ body.datacapture-page h1 {
     border-radius: 10px;
     padding: clamp(14px, 1.25vw, 22px);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
-    min-height: clamp(240px, 26vw, 380px);
-    max-height: min(72vh, 520px);
+    flex: 1;
+    min-height: 0;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -119,8 +174,9 @@ body.datacapture-page h1 {
     border-radius: 10px;
     padding: clamp(14px, 1.25vw, 22px);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
-    min-height: clamp(240px, 26vw, 380px);
-    max-height: min(72vh, 520px);
+    flex: 1;
+    min-height: 0;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -467,6 +523,11 @@ body.datacapture-page h1 {
     display: flex;
     gap: 12px;
     justify-content: center;
+}
+
+body.datacapture-page .bottom-section .form-actions {
+    flex-shrink: 0;
+    margin-top: 0;
 }
 
 .btn-save {
@@ -853,14 +914,16 @@ body.datacapture-page h1 {
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
     max-width: 100%;
     width: 100%;
-    height: clamp(230px, 19.19vw, 330px);
+    flex: 1 1 auto;
+    min-height: 140px;
+    height: auto;
     scrollbar-gutter: stable;
 }
 
 .text-input-format {
     width: 100%;
     height: 100%;
-    min-height: clamp(230px, 17.19vw, 330px);
+    min-height: 0;
     padding: 10px;
     border: none;
     font-family: Arial, sans-serif;
@@ -879,7 +942,7 @@ body.datacapture-page h1 {
 .paste-area-format {
     width: 100%;
     height: 100%;
-    min-height: clamp(230px, 17.19vw, 330px);
+    min-height: 0;
     padding: 10px;
     border: none;
     font-family: Arial, sans-serif;
@@ -933,7 +996,7 @@ body.datacapture-page h1 {
 .table-preview-format {
     width: 100%;
     height: 100%;
-    min-height: clamp(230px, 17.19vw, 330px);
+    min-height: 0;
     box-sizing: border-box;
     background: white;
     overflow: hidden;

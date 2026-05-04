@@ -767,8 +767,8 @@ export default function DataCapturePage() {
 
   return (
     <div className="container">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, marginTop: 20 }}>
-        <h1 style={{ margin: 0 }}>Data Capture</h1>
+      <div className="dc-page-toolbar">
+        <h1>Data Capture</h1>
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div
