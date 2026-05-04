@@ -1,0 +1,31 @@
+/*
+ * Login card width must not change when toggling EN/中文.
+ *
+ * Why this file:
+ * - index.html links /css/login-shadcn.css *before* the Vite bundle; Tailwind + app-shell
+ *   (dashboard/sidebar) load later and can override earlier rules.
+ * - Import this file *last* in main.jsx so it wins the cascade.
+ * - On viewports that fit 430px + body padding, use a fixed 430px width so we do not depend
+ *   on `100%` (scrollbar appearance can change the percentage base and look like "撐開").
+ */
+@media (min-width: 480px) {
+  body.bg #root .sc-login-column {
+    width: 430px !important;
+    max-width: 430px !important;
+    min-width: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 479.98px) {
+  body.bg #root .sc-login-column {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+  }
+}

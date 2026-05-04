@@ -7,8 +7,6 @@
   --sc-login-danger: #dc3545;
   --sc-login-radius-xl: 28px;
   --sc-login-radius-pill: 999px;
-  /* Use % of #root (not vw) so width matches padded body and does not fight scrollbars */
-  --sc-login-shell-inline: min(430px, 100%);
 }
 
 body.bg {
@@ -33,28 +31,10 @@ body.bg {
   overflow-x: hidden;
 }
 
-/*
- * #root is the flex item of body.bg — min-width:auto follows descendants’ min-content (zh/en differs).
- * Cap #root to the same inline size as the login shell so the outer column never grows/shrinks on toggle.
- */
+/* #root: relax flex min-size; column width lock lives in src/styles/login-surface-lock.css (imported last in main.jsx) */
 body.bg #root {
   min-width: 0;
-  width: 100%;
-  max-width: var(--sc-login-shell-inline);
-  margin-inline: auto;
   box-sizing: border-box;
-}
-
-/*
- * LoginPage wraps content in .sc-login-column — column sits INSIDE #root after Tailwind/dashboard CSS.
- * !important keeps zh/en intrinsic text from widening past later stylesheet rules.
- */
-.sc-login-column {
-  width: min(430px, 100%) !important;
-  max-width: min(430px, 100%) !important;
-  min-width: 0 !important;
-  margin-inline: auto !important;
-  box-sizing: border-box !important;
 }
 
 html:has(body.bg) {
