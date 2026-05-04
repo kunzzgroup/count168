@@ -20,15 +20,34 @@ body.datacapture-page {
     --sidebar-active-bg: #0056b3;
 }
 
+/* Lock document height on this route so the viewport never scrolls; inner panels scroll only */
+html:has(body.datacapture-page) {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
 body.datacapture-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
-    min-height: 100vh;
+    /* Fixed viewport height stops the document from growing and scrolling the html element */
+    height: min(100vh, 100dvh);
+    max-height: min(100vh, 100dvh);
+    min-height: 0;
     background-color: #dcdcdc;
     background-image: none;
     color: #333333;
-    overflow-x: hidden;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+/* #root can hold multiple route siblings; lock height so %-based children still behave when used */
+body.datacapture-page #root {
+    height: min(100vh, 100dvh);
+    max-height: min(100vh, 100dvh);
+    min-height: 0;
+    overflow: hidden;
 }
 
 body.datacapture-page .container {
@@ -36,7 +55,7 @@ body.datacapture-page .container {
     margin: 0;
     padding: 1px 40px 40px clamp(180px, 14.06vw, 270px);
     width: 100%;
-    min-height: 100vh;
+    min-height: 0;
     box-sizing: border-box;
 }
 
@@ -1418,11 +1437,12 @@ body.datacapture-page h1 {
 body.datacapture-page .container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    max-height: 100vh;
+    height: min(100vh, 100dvh);
+    max-height: min(100vh, 100dvh);
     min-height: 0;
-    padding: 4px 28px 8px clamp(160px, 14vw, 260px);
+    padding: 4px 28px 6px clamp(160px, 14vw, 260px);
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 body.datacapture-page .datacapture-page-header {
@@ -1442,12 +1462,14 @@ body.datacapture-page .datacapture-page-header h1 {
 
 body.datacapture-page .top-section {
     flex: 0 1 auto;
-    max-height: min(34vh, 320px);
+    flex-shrink: 1;
+    max-height: min(30vh, 300px);
     min-height: 0;
     margin-top: 0;
-    margin-bottom: 6px;
-    gap: 10px;
+    margin-bottom: 4px;
+    gap: 8px;
     align-items: stretch;
+    overflow: hidden;
 }
 
 body.datacapture-page .form-column,
@@ -1463,7 +1485,7 @@ body.datacapture-page .submitted-container {
     border: 1px solid #bbbbbb;
     background: #ffffff;
     min-height: 0;
-    max-height: min(34vh, 320px);
+    max-height: min(30vh, 300px);
 }
 
 body.datacapture-page .submitted-title,
@@ -1521,16 +1543,16 @@ body.datacapture-page .submitted-item {
 }
 
 body.datacapture-page .bottom-section {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     display: flex;
     flex-direction: column;
     margin-top: 0;
-    gap: 6px;
+    gap: 4px;
 }
 
 body.datacapture-page .excel-table-container {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     height: auto;
     max-height: none;
@@ -1538,6 +1560,7 @@ body.datacapture-page .excel-table-container {
     border: 1px solid #bbbbbb;
     box-shadow: none;
     overflow: auto;
+    overscroll-behavior: contain;
 }
 
 body.datacapture-page .excel-table-header {
@@ -1591,6 +1614,23 @@ body.datacapture-page .process-form .shared-company-wrapper {
 }
 
 @media (max-width: 900px) {
+    html:has(body.datacapture-page) {
+        overflow: auto;
+        height: auto;
+    }
+
+    body.datacapture-page {
+        height: auto;
+        max-height: none;
+        overflow: auto;
+    }
+
+    body.datacapture-page #root {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+
     body.datacapture-page .container {
         height: auto;
         max-height: none;
