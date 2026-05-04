@@ -5,11 +5,33 @@ Hostinger GIT：fatal: Need to specify how to reconcile divergent branches
 原因：服务器上的克隆里有过提交 / 合并，和 GitHub 的 main 分叉了；
       Hostinger 点 Deploy 时会执行 git pull，新版 Git 必须先配置 pull 策略。
 
-下面任选一种方式做完后，再在 hPanel → GIT → Deploy。
+
+--------------------------------------------------------------------------------
+方式 0（强烈建议）—— 不用 Hostinger GIT：GitHub Actions + FTP 自动上传
+--------------------------------------------------------------------------------
+
+仓库已包含：.github/workflows/deploy-hostinger-ftp.yml
+
+推送 main 后由 GitHub 构建前端并 FTP 上传整站（排除 node_modules / .git），不再依赖
+Hostinger 面板里的「GIT Deploy」，可从根源避开 divergent branches。
+
+1) GitHub → 本仓库 → Settings → Secrets and variables → Actions → New repository secret：
+
+   HOSTINGER_FTP_HOST      （hPanel → FTP 里主机名，多为 ftp.hostinger.com）
+   HOSTINGER_FTP_USER
+   HOSTINGER_FTP_PASSWORD
+
+2) 推送任意提交到 main，或 Actions → Deploy Hostinger (FTP) → Run workflow。
+
+3) hPanel → GIT：建议关掉该站的 Auto Deployment，避免 GIT 与 FTP 两套部署互相覆盖。
+
+若 FTP 报错 TLS：把 workflow 里 protocol: ftps 改成 ftp 再试（视主机说明而定）。
+
+完成后无需再点 Hostinger 的 GIT Deploy。
 
 
 --------------------------------------------------------------------------------
-方式 A（推荐，约 1 分钟）—— 开 SSH，不改面板逻辑
+方式 A —— 开 SSH，修好面板里的 git pull
 --------------------------------------------------------------------------------
 
 1) hPanel → Advanced → SSH Access → 打开 SSH，用面板给的账号密码登录。
