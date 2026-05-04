@@ -495,8 +495,9 @@ h1 {
     margin-left: auto;
     margin-right: auto;
     /*padding-left: clamp(8px, 0.9vw, 16px);
-    padding-right: clamp(8px, 0.9vw, 16px);*/
+    /*padding-right: clamp(8px, 0.9vw, 16px);*/
 }
+
 .maintenance-table {
     width: 100%;
     border-collapse: separate;
