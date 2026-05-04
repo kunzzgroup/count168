@@ -17,7 +17,11 @@ export const MAINTENANCE_PAGE_STYLESHEETS = [
 export function removeOtherMaintenanceStylesheets(keepFileName) {
   document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
     const href = link.href || link.getAttribute("href") || "";
-    const hit = MAINTENANCE_PAGE_STYLESHEETS.find((name) => href.includes(name));
+    /** 匹配 `capture_maintenance.css` 与 Vite 构建后的 `capture_maintenance-xxxxx.css` */
+    const hit = MAINTENANCE_PAGE_STYLESHEETS.find((name) => {
+      const base = name.replace(/\.css$/i, "");
+      return href.includes(base);
+    });
     if (hit && hit !== keepFileName) {
       link.remove();
     }
