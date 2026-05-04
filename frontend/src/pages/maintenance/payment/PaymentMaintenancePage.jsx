@@ -45,6 +45,8 @@ export default function PaymentMaintenancePage() {
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
   const [cssReady, setCssReady] = useState(false);
+  /** Bust cache for `public/css/payment_maintenance.css` so deploys pick up latest rules. */
+  const paymentMaintenanceCssQuery = useMemo(() => `v=${Date.now()}`, []);
 
   // -- Data State --
   const [paymentData, setPaymentData] = useState([]);
@@ -122,7 +124,7 @@ export default function PaymentMaintenancePage() {
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       assetUrl("css/accountCSS.css"),
       assetUrl("css/date-range-picker.css"),
-      assetUrl("css/payment_maintenance.css"),
+      assetUrl(`css/payment_maintenance.css?${paymentMaintenanceCssQuery}`),
     ];
 
     Promise.all(links.map(waitForStylesheet)).then(() => {
