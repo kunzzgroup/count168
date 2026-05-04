@@ -292,7 +292,9 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="sc-login-shell">
+      {/* Inner column: width locked here so zh/en cannot change intrinsic size after Tailwind/layout CSS */}
+      <div className="sc-login-column">
+        <div className="sc-login-shell">
         {maintenanceVisible && (
           <div className="sc-login-maintenance-wrapper">
             <div className="sc-login-maintenance-track">
@@ -410,6 +412,7 @@ export default function LoginPage() {
               </div>
             </form>
           </div>
+        </div>
         </div>
       </div>
 
