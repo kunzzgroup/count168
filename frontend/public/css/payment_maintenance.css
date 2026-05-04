@@ -145,17 +145,16 @@ h1 {
     border: 0;
 }
 
-/* Search Section Styles - 模仿 customer_report.php */
 .maintenance-search-section {
     padding: 10px 20px;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
-    background-color: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    box-shadow: 0 2px 8px #0000001a;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 1500px;
+    max-width: 1600px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -604,7 +603,8 @@ h1 {
 
 .maintenance-table th:nth-child(10),
 .maintenance-table td:nth-child(10) {
-    width: 3%;   /* Checkbox */
+    /* width: 2%; */
+    text-align: center;
 }
 
 /* Keep No. fully visible without ellipsis. */
@@ -866,10 +866,6 @@ h1 {
 }
 
 @media (max-width: 1400px) {
-
-    .maintenance-table th:nth-child(10), .maintenance-table td:nth-child(10) {
-        width: 3%;
-    }
 
     .maintenance-table-cell{
         white-space: normal;

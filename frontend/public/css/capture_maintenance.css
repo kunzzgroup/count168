@@ -147,17 +147,16 @@ h1 {
     border: 0;
 }
 
-/* 与 payment_maintenance.css（图二 PHP）白卡片一致 */
 .maintenance-search-section {
     padding: 10px 20px;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     background-color: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px #0000001a;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 1500px;
+    max-width: 1600px;
     margin-left: auto;
     margin-right: auto;
 }
