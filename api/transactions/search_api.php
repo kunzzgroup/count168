@@ -1554,11 +1554,13 @@ try {
         $contra_where_t = contraApprovedWhere($pdo, 't');
 
         $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+        // wl_count / up_to_count 只统计「量化后金额非 0」的明细行，避免空占位 DCD 让 has_win_loss_* 虚高，
+        // 进而在未勾选 Show 0 balance 时仍被前端 rowPassesHideZeroBalanceFilter 保留。
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
                        SUM(CASE WHEN dc.capture_date < ? THEN {$dcdQ} ELSE 0 END) AS bf_total,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN {$dcdQ} ELSE 0 END) AS wl_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
-                       COUNT(*) AS up_to_count
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? AND ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                       SUM(CASE WHEN ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_count
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
                 WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL
@@ -2667,7 +2669,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
     $dcdQwl = dcd_processed_amount_sql_quant2('dcd.processed_amount');
-    $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total, COUNT(*) AS cnt
+    $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total,
+                   SUM(CASE WHEN ABS({$dcdQwl}) > 0.0000001 THEN 1 ELSE 0 END) AS cnt
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
