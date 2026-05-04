@@ -68,23 +68,31 @@ function initDatePickers() {
         dateFormat: 'd/m/Y',
         allowInput: false,
         defaultDate: [defaultFrom, defaultTo],
+        // range：須先選起始再選結束；若在 onChange 裡對 length===1 就 setDate([d,d]) 會打斷第二下選取（無法選 1 號～4 號）
         onChange: function (selectedDates) {
-            const captureInput = document.getElementById('capture_date_range');
-            const fp = captureInput && captureInput._flatpickr;
-            // range 模式：只點一天時 length===1，舊版不寫入 hidden，使用者以為選了單日仍沿用「本週～今天」導致 B/F 與預期不符
+            if (selectedDates.length === 2) {
+                document.getElementById('date_from').value = formatDmy(selectedDates[0]);
+                document.getElementById('date_to').value = formatDmy(selectedDates[1]);
+                const captureInput = document.getElementById('capture_date_range');
+                if (captureInput) {
+                    captureInput.value = `${formatDmy(selectedDates[0])} - ${formatDmy(selectedDates[1])}`;
+                }
+                performMemberSearch();
+            }
+        },
+        onClose: function (selectedDates) {
+            // 只選了第一天就關閉日曆：視為單日（與連點同一天的兩段選取不同，那種會走 onChange length===2）
             if (selectedDates.length === 1) {
                 const d = selectedDates[0];
                 const s = formatDmy(d);
                 document.getElementById('date_from').value = s;
                 document.getElementById('date_to').value = s;
-                if (captureInput) captureInput.value = `${s} - ${s}`;
+                const captureInput = document.getElementById('capture_date_range');
+                if (captureInput) {
+                    captureInput.value = `${s} - ${s}`;
+                }
+                const fp = captureInput && captureInput._flatpickr;
                 if (fp) fp.setDate([d, d], false);
-                performMemberSearch();
-                return;
-            }
-            if (selectedDates.length === 2) {
-                document.getElementById('date_from').value = formatDmy(selectedDates[0]);
-                document.getElementById('date_to').value = formatDmy(selectedDates[1]);
                 performMemberSearch();
             }
         }
