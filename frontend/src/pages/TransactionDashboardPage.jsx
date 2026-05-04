@@ -137,6 +137,25 @@ function normalizeRange(from, to) {
   return from <= to ? [from, to] : [to, from];
 }
 
+function companiesInGroupList(companies, gid) {
+  if (!gid) {
+    return companies.filter(
+      (c) => c.company_id && String(c.company_id).trim() !== "" && (!c.group_id || String(c.group_id).trim() === "")
+    );
+  }
+  return companies.filter(
+    (c) =>
+      c.company_id &&
+      String(c.company_id).trim() !== "" &&
+      c.group_id &&
+      String(c.group_id).toUpperCase() === String(gid).toUpperCase()
+  );
+}
+
+function sortIds(ids) {
+  return [...ids].sort((a, b) => a - b);
+}
+
 
 function buildChartRows(data, startYmd, endYmd) {
   if (!data?.daily_data) return [];
@@ -177,6 +196,12 @@ export default function TransactionDashboardPage() {
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupAllMode, setGroupAllMode] = useState(false);
+  /** Non-null with length ≥ 2 → merge dashboard for these company IDs (subset of a group or independents). */
+  const [mergedSubsetIds, setMergedSubsetIds] = useState(null);
+  const [gcPopoverOpen, setGcPopoverOpen] = useState(false);
+  const [currencyPopoverOpen, setCurrencyPopoverOpen] = useState(false);
+  const [popoverActiveGroup, setPopoverActiveGroup] = useState(null);
+  const [gcDraftIds, setGcDraftIds] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [currencyCode, setCurrencyCode] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
@@ -197,6 +222,8 @@ export default function TransactionDashboardPage() {
   const [calendarYear, setCalendarYear] = useState(today.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
   const barRef = useRef(null);
+  const gcPickRef = useRef(null);
+  const currPickRef = useRef(null);
   const calendarGridWheelRef = useRef(null);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
 
@@ -225,6 +252,12 @@ export default function TransactionDashboardPage() {
         setCalendarOpen(false);
         setPendingStart(null);
         setHoverDate(null);
+      }
+      if (gcPickRef.current && !gcPickRef.current.contains(event.target)) {
+        setGcPopoverOpen(false);
+      }
+      if (currPickRef.current && !currPickRef.current.contains(event.target)) {
+        setCurrencyPopoverOpen(false);
       }
     };
     document.addEventListener("mousedown", onOutside);
@@ -314,7 +347,9 @@ export default function TransactionDashboardPage() {
     [companies]
   );
 
-  const switchCompany = async (id) => {
+  const switchCompany = async (id, options = {}) => {
+    const clearSubset = options.clearSubset !== false;
+    const clearGroupAll = options.clearGroupAll !== false;
     const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
       credentials: "include",
     });
@@ -324,7 +359,8 @@ export default function TransactionDashboardPage() {
       return false;
     }
     setCompanyId(parseInt(id, 10));
-    setGroupAllMode(false);
+    if (clearGroupAll) setGroupAllMode(false);
+    if (clearSubset) setMergedSubsetIds(null);
     notifyCompanySessionUpdated();
     return true;
   };
@@ -398,6 +434,10 @@ export default function TransactionDashboardPage() {
         const results = await Promise.all(groupCompanies.map((c) => fetchDashboardPayload(c.id)));
         const merged = mergeGroupData(results, { startDate: dateFrom, endDate: dateTo });
         setDashboardData(merged);
+      } else if (mergedSubsetIds && mergedSubsetIds.length > 1) {
+        const results = await Promise.all(mergedSubsetIds.map((cid) => fetchDashboardPayload(cid)));
+        const merged = mergeGroupData(results, { startDate: dateFrom, endDate: dateTo });
+        setDashboardData(merged);
       } else {
         const data = await fetchDashboardPayload(companyId);
         setDashboardData(data);
@@ -408,7 +448,17 @@ export default function TransactionDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, currencyCode, dateFrom, dateTo, groupAllMode, selectedGroup, companies, i18n]);
+  }, [
+    companyId,
+    currencyCode,
+    dateFrom,
+    dateTo,
+    groupAllMode,
+    selectedGroup,
+    mergedSubsetIds,
+    companies,
+    i18n,
+  ]);
 
   useEffect(() => {
     loadDashboard();
@@ -466,25 +516,123 @@ export default function TransactionDashboardPage() {
     return `${cur} · ${left} – ${right}`;
   }, [currencyCode, dateFrom, dateTo, i18n.locale]);
 
-  const onGroupClick = async (gid) => {
-    if (selectedGroup === gid) {
+  const groupCompanySummary = useMemo(() => {
+    const labelForIds = (ids) =>
+      sortIds(ids)
+        .map((id) => companies.find((c) => parseInt(c.id, 10) === id)?.company_id)
+        .filter(Boolean)
+        .join(", ");
+
+    if (!groupIds.length && filteredCompanies.length) {
+      if (mergedSubsetIds && mergedSubsetIds.length > 1) return labelForIds(mergedSubsetIds);
+      const c = companies.find((co) => parseInt(co.id, 10) === parseInt(companyId, 10));
+      return c?.company_id || "—";
+    }
+
+    if (!selectedGroup) {
+      const c = companies.find((co) => parseInt(co.id, 10) === parseInt(companyId, 10));
+      return c?.company_id || "—";
+    }
+
+    if (groupAllMode) return `${selectedGroup} · ${i18n.all}`;
+    if (mergedSubsetIds && mergedSubsetIds.length > 1) {
+      return `${selectedGroup} · ${labelForIds(mergedSubsetIds)}`;
+    }
+    const c = filteredCompanies.find((co) => parseInt(co.id, 10) === parseInt(companyId, 10));
+    return `${selectedGroup} · ${c?.company_id ?? "—"}`;
+  }, [
+    groupIds.length,
+    filteredCompanies,
+    mergedSubsetIds,
+    companyId,
+    companies,
+    selectedGroup,
+    groupAllMode,
+    i18n.all,
+  ]);
+
+  const computeGcDraft = useCallback(
+    (gid) => {
+      const list = companiesInGroupList(companies, gid);
+      const allowed = sortIds(list.map((c) => parseInt(c.id, 10)));
+      if (!allowed.length) return [];
+      if (gid && groupAllMode && gid === selectedGroup) return allowed;
+      if (mergedSubsetIds?.length && (gid === selectedGroup || (!gid && !selectedGroup))) {
+        const inter = mergedSubsetIds.filter((id) => allowed.includes(id));
+        if (inter.length) return sortIds(inter);
+      }
+      if (companyId && allowed.includes(parseInt(companyId, 10))) {
+        return [parseInt(companyId, 10)];
+      }
+      return [allowed[0]];
+    },
+    [companies, groupAllMode, mergedSubsetIds, selectedGroup, companyId]
+  );
+
+  const openGcPopover = useCallback(() => {
+    const g = selectedGroup || (groupIds.length ? groupIds[0] : null);
+    setPopoverActiveGroup(g);
+    setGcDraftIds(computeGcDraft(g));
+    setGcPopoverOpen(true);
+  }, [selectedGroup, groupIds, computeGcDraft]);
+
+  const confirmGcPopover = useCallback(async () => {
+    const gid = popoverActiveGroup;
+    const list = companiesInGroupList(companies, gid);
+    const allIds = sortIds(list.map((c) => parseInt(c.id, 10)));
+    let picked = sortIds(gcDraftIds.filter((id) => allIds.includes(id)));
+    if (!picked.length && allIds.length) picked = [allIds[0]];
+
+    if (gid) {
+      setSelectedGroup(gid);
+      sessionStorage.setItem("dashboard_group_filter", gid);
+    } else {
       setSelectedGroup(null);
       sessionStorage.removeItem("dashboard_group_filter");
+    }
+
+    const isAll =
+      allIds.length > 0 &&
+      picked.length === allIds.length &&
+      allIds.every((id, idx) => id === picked[idx]);
+
+    if (picked.length === 1) {
+      await switchCompany(picked[0]);
+    } else if (gid && isAll) {
+      setMergedSubsetIds(null);
+      setGroupAllMode(true);
+      await switchCompany(picked[0], { clearGroupAll: false, clearSubset: true });
+    } else {
       setGroupAllMode(false);
-      const independent = companies.filter((c) => !c.group_id || String(c.group_id).trim() === "");
-      if (independent[0]) await switchCompany(independent[0].id);
-      return;
+      await switchCompany(picked[0], { clearSubset: false });
+      setMergedSubsetIds(picked);
     }
-    setSelectedGroup(gid);
-    sessionStorage.setItem("dashboard_group_filter", gid);
-    setGroupAllMode(false);
-    const groupCompanies = companies.filter(
-      (c) => c.group_id && String(c.group_id).toUpperCase() === gid && c.company_id?.trim()
-    );
-    if (groupCompanies[0] && parseInt(groupCompanies[0].id, 10) !== parseInt(companyId, 10)) {
-      await switchCompany(groupCompanies[0].id);
-    }
-  };
+
+    setGcPopoverOpen(false);
+  }, [popoverActiveGroup, companies, gcDraftIds, switchCompany]);
+
+  const toggleGcDraftId = useCallback((id) => {
+    setGcDraftIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return sortIds([...next]);
+    });
+  }, []);
+
+  const selectAllGcDraft = useCallback(() => {
+    const list = companiesInGroupList(companies, popoverActiveGroup);
+    setGcDraftIds(sortIds(list.map((c) => parseInt(c.id, 10))));
+  }, [companies, popoverActiveGroup]);
+
+  const onPopoverPickGroup = useCallback(
+    (gid) => {
+      setPopoverActiveGroup(gid);
+      const list = companiesInGroupList(companies, gid);
+      setGcDraftIds(sortIds(list.map((c) => parseInt(c.id, 10))));
+    },
+    [companies]
+  );
 
   const setPeriodRange = (periodKey) => {
     const r = quickRangeToDates(periodKey);
@@ -843,87 +991,123 @@ export default function TransactionDashboardPage() {
               <span className="dashboard-filter-panel__title">{i18n.filterSection}</span>
             </div>
             <div className="dashboard-card-body dashboard-filter-panel__body">
-              {(groupIds.length > 0 || filteredCompanies.length > 0) && (
-                <div className="dashboard-filter-cluster">
-                  <div className="dashboard-filter-cluster__label">{i18n.groupAndCompany}</div>
-                  <div className="dashboard-filter-cluster__rows">
-                    {groupIds.length > 0 && (
-                      <div className="transaction-company-filter dashboard-filter-row">
-                        <span className="transaction-company-label">{i18n.groupId}</span>
-                        <div className="transaction-company-buttons">
-                          {groupIds.map((gid) => (
-                            <button
-                              key={gid}
-                              type="button"
-                              className={`transaction-company-btn${selectedGroup === gid ? " active" : ""}`}
-                              onClick={() => onGroupClick(gid)}
-                            >
-                              {gid}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+              <div className="dashboard-filter-toolbar">
+                {(groupIds.length > 0 || filteredCompanies.length > 0) && (
+                  <div className="dashboard-filter-trigger-wrap" ref={gcPickRef}>
+                    <button type="button" className="dashboard-filter-trigger" onClick={openGcPopover}>
+                      <span className="dashboard-filter-trigger__label">{i18n.groupAndCompany}</span>
+                      <span className="dashboard-filter-trigger__chips" title={groupCompanySummary}>
+                        {groupCompanySummary}
+                      </span>
+                      <i className="fas fa-chevron-down dashboard-filter-trigger__caret" aria-hidden />
+                    </button>
 
-                    {filteredCompanies.length > 0 && (
-                      <div className="transaction-company-filter dashboard-filter-row">
-                        <span className="transaction-company-label">{i18n.company}</span>
-                        <div className="transaction-company-buttons">
-                          {selectedGroup && filteredCompanies.length > 1 && (
-                            <button
-                              type="button"
-                              className={`transaction-company-btn dashboard-all-btn${groupAllMode ? " active" : ""}`}
-                              onClick={async () => {
-                                if (groupAllMode) {
-                                  setGroupAllMode(false);
-                                  await switchCompany(filteredCompanies[0].id);
-                                } else {
-                                  setGroupAllMode(true);
-                                }
-                              }}
-                            >
-                              {i18n.all}
-                            </button>
+                    {gcPopoverOpen && (
+                      <div className="dashboard-filter-popover dashboard-gc-popover" role="dialog">
+                        <div className="dashboard-gc-popover__panes">
+                          {groupIds.length > 0 && (
+                            <div className="dashboard-gc-popover__col dashboard-gc-popover__groups">
+                              <div className="dashboard-filter-popover__title">{i18n.selectGroup}</div>
+                              <ul className="dashboard-gc-group-list">
+                                {groupIds.map((gid) => {
+                                  const count = companiesInGroupList(companies, gid).length;
+                                  const active = popoverActiveGroup === gid;
+                                  return (
+                                    <li key={gid}>
+                                      <button
+                                        type="button"
+                                        className={`dashboard-gc-group-item${active ? " is-active" : ""}`}
+                                        onClick={() => onPopoverPickGroup(gid)}
+                                      >
+                                        <span className="dashboard-gc-group-item__dot" aria-hidden />
+                                        <span className="dashboard-gc-group-item__label">
+                                          {lang === "zh" ? `${gid} 集团` : `${gid} Group`}
+                                        </span>
+                                        <span className="dashboard-gc-group-item__badge">{count}</span>
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
                           )}
-                          {filteredCompanies.map((c) => (
+
+                          <div
+                            className={`dashboard-gc-popover__col dashboard-gc-popover__companies${
+                              groupIds.length === 0 ? " is-full" : ""
+                            }`}
+                          >
+                            <div className="dashboard-filter-popover__title">{i18n.selectCompany}</div>
+                            <div className="dashboard-gc-company-pills">
+                              {companiesInGroupList(companies, popoverActiveGroup).length > 1 && (
+                                <button type="button" className="dashboard-pill dashboard-pill--ghost" onClick={selectAllGcDraft}>
+                                  {i18n.all}
+                                </button>
+                              )}
+                              {companiesInGroupList(companies, popoverActiveGroup).map((c) => {
+                                const id = parseInt(c.id, 10);
+                                const on = gcDraftIds.includes(id);
+                                return (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    className={`dashboard-pill${on ? " is-on" : ""}`}
+                                    onClick={() => toggleGcDraftId(id)}
+                                  >
+                                    {c.company_id}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="dashboard-gc-popover__footer">
+                              <span className="dashboard-gc-popover__count">
+                                {i18n.selectedCompaniesCount.replace("{n}", String(gcDraftIds.length))}
+                              </span>
+                              <button type="button" className="dashboard-filter-confirm-btn" onClick={confirmGcPopover}>
+                                {i18n.confirm}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {currencies.length > 0 && (
+                  <div className="dashboard-filter-trigger-wrap" ref={currPickRef}>
+                    <button
+                      type="button"
+                      className="dashboard-filter-trigger"
+                      onClick={() => setCurrencyPopoverOpen((v) => !v)}
+                    >
+                      <span className="dashboard-filter-trigger__label">{i18n.currency.replace(":", "")}</span>
+                      <span className="dashboard-filter-trigger__chip-mini">{currencyCode}</span>
+                      <i className="fas fa-chevron-down dashboard-filter-trigger__caret" aria-hidden />
+                    </button>
+                    {currencyPopoverOpen && (
+                      <div className="dashboard-filter-popover dashboard-currency-popover" role="dialog">
+                        <div className="dashboard-filter-popover__title">{i18n.settlementCurrency}</div>
+                        <div className="dashboard-currency-grid">
+                          {currencies.map((code) => (
                             <button
-                              key={c.id}
+                              key={code}
                               type="button"
-                              className={`transaction-company-btn${
-                                !groupAllMode && parseInt(c.id, 10) === parseInt(companyId, 10) ? " active" : ""
-                              }`}
-                              onClick={async () => {
-                                setGroupAllMode(false);
-                                await switchCompany(c.id);
+                              className={`dashboard-currency-option${currencyCode === code ? " is-active" : ""}`}
+                              onClick={() => {
+                                setCurrencyCode(code);
+                                setCurrencyPopoverOpen(false);
                               }}
                             >
-                              {c.company_id}
+                              {code}
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-
-              {currencies.length > 0 && (
-                <div className="transaction-company-filter dashboard-filter-row">
-                  <span className="transaction-company-label">{i18n.currency}</span>
-                  <div className="transaction-company-buttons">
-                    {currencies.map((code) => (
-                      <button
-                        key={code}
-                        type="button"
-                        className={`transaction-company-btn${currencyCode === code ? " active" : ""}`}
-                        onClick={() => setCurrencyCode(code)}
-                      >
-                        {code}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
