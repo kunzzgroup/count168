@@ -242,21 +242,24 @@ h1 {
 }
 
 .maintenance-filter-left {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: clamp(10px, 0.85vw, 14px);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(12px, 1.04vw, 20px);
     flex: 1 1 auto;
     min-width: 0;
 }
 
-/* GroupID / Company：标签列宽一致，胶囊起始位置对齐 */
+/* GroupID / Company：标签列宽一致；与 Payment 同排，勿 width:100% */
 .maintenance-filter-left .maintenance-company-filter {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: clamp(8px, 0.83vw, 14px);
-    width: 100%;
+    width: auto;
+    flex: 0 1 auto;
+    max-width: 100%;
 }
 
 .maintenance-filter-left .maintenance-company-label {

@@ -228,23 +228,26 @@ h1 {
     flex-wrap: wrap;
 }
 
-/* 与 capture_maintenance.php（图一）：左侧 GroupID/Company，右侧 Delete 同行靠右，不占满整行以免按钮挤到左下角 */
+/* 与 payment_maintenance：第二行左侧 GroupID + Company 横向一排（窄屏自动换行），右侧 Delete */
 .maintenance-filter-left {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: clamp(10px, 0.85vw, 14px);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(12px, 1.04vw, 20px);
     flex: 1 1 auto;
     min-width: 0;
 }
 
-/* GroupID / Company：与 Payment / Transaction 维护页一致 */
+/* GroupID / Company：与 Payment 一致，勿 width:100%（否则会各占一整行） */
 .maintenance-filter-left .maintenance-company-filter {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: clamp(8px, 0.83vw, 14px);
-    width: 100%;
+    width: auto;
+    flex: 0 1 auto;
+    max-width: 100%;
 }
 
 .maintenance-filter-left .maintenance-company-label {

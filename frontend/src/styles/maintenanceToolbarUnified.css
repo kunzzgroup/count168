@@ -19,9 +19,21 @@ body.maintenance-page .maintenance-filter-row {
     flex-wrap: wrap;
 }
 
+/* 第二行左侧：GroupID / Company /（Payment 的 Currency）同一行流式排列，与 payment_maintenance.php 一致，避免各块 width:100% 造成「一行一块」三行效果 */
 body.maintenance-page .maintenance-filter-left {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(12px, 1.04vw, 20px);
     flex: 1 1 auto;
     min-width: 0;
+}
+
+body.maintenance-page .maintenance-filter-left .maintenance-company-filter {
+    width: auto;
+    flex: 0 1 auto;
+    max-width: 100%;
 }
 
 body.maintenance-page .maintenance-actions {
