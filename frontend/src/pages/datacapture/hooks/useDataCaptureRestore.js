@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { dataCaptureRowLabel } from "../utils/dataCaptureRowLabels.js";
 
 function createEditableCell(colIndex) {
   const td = document.createElement("td");
@@ -43,7 +44,7 @@ function restoreTableFromLocalStorage() {
 
   Array.from(tableBody.children).forEach((row, rowIndex) => {
     const rowHeader = row.querySelector(".row-header");
-    if (rowHeader) rowHeader.textContent = String(rowIndex + 1);
+    if (rowHeader) rowHeader.textContent = dataCaptureRowLabel(rowIndex);
 
     while (row.querySelectorAll("td[data-col]").length < targetDataCols) {
       row.appendChild(createEditableCell(row.querySelectorAll("td[data-col]").length));

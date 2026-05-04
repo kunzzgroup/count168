@@ -1,3 +1,5 @@
+import { dataCaptureRowLabel } from "./dataCaptureRowLabels.js";
+
 /** Read `#dataTable` structure for submit / validation (matches legacy captureTableData shape). */
 
 export function convertBracketedToNegative(value) {
@@ -81,7 +83,7 @@ export function applyTableDataToDom(tableData) {
     const rowHeader = document.createElement("td");
     rowHeader.className = "row-header";
     const headerCell = Array.isArray(row) ? row.find((cell) => cell?.type === "header") : null;
-    rowHeader.textContent = String(headerCell?.value || rowIdx + 1);
+    rowHeader.textContent = String(headerCell?.value ?? dataCaptureRowLabel(rowIdx));
     tr.appendChild(rowHeader);
 
     const dataCells = Array.isArray(row) ? row.filter((cell) => cell?.type === "data") : [];
