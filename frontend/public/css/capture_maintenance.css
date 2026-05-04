@@ -147,14 +147,14 @@ h1 {
 }
 
 .maintenance-search-section {
-    padding: 10px 20px;
+    padding: clamp(14px, 1.15vw, 18px) clamp(18px, 1.5vw, 24px);
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     background-color: white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: clamp(12px, 1vw, 16px);
     max-width: 1500px;
     margin-left: auto;
     margin-right: auto;
@@ -162,7 +162,7 @@ h1 {
 
 .maintenance-filters {
     display: flex;
-    gap: clamp(12px, 1.25vw, 24px);
+    gap: clamp(14px, 1.35vw, 26px);
     align-items: flex-end;
     flex-wrap: wrap;
 }
@@ -230,8 +230,24 @@ h1 {
 .maintenance-filter-left {
     display: inline-flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: clamp(4px, 0.52vw, 8px);
+    align-items: stretch;
+    gap: clamp(10px, 0.85vw, 14px);
+    width: 100%;
+    max-width: 100%;
+}
+
+/* GroupID / Company：标签列宽一致，胶囊起始位置对齐（与 transaction_maintenance 一致） */
+.maintenance-filter-left .transaction-company-filter {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: clamp(8px, 0.83vw, 14px);
+    width: 100%;
+}
+
+.maintenance-filter-left .maintenance-company-label {
+    min-width: 6.25rem;
+    flex-shrink: 0;
 }
 
 /* Category 权限区域（右上角，与 bankprocess_maintenance 一致） */
@@ -305,6 +321,7 @@ h1 {
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
     flex-shrink: 0;
+    min-height: 32px;
 }
 
 .maintenance-filter-row {
