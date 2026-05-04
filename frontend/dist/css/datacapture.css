@@ -23,6 +23,41 @@ body.datacapture-page {
     --dc-border: #e2e8f0;
     --dc-text-muted: #64748b;
     --sidebar-active-bg: #1e40af;
+    /* Cap top rail on short laptops (e.g. 1368×768) so bottom table + Submit stay in view */
+    --dc-top-rail-max: min(34dvh, 380px);
+}
+
+@media (max-height: 880px) {
+    body.datacapture-page {
+        --dc-top-rail-max: min(30dvh, 320px);
+    }
+
+    body.datacapture-page .dc-page-toolbar {
+        margin: 4px 0 6px;
+    }
+
+    body.datacapture-page h1 {
+        font-size: clamp(22px, 3.6vw, 30px);
+    }
+
+    body.datacapture-page .container {
+        padding-bottom: 8px;
+    }
+
+    .process-form .form-group {
+        margin-bottom: clamp(6px, 0.65vw, 10px);
+    }
+
+    .excel-table-header {
+        padding: 8px clamp(8px, 0.7vw, 14px);
+        gap: 8px 12px;
+    }
+}
+
+@media (max-height: 780px) {
+    body.datacapture-page {
+        --dc-top-rail-max: min(26dvh, 280px);
+    }
 }
 
 body.datacapture-page {
@@ -93,12 +128,15 @@ body.datacapture-page h1 {
 
 .top-section {
     display: flex;
-    gap: clamp(18px, 2.2vw, 32px);
+    gap: clamp(12px, 1.5vw, 24px);
     margin-top: 0;
-    margin-bottom: clamp(8px, 0.85vw, 14px);
+    margin-bottom: clamp(6px, 0.7vw, 12px);
     align-items: stretch;
     flex-shrink: 0;
     min-width: 0;
+    min-height: 0;
+    max-height: var(--dc-top-rail-max);
+    overflow: hidden;
 }
 
 @media (max-width: 900px) {
