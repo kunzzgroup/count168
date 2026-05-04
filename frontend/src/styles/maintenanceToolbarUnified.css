@@ -28,19 +28,19 @@ body.maintenance-page .maintenance-actions {
     align-self: flex-end;
 }
 
+/* 第一行：与 payment_maintenance.php（Payment）一致 — Process / Date / Quick Select 底对齐 */
 body.maintenance-page .maintenance-filters {
-    align-items: flex-start;
-}
-
-body.maintenance-page .maintenance-filters .maintenance-form-group {
-    flex: 1 1 clamp(140px, 14vw, 260px);
-    min-width: 0;
+    display: flex;
+    gap: clamp(12px, 1.25vw, 24px);
+    align-items: flex-end;
+    flex-wrap: wrap;
 }
 
 body.maintenance-page .maintenance-filters .quick-select-wrap {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    min-width: clamp(150px, 12.5vw, 240px);
 }
 
 body.maintenance-page .maintenance-filters .quick-select-wrap .maintenance-label i.fa-clock {
@@ -51,19 +51,15 @@ body.maintenance-page .maintenance-filters .quick-select-wrap .maintenance-label
 body.maintenance-page .maintenance-search-section .quick-select-dropdown {
     width: auto;
     min-width: clamp(104px, 8.5vw, 148px);
-    flex-shrink: 0;
-    align-self: flex-start;
-    margin-left: clamp(10px, 0.85vw, 16px);
 }
 
-/* 与 capture_maintenance.php：Period 蓝胶囊、内容宽度、缩进 */
+/* Period：全维护页统一蓝胶囊 + 列内满宽（与 Payment 一致） */
 body.maintenance-page .maintenance-search-section .quick-select-dropdown .dropdown-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: clamp(4px, 0.5vw, 6px);
-    width: auto;
-    min-width: clamp(104px, 8.5vw, 148px);
+    width: 100%;
     min-height: clamp(28px, 2.2vw, 34px);
     padding: clamp(3px, 0.31vw, 6px) clamp(12px, 1vw, 18px);
     font-size: clamp(9px, 0.63vw, 12px);

@@ -72,7 +72,7 @@ export default function CaptureMaintenanceFilters({
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left">
           {snapGroupIds.length > 0 && (
-            <div className="transaction-company-filter shared-group-wrapper">
+            <div id="group-buttons-wrapper" className="maintenance-company-filter shared-group-wrapper">
               <span className="maintenance-company-label">GroupID:</span>
               <div className="maintenance-company-buttons">
                 {snapGroupIds.map((gid) => (
@@ -90,7 +90,7 @@ export default function CaptureMaintenanceFilters({
           )}
 
           {snapCompanies.length > 0 && (
-            <div className="transaction-company-filter shared-company-wrapper">
+            <div id="company-buttons-wrapper" className="maintenance-company-filter shared-company-wrapper">
               <span className="maintenance-company-label">Company:</span>
               <div className="maintenance-company-buttons">
                 {snapCompanies.map((comp) => {

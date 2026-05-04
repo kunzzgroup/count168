@@ -251,7 +251,7 @@ h1 {
 }
 
 /* GroupID / Company：标签列宽一致，胶囊起始位置对齐 */
-.maintenance-filter-left .transaction-company-filter {
+.maintenance-filter-left .maintenance-company-filter {
     display: flex;
     align-items: center;
     flex-wrap: wrap;

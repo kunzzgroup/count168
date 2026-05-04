@@ -107,7 +107,7 @@ export default function BankprocessMaintenanceFilters({
         <div className="maintenance-filter-row">
           <div className="maintenance-filter-left">
             {groupedIds.length > 0 && (
-              <div id="group-buttons-wrapper" className="transaction-company-filter shared-group-wrapper">
+              <div id="group-buttons-wrapper" className="maintenance-company-filter shared-group-wrapper">
                 <span className="transaction-company-label">GroupID:</span>
                 <div id="group-buttons-container" className="transaction-company-buttons">
                   {groupedIds.map((gid) => (
@@ -126,7 +126,7 @@ export default function BankprocessMaintenanceFilters({
             )}
 
             {companies.length > 0 && (
-              <div id="company-buttons-wrapper" className="transaction-company-filter shared-company-wrapper">
+              <div id="company-buttons-wrapper" className="maintenance-company-filter shared-company-wrapper">
                 <span className="transaction-company-label">Company:</span>
                 <div id="company-buttons-container" className="transaction-company-buttons">
                   {visibleCompanies.map((comp) => (
