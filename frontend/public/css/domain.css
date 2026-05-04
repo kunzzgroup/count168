@@ -43,12 +43,19 @@ h1 {
 }
 
 .action-buttons {
-    margin-bottom: 24px;
+    margin-bottom: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
     padding-bottom: clamp(10px, 1.04vw, 20px);
+}
+
+.domain-toolbar-left,
+.domain-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 /* 横线样式 - 超出container */
@@ -95,7 +102,7 @@ h1 {
     padding: clamp(6px, 0.42vw, 8px) 0px;
     font-size: clamp(10px, 0.83vw, 16px);
     border: none;
-    border-radius: 6px;
+    border-radius: 9999px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
@@ -118,7 +125,7 @@ h1 {
     padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 18px);
     font-size: clamp(10px, 0.83vw, 16px);
     border: none;
-    border-radius: 6px;
+    border-radius: 9999px;
     box-shadow: 0 2px 4px rgba(71, 85, 105, 0.35);
     cursor: pointer;
     white-space: nowrap;
@@ -1284,7 +1291,7 @@ h1 {
     font-size: clamp(10px, 0.83vw, 16px);
     margin-left: 10px;
     border: none;
-    border-radius: 6px;
+    border-radius: 9999px;
     box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
@@ -1298,6 +1305,13 @@ h1 {
     background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
     transform: translateY(-1px);
+}
+
+.btn-delete:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 1px 2px rgba(220, 53, 69, 0.2);
 }
 
 .btn-delete.active {
@@ -1872,6 +1886,45 @@ h1 {
     text-decoration: underline;
 }
 
+/* Domain 列表：公司芯片 — 浅灰 pill，与 count168 一致 */
+.domain-company-chip {
+    cursor: pointer;
+    display: inline-block;
+    border-radius: 9999px;
+    border: 1px solid #d1d5db;
+    background: #f1f5f9;
+    color: #334155;
+    padding: clamp(2px, 0.2vw, 5px) clamp(8px, 0.65vw, 12px);
+    font-size: clamp(9px, 0.72vw, 12px);
+    font-weight: 600;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.domain-company-chip:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+.domain-company-more {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    padding: clamp(2px, 0.2vw, 4px) clamp(7px, 0.55vw, 10px);
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    font-size: clamp(9px, 0.72vw, 12px);
+    font-weight: 700;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 123, 255, 0.35);
+}
+
+.domain-company-more:hover {
+    filter: brightness(1.05);
+}
+
 /* Company Expiration Modal Styles */
 .company-exp-item {
     display: flex;
@@ -1951,7 +2004,7 @@ h1 {
     width: clamp(165px, 13vw, 250px);
     padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
     border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: 6px;
+    border-radius: 9999px;
     font-size: clamp(10px, 0.8vw, 15px);
     background: rgba(255, 255, 255, 1);
     color: #000000ff;
@@ -1974,27 +2027,30 @@ h1 {
     display: none !important;
 }
 
-/* 新的卡片式表格样式 */
+/* 新的卡片式表格样式：纵向滚动由 .domain-cards 承担，避免双滚动条 */
 .table-container {
     overflow-x: visible;
+    overflow-y: visible;
     margin-top: 20px;
     border: none;
     border-radius: 0;
+    max-height: none;
 }
 
 .table-header {
     display: grid;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
-    padding: clamp(0px, 0.78vw, 15px) 20px 15px;
-    background-color: transparent;
-    border-radius: 8px;
-    margin-bottom: 0px;
-    font-weight: bold;
-    color: #374151;
+    padding: clamp(10px, 0.85vw, 14px) 22px;
+    background: linear-gradient(180deg, #c5e3fc 0%, #9dc8f0 100%);
+    border-radius: 9999px;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #002C49;
     font-size: clamp(10px, 0.74vw, 14px);
     min-width: 0;
-    /* 允许内容收缩 */
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    /* 与 count168 domain.php 表头浅蓝条一致 */
 }
 
 .domain-cards {
@@ -2013,15 +2069,15 @@ h1 {
     display: none;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
-    padding: clamp(4px, 0.52vw, 10px) 22px;
+    padding: clamp(8px, 0.65vw, 12px) 22px;
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 22px;
+    border-radius: 9999px;
     align-items: center;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     min-width: 0;
-    /* 允许内容收缩 */
+    /* 允许内容收缩；圆角与线上 pill 行一致 */
 }
 
 .domain-card.show-card {
