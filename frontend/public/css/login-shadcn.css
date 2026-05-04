@@ -10,7 +10,17 @@
 }
 
 body.bg {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  /* Latin + CJK in one stack so toggling zh/en does not swap entire font metrics */
+  font-family:
+    "Segoe UI",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
   background: url("/images/count_bg.png") center/cover no-repeat;
   min-height: 100vh;
   display: flex;
@@ -18,6 +28,15 @@ body.bg {
   justify-content: center;
   padding: 20px;
   position: relative;
+  overflow-x: hidden;
+}
+
+/* #root is the flex item of body.bg — min-width:auto uses descendants’ min-content; zh copy can widen it */
+body.bg #root {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 body.bg::before {
@@ -32,10 +51,12 @@ body.bg::before {
   /* Lock outer width: flex items default min-width:auto can grow from long placeholders / EN copy */
   flex: 0 0 min(430px, 96vw);
   width: min(430px, 96vw);
+  min-width: min(430px, 96vw);
   max-width: min(430px, 96vw);
   margin: 0 auto;
   position: relative;
   z-index: 2;
+  overflow-x: clip;
   animation: sc-login-fade-in 0.6s ease-out;
 }
 
@@ -334,6 +355,7 @@ button.sc-login-lang-seg.active {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
   cursor: pointer;
   user-select: none;
   color: var(--sc-login-muted);
@@ -343,6 +365,8 @@ button.sc-login-lang-seg.active {
 
 .sc-login-remember > span {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sc-login-remember input[type="checkbox"] {
@@ -353,11 +377,14 @@ button.sc-login-lang-seg.active {
 
 .sc-login-forgot-link {
   justify-self: end;
+  max-width: 100%;
   color: var(--sc-login-bg-end);
   text-decoration: none;
   font-size: clamp(12px, 3vw, 14px);
   font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: color 0.3s ease;
 }
 
