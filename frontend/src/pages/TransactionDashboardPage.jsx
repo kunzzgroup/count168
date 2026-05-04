@@ -201,15 +201,6 @@ export default function TransactionDashboardPage() {
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
 
   useEffect(() => {
-    document.body.classList.remove("bg");
-    document.body.classList.add("dashboard-page");
-    return () => {
-      document.body.classList.remove("dashboard-page");
-      document.body.classList.add("bg");
-    };
-  }, []);
-
-  useEffect(() => {
     const onStorage = (e) => {
       if (e.key === "login_lang") {
         setLang(e.newValue === "zh" ? "zh" : "en");

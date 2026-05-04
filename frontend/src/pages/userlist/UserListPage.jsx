@@ -120,7 +120,7 @@ export default function UserListPage() {
   useEffect(() => { if (!bootLoading) syncUrl(); }, [bootLoading, syncUrl]);
 
   useEffect(() => {
-    document.body.classList.remove("bg", "dashboard-page");
+    document.body.classList.remove("bg");
     document.body.classList.add("user-page");
     const href = assetUrl("css/userlist.css");
     let ownLink = null;

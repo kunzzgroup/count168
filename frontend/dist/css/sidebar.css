@@ -917,6 +917,11 @@
     margin-top: 6px;
 }
 
+/* Match "管理页" visual spacing when Home is active */
+.informationmenu-content > .informationmenu-section:first-of-type .informationmenu-section-title.current-page {
+    margin-top: 8px;
+}
+
 .content-separator::before {
     content: "";
     display: block;
