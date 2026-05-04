@@ -898,6 +898,81 @@ function buildVirtualDomainNetProfitHistory(
     ];
 }
 
+/**
+ * 未指定 currency 且无法从查询区间识别币别时：单币别 B/F（与旧版 dcd / account_currency 回退一致）
+ *
+ * @return array{bf: string, bfCurrency: string|null}
+ */
+function historyLegacySingleBfNoCurrencyFilter(PDO $pdo, array $account_ids, int $company_id, string $account_code, string $date_from_start): array
+{
+    $bf = '0';
+    $bfCurrency = null;
+    $placeholders = implode(',', array_fill(0, count($account_ids), '?'));
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT c.code 
+        FROM data_capture_details dcd
+        JOIN currency c ON dcd.currency_id = c.id
+        WHERE dcd.company_id = ?
+          AND CAST(dcd.account_id AS CHAR) IN ($placeholders)
+        ORDER BY c.code ASC
+        LIMIT 1
+    ");
+    $stmt->execute(array_merge([$company_id], $account_ids));
+    $bfCurrency = $stmt->fetchColumn();
+
+    if ($bfCurrency) {
+        $stmt = $pdo->prepare('SELECT id FROM currency WHERE code = ? AND company_id = ?');
+        $stmt->execute([$bfCurrency, $company_id]);
+        $bfCurrencyId = $stmt->fetchColumn();
+        if ($bfCurrencyId) {
+            $bf = '0';
+            foreach ($account_ids as $aid) {
+                $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_start, $company_id, $account_code), 8);
+            }
+        } else {
+            $bf = '0';
+            foreach ($account_ids as $aid) {
+                $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_start, $company_id), 8);
+            }
+        }
+    } else {
+        $stmt = $pdo->prepare('
+            SELECT c.code 
+            FROM account_currency ac
+            JOIN currency c ON ac.currency_id = c.id
+            WHERE ac.account_id = ?
+            ORDER BY ac.created_at ASC
+            LIMIT 1
+        ');
+        $stmt->execute([$account_ids[0]]);
+        $bfCurrency = $stmt->fetchColumn();
+
+        if ($bfCurrency) {
+            $stmt = $pdo->prepare('SELECT id FROM currency WHERE code = ? AND company_id = ?');
+            $stmt->execute([$bfCurrency, $company_id]);
+            $bfCurrencyId = $stmt->fetchColumn();
+            if ($bfCurrencyId) {
+                $bf = '0';
+                foreach ($account_ids as $aid) {
+                    $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_start, $company_id, $account_code), 8);
+                }
+            } else {
+                $bf = '0';
+                foreach ($account_ids as $aid) {
+                    $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_start, $company_id), 8);
+                }
+            }
+        } else {
+            $bf = '0';
+            foreach ($account_ids as $aid) {
+                $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_start, $company_id), 8);
+            }
+        }
+    }
+
+    return ['bf' => $bf, 'bfCurrency' => $bfCurrency];
+}
+
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -1043,80 +1118,16 @@ try {
     $account_code = isset($account['account_id']) ? trim((string) $account['account_id']) : '';
 
     // 1. 计算 B/F (Opening Balance)（仅当前账户）
-    // 如果指定了 currency，按 currency 计算
-    // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
+    // 指定 currency：按该币别；未指定：占位，在载入区间内 capture/transactions 后按出现币别分别计算（与带 currency 参数查询一致）
     $bfCurrency = null;
+    $bf = '0';
+    $bf_per_currency = null;
     if ($currency_id) {
         $bf = '0';
         foreach ($account_ids as $aid) {
             $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_start, $company_id, $account_code), 8);
         }
         $bfCurrency = $currency;
-    } else {
-        // 如果没有指定 currency，从 data_capture_details 中获取任一聚合账户使用的第一个 currency
-        $placeholders = implode(',', array_fill(0, count($account_ids), '?'));
-        $stmt = $pdo->prepare("
-            SELECT DISTINCT c.code 
-            FROM data_capture_details dcd
-            JOIN currency c ON dcd.currency_id = c.id
-            WHERE dcd.company_id = ?
-              AND CAST(dcd.account_id AS CHAR) IN ($placeholders)
-            ORDER BY c.code ASC
-            LIMIT 1
-        ");
-        $stmt->execute(array_merge([$company_id], $account_ids));
-        $bfCurrency = $stmt->fetchColumn();
-
-        if ($bfCurrency) {
-            $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-            $stmt->execute([$bfCurrency, $company_id]);
-            $bfCurrencyId = $stmt->fetchColumn();
-            if ($bfCurrencyId) {
-                $bf = '0';
-                foreach ($account_ids as $aid) {
-                    $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_start, $company_id, $account_code), 8);
-                }
-            } else {
-                $bf = '0';
-                foreach ($account_ids as $aid) {
-                    $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_start, $company_id), 8);
-                }
-            }
-        } else {
-            // 尝试从 account_currency 表获取第一个 currency（使用第一个聚合账户）
-            $stmt = $pdo->prepare("
-                SELECT c.code 
-                FROM account_currency ac
-                JOIN currency c ON ac.currency_id = c.id
-                WHERE ac.account_id = ?
-                ORDER BY ac.created_at ASC
-                LIMIT 1
-            ");
-            $stmt->execute([$account_ids[0]]);
-            $bfCurrency = $stmt->fetchColumn();
-
-            if ($bfCurrency) {
-                $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-                $stmt->execute([$bfCurrency, $company_id]);
-                $bfCurrencyId = $stmt->fetchColumn();
-                if ($bfCurrencyId) {
-                    $bf = '0';
-                    foreach ($account_ids as $aid) {
-                        $bf = money_add($bf, calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_start, $company_id, $account_code), 8);
-                    }
-                } else {
-                    $bf = '0';
-                    foreach ($account_ids as $aid) {
-                        $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_start, $company_id), 8);
-                    }
-                }
-            } else {
-                $bf = '0';
-                foreach ($account_ids as $aid) {
-                    $bf = money_add($bf, calculateBF($pdo, $aid, $date_from_start, $company_id), 8);
-                }
-            }
-        }
     }
 
     // 2. 查询日期范围内的数据采集记录（视为 Win/Loss）- 如果指定了 currency，按 currency 筛选
@@ -1305,6 +1316,98 @@ try {
     $stmt->execute($transactionParams);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 未指定 currency：按查询日期区间内实际出现的币别分别计算 B/F（Member 多币别一次请求 = 与逐币别 history_api 一致）
+    if (!$currency_id) {
+        $codeSet = [];
+        foreach ($captureRows as $cr) {
+            $cc = trim((string) ($cr['currency_code'] ?? ''));
+            if ($cc !== '') {
+                $codeSet[$cc] = true;
+            }
+        }
+        foreach ($transactions as $t) {
+            if ($has_currency_id && !empty($t['transaction_currency_code'])) {
+                $codeSet[trim((string) $t['transaction_currency_code'])] = true;
+            }
+        }
+        // 與主交易 SQL 一致：區間內凡有 currency_id 的幣別都納入 B/F（避免仅靠 capture 推幣別時漏 MYR 等）
+        if ($has_currency_id) {
+            $phTxCodes = implode(',', array_fill(0, count($account_ids), '?'));
+            $txCodesSql = "
+                SELECT DISTINCT TRIM(c.code) AS code
+                FROM transactions t
+                INNER JOIN currency c ON t.currency_id = c.id
+                WHERE t.company_id = ?
+                  AND t.transaction_type <> 'RATE'
+                  AND (t.account_id IN ($phTxCodes) OR t.from_account_id IN ($phTxCodes))
+                  AND DATE(t.transaction_date) BETWEEN ? AND ?
+                  AND t.currency_id IS NOT NULL
+            ";
+            $txCodesSql .= historyContraApprovedWhere($pdo, 't');
+            $txCodesStmt = $pdo->prepare($txCodesSql);
+            $txCodesStmt->execute(array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]));
+            while ($crow = $txCodesStmt->fetch(PDO::FETCH_ASSOC)) {
+                $cc = trim((string) ($crow['code'] ?? ''));
+                if ($cc !== '') {
+                    $codeSet[$cc] = true;
+                }
+            }
+        }
+        $ratePhDist = implode(',', array_fill(0, count($account_ids), '?'));
+        try {
+            $rateDistStmt = $pdo->prepare("
+                SELECT DISTINCT TRIM(c.code) AS code
+                FROM transaction_entry e
+                INNER JOIN transactions h ON e.header_id = h.id
+                INNER JOIN currency c ON e.currency_id = c.id
+                WHERE h.company_id = ? AND e.company_id = ?
+                  AND h.transaction_type = 'RATE'
+                  AND e.account_id IN ($ratePhDist)
+                  AND DATE(h.transaction_date) BETWEEN ? AND ?
+                  AND c.code IS NOT NULL AND TRIM(c.code) <> ''
+            ");
+            $rateDistStmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db]));
+            while ($rrow = $rateDistStmt->fetch(PDO::FETCH_ASSOC)) {
+                $rc = trim((string) ($rrow['code'] ?? ''));
+                if ($rc !== '') {
+                    $codeSet[$rc] = true;
+                }
+            }
+        } catch (Throwable $e) {
+            // 忽略：无 transaction_entry 或结构差异时仍依 capture/txn 币别
+        }
+
+        $bf_per_currency = [];
+        if (!empty($codeSet)) {
+            $codes = array_keys($codeSet);
+            sort($codes, SORT_STRING);
+            foreach ($codes as $code) {
+                $stmtCur = $pdo->prepare('SELECT id FROM currency WHERE code = ? AND company_id = ?');
+                $stmtCur->execute([$code, $company_id]);
+                $cid = $stmtCur->fetchColumn();
+                if (!$cid) {
+                    continue;
+                }
+                $bfOne = '0';
+                foreach ($account_ids as $aid) {
+                    $bfOne = money_add($bfOne, calculateBFByCurrency($pdo, $aid, (int) $cid, $date_from_start, $company_id, $account_code), 8);
+                }
+                $bf_per_currency[$code] = $bfOne;
+            }
+        }
+
+        if (!empty($bf_per_currency)) {
+            ksort($bf_per_currency, SORT_STRING);
+            $bfCurrency = (string) array_key_first($bf_per_currency);
+            $bf = $bf_per_currency[$bfCurrency];
+        } else {
+            $bf_per_currency = null;
+            $leg = historyLegacySingleBfNoCurrencyFilter($pdo, $account_ids, $company_id, $account_code, $date_from_start);
+            $bf = $leg['bf'];
+            $bfCurrency = $leg['bfCurrency'];
+        }
+    }
+
     // 展示去重保护：若同一 process 同日已有非 day_end_tail 的银行账单，
     // 则隐藏对应 day_end_tail，避免 resend + day_end 历史中出现重复两条。
     $hasNonTailByKey = [];
@@ -1326,19 +1429,20 @@ try {
     // 4. 构建历史记录数据
     $history = [];
 
-    // 第一行：B/F (Opening Balance)
-    // 使用从 data_capture 中获取的 currency，如果没有则尝试从 account_currency 表获取（使用第一个聚合账户）
-    if (!$bfCurrency) {
-        $stmt = $pdo->prepare("
-            SELECT c.code 
-            FROM account_currency ac
-            JOIN currency c ON ac.currency_id = c.id
-            WHERE ac.account_id = ?
-            ORDER BY ac.created_at ASC
-            LIMIT 1
-        ");
-        $stmt->execute([$account_ids[0]]);
-        $bfCurrency = $stmt->fetchColumn();
+    // 第一行或多行：B/F (Opening Balance)（多币别未指定 currency 时：每币别一行，与带 currency 参数查询同口径）
+    if (!is_array($bf_per_currency) || count($bf_per_currency) === 0) {
+        if (!$bfCurrency) {
+            $stmt = $pdo->prepare("
+                SELECT c.code 
+                FROM account_currency ac
+                JOIN currency c ON ac.currency_id = c.id
+                WHERE ac.account_id = ?
+                ORDER BY ac.created_at ASC
+                LIMIT 1
+            ");
+            $stmt->execute([$account_ids[0]]);
+            $bfCurrency = $stmt->fetchColumn();
+        }
     }
     $bfDescription = 'Opening Balance';
     $ph_bf = implode(',', array_fill(0, count($account_ids), '?'));
@@ -1348,22 +1452,43 @@ try {
     if ($bfBankName) {
         $bfDescription = 'Opening Balance (' . trim($bfBankName) . ')';
     }
-    $history[] = [
-        'row_type' => 'bf',
-        'date' => 'B/F',
-        'source' => '-',
-        'product' => '-',
-        'card_owner' => '-',
-        'currency' => $bfCurrency,
-        'percent' => '-',
-        'rate' => '-',
-        'win_loss' => '-',
-        'cr_dr' => '-',
-        'balance' => historyFormatExactCents2($bf),
-        'description' => $bfDescription,
-        'sms' => '-',
-        'created_by' => '-'
-    ];
+    if (is_array($bf_per_currency) && count($bf_per_currency) > 0) {
+        foreach ($bf_per_currency as $code => $bfAmt) {
+            $history[] = [
+                'row_type' => 'bf',
+                'date' => 'B/F',
+                'source' => '-',
+                'product' => '-',
+                'card_owner' => '-',
+                'currency' => $code,
+                'percent' => '-',
+                'rate' => '-',
+                'win_loss' => '-',
+                'cr_dr' => '-',
+                'balance' => historyFormatExactCents2($bfAmt),
+                'description' => $bfDescription,
+                'sms' => '-',
+                'created_by' => '-'
+            ];
+        }
+    } else {
+        $history[] = [
+            'row_type' => 'bf',
+            'date' => 'B/F',
+            'source' => '-',
+            'product' => '-',
+            'card_owner' => '-',
+            'currency' => $bfCurrency,
+            'percent' => '-',
+            'rate' => '-',
+            'win_loss' => '-',
+            'cr_dr' => '-',
+            'balance' => historyFormatExactCents2($bf),
+            'description' => $bfDescription,
+            'sms' => '-',
+            'created_by' => '-'
+        ];
+    }
 
     // 后续行：数据采集 + 交易记录（余额在下方按币别分别累计）
     $events = [];
