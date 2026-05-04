@@ -153,6 +153,18 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
+    /** 每行 Win/Loss 用「全精度 win_loss_full，缺省时 win_loss」四舍五入到分（ROUND_HALF_UP），供合计对比截断累加 */
+    function winLossRowHalfUp2(row) {
+        const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
+            ? row.win_loss_full
+            : (row && row.win_loss != null ? row.win_loss : '0');
+        try {
+            return MoneyDecimal.formatFixedHalfUp(raw === '-' ? '0' : raw, 2);
+        } catch (_) {
+            return '0.00';
+        }
+    }
+
     // ==================== Contra Inbox（Manager+） ====================
     function isContraInboxOpen() {
         const pop = document.getElementById('contraInboxPopover');
@@ -2179,6 +2191,10 @@
                 };
             }
 
+            const combinedForWl = calculateTotals([...sortedLeftRows, ...sortedRightRows]);
+            summaryTotals.win_loss_halfup = combinedForWl.win_loss_halfup;
+            summaryTotals.win_loss_delta = MoneyDecimal.sub(combinedForWl.win_loss_halfup, summaryTotals.win_loss || '0').toString();
+
             updateTotals('left', leftTotals);
             updateTotals('right', rightTotals);
             updateSummary(summaryTotals);
@@ -2443,10 +2459,11 @@
         return rows.reduce((totals, row) => {
             totals.bf = MoneyDecimal.add(totals.bf, row.bf || '0').toString();
             totals.win_loss = MoneyDecimal.add(totals.win_loss, row.win_loss || '0').toString();
+            totals.win_loss_halfup = MoneyDecimal.add(totals.win_loss_halfup, winLossRowHalfUp2(row)).toString();
             totals.cr_dr = MoneyDecimal.add(totals.cr_dr, row.cr_dr || '0').toString();
             totals.balance = MoneyDecimal.add(totals.balance, row.balance || '0').toString();
             return totals;
-        }, { bf: '0', win_loss: '0', cr_dr: '0', balance: '0' });
+        }, { bf: '0', win_loss: '0', win_loss_halfup: '0', cr_dr: '0', balance: '0' });
     }
 
     // ==================== 处理 Balance 点击事件 ====================
@@ -2777,6 +2794,14 @@
     function updateSummary(totals) {
         document.getElementById('sum_total_bf').textContent = formatPaymentHistoryMoney(totals.bf);
         document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoney(totals.win_loss);
+        const halfEl = document.getElementById('sum_total_winloss_halfup');
+        const deltaEl = document.getElementById('sum_total_winloss_delta');
+        if (halfEl) {
+            halfEl.textContent = formatPaymentHistoryMoney(totals.win_loss_halfup != null ? totals.win_loss_halfup : totals.win_loss);
+        }
+        if (deltaEl) {
+            deltaEl.textContent = formatPaymentHistoryMoney(totals.win_loss_delta != null ? totals.win_loss_delta : '0');
+        }
         document.getElementById('sum_total_crdr').textContent = formatPaymentHistoryMoney(totals.cr_dr);
         document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoney(totals.balance);
     }

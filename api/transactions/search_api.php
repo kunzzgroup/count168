@@ -379,6 +379,7 @@ function searchApiAppendDomainNetProfitVirtualRows(
             'currency_id_debug' => $cid,
             'bf' => '0',
             'win_loss' => '0',
+            'win_loss_full' => '0',
             'cr_dr' => $amt,
             'balance' => $amt,
             'has_crdr_transactions' => 1,
@@ -584,6 +585,7 @@ function searchApiAppendDomainListFeeVirtualRows(
             'currency_id_debug' => $cid,
             'bf' => '0',
             'win_loss' => '0',
+            'win_loss_full' => '0',
             'cr_dr' => searchMoneyNeg($amt),
             'balance' => searchMoneyNeg($amt),
             'has_crdr_transactions' => 1,
@@ -2024,6 +2026,7 @@ try {
             // 与 history_api 显示口径保持一致：统一在后端保留 2 位小数再返回
             'bf' => $bf_display,
             'win_loss' => $win_loss_display,
+            'win_loss_full' => $wlPack['win_loss_full'] ?? $win_loss_display,
             'cr_dr' => $cr_dr_display,
             'balance' => $balance,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
@@ -2691,8 +2694,10 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
         $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm;
         $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
+        $win_loss_full = money_normalize($win_loss, 8);
         return [
             'win_loss' => trunc2($win_loss),
+            'win_loss_full' => $win_loss_full,
             'has_rate_middleman' => $has_rate_mm,
             'has_win_loss_transactions' => $has_win_loss_transactions,
             'has_win_loss_history' => $has_win_loss_history,
@@ -2842,8 +2847,10 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $has_period_id_product_rows = false;
     }
 
+    $win_loss_full = money_normalize($win_loss, 8);
     return [
         'win_loss' => trunc2($win_loss),
+        'win_loss_full' => $win_loss_full,
         'has_rate_middleman' => $has_rate_middleman,
         'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),
         'has_win_loss_history' => ($wl_row_count > 0 || $has_rate_middleman),
