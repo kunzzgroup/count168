@@ -522,52 +522,52 @@ h1 {
     border-bottom: none;
 }
 
-/* 列顺序：勾选 | No. | Dts | Product | Process | Currency | W/L | Submitted | Deleted */
+/* 与 payment_maintenance.php：数据列后最右为勾选列 */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 3%;
+    width: 4%;
     text-align: center;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 4%;
-    text-align: center;
+    width: 16%;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 16%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 13%;
+    width: 14%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 14%;
+    width: 8%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 8%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 13%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 11%;
+    width: 18%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 18%;
+    width: 3%;
+    text-align: center;
 }
 
 .maintenance-table-cell {
@@ -582,14 +582,14 @@ h1 {
     text-align: center;
 }
 
+.maintenance-table th:nth-child(3),
+.maintenance-table td:nth-child(3),
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4),
-.maintenance-table th:nth-child(5),
-.maintenance-table td:nth-child(5),
-.maintenance-table th:nth-child(7),
-.maintenance-table td:nth-child(7),
-.maintenance-table th:nth-child(9),
-.maintenance-table td:nth-child(9) {
+.maintenance-table th:nth-child(6),
+.maintenance-table td:nth-child(6),
+.maintenance-table th:nth-child(8),
+.maintenance-table td:nth-child(8) {
     text-align: left;
 }
 
@@ -604,6 +604,16 @@ h1 {
 .maintenance-row-deleted .maintenance-table-cell {
     color: #b91c1c;
     text-decoration: line-through;
+}
+
+/* 与 Payment 维护一致：已删除行仍保留禁用勾选，避免末列「空白」与表头不对齐 */
+.maintenance-row-deleted .maintenance-row-checkbox:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.maintenance-row-deleted td.maintenance-cell-checkbox {
+    text-decoration: none;
 }
 
 .maintenance-select-all-header {

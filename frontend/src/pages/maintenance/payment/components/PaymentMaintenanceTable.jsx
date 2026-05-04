@@ -26,10 +26,10 @@ export default function PaymentMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
+              <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
               <th className="maintenance-select-all-header">
                 <input type="checkbox" className="maintenance-row-checkbox" disabled />
               </th>
-              <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
             </tr>
           </thead>
           <tbody>
@@ -59,6 +59,7 @@ export default function PaymentMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
+            <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
             <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
@@ -70,7 +71,6 @@ export default function PaymentMaintenanceTable({
                 title="Select All" 
               />
             </th>
-            <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
           </tr>
         </thead>
         <tbody>
@@ -90,15 +90,6 @@ export default function PaymentMaintenanceTable({
                 key={row.transaction_id || index} 
                 className={`maintenance-row ${isDeleted ? "maintenance-row-deleted" : ""}`}
               >
-                <td className="maintenance-table-cell maintenance-cell-checkbox">
-                  <input 
-                    type="checkbox" 
-                    className="maintenance-row-checkbox" 
-                    checked={selectedIds.includes(row.transaction_id)}
-                    onChange={() => toggleSelect(row.transaction_id)}
-                    disabled={isDeleted}
-                  />
-                </td>
                 <td className="maintenance-table-cell">{index + 1}</td>
                 <td className="maintenance-table-cell">{row.dts_created || '-'}</td>
                 <td className="maintenance-table-cell">{row.account || '-'}</td>
@@ -108,6 +99,15 @@ export default function PaymentMaintenanceTable({
                 <td className="maintenance-table-cell">{row.remark || '-'}</td>
                 <td className="maintenance-table-cell">{row.created_by || '-'}</td>
                 <td className="maintenance-table-cell">{deletedDisplay}</td>
+                <td className="maintenance-table-cell maintenance-cell-checkbox">
+                  <input 
+                    type="checkbox" 
+                    className="maintenance-row-checkbox" 
+                    checked={selectedIds.includes(row.transaction_id)}
+                    onChange={() => toggleSelect(row.transaction_id)}
+                    disabled={isDeleted}
+                  />
+                </td>
               </tr>
             );
           })}

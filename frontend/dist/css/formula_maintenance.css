@@ -426,34 +426,34 @@ h1 {
     border-bottom: none;
 }
 
-/* 列宽：Actions/勾选 | No. | Process | … | Description */
+/* 列宽：No. | Process | … | Description | 末列 Actions/勾选 */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 7%;
+    width: 3%;
     text-align: center;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 3%;
-    text-align: center;
+    width: 11%;
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 11%;
+    width: 10%;
     text-align: left;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 10%;
-    text-align: left;
+    width: 6%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 6%;
+    width: 8%;
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(6),
@@ -464,26 +464,26 @@ h1 {
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 8%;
+    width: 11%;
     text-align: left;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 11%;
+    width: 18%;
     text-align: left;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 18%;
+    width: 14%;
     text-align: left;
 }
 
 .maintenance-table th:nth-child(10),
 .maintenance-table td:nth-child(10) {
-    width: 14%;
-    text-align: left;
+    width: 7%;
+    text-align: center;
 }
 
 .maintenance-table-cell {

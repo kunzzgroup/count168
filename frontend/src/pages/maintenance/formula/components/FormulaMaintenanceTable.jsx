@@ -51,10 +51,10 @@ export default function FormulaMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
+              <th>No.</th><th>Process</th><th>Account</th><th>Currency</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th>
               <th className="maintenance-select-all-header">
                 <input type="checkbox" className="maintenance-row-checkbox" disabled />
               </th>
-              <th>No.</th><th>Process</th><th>Account</th><th>Currency</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th>
             </tr>
           </thead>
           <tbody>
@@ -82,6 +82,15 @@ export default function FormulaMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
+            <th>No.</th>
+            <th>Process</th>
+            <th>Account</th>
+            <th>Currency</th>
+            <th>Source</th>
+            <th>Product</th>
+            <th>Input Method</th>
+            <th>Formula</th>
+            <th>Description</th>
             <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
@@ -92,15 +101,6 @@ export default function FormulaMaintenanceTable({
                 title="Select All"
               />
             </th>
-            <th>No.</th>
-            <th>Process</th>
-            <th>Account</th>
-            <th>Currency</th>
-            <th>Source</th>
-            <th>Product</th>
-            <th>Input Method</th>
-            <th>Formula</th>
-            <th>Description</th>
           </tr>
         </thead>
         <tbody>
@@ -109,38 +109,6 @@ export default function FormulaMaintenanceTable({
             
             return (
               <tr key={row.id} className={isEditing ? "formula-row-editing" : ""}>
-                {/* Actions：与维护页勾选列统一放首列 */}
-                <td className="maintenance-table-cell maintenance-cell-checkbox">
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
-                    {isEditing ? (
-                      <>
-                        <button type="button" className="maintenance-edit-btn" onClick={() => handleSave(row.id)} title="Save">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                        </button>
-                        <button type="button" className="maintenance-cancel-btn" onClick={handleCancel} title="Cancel">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                          </svg>
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button type="button" className="maintenance-edit-btn" onClick={() => handleEdit(row)} title="Edit">
-                          <img src="images/edit.svg" alt="Edit" className="edit-icon" style={{ width: "16px", height: "16px" }} />
-                        </button>
-                        <input 
-                          type="checkbox" 
-                          className="maintenance-row-checkbox"
-                          checked={selectedIds.includes(row.id)}
-                          onChange={() => onToggleSelect(row.id)}
-                        />
-                      </>
-                    )}
-                  </div>
-                </td>
                 <td className="maintenance-table-cell">{row.no}</td>
                 <td className="maintenance-table-cell">{toUpperDisplay(row.process)}</td>
                 
@@ -228,6 +196,38 @@ export default function FormulaMaintenanceTable({
                   ) : (
                     <span className="description-display">{toUpperDisplay(row.description)}</span>
                   )}
+                </td>
+
+                <td className="maintenance-table-cell maintenance-cell-checkbox">
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+                    {isEditing ? (
+                      <>
+                        <button type="button" className="maintenance-edit-btn" onClick={() => handleSave(row.id)} title="Save">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </button>
+                        <button type="button" className="maintenance-cancel-btn" onClick={handleCancel} title="Cancel">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className="maintenance-edit-btn" onClick={() => handleEdit(row)} title="Edit">
+                          <img src="images/edit.svg" alt="Edit" className="edit-icon" style={{ width: "16px", height: "16px" }} />
+                        </button>
+                        <input 
+                          type="checkbox" 
+                          className="maintenance-row-checkbox"
+                          checked={selectedIds.includes(row.id)}
+                          onChange={() => onToggleSelect(row.id)}
+                        />
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             );

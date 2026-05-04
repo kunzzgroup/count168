@@ -15,8 +15,8 @@ export default function BankprocessMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th className="maintenance-select-all-header"><input type="checkbox" className="maintenance-row-checkbox maintenance-select-all-checkbox" disabled /></th>
               <th>No.</th><th>Dts Created</th><th>Account</th><th>From</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitted By</th>
+              <th className="maintenance-select-all-header"><input type="checkbox" className="maintenance-row-checkbox maintenance-select-all-checkbox" disabled /></th>
             </tr>
           </thead>
           <tbody>
@@ -48,6 +48,14 @@ export default function BankprocessMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
+            <th>No.</th>
+            <th>Dts Created</th>
+            <th>Account</th>
+            <th>From</th>
+            <th className="maintenance-header-amount">Amount</th>
+            <th>Description</th>
+            <th>Remark</th>
+            <th>Submitted By</th>
             <th className="maintenance-select-all-header">
               <input
                 type="checkbox"
@@ -58,14 +66,6 @@ export default function BankprocessMaintenanceTable({
                 onChange={(e) => onToggleSelectAll(e.target.checked)}
               />
             </th>
-            <th>No.</th>
-            <th>Dts Created</th>
-            <th>Account</th>
-            <th>From</th>
-            <th className="maintenance-header-amount">Amount</th>
-            <th>Description</th>
-            <th>Remark</th>
-            <th>Submitted By</th>
           </tr>
         </thead>
         <tbody id="dataTableBody">
@@ -76,16 +76,6 @@ export default function BankprocessMaintenanceTable({
             const currency = row.currency ? `${row.currency} ` : "";
             return (
               <tr key={transactionId || `${index}-${row.dts_created || "row"}`} className={`maintenance-row ${isDeleted ? "maintenance-row-deleted" : ""}`}>
-                <td className="maintenance-table-cell maintenance-cell-checkbox">
-                  <input
-                    type="checkbox"
-                    className="maintenance-row-checkbox"
-                    checked={checked}
-                    disabled={isDeleted}
-                    title={isDeleted ? "Already deleted" : ""}
-                    onChange={() => onToggleRow(transactionId)}
-                  />
-                </td>
                 <td className="maintenance-table-cell">{index + 1}</td>
                 <td className="maintenance-table-cell">{row.dts_created || "-"}</td>
                 <td className="maintenance-table-cell">{row.account || "-"}</td>
@@ -96,6 +86,16 @@ export default function BankprocessMaintenanceTable({
                 <td className="maintenance-table-cell">{row.description || "-"}</td>
                 <td className="maintenance-table-cell text-uppercase">{toUpperDisplay(row.remark)}</td>
                 <td className="maintenance-table-cell">{row.created_by || "-"}</td>
+                <td className="maintenance-table-cell maintenance-cell-checkbox">
+                  <input
+                    type="checkbox"
+                    className="maintenance-row-checkbox"
+                    checked={checked}
+                    disabled={isDeleted}
+                    title={isDeleted ? "Already deleted" : ""}
+                    onChange={() => onToggleRow(transactionId)}
+                  />
+                </td>
               </tr>
             );
           })}
