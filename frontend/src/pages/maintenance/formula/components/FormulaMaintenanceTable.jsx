@@ -53,7 +53,10 @@ export default function FormulaMaintenanceTable({
             <tr>
               <th>No.</th><th>Process</th><th>Account</th><th>Currency</th><th>Source</th><th>Product</th><th>Input Method</th><th>Formula</th><th>Description</th>
               <th className="maintenance-select-all-header">
-                <input type="checkbox" className="maintenance-row-checkbox" disabled />
+                <div className="maintenance-formula-actions-inner">
+                  <span className="maintenance-action-edit-placeholder" aria-hidden="true" />
+                  <input type="checkbox" className="maintenance-row-checkbox" disabled />
+                </div>
               </th>
             </tr>
           </thead>
@@ -92,14 +95,17 @@ export default function FormulaMaintenanceTable({
             <th>Formula</th>
             <th>Description</th>
             <th className="maintenance-select-all-header">
-              <input 
-                type="checkbox" 
-                ref={selectAllRef}
-                className="maintenance-row-checkbox"
-                checked={data.length > 0 && selectedIds.length === data.length}
-                onChange={onToggleSelectAll}
-                title="Select All"
-              />
+              <div className="maintenance-formula-actions-inner">
+                <span className="maintenance-action-edit-placeholder" aria-hidden="true" />
+                <input
+                  type="checkbox"
+                  ref={selectAllRef}
+                  className="maintenance-row-checkbox"
+                  checked={data.length > 0 && selectedIds.length === data.length}
+                  onChange={onToggleSelectAll}
+                  title="Select All"
+                />
+              </div>
             </th>
           </tr>
         </thead>
@@ -199,7 +205,7 @@ export default function FormulaMaintenanceTable({
                 </td>
 
                 <td className="maintenance-table-cell maintenance-cell-checkbox">
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+                  <div className="maintenance-formula-actions-inner">
                     {isEditing ? (
                       <>
                         <button type="button" className="maintenance-edit-btn" onClick={() => handleSave(row.id)} title="Save">
