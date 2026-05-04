@@ -165,6 +165,10 @@ export default function AuthenticatedLayout() {
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
   }, []);
 
+  useEffect(() => {
+    setHoverSection(null);
+  }, [location.pathname]);
+
   // --- Click outside handlers ---
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -478,20 +482,16 @@ export default function AuthenticatedLayout() {
                 <div
                   className="submenu"
                   id="report-submenu"
-                  style={
-                    hoverSection === "report"
-                      ? {
-                          position: "fixed",
-                          top: submenuPos.report.top,
-                          left: submenuPos.report.left,
-                          opacity: 1,
-                          visibility: "visible",
-                          transform: "translateX(0)",
-                          pointerEvents: "auto",
-                          zIndex: 4000,
-                        }
-                      : undefined
-                  }
+                  style={{
+                    position: "fixed",
+                    top: submenuPos.report.top,
+                    left: submenuPos.report.left,
+                    opacity: hoverSection === "report" ? 1 : 0,
+                    transform: hoverSection === "report" ? "translateX(0)" : "translateX(-10px)",
+                    pointerEvents: hoverSection === "report" ? "auto" : "none",
+                    zIndex: 4000,
+                  }}
+                  aria-hidden={hoverSection !== "report"}
                   onMouseEnter={() => setHoverSection("report")}
                   onMouseLeave={() => setHoverSection(null)}
                 >
@@ -540,20 +540,16 @@ export default function AuthenticatedLayout() {
                 <div
                   className="submenu"
                   id="maintenance-submenu"
-                  style={
-                    hoverSection === "maintenance"
-                      ? {
-                          position: "fixed",
-                          top: submenuPos.maintenance.top,
-                          left: submenuPos.maintenance.left,
-                          opacity: 1,
-                          visibility: "visible",
-                          transform: "translateX(0)",
-                          pointerEvents: "auto",
-                          zIndex: 4000,
-                        }
-                      : undefined
-                  }
+                  style={{
+                    position: "fixed",
+                    top: submenuPos.maintenance.top,
+                    left: submenuPos.maintenance.left,
+                    opacity: hoverSection === "maintenance" ? 1 : 0,
+                    transform: hoverSection === "maintenance" ? "translateX(0)" : "translateX(-10px)",
+                    pointerEvents: hoverSection === "maintenance" ? "auto" : "none",
+                    zIndex: 4000,
+                  }}
+                  aria-hidden={hoverSection !== "maintenance"}
                   onMouseEnter={() => setHoverSection("maintenance")}
                   onMouseLeave={() => setHoverSection(null)}
                 >

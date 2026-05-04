@@ -760,7 +760,7 @@
     transform: translateX(3px);
 }
 
-/* 子菜单 - 紧凑型，显示在菜单项旁边 */
+/* 子菜单 - 紧凑型，显示在菜单项旁边（显隐仅改 opacity，避免与 fixed 无坐标时落回静态区冲突） */
 .submenu {
     position: fixed;
     width: clamp(100px, 10.42vw, 200px);
@@ -771,9 +771,8 @@
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
     z-index: 3000;
     opacity: 0;
-    visibility: hidden;
     transform: translateX(-10px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
     overflow: hidden;
     backdrop-filter: blur(10px);
