@@ -566,7 +566,6 @@ h1 {
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 3%;
     text-align: center;
 }
 
@@ -840,26 +839,9 @@ h1 {
         width: 13%;
     }
 
-
-    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: 3%;
-    }
-
     .maintenance-table-cell{
         white-space: normal;
     }
-}
-
-@media (max-width: 2000px) {
-    
-    .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
-        width: 18%;
-    }
-    
-    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: 3%;
-    }
-
 }
 
 
