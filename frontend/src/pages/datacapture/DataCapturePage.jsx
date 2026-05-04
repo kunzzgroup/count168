@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import { useDataCaptureLegacyBridge } from "./hooks/useDataCaptureLegacyBridge.js";
+import "../../../public/css/datacapture.css";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
 import { useDataCaptureSubmitGate } from "./hooks/useDataCaptureSubmitGate.js";
 import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
@@ -257,6 +257,14 @@ export default function DataCapturePage() {
     companyId,
   ]);
 
+  /** Table/grid paints async; retry fit so stage gets non-zero height and scale applies */
+  useEffect(() => {
+    if (!isPageReady) return undefined;
+    const delays = [0, 50, 120, 280];
+    const ids = delays.map((ms) => window.setTimeout(() => updateDatacaptureFit(), ms));
+    return () => ids.forEach((id) => window.clearTimeout(id));
+  }, [isPageReady, updateDatacaptureFit]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -380,7 +388,6 @@ export default function DataCapturePage() {
     [navigate]
   );
 
-  useDataCaptureLegacyBridge();
   useDataCaptureRestore({
     ready: !loading && !forbidden && companyId != null,
     processOptions,
