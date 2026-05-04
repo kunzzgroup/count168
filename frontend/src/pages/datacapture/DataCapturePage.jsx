@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Navigate, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import "../../../public/css/datacapture.css";
+import { useDataCaptureLegacyBridge } from "./hooks/useDataCaptureLegacyBridge.js";
 import { useDataCaptureSubmit } from "./hooks/useDataCaptureSubmit.js";
 import { useDataCaptureSubmitGate } from "./hooks/useDataCaptureSubmitGate.js";
 import { useDataCaptureRestore } from "./hooks/useDataCaptureRestore.js";
@@ -140,35 +140,6 @@ export default function DataCapturePage() {
   const toUpperInput = useCallback((next) => String(next || "").toUpperCase(), []);
   const processDropdownRef = useRef(null);
   const formatPasteAreaRef = useRef(null);
-  const datacaptureFitStageRef = useRef(null);
-  const datacaptureFitScalerRef = useRef(null);
-  const datacaptureFitContentRef = useRef(null);
-
-  const updateDatacaptureFit = useCallback(() => {
-    const stage = datacaptureFitStageRef.current;
-    const scaler = datacaptureFitScalerRef.current;
-    const content = datacaptureFitContentRef.current;
-    if (!stage || !scaler || !content) return;
-    const sw = stage.clientWidth;
-    const sh = stage.clientHeight;
-    if (sw < 4 || sh < 4) return;
-
-    /* Percent width collapses when scaler has no explicit width — pin to stage px before measure */
-    content.style.transform = "scale(1)";
-    content.style.boxSizing = "border-box";
-    content.style.width = `${sw}px`;
-    content.style.maxWidth = `${sw}px`;
-    void content.offsetWidth;
-
-    const cw = Math.max(content.scrollWidth, sw, 1);
-    const ch = Math.max(content.scrollHeight, content.offsetHeight, 1);
-    const s = Math.min(sw / cw, sh / ch, 1);
-    content.style.transform = `scale(${s})`;
-    content.style.transformOrigin = "top left";
-    scaler.style.width = `${cw * s}px`;
-    scaler.style.height = `${ch * s}px`;
-    scaler.style.maxWidth = `${sw}px`;
-  }, []);
 
   const selectedProcess = useMemo(
     () => processOptions.find((option) => String(option.id) === String(selectedProcessId)) || null,
@@ -227,49 +198,6 @@ export default function DataCapturePage() {
       document.body.classList.remove("datacapture-page", "page-ready");
     };
   }, []);
-
-  useLayoutEffect(() => {
-    if (!isPageReady) return;
-    const stage = datacaptureFitStageRef.current;
-    const content = datacaptureFitContentRef.current;
-    if (!stage || !content) return;
-    const schedule = () => {
-      requestAnimationFrame(() => requestAnimationFrame(updateDatacaptureFit));
-    };
-    const ro = new ResizeObserver(schedule);
-    ro.observe(stage);
-    ro.observe(content);
-    schedule();
-    window.addEventListener("resize", schedule);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", schedule);
-    };
-  }, [isPageReady, updateDatacaptureFit]);
-
-  useLayoutEffect(() => {
-    if (!isPageReady) return;
-    requestAnimationFrame(() => requestAnimationFrame(updateDatacaptureFit));
-  }, [
-    isPageReady,
-    updateDatacaptureFit,
-    dataCaptureType,
-    tableDataSnapshot,
-    formatGridReady,
-    submittedProcesses.length,
-    descriptionModalOpen,
-    processDropdownOpen,
-    selectedDate,
-    companyId,
-  ]);
-
-  /** Table/grid paints async; retry fit so stage gets non-zero height and scale applies */
-  useEffect(() => {
-    if (!isPageReady) return undefined;
-    const delays = [0, 50, 120, 280];
-    const ids = delays.map((ms) => window.setTimeout(() => updateDatacaptureFit(), ms));
-    return () => ids.forEach((id) => window.clearTimeout(id));
-  }, [isPageReady, updateDatacaptureFit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -394,6 +322,7 @@ export default function DataCapturePage() {
     [navigate]
   );
 
+  useDataCaptureLegacyBridge();
   useDataCaptureRestore({
     ready: !loading && !forbidden && companyId != null,
     processOptions,
@@ -838,8 +767,8 @@ export default function DataCapturePage() {
 
   return (
     <div className="container">
-      <div className="datacapture-page-header">
-        <h1>Data Capture</h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, marginTop: 20 }}>
+        <h1 style={{ margin: 0 }}>Data Capture</h1>
 
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div
@@ -864,9 +793,6 @@ export default function DataCapturePage() {
         </div>
       </div>
 
-      <div className="datacapture-fit-stage" ref={datacaptureFitStageRef}>
-        <div className="datacapture-fit-scaler" ref={datacaptureFitScalerRef}>
-          <div className="datacapture-fit-content" ref={datacaptureFitContentRef}>
       <div className="top-section">
         <div className="form-column">
           <div className="form-container">
@@ -1162,9 +1088,6 @@ export default function DataCapturePage() {
           >
             Submit
           </button>
-        </div>
-      </div>
-          </div>
         </div>
       </div>
 
