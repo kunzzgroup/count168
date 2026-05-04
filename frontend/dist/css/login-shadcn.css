@@ -44,7 +44,7 @@ body.bg::before {
   margin-top: 12px;
 }
 
-/* iOS-style segmented control: gray track, white thumb + blue border */
+/* Flat iOS-style segmented control (gray track, white thumb, system blue border) */
 .sc-login-lang-switch,
 .sc-login-lang-ios {
   position: relative;

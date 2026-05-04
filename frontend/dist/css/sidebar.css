@@ -379,7 +379,7 @@
     margin-top: 4px;
 }
 
-/* iOS-style segmented control (matches login page language switch) */
+/* Flat iOS-style segmented control (matches login page language switch) */
 .sidebar-lang-switch {
     --sidebar-lang-thumb-x: 0%;
     position: relative;
