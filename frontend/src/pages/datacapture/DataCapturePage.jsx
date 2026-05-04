@@ -140,6 +140,29 @@ export default function DataCapturePage() {
   const toUpperInput = useCallback((next) => String(next || "").toUpperCase(), []);
   const processDropdownRef = useRef(null);
   const formatPasteAreaRef = useRef(null);
+  const datacaptureFitStageRef = useRef(null);
+  const datacaptureFitScalerRef = useRef(null);
+  const datacaptureFitContentRef = useRef(null);
+
+  const updateDatacaptureFit = useCallback(() => {
+    const stage = datacaptureFitStageRef.current;
+    const scaler = datacaptureFitScalerRef.current;
+    const content = datacaptureFitContentRef.current;
+    if (!stage || !scaler || !content) return;
+    content.style.transform = "scale(1)";
+    content.style.width = "100%";
+    void content.offsetWidth;
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    const cw = Math.max(content.scrollWidth, content.offsetWidth, 1);
+    const ch = Math.max(content.scrollHeight, content.offsetHeight, 1);
+    if (sw < 4 || sh < 4) return;
+    const s = Math.min(sw / cw, sh / ch, 1);
+    content.style.transform = `scale(${s})`;
+    content.style.transformOrigin = "top left";
+    scaler.style.width = `${cw * s}px`;
+    scaler.style.height = `${ch * s}px`;
+  }, []);
 
   const selectedProcess = useMemo(
     () => processOptions.find((option) => String(option.id) === String(selectedProcessId)) || null,
@@ -198,6 +221,41 @@ export default function DataCapturePage() {
       document.body.classList.remove("datacapture-page", "page-ready");
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!isPageReady) return;
+    const stage = datacaptureFitStageRef.current;
+    const content = datacaptureFitContentRef.current;
+    if (!stage || !content) return;
+    const schedule = () => {
+      requestAnimationFrame(() => requestAnimationFrame(updateDatacaptureFit));
+    };
+    const ro = new ResizeObserver(schedule);
+    ro.observe(stage);
+    ro.observe(content);
+    schedule();
+    window.addEventListener("resize", schedule);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", schedule);
+    };
+  }, [isPageReady, updateDatacaptureFit]);
+
+  useLayoutEffect(() => {
+    if (!isPageReady) return;
+    requestAnimationFrame(() => requestAnimationFrame(updateDatacaptureFit));
+  }, [
+    isPageReady,
+    updateDatacaptureFit,
+    dataCaptureType,
+    tableDataSnapshot,
+    formatGridReady,
+    submittedProcesses.length,
+    descriptionModalOpen,
+    processDropdownOpen,
+    selectedDate,
+    companyId,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -793,6 +851,9 @@ export default function DataCapturePage() {
         </div>
       </div>
 
+      <div className="datacapture-fit-stage" ref={datacaptureFitStageRef}>
+        <div className="datacapture-fit-scaler" ref={datacaptureFitScalerRef}>
+          <div className="datacapture-fit-content" ref={datacaptureFitContentRef}>
       <div className="top-section">
         <div className="form-column">
           <div className="form-container">
@@ -1088,6 +1149,9 @@ export default function DataCapturePage() {
           >
             Submit
           </button>
+        </div>
+      </div>
+          </div>
         </div>
       </div>
 

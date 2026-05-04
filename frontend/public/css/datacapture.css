@@ -1460,16 +1460,39 @@ body.datacapture-page .datacapture-page-header h1 {
     font-size: 1.125rem;
 }
 
-body.datacapture-page .top-section {
-    flex: 0 1 auto;
-    flex-shrink: 1;
-    max-height: min(30vh, 300px);
+/* Fills area under title; content is scaled to fit — no page or panel scrollbars */
+body.datacapture-page .datacapture-fit-stage {
+    flex: 1 1 0;
     min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+body.datacapture-page .datacapture-fit-scaler {
+    overflow: hidden;
+    flex-shrink: 0;
+    max-width: 100%;
+}
+
+body.datacapture-page .datacapture-fit-content {
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+body.datacapture-page .top-section {
+    flex: 0 0 auto;
     margin-top: 0;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     gap: 8px;
     align-items: stretch;
-    overflow: hidden;
+    overflow: visible;
+    max-height: none;
 }
 
 body.datacapture-page .form-column,
@@ -1485,7 +1508,12 @@ body.datacapture-page .submitted-container {
     border: 1px solid #bbbbbb;
     background: #ffffff;
     min-height: 0;
-    max-height: min(30vh, 300px);
+    max-height: none;
+}
+
+body.datacapture-page .form-container .process-form {
+    overflow: visible;
+    max-height: none;
 }
 
 body.datacapture-page .submitted-title,
@@ -1528,6 +1556,7 @@ body.datacapture-page .data-capture-company-btn {
 }
 
 body.datacapture-page .submitted-list {
+    overflow: hidden;
     border-radius: 3px;
     padding: 6px;
     background: #f5f5f5;
@@ -1543,30 +1572,28 @@ body.datacapture-page .submitted-item {
 }
 
 body.datacapture-page .bottom-section {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
     margin-top: 0;
     gap: 4px;
+    width: 100%;
 }
 
 body.datacapture-page .excel-table-container {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 0;
     height: auto;
     max-height: none;
     border-radius: 4px;
     border: 1px solid #bbbbbb;
     box-shadow: none;
-    overflow: auto;
-    overscroll-behavior: contain;
+    overflow: hidden;
 }
 
 body.datacapture-page .excel-table-header {
-    position: sticky;
-    top: 0;
-    z-index: 5;
+    position: relative;
     padding: 6px 10px;
     gap: 8px 12px;
     background: #f0f0f0;
