@@ -486,6 +486,7 @@ h1 {
 .maintenance-table th:nth-child(10),
 .maintenance-table td:nth-child(10) {
     /* width: 2%; */
+    width: unset;
 }
 
 .maintenance-table-cell {
