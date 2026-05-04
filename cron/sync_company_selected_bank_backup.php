@@ -1,9 +1,7 @@
 <?php
 /**
- * 将 company_selected_banks 全量同步到 company_selected_bank_backup。
- * 主表无 id / created_at，仅 company_id、country、bank、sort_order（与 database/company_selected_banks.sql 一致）。
- * company_name：来自 company.company_id（与其它 backup cron 一致）。
- * 若线表名为 company_selected_bank（无 s），请将下方 $srcTable 改为该名。
+ * 将 company_selected_banks 全量同步到 company_selected_bank_backup（与源表列一致）。
+ * 主键须为 (company_id, country, bank)；若误为仅 company_id 会先尝试自动修复。
  * 仅允许 CLI 执行，供 Hostinger Cron: php /path/to/cron/sync_company_selected_bank_backup.php
  */
 if (php_sapi_name() !== 'cli') {
@@ -29,20 +27,54 @@ if ($pdo->query("SHOW TABLES LIKE 'company_selected_bank_backup'")->rowCount() <
     exit(1);
 }
 
+$pkRows = $pdo->query("SHOW INDEX FROM company_selected_bank_backup WHERE Key_name = 'PRIMARY'")->fetchAll(PDO::FETCH_ASSOC);
+usort($pkRows, static function ($a, $b) {
+    return ((int) ($a['Seq_in_index'] ?? 0)) <=> ((int) ($b['Seq_in_index'] ?? 0));
+});
+$pkCols = array_values(array_filter(array_map(static function ($r) {
+    return $r['Column_name'] ?? null;
+}, $pkRows)));
+if ($pkCols === ['company_id']) {
+    try {
+        $pdo->exec('ALTER TABLE company_selected_bank_backup DROP PRIMARY KEY, ADD PRIMARY KEY (company_id, country, bank)');
+        fwrite(STDERR, '[' . date('c') . "] sync_company_selected_bank_backup: repaired PRIMARY KEY -> (company_id, country, bank)\n");
+    } catch (Throwable $e) {
+        fwrite(STDERR, '[' . date('c') . '] sync_company_selected_bank_backup: FAIL fix PK — ' . $e->getMessage() . "\n");
+        exit(1);
+    }
+}
+
+$bakCols = [];
+foreach ($pdo->query('SHOW COLUMNS FROM company_selected_bank_backup') as $row) {
+    $bakCols[$row['Field']] = true;
+}
+
 $sqlDelete = 'DELETE FROM company_selected_bank_backup';
-$sqlInsert = "
+if (isset($bakCols['company_name'])) {
+    $sqlInsert = "
 INSERT INTO company_selected_bank_backup (
   company_id, company_name, country, bank, sort_order
 )
 SELECT
   cs.company_id,
-  COALESCE(c.company_id, '') AS company_name,
   cs.country,
   cs.bank,
   cs.sort_order
 FROM `{$srcTable}` cs
-LEFT JOIN company c ON c.id = cs.company_id
 ";
+} else {
+    $sqlInsert = "
+INSERT INTO company_selected_bank_backup (
+  company_id, country, bank, sort_order
+)
+SELECT
+  cs.company_id,
+  cs.country,
+  cs.bank,
+  cs.sort_order
+FROM `{$srcTable}` cs
+";
+}
 
 try {
     $pdo->beginTransaction();
