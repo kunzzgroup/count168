@@ -62,7 +62,6 @@ export default function DomainReportPage() {
       assetUrl("css/transaction.css"),
       assetUrl("css/domain_report.css"),
       assetUrl("css/date-range-picker.css"),
-      assetUrl("css/global-13inch.css"),
     ];
 
     const waitForStylesheet = (href) =>

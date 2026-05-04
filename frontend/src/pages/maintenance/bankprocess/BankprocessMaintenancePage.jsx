@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
+import { injectStylesheet } from "../../../utils/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
@@ -14,23 +15,6 @@ import {
   searchBankprocessData,
   updateSessionCompany,
 } from "./bankprocessMaintenanceLogic.js";
-
-function injectStylesheet(href) {
-  return new Promise((resolve) => {
-    const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-    if (existing) {
-      // Keep current page CSS at the end to avoid cross-page overrides.
-      document.head.appendChild(existing);
-      return resolve();
-    }
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.onload = () => resolve();
-    link.onerror = () => resolve();
-    document.head.appendChild(link);
-  });
-}
 
 export default function BankprocessMaintenancePage() {
   const navigate = useNavigate();
@@ -108,11 +92,10 @@ export default function BankprocessMaintenancePage() {
         "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
         assetUrl("css/accountCSS.css"),
-        assetUrl("css/global-13inch.css"),
         assetUrl("css/bankprocess_maintenance.css"),
         assetUrl("css/date-range-picker.css"),
       ];
-      await Promise.all(links.map((href) => injectStylesheet(href).catch(() => null)));
+      await Promise.all(links.map((href) => injectStylesheet(href, { promoteToEnd: true }).catch(() => null)));
       ensureMaintenanceDateRangePicker();
       setDatePickerScriptReady(true);
     };

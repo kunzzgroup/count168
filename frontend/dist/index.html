@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>EazyCount</title>
+    <!--
+      Static shell (no Vite): login / forgot-password / legacy login markup.
+      NOT the same file as /src/index.css (Tailwind). Public /css/index.css = marquee + misc.
+      SPA dashboard shell lives in src/styles/app-shell.css → bundled by main.jsx.
+    -->
     <link rel="stylesheet" href="/frontend/dist/css/style.css" />
     <link rel="stylesheet" href="/frontend/dist/css/index.css" />
-    <link rel="stylesheet" href="/frontend/dist/css/sidebar.css?v=20260430-1808" />
-    <link rel="stylesheet" href="/frontend/dist/css/dashboard.css" />
-    <link rel="stylesheet" href="/frontend/dist/css/domain.css" />
     <link rel="stylesheet" href="/frontend/dist/css/reset-password.css" />
     <link rel="stylesheet" href="/frontend/dist/css/login-shadcn.css?v=20260430-1725" />
     <link href="https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap" rel="stylesheet" />
@@ -25,9 +27,8 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/frontend/dist/css/global-13inch.css" />
-    <script type="module" crossorigin src="/frontend/dist/assets/index-Dh9e2EXp.js"></script>
-    <link rel="stylesheet" crossorigin href="/frontend/dist/assets/index-CbPzr234.css">
+    <script type="module" crossorigin src="/frontend/dist/assets/index-lZ81I9Dr.js"></script>
+    <link rel="stylesheet" crossorigin href="/frontend/dist/assets/index-B_UkU5Ps.css">
   </head>
   <body class="bg">
     <div id="root"></div>

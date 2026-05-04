@@ -15,7 +15,6 @@ import {
 import { buildApiUrl } from "../../utils/apiUrl.js";
 
 import "./styles/datacapturesummary.css";
-import "./styles/global-13inch.css";
 
 export default function DataCaptureSummaryPage() {
   const navigate = useNavigate();

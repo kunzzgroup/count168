@@ -1,20 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
-
-function injectStylesheet(href) {
-  return new Promise((resolve) => {
-    const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-    if (existing) return resolve();
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.onload = () => resolve();
-    link.onerror = () => resolve();
-    document.head.appendChild(link);
-  });
-}
 
 function loadScriptOnce(src, key) {
   return new Promise((resolve, reject) => {
@@ -79,7 +67,6 @@ const AVATAR_MAP = {
 };
 
 export default function MemberPage() {
-  const assetVersion = "20260430-1808";
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
@@ -172,8 +159,6 @@ export default function MemberPage() {
     (async () => {
       await Promise.all([
         injectStylesheet(assetUrl("css/member.css")),
-        injectStylesheet(assetUrl(`css/sidebar.css?v=${assetVersion}`)),
-        injectStylesheet(assetUrl("css/global-13inch.css")),
         injectStylesheet("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"),
         injectStylesheet("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
       ]);
@@ -200,7 +185,7 @@ export default function MemberPage() {
         flatpickrRef.current.destroy();
       }
     };
-  }, [loading, me, dateFrom, dateTo, assetVersion]);
+  }, [loading, me, dateFrom, dateTo]);
 
   useEffect(() => {
     const onClickOutside = (e) => {

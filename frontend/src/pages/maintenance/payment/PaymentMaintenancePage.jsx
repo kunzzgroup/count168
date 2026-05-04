@@ -144,7 +144,6 @@ export default function PaymentMaintenancePage() {
       assetUrl("css/accountCSS.css"),
       assetUrl("css/payment_maintenance.css"),
       assetUrl("css/date-range-picker.css"),
-      assetUrl("css/global-13inch.css"),
     ];
 
     Promise.all(links.map(waitForStylesheet)).then(() => {

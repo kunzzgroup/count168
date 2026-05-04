@@ -317,7 +317,7 @@
 .informationmenu {
     width: clamp(160px, 12.98vw, 235px);
     height: 100%;
-    background: #002d49;
+    background: var(--sidebar-shell-bg, #002d49);
     backdrop-filter: blur(20px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.8);
     position: fixed;
@@ -612,7 +612,7 @@
 
 /* 添加active状态样式 */
 .informationmenu-section-title.current-page {
-    background: #0E93F3;
+    background: var(--sidebar-active-bg, #0e93f3);
     color: white;
     transform: translateX(5px);
     box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
@@ -1344,61 +1344,120 @@
     border-radius: 50%;
 }
 
-/* Final size lock: prevent route-level stylesheets from resizing sidebar */
-body.dashboard-page .informationmenu {
-    width: 235px !important;
+/* Final size lock: AuthenticatedLayout sets body.ec-auth-shell (stable across routes).
+   Use clamp so small viewports match legacy .informationmenu + max-width:1024px (≈150px), not forced desktop width. */
+body.ec-auth-shell .informationmenu {
+    width: clamp(15rem, 12.98vw, var(--sidebar-lock-width, 23.5rem)) !important;
 }
 
-body.dashboard-page .informationmenu-header {
-    padding: 10px 10px 8px !important;
+body.ec-auth-shell .informationmenu-header {
+    padding: var(--sidebar-header-pad-t, 1rem) var(--sidebar-header-pad-x, 1rem) var(--sidebar-header-pad-b, 0.8rem) !important;
 }
 
-body.dashboard-page .informationmenu .header-logo {
-    height: 36px !important;
+body.ec-auth-shell .informationmenu .header-logo {
+    height: var(--sidebar-logo-height, 3.6rem) !important;
 }
 
-body.dashboard-page .informationmenu .user-info-container {
-    padding: 6px 12px !important;
-    margin-right: -24px !important;
-    margin-bottom: 4px !important;
+body.ec-auth-shell .informationmenu .user-info-container {
+    padding: 0.6rem 1.2rem !important;
+    margin-right: -2.4rem !important;
+    margin-bottom: 0.4rem !important;
 }
 
-body.dashboard-page .informationmenu .current-avatar {
-    width: 40px !important;
-    height: 40px !important;
+body.ec-auth-shell .informationmenu .current-avatar {
+    width: var(--sidebar-avatar-lock, 4rem) !important;
+    height: var(--sidebar-avatar-lock, 4rem) !important;
 }
 
-body.dashboard-page .informationmenu .user-name {
-    font-size: 16px !important;
+body.ec-auth-shell .informationmenu .user-name {
+    font-size: var(--sidebar-user-name-size, 1.6rem) !important;
     line-height: 1.2 !important;
 }
 
-body.dashboard-page .informationmenu .user-role {
-    font-size: 11px !important;
+body.ec-auth-shell .informationmenu .user-role {
+    font-size: var(--sidebar-user-role-size, 1.1rem) !important;
     line-height: 1.2 !important;
 }
 
-body.dashboard-page .informationmenu .sidebar-lang-switch {
-    width: 108px !important;
-    height: 32px !important;
+body.ec-auth-shell .informationmenu .sidebar-lang-switch {
+    width: var(--sidebar-lang-width, 10.8rem) !important;
+    height: var(--sidebar-lang-height, 3.2rem) !important;
 }
 
-body.dashboard-page .informationmenu .sidebar-lang-option {
-    font-size: 11px !important;
+body.ec-auth-shell .informationmenu .sidebar-lang-option {
+    font-size: var(--sidebar-lang-font, 1.1rem) !important;
 }
 
-body.dashboard-page .informationmenu .section-icon {
-    width: 18px !important;
-    height: 18px !important;
-    margin-right: 10px !important;
+body.ec-auth-shell .informationmenu .section-icon {
+    width: var(--sidebar-icon-size, 1.8rem) !important;
+    height: var(--sidebar-icon-size, 1.8rem) !important;
+    margin-right: 1rem !important;
 }
 
-body.dashboard-page .informationmenu .informationmenu-section-title {
-    padding: 12px 16px !important;
-    font-size: 16px !important;
+body.ec-auth-shell .informationmenu .informationmenu-section-title {
+    padding: var(--sidebar-menu-pad-y, 1.2rem) var(--sidebar-menu-pad-x, 1.6rem) !important;
+    font-size: var(--sidebar-menu-font, 1.6rem) !important;
 }
 
-body.dashboard-page .informationmenu .informationmenu-item {
-    padding: 8px 16px !important;
-    font-size: 12px !important;
+body.ec-auth-shell .informationmenu .informationmenu-item {
+    padding: var(--sidebar-submenu-pad-y, 0.8rem) var(--sidebar-menu-pad-x, 1.6rem) !important;
+    font-size: var(--sidebar-submenu-font, 1.2rem) !important;
+}
+
+/* Narrow screens: keep shell visually aligned with base .informationmenu @media (max-width: 1024px) */
+@media (max-width: 1024px) {
+    body.ec-auth-shell .informationmenu {
+        width: 15rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu-header {
+        padding: 0.8rem 0.8rem 0.6rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .header-logo {
+        height: 3rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .user-info-container {
+        padding: 0.5rem 0.8rem !important;
+        margin-right: -1.6rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .current-avatar {
+        width: 3.6rem !important;
+        height: 3.6rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .user-name {
+        font-size: 1.4rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .user-role {
+        font-size: 1rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .sidebar-lang-switch {
+        width: 9.6rem !important;
+        height: 2.8rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .sidebar-lang-option {
+        font-size: 1rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .section-icon {
+        width: 1.6rem !important;
+        height: 1.6rem !important;
+        margin-right: 0.8rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .informationmenu-section-title {
+        padding: 1rem 1.2rem !important;
+        font-size: 1.4rem !important;
+    }
+
+    body.ec-auth-shell .informationmenu .informationmenu-item {
+        padding: 0.6rem 1.2rem !important;
+        font-size: 1.1rem !important;
+    }
 }

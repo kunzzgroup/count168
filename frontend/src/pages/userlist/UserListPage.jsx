@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { injectStylesheet, stylesheetPathKey } from "../../utils/injectStylesheet.js";
 import {
   ALL_ROLE_OPTIONS,
   PAGE_SIZE,
@@ -123,47 +124,25 @@ export default function UserListPage() {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page");
     const href = assetUrl("css/userlist.css");
-    let ownLink = null;
-    let settled = false;
-    const settle = () => {
-      if (settled) return;
-      settled = true;
-      setCssReady(true);
-    };
-
-    const existing = Array.from(document.querySelectorAll("link[rel='stylesheet']")).find(
-      (el) => el.getAttribute("href") === href,
-    );
-
-    if (existing) {
-      existing.addEventListener("load", settle, { once: true });
-      existing.addEventListener("error", settle, { once: true });
-      try {
-        if (existing.sheet) settle();
-      } catch {
-        /* ignore */
-      }
-    } else {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      link.setAttribute("data-userlist-page-css", "1");
-      link.addEventListener("load", settle, { once: true });
-      link.addEventListener("error", settle, { once: true });
-      document.head.appendChild(link);
-      ownLink = link;
-      try {
-        if (link.sheet) settle();
-      } catch {
-        /* ignore */
-      }
-    }
-
-    requestAnimationFrame(settle);
+    const pathKey = stylesheetPathKey(href);
+    let cancelled = false;
+    injectStylesheet(href).then(() => {
+      if (!cancelled) setCssReady(true);
+    });
+    requestAnimationFrame(() => {
+      if (!cancelled) setCssReady(true);
+    });
     return () => {
+      cancelled = true;
       document.body.classList.remove("user-page", "user-page--show-all", "bg");
       document.body.classList.add("dashboard-page");
-      if (ownLink && ownLink.parentNode) ownLink.parentNode.removeChild(ownLink);
+      document.querySelectorAll('link[rel="stylesheet"]').forEach((el) => {
+        try {
+          if (stylesheetPathKey(el.href) === pathKey) el.remove();
+        } catch {
+          /* ignore */
+        }
+      });
       setCssReady(false);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };

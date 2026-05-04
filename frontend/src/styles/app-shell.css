@@ -1,0 +1,11 @@
+/*
+ * =============================================================================
+ * SPA authenticated shell — single pipeline (import only from main.jsx).
+ * Order matters: tokens → dashboard chrome → laptop density → sidebar.
+ * Do not re-<link> these files in index.html; feature routes inject extra CSS only.
+ * =============================================================================
+ */
+@import "./globals.css";
+@import "../../public/css/dashboard.css";
+@import "../../public/css/global-13inch.css";
+@import "../../public/css/sidebar.css";

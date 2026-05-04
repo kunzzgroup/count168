@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
 import {
   ROWS_PER_PAGE,
   MAX_VISIBLE_CHIPS,
@@ -33,8 +33,8 @@ export default function DomainPage() {
     document.body.classList.add("dashboard-page");
 
     const hrefs = [
-      `/css/domain.css?v=${assetVersion}`,
-      `/css/accountCSS.css?v=${assetVersion}`,
+      assetUrl(`css/domain.css?v=${assetVersion}`),
+      assetUrl(`css/accountCSS.css?v=${assetVersion}`),
     ];
     let loaded = 0;
     const links = [];
@@ -55,8 +55,6 @@ export default function DomainPage() {
     });
 
     return () => {
-      document.body.classList.remove("dashboard-page");
-      document.body.classList.add("bg");
       links.forEach((l) => l.parentNode?.removeChild(l));
       setCssReady(false);
     };

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { injectStylesheet, stylesheetPathKey } from "../../utils/injectStylesheet.js";
 import {
   getApiMessage,
   isApiConflict,
@@ -23,27 +24,16 @@ export default function OwnershipPage() {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page");
 
-    const cssFiles = ["css/ownership.css", "css/global-13inch.css"];
-    let loadedCount = 0;
-    const links = cssFiles.map((file) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = assetUrl(file);
-      link.onload = () => {
-        loadedCount++;
-        if (loadedCount === cssFiles.length) setCssReady(true);
-      };
-      // For cached or failing loads, ensure we eventually show something
-      link.onerror = () => {
-        loadedCount++;
-        if (loadedCount === cssFiles.length) setCssReady(true);
-      };
-      document.head.appendChild(link);
-      return link;
-    });
+    const href = assetUrl("css/ownership.css");
+    const pathKey = stylesheetPathKey(href);
+    injectStylesheet(href).then(() => setCssReady(true));
     return () => {
-      links.forEach((l) => {
-        if (l.parentNode) l.parentNode.removeChild(l);
+      document.querySelectorAll('link[rel="stylesheet"]').forEach((el) => {
+        try {
+          if (stylesheetPathKey(el.href) === pathKey) el.remove();
+        } catch {
+          /* ignore */
+        }
       });
     };
   }, []);

@@ -112,7 +112,6 @@ export default function TransactionMaintenancePage() {
       assetUrl("css/transaction.css"),
       assetUrl("css/transaction_maintenance.css"),
       assetUrl("css/date-range-picker.css"),
-      assetUrl("css/global-13inch.css"),
     ];
 
     links.forEach(ensureStylesheetLast);

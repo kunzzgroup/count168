@@ -1,18 +1,4 @@
-export function injectStylesheet(href) {
-  return new Promise((resolve) => {
-    const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-    if (existing) {
-      resolve();
-      return;
-    }
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.onload = () => resolve();
-    link.onerror = () => resolve();
-    document.head.appendChild(link);
-  });
-}
+export { injectStylesheet } from "../../utils/injectStylesheet.js";
 
 /** dd/mm/yyyy -> Date (local). */
 export function parseDmyToDate(value) {

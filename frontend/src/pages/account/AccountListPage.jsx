@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { injectStylesheet, stylesheetPathKey } from "../../utils/injectStylesheet.js";
 
 // Logic & Constants
 import {
@@ -72,7 +73,7 @@ export default function AccountListPage() {
     toastTimerRef.current = setTimeout(() => setToast(null), 1800);
   }, []);
 
-  // -- CSS Loading (FOUC Fix) --
+  // -- CSS Loading (FOUC Fix) —
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("account-page");
@@ -81,26 +82,21 @@ export default function AccountListPage() {
       assetUrl(`css/account-list.css?v=${assetVersion}`),
       assetUrl(`css/accountCSS.css?v=${assetVersion}`),
     ];
-    let loadedCount = 0;
-    const links = [];
-
-    const onLoad = () => {
-      loadedCount++;
-      if (loadedCount >= hrefs.length) setCssReady(true);
-    };
-
-    hrefs.forEach(href => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet"; link.href = href;
-      link.onload = onLoad; link.onerror = onLoad;
-      document.head.appendChild(link);
-      links.push(link);
-    });
+    const pathKeys = hrefs.map(stylesheetPathKey);
+    Promise.all(hrefs.map((href) => injectStylesheet(href))).then(() => setCssReady(true));
 
     return () => {
       document.body.classList.remove("account-page", "bg");
       document.body.classList.add("dashboard-page");
-      links.forEach(l => l.parentNode?.removeChild(l));
+      pathKeys.forEach((key) => {
+        document.querySelectorAll('link[rel="stylesheet"]').forEach((el) => {
+          try {
+            if (stylesheetPathKey(el.href) === key) el.remove();
+          } catch {
+            /* ignore */
+          }
+        });
+      });
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, [assetVersion]);

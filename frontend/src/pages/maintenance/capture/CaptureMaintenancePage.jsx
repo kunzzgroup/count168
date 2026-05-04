@@ -117,7 +117,6 @@ export default function CaptureMaintenancePage() {
       assetUrl("css/transaction.css"),
       assetUrl("css/capture_maintenance.css"),
       assetUrl("css/date-range-picker.css"),
-      assetUrl("css/global-13inch.css"),
     ];
 
     links.forEach(ensureStylesheetLast);

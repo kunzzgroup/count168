@@ -61,9 +61,9 @@ export default function AuthenticatedLayout() {
 
   useEffect(() => {
     document.body.classList.remove("bg");
-    document.body.classList.add("dashboard-page");
+    document.body.classList.add("dashboard-page", "ec-auth-shell");
     return () => {
-      document.body.classList.remove("dashboard-page");
+      document.body.classList.remove("dashboard-page", "ec-auth-shell");
       document.body.classList.add("bg");
     };
   }, []);

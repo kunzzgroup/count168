@@ -65,7 +65,6 @@ export default function CustomerReportPage() {
       assetUrl("css/transaction.css"),
       assetUrl("css/customer_report.css"),
       assetUrl("css/date-range-picker.css"),
-      assetUrl("css/global-13inch.css"),
     ];
 
     const waitForStylesheet = (href) =>

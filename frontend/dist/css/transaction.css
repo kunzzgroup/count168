@@ -1031,44 +1031,10 @@ body.transaction-page {
 /**
  * transaction.css - 原根目录 transaction.css 已移入此文件夹，并包含 transaction.php 页面专用样式
  */
-/* 全局字体加粗 */
-body.transaction-page,
-body.transaction-page * {
+/* Bold transaction workspace only — sidebar is outside .transaction-container */
+body.transaction-page .transaction-container,
+body.transaction-page .transaction-container * {
     font-weight: 700;
-}
-
-/* 恢复 sidebar 中关键元素的原始 font-weight（与 sidebar.php 保持一致） */
-body.transaction-page .informationmenu .user-name,
-body.transaction-page .informationmenu .informationmenu-section-title,
-body.transaction-page .informationmenu .language-text,
-body.transaction-page .informationmenu .language-option span {
-    font-weight: 600;
-}
-
-body.transaction-page .informationmenu .user-role,
-body.transaction-page .informationmenu .informationmenu-item {
-    font-weight: 500;
-}
-
-body.transaction-page .informationmenu .user-avatar,
-body.transaction-page .informationmenu .informationmenu-logo,
-body.transaction-page .informationmenu .submenu-item,
-body.transaction-page .informationmenu .submenu-item::after {
-    font-weight: bold;
-}
-
-body.transaction-page .informationmenu .options-title,
-body.transaction-page .informationmenu .gender-btn {
-    font-weight: 600;
-}
-
-/* 恢复 logout 和 expiration date 的原始 font-weight */
-body.transaction-page .logout-btn {
-    font-weight: normal;
-}
-
-body.transaction-page .expiration-countdown-text {
-    font-weight: 500;
 }
 
 /* ==================== Contra Approval Inbox ==================== */

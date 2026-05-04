@@ -5,11 +5,17 @@ export function buildApiUrl(pathAndQuery) {
   return new URL(pathAndQuery, base).href;
 }
 
-/** Static assets (css/js) under the same path base as APIs, e.g. /subdir/admin → /subdir/js/... */
+/** Static assets (css/js) under Vite base URL / asset folder — stable across SPA routes. */
 export function assetUrl(path) {
   const clean = String(path || "").replace(/^\//, "");
-  // Prefer the bundled asset base (where index-*.js is loaded from),
-  // because SPA routes like /announcement can otherwise resolve to /css/* and 404.
+  try {
+    if (typeof import.meta !== "undefined" && import.meta.env?.BASE_URL != null && import.meta.env.BASE_URL !== "") {
+      const baseHref = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+      return new URL(clean, baseHref).href;
+    }
+  } catch {
+    /* fall through */
+  }
   const entryScript = document.querySelector('script[type="module"][src*="/assets/"]');
   const src = entryScript?.getAttribute("src");
   if (src) {
@@ -18,11 +24,11 @@ export function assetUrl(path) {
       const marker = "/assets/";
       const markerIndex = pathname.indexOf(marker);
       if (markerIndex >= 0) {
-        const assetBasePath = pathname.slice(0, markerIndex + 1); // keep trailing slash
+        const assetBasePath = pathname.slice(0, markerIndex + 1);
         return new URL(`${assetBasePath}${clean}`, window.location.origin).href;
       }
     } catch {
-      // Fallback to legacy path resolution.
+      /* Fallback to legacy path resolution. */
     }
   }
   return buildApiUrl(clean);

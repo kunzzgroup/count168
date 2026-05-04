@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
 import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { injectStylesheet } from "../../utils/injectStylesheet.js";
 import { PAGE_SIZE, EMPTY_FORM, normalizeRows, notifyTransactionDataChanged } from "./processListHelpers.js";
 import ProcessTable from "./components/ProcessTable.jsx";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
@@ -61,21 +62,7 @@ export default function ProcessListPage() {
     document.body.classList.remove("bg", "account-page", "announcement-page");
     document.body.classList.add("process-page");
     const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css")];
-    Promise.all(
-      hrefs.map(
-        (href) =>
-          new Promise((resolve) => {
-            const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-            if (existing) return resolve(existing);
-            const link = document.createElement("link");
-            link.rel = "stylesheet";
-            link.href = href;
-            link.onload = () => resolve(link);
-            link.onerror = () => resolve(link);
-            document.head.appendChild(link);
-          })
-      )
-    ).then(() => {
+    Promise.all(hrefs.map((href) => injectStylesheet(href))).then(() => {
       if (!cancelled) setCssReady(true);
     });
     return () => {
