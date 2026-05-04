@@ -2810,8 +2810,8 @@
         console.log('✅ Show Name 已切换:', showName);
     }
 
-    // 未勾选 Show 0 balance：Balance≈0 时，若 B/F、Win/Loss、Cr/Dr 任一非零则保留；若四列都≈0 则看后端的 has_*——
-    // 有交易/历史但轧差为 0（如 Payment History 有行、列表仍全 0.00）要显示；仅 OPENING BALANCE 的占位行靠 search_api 里 DCD 笔数不统计 0 金额行，减少 has_* 误报。
+    // 未勾选 Show 0 balance：Balance≈0 时，若 B/F、Win/Loss、Cr/Dr 任一非零则保留；若四列都≈0 则仅看「本期」has_crdr / has_win_loss_transactions。
+    // 不用 has_win_loss_history：该标志含「查询截止日前曾有 DCD」，会把仅有 OPENING BALANCE、本期全无流水的账号留在列表里；勾选 Show 0 balance 再看这类空账即可。
     function rowPassesHideZeroBalanceFilter(showZero, row) {
         if (showZero) return true;
         const num = parseBalanceValue(row.balance);
@@ -2836,7 +2836,6 @@
             absVal(row.cr_dr).gt(eps);
         if (hasAnyMoneyColumn) return true;
         const hasTxnFlag =
-            flagToBool(row.has_win_loss_history) ||
             flagToBool(row.has_win_loss_transactions) ||
             flagToBool(row.has_crdr_transactions);
         return hasTxnFlag;

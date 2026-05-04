@@ -2871,9 +2871,11 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         // 因为它统计的是非 RATE_MIDDLEMAN 的 RATE 分录（如 RATE_FIRST_FROM/TO），
         // 这些不属于 PAYMENT 类型，不应使 has_transactions 为 true。
 
+        $cr_dr_disp = trunc2($cr_dr);
         return [
-            'value' => trunc2($cr_dr),
-            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr),
+            'value' => $cr_dr_disp,
+            // 与展示口径一致：截断后全 0 则不计入 has（避免分录累加浮点余量导致「仅 OPENING BALANCE」账号仍被认为有 Cr/Dr 流水）
+            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp),
         ];
     }
 
