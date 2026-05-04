@@ -383,16 +383,16 @@ export default function LoginPage() {
                 <span>{submitting ? i18n.loggingIn : i18n.login}</span>
               </button>
 
-              <div className="sc-login-lang-switch-wrap">
+              <div className="sc-login-lang-ios-wrap">
                 <div
-                  className={`sc-login-lang-switch ${lang === "zh" ? "is-zh" : "is-en"}`}
+                  className={`sc-login-lang-ios ${lang === "zh" ? "is-zh" : "is-en"}`}
                   role="group"
                   aria-label="Switch language"
                 >
-                  <span ref={langThumbRef} className="sc-login-lang-thumb" />
+                  <span ref={langThumbRef} className="sc-login-lang-ios-thumb" />
                   <button
                     type="button"
-                    className={`sc-login-lang-option${lang === "en" ? " active" : ""}`}
+                    className={`sc-login-lang-seg${lang === "en" ? " active" : ""}`}
                     onClick={() => setLang("en")}
                     aria-pressed={lang === "en"}
                   >
@@ -400,7 +400,7 @@ export default function LoginPage() {
                   </button>
                   <button
                     type="button"
-                    className={`sc-login-lang-option${lang === "zh" ? " active" : ""}`}
+                    className={`sc-login-lang-seg${lang === "zh" ? " active" : ""}`}
                     onClick={() => setLang("zh")}
                     aria-pressed={lang === "zh"}
                   >

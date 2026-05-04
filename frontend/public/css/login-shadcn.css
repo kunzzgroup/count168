@@ -36,14 +36,17 @@ body.bg::before {
   animation: sc-login-fade-in 0.6s ease-out;
 }
 
-.sc-login-lang-switch-wrap {
+/* Wrap: legacy + iOS class names (must match LoginPage DOM for styles to apply) */
+.sc-login-lang-switch-wrap,
+.sc-login-lang-ios-wrap {
   display: flex;
   justify-content: center;
   margin-top: 12px;
 }
 
 /* iOS-style segmented control: gray track, white thumb + blue border */
-.sc-login-lang-switch {
+.sc-login-lang-switch,
+.sc-login-lang-ios {
   position: relative;
   display: flex;
   align-items: stretch;
@@ -58,11 +61,14 @@ body.bg::before {
   transition: box-shadow 0.2s ease;
 }
 
-.sc-login-lang-switch:hover {
+.sc-login-lang-switch:hover,
+.sc-login-lang-ios:hover {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-.sc-login-lang-option {
+.sc-login-lang-option,
+.sc-login-lang-ios .sc-login-lang-seg,
+button.sc-login-lang-seg {
   position: relative;
   z-index: 2;
   flex: 1;
@@ -80,11 +86,14 @@ body.bg::before {
   transition: color 0.2s ease;
 }
 
-.sc-login-lang-option.active {
+.sc-login-lang-option.active,
+.sc-login-lang-ios .sc-login-lang-seg.active,
+button.sc-login-lang-seg.active {
   color: #000000;
 }
 
-.sc-login-lang-thumb {
+.sc-login-lang-thumb,
+.sc-login-lang-ios-thumb {
   position: absolute;
   top: 3px;
   left: 3px;
@@ -101,22 +110,30 @@ body.bg::before {
   pointer-events: none;
 }
 
-.sc-login-lang-switch:active .sc-login-lang-thumb {
+.sc-login-lang-switch:active .sc-login-lang-thumb,
+.sc-login-lang-ios:active .sc-login-lang-thumb,
+.sc-login-lang-ios:active .sc-login-lang-ios-thumb {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
-.sc-login-lang-switch.is-en {
+.sc-login-lang-switch.is-en,
+.sc-login-lang-ios.is-en {
   --sc-lang-thumb-x: 0;
 }
 
-.sc-login-lang-switch.is-zh {
+.sc-login-lang-switch.is-zh,
+.sc-login-lang-ios.is-zh {
   --sc-lang-thumb-x: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sc-login-lang-switch,
+  .sc-login-lang-ios,
   .sc-login-lang-option,
-  .sc-login-lang-thumb {
+  .sc-login-lang-ios .sc-login-lang-seg,
+  button.sc-login-lang-seg,
+  .sc-login-lang-thumb,
+  .sc-login-lang-ios-thumb {
     transition: none;
   }
 }
