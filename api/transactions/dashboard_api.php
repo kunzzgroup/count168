@@ -259,6 +259,176 @@ function dashboardTxnCurrencyFilter(string $accountColumn): string
     )";
 }
 
+/**
+ * 与 transaction search_api 一致：把「在本公司交易中作为付方/RATE 分录出现、但未出现在 account_company+权限 白名单」的账户并入统计。
+ * 否则 Dashboard 的 Capital / Expenses / Profit 会与 Transaction List 不一致（常见于付方仅在对方建档的 PROFIT 账户，如 C168）。
+ */
+function dashboardMergeTransactionLinkedAccountIds(
+    PDO $pdo,
+    int $company_id,
+    string $role,
+    array $existingIds,
+    string $date_to_db,
+    ?string $filter_currency_code,
+    array $currency_map,
+    bool $hasTransactionCurrency
+): array {
+    $roleUpper = strtoupper(trim((string) $role));
+    $isMemberUser = isset($_SESSION['user_type']) && strtolower((string) ($_SESSION['user_type'] ?? '')) === 'member';
+    if ($isMemberUser) {
+        return $existingIds;
+    }
+    $existing = [];
+    foreach ($existingIds as $id) {
+        $existing[(int) $id] = true;
+    }
+
+    $cpContra = dashboardContraApprovedWhere($pdo, 't');
+    // 付方：与 search_api 一致；另含 ADJUSTMENT 付方（少见）
+    $cpSqlFrom = "SELECT DISTINCT t.from_account_id AS id
+              FROM transactions t
+              WHERE t.company_id = ?
+                AND t.from_account_id IS NOT NULL
+                AND t.transaction_date <= ?
+                AND (
+                    t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'ADJUSTMENT')
+                    OR (
+                        t.transaction_type IN ('WIN', 'LOSE')
+                        AND ((t.description NOT LIKE 'Process: %'
+                            AND t.description NOT LIKE 'Inactive Compensation %'
+                            AND t.description NOT LIKE 'Compensation %')
+                            OR t.description IS NULL)
+                    )
+                )
+                $cpContra";
+    $cpParamsFrom = [$company_id, $date_to_db];
+
+    // 收方：ADJUSTMENT/WIN/LOSE 等常只在 account_id 落账；不含此项则 C168 类「仅有单边账户」会对不齐 Transaction List
+    $cpSqlTo = "SELECT DISTINCT t.account_id AS id
+              FROM transactions t
+              WHERE t.company_id = ?
+                AND t.account_id IS NOT NULL
+                AND t.transaction_date <= ?
+                AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'ADJUSTMENT')
+                $cpContra";
+    $cpParamsTo = [$company_id, $date_to_db];
+
+    $cpSql2 = "SELECT DISTINCT e.account_id AS id
+               FROM transaction_entry e
+               JOIN transactions h ON e.header_id = h.id
+               WHERE h.company_id = ?
+                 AND e.company_id = ?
+                 AND h.transaction_date <= ?
+                 AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')";
+    $cpParams2 = [$company_id, $company_id, $date_to_db];
+
+    if ($filter_currency_code !== null && trim((string) $filter_currency_code) !== '') {
+        $fc = strtoupper(trim((string) $filter_currency_code));
+        $currKey = array_search($fc, $currency_map);
+        if ($currKey === false) {
+            return $existingIds;
+        }
+        $curr_id = (int) $currKey;
+        if ($hasTransactionCurrency) {
+            $cpSqlFrom .= ' AND t.currency_id = ?';
+            $cpParamsFrom[] = $curr_id;
+            $cpSqlTo .= ' AND t.currency_id = ?';
+            $cpParamsTo[] = $curr_id;
+            $cpSql2 .= ' AND e.currency_id = ?';
+            $cpParams2[] = $curr_id;
+        }
+    }
+
+    $cpNewIds = [];
+    $cpStmt = $pdo->prepare($cpSqlFrom);
+    $cpStmt->execute($cpParamsFrom);
+    while ($cpRow = $cpStmt->fetch(PDO::FETCH_ASSOC)) {
+        $fid = (int) ($cpRow['id'] ?? 0);
+        if ($fid > 0 && empty($existing[$fid])) {
+            $cpNewIds[$fid] = true;
+        }
+    }
+
+    $cpStmtTo = $pdo->prepare($cpSqlTo);
+    $cpStmtTo->execute($cpParamsTo);
+    while ($cpRow = $cpStmtTo->fetch(PDO::FETCH_ASSOC)) {
+        $fid = (int) ($cpRow['id'] ?? 0);
+        if ($fid > 0 && empty($existing[$fid])) {
+            $cpNewIds[$fid] = true;
+        }
+    }
+
+    if (dashboardHasTransactionEntry($pdo)) {
+        $cpStmt2 = $pdo->prepare($cpSql2);
+        $cpStmt2->execute($cpParams2);
+        while ($cpRow = $cpStmt2->fetch(PDO::FETCH_ASSOC)) {
+            $fid = (int) ($cpRow['id'] ?? 0);
+            if ($fid > 0 && empty($existing[$fid])) {
+                $cpNewIds[$fid] = true;
+            }
+        }
+    }
+
+    // Data Capture：仅有录入、未进 account_company+权限 白名单时，交易列表仍会命中 EXISTS；仪表盘需并入
+    $dcdSql = "
+        SELECT DISTINCT a.id
+        FROM data_capture_details dcd
+        JOIN data_captures dc ON dcd.capture_id = dc.id
+        JOIN account a ON (
+            CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR)
+            OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(a.account_id)
+        )
+        WHERE dc.company_id = ?
+          AND dcd.company_id = ?
+          AND dc.capture_date <= ?
+          AND UPPER(TRIM(a.role)) = ?
+    ";
+    $dcdParams = [$company_id, $company_id, $date_to_db, $roleUpper];
+    if ($filter_currency_code !== null && trim((string) $filter_currency_code) !== '') {
+        $fc = strtoupper(trim((string) $filter_currency_code));
+        $currKeyDcd = array_search($fc, $currency_map);
+        if ($currKeyDcd !== false) {
+            $dcdSql .= ' AND dcd.currency_id = ?';
+            $dcdParams[] = (int) $currKeyDcd;
+        }
+    }
+    try {
+        $dcdStmt = $pdo->prepare($dcdSql);
+        $dcdStmt->execute($dcdParams);
+        while ($cdr = $dcdStmt->fetch(PDO::FETCH_ASSOC)) {
+            $fid = (int) ($cdr['id'] ?? 0);
+            if ($fid > 0 && empty($existing[$fid])) {
+                $cpNewIds[$fid] = true;
+            }
+        }
+    } catch (Throwable $e) {
+        // 向后兼容旧库结构
+    }
+
+    if (empty($cpNewIds)) {
+        return $existingIds;
+    }
+
+    $idsToCheck = array_keys($cpNewIds);
+    $placeholders = implode(',', array_fill(0, count($idsToCheck), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT id FROM account WHERE id IN ($placeholders) AND UPPER(TRIM(role)) = ?"
+    );
+    $stmt->execute(array_merge($idsToCheck, [$roleUpper]));
+    $added = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $aid = (int) ($row['id'] ?? 0);
+        if ($aid > 0) {
+            $added[] = $aid;
+        }
+    }
+    if (empty($added)) {
+        return $existingIds;
+    }
+
+    return array_values(array_unique(array_merge(array_map('intval', $existingIds), $added)));
+}
+
 // 引入 search_api.php 中的函数（通过定义函数的方式）
 // 注意：这些函数已经在 search_api.php 中定义，但为了独立使用，我们需要重新定义
 
@@ -364,6 +534,16 @@ try {
         $daily_data = [];
 
         $account_ids = array_column($accounts, 'id');
+        $account_ids = dashboardMergeTransactionLinkedAccountIds(
+            $pdo,
+            $company_id,
+            $role,
+            $account_ids,
+            $date_to_db,
+            $filter_currency_code,
+            $currency_map,
+            $hasTransactionCurrency
+        );
         if (empty($account_ids)) {
             $result[strtolower($role)] = [
                 'role' => $role,
