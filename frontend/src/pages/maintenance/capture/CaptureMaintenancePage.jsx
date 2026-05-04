@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
+import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
 import { formatYmd } from "../../../utils/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
@@ -54,6 +54,7 @@ export default function CaptureMaintenancePage() {
   // -- UI State --
   const [toasts, setToasts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [cssReady, setCssReady] = useState(false);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -100,19 +101,8 @@ export default function CaptureMaintenancePage() {
 
     removeOtherMaintenanceStylesheets("capture_maintenance.css");
 
-    const ensureStylesheetLast = (href) => {
-      const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-      if (existing) {
-        document.head.appendChild(existing);
-        return;
-      }
-      const l = document.createElement("link");
-      l.rel = "stylesheet";
-      l.href = href;
-      document.head.appendChild(l);
-    };
+    let cancelled = false;
 
-    // Inject legacy CSS (keeping design intact)
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
@@ -122,11 +112,15 @@ export default function CaptureMaintenancePage() {
       assetUrl("css/capture_maintenance.css"),
     ];
 
-    links.forEach(ensureStylesheetLast);
+    Promise.all(links.map(waitForStylesheet)).then(() => {
+      if (!cancelled) setCssReady(true);
+    });
 
     ensureMaintenanceDateRangePicker();
 
     return () => {
+      cancelled = true;
+      setCssReady(false);
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -147,7 +141,7 @@ export default function CaptureMaintenancePage() {
   }, []);
 
   useEffect(() => {
-    if (bootLoading || !me) return;
+    if (bootLoading || !me || !cssReady) return;
     if (!document.getElementById("date-range-picker")) return;
     if (!window?.MaintenanceDateRangePicker?.init) return;
 
@@ -163,7 +157,7 @@ export default function CaptureMaintenancePage() {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [bootLoading, me]);
+  }, [bootLoading, me, cssReady]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -273,9 +267,7 @@ export default function CaptureMaintenancePage() {
         category: activePermission
       });
       setCaptureData(data);
-      if (data.length === 0) {
-        notify("No data found", "info");
-      } else {
+      if (data.length > 0) {
         notify(`Found ${data.length} record(s)`, "success");
       }
     } catch (err) {
@@ -288,10 +280,10 @@ export default function CaptureMaintenancePage() {
 
   // Auto-search when filters change
   useEffect(() => {
-    if (!bootLoading && companyId) {
+    if (!bootLoading && companyId && cssReady) {
       performSearch();
     }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch]);
+  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch, cssReady]);
 
   // -- Handlers --
   const handleSwitchCompany = async (c) => {
@@ -390,7 +382,7 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  if (bootLoading || !me) return null;
+  if (bootLoading || !me || !cssReady) return null;
 
   const selectableRows = captureData.filter(row => !(row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true));
   const isAllSelected = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
