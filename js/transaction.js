@@ -3940,6 +3940,15 @@
                 return;
             }
 
+            // 选区仅在单个单元格内：不劫持，否则会把同一行所有列拼成 TSV 粘贴到 Excel
+            const startEl = elementFromRangeNode(range.startContainer);
+            const endEl = elementFromRangeNode(range.endContainer);
+            const startCell = startEl && startEl.closest ? startEl.closest('td, th') : null;
+            const endCell = endEl && endEl.closest ? endEl.closest('td, th') : null;
+            if (startCell && endCell && startCell === endCell && table.contains(startCell)) {
+                return;
+            }
+
             // 获取选中的单元格
             const selectedRows = [];
 
