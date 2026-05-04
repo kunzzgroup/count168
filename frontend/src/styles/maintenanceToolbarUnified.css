@@ -28,11 +28,24 @@ body.maintenance-page .maintenance-actions {
     align-self: flex-end;
 }
 
+body.maintenance-page .maintenance-filters {
+    align-items: flex-start;
+}
+
+body.maintenance-page .maintenance-filters .maintenance-form-group {
+    flex: 1 1 clamp(140px, 14vw, 260px);
+    min-width: 0;
+}
+
 body.maintenance-page .maintenance-filters .quick-select-wrap {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    align-self: flex-end;
+}
+
+body.maintenance-page .maintenance-filters .quick-select-wrap .maintenance-label i.fa-clock {
+    color: #3b82f6;
+    margin-right: 4px;
 }
 
 body.maintenance-page .maintenance-search-section .quick-select-dropdown {
@@ -112,11 +125,11 @@ body.maintenance-page .maintenance-delete-btn:hover:not(:disabled) {
 }
 
 body.maintenance-page .maintenance-delete-btn:disabled {
-    background: #f1f5f9;
-    color: #94a3b8;
-    border: 1px solid #d0d7de;
+    background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
+    color: #ffffff;
+    border: 1px solid transparent;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
     opacity: 1;
 }
