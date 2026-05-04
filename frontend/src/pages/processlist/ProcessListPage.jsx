@@ -58,7 +58,7 @@ export default function ProcessListPage() {
 
   useEffect(() => {
     let cancelled = false;
-    document.body.classList.remove("dashboard-page", "bg", "account-page", "announcement-page");
+    document.body.classList.remove("bg", "account-page", "announcement-page");
     document.body.classList.add("process-page");
     const hrefs = [assetUrl("css/processCSS.css"), assetUrl("css/processlist.css"), assetUrl("css/accountCSS.css")];
     Promise.all(
