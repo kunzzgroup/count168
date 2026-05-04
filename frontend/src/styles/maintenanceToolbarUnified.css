@@ -19,20 +19,18 @@ body.maintenance-page .maintenance-filter-row {
     flex-wrap: wrap;
 }
 
-/* 第二行左侧：GroupID / Company /（Payment 的 Currency）同一行流式排列，与 payment_maintenance.php 一致，避免各块 width:100% 造成「一行一块」三行效果 */
+/* 第二行左侧：与 payment_maintenance.php 图二 — GroupID / Company / Currency 分行纵向堆叠 */
 body.maintenance-page .maintenance-filter-left {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: clamp(12px, 1.04vw, 20px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(4px, 0.52vw, 8px);
     flex: 1 1 auto;
     min-width: 0;
 }
 
 body.maintenance-page .maintenance-filter-left .maintenance-company-filter {
-    width: auto;
-    flex: 0 1 auto;
+    width: 100%;
     max-width: 100%;
 }
 
@@ -132,12 +130,13 @@ body.maintenance-page .maintenance-delete-btn:hover:not(:disabled) {
     transform: translateY(-1px);
 }
 
+/* 与 public/css/payment_maintenance.php 提取样式：禁用时浅灰底 + 细边框（非红胶囊） */
 body.maintenance-page .maintenance-delete-btn:disabled {
-    background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
-    color: #ffffff;
-    border: 1px solid transparent;
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1px solid #d0d7de;
     cursor: not-allowed;
     transform: none;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+    box-shadow: none;
     opacity: 1;
 }

@@ -147,15 +147,17 @@ h1 {
     border: 0;
 }
 
+/* 与 payment_maintenance.css（图二 PHP）白卡片一致 */
 .maintenance-search-section {
-    padding: clamp(14px, 1.15vw, 18px) clamp(18px, 1.5vw, 24px);
+    padding: 10px 20px;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     background-color: #fff;
-    box-shadow: 0 2px 8px #0000001a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
-    gap: clamp(12px, 1vw, 16px);
+    gap: 10px;
+    max-width: 1500px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -196,13 +198,21 @@ h1 {
     width: 100%;
 }
 
+/* 与 payment 页 .maintenance-form-group .maintenance-select 同档（图二第一行三列） */
+.maintenance-form-group .custom-select-wrapper {
+    width: 100%;
+}
+
 .maintenance-form-group .custom-select-button {
-    padding: 8px 30px clamp(6px, 0.42vw, 8px) 12px;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    padding: clamp(6px, 0.42vw, 8px) 30px clamp(6px, 0.42vw, 8px) 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: clamp(9px, 0.73vw, 14px);
     font-weight: normal;
-    background: white;
+    background: #fff;
 }
 
 .maintenance-input:focus,
@@ -228,25 +238,22 @@ h1 {
     flex-wrap: wrap;
 }
 
-/* 与 payment_maintenance：第二行左侧 GroupID + Company 横向一排（窄屏自动换行），右侧 Delete */
+/* 第二行左侧：与 payment_maintenance.php 图二分行堆叠 */
 .maintenance-filter-left {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: clamp(12px, 1.04vw, 20px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(4px, 0.52vw, 8px);
     flex: 1 1 auto;
     min-width: 0;
 }
 
-/* GroupID / Company：与 Payment 一致，勿 width:100%（否则会各占一整行） */
 .maintenance-filter-left .maintenance-company-filter {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: clamp(8px, 0.83vw, 14px);
-    width: auto;
-    flex: 0 1 auto;
+    width: 100%;
     max-width: 100%;
 }
 

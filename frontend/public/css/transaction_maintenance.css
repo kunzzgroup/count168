@@ -160,14 +160,14 @@ h1 {
 
 /* Search Section Styles - 模仿 customer_report.php */
 .maintenance-search-section {
-    padding: clamp(14px, 1.15vw, 18px) clamp(18px, 1.5vw, 24px);
+    padding: 10px 20px;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     background-color: white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
-    gap: clamp(12px, 1vw, 16px);
+    gap: 10px;
     max-width: 1500px;
     margin-left: auto;
     margin-right: auto;
@@ -243,22 +243,19 @@ h1 {
 
 .maintenance-filter-left {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: clamp(12px, 1.04vw, 20px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(4px, 0.52vw, 8px);
     flex: 1 1 auto;
     min-width: 0;
 }
 
-/* GroupID / Company：标签列宽一致；与 Payment 同排，勿 width:100% */
 .maintenance-filter-left .maintenance-company-filter {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: clamp(8px, 0.83vw, 14px);
-    width: auto;
-    flex: 0 1 auto;
+    width: 100%;
     max-width: 100%;
 }
 

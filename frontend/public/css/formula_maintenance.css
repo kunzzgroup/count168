@@ -278,12 +278,16 @@ h1 {
 
 .maintenance-filter-left {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: clamp(12px, 1.04vw, 20px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(4px, 0.52vw, 8px);
     flex: 1 1 auto;
     min-width: 0;
+}
+
+.maintenance-filter-left .maintenance-company-filter {
+    width: 100%;
+    max-width: 100%;
 }
 
 .maintenance-filter-row {
