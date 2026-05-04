@@ -3900,21 +3900,45 @@
 
     // ==================== 复制表格到 Excel 时保留样式 ====================
     function initExcelCopyWithStyles() {
+        function elementFromRangeNode(node) {
+            if (!node) return null;
+            return node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        }
+
+        /** #text 没有 closest；跨左右两表选择时不劫持，交给浏览器默认复制 */
+        function rangeOwnerTable(range) {
+            const a = elementFromRangeNode(range.startContainer);
+            const b = elementFromRangeNode(range.endContainer);
+            const t1 = a && a.closest ? a.closest('table') : null;
+            const t2 = b && b.closest ? b.closest('table') : null;
+            if (t1 && t2 && t1 !== t2) return null;
+            return t1 || t2;
+        }
+
+        function isCellVisibleForExport(cell) {
+            const st = window.getComputedStyle(cell);
+            if (st.display === 'none') return false;
+            if (st.visibility === 'collapse') return false;
+            return true;
+        }
+
         // 监听复制事件
         document.addEventListener('copy', function (e) {
             const selection = window.getSelection();
             if (!selection || selection.rangeCount === 0) return;
 
             const range = selection.getRangeAt(0);
-            const table = range.commonAncestorContainer.closest?.('table');
+            const table = rangeOwnerTable(range);
 
             // 只处理 transaction-table 和 transaction-summary-table
             if (!table || (!table.classList.contains('transaction-table') && !table.classList.contains('transaction-summary-table'))) {
                 return;
             }
 
-            // 阻止默认复制行为
-            e.preventDefault();
+            // Payment History 弹窗内表格走浏览器默认复制，避免与主表逻辑冲突
+            if (table.closest('#historyModal')) {
+                return;
+            }
 
             // 获取选中的单元格
             const selectedRows = [];
@@ -3931,13 +3955,16 @@
                 ? endContainer.parentElement.closest('tr')
                 : endContainer.closest('tr');
 
+            if (startRow && !table.contains(startRow)) startRow = null;
+            if (endRow && !table.contains(endRow)) endRow = null;
+
             if (!startRow && !endRow) {
                 // 如果没有找到行，尝试从选中的单元格构建
                 const cells = table.querySelectorAll('td, th');
                 cells.forEach(cell => {
                     if (range.intersectsNode(cell)) {
                         const row = cell.closest('tr');
-                        if (row && !selectedRows.includes(row)) {
+                        if (row && table.contains(row) && !selectedRows.includes(row)) {
                             selectedRows.push(row);
                         }
                     }
@@ -3947,6 +3974,9 @@
                 const allRows = Array.from(table.querySelectorAll('tr'));
                 const startIndex = startRow ? allRows.indexOf(startRow) : 0;
                 const endIndex = endRow ? allRows.indexOf(endRow) : allRows.length - 1;
+                if (startIndex < 0 || endIndex < 0) {
+                    return;
+                }
                 const minIndex = Math.min(startIndex, endIndex);
                 const maxIndex = Math.max(startIndex, endIndex);
 
@@ -3961,12 +3991,15 @@
 
             if (selectedRows.length === 0) return;
 
+            // 仅在有可写入内容时再拦截，避免误 preventDefault 导致复制为空
+            e.preventDefault();
+
             // 构建 HTML 表格（Excel 期望的格式）
             let html = '<html><body><table style="border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: small;">';
 
             selectedRows.forEach(row => {
                 html += '<tr>';
-                const cells = row.querySelectorAll('td, th');
+                const cells = Array.from(row.querySelectorAll('td, th')).filter(isCellVisibleForExport);
                 cells.forEach(cell => {
                     const isHeader = cell.tagName === 'TH';
                     const isFooter = row.closest('tfoot') !== null;
@@ -4055,14 +4088,17 @@
 
             html += '</table></body></html>';
 
-            // 构建纯文本版本（作为后备）
+            // 构建纯文本版本：只含当前可见列，与 Excel 粘贴行/列一致（\r\n 为 Windows Excel 换行）
             let text = '';
             selectedRows.forEach((row, rowIndex) => {
-                const cells = row.querySelectorAll('td, th');
-                const rowText = Array.from(cells).map(cell => cell.textContent || '').join('\t');
+                const cells = Array.from(row.querySelectorAll('td, th')).filter(isCellVisibleForExport);
+                const rowText = cells.map(cell => (cell.innerText != null ? cell.innerText : (cell.textContent || ''))
+                    .replace(/\r?\n/g, ' ')
+                    .trim())
+                    .join('\t');
                 text += rowText;
                 if (rowIndex < selectedRows.length - 1) {
-                    text += '\n';
+                    text += '\r\n';
                 }
             });
 
