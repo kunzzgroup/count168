@@ -2810,13 +2810,18 @@
         console.log('✅ Show Name 已切换:', showName);
     }
 
-    // 未勾选 Show 0 balance 时：隐藏「Balance≈0 且 B/F、Win/Loss、Cr/Dr 均≈0」的行。
-    // 不用 has_win_loss_* / has_crdr_transactions：后端占位、RATE 分录等会令标记误报，导致仅 OPENING BALANCE 的账号仍显示。
+    // 未勾选 Show 0 balance：Balance≈0 时，若 B/F、Win/Loss、Cr/Dr 任一非零则保留；若四列都≈0 则看后端的 has_*——
+    // 有交易/历史但轧差为 0（如 Payment History 有行、列表仍全 0.00）要显示；仅 OPENING BALANCE 的占位行靠 search_api 里 DCD 笔数不统计 0 金额行，减少 has_* 误报。
     function rowPassesHideZeroBalanceFilter(showZero, row) {
         if (showZero) return true;
         const num = parseBalanceValue(row.balance);
         if (num === null) return true;
         if (MoneyDecimal.toDecimal(num).abs().gt('0.00001')) return true;
+        const flagToBool = (v) => {
+            if (typeof v === 'boolean') return v;
+            if (typeof v === 'number') return v !== 0;
+            return parseInt(v || '0', 10) !== 0;
+        };
         const absVal = (v) => {
             try {
                 return MoneyDecimal.toDecimal(v || '0').abs();
@@ -2829,7 +2834,12 @@
             absVal(row.bf).gt(eps) ||
             absVal(row.win_loss).gt(eps) ||
             absVal(row.cr_dr).gt(eps);
-        return hasAnyMoneyColumn;
+        if (hasAnyMoneyColumn) return true;
+        const hasTxnFlag =
+            flagToBool(row.has_win_loss_history) ||
+            flagToBool(row.has_win_loss_transactions) ||
+            flagToBool(row.has_crdr_transactions);
+        return hasTxnFlag;
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================
