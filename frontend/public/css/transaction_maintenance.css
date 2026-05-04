@@ -246,8 +246,8 @@ h1 {
     flex-direction: column;
     align-items: stretch;
     gap: clamp(10px, 0.85vw, 14px);
-    width: 100%;
-    max-width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* GroupID / Company：标签列宽一致，胶囊起始位置对齐 */
@@ -376,12 +376,13 @@ h1 {
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
     min-height: 32px;
+    align-self: flex-end;
 }
 
 .maintenance-filter-row {
     display: flex;
-    align-items: center;
-    justify-content: flex-start;
+    align-items: flex-end;
+    justify-content: space-between;
     gap: clamp(12px, 1.04vw, 20px);
     flex-wrap: wrap;
 }

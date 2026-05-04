@@ -177,6 +177,7 @@ h1 {
     align-items: center;
     gap: clamp(12px, 1.04vw, 20px);
     flex-shrink: 0;
+    align-self: flex-end;
 }
 
 .maintenance-company-filter {
@@ -213,8 +214,8 @@ h1 {
 
 .maintenance-filter-row {
     display: flex;
-    align-items: center;
-    justify-content: flex-start;
+    align-items: flex-end;
+    justify-content: space-between;
     gap: clamp(12px, 1.04vw, 20px);
     flex-wrap: wrap;
 }
@@ -222,8 +223,10 @@ h1 {
 .maintenance-filter-left {
     display: inline-flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: clamp(4px, 0.52vw, 8px);
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* Period：与胶囊筛选一致 */

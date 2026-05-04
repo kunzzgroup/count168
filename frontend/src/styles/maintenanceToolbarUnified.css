@@ -10,12 +10,22 @@ body.maintenance-page .maintenance-actions {
     flex-shrink: 0;
 }
 
+/* 与 PHP：筛选第二行左 GroupID/Company、右 Delete（space-between） */
 body.maintenance-page .maintenance-filter-row {
     display: flex;
-    align-items: center;
-    justify-content: flex-start;
+    align-items: flex-end;
+    justify-content: space-between;
     gap: clamp(12px, 1.04vw, 20px);
     flex-wrap: wrap;
+}
+
+body.maintenance-page .maintenance-filter-left {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+body.maintenance-page .maintenance-actions {
+    align-self: flex-end;
 }
 
 body.maintenance-page .maintenance-filters .quick-select-wrap {
