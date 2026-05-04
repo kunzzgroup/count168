@@ -1469,10 +1469,11 @@ body.datacapture-page .datacapture-main {
     gap: 8px;
 }
 
+/* PHP-like split: more height for form + submitted; table band stays shorter (~40–45% of main) */
 body.datacapture-page .top-section {
-    flex: 0 1 auto;
-    max-height: min(40vh, 360px);
+    flex: 1 1 56%;
     min-height: 0;
+    max-height: none;
     margin-top: 0;
     margin-bottom: 0;
     gap: 10px;
@@ -1576,7 +1577,7 @@ body.datacapture-page .submitted-item {
 }
 
 body.datacapture-page .bottom-section {
-    flex: 1 1 0;
+    flex: 1 1 44%;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -1586,8 +1587,9 @@ body.datacapture-page .bottom-section {
 }
 
 body.datacapture-page .excel-table-container {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-height: 0;
+    max-height: min(38vh, 360px);
     border-radius: 8px;
     border: 1px solid #e5e7eb;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
@@ -1673,16 +1675,22 @@ body.datacapture-page .process-form .shared-company-wrapper {
     }
 
     body.datacapture-page .top-section {
-        max-height: min(45vh, 420px);
+        flex: 1 1 52%;
+        max-height: none;
     }
 
     body.datacapture-page .form-container,
     body.datacapture-page .submitted-container {
-        max-height: min(45vh, 420px);
+        max-height: none;
+    }
+
+    body.datacapture-page .bottom-section {
+        flex: 1 1 48%;
     }
 
     body.datacapture-page .excel-table-container {
-        flex: 0 1 auto;
-        min-height: 220px;
+        flex: 1 1 auto;
+        min-height: 180px;
+        max-height: min(36vh, 320px);
     }
 }
