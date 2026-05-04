@@ -570,9 +570,16 @@ h1 {
     width: 18%;
 }
 
+/* Data Capture 表为 9 列，末列（勾选）为 nth-child(9) */
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    text-align: center;
+    /* width: 2%; */
+}
+
+/* 与 payment 维护表同一条目（10 列页用）；本页 9 列时不匹配 */
+.maintenance-table th:nth-child(10),
+.maintenance-table td:nth-child(10) {
+    /* width: 2%; */
 }
 
 .maintenance-table-cell {
