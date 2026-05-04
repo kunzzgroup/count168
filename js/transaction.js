@@ -2810,17 +2810,13 @@
         console.log('✅ Show Name 已切换:', showName);
     }
 
-    // 未勾选 Show 0 balance 时：默认隐藏 balance≈0 的行；但若该行 B/F、Win/Loss、Cr/Dr 仍有数则保留，避免后端 Total 有汇总而明细被全部滤掉
+    // 未勾选 Show 0 balance 时：隐藏「Balance≈0 且 B/F、Win/Loss、Cr/Dr 均≈0」的行。
+    // 不用 has_win_loss_* / has_crdr_transactions：后端占位、RATE 分录等会令标记误报，导致仅 OPENING BALANCE 的账号仍显示。
     function rowPassesHideZeroBalanceFilter(showZero, row) {
         if (showZero) return true;
         const num = parseBalanceValue(row.balance);
         if (num === null) return true;
         if (MoneyDecimal.toDecimal(num).abs().gt('0.00001')) return true;
-        const flagToBool = (v) => {
-            if (typeof v === 'boolean') return v;
-            if (typeof v === 'number') return v !== 0;
-            return parseInt(v || '0', 10) !== 0;
-        };
         const absVal = (v) => {
             try {
                 return MoneyDecimal.toDecimal(v || '0').abs();
@@ -2828,9 +2824,12 @@
                 return MoneyDecimal.toDecimal('0');
             }
         };
-        // 有真实交易记录（例如 PROFIT 0.00）时，不应被“隐藏 0 balance”吃掉。
-        const hasTxnFlag = flagToBool(row.has_win_loss_history) || flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_crdr_transactions);
-        return hasTxnFlag || absVal(row.bf).gt('0.00001') || absVal(row.win_loss).gt('0.00001') || absVal(row.cr_dr).gt('0.00001');
+        const eps = '0.00001';
+        const hasAnyMoneyColumn =
+            absVal(row.bf).gt(eps) ||
+            absVal(row.win_loss).gt(eps) ||
+            absVal(row.cr_dr).gt(eps);
+        return hasAnyMoneyColumn;
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================
