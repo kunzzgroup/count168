@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+/* 与 DataCapture 相同：打进 Vite 产物，避免 dynamic import 在生产包中被拆成空 chunk、样式从未加载 */
+import "../../../../public/css/capture_maintenance.css";
 import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
@@ -103,9 +105,6 @@ export default function CaptureMaintenancePage() {
 
     let cancelled = false;
 
-    // capture_maintenance 不走 /css 静态 URL：开发环境 Vite 会把 /css 代理到 PHP（读到旧文件），
-    // 生产环境固定文件名易被 CDN/浏览器缓存导致「部署了却没变化」。改为下方 dynamic import，
-    // 由 Vite 打进带 hash 的 assets，且保证在 date-range-picker 之后再加载，层叠顺序与 Transaction 一致。
     const links = [
       "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
@@ -114,14 +113,9 @@ export default function CaptureMaintenancePage() {
       assetUrl("css/date-range-picker.css"),
     ];
 
-    Promise.all(links.map(waitForStylesheet))
-      .then(() => import("../../../../public/css/capture_maintenance.css"))
-      .then(() => {
-        if (!cancelled) setCssReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setCssReady(true);
-      });
+    Promise.all(links.map(waitForStylesheet)).then(() => {
+      if (!cancelled) setCssReady(true);
+    });
 
     ensureMaintenanceDateRangePicker();
 
