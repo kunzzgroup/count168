@@ -11,9 +11,16 @@ body .container {
 
 /* ----- Main page styles ----- */
 /* Tokens: slightly softer blue than legacy #007bff; sidebar active uses --sidebar-active-bg */
-html:has(body.datacapture-page) {
+html:has(body.datacapture-page:not(.datacapture-short-viewport)) {
     height: 100%;
     overflow: hidden;
+}
+
+html:has(body.datacapture-short-viewport) {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 body.datacapture-page {
@@ -23,6 +30,16 @@ body.datacapture-page {
     --dc-border: #e2e8f0;
     --dc-text-muted: #64748b;
     --sidebar-active-bg: #1e40af;
+}
+
+/* Laptop / short height: allow page scroll so table + Submit are reachable (see .datacapture-short-viewport) */
+body.dashboard-page.datacapture-page.datacapture-short-viewport {
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-height: none;
 }
 
 body.datacapture-page {
@@ -54,6 +71,14 @@ body.datacapture-page #root {
     overflow: hidden;
 }
 
+body.datacapture-page.datacapture-short-viewport #root {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-height: none;
+    overflow: visible;
+}
+
 body.datacapture-page .container {
     max-width: none;
     margin: 0;
@@ -68,6 +93,36 @@ body.datacapture-page .container {
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+}
+
+body.datacapture-page.datacapture-short-viewport .container {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-height: none;
+    overflow: visible;
+}
+
+body.datacapture-page.datacapture-short-viewport .bottom-section {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow: visible;
+}
+
+body.datacapture-page.datacapture-short-viewport .excel-table-container {
+    flex: 0 1 auto;
+    min-height: min(42vh, 360px);
+}
+
+/* Short viewport: show full form without inner scroll; columns stay stretch-aligned */
+body.datacapture-page.datacapture-short-viewport .form-container {
+    overflow: visible;
+}
+
+body.datacapture-page.datacapture-short-viewport .form-container .process-form {
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 0 0 auto;
 }
 
 /* Title + optional category row: keep compact so the table gets vertical space */

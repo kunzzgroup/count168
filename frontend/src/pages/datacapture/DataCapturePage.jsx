@@ -198,13 +198,29 @@ export default function DataCapturePage() {
       height: html.style.height,
       overscroll: html.style.overscrollBehavior,
     };
-    document.body.classList.remove("bg", "account-page", "announcement-page");
-    document.body.classList.add("dashboard-page", "datacapture-page");
-    html.style.overflow = "hidden";
-    html.style.height = "100%";
-    html.style.overscrollBehavior = "none";
+    const shortMq = window.matchMedia("(max-height: 900px)");
+
+    const applyShell = () => {
+      document.body.classList.remove("bg", "account-page", "announcement-page");
+      document.body.classList.add("dashboard-page", "datacapture-page");
+      const short = shortMq.matches;
+      document.body.classList.toggle("datacapture-short-viewport", short);
+      if (short) {
+        html.style.overflow = "";
+        html.style.height = "";
+        html.style.overscrollBehavior = "";
+      } else {
+        html.style.overflow = "hidden";
+        html.style.height = "100%";
+        html.style.overscrollBehavior = "none";
+      }
+    };
+
+    applyShell();
+    shortMq.addEventListener("change", applyShell);
     return () => {
-      document.body.classList.remove("datacapture-page", "page-ready");
+      shortMq.removeEventListener("change", applyShell);
+      document.body.classList.remove("datacapture-page", "page-ready", "datacapture-short-viewport");
       html.style.overflow = prev.overflow;
       html.style.height = prev.height;
       html.style.overscrollBehavior = prev.overscroll;
