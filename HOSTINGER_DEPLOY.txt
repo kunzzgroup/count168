@@ -15,11 +15,16 @@ Hostinger GIT：fatal: Need to specify how to reconcile divergent branches
 推送 main 后由 GitHub 构建前端并 FTP 上传整站（排除 node_modules / .git），不再依赖
 Hostinger 面板里的「GIT Deploy」，可从根源避开 divergent branches。
 
-1) GitHub → 本仓库 → Settings → Secrets and variables → Actions → New repository secret：
+1) GitHub → 本仓库 → Settings → Secrets and variables → Actions
 
+   New repository secret（三个必填）：
    HOSTINGER_FTP_HOST      （hPanel → FTP 里主机名，多为 ftp.hostinger.com）
    HOSTINGER_FTP_USER
    HOSTINGER_FTP_PASSWORD
+
+   可选：Repository variable（仅当 FTP 根目录下路径不是 public_html/frontend/dist/ 时）：
+   HOSTINGER_FTP_SERVER_DIR   例如 domains/你的域名/public_html/frontend/dist/
+   （必须以 / 结尾；留空则默认上传为 frontend/dist/，即假设 FTP 登录根就是 public_html）
 
 2) 推送任意提交到 main，或 Actions → Deploy Hostinger (FTP) → Run workflow。
 

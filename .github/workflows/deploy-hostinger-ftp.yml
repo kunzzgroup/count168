@@ -1,14 +1,10 @@
-# Bypass Hostinger "GIT → Deploy" when git pull fails (divergent branches).
-# Configure secrets in GitHub → repo → Settings → Secrets and variables → Actions:
-#
-#   HOSTINGER_FTP_HOST     — from hPanel → Files → FTP Accounts (often ftp.hostinger.com)
-#   HOSTINGER_FTP_USER
-#   HOSTINGER_FTP_PASSWORD
-#
-# FTP account is usually rooted at your site's public_html → workflow uses server-dir: .
-# If your FTP lands elsewhere, fork and change server-dir in the "Upload site" step.
-#
-# After this works, turn OFF Hostinger GIT auto-deployment to avoid two deploy paths fighting.
+# Build frontend and upload Vite output to Hostinger via FTP/FTPS.
+# Requires repository Secrets (Settings → Secrets and variables → Actions):
+#   HOSTINGER_FTP_HOST, HOSTINGER_FTP_USER, HOSTINGER_FTP_PASSWORD
+# Optional repository Variable (same settings → Variables):
+#   HOSTINGER_FTP_SERVER_DIR — remote folder relative to FTP login root (default: frontend/dist/)
+# Assumes FTP root is the site document root (e.g. public_html). Then CSS will be at:
+#   /frontend/dist/css/datacapture.css  → matches vite.config.js base: /frontend/dist/
 
 name: Deploy Hostinger (FTP)
 
@@ -18,14 +14,12 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-hostinger
+  group: deploy-hostinger-ftp
   cancel-in-progress: true
 
 jobs:
-  ftp-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,25 +31,21 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install & build frontend
+      - name: Install and build frontend
         working-directory: frontend
-        run: npm ci && npm run build
+        run: |
+          npm ci
+          npm run build
 
-      - name: Upload site (FTP)
+      # Remote path is relative to your FTP account root (often = public_html).
+      # Override: repo Settings → Variables → HOSTINGER_FTP_SERVER_DIR (must end with /)
+      - name: Deploy frontend/dist to Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.HOSTINGER_FTP_HOST }}
           username: ${{ secrets.HOSTINGER_FTP_USER }}
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           protocol: ftps
-          port: 21
-          local-dir: ./
-          server-dir: .
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/frontend/node_modules/**
-            **/.github/**
-            **/.cursor/**
-            **/agent-transcripts/**
+          local-dir: ./frontend/dist/
+          server-dir: ${{ vars.HOSTINGER_FTP_SERVER_DIR || 'frontend/dist/' }}
           log-level: verbose
