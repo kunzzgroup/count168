@@ -379,18 +379,24 @@
     margin-top: 4px;
 }
 
-/* Flat iOS-style segmented control (matches login page language switch) */
+/* Flat iOS-style segmented control (light track, white thumb, dark border — matches dashboard reference) */
 .sidebar-lang-switch {
     --sidebar-lang-thumb-x: 0%;
+    --sidebar-lang-track: #eceff3;
+    --sidebar-lang-track-border: #d1d5db;
+    --sidebar-lang-inactive: #64748b;
+    --sidebar-lang-thumb-border: #0f172a;
     position: relative;
     display: flex;
     align-items: stretch;
     width: 108px;
     height: 32px;
     border-radius: 999px;
-    border: 1px solid #d1d1d6;
-    background: #e5e5e5;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--sidebar-lang-track-border);
+    background: var(--sidebar-lang-track);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 1px 2px rgba(15, 23, 42, 0.08);
     padding: 3px;
     isolation: isolate;
 }
@@ -401,17 +407,22 @@
     flex: 1;
     border: none;
     background: transparent;
-    color: #666666;
+    color: var(--sidebar-lang-inactive);
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.15px;
     border-radius: 999px;
     cursor: pointer;
     transition: color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-family: inherit;
 }
 
 .sidebar-lang-option.active {
-    color: #000000;
+    color: #0f172a;
 }
 
 .sidebar-lang-thumb {
@@ -423,8 +434,8 @@
     height: calc(100% - 6px);
     border-radius: 999px;
     background: #ffffff;
-    border: 2px solid #0052d9;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--sidebar-lang-thumb-border);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
     transform: translateX(var(--sidebar-lang-thumb-x));
     transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
     will-change: transform;
