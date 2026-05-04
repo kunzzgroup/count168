@@ -452,6 +452,19 @@ export default function TransactionDashboardPage() {
     [dashboardData, dateFrom, dateTo]
   );
 
+  const kpiFooter = useMemo(() => {
+    const cur = currencyCode || "—";
+    const from = parseYmd(dateFrom);
+    const to = parseYmd(dateTo);
+    const loc = i18n.locale;
+    if (from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth()) {
+      const monthYear = to.toLocaleDateString(loc, { month: "short", year: "numeric" });
+      return `${cur} · ${monthYear}`;
+    }
+    const left = from.toLocaleDateString(loc, { month: "short", day: "numeric" });
+    const right = to.toLocaleDateString(loc, { month: "short", day: "numeric", year: "numeric" });
+    return `${cur} · ${left} – ${right}`;
+  }, [currencyCode, dateFrom, dateTo, i18n.locale]);
 
   const onGroupClick = async (gid) => {
     if (selectedGroup === gid) {
@@ -586,118 +599,60 @@ export default function TransactionDashboardPage() {
   return (
     <>
       <div className="dashboard-container">
-        <h1 className="dashboard-title">{i18n.transactionDashboard}</h1>
+        <header className="dashboard-page-header">
+          <h1 className="dashboard-title">{i18n.transactionDashboard}</h1>
+          <div className="dashboard-header-actions">
+            <div className="dashboard-date-controls dashboard-date-controls--header">
+              <div ref={barRef} className="dashboard-date-range-bar">
+                <button
+                  type="button"
+                  className="btn dashboard-date-range-bar__cal"
+                  onClick={toggleCalendarFromBar}
+                >
+                  <i className="fas fa-calendar-alt" />
+                </button>
 
-        {loadError && (
-          <div className="dashboard-card" style={{ marginBottom: 12, color: "#b91c1c" }}>
-            {loadError}
-          </div>
-        )}
+                <button type="button" className="dashboard-date-range-bar__range" onClick={toggleCalendarFromBar}>
+                  {formatDisplayDate(dateFrom)} – {formatDisplayDate(dateTo)}
+                </button>
 
-        <div id="app" className="dashboard-content">
-          <div className={`dashboard-top-row${kpi.showEarnings ? " has-earnings" : ""}`}>
-            <div className="dashboard-card dashboard-card--filters">
-              <div className="dashboard-card-body">
-                <div className="dashboard-date-controls">
-                  <div
-                    ref={barRef}
-                    style={{
-                      width: "min(100%, 330px)",
-                      display: "grid",
-                      gridTemplateColumns: "28px 1fr auto",
-                      alignItems: "center",
-                      gap: 5,
-                      border: "1px solid #d1d5db",
-                      borderRadius: 8,
-                      padding: "3px 5px",
-                      position: "relative",
-                      background: "#fff",
+                <div className="dropdown dashboard-date-range-bar__period">
+                  <button
+                    type="button"
+                    className="btn btn-secondary dropdown-toggle dashboard-period-btn"
+                    aria-label={i18n.quickPeriod}
+                    title={i18n.quickPeriod}
+                    onClick={() => {
+                      setQuickOpen((o) => !o);
+                      setCalendarOpen(false);
+                      setPendingStart(null);
+                      setHoverDate(null);
                     }}
                   >
-                    <button
-                      type="button"
-                      className="btn"
-                      style={{
-                        background: "#eff6ff",
-                        color: "#2563eb",
-                        border: "1px solid #bfdbfe",
-                        borderRadius: 6,
-                        minHeight: 24,
-                        padding: "1px 6px",
-                        fontSize: 11,
-                      }}
-                      onClick={toggleCalendarFromBar}
-                    >
-                      <i className="fas fa-calendar-alt" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={toggleCalendarFromBar}
-                      style={{
-                        textAlign: "center",
-                        fontWeight: 600,
-                        color: "#1f2937",
-                        fontSize: 14,
-                        lineHeight: 1.25,
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "0 2px",
-                        minWidth: 0,
-                        width: "100%",
-                        justifySelf: "stretch",
-                      }}
-                    >
-                      {formatDisplayDate(dateFrom)} - {formatDisplayDate(dateTo)}
-                    </button>
-
-                    <div className="dropdown" style={{ width: "auto", justifySelf: "end" }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary dropdown-toggle"
-                        aria-label={i18n.quickPeriod}
-                        title={i18n.quickPeriod}
-                        style={{
-                          minHeight: 24,
-                          padding: "1px 6px",
-                          fontSize: 12,
-                          justifySelf: "end",
-                          minWidth: 0,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 55,
-                        }}
-                        onClick={() => {
-                          setQuickOpen((o) => !o);
-                          setCalendarOpen(false);
-                          setPendingStart(null);
-                          setHoverDate(null);
-                        }}
-                      >
-                        <i className="fas fa-clock" aria-hidden />
-                        <i className="fas fa-chevron-down" aria-hidden />
-                      </button>
-                      {quickOpen && (
-                        <div className="dropdown-menu" style={{ display: "block" }} id="quick-select-dropdown">
-                          {Object.entries(periodLabel).map(([key, label]) => (
-                            <button
-                              key={key}
-                              type="button"
-                              className="dropdown-item"
-                              onClick={() => {
-                                setPeriodRange(key);
-                                setQuickOpen(false);
-                              }}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                    <i className="fas fa-clock" aria-hidden />
+                    <span className="dashboard-period-btn__text">{i18n.period}</span>
+                    <i className="fas fa-chevron-down" aria-hidden />
+                  </button>
+                  {quickOpen && (
+                    <div className="dropdown-menu" style={{ display: "block" }} id="quick-select-dropdown">
+                      {Object.entries(periodLabel).map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          className="dropdown-item"
+                          onClick={() => {
+                            setPeriodRange(key);
+                            setQuickOpen(false);
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
+                  )}
+                </div>
 
-                    {calendarOpen && (
+                {calendarOpen && (
                       <div
                         className="calendar-popup"
                         style={{
@@ -871,131 +826,165 @@ export default function TransactionDashboardPage() {
                         </div>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {groupIds.length > 0 && (
-                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 12 }}>
-                    <span className="transaction-company-label">{i18n.groupId}</span>
-                    <div className="transaction-company-buttons">
-                      {groupIds.map((gid) => (
-                        <button
-                          key={gid}
-                          type="button"
-                          className={`transaction-company-btn${selectedGroup === gid ? " active" : ""}`}
-                          onClick={() => onGroupClick(gid)}
-                        >
-                          {gid}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {filteredCompanies.length > 0 && (
-                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
-                    <span className="transaction-company-label">{i18n.company}</span>
-                    <div className="transaction-company-buttons">
-                      {selectedGroup && filteredCompanies.length > 1 && (
-                        <button
-                          type="button"
-                          className={`transaction-company-btn dashboard-all-btn${groupAllMode ? " active" : ""}`}
-                          onClick={async () => {
-                            if (groupAllMode) {
-                              setGroupAllMode(false);
-                              await switchCompany(filteredCompanies[0].id);
-                            } else {
-                              setGroupAllMode(true);
-                            }
-                          }}
-                        >
-                          {i18n.all}
-                        </button>
-                      )}
-                      {filteredCompanies.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className={`transaction-company-btn${
-                            !groupAllMode && parseInt(c.id, 10) === parseInt(companyId, 10) ? " active" : ""
-                          }`}
-                          onClick={async () => {
-                            setGroupAllMode(false);
-                            await switchCompany(c.id);
-                          }}
-                        >
-                          {c.company_id}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {currencies.length > 0 && (
-                  <div className="transaction-company-filter" style={{ display: "flex", marginTop: 10 }}>
-                    <span className="transaction-company-label">{i18n.currency}</span>
-                    <div className="transaction-company-buttons">
-                      {currencies.map((code) => (
-                        <button
-                          key={code}
-                          type="button"
-                          className={`transaction-company-btn${currencyCode === code ? " active" : ""}`}
-                          onClick={() => setCurrencyCode(code)}
-                        >
-                          {code}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div
-              className="dashboard-kpi-card dashboard-kpi-card--blue"
-              id="earnings-card-wrapper"
-              style={{ display: kpi.showEarnings ? "flex" : "none" }}
-            >
-              <div className="kpi-icon">
-                <i className="fas fa-hand-holding-usd" />
-              </div>
-              <div className="kpi-text">
-                <div className="kpi-label">{i18n.earnings}</div>
-                <div className="kpi-value" id="earnings-value">
-                  {loading ? "…" : formatCurrency(kpi.earnings)}
-                </div>
               </div>
             </div>
           </div>
+        </header>
 
-          <div className="dashboard-kpi-grid">
-            <div className="dashboard-kpi-card dashboard-kpi-card--blue">
-              <div className="kpi-icon">
-                <i className="fas fa-wallet" />
+        {loadError && (
+          <div className="dashboard-card" style={{ marginBottom: 12, color: "#b91c1c" }}>
+            {loadError}
+          </div>
+        )}
+
+        <div id="app" className="dashboard-content">
+          <div className="dashboard-card dashboard-filter-panel">
+            <div className="dashboard-filter-panel__head">
+              <span className="dashboard-filter-panel__title">{i18n.filterSection}</span>
+            </div>
+            <div className="dashboard-card-body dashboard-filter-panel__body">
+              {(groupIds.length > 0 || filteredCompanies.length > 0) && (
+                <div className="dashboard-filter-cluster">
+                  <div className="dashboard-filter-cluster__label">{i18n.groupAndCompany}</div>
+                  <div className="dashboard-filter-cluster__rows">
+                    {groupIds.length > 0 && (
+                      <div className="transaction-company-filter dashboard-filter-row">
+                        <span className="transaction-company-label">{i18n.groupId}</span>
+                        <div className="transaction-company-buttons">
+                          {groupIds.map((gid) => (
+                            <button
+                              key={gid}
+                              type="button"
+                              className={`transaction-company-btn${selectedGroup === gid ? " active" : ""}`}
+                              onClick={() => onGroupClick(gid)}
+                            >
+                              {gid}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {filteredCompanies.length > 0 && (
+                      <div className="transaction-company-filter dashboard-filter-row">
+                        <span className="transaction-company-label">{i18n.company}</span>
+                        <div className="transaction-company-buttons">
+                          {selectedGroup && filteredCompanies.length > 1 && (
+                            <button
+                              type="button"
+                              className={`transaction-company-btn dashboard-all-btn${groupAllMode ? " active" : ""}`}
+                              onClick={async () => {
+                                if (groupAllMode) {
+                                  setGroupAllMode(false);
+                                  await switchCompany(filteredCompanies[0].id);
+                                } else {
+                                  setGroupAllMode(true);
+                                }
+                              }}
+                            >
+                              {i18n.all}
+                            </button>
+                          )}
+                          {filteredCompanies.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className={`transaction-company-btn${
+                                !groupAllMode && parseInt(c.id, 10) === parseInt(companyId, 10) ? " active" : ""
+                              }`}
+                              onClick={async () => {
+                                setGroupAllMode(false);
+                                await switchCompany(c.id);
+                              }}
+                            >
+                              {c.company_id}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {currencies.length > 0 && (
+                <div className="transaction-company-filter dashboard-filter-row">
+                  <span className="transaction-company-label">{i18n.currency}</span>
+                  <div className="transaction-company-buttons">
+                    {currencies.map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        className={`transaction-company-btn${currencyCode === code ? " active" : ""}`}
+                        onClick={() => setCurrencyCode(code)}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={`dashboard-kpi-grid${kpi.showEarnings ? " dashboard-kpi-grid--with-earnings" : ""}`}
+          >
+            <div className="dashboard-kpi-card dashboard-kpi-card--profit">
+              <div className="kpi-icon kpi-icon--boxed kpi-icon--profit">
+                <i className="fas fa-dollar-sign" />
               </div>
               <div className="kpi-text">
                 <div className="kpi-label">{i18n.profit}</div>
-                <div className="kpi-value">{loading ? "…" : formatCurrency(kpi.profit)}</div>
+                <div className="kpi-value kpi-value--profit">{loading ? "…" : formatCurrency(kpi.profit)}</div>
+                <div className="kpi-footer">{kpiFooter}</div>
               </div>
             </div>
-            <div className="dashboard-kpi-card dashboard-kpi-card--red">
-              <div className="kpi-icon">
+            <div className="dashboard-kpi-card dashboard-kpi-card--expense">
+              <div className="kpi-icon kpi-icon--boxed kpi-icon--expense">
                 <i className="fas fa-arrow-down" />
               </div>
               <div className="kpi-text">
                 <div className="kpi-label">{i18n.expenses}</div>
-                <div className="kpi-value">{loading ? "…" : formatCurrency(kpi.expenses)}</div>
+                <div className="kpi-value kpi-value--expense">{loading ? "…" : formatCurrency(kpi.expenses)}</div>
+                <div className="kpi-footer">{kpiFooter}</div>
               </div>
             </div>
-            <div className="dashboard-kpi-card dashboard-kpi-card--green">
-              <div className="kpi-icon">
+            <div
+              className={`dashboard-kpi-card dashboard-kpi-card--net${
+                kpi.netProfit >= 0 ? " is-positive" : " is-negative"
+              }`}
+            >
+              <div
+                className={`kpi-icon kpi-icon--boxed ${kpi.netProfit >= 0 ? "kpi-icon--net-pos" : "kpi-icon--net-neg"}`}
+              >
                 <i className="fas fa-chart-line" />
               </div>
               <div className="kpi-text">
                 <div className="kpi-label">{i18n.netProfit}</div>
-                <div className="kpi-value">{loading ? "…" : formatCurrency(kpi.netProfit)}</div>
+                <div
+                  className={`kpi-value ${kpi.netProfit >= 0 ? "kpi-value--net-pos" : "kpi-value--net-neg"}`}
+                >
+                  {loading ? "…" : formatCurrency(kpi.netProfit)}
+                </div>
+                <div className="kpi-footer">{kpiFooter}</div>
               </div>
             </div>
+
+            {kpi.showEarnings && (
+              <div className="dashboard-kpi-card dashboard-kpi-card--earnings" id="earnings-card-wrapper">
+                <div className="kpi-icon kpi-icon--boxed kpi-icon--earnings">
+                  <i className="fas fa-hand-holding-usd" />
+                </div>
+                <div className="kpi-text">
+                  <div className="kpi-label">{i18n.earnings}</div>
+                  <div className="kpi-value kpi-value--earnings" id="earnings-value">
+                    {loading ? "…" : formatCurrency(kpi.earnings)}
+                  </div>
+                  <div className="kpi-footer">{kpiFooter}</div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="dashboard-chart-section">
@@ -1015,7 +1004,7 @@ export default function TransactionDashboardPage() {
               </div>
               <div className="dashboard-chart-buttons" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[i18n.profit, i18n.expenses, i18n.netProfitChart, i18n.earnings].map((label, i) => {
-                  const colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b"];
+                  const colors = ["#22c55e", "#ef4444", "#10b981", "#f59e0b"];
                   return (
                     <button
                       key={label}
@@ -1041,8 +1030,8 @@ export default function TransactionDashboardPage() {
                 <AreaChart data={chartRows} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gProfit" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
-                      <stop offset="100%" stopColor="rgba(59,130,246,0.02)" />
+                      <stop offset="0%" stopColor="rgba(34,197,94,0.35)" />
+                      <stop offset="100%" stopColor="rgba(34,197,94,0.02)" />
                     </linearGradient>
                     <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="rgba(239,68,68,0.35)" />
@@ -1068,7 +1057,7 @@ export default function TransactionDashboardPage() {
                     }}
                   />
                   {chartVisible[0] && (
-                    <Area type="monotone" dataKey="profit" name={i18n.profit} stroke="#3b82f6" fill="url(#gProfit)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="profit" name={i18n.profit} stroke="#22c55e" fill="url(#gProfit)" strokeWidth={2} />
                   )}
                   {chartVisible[1] && (
                     <Area type="monotone" dataKey="expenses" name={i18n.expenses} stroke="#ef4444" fill="url(#gExp)" strokeWidth={2} />

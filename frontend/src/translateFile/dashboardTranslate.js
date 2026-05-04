@@ -1,7 +1,10 @@
 export const DASHBOARD_I18N = {
   en: {
     transactionDashboard: "Transaction Dashboard",
+    filterSection: "Filters",
+    groupAndCompany: "Group / Company",
     quickPeriod: "Quick period",
+    period: "Period",
     today: "Today",
     yesterday: "Yesterday",
     thisWeek: "This Week",
@@ -61,7 +64,10 @@ export const DASHBOARD_I18N = {
   },
   zh: {
     transactionDashboard: "交易仪表板",
+    filterSection: "筛选",
+    groupAndCompany: "集团 / 公司",
     quickPeriod: "快捷周期",
+    period: "周期",
     today: "今天",
     yesterday: "昨天",
     thisWeek: "本周",
