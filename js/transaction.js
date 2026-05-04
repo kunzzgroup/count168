@@ -153,7 +153,7 @@
         return MoneyDecimal.formatFixedHalfUp(value || '0', 2);
     }
 
-    /** 每行 Win/Loss 用「全精度 win_loss_full，缺省时 win_loss」四舍五入到分（ROUND_HALF_UP），供合计对比截断累加 */
+    /** 合计列 Win/Loss：每行用 win_loss_full（缺省 win_loss）四舍五入到分（ROUND_HALF_UP）再累加，与单元格显示（截断两位）可不一致 */
     function winLossRowHalfUp2(row) {
         const raw = row && row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ''
             ? row.win_loss_full
@@ -2174,15 +2174,22 @@
             fillTable('tbody_left', 'table_left', sortedLeftRows);
             fillTable('tbody_right', 'table_right', sortedRightRows);
 
-            // 优先使用后端返回的 totals，避免前端重复计算造成误差或状态不同步
+            // bf/cr_dr/balance 优先用后端 totals；Win/Loss 合计强制用逐行四舍五入（win_loss_full）再累加
             let leftTotals, rightTotals, summaryTotals;
+            const ltWl = calculateTotals(sortedLeftRows);
+            const rtWl = calculateTotals(sortedRightRows);
             if (totalsFromApi && totalsFromApi.left && totalsFromApi.right && totalsFromApi.summary) {
-                leftTotals = totalsFromApi.left;
-                rightTotals = totalsFromApi.right;
-                summaryTotals = totalsFromApi.summary;
+                leftTotals = { ...totalsFromApi.left, win_loss: ltWl.win_loss };
+                rightTotals = { ...totalsFromApi.right, win_loss: rtWl.win_loss };
+                summaryTotals = {
+                    bf: totalsFromApi.summary.bf,
+                    win_loss: MoneyDecimal.add(ltWl.win_loss, rtWl.win_loss).toString(),
+                    cr_dr: totalsFromApi.summary.cr_dr,
+                    balance: totalsFromApi.summary.balance
+                };
             } else {
-                leftTotals = calculateTotals(sortedLeftRows);
-                rightTotals = calculateTotals(sortedRightRows);
+                leftTotals = ltWl;
+                rightTotals = rtWl;
                 summaryTotals = {
                     bf: MoneyDecimal.add(leftTotals.bf, rightTotals.bf).toString(),
                     win_loss: MoneyDecimal.add(leftTotals.win_loss, rightTotals.win_loss).toString(),
@@ -2190,10 +2197,6 @@
                     balance: MoneyDecimal.add(leftTotals.balance, rightTotals.balance).toString()
                 };
             }
-
-            const combinedForWl = calculateTotals([...sortedLeftRows, ...sortedRightRows]);
-            summaryTotals.win_loss_halfup = combinedForWl.win_loss_halfup;
-            summaryTotals.win_loss_delta = MoneyDecimal.sub(combinedForWl.win_loss_halfup, summaryTotals.win_loss || '0').toString();
 
             updateTotals('left', leftTotals);
             updateTotals('right', rightTotals);
@@ -2458,12 +2461,11 @@
     function calculateTotals(rows) {
         return rows.reduce((totals, row) => {
             totals.bf = MoneyDecimal.add(totals.bf, row.bf || '0').toString();
-            totals.win_loss = MoneyDecimal.add(totals.win_loss, row.win_loss || '0').toString();
-            totals.win_loss_halfup = MoneyDecimal.add(totals.win_loss_halfup, winLossRowHalfUp2(row)).toString();
+            totals.win_loss = MoneyDecimal.add(totals.win_loss, winLossRowHalfUp2(row)).toString();
             totals.cr_dr = MoneyDecimal.add(totals.cr_dr, row.cr_dr || '0').toString();
             totals.balance = MoneyDecimal.add(totals.balance, row.balance || '0').toString();
             return totals;
-        }, { bf: '0', win_loss: '0', win_loss_halfup: '0', cr_dr: '0', balance: '0' });
+        }, { bf: '0', win_loss: '0', cr_dr: '0', balance: '0' });
     }
 
     // ==================== 处理 Balance 点击事件 ====================
@@ -2794,14 +2796,6 @@
     function updateSummary(totals) {
         document.getElementById('sum_total_bf').textContent = formatPaymentHistoryMoney(totals.bf);
         document.getElementById('sum_total_winloss').textContent = formatPaymentHistoryMoney(totals.win_loss);
-        const halfEl = document.getElementById('sum_total_winloss_halfup');
-        const deltaEl = document.getElementById('sum_total_winloss_delta');
-        if (halfEl) {
-            halfEl.textContent = formatPaymentHistoryMoney(totals.win_loss_halfup != null ? totals.win_loss_halfup : totals.win_loss);
-        }
-        if (deltaEl) {
-            deltaEl.textContent = formatPaymentHistoryMoney(totals.win_loss_delta != null ? totals.win_loss_delta : '0');
-        }
         document.getElementById('sum_total_crdr').textContent = formatPaymentHistoryMoney(totals.cr_dr);
         document.getElementById('sum_total_balance').textContent = formatPaymentHistoryMoney(totals.balance);
     }

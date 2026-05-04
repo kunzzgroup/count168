@@ -483,14 +483,6 @@ $default_date_to = $today_dt->format('d/m/Y');
                         <td class="transaction-summary-label">Win/Loss</td>
                         <td id="sum_total_winloss">0.00</td>
                     </tr>
-                    <tr class="transaction-table-row" title="每行用 win_loss_full 四舍五入到分后累加，与上一行（向0截断显示值累加）对比">
-                        <td class="transaction-summary-label">Win/Loss (逐行四舍五入)</td>
-                        <td id="sum_total_winloss_halfup">0.00</td>
-                    </tr>
-                    <tr class="transaction-table-row" title="逐行四舍五入合计 − 表内 Win/Loss 合计">
-                        <td class="transaction-summary-label">Δ Win/Loss</td>
-                        <td id="sum_total_winloss_delta">0.00</td>
-                    </tr>
                     <tr class="transaction-table-row">
                         <td class="transaction-summary-label">Cr/Dr</td>
                         <td id="sum_total_crdr">0.00</td>
