@@ -1,5 +1,3 @@
-import { escapeHtml } from "../captureMaintenanceLogic.js";
-
 export default function CaptureMaintenanceTable({ 
   data, 
   loading, 
@@ -15,10 +13,10 @@ export default function CaptureMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
               <th className="maintenance-select-all-header">
-                <input type="checkbox" className="maintenance-checkbox" disabled />
+                <input type="checkbox" className="maintenance-row-checkbox" disabled />
               </th>
+              <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
             </tr>
           </thead>
           <tbody>
@@ -48,11 +46,11 @@ export default function CaptureMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
-            <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
             <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
-                className="maintenance-checkbox" 
+                id="select_all_capture"
+                className="maintenance-row-checkbox" 
                 title="Select All" 
                 checked={isAllSelected}
                 ref={el => {
@@ -61,6 +59,7 @@ export default function CaptureMaintenanceTable({
                 onChange={toggleSelectAll}
               />
             </th>
+            <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
           </tr>
         </thead>
         <tbody>
@@ -77,14 +76,6 @@ export default function CaptureMaintenanceTable({
                 key={row.capture_id || index} 
                 className={`maintenance-row ${isDeleted ? "maintenance-row-deleted" : ""}`}
               >
-                <td className="maintenance-table-cell">{row.no || index + 1}</td>
-                <td className="maintenance-table-cell">{row.dts_created || '-'}</td>
-                <td className="maintenance-table-cell">{row.product || '-'}</td>
-                <td className="maintenance-table-cell">{row.process || '-'}</td>
-                <td className="maintenance-table-cell maintenance-cell-currency">{row.currency || '-'}</td>
-                <td className="maintenance-table-cell">{row.wl_group || '-'}</td>
-                <td className="maintenance-table-cell">{row.submitted_by || '-'}</td>
-                <td className="maintenance-table-cell">{deletedDisplay}</td>
                 <td className="maintenance-table-cell maintenance-cell-checkbox">
                   {!isDeleted && (
                     <input 
@@ -95,6 +86,14 @@ export default function CaptureMaintenanceTable({
                     />
                   )}
                 </td>
+                <td className="maintenance-table-cell">{row.no || index + 1}</td>
+                <td className="maintenance-table-cell">{row.dts_created || '-'}</td>
+                <td className="maintenance-table-cell">{row.product || '-'}</td>
+                <td className="maintenance-table-cell">{row.process || '-'}</td>
+                <td className="maintenance-table-cell maintenance-cell-currency">{row.currency || '-'}</td>
+                <td className="maintenance-table-cell">{row.wl_group || '-'}</td>
+                <td className="maintenance-table-cell">{row.submitted_by || '-'}</td>
+                <td className="maintenance-table-cell">{deletedDisplay}</td>
               </tr>
             );
           })}

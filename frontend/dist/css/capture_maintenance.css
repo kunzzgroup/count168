@@ -522,50 +522,52 @@ h1 {
     border-bottom: none;
 }
 
+/* 列顺序：勾选 | No. | Dts | Product | Process | Currency | W/L | Submitted | Deleted */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 4%;
+    width: 3%;
     text-align: center;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 16%;
+    width: 4%;
+    text-align: center;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 13%;
+    width: 16%;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
-    width: 14%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 8%;
+    width: 14%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 13%;
+    width: 8%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 11%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 18%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 3%;
+    width: 18%;
 }
 
 .maintenance-table-cell {
@@ -580,14 +582,14 @@ h1 {
     text-align: center;
 }
 
-.maintenance-table th:nth-child(3),
-.maintenance-table td:nth-child(3),
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4),
-.maintenance-table th:nth-child(6),
-.maintenance-table td:nth-child(6),
-.maintenance-table th:nth-child(8),
-.maintenance-table td:nth-child(8) {
+.maintenance-table th:nth-child(5),
+.maintenance-table td:nth-child(5),
+.maintenance-table th:nth-child(7),
+.maintenance-table td:nth-child(7),
+.maintenance-table th:nth-child(9),
+.maintenance-table td:nth-child(9) {
     text-align: left;
 }
 

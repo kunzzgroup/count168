@@ -26,7 +26,10 @@ export default function PaymentMaintenanceTable({
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th><th className="maintenance-select-all-header"></th>
+              <th className="maintenance-select-all-header">
+                <input type="checkbox" className="maintenance-row-checkbox" disabled />
+              </th>
+              <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
             </tr>
           </thead>
           <tbody>
@@ -56,18 +59,18 @@ export default function PaymentMaintenanceTable({
       <table className="maintenance-table">
         <thead>
           <tr>
-            <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
             <th className="maintenance-select-all-header">
               <input 
                 type="checkbox" 
                 id="select_all_payment"
                 ref={selectAllRef}
-                className="maintenance-checkbox" 
+                className="maintenance-row-checkbox" 
                 checked={selectAll}
                 onChange={toggleSelectAll}
                 title="Select All" 
               />
             </th>
+            <th>No.</th><th>Created At</th><th>Account(To)</th><th>Account(From)</th><th className="maintenance-header-amount">Amount</th><th>Description</th><th>Remark</th><th>Submitter</th><th>Deleter</th>
           </tr>
         </thead>
         <tbody>
@@ -87,15 +90,6 @@ export default function PaymentMaintenanceTable({
                 key={row.transaction_id || index} 
                 className={`maintenance-row ${isDeleted ? "maintenance-row-deleted" : ""}`}
               >
-                <td className="maintenance-table-cell">{index + 1}</td>
-                <td className="maintenance-table-cell">{row.dts_created || '-'}</td>
-                <td className="maintenance-table-cell">{row.account || '-'}</td>
-                <td className="maintenance-table-cell">{row.from_account && row.from_account !== '-' ? row.from_account : '-'}</td>
-                <td className="maintenance-table-cell maintenance-cell-amount">{row.currency || ''} {formatAmount(row.amount)}</td>
-                <td className="maintenance-table-cell" title={displayDescription}>{displayDescription || '-'}</td>
-                <td className="maintenance-table-cell">{row.remark || '-'}</td>
-                <td className="maintenance-table-cell">{row.created_by || '-'}</td>
-                <td className="maintenance-table-cell">{deletedDisplay}</td>
                 <td className="maintenance-table-cell maintenance-cell-checkbox">
                   <input 
                     type="checkbox" 
@@ -105,6 +99,15 @@ export default function PaymentMaintenanceTable({
                     disabled={isDeleted}
                   />
                 </td>
+                <td className="maintenance-table-cell">{index + 1}</td>
+                <td className="maintenance-table-cell">{row.dts_created || '-'}</td>
+                <td className="maintenance-table-cell">{row.account || '-'}</td>
+                <td className="maintenance-table-cell">{row.from_account && row.from_account !== '-' ? row.from_account : '-'}</td>
+                <td className="maintenance-table-cell maintenance-cell-amount">{row.currency || ''} {formatAmount(row.amount)}</td>
+                <td className="maintenance-table-cell" title={displayDescription}>{displayDescription || '-'}</td>
+                <td className="maintenance-table-cell">{row.remark || '-'}</td>
+                <td className="maintenance-table-cell">{row.created_by || '-'}</td>
+                <td className="maintenance-table-cell">{deletedDisplay}</td>
               </tr>
             );
           })}

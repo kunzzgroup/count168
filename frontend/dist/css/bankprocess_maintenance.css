@@ -556,20 +556,20 @@ h1 {
     text-decoration: line-through;
 }
 
-/* 9 columns: No., Dts Created, Account, From, Amount, Description, Remark, Submitted By, Checkbox */
+/* 勾选 | No. | Dts | Account | From | Amount | Description | Remark | Submitted By */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 3%;
+    width: 4%;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 11%;
+    width: 3%;
 }
 
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
-    width: 10%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(4),
@@ -579,27 +579,27 @@ h1 {
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 13%;
+    width: 10%;
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 22%;
+    width: 13%;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 8%;
+    width: 22%;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 11%;
+    width: 8%;
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 4%;
+    width: 11%;
 }
 
 .maintenance-table-cell {
