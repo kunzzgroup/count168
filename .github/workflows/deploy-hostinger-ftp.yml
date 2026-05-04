@@ -1,8 +1,9 @@
 # Build frontend and upload Vite output to Hostinger via FTP/FTPS.
 # Requires repository Secrets (Settings → Secrets and variables → Actions):
 #   HOSTINGER_FTP_HOST, HOSTINGER_FTP_USER, HOSTINGER_FTP_PASSWORD
-# Optional repository Variable (same settings → Variables):
+# Optional repository Variables:
 #   HOSTINGER_FTP_SERVER_DIR — remote folder relative to FTP login root (default: frontend/dist/)
+#   HOSTINGER_FTP_PROTOCOL — ftp | ftps | ftps-legacy (default: ftp — most reliable from GitHub to Hostinger)
 # Assumes FTP root is the site document root (e.g. public_html). Then CSS will be at:
 #   /frontend/dist/css/datacapture.css  → matches vite.config.js base: /frontend/dist/
 
@@ -20,6 +21,7 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,14 +40,18 @@ jobs:
           npm run build
 
       # Remote path is relative to your FTP account root (often = public_html).
-      # Override: repo Settings → Variables → HOSTINGER_FTP_SERVER_DIR (must end with /)
+      # Default protocol is plain FTP (port 21): FTPS often fails from GitHub runners on Hostinger.
+      # To force FTPS: set Variable HOSTINGER_FTP_PROTOCOL = ftps (and use hPanel FTP TLS hostname/port if required).
       - name: Deploy frontend/dist to Hostinger (FTP)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.HOSTINGER_FTP_HOST }}
           username: ${{ secrets.HOSTINGER_FTP_USER }}
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-          protocol: ftps
+          protocol: ${{ vars.HOSTINGER_FTP_PROTOCOL || 'ftp' }}
+          port: 21
+          security: loose
           local-dir: ./frontend/dist/
           server-dir: ${{ vars.HOSTINGER_FTP_SERVER_DIR || 'frontend/dist/' }}
-          log-level: verbose
+          timeout: 120000
+          log-level: standard

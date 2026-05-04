@@ -30,7 +30,10 @@ Hostinger 面板里的「GIT Deploy」，可从根源避开 divergent branches�
 
 3) hPanel → GIT：建议关掉该站的 Auto Deployment，避免 GIT 与 FTP 两套部署互相覆盖。
 
-若 FTP 报错 TLS：把 workflow 里 protocol: ftps 改成 ftp 再试（视主机说明而定）。
+Workflow 默认已使用明文 FTP（protocol: ftp），GitHub → Hostinger 一般比 FTPS 稳定。
+若坚持 FTPS：在仓库 Variables 设置 HOSTINGER_FTP_PROTOCOL = ftps（必要时对照 hPanel 的 TLS 端口）。
+仍失败请打开 Actions → 失败的任务 → Deploy 步骤日志，常见原因：HOSTINGER_FTP_HOST 错误（应用 hPanel「FTP
+帐户」显示的主机名）、用户名含后缀、密码含特殊字符、或 HOSTINGER_FTP_SERVER_DIR 与 FTP 根目录不符。
 
 完成后无需再点 Hostinger 的 GIT Deploy。
 
