@@ -601,11 +601,6 @@ h1 {
     width: 11%;   /* Deleted By */
 }
 
-.maintenance-table th:nth-child(10),
-.maintenance-table td:nth-child(10) {
-    /* width: 2%; */
-}
-
 /* Keep No. fully visible without ellipsis. */
 .maintenance-table td:nth-child(1).maintenance-table-cell {
     overflow: visible;
