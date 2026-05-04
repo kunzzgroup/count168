@@ -1264,3 +1264,14 @@ body.dashboard-page {
 .text-blue {
     color: #3b82f6;
 }
+
+@media screen and (max-height: 800px) {
+    .table-header,
+    .account-table-header,
+    .datacapture-table-header {
+        position: sticky !important;
+        top: 0;
+        z-index: 10;
+        /* box-shadow: 0 4px 6px -1px #00000014; */
+    }
+}
