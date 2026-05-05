@@ -343,7 +343,10 @@
                 input.value = ymd;
                 input.dispatchEvent(new Event('change', { bubbles: true }));
             }
-            if (display) display.textContent = formatDateDisplay(d);
+            if (display) {
+                display.textContent = formatDateDisplay(d);
+                display.classList.remove('bank-day-display--placeholder');
+            }
             const popup = document.getElementById('calendar-popup');
             if (popup) popup.style.display = 'none';
             if (typeof onSel === 'function') onSel(ymd);

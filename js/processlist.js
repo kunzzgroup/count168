@@ -190,9 +190,11 @@ function bankFormSetDayYmdAndDisplay(inputId, displayId, ymd) {
     if (disp) {
         if (!iso) {
             disp.textContent = 'dd/mm/yyyy';
+            disp.classList.add('bank-day-display--placeholder');
         } else {
             const p = iso.split('-');
             disp.textContent = p[2].padStart(2, '0') + '/' + p[1].padStart(2, '0') + '/' + p[0];
+            disp.classList.remove('bank-day-display--placeholder');
         }
     }
     inp.dispatchEvent(new Event('change', { bubbles: true }));

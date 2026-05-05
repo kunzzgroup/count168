@@ -252,7 +252,7 @@ if (!function_exists('renderBankProcessModals')) {
                                         <button type="button" class="date-range-picker bank-form-day-picker"
                                             id="bank_day_start_picker" aria-label="Select day start">
                                             <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-                                            <span id="bank_day_start_display">dd/mm/yyyy</span>
+                                            <span id="bank_day_start_display" class="bank-day-display--placeholder">dd/mm/yyyy</span>
                                         </button>
                                     </div>
                                     <div class="form-group bank-day-end-input-wrap">
@@ -261,7 +261,7 @@ if (!function_exists('renderBankProcessModals')) {
                                         <button type="button" class="date-range-picker bank-form-day-picker"
                                             id="bank_day_end_picker" aria-label="Select day end">
                                             <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-                                            <span id="bank_day_end_display">dd/mm/yyyy</span>
+                                            <span id="bank_day_end_display" class="bank-day-display--placeholder">dd/mm/yyyy</span>
                                         </button>
                                     </div>
                                 </div>

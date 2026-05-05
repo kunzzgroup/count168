@@ -39,11 +39,6 @@
     cursor: not-allowed;
 }
 
-.bank-form .bank-form-day-picker {
-    min-width: 0;
-    font: inherit;
-}
-
 /* Calendar popup - width set by JS to match date-range bar */
 .calendar-popup {
     position: fixed;
