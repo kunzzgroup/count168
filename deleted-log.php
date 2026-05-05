@@ -184,7 +184,7 @@ $assetVer = function ($file) {
             <h1 class="account-page-title">Deleted Log</h1>
             <div class="deleted-log-separator-line"></div>
             <?php if (!empty($companyScopeMulti)) : ?>
-            <p class="deleted-log-scope-hint">已合并显示您名下可访问的<strong>全部公司</strong>的删除记录（与当前侧栏选哪一家公司无关）。</p>
+            <p class="deleted-log-scope-hint">已合并显示您可访问公司、以及<strong>相同 GroupID</strong>下其他公司的删除记录（与当前侧栏选哪一家公司无关）。</p>
             <?php endif; ?>
 
 
