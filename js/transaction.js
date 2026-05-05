@@ -19,6 +19,22 @@
     let lastCompletedSearchKey = '';
     let lastCompletedSearchTs = 0;
 
+    /**
+     * 与 transaction.php 所在 Web 目录对齐的 API URL。
+     * 部署在子目录时避免 `/api/...` 请求落到域名根（导致永远读不到当前仓库里的 PHP）。
+     *
+     * @param {string} relPath 不以 / 开头，如 api/transactions/search_api.php
+     */
+    function transactionsApiUrl(relPath) {
+        const raw = String(relPath || '').replace(/^\/+/, '');
+        const cfg = typeof window.TRANSACTION_PAGE !== 'undefined' ? window.TRANSACTION_PAGE : null;
+        const base = cfg && cfg.apiBase != null ? String(cfg.apiBase).replace(/\/$/, '') : '';
+        if (!base) {
+            return '/' + raw;
+        }
+        return base + '/' + raw;
+    }
+
     function syncSubmitButtonState() {
         const confirmCheckbox = document.getElementById('confirm_submit');
         const submitBtn = document.getElementById('submit_btn');
@@ -231,7 +247,7 @@
     }
 
     function buildContraInboxUrl() {
-        let url = '/api/transactions/contra_inbox_api.php';
+        let url = transactionsApiUrl('api/transactions/contra_inbox_api.php');
         if (currentCompanyId) {
             url += `?company_id=${currentCompanyId}`;
         }
@@ -268,7 +284,7 @@
             form.append('company_id', String(currentCompanyId));
         }
 
-        fetch('/api/transactions/contra_approve_api.php', {
+        fetch(transactionsApiUrl('api/transactions/contra_approve_api.php'), {
             method: 'POST',
             body: form
         })
@@ -302,7 +318,7 @@
             form.append('company_id', String(currentCompanyId));
         }
 
-        fetch('/api/transactions/contra_reject_api.php', {
+        fetch(transactionsApiUrl('api/transactions/contra_reject_api.php'), {
             method: 'POST',
             body: form
         })
@@ -590,7 +606,7 @@
 
     // ==================== 加载分类列表 ====================
     function loadCategories() {
-        return fetch('/api/transactions/get_categories_api.php')
+        return fetch(transactionsApiUrl('api/transactions/get_categories_api.php'))
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -888,8 +904,8 @@
         }
 
         const url = params.toString()
-            ? `/api/transactions/get_accounts_api.php?${params.toString()}`
-            : '/api/transactions/get_accounts_api.php';
+            ? `${transactionsApiUrl('api/transactions/get_accounts_api.php')}?${params.toString()}`
+            : transactionsApiUrl('api/transactions/get_accounts_api.php');
 
         return fetch(url)
             .then(response => response.json())
@@ -1457,7 +1473,7 @@
     // ==================== 加载 Company Currencies ====================
     function loadCompanyCurrencies() {
         // 构建 URL，如果指定了 company_id 则添加参数
-        let url = '/api/transactions/get_company_currencies_api.php';
+        let url = transactionsApiUrl('api/transactions/get_company_currencies_api.php');
         if (currentCompanyId) {
             url += `?company_id=${currentCompanyId}`;
         }
@@ -1471,7 +1487,7 @@
                 }
                 return response.json();
             }),
-            fetch(`/api/transactions/user_currency_order_api.php?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
+            fetch(`${transactionsApiUrl('api/transactions/user_currency_order_api.php')}?_t=${Date.now()}`).then(res => res.json()).catch(() => null)
         ])
             .then(([data, orderData]) => {
                 console.log('🔍 Currency API 返回:', {
@@ -1772,7 +1788,7 @@
                 localStorage.setItem(defaultKey, String(newOrder[0] || '').trim().toUpperCase());
 
                 // 同时永久保存到数据库
-                fetch('/api/transactions/user_currency_order_api.php', {
+                fetch(transactionsApiUrl('api/transactions/user_currency_order_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order: newOrder })
@@ -1881,7 +1897,7 @@
         }
 
         // 构建 URL，处理多选分类
-        let url = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+        let url = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
 
         // 处理分类参数：如果是全选则不传参数，否则传递多个分类
         if (selectedCategories.length > 0 && !selectedCategories.includes('')) {
@@ -2026,7 +2042,7 @@
 
                     // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
                     if (singleSelectedCurrency && totalAccounts === 0) {
-                        let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -2083,7 +2099,7 @@
 
                     // 兜底修复：勾选 Show Win/Loss Only 且无明细时，保留空表行，但 totals 使用“同条件去掉 Win/Loss 过滤”结果
                     if (showCaptureOnly && totalAccounts === 0) {
-                        let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
+                        let fallbackUrl = `${transactionsApiUrl('api/transactions/search_api.php')}?date_from=${dateFrom}&date_to=${dateTo}&show_inactive=${showInactive}&show_capture_only=0&hide_zero_balance=${hideZero}`;
                         if (categoryParam) {
                             fallbackUrl += `&category=${encodeURIComponent(categoryParam)}`
                         }
@@ -3395,7 +3411,7 @@
         isSubmittingTx = true;
         syncSubmitButtonState();
 
-        fetch('/api/transactions/submit_api.php', {
+        fetch(transactionsApiUrl('api/transactions/submit_api.php'), {
             method: 'POST',
             body: formData
         })
@@ -3483,7 +3499,7 @@
         }
 
         // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-        let url = `/api/transactions/history_api.php?account_id=${aid}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+        let url = `${transactionsApiUrl('api/transactions/history_api.php')}?account_id=${aid}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
         if (isVirtualCompanyRow) {
             url += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
         }

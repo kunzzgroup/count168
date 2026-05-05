@@ -575,12 +575,20 @@ $default_date_to = $today_dt->format('d/m/Y');
     </div>
 
     <!-- PHP 变量：供外部 js/transaction.js 读取 -->
+    <?php
+    // 项目若在子目录部署（如 /count168/transaction.php），必须为 API 带上此前缀，否则会请求到域名根 /api/… 而绕过本仓库代码。
+    $tx_script_web_dir = dirname(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')));
+    $tx_api_base = ($tx_script_web_dir === '/' || $tx_script_web_dir === '.' || $tx_script_web_dir === '')
+        ? ''
+        : rtrim($tx_script_web_dir, '/');
+    ?>
     <script>
         window.TRANSACTION_PAGE = {
             currentCompanyId: <?php echo json_encode($session_company_id); ?>,
             viewerRole: <?php echo json_encode($viewerRole); ?>,
             canApproveContra: <?php echo $canApproveContra ? 'true' : 'false'; ?>,
-            showDescriptionColumn: <?php echo $useDescriptionColumn ? 'true' : 'false'; ?>
+            showDescriptionColumn: <?php echo $useDescriptionColumn ? 'true' : 'false'; ?>,
+            apiBase: <?php echo json_encode($tx_api_base, JSON_UNESCAPED_UNICODE); ?>
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
