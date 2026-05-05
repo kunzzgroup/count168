@@ -213,6 +213,41 @@
         }
     }
 
+    /**
+     * 底部 Summary：可选将「极小」Total Win/Loss 显示为 0.00（仅影响该汇总行 Balance 的同链路透显，不改正数与各账户列）。
+     * transaction.php 加 ?tx_wl_tol=1 时 TRANSACTION_PAGE.winLossSummaryAbsTol 为 '1.00'。
+     */
+    function applySummaryWinLossDisplayTolerance(totals) {
+        const tolRaw = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.winLossSummaryAbsTol != null)
+            ? window.TRANSACTION_PAGE.winLossSummaryAbsTol
+            : null;
+        if (totals == null || tolRaw === null || tolRaw === undefined || String(tolRaw).trim() === '') {
+            return totals;
+        }
+        let tol;
+        try {
+            tol = MoneyDecimal.toDecimal(String(tolRaw).replace(/,/g, '').trim()).abs();
+        } catch (_) {
+            return totals;
+        }
+        if (tol.isZero()) return totals;
+        let absWl;
+        try {
+            absWl = MoneyDecimal.toDecimal(String(totals.win_loss ?? '0').replace(/,/g, '').trim()).abs();
+        } catch (_) {
+            return totals;
+        }
+        if (absWl.gt(tol)) return totals;
+        const bf2 = String(totals.bf ?? '0').replace(/,/g, '').trim();
+        const cr2 = String(totals.cr_dr ?? '0').replace(/,/g, '').trim();
+        const wl0 = MoneyDecimal.formatFixedHalfUp('0', 2);
+        const balance2 = MoneyDecimal.formatFixedHalfUp(
+            MoneyDecimal.add(MoneyDecimal.add(bf2, wl0), cr2),
+            2
+        );
+        return { bf: totals.bf, win_loss: wl0, cr_dr: totals.cr_dr, balance: balance2 };
+    }
+
     // ==================== Contra Inbox（Manager+） ====================
     function isContraInboxOpen() {
         const pop = document.getElementById('contraInboxPopover');
@@ -2250,7 +2285,7 @@
 
             const leftTotals = calculateTotals(sortedLeftRows);
             const rightTotals = calculateTotals(sortedRightRows);
-            const summaryTotals = calculateTotals([...sortedLeftRows, ...sortedRightRows]);
+            const summaryTotals = applySummaryWinLossDisplayTolerance(calculateTotals([...sortedLeftRows, ...sortedRightRows]));
 
             updateTotals('left', leftTotals);
             updateTotals('right', rightTotals);
@@ -2344,7 +2379,7 @@
             groupedContainer.appendChild(tablesWrapper);
 
             // 计算该 currency 的汇总
-            const currencySummary = calculateTotals([...leftRows, ...rightRows]);
+            const currencySummary = applySummaryWinLossDisplayTolerance(calculateTotals([...leftRows, ...rightRows]));
 
             // 累加到总汇总
             totalSummary.bf = MoneyDecimal.add(totalSummary.bf, currencySummary.bf).toString();

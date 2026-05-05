@@ -39,6 +39,9 @@ $company_id = $session_company_id;
 // Transaction List Win/Loss 诊断：?tx_debug_wl=1 时搜索请求自动带 debug_wl_total=1（见 js/transaction.js）
 $tx_debug_wl = isset($_GET['tx_debug_wl']) && (string) $_GET['tx_debug_wl'] === '1';
 
+// 底部 Summary Total Win/Loss：|r|≤1.00 时显示 0.00（仅前端展示，不改变 search_api / 明细；真平账须改 Capture）
+$tx_wl_tol = isset($_GET['tx_wl_tol']) && (string) $_GET['tx_wl_tol'] === '1';
+
 // Capture Date 默认：当天
 $today_dt = new DateTime('today');
 $default_date_from = $today_dt->format('d/m/Y');
@@ -118,6 +121,11 @@ $default_date_to = $today_dt->format('d/m/Y');
         <?php if ($tx_debug_wl): ?>
         <div class="tx-debug-wl-banner" role="status" style="margin:8px 0 0;padding:10px 14px;background:#1e3a5f;color:#e8f1ff;font-size:13px;border-radius:6px;">
             Win/Loss 诊断已开启（网址含 <code style="background:#274a73;padding:2px 6px;border-radius:4px;">tx_debug_wl=1</code>）。请点击 <strong>Searching</strong>，然后在浏览器<strong>控制台</strong>展开 “Win/Loss 诊断” 分组，或对 <code style="background:#274a73;padding:2px 6px;border-radius:4px;">search_api.php</code> 响应查看 <code style="background:#274a73;padding:2px 6px;border-radius:4px;">data.debug_win_loss</code>。账目要真平仍须依诊断结果在资料层更正。
+        </div>
+        <?php endif; ?>
+        <?php if ($tx_wl_tol): ?>
+        <div class="tx-wl-tol-banner" role="status" style="margin:8px 0 0;padding:10px 14px;background:#422006;color:#fef3c7;font-size:13px;border-radius:6px;">
+            已启用 <strong>底部 Summary Win/Loss 展示容差</strong>（<code style="background:#78350f;padding:2px 6px;border-radius:4px;">tx_wl_tol=1</code>）：合计 Win/Loss 绝对值不超过 <strong>RM1.00</strong> 时将显示 <strong>0.00</strong>，并重算该行 Balance；各账户列与 API 仍为真实轧差。
         </div>
         <?php endif; ?>
 
@@ -597,7 +605,8 @@ $default_date_to = $today_dt->format('d/m/Y');
             canApproveContra: <?php echo $canApproveContra ? 'true' : 'false'; ?>,
             showDescriptionColumn: <?php echo $useDescriptionColumn ? 'true' : 'false'; ?>,
             apiBase: <?php echo json_encode($tx_api_base, JSON_UNESCAPED_UNICODE); ?>,
-            txDebugWl: <?php echo $tx_debug_wl ? 'true' : 'false'; ?>
+            txDebugWl: <?php echo $tx_debug_wl ? 'true' : 'false'; ?>,
+            winLossSummaryAbsTol: <?php echo $tx_wl_tol ? json_encode('1.00', JSON_UNESCAPED_UNICODE) : 'null'; ?>
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
