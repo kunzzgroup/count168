@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseRateExpression, buildClientRequestId } from "../transactionFormat.js";
-import { formatRateAmount } from "../transactionFormat.js";
+import { parseRateExpression, buildClientRequestId, formatRateAmount, roundMoneyHalfUp } from "../transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
 import { submitTransaction } from "../transactionApi.js";
 import { transactionQueryKeys } from "../transactionQueryKeys.js";
@@ -243,12 +242,17 @@ export function useTransactionForm({
       return;
     }
 
-    const amountStr = String(txAmount ?? "").trim();
-    const n = Number(amountStr);
-    if (!Number.isFinite(n) || amountStr === "") {
+    const amountStr = String(txAmount ?? "").replace(/,/g, "").trim();
+    if (amountStr === "") {
       pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
       return;
     }
+    const parsed = Number(amountStr);
+    if (!Number.isFinite(parsed)) {
+      pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
+      return;
+    }
+    const n = roundMoneyHalfUp(amountStr, 2);
     if (!isAdjustment && n < 0) {
       pushToast("Please enter a valid amount (>= 0)", "error");
       return;
@@ -270,7 +274,7 @@ export function useTransactionForm({
         transaction_type: txType === "PROFIT" ? winLoseSide : txType,
         account_id: toId,
         from_account_id: isAdjustment ? "" : fromId || "",
-        amount: txAmount,
+        amount: n.toFixed(2),
         transaction_date: txDate,
         description: "",
         sms: txRemark,
