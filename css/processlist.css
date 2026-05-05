@@ -939,8 +939,55 @@
     flex: 1 1 0; /* Balanced widths */
 }
 
-.bank-form .bank-day-start-input-wrap .bank-input {
+/* Day start/end：與同表單 .bank-input / .bank-select 字體、行高、邊框一致（不用 dashboard 的 clamp 字級） */
+#addBankModal .bank-form .bank-day-start-input-wrap .bank-form-day-picker,
+#addBankModal .bank-form .bank-day-end-input-wrap .bank-form-day-picker {
     width: 100%;
+    min-width: 0;
+    padding: 12px 16px;
+    border: 0.125rem solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 400;
+    font-family: inherit;
+    line-height: 1.25rem;
+    color: #374151;
+    background: #ffffff;
+    box-sizing: border-box;
+    gap: 8px;
+    cursor: pointer;
+    text-align: left;
+    align-items: center;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#addBankModal .bank-form .bank-form-day-picker:hover {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+#addBankModal .bank-form .bank-form-day-picker:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+#addBankModal .bank-form .bank-form-day-picker i {
+    font-size: 0.875rem;
+    margin: 0 4px 0 0;
+    color: #6366f1;
+}
+
+#addBankModal .bank-form .bank-form-day-picker span {
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    flex: 1;
+    min-width: 0;
+}
+
+#addBankModal .bank-form .bank-form-day-picker span.bank-day-display--placeholder {
+    color: #9ca3af;
 }
 
 .bank-form .bank-day-start-frequency-wrap {
@@ -1028,10 +1075,25 @@
     border: 0.125rem solid #e5e7eb;
     border-radius: 0.5rem;
     font-size: 0.875rem;
+    line-height: 1.25rem;
     box-sizing: border-box;
     background: #ffffff;
     color: #374151;
     font-family: inherit;
+}
+
+.bank-form .bank-input::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+/* 未選中的 required 下拉：與 input placeholder 同色 */
+#addBankModal .bank-form select.bank-select:invalid {
+    color: #9ca3af;
+}
+
+#addBankModal .bank-form select.bank-select option {
+    color: #374151;
 }
 
 .bank-input:focus,

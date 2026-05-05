@@ -248,11 +248,21 @@ if (!function_exists('renderBankProcessModals')) {
                                 <div class="form-row bank-day-start-row">
                                     <div class="form-group bank-day-start-input-wrap">
                                         <label for="bank_day_start">Day start</label>
-                                        <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                        <input type="hidden" id="bank_day_start" name="day_start" value="">
+                                        <button type="button" class="date-range-picker bank-form-day-picker"
+                                            id="bank_day_start_picker" aria-label="Select day start">
+                                            <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                                            <span id="bank_day_start_display" class="bank-day-display--placeholder">dd/mm/yyyy</span>
+                                        </button>
                                     </div>
                                     <div class="form-group bank-day-end-input-wrap">
                                         <label for="bank_day_end">Day end</label>
-                                        <input type="date" id="bank_day_end" name="day_end" class="bank-input">
+                                        <input type="hidden" id="bank_day_end" name="day_end" value="">
+                                        <button type="button" class="date-range-picker bank-form-day-picker"
+                                            id="bank_day_end_picker" aria-label="Select day end">
+                                            <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                                            <span id="bank_day_end_display" class="bank-day-display--placeholder">dd/mm/yyyy</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
