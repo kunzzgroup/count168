@@ -131,6 +131,19 @@ function trunc2($value): string
     return searchMoney2($value);
 }
 
+/**
+ * Bulk SQL 聚合结果先入 8 位精度（勿 trunc2），再参与 money_add；否则会系统性漏水，
+ * 全公司 Σ Win/Loss/B/F 与逐账户高精度口径不一致。
+ */
+function searchBulkAgg8($value): string
+{
+    $v = $value ?? '0';
+    if (!money_is_valid($v)) {
+        return money_normalize('0', 8);
+    }
+    return money_normalize($v, 8);
+}
+
 /** Transaction 列表 Win/Loss 列：对高精度金额四舍五入到分（HALF_UP）再展示 */
 function searchMoneyHalfUp2($value): string
 {
@@ -1590,8 +1603,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl' => trunc2($r['wl_total'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
+                'wl' => searchBulkAgg8($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
                 'id_product_rows_period' => (int) ($r['id_product_rows_period'] ?? 0),
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
@@ -1673,8 +1686,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_win_lose'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl' => trunc2($r['wl_total'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
+                'wl' => searchBulkAgg8($r['wl_total'] ?? '0'),
                 'wl_count' => (int) $r['wl_count'],
                 'up_to_count' => (int) ($r['up_to_count'] ?? 0)
             ];
@@ -1723,8 +1736,8 @@ try {
             $cid = (int) $r['currency_id'];
             $existing = $bulk['txn_win_lose'][$aid][$cid] ?? ['bf' => '0', 'wl' => '0', 'wl_count' => 0, 'up_to_count' => 0];
             $bulk['txn_win_lose'][$aid][$cid] = [
-                'bf' => trunc2(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8)),
-                'wl' => trunc2(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8)),
+                'bf' => searchBulkAgg8(money_add($existing['bf'] ?? '0', $r['bf_total'] ?? '0', 8)),
+                'wl' => searchBulkAgg8(money_add($existing['wl'] ?? '0', $r['wl_total'] ?? '0', 8)),
                 'wl_count' => (int) ($existing['wl_count'] ?? 0) + (int) $r['wl_count'],
                 'up_to_count' => (int) ($existing['up_to_count'] ?? 0) + (int) ($r['up_to_count'] ?? 0)
             ];
@@ -1785,8 +1798,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_to'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => searchBulkAgg8($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
@@ -1828,8 +1841,8 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['txn_crdr_from'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_cr_dr'] ?? '0'),
-                'cr_dr' => trunc2($r['wl_cr_dr'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_cr_dr'] ?? '0'),
+                'cr_dr' => searchBulkAgg8($r['wl_cr_dr'] ?? '0'),
                 'count' => (int) $r['wl_txn_count']
             ];
         }
@@ -1870,11 +1883,11 @@ try {
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id]);
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['entry'][$r['account_id']][$r['currency_id']] = [
-                'bf' => trunc2($r['bf_total'] ?? '0'),
-                'wl_mm' => trunc2($r['wl_rate_mm'] ?? '0'),
+                'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
+                'wl_mm' => searchBulkAgg8($r['wl_rate_mm'] ?? '0'),
                 'wl_mm_count' => (int) $r['wl_rate_mm_count'],
                 'wl_mm_up_to_count' => (int) ($r['up_to_rate_mm_count'] ?? 0),
-                'cr_dr' => trunc2($r['wl_cr_dr_other'] ?? '0'),
+                'cr_dr' => searchBulkAgg8($r['wl_cr_dr_other'] ?? '0'),
                 'cr_dr_count' => (int) $r['wl_cr_dr_other_count']
             ];
         }
@@ -1902,19 +1915,28 @@ try {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // Layer 2 过滤：(账户 + 货币) 组合级别。两者互相对称：
-        // 情况A：仅 Show Win/Loss Only —— 跳过该货币“本期没有任何 Win/Loss 相关记录”的行
+        // Layer 2：(账户+币种) 级筛选。
+        // 勿仅因「本期无 Win/Loss 动账」就整行丢弃——否则仅剩 B/F 或 Cr/Dr 轧差的户被藏起来，
+        // 合计缺少对家，左右脚 Win/Loss/Balance 永不平。
         if ($show_capture_only && !$show_inactive) {
             if (!$has_win_loss_transactions) {
-                continue;
+                $bf_near = trunc2($bf);
+                $cr_near = trunc2($cr_dr);
+                $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
+                if (!searchMoneyNonZero($bf_near) && !searchMoneyNonZero($cr_near) && !searchMoneyNonZero($wl_full_chk)) {
+                    continue;
+                }
             }
         }
-        // 情况B：仅 Show Payment Only —— 跳过该货币没有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 的行
-        // 注意：$has_crdr_transactions 已在 calculateCrDrByCurrency 中修正，
-        // 不再受 RATE 分录（transaction_entry）count 污染。
+        // 对称：勿仅因本期无 PAYMENT 类 Cr/Dr 动账就丢弃——无 Cr/Dr 交易但仍承担 Win/Loss 或期初轧差的户要保留。
         if ($show_inactive && !$show_capture_only) {
             if (!$has_crdr_transactions) {
-                continue;
+                $bf_near = trunc2($bf);
+                $cr_near = trunc2($cr_dr);
+                $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
+                if (!searchMoneyNonZero($bf_near) && !searchMoneyNonZero($cr_near) && !searchMoneyNonZero($wl_full_chk)) {
+                    continue;
+                }
             }
         }
 
