@@ -14,7 +14,7 @@ require_once dirname(__DIR__) . '/config.php';
 $sqlDelete = 'DELETE FROM user_company_permission_backup';  
 $sqlInsert = <<<'SQL'
 INSERT INTO user_company_permission_backup (
-  id, user_id, user_name, company_id, company_name, account_permission, process_permission, created_at, updated_at
+  id, user_id, user_name, company_id, company_name, account_permissions, process_permissions, created_at, updated_at
 )
 SELECT
   ucp.id,
@@ -22,8 +22,8 @@ SELECT
   COALESCE(u.login_id, o.owner_code, '') AS user_name,
   ucp.company_id,
   COALESCE(c.company_id, '') AS company_name,
-  ucp.account_permission,
-  ucp.process_permission,
+  ucp.account_permissions,
+  ucp.process_permissions,
   ucp.created_at,
   ucp.updated_at
 FROM user_company_permissions ucp
