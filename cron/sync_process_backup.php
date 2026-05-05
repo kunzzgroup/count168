@@ -1,7 +1,7 @@
 <?php
 /**
  * 将 process 全量同步到 process_backup。
- * company_name：company.name；description_name：description.name；
+ * company_name：按 company 表实际列 — COALESCE(name, company_name, company_id) 中存在的列；description_name：description.name；
  * created_name：与 processlist_api 一致 — COALESCE(user.login_id, owner.owner_code)。
  * 仅允许 CLI 执行，供 Hostinger Cron: php /path/to/cron/sync_process_backup.php
  */
@@ -37,6 +37,27 @@ try {
     $currencyNameExpr = "''";
 }
 
+$companyNameExpr = "''";
+try {
+    $coFields = $pdo->query('SHOW COLUMNS FROM company')->fetchAll(PDO::FETCH_COLUMN, 0);
+    $coSet = array_fill_keys($coFields, true);
+    $coParts = [];
+    if (isset($coSet['name'])) {
+        $coParts[] = 'co.name';
+    }
+    if (isset($coSet['company_name'])) {
+        $coParts[] = 'co.company_name';
+    }
+    if (isset($coSet['company_id'])) {
+        $coParts[] = 'co.company_id';
+    }
+    if ($coParts !== []) {
+        $companyNameExpr = 'COALESCE(' . implode(', ', $coParts) . ", '')";
+    }
+} catch (Throwable $e) {
+    $companyNameExpr = "''";
+}
+
 $sqlDelete = 'DELETE FROM process_backup';
 $sqlInsert = <<<SQL
 INSERT INTO process_backup (
@@ -69,7 +90,7 @@ SELECT
   p.created_by_owner_id,
   COALESCE(u_created.login_id, o_created.owner_code, '') AS created_name,
   p.company_id,
-  COALESCE(co.name, '') AS company_name,
+  {$companyNameExpr} AS company_name,
   p.sync_source_process_id
 FROM `process` p
 LEFT JOIN description d ON d.id = p.description_id
