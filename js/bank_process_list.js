@@ -1116,6 +1116,10 @@ function setBankProcessBillingScheduleLocked(locked) {
         if (el._flatpickr) {
             el._flatpickr.set('clickOpens', !locked && !el.disabled);
         }
+        const nativePicker = el._bankNativePickerEl;
+        if (nativePicker) {
+            nativePicker.disabled = !!locked || !!el.disabled;
+        }
     });
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (freqEl) {
@@ -2249,9 +2253,13 @@ function normalizeBankDateInputValue(value) {
 
 function initBankDatePickerInput(inputId) {
     const el = document.getElementById(inputId);
-    if (!el || typeof flatpickr === 'undefined') return;
+    if (!el) return;
     if (el.type !== 'text') {
         el.type = 'text';
+    }
+    if (typeof flatpickr === 'undefined') {
+        initNativeBankDatePickerFallback(inputId);
+        return;
     }
     if (el._flatpickr) {
         el._flatpickr.destroy();
@@ -2275,6 +2283,43 @@ function initBankDatePickerInput(inputId) {
 function initBankDatePickers() {
     initBankDatePickerInput('bank_day_start');
     initBankDatePickerInput('bank_day_end');
+}
+
+function initNativeBankDatePickerFallback(inputId) {
+    const textInput = document.getElementById(inputId);
+    if (!textInput || textInput._bankNativePickerBound) return;
+    textInput._bankNativePickerBound = true;
+
+    const native = document.createElement('input');
+    native.type = 'date';
+    native.tabIndex = -1;
+    native.setAttribute('aria-hidden', 'true');
+    native.style.position = 'fixed';
+    native.style.opacity = '0';
+    native.style.pointerEvents = 'none';
+    native.style.width = '1px';
+    native.style.height = '1px';
+    native.style.left = '-9999px';
+    document.body.appendChild(native);
+    textInput._bankNativePickerEl = native;
+
+    native.addEventListener('change', function () {
+        textInput.value = formatBankYmdToUi(native.value || '');
+        textInput.dispatchEvent(new Event('input', { bubbles: true }));
+        textInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    textInput.addEventListener('click', function () {
+        if (textInput.readOnly || textInput.disabled) return;
+        const ymd = parseBankUiDateToYmd(textInput.value);
+        native.value = ymd || '';
+        if (typeof native.showPicker === 'function') {
+            native.showPicker();
+        } else {
+            native.focus();
+            native.click();
+        }
+    });
 }
 
 function ensureBankDatePickerOnFocus() {
