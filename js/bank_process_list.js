@@ -1116,10 +1116,6 @@ function setBankProcessBillingScheduleLocked(locked) {
         if (el._flatpickr) {
             el._flatpickr.set('clickOpens', !locked && !el.disabled);
         }
-        const nativePicker = el._bankNativePickerEl;
-        if (nativePicker) {
-            nativePicker.disabled = !!locked || !!el.disabled;
-        }
     });
     const freqEl = document.getElementById('bank_day_start_frequency');
     if (freqEl) {
@@ -2253,14 +2249,7 @@ function normalizeBankDateInputValue(value) {
 
 function initBankDatePickerInput(inputId) {
     const el = document.getElementById(inputId);
-    if (!el) return;
-    if (el.type !== 'text') {
-        el.type = 'text';
-    }
-    if (typeof flatpickr === 'undefined') {
-        initNativeBankDatePickerFallback(inputId);
-        return;
-    }
+    if (!el || typeof flatpickr === 'undefined') return;
     if (el._flatpickr) {
         el._flatpickr.destroy();
     }
@@ -2283,59 +2272,6 @@ function initBankDatePickerInput(inputId) {
 function initBankDatePickers() {
     initBankDatePickerInput('bank_day_start');
     initBankDatePickerInput('bank_day_end');
-}
-
-function initNativeBankDatePickerFallback(inputId) {
-    const textInput = document.getElementById(inputId);
-    if (!textInput || textInput._bankNativePickerBound) return;
-    textInput._bankNativePickerBound = true;
-
-    const native = document.createElement('input');
-    native.type = 'date';
-    native.tabIndex = -1;
-    native.setAttribute('aria-hidden', 'true');
-    native.style.position = 'fixed';
-    native.style.opacity = '0';
-    native.style.pointerEvents = 'none';
-    native.style.width = '1px';
-    native.style.height = '1px';
-    native.style.left = '-9999px';
-    document.body.appendChild(native);
-    textInput._bankNativePickerEl = native;
-
-    native.addEventListener('change', function () {
-        textInput.value = formatBankYmdToUi(native.value || '');
-        textInput.dispatchEvent(new Event('input', { bubbles: true }));
-        textInput.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-
-    textInput.addEventListener('click', function () {
-        if (textInput.readOnly || textInput.disabled) return;
-        const ymd = parseBankUiDateToYmd(textInput.value);
-        native.value = ymd || '';
-        if (typeof native.showPicker === 'function') {
-            native.showPicker();
-        } else {
-            native.focus();
-            native.click();
-        }
-    });
-}
-
-function ensureBankDatePickerOnFocus() {
-    ['bank_day_start', 'bank_day_end'].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (!el || el._bankDateFocusBound) return;
-        el._bankDateFocusBound = true;
-        el.addEventListener('focus', function () {
-            if (!el._flatpickr && typeof flatpickr !== 'undefined') {
-                initBankDatePickerInput(id);
-                if (el._flatpickr && !el.readOnly && !el.disabled) {
-                    el._flatpickr.open();
-                }
-            }
-        });
-    });
 }
 
 /** 与 api/processes/billing_schedule.php getBillingTermMonthsFromContract 一致 */
@@ -4712,8 +4648,6 @@ function removeProfitSharingEntry(index) {
 }
 function initBankProcessModule() {
     restoreSelectedCountriesFromStorage();
-    initBankDatePickers();
-    ensureBankDatePickerOnFocus();
     document.querySelectorAll("input[name='add_payment_alert']").forEach(function (radio) {
         radio.addEventListener('change', function () { toggleAlertFieldsBank('add'); });
     });
