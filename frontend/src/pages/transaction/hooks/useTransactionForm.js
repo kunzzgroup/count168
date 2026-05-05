@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseRateExpression, buildClientRequestId, formatRateAmount, roundMoneyHalfUp } from "../transactionFormat.js";
+import { parseRateExpression, buildClientRequestId, formatRateAmount, roundMoneyNearestHalf } from "../transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
 import { submitTransaction } from "../transactionApi.js";
 import { transactionQueryKeys } from "../transactionQueryKeys.js";
@@ -50,14 +50,16 @@ export function useTransactionForm({
 
   const handleBalanceCellClick = useCallback((account, side) => {
     if (!account) return;
+    const snapped = roundMoneyNearestHalf(account.balance ?? 0);
+    const amt = snapped.toFixed(2);
     if (side === "left") {
       setTxToAccount(account);
       setTxCurrency(account.currency || "");
-      setTxAmount(String(account.balance || ""));
+      setTxAmount(amt);
     } else {
       setTxFromAccount(account);
       setTxCurrency(account.currency || "");
-      setTxAmount(String(account.balance || ""));
+      setTxAmount(amt);
     }
   }, []);
 
@@ -252,7 +254,7 @@ export function useTransactionForm({
       pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
       return;
     }
-    const n = roundMoneyHalfUp(amountStr, 2);
+    const n = roundMoneyNearestHalf(amountStr);
     if (!isAdjustment && n < 0) {
       pushToast("Please enter a valid amount (>= 0)", "error");
       return;

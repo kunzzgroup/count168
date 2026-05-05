@@ -42,6 +42,22 @@ export function roundMoneyHalfUp(value, decimals = 2) {
   return neg ? -out : out;
 }
 
+/**
+ * Snap to nearest 0.50 after 2dp half-up (五毫进位). Removes “odd cents” like -0.37 / -1.77 in the transaction grid.
+ */
+export function roundMoneyNearestHalf(value) {
+  const r = roundMoneyHalfUp(value, 2);
+  const fixed = r.toFixed(2);
+  const neg = fixed.startsWith("-");
+  const body = neg ? fixed.slice(1) : fixed;
+  const [intP, fracP = "00"] = body.split(".");
+  const frac2 = (fracP + "00").slice(0, 2);
+  const cents = BigInt(intP) * 100n + BigInt(frac2);
+  const signedCents = neg ? -cents : cents;
+  const roundedCents = Math.round(Number(signedCents) / 50) * 50;
+  return roundedCents / 100;
+}
+
 export function toUpperDisplay(value) {
   if (value === null || value === undefined) return "-";
   const str = String(value).trim();
@@ -56,11 +72,11 @@ export function getHistoryRemark(row) {
   return toUpperDisplay(row?.sms || "-");
 }
 
-// Show '-' stays '-', otherwise 2 decimals (half-up) with thousand separators.
+// Show '-' stays '-', otherwise 2 decimals (nearest 0.50) with thousand separators.
 export function formatMoney2(value) {
   const n = cleanNumberLike(value);
   if (n === null) return value === "-" ? "-" : "0.00";
-  const rounded = roundMoneyHalfUp(value, 2);
+  const rounded = roundMoneyNearestHalf(value);
   const fixed = rounded.toFixed(2);
   const parts = fixed.split(".");
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -68,13 +84,13 @@ export function formatMoney2(value) {
 }
 
 /**
- * Main grid + totals: half-up to 2dp then thousands (matches MoneyDecimal.formatFixedHalfUp display intent).
+ * Main grid + totals: 2dp half-up then nearest 0.50 (五毫), then thousands.
  */
 export function formatPaymentHistoryMoney(value) {
   if (value === "-" || value === null || value === undefined) return "-";
   const cleaned = String(value).replace(/,/g, "").trim();
   if (cleaned === "" || cleaned === "-") return "0.00";
-  const rounded = roundMoneyHalfUp(cleaned, 2);
+  const rounded = roundMoneyNearestHalf(cleaned);
   return rounded.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
